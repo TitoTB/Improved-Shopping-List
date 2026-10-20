@@ -71,10 +71,13 @@ class ImprovedShoppingSettings extends HTMLElement {
           <div class="appearance-fields">
             <div><label for="gradient-start">Color inicial del degradado</label><input id="gradient-start" name="gradient_start" type="color" value="#ee524f"></div>
             <div><label for="gradient-end">Color final del degradado</label><input id="gradient-end" name="gradient_end" type="color" value="#b52a27"></div>
+            <div><label for="completed-gradient-start">Color inicial de Comprados</label><input id="completed-gradient-start" name="completed_gradient_start" type="color" value="#4faba2"></div>
+            <div><label for="completed-gradient-end">Color final de Comprados</label><input id="completed-gradient-end" name="completed_gradient_end" type="color" value="#26857c"></div>
             <div><label for="desktop-columns">Productos por fila (ordenador)</label><select id="desktop-columns" name="columns">${[1,2,3,4,5,6].map(value => `<option value="${value}">${value}</option>`).join("")}</select></div>
             <div><label for="mobile-columns">Productos por fila (móvil)</label><select id="mobile-columns" name="mobile_columns">${[1,2,3,4].map(value => `<option value="${value}">${value}</option>`).join("")}</select></div>
           </div>
           <div id="appearance-preview" class="preview">Vista previa de producto pendiente</div>
+          <div id="completed-appearance-preview" class="preview">Vista previa de producto comprado</div>
           <div class="appearance-actions"><button id="reset-appearance" type="button">Restablecer valores</button><button id="save-appearance" class="primary" type="submit">Guardar personalización</button></div>
         </form>
       </section>`;
@@ -179,6 +182,8 @@ class ImprovedShoppingSettings extends HTMLElement {
     return {
       gradient_start: form.elements.gradient_start.value,
       gradient_end: form.elements.gradient_end.value,
+      completed_gradient_start: form.elements.completed_gradient_start.value,
+      completed_gradient_end: form.elements.completed_gradient_end.value,
       columns: Number(form.elements.columns.value),
       mobile_columns: Number(form.elements.mobile_columns.value),
     };
@@ -189,6 +194,9 @@ class ImprovedShoppingSettings extends HTMLElement {
     const preview = this.shadowRoot.querySelector("#appearance-preview");
     preview.style.background = `linear-gradient(${appearance.gradient_start},${appearance.gradient_end})`;
     preview.style.color = gradientTextColor(appearance.gradient_start, appearance.gradient_end);
+    const completed = this.shadowRoot.querySelector("#completed-appearance-preview");
+    completed.style.background = `linear-gradient(${appearance.completed_gradient_start},${appearance.completed_gradient_end})`;
+    completed.style.color = gradientTextColor(appearance.completed_gradient_start, appearance.completed_gradient_end);
   }
 
   async _saveAppearance() {

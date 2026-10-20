@@ -156,12 +156,13 @@ class ImprovedShoppingListPanel extends HTMLElement {
         .product-grid li { display:flex; min-width:0; }
         .item { position:relative; display:flex; flex-direction:column; align-items:center; width:100%; gap:14px; padding:30px 18px 18px; border:1px solid var(--divider-color,#dfe7e1); border-radius:16px; background:var(--card-background-color,#fff); color:inherit; text-align:center; cursor:pointer; }
         .item.pending { background:linear-gradient(var(--isl-gradient-start,#ee524f),var(--isl-gradient-end,#b52a27)); border-color:var(--isl-gradient-end,#b52a27); color:var(--isl-gradient-text,#fff); }
+        .item.completed { background:linear-gradient(var(--isl-completed-gradient-start,#4faba2),var(--isl-completed-gradient-end,#26857c)); border-color:var(--isl-completed-gradient-end,#26857c); color:var(--isl-completed-gradient-text,#000); }
         .item .product-media { display:grid; place-items:center; width:96px; max-width:100%; }
         .item .image { width:96px; max-width:100%; aspect-ratio:1; height:auto; object-fit:contain; border-radius:10px; }
         .item .placeholder { display:grid; place-items:center; color:var(--secondary-text-color,#63766b); }
         .item .placeholder ha-icon { --mdc-icon-size:64px; }
-        .item.pending .placeholder,.item.pending .subtitle,.item.pending .description { color:inherit; }
-        .item.pending .tag { background:rgba(255,255,255,.2); }
+        .item.pending .placeholder,.item.pending .subtitle,.item.pending .description,.item.completed .placeholder,.item.completed .subtitle,.item.completed .description { color:inherit; }
+        .item.pending .tag,.item.completed .tag { background:rgba(255,255,255,.2); }
         .category-badge { position:absolute; top:12px; right:12px; display:grid; place-items:center; width:32px; height:32px; border-radius:50%; color:#fff; }
         .category-badge ha-icon { --mdc-icon-size:20px; }
         .item-text { min-width:0; width:100%; overflow-wrap:anywhere; line-height:1.45; }
@@ -170,7 +171,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
         .tags { display:flex; flex-wrap:wrap; justify-content:center; gap:5px; max-width:100%; min-width:0; }
         .tag { padding:4px 8px; border-radius:20px; font-size:11px; background:var(--secondary-background-color,#edf4ee); max-width:100%; overflow-wrap:anywhere; }
         .description { display:block; color:var(--secondary-text-color,#63766b); font-size:12px; white-space:pre-wrap; }
-        .completed .summary { text-decoration:line-through; color:var(--secondary-text-color,#63766b); }
+        .completed .summary { text-decoration:line-through; color:inherit; }
         .empty { padding:28px 8px; text-align:center; color:var(--secondary-text-color,#63766b); line-height:1.6; }
         .empty strong { display:block; font-size:18px; color:var(--primary-text-color,#20352d); margin-bottom:5px; }
         details { margin-top:24px; }
@@ -326,6 +327,9 @@ class ImprovedShoppingListPanel extends HTMLElement {
     this.style.setProperty("--isl-gradient-start", appearance.gradient_start);
     this.style.setProperty("--isl-gradient-end", appearance.gradient_end);
     this.style.setProperty("--isl-gradient-text", gradientTextColor(appearance.gradient_start, appearance.gradient_end));
+    this.style.setProperty("--isl-completed-gradient-start", appearance.completed_gradient_start);
+    this.style.setProperty("--isl-completed-gradient-end", appearance.completed_gradient_end);
+    this.style.setProperty("--isl-completed-gradient-text", gradientTextColor(appearance.completed_gradient_start, appearance.completed_gradient_end));
     this.style.setProperty("--isl-columns", appearance.columns);
     this.style.setProperty("--isl-mobile-columns", appearance.mobile_columns);
     root.querySelector("isl-settings").data = { hass: this._hass, settings: this._settings };

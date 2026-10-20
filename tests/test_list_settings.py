@@ -99,6 +99,7 @@ async def test_settings_cannot_be_changed_by_non_admin(hass, hass_ws_client, has
 @pytest.mark.parametrize("changes", [
     {"columns": 0}, {"columns": 7}, {"columns": True}, {"columns": "3"},
     {"mobile_columns": 5}, {"gradient_start": "red;display:none"}, {"gradient_end": "#123"},
+    {"completed_gradient_start": "blue"}, {"completed_gradient_end": "#123"},
     {"extra": "value"},
 ])
 def test_personalization_validation(changes):
@@ -116,12 +117,27 @@ async def test_personalization_persists_without_changing_lists(hass):
     settings.update_appearance(changed)
     restored = ListSettings(hass)
     restored.attach(entry)
-    assert restored.snapshot["appearance"] == {**changed, "gradient_start": "#abcdef"}
+    assert restored.snapshot["appearance"] == {**DEFAULT_APPEARANCE, **changed, "gradient_start": "#abcdef"}
     assert restored.snapshot["entities"] == ["todo.bring"]
     restored.snapshot["appearance"]["columns"] = 1
     assert restored.snapshot["appearance"]["columns"] == 4
     settings.update("remove", "todo.bring")
     assert settings.snapshot["appearance"]["columns"] == 4
+
+
+async def test_legacy_personalization_keeps_colors_and_gains_completed_defaults(hass):
+    legacy = {"gradient_start": "#123456", "gradient_end": "#abcdef", "columns": 2, "mobile_columns": 2}
+    entry = MockConfigEntry(domain=DOMAIN, data={CONF_TODO_ENTITY: "todo.bring"}, options={"appearance": legacy})
+    entry.add_to_hass(hass)
+    settings = ListSettings(hass)
+    settings.attach(entry)
+    assert settings.snapshot["appearance"] == {**DEFAULT_APPEARANCE, **legacy}
+    saved = {**settings.snapshot["appearance"], "completed_gradient_start": "#80cbc4", "completed_gradient_end": "#26a69a"}
+    settings.update_appearance(saved)
+    settings.update_appearance({**legacy, "columns": 4})  # An older open panel must retain the new colors.
+    restored = ListSettings(hass)
+    restored.attach(entry)
+    assert restored.snapshot["appearance"] == {**saved, "columns": 4}
 
 
 async def test_personalization_websocket_push_validation_and_reload(hass, hass_ws_client):

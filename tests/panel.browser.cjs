@@ -212,8 +212,14 @@ async function main() {
     await page.getByText("Comprados (2)", { exact: true }).waitFor();
     assert.equal((await page.evaluate(() => window.calls)).at(-1).item, "cacao-1");
     await page.locator("#completed-summary").click();
+    const completedCard = page.getByRole("button", { name: "Volver a poner por comprar: Cacao", exact: true });
+    assert.equal(await completedCard.evaluate(node => getComputedStyle(node).backgroundImage), "linear-gradient(rgb(79, 171, 162), rgb(38, 133, 124))");
+    assert.equal(await completedCard.getAttribute("aria-pressed"), "true");
+    assert.equal(await completedCard.getByText("Por comprar", { exact:true }).count(), 0);
     await page.getByRole("button", { name: "Volver a poner por comprar: Cacao", exact: true }).press("Enter");
     await page.getByRole("button", { name: "Marcar como comprado: Cacao", exact: true }).waitFor();
+    assert.equal((await page.evaluate(() => window.calls)).at(-1).service, "update_item");
+    assert.equal((await page.evaluate(() => window.calls)).at(-1).status, "needs_action");
 
     await page.evaluate(() => window.rename());
     await page.locator("#pending").getByText("Cacao puro", { exact: true }).waitFor();
@@ -570,11 +576,16 @@ async function main() {
     await settingsView.getByRole("button", { name: "Personalización", exact: true }).click();
     assert.equal(await settingsView.getByLabel("Color inicial del degradado", { exact: true }).inputValue(), "#ee524f");
     assert.equal(await settingsView.getByLabel("Color final del degradado", { exact: true }).inputValue(), "#b52a27");
+    assert.equal(await settingsView.getByLabel("Color inicial de Comprados", { exact:true }).inputValue(), "#4faba2");
+    assert.equal(await settingsView.getByLabel("Color final de Comprados", { exact:true }).inputValue(), "#26857c");
     await settingsView.getByLabel("Color inicial del degradado", { exact: true }).evaluate(input => { input.value="#ffe082";input.dispatchEvent(new Event("input",{bubbles:true})); });
     await settingsView.getByLabel("Color final del degradado", { exact: true }).evaluate(input => { input.value="#ffb300";input.dispatchEvent(new Event("input",{bubbles:true})); });
+    await settingsView.getByLabel("Color inicial de Comprados", { exact:true }).evaluate(input => { input.value="#80cbc4";input.dispatchEvent(new Event("input",{bubbles:true})); });
+    await settingsView.getByLabel("Color final de Comprados", { exact:true }).evaluate(input => { input.value="#26a69a";input.dispatchEvent(new Event("input",{bubbles:true})); });
     await settingsView.getByLabel("Productos por fila (ordenador)", { exact: true }).selectOption("4");
     await settingsView.getByLabel("Productos por fila (móvil)", { exact: true }).selectOption("2");
     assert.equal(await settingsView.locator("#appearance-preview").evaluate(node => getComputedStyle(node).color), "rgb(0, 0, 0)");
+    assert.equal(await settingsView.locator("#completed-appearance-preview").evaluate(node => getComputedStyle(node).backgroundImage), "linear-gradient(rgb(128, 203, 196), rgb(38, 166, 154))");
     await settingsPage.evaluate(() => { window.failSettings=true; });
     await settingsView.getByRole("button", { name: "Guardar personalización", exact: true }).click();
     await settingsView.getByRole("alert").filter({ hasText:"No se ha podido guardar la personalización" }).waitFor();
@@ -591,6 +602,15 @@ async function main() {
     assert.equal(await customizedCard.evaluate(node => getComputedStyle(node).color), "rgb(0, 0, 0)");
     assert.equal(await settingsPage.locator("main").evaluate(node => node.scrollWidth > innerWidth), false);
     await settingsPage.screenshot({ path: "test-results/personalized-list-mobile.png", fullPage: true });
+    await settingsPage.locator("#completed-summary").click();
+    const customizedCompleted = settingsPage.getByRole("button", { name:"Volver a poner por comprar: Arroz", exact:true });
+    assert.equal(await customizedCompleted.evaluate(node => getComputedStyle(node).backgroundImage), "linear-gradient(rgb(128, 203, 196), rgb(38, 166, 154))");
+    assert.equal(await customizedCompleted.getByText("Por comprar", { exact:true }).count(), 0);
+    await settingsPage.screenshot({ path:"test-results/completed-personalized-mobile.png",fullPage:true });
+    await customizedCompleted.press("Space");
+    await settingsPage.locator("#pending").getByText("Arroz", { exact:true }).waitFor();
+    assert.equal((await settingsPage.evaluate(() => window.calls)).at(-1).item, "rice-1");
+    assert.equal((await settingsPage.evaluate(() => window.calls)).at(-1).service, "update_item");
     await settingsPage.setViewportSize({ width:320,height:844 });
     await settingsPage.evaluate(async () => {
       window.listSettings.appearance.mobile_columns=4;window.emitSettings();
@@ -606,8 +626,12 @@ async function main() {
     await settingsPage.getByRole("button", { name:"Ajustes", exact:true }).click();
     await settingsView.getByRole("button", { name:"Personalización", exact:true }).click();
     assert.equal(await settingsView.getByLabel("Color inicial del degradado", { exact:true }).inputValue(), "#ffe082");
+    assert.equal(await settingsView.getByLabel("Color inicial de Comprados", { exact:true }).inputValue(), "#80cbc4");
+    assert.equal(await settingsView.getByLabel("Color final de Comprados", { exact:true }).inputValue(), "#26a69a");
     await settingsView.getByRole("button", { name:"Restablecer valores", exact:true }).click();
     assert.equal(await settingsView.getByLabel("Productos por fila (ordenador)", { exact:true }).inputValue(), "3");
+    assert.equal(await settingsView.getByLabel("Color inicial de Comprados", { exact:true }).inputValue(), "#4faba2");
+    assert.equal(await settingsView.getByLabel("Color final de Comprados", { exact:true }).inputValue(), "#26857c");
     await settingsView.getByRole("button", { name:"Guardar personalización", exact:true }).click();
     await settingsView.getByRole("status").filter({ hasText:"Personalización guardada" }).waitFor();
     await settingsPage.evaluate(() => { window.testPanel.hass={...window.testPanel._hass,user:{is_admin:false}}; });

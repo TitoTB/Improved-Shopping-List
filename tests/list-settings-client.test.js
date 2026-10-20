@@ -18,6 +18,10 @@ test("personalization defaults and readable text for custom gradients", () => {
   assert.deepEqual(session.appearance, DEFAULT_APPEARANCE);
   session._receive({appearance:{...DEFAULT_APPEARANCE,columns:6}});
   assert.equal(session.appearance.columns, 6);
+  session._receive({appearance:{gradient_start:"#123456",gradient_end:"#abcdef",columns:2,mobile_columns:2}});
+  assert.equal(session.appearance.completed_gradient_start, "#4faba2");
+  assert.equal(session.appearance.completed_gradient_end, "#26857c");
+  assert.equal(session.appearance.gradient_start, "#123456");
 });
 
 test("a pushed settings snapshot beats an older initial read", async () => {

@@ -9,15 +9,18 @@ from .const import CONF_TODO_ENTITY, CONF_TODO_ENTITIES
 
 DEFAULT_APPEARANCE = {
     "gradient_start": "#ee524f", "gradient_end": "#b52a27",
+    "completed_gradient_start": "#4faba2", "completed_gradient_end": "#26857c",
     "columns": 3, "mobile_columns": 1,
 }
 
 
-def normalize_appearance(data: dict) -> dict:
-    if not isinstance(data, dict) or set(data) != set(DEFAULT_APPEARANCE):
+def normalize_appearance(data: dict, *, defaults: dict | None = None) -> dict:
+    required = {"gradient_start", "gradient_end", "columns", "mobile_columns"}
+    if not isinstance(data, dict) or not required.issubset(data) or set(data) - set(DEFAULT_APPEARANCE):
         raise ListSettingsError("La personalización contiene campos no válidos.")
+    data = {**(defaults or DEFAULT_APPEARANCE), **data}
     result = {}
-    for key in ("gradient_start", "gradient_end"):
+    for key in ("gradient_start", "gradient_end", "completed_gradient_start", "completed_gradient_end"):
         if not isinstance(data[key], str) or not re.fullmatch(r"#[a-fA-F0-9]{6}", data[key]):
             raise ListSettingsError("Selecciona un color hexadecimal válido, como #ee524f.")
         result[key] = data[key].lower()
@@ -109,7 +112,7 @@ class ListSettings:
     def update_appearance(self, data: dict) -> dict:
         if not self.entry:
             raise ListSettingsError("La integración no está activa.")
-        appearance = normalize_appearance(data)
+        appearance = normalize_appearance(data, defaults=self.snapshot["appearance"])
         self.hass.config_entries.async_update_entry(self.entry, options={**self.entry.options, "appearance": appearance})
         self.notify()
         return self.snapshot

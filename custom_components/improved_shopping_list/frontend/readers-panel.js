@@ -25,7 +25,8 @@ class ImprovedShoppingReaders extends HTMLElement {
         dialog{color:inherit;background:var(--card-background-color,#fff);width:min(560px,calc(100vw - 28px));max-height:calc(100dvh - 28px);border:1px solid var(--divider-color,#dfe7e1);border-radius:18px;padding:24px}dialog::backdrop{background:rgba(0,0,0,.4)}
         .fields{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:22px 0}.wide{grid-column:1/-1}label{display:block;font-size:13px;font-weight:600}input:not([type=checkbox]),select{display:block;width:100%;min-height:46px;margin-top:7px;padding:10px 12px;border:1px solid var(--divider-color,#dfe7e1);border-radius:9px;background:var(--card-background-color,#fff)}input[type=checkbox]{width:20px;height:20px;vertical-align:middle;margin-right:8px;accent-color:#267052}.form-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:22px}
         .reader-toggle[type=checkbox]{appearance:none;position:absolute;top:12px;right:12px;width:40px;height:24px;margin:0;padding:0;border:1px solid #b3261e;border-radius:20px;background:#b3261e;cursor:pointer}.reader-toggle::before{content:"";position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.2);transition:transform .15s}.reader-toggle:checked{background:#267052;border-color:#267052}.reader-toggle:checked::before{transform:translateX(16px)}.reader-toggle:disabled{cursor:default}
-        .actions .edit{background:#f9a825;border:0}.actions .danger{background:#b3261e;color:#fff;border:0}
+        .actions .view{background:#1976d2;color:#fff;border:0}.actions .edit{background:#f9a825;border:0}.actions .danger{background:#b3261e;color:#fff;border:0}
+        .live-reading{display:grid;grid-template-columns:auto minmax(0,1fr);gap:12px 18px;font-size:14px}.live-reading dt{font-weight:600}.live-reading dd{margin:0;white-space:pre-wrap;overflow-wrap:anywhere}
         @media(max-width:650px){.grid{grid-template-columns:1fr}.fields{grid-template-columns:1fr}dialog{padding:20px}}
       </style>
       <div class="heading"><h1>Lectores</h1><div class="heading-tools"><button id="new-reader" class="primary icon-button" type="button" aria-label="Añadir lector" title="Añadir lector"><ha-icon icon="mdi:plus-thick" aria-hidden="true"></ha-icon></button><button id="reader-suggestions" class="icon-button" type="button" aria-label="Ver sugerencias" title="Ver sugerencias"><ha-icon icon="mdi:creation" aria-hidden="true"></ha-icon></button></div></div>
@@ -47,12 +48,15 @@ class ImprovedShoppingReaders extends HTMLElement {
         </div>
         <div class="form-actions"><button id="cancel-reader" type="button">Cancelar</button><button id="save-reader" class="primary" type="submit">Guardar lector</button></div>
       </form></dialog>
-      <dialog id="remove-reader-dialog" aria-labelledby="remove-reader-title"><h2 id="remove-reader-title">Quitar lector</h2><p id="remove-reader-message"></p><div id="remove-reader-error" class="notice error" role="alert" hidden></div><div class="form-actions"><button id="cancel-remove-reader">Cancelar</button><button id="confirm-remove-reader">Quitar lector</button></div></dialog>`;
+      <dialog id="remove-reader-dialog" aria-labelledby="remove-reader-title"><h2 id="remove-reader-title">Quitar lector</h2><p id="remove-reader-message"></p><div id="remove-reader-error" class="notice error" role="alert" hidden></div><div class="form-actions"><button id="cancel-remove-reader">Cancelar</button><button id="confirm-remove-reader">Quitar lector</button></div></dialog>
+      <dialog id="reader-live-dialog" aria-labelledby="reader-live-title"><h2 id="reader-live-title">Lecturas en directo</h2><p id="reader-live-source"></p><div aria-live="polite" aria-atomic="true"><p id="reader-live-notice"></p><dl class="live-reading" id="reader-live-fields"><dt>Código</dt><dd id="reader-live-code"></dd><dt>Producto</dt><dd id="reader-live-product"></dd><dt>Resultado</dt><dd id="reader-live-result"></dd><dt>Última lectura</dt><dd id="reader-live-time"></dd></dl></div><div class="form-actions"><button id="close-reader-live" type="button">Cerrar</button></div></dialog>`;
     this._built = true;
     const root = this.shadowRoot;
     root.querySelector("#new-reader").addEventListener("click", () => this._open());
     root.querySelector("#cancel-reader").addEventListener("click", () => root.querySelector("#reader-dialog").close());
     root.querySelector("#cancel-remove-reader").addEventListener("click", () => root.querySelector("#remove-reader-dialog").close());
+    root.querySelector("#close-reader-live").addEventListener("click", () => root.querySelector("#reader-live-dialog").close());
+    root.querySelector("#reader-live-dialog").addEventListener("close", () => { this._liveReaderId = null; });
     root.querySelector("#confirm-remove-reader").addEventListener("click", () => void this._remove());
     root.querySelector("#reader-form").addEventListener("submit", event => { event.preventDefault(); void this._save(); });
     root.querySelector("#reader-kind").addEventListener("change", () => this._sourceFields());
@@ -88,9 +92,37 @@ class ImprovedShoppingReaders extends HTMLElement {
       const source=document.createElement("p");source.className="source";source.textContent=reader.source==="tag"?reader.device_id:reader.entity_id;
       const last=document.createElement("p");last.className="last";last.dataset.lastUsed=reader.id;last.textContent=this._lastUsed(reader);
       const actions=document.createElement("div");actions.className="actions";
-      for(const [text,mdi,fn] of [["Editar","mdi:note-edit",()=>this._open(reader)],["Quitar","mdi:delete",()=>this._confirmRemove(reader)]]){const button=document.createElement("button");button.type="button";button.className=text==="Editar"?"edit":"danger";button.title=`${text} lector ${reader.name}`;button.setAttribute("aria-label",button.title);button.disabled=!admin||this._busy||this._toggling.has(reader.id);const icon=document.createElement("ha-icon");icon.setAttribute("icon",mdi);icon.setAttribute("aria-hidden","true");button.append(icon);button.addEventListener("click",fn);actions.append(button);}
+      for(const [text,mdi,style,fn] of [["Ver","mdi:eye-outline","view",()=>this._viewReader(reader)],["Editar","mdi:note-edit","edit",()=>this._open(reader)],["Quitar","mdi:delete","danger",()=>this._confirmRemove(reader)]]){const button=document.createElement("button");button.type="button";button.className=style;button.title=`${text} lector ${reader.name}`;button.setAttribute("aria-label",button.title);button.disabled=(text!=="Ver"&&!admin)||readers.loading||this._busy||this._toggling.has(reader.id);const icon=document.createElement("ha-icon");icon.setAttribute("icon",mdi);icon.setAttribute("aria-hidden","true");button.append(icon);button.addEventListener("click",fn);actions.append(button);}
       card.append(type,toggle,name,source,last,actions);return card;
     }));
+    this._renderLiveReading();
+  }
+
+  _viewReader(reader) {
+    if (reader.source !== "tag") {
+      this.dispatchEvent(new CustomEvent("hass-more-info", {
+        bubbles: true, composed: true, detail: { entityId: reader.entity_id },
+      }));
+      return;
+    }
+    this._liveReaderId = reader.id;
+    this._renderLiveReading();
+    this.shadowRoot.querySelector("#reader-live-dialog").showModal();
+  }
+
+  _renderLiveReading() {
+    if (!this._liveReaderId) return;
+    const root = this.shadowRoot;
+    const reader = this._data.readers.readers.find(item => item.id === this._liveReaderId);
+    root.querySelector("#reader-live-title").textContent = reader ? `Lecturas en directo: ${reader.name}` : "Lecturas en directo";
+    root.querySelector("#reader-live-source").textContent = reader ? `NFC · ${reader.device_id}` : "";
+    root.querySelector("#reader-live-notice").textContent = !reader ? "Este lector ya no está configurado." : reader.last ? "" : "Esperando una lectura…";
+    root.querySelector("#reader-live-fields").hidden = !reader?.last;
+    root.querySelector("#reader-live-code").textContent = reader?.last?.code ?? "";
+    root.querySelector("#reader-live-product").textContent = reader?.last?.product ?? "Sin producto identificado";
+    root.querySelector("#reader-live-result").textContent = reader?.last?.message ?? "";
+    const timestamp = Date.parse(reader?.last?.time ?? "");
+    root.querySelector("#reader-live-time").textContent = Number.isFinite(timestamp) ? new Date(timestamp).toLocaleString() : "";
   }
 
   _lastUsed(reader) {

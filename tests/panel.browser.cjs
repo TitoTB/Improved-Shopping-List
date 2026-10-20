@@ -1095,8 +1095,37 @@ async function main() {
     assert.equal(await nfcReader.locator(".reader-type").getAttribute("icon"),"mdi:nfc-variant");
     assert.equal(await barcodeReader.locator(".source").textContent(),"sensor.lector_cb_codigo_leido");
     assert.equal(await nfcReader.locator(".source").textContent(),"nfc-device");
-    assert.deepEqual(await barcodeReader.locator(".actions button").allTextContents(),["",""]);
-    assert.deepEqual(await barcodeReader.locator(".actions ha-icon").evaluateAll(icons=>icons.map(icon=>icon.getAttribute("icon"))),["mdi:note-edit","mdi:delete"]);
+    assert.deepEqual(await barcodeReader.locator(".actions button").allTextContents(),["","",""]);
+    assert.deepEqual(await barcodeReader.locator(".actions ha-icon").evaluateAll(icons=>icons.map(icon=>icon.getAttribute("icon"))),["mdi:eye-outline","mdi:note-edit","mdi:delete"]);
+    const viewReader = barcodeReader.getByRole("button",{name:"Ver lector Cocina",exact:true});
+    assert.equal(await viewReader.evaluate(button => getComputedStyle(button).backgroundColor), "rgb(25, 118, 210)");
+    await readerPage.evaluate(() => {
+      window.moreInfoEvents = [];
+      document.addEventListener("hass-more-info", event => window.moreInfoEvents.push({detail:event.detail,composed:event.composed,bubbles:event.bubbles}));
+    });
+    await viewReader.click();
+    assert.deepEqual(await readerPage.evaluate(() => window.moreInfoEvents), [{detail:{entityId:"sensor.lector_cb_codigo_leido"},composed:true,bubbles:true}]);
+    assert.equal(await readersView.locator("#reader-live-dialog").evaluate(dialog=>dialog.open), false);
+    await nfcReader.getByRole("button",{name:"Ver lector NFC despensa",exact:true}).click();
+    const liveDialog = readersView.locator("#reader-live-dialog");
+    await liveDialog.getByText("Esperando una lectura…",{exact:true}).waitFor();
+    await readerPage.evaluate(() => {
+      window.readerFixture.readers.find(reader=>reader.name==='NFC despensa').last={code:'04:AB:CD',product:'Cacao',message:'Añadido a Casa',time:new Date().toISOString()};
+      window.emitReaders();
+    });
+    await liveDialog.locator("#reader-live-code").filter({hasText:'04:AB:CD'}).waitFor();
+    assert.equal(await liveDialog.locator("#reader-live-product").textContent(), 'Cacao');
+    assert.equal(await liveDialog.locator("#reader-live-result").textContent(), 'Añadido a Casa');
+    await readerPage.evaluate(() => {
+      window.readerFixture.readers.find(reader=>reader.name==='NFC despensa').last={code:'<img src=x onerror=alert(1)>',product:null,message:'Código desconocido en Sugerencias',time:new Date().toISOString()};
+      window.emitReaders();
+    });
+    await liveDialog.locator("#reader-live-result").filter({hasText:'Código desconocido'}).waitFor();
+    assert.equal(await liveDialog.locator("#reader-live-code").textContent(), '<img src=x onerror=alert(1)>');
+    assert.equal(await liveDialog.locator("#reader-live-code img").count(), 0);
+    assert.equal(await liveDialog.locator("#reader-live-product").textContent(), 'Sin producto identificado');
+    await readerPage.screenshot({path:'test-results/reader-live.png',fullPage:true});
+    await liveDialog.getByRole("button",{name:"Cerrar",exact:true}).click();
     assert.equal((await barcodeReader.textContent()).includes("Lista:"),false);
     assert.equal((await barcodeReader.textContent()).includes("Barras / QR"),false);
     assert.equal(await barcodeReader.locator(".badge").count(),0);
@@ -1118,6 +1147,9 @@ async function main() {
     assert.equal(await readerToggle.isChecked(),true);
     await readerPage.evaluate(()=>{window.testPanel.hass={...window.testPanel._hass,user:{is_admin:false}};});
     assert.equal(await readerToggle.isDisabled(),true);
+    assert.equal(await viewReader.isDisabled(),false);
+    await viewReader.click();
+    assert.equal(await readerPage.evaluate(()=>window.moreInfoEvents.length),2);
     await readerPage.evaluate(()=>{
       window.testPanel.hass={...window.testPanel._hass,user:{is_admin:true}};
       window.readerFixture.readers.find(reader=>reader.name==='Cocina').last={time:new Date(Date.now()-125000).toISOString(),code:'secret-code',message:'Añadido a la lista'};window.emitReaders();

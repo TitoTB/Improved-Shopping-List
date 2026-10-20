@@ -1316,7 +1316,8 @@ async function main() {
     assert.equal(await iconPage.evaluate(()=>window.catalogProducts.length),1);
     await iconPage.evaluate(()=>{window.failDeleteProduct=false;});
     await deleteProductDialog.getByRole("button",{name:"Eliminar producto",exact:true}).click();
-    await iconCatalog.getByRole("status").filter({hasText:"Producto eliminado"}).waitFor();
+    await deleteProductDialog.waitFor({state:"hidden"});
+    assert.equal(await iconCatalog.locator("#catalog-status").isVisible(),false);
     assert.equal(await iconPage.evaluate(()=>window.catalogProducts.length),0);
     assert.equal(await iconPage.evaluate(()=>window.calls.length),providerCallsBeforeDelete);
     assert.equal(await iconPage.evaluate(()=>window.listData['todo.bring'].some(item=>item.summary==='Leche')),true);

@@ -327,7 +327,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
     error.hidden = !this._catalog.error;
     error.textContent = this._catalog.error;
     const status = root.querySelector("#catalog-status");
-    status.hidden = !this._catalog.loading && !this._notice;
+    status.hidden = !this._catalog.loading && (this._view === "products" || !this._notice);
     status.textContent = this._catalog.loading ? "Cargando catálogo…" : this._notice;
     root.querySelector("#catalog-refresh").disabled = this._catalog.loading;
     const categories = this._catalog.categories.map(category => category.name).sort((a, b) => a.localeCompare(b, "es"));

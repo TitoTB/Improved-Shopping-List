@@ -59,7 +59,7 @@ class ImprovedShoppingIconPicker extends HTMLElement {
         #results{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:18px 0}.option{min-width:0;padding:8px 4px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;aspect-ratio:1;overflow:hidden}.option img{width:64px;height:64px;max-width:100%;object-fit:contain}.option span{font-size:11px;overflow-wrap:anywhere;max-width:100%}.more{border:1px solid var(--divider-color,#dfe7e1);border-radius:10px;text-decoration:none;color:inherit}.more ha-icon{--mdc-icon-size:32px;width:32px;height:32px}.empty{border:1px dashed var(--divider-color,#dfe7e1);border-radius:10px;opacity:.3}.more[aria-disabled=true]{opacity:.4;pointer-events:none}
         .footer{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px;margin-top:18px}#status{font-size:13px}#status.error{color:var(--error-color,#bd3636)}
         #selected{display:flex;align-items:center;gap:12px;margin-top:12px}#selected img{width:48px;height:48px;object-fit:contain;flex-shrink:0}
-        @media(max-width:400px){dialog{padding:18px}.option img{width:44px;height:44px}#results{gap:4px}.option span{font-size:10px}.search button{padding:10px}}
+        @media(max-width:400px){dialog{padding:18px}.option img{width:44px;height:44px}#results{gap:4px}.option span{display:none}.search button{padding:10px}}
       </style>
       <button id="open-picker" type="button"><ha-icon icon="mdi:image-search" aria-hidden="true"></ha-icon>Buscar icono</button>
       <div id="selected" hidden></div>

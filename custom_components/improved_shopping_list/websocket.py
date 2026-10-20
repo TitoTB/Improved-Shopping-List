@@ -12,6 +12,7 @@ from homeassistant.exceptions import HomeAssistantError
 from .catalog import Catalog, CatalogError
 from .const import DOMAIN
 from .list_settings import ListSettingsError
+from .icons import IconError
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -42,6 +43,45 @@ def async_register_commands(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_readers_save)
     websocket_api.async_register_command(hass, ws_readers_delete)
     websocket_api.async_register_command(hass, ws_readers_dismiss)
+    websocket_api.async_register_command(hass, ws_icons_search)
+    websocket_api.async_register_command(hass, ws_icons_import)
+    websocket_api.async_register_command(hass, ws_icons_info)
+
+
+@websocket_api.websocket_command({
+    vol.Required("type"): f"{DOMAIN}/icons/search", vol.Required("query"): str,
+    vol.Optional("start", default=0): vol.All(int, vol.Range(min=0, max=320)),
+})
+@websocket_api.async_response
+async def ws_icons_search(hass, connection, msg):
+    if not _catalog(hass, connection, msg):
+        return
+    try:
+        result = await hass.data[DOMAIN]["icons"].async_search(msg["query"], msg["start"])
+    except IconError as err:
+        connection.send_error(msg["id"], "icon_search_error", str(err))
+    else:
+        connection.send_result(msg["id"], result)
+
+
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/icons/import", vol.Required("icon_id"): str})
+@websocket_api.async_response
+async def ws_icons_import(hass, connection, msg):
+    if not _catalog(hass, connection, msg):
+        return
+    try:
+        result = await hass.data[DOMAIN]["icons"].async_import(msg["icon_id"])
+    except IconError as err:
+        connection.send_error(msg["id"], "icon_import_error", str(err))
+    else:
+        connection.send_result(msg["id"], result)
+
+
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/icons/info", vol.Required("image_url"): str})
+@callback
+def ws_icons_info(hass, connection, msg):
+    if _catalog(hass, connection, msg):
+        connection.send_result(msg["id"], hass.data[DOMAIN]["icons"].info(msg["image_url"]))
 
 
 @websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/readers/get"})

@@ -1,6 +1,7 @@
 import { CatalogSession } from "./catalog-client.js?v=0.5.0";
 import { matchCatalogProducts } from "./product-matching.js?v=0.5.0";
 import "./category-panel.js?v=0.5.0";
+import "./icon-picker.js?v=0.5.0";
 
 export const normalizedName = value => String(value ?? "").normalize("NFKC").trim().replace(/\s+/g, " ").toLocaleLowerCase("es");
 
@@ -46,6 +47,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
   set hass(value) {
     const previous = this._hass?.connection;
     this._hass = value;
+    if (this._built) this.shadowRoot.querySelector("isl-icon-picker").hass = value;
     if (previous && previous !== value.connection) this._started = false;
     this._start();
   }
@@ -95,6 +97,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
     this._catalog.stop();
     this._started = false;
     this.shadowRoot.querySelector("dialog")?.close();
+    this.shadowRoot.querySelector("isl-icon-picker")?.close();
   }
 
   _start() {
@@ -231,6 +234,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
             <label>Moneda<select name="currency"><option value="EUR">EUR · Euro</option><option value="USD">USD · Dólar</option><option value="GBP">GBP · Libra</option></select></label>
             <label class="wide">URL de la imagen<input name="image_url" maxlength="2048" placeholder="https://… o /local/producto.png"></label>
             <label class="wide">Icono del producto<input name="icon" maxlength="100" pattern="mdi:[a-z0-9]+(-[a-z0-9]+)*" placeholder="mdi:shopping"></label>
+            <isl-icon-picker class="wide"></isl-icon-picker>
             <label class="wide">Notas<textarea name="notes" maxlength="1000"></textarea></label>
           </div>
           <div class="form-actions"><button id="cancel-product" type="button">Cancelar</button><button id="save-product" class="primary" type="submit">Guardar producto</button></div>
@@ -239,6 +243,11 @@ class ImprovedShoppingCatalog extends HTMLElement {
       </dialog>`;
     this._built = true;
     const root = this.shadowRoot;
+    const iconPicker = root.querySelector("isl-icon-picker");
+    iconPicker.getQuery = () => root.querySelector("form").elements.name.value;
+    iconPicker.onSelect = asset => { root.querySelector("form").elements.image_url.value = asset.url; };
+    root.querySelector('[name="image_url"]').addEventListener("input", event => { iconPicker.value = event.target.value; });
+    root.querySelector("dialog").addEventListener("close", () => iconPicker.close());
     root.querySelector("#new-product").addEventListener("click", () => this._openProduct());
     root.querySelector("#view-products").addEventListener("click", () => this._switchView("products"));
     root.querySelector("#view-categories").addEventListener("click", () => this._switchView("categories"));
@@ -579,6 +588,9 @@ class ImprovedShoppingCatalog extends HTMLElement {
         form.elements[field].value = values.join("\n");
       }
     }
+    const iconPicker = root.querySelector("isl-icon-picker");
+    iconPicker.hass = this._hass;
+    iconPicker.value = form.elements.image_url.value;
     root.querySelector("dialog").showModal();
     form.elements.name.focus();
   }
@@ -593,6 +605,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
     product.reader_actions = Object.fromEntries([...root.querySelectorAll("[data-reader-action]")].map(select => [select.dataset.readerAction,select.value]));
     if (this._editing) Object.assign(product, { id: this._editing.id, revision: this._editing.revision });
     this._saving = true;
+    root.querySelector("isl-icon-picker").disabled = true;
     root.querySelector("#save-product").disabled = true;
     root.querySelector("#cancel-product").disabled = true;
     root.querySelector("#product-error").hidden = true;
@@ -608,6 +621,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
       notice.hidden = false;
     } finally {
       this._saving = false;
+      root.querySelector("isl-icon-picker").disabled = false;
       root.querySelector("#save-product").disabled = false;
       root.querySelector("#cancel-product").disabled = false;
     }

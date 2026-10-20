@@ -9,6 +9,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.typing import ConfigType
 
 from .catalog import Catalog
+from .icons import ICONS_URL, IconLibrary
 from .list_settings import ListSettings
 from .readers import ReaderManager
 from .const import (
@@ -31,10 +32,13 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         settings = ListSettings(hass)
         readers = ReaderManager(hass, catalog, settings)
         await readers.async_load()
+        icons = IconLibrary(hass)
+        await icons.async_load()
         await hass.http.async_register_static_paths(
-            [StaticPathConfig(STATIC_URL, str(Path(__file__).parent / "frontend"), False)]
+            [StaticPathConfig(STATIC_URL, str(Path(__file__).parent / "frontend"), False),
+             StaticPathConfig(ICONS_URL, str(icons.directory), True)]
         )
-        hass.data[DOMAIN] = {"catalog": catalog, "settings": settings, "readers": readers, "active": False}
+        hass.data[DOMAIN] = {"catalog": catalog, "settings": settings, "readers": readers, "icons": icons, "active": False}
         async_register_commands(hass)
     return True
 

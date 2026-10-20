@@ -68,6 +68,21 @@ const hass={
     return ()=>listeners.delete(listener);
   }},
   callWS:async(msg)=>{
+    if(msg.type==='improved_shopping_list/icons/search'){
+      (window.iconCalls??=[]).push(msg);
+      if(window.failIconSearch)throw new Error('Iconify sin conexión');
+      if(msg.query==='slow')await new Promise(resolve=>{window.releaseIconSearch=resolve;});
+      const icons=Array.from({length:12},(_,i)=>({id:'tabler:milk-'+i,label:msg.query+' '+(i+1),collection:'Tabler Icons',author:'Paweł Kuna',license:'MIT',preview_url:'https://api.iconify.design/tabler/milk.svg?height=96'}));
+      return {icons:msg.query==='zzzz'?[]:icons,next_start:32,has_more:false};
+    }
+    if(msg.type==='improved_shopping_list/icons/import'){
+      (window.iconImports??=[]).push(msg);
+      if(window.failIconImport)throw new Error('No se ha podido guardar el icono');
+      if(window.delayIconImport)await new Promise(resolve=>{window.releaseIconImport=resolve;});
+      const asset={id:msg.icon_id,url:'/improved_shopping_list_icons/fixture.svg',collection:'Tabler Icons',author:'Paweł Kuna',author_url:'https://github.com/tabler/tabler-icons',license:'MIT',license_url:'https://github.com/tabler/tabler-icons/blob/master/LICENSE',source_url:'https://icon-sets.iconify.design/tabler/milk/'};
+      localStorage.setItem('icon-asset-fixture',JSON.stringify(asset));return asset;
+    }
+    if(msg.type==='improved_shopping_list/icons/info')return JSON.parse(localStorage.getItem('icon-asset-fixture')??'null');
     if(msg.type==='improved_shopping_list/readers/get')return structuredClone(window.readerFixture);
     if(msg.type==='improved_shopping_list/readers/save'){
       if(window.failReaders)throw new Error('No se ha podido guardar el lector');
@@ -159,13 +174,18 @@ async function main() {
   await fs.mkdir("test-results", { recursive: true });
   const server = http.createServer(async (req, res) => {
     const pathname = new URL(req.url, "http://localhost").pathname;
+    if (pathname === "/improved_shopping_list_icons/fixture.svg") {
+      res.setHeader("content-type", "image/svg+xml");
+      res.end('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="#267052" d="M4 4h16v16H4z"/></svg>');
+      return;
+    }
     if (pathname === "/scoped-custom-element-registry.js") {
       res.setHeader("content-type", "text/javascript; charset=utf-8");
       res.end(await fs.readFile(require.resolve("@webcomponents/scoped-custom-element-registry")));
       return;
     }
     if (pathname === "/") { res.setHeader("content-type", "text/html; charset=utf-8"); res.end(html); return; }
-    if (!["/panel.js", "/todo-client.js", "/catalog-panel.js", "/catalog-client.js", "/category-panel.js", "/list-settings-client.js", "/settings-panel.js", "/readers-client.js", "/readers-panel.js", "/product-matching.js", "/logo.png"].includes(pathname)) { res.writeHead(404).end(); return; }
+    if (!["/panel.js", "/todo-client.js", "/catalog-panel.js", "/catalog-client.js", "/category-panel.js", "/icon-picker.js", "/list-settings-client.js", "/settings-panel.js", "/readers-client.js", "/readers-panel.js", "/product-matching.js", "/logo.png"].includes(pathname)) { res.writeHead(404).end(); return; }
     res.setHeader("content-type", pathname.endsWith(".png") ? "image/png" : "text/javascript; charset=utf-8");
     res.end(await fs.readFile(path.join(root, pathname.slice(1))));
   });
@@ -991,6 +1011,95 @@ async function main() {
     await readersView.getByRole("status").filter({hasText:"Lector quitado"}).waitFor();
     assert.equal(await readerPage.evaluate(()=>window.readerFixture.readers.length),1);
     await readerContext.close();
+    // Iconify picker: five results per page, editable search, local import and no accidental product writes.
+    const iconContext = await browser.newContext({viewport:{width:1280,height:960}});
+    const iconPage = await iconContext.newPage();
+    iconPage.on("pageerror", error => errors.push(error.message));
+    await iconPage.route("https://api.iconify.design/**", route => route.fulfill({contentType:"image/svg+xml",body:'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="#267052" d="M4 4h16v16H4z"/></svg>'}));
+    await iconPage.goto(url);
+    await iconPage.getByRole("button",{name:"Catálogo",exact:true}).click();
+    const iconCatalog = iconPage.locator("isl-catalog");
+    const iconForm = iconCatalog.getByRole("dialog",{name:"Nuevo producto",exact:true});
+    const picker = iconCatalog.locator("isl-icon-picker");
+    const pickerDialog = picker.getByRole("dialog",{name:"Buscar icono",exact:true});
+    await iconCatalog.getByRole("button",{name:"Nuevo producto",exact:true}).click();
+    await iconForm.getByLabel("Nombre del producto",{exact:true}).fill("Leche");
+    await picker.getByRole("button",{name:"Buscar icono",exact:true}).click();
+    await pickerDialog.getByRole("button",{name:"Elegir Leche 1 (Tabler Icons)",exact:true}).waitFor();
+    assert.equal(await pickerDialog.locator(".option").count(),5);
+    assert.equal(await pickerDialog.getByLabel("Buscar iconos",{exact:true}).inputValue(),"Leche");
+    await pickerDialog.getByRole("button",{name:"Ver más",exact:true}).click();
+    assert.equal(await pickerDialog.locator(".option").count(),5);
+    await pickerDialog.getByRole("button",{name:"Elegir Leche 6 (Tabler Icons)",exact:true}).waitFor();
+    assert.equal(await iconPage.evaluate(()=>window.iconCalls.length),1);
+    await pickerDialog.getByRole("button",{name:"Anteriores",exact:true}).click();
+    await pickerDialog.getByRole("button",{name:"Elegir Leche 1 (Tabler Icons)",exact:true}).waitFor();
+    // A newer search wins over a delayed response, without submitting the enclosing product form.
+    await pickerDialog.getByLabel("Buscar iconos",{exact:true}).fill("slow");
+    await pickerDialog.getByLabel("Buscar iconos",{exact:true}).press("Enter");
+    await iconPage.waitForFunction(()=>typeof window.releaseIconSearch==='function');
+    await pickerDialog.getByLabel("Buscar iconos",{exact:true}).fill("milk");
+    await pickerDialog.getByLabel("Buscar iconos",{exact:true}).press("Enter");
+    await pickerDialog.getByRole("button",{name:"Elegir milk 1 (Tabler Icons)",exact:true}).waitFor();
+    await iconPage.evaluate(()=>window.releaseIconSearch());
+    assert.equal(await pickerDialog.getByRole("button",{name:"Elegir slow 1 (Tabler Icons)",exact:true}).count(),0);
+    assert.equal(await iconPage.evaluate(()=>window.catalogProducts.length),0);
+    await iconPage.evaluate(()=>{window.failIconSearch=true;});
+    await pickerDialog.getByRole("button",{name:"Buscar",exact:true}).click();
+    await pickerDialog.getByRole("status").filter({hasText:"Iconify sin conexión"}).waitFor();
+    await iconPage.evaluate(()=>{window.failIconSearch=false;});
+    await pickerDialog.getByLabel("Buscar iconos",{exact:true}).fill("zzzz");
+    await pickerDialog.getByRole("button",{name:"Buscar",exact:true}).click();
+    await pickerDialog.getByRole("status").filter({hasText:"No se han encontrado"}).waitFor();
+    await pickerDialog.getByLabel("Buscar iconos",{exact:true}).fill("milk");
+    await pickerDialog.getByRole("button",{name:"Buscar",exact:true}).click();
+    await pickerDialog.getByRole("button",{name:"Elegir milk 1 (Tabler Icons)",exact:true}).waitFor();
+    await iconPage.evaluate(()=>{window.failIconImport=true;});
+    await pickerDialog.getByRole("button",{name:"Elegir milk 1 (Tabler Icons)",exact:true}).click();
+    await pickerDialog.getByRole("status").filter({hasText:"No se ha podido guardar"}).waitFor();
+    assert.equal(await iconForm.getByLabel("URL de la imagen",{exact:true}).inputValue(),"");
+    await iconPage.evaluate(()=>{window.failIconImport=false;});
+    await iconPage.screenshot({path:"test-results/icon-picker-desktop.png",fullPage:true});
+    await iconPage.setViewportSize({width:320,height:844});
+    await pickerDialog.getByRole("button",{name:"Ver más",exact:true}).click();
+    assert.equal(await pickerDialog.evaluate(dialog=>dialog.scrollWidth<=dialog.clientWidth),true);
+    await pickerDialog.getByRole("button",{name:"Anteriores",exact:true}).click();
+    await iconPage.screenshot({path:"test-results/icon-picker-mobile.png",fullPage:true});
+    assert.equal(await pickerDialog.evaluate(dialog=>dialog.scrollWidth<=dialog.clientWidth),true);
+    await pickerDialog.getByRole("button",{name:"Elegir milk 1 (Tabler Icons)",exact:true}).click();
+    await pickerDialog.waitFor({state:"hidden"});
+    assert.equal(await iconForm.getByLabel("URL de la imagen",{exact:true}).inputValue(),"/improved_shopping_list_icons/fixture.svg");
+    await picker.getByRole("link",{name:"MIT",exact:true}).waitFor();
+    assert.equal(await iconPage.evaluate(()=>window.catalogProducts.length),0);
+    await iconForm.getByRole("button",{name:"Guardar producto",exact:true}).click();
+    await iconCatalog.getByRole("heading",{name:"Leche",exact:true}).waitFor();
+    const savedIconProduct = await iconPage.evaluate(()=>structuredClone(window.catalogProducts[0]));
+    assert.equal(savedIconProduct.name,"Leche");
+    assert.equal(savedIconProduct.image_url,"/improved_shopping_list_icons/fixture.svg");
+    await iconCatalog.locator(".product img").evaluate(image=>image.decode());
+    // The chosen file and its attribution survive a panel reload without accessing the provider.
+    await iconPage.reload();
+    await iconPage.getByRole("button",{name:"Catálogo",exact:true}).click();
+    await iconCatalog.getByRole("button",{name:"Editar Leche",exact:true}).click();
+    const editIconForm = iconCatalog.getByRole("dialog",{name:"Editar producto",exact:true});
+    await picker.getByRole("link",{name:"MIT",exact:true}).waitFor();
+    assert.equal(await editIconForm.getByLabel("URL de la imagen",{exact:true}).inputValue(),savedIconProduct.image_url);
+    assert.equal(await iconPage.evaluate(()=>window.iconCalls?.length??0),0);
+    // Cancel a download, open a different draft, then resolve the old request: it must not change the draft.
+    await picker.getByRole("button",{name:"Buscar icono",exact:true}).click();
+    await pickerDialog.getByRole("button",{name:"Elegir Leche 1 (Tabler Icons)",exact:true}).waitFor();
+    await iconPage.evaluate(()=>{window.delayIconImport=true;});
+    await pickerDialog.getByRole("button",{name:"Elegir Leche 1 (Tabler Icons)",exact:true}).click();
+    await iconPage.waitForFunction(()=>typeof window.releaseIconImport==='function');
+    await pickerDialog.getByRole("button",{name:"Cerrar",exact:true}).click();
+    await editIconForm.getByRole("button",{name:"Cancelar",exact:true}).click();
+    await iconCatalog.getByRole("button",{name:"Nuevo producto",exact:true}).click();
+    await iconForm.getByLabel("Nombre del producto",{exact:true}).fill("Pan");
+    await iconPage.evaluate(()=>window.releaseIconImport());
+    assert.equal(await iconForm.getByLabel("URL de la imagen",{exact:true}).inputValue(),"");
+    assert.equal(await iconForm.getByLabel("Nombre del producto",{exact:true}).inputValue(),"Pan");
+    await iconForm.getByRole("button",{name:"Cancelar",exact:true}).click();
+    await iconContext.close();
     await page.evaluate(() => window.testPanel.remove());
     assert.equal(await page.evaluate(() => window.listenerCount()), 0);
     assert.deepEqual(errors, []);

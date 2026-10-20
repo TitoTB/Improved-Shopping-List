@@ -168,7 +168,8 @@ class ImprovedShoppingSettings extends HTMLElement {
     root.querySelector("#settings-empty").hidden = settings.entities.length > 0 || settings.loading;
     const form = root.querySelector("#appearance-form");
     if (!this._appearanceDirty && !this._busy) this._fillAppearance(settings.appearance);
-    for (const control of form.elements) control.disabled = locked;
+    // Home Assistant's scoped registry does not implement form.elements iteration.
+    for (const control of form.querySelectorAll("input, select, textarea, button")) control.disabled = locked;
   }
 
   _fillAppearance(appearance) {

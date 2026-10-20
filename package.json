@@ -9,6 +9,7 @@
     "test:ui": "node tests/panel.browser.cjs"
   },
   "devDependencies": {
+    "@webcomponents/scoped-custom-element-registry": "0.0.10",
     "playwright": "1.56.1"
   }
 }

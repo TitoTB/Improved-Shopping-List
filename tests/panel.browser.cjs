@@ -454,6 +454,7 @@ async function main() {
             getComputedStyle(buttons[1]).backgroundColor === "rgb(179, 38, 30)" &&
             Math.abs(edit.top-remove.top) < 1 && edit.right <= remove.left &&
             edit.left >= bounds.left && remove.right <= bounds.right &&
+            remove.top-bounds.top <= 14 && bounds.right-remove.right <= 14 &&
             edit.width > 0 && remove.width > 0;
         }), `Category actions fit in one row at ${width}px / ${columns} columns`);
       }

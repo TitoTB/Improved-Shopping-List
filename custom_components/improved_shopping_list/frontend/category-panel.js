@@ -48,10 +48,10 @@ class ImprovedShoppingCategories extends HTMLElement {
         p { color:var(--secondary-text-color,#63766b); line-height:1.6; font-size:13px; }
         article h2 { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; overflow:hidden; flex-shrink:0; max-width:100%; font-size:clamp(12px,9cqi,24px); line-height:1.2; }
         article p { font-size:clamp(10px,6cqi,14px); line-height:1.2; margin:0; flex-shrink:0; }
-        .actions { display:flex; flex-wrap:nowrap; flex-shrink:0; gap:clamp(4px,4cqi,10px); justify-content:center; margin:0; }
-        .actions button { --isl-category-action-size:clamp(28px,20cqi,44px); display:inline-flex; align-items:center; justify-content:center; flex:none; width:var(--isl-category-action-size); min-width:var(--isl-category-action-size); max-width:var(--isl-category-action-size); height:var(--isl-category-action-size); min-height:var(--isl-category-action-size); max-height:var(--isl-category-action-size); aspect-ratio:1 / 1; padding:0; border:0; }
+        .actions { position:absolute; z-index:2; top:clamp(3px,4cqi,12px); right:clamp(3px,4cqi,12px); display:flex; flex-wrap:nowrap; gap:clamp(2px,2cqi,6px); margin:0; }
+        .actions button { --isl-category-action-size:clamp(18px,13cqi,32px); display:inline-flex; align-items:center; justify-content:center; flex:none; width:var(--isl-category-action-size); min-width:var(--isl-category-action-size); max-width:var(--isl-category-action-size); height:var(--isl-category-action-size); min-height:var(--isl-category-action-size); max-height:var(--isl-category-action-size); aspect-ratio:1 / 1; padding:0; border:0; box-shadow:0 2px 6px rgba(0,0,0,.22); }
         .actions .edit { background:#f9a825; }
-        .actions ha-icon { --mdc-icon-size:clamp(14px,12cqi,24px); width:var(--mdc-icon-size); height:var(--mdc-icon-size); flex:none; }
+        .actions ha-icon { --mdc-icon-size:clamp(12px,8cqi,20px); width:var(--mdc-icon-size); height:var(--mdc-icon-size); flex:none; }
         .notice { padding:12px 14px; border-radius:10px; background:var(--secondary-background-color,#edf4ee); font-size:13px; line-height:1.6; margin:14px 0; }
         .error { color:var(--error-color,#bd3636); border:1px solid var(--error-color,#bd3636); }
         .empty { text-align:center; border:1px dashed var(--divider-color,#dfe7e1); border-radius:16px; padding:32px 18px; }
@@ -138,8 +138,8 @@ class ImprovedShoppingCategories extends HTMLElement {
       }
       const content = document.createElement("div");
       content.className = "category-content";
-      content.append(badge, name, count, actions);
-      card.append(content);
+      content.append(badge, name, count);
+      card.append(content, actions);
       return card;
     });
     root.querySelector("#category-grid").replaceChildren(...cards);

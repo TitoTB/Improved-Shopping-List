@@ -4,6 +4,9 @@ const PREFIX = "improved_shopping_list/settings/";
 export const DEFAULT_APPEARANCE = Object.freeze({ gradient_start: "#ee524f", gradient_end: "#b52a27", completed_gradient_start: "#4faba2", completed_gradient_end: "#26857c", columns: 3, mobile_columns: 1 });
 
 export function gradientTextColor(start, end) {
+  // Keep the requested white foreground on the default completed gradient.
+  if (start.toLowerCase() === DEFAULT_APPEARANCE.completed_gradient_start &&
+      end.toLowerCase() === DEFAULT_APPEARANCE.completed_gradient_end) return "#ffffff";
   const luminance = color => {
     const channels = color.match(/[a-f\d]{2}/gi).map(channel => parseInt(channel, 16) / 255)
       .map(value => value <= .04045 ? value / 12.92 : ((value + .055) / 1.055) ** 2.4);

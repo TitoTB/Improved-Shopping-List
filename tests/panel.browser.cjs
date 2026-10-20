@@ -211,6 +211,9 @@ async function main() {
     assert.ok(header.gap >= 0 && header.gap < 20);
     assert.equal(header.logoFirst, true);
     assert.equal(await page.locator("#nav-catalog ha-icon").getAttribute("icon"), "mdi:view-grid");
+    assert.deepEqual(await page.locator("#completed .item.completed").first().evaluate(card =>
+      [card,card.querySelector(".summary"),card.querySelector(".placeholder ha-icon")].map(node => getComputedStyle(node).color)
+    ), ["rgb(255, 255, 255)","rgb(255, 255, 255)","rgb(255, 255, 255)"]);
     assert.equal(await page.locator("footer").count(), 0);
     assert.equal(await page.locator("#list-select").count(), 0);
     assert.equal(await page.locator("#add-button").textContent(), "");

@@ -10,6 +10,8 @@ const deferred = () => {
 
 test("personalization defaults and readable text for custom gradients", () => {
   assert.equal(gradientTextColor("#ee524f", "#b52a27"), "#ffffff");
+  assert.equal(gradientTextColor("#4faba2", "#26857c"), "#ffffff");
+  assert.equal(gradientTextColor("#4FABA2", "#26857C"), "#ffffff");
   assert.equal(gradientTextColor("#ffe082", "#ffb300"), "#000000");
   assert.equal(gradientTextColor("#111111", "#222222"), "#ffffff");
   const session = new ListSettingsSession(() => ({}), () => {});

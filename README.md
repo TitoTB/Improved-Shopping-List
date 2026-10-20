@@ -139,3 +139,9 @@ La instalación real en Home Assistant debe comprobarse con el recorrido siguien
 ## Licencia
 
 MIT. Consulta [LICENSE](LICENSE).
+
+### Comunidad: exportación voluntaria de iconos
+
+En **Ajustes → Comunidad → Exportar mis iconos** se descarga un ZIP con un diccionario JSON e imágenes locales. No hay envíos automáticos: puedes facilitarlo al mantenedor para revisar traducciones, permisos y duplicados antes de incorporarlo al [catálogo comunitario](community/README.md). Las URL externas y licencias desconocidas requieren revisión. El archivo no contiene listas, códigos ni notas.
+
+Las imágenes comunitarias revisadas se consultan desde este repositorio, se muestran antes que Iconify y se ordenan por presencia en aportaciones revisadas, sin estadísticas globales de usuarios. El índice empieza vacío y puede actualizarse sin publicar otra versión de la integración. Las traducciones que falten se completan al revisar la aportación.

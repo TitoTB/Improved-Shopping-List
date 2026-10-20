@@ -92,6 +92,10 @@ const hass={
       const asset={id:msg.icon_id,url:'/improved_shopping_list_icons/fixture.svg',collection:'Tabler Icons',author:'Paweł Kuna',author_url:'https://github.com/tabler/tabler-icons',license:'MIT',license_url:'https://github.com/tabler/tabler-icons/blob/master/LICENSE',source_url:'https://icon-sets.iconify.design/tabler/milk/'};
       localStorage.setItem('icon-asset-fixture',JSON.stringify(asset));return asset;
     }
+    if(msg.type==='improved_shopping_list/community/export'){
+      if(window.failCommunityExport)throw new Error('No se ha podido exportar el diccionario');
+      return {data:'UEsFBgAAAAAAAAAAAAAAAAAAAAAAAA==',entries:2,images:1,skipped:0};
+    }
     if(msg.type==='improved_shopping_list/icons/info')return JSON.parse(localStorage.getItem('icon-asset-fixture')??'null');
     if(msg.type==='improved_shopping_list/readers/get')return structuredClone(window.readerFixture);
     if(msg.type==='improved_shopping_list/readers/save'){
@@ -786,6 +790,20 @@ async function main() {
     assert.equal(await settingsPage.locator("#nav-settings ha-icon").getAttribute("icon"), "mdi:cog");
     const settingsView = settingsPage.locator("isl-settings");
     await settingsPage.getByRole("button", { name: "Ajustes", exact: true }).click();
+    await settingsView.getByRole("button",{name:"Comunidad",exact:true}).click();
+    await settingsView.getByRole("heading",{name:"Comunidad",exact:true}).waitFor();
+    assert.equal(await settingsView.locator("#settings-lists").isVisible(),false);
+    const exportDownload = settingsPage.waitForEvent("download");
+    await settingsView.getByRole("button",{name:"Exportar mis iconos",exact:true}).click();
+    const zipDownload = await exportDownload;
+    assert.equal(zipDownload.suggestedFilename(),"improved-shopping-list-icons.zip");
+    assert.equal((await fs.readFile(await zipDownload.path())).subarray(0,2).toString(),"PK");
+    await settingsView.getByRole("status").filter({hasText:"Exportados 2 registros y 1 imágenes"}).waitFor();
+    await settingsPage.evaluate(()=>{window.failCommunityExport=true;});
+    await settingsView.getByRole("button",{name:"Exportar mis iconos",exact:true}).click();
+    await settingsView.getByRole("alert").filter({hasText:"No se ha podido exportar"}).waitFor();
+    await settingsPage.evaluate(()=>{window.failCommunityExport=false;});
+    await settingsView.getByRole("button",{name:"Listas",exact:true}).click();
     const configured = settingsView.locator("#configured-lists article");
     assert.equal(await configured.count(), 3);
     assert.equal(await configured.filter({ hasText: "todo.bring" }).locator(".badge").textContent(), "Principal");

@@ -10,6 +10,7 @@ from homeassistant.helpers.typing import ConfigType
 
 from .catalog import Catalog
 from .activity import ActivityLog
+from .community import CommunityLibrary
 from .icons import ICONS_URL, IconLibrary
 from .list_settings import ListSettings
 from .readers import ReaderManager
@@ -38,11 +39,13 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         readers.activity = activity
         icons = IconLibrary(hass)
         await icons.async_load()
+        community = CommunityLibrary(hass, icons)
+        await community.async_load()
         await hass.http.async_register_static_paths(
             [StaticPathConfig(STATIC_URL, str(Path(__file__).parent / "frontend"), False),
              StaticPathConfig(ICONS_URL, str(icons.directory), True)]
         )
-        hass.data[DOMAIN] = {"catalog": catalog, "settings": settings, "readers": readers, "icons": icons, "activity": activity, "active": False}
+        hass.data[DOMAIN] = {"catalog": catalog, "settings": settings, "readers": readers, "icons": icons, "community": community, "activity": activity, "active": False}
         async_register_commands(hass)
     return True
 

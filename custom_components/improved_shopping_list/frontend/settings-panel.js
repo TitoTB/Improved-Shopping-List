@@ -55,7 +55,7 @@ class ImprovedShoppingSettings extends HTMLElement {
         @media(max-width:540px) { .card { padding:18px 14px; } .add-row { flex-wrap:wrap; } .select-wrap { flex-basis:100%; } .actions { width:100%; } }
       </style>
       <h1>Ajustes</h1>
-      <nav class="settings-tabs" aria-label="Vistas de ajustes"><button id="settings-view-lists" aria-pressed="true"><ha-icon icon="mdi:format-list-checks" aria-hidden="true"></ha-icon>Listas</button><button id="settings-view-appearance" aria-pressed="false"><ha-icon icon="mdi:palette" aria-hidden="true"></ha-icon>Personalización</button></nav>
+      <nav class="settings-tabs" aria-label="Vistas de ajustes"><button id="settings-view-lists" aria-pressed="true"><ha-icon icon="mdi:format-list-checks" aria-hidden="true"></ha-icon>Listas</button><button id="settings-view-appearance" aria-pressed="false"><ha-icon icon="mdi:palette" aria-hidden="true"></ha-icon>Personalización</button><button id="settings-view-community" aria-pressed="false"><ha-icon icon="mdi:account-group" aria-hidden="true"></ha-icon>Comunidad</button></nav>
       <div id="settings-error" class="notice error" role="alert" hidden></div>
       <div id="settings-status" class="notice" role="status" hidden></div>
       <p id="admin-help" hidden>Necesitas una cuenta administradora de Home Assistant para modificar estos ajustes.</p>
@@ -82,6 +82,13 @@ class ImprovedShoppingSettings extends HTMLElement {
           <div id="completed-appearance-preview" class="preview">Vista previa de producto comprado</div>
           <div class="appearance-actions"><button id="reset-appearance" type="button">Restablecer valores</button><button id="save-appearance" class="primary" type="submit">Guardar personalización</button></div>
         </form>
+      </section>
+      <section id="settings-community" class="card" aria-labelledby="settings-community-title" hidden>
+        <h2 id="settings-community-title">Comunidad</h2>
+        <p>Exporta un diccionario con los nombres de tus productos, sus traducciones disponibles y las imágenes locales asignadas. Puedes enviarlo al mantenedor para incorporar las imágenes revisadas al catálogo comunitario.</p>
+        <p>No se envía nada automáticamente. El ZIP no incluye listas, códigos, notas ni datos de tu cuenta. Las imágenes externas se indican como referencias y las licencias desconocidas quedan pendientes de revisión.</p>
+        <button id="export-community" class="primary" type="button">Exportar mis iconos</button>
+        <p>Las sugerencias comunitarias se muestran antes que Iconify, ordenadas por aportaciones revisadas; no representan un recuento global de usuarios. El catálogo empieza vacío.</p>
       </section>`;
     this._built = true;
     this.shadowRoot.querySelector("#add-list").addEventListener("click", () => {
@@ -89,17 +96,18 @@ class ImprovedShoppingSettings extends HTMLElement {
       if (entity) void this._act("add", entity);
     });
     const root = this.shadowRoot;
-    for (const [id, view] of [["settings-view-lists", "lists"], ["settings-view-appearance", "appearance"]]) {
+    for (const [id, view] of [["settings-view-lists", "lists"], ["settings-view-appearance", "appearance"], ["settings-view-community", "community"]]) {
       root.querySelector(`#${id}`).addEventListener("click", () => {
-        root.querySelector("#settings-lists").hidden = view !== "lists";
-        root.querySelector("#settings-appearance").hidden = view !== "appearance";
-        root.querySelector("#settings-view-lists").setAttribute("aria-pressed", String(view === "lists"));
-        root.querySelector("#settings-view-appearance").setAttribute("aria-pressed", String(view === "appearance"));
+        for (const section of ["lists", "appearance", "community"]) {
+          root.querySelector(`#settings-${section}`).hidden = view !== section;
+          root.querySelector(`#settings-view-${section}`).setAttribute("aria-pressed", String(view === section));
+        }
         this._notice = "";
         this._error = "";
         this._render();
       });
     }
+    root.querySelector("#export-community").addEventListener("click", () => void this._exportCommunity());
     root.querySelector("#appearance-form").addEventListener("input", () => { this._appearanceDirty = true; this._preview(); });
     root.querySelector("#appearance-form").addEventListener("change", () => { this._appearanceDirty = true; this._preview(); });
     root.querySelector("#appearance-form").addEventListener("submit", event => { event.preventDefault(); void this._saveAppearance(); });
@@ -115,6 +123,7 @@ class ImprovedShoppingSettings extends HTMLElement {
     const root = this.shadowRoot;
     const admin = hass?.user?.is_admin === true;
     const locked = !admin || !settings.loaded || settings.loading || this._busy;
+    root.querySelector("#export-community").disabled = locked;
     const error = root.querySelector("#settings-error");
     error.textContent = this._error || settings.error;
     error.hidden = !error.textContent;
@@ -200,6 +209,31 @@ class ImprovedShoppingSettings extends HTMLElement {
     const completed = this.shadowRoot.querySelector("#completed-appearance-preview");
     completed.style.background = `linear-gradient(${appearance.completed_gradient_start},${appearance.completed_gradient_end})`;
     completed.style.color = gradientTextColor(appearance.completed_gradient_start, appearance.completed_gradient_end);
+  }
+
+  async _exportCommunity() {
+    if (this._busy || !this._data?.hass?.user?.is_admin) return;
+    this._busy = true;
+    this._error = this._notice = "";
+    this._render();
+    let downloadUrl;
+    try {
+      const result = await this._data.hass.callWS({type:"improved_shopping_list/community/export"});
+      const bytes = Uint8Array.from(atob(result.data), character => character.charCodeAt(0));
+      downloadUrl = URL.createObjectURL(new Blob([bytes], {type:"application/zip"}));
+      const anchor = document.createElement("a");
+      anchor.href = downloadUrl;
+      anchor.download = "improved-shopping-list-icons.zip";
+      this.shadowRoot.append(anchor);
+      anchor.click();
+      anchor.remove();
+      this._notice = `Exportados ${result.entries} registros y ${result.images} imágenes.${result.skipped ? ` No se pudieron incluir ${result.skipped} referencias locales.` : ""}`;
+    } catch (error) { this._error = error.message ?? "No se ha podido exportar el diccionario."; }
+    finally {
+      if (downloadUrl) setTimeout(() => URL.revokeObjectURL(downloadUrl), 60000);
+      this._busy = false;
+      this._render();
+    }
   }
 
   async _saveAppearance() {

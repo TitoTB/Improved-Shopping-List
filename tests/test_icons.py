@@ -95,6 +95,7 @@ async def test_search_translates_and_persists_old_product_but_preserves_manual_e
     entry = MockConfigEntry(domain=DOMAIN, data={CONF_TODO_ENTITY: "todo.bring"})
     entry.add_to_hass(hass)
     assert await hass.config_entries.async_setup(entry.entry_id)
+    hass.data[DOMAIN]["community"]._next_refresh = float("inf")
     catalog = hass.data[DOMAIN]["catalog"]
     product = await catalog.async_save_product({"name": "Arroz"})
     product_translation.return_value = "Rice"
@@ -142,6 +143,7 @@ async def test_authenticated_search_import_static_image_and_unloaded_guard(hass,
     entry = MockConfigEntry(domain=DOMAIN, data={CONF_TODO_ENTITY: "todo.bring"})
     entry.add_to_hass(hass)
     assert await hass.config_entries.async_setup(entry.entry_id)
+    hass.data[DOMAIN]["community"]._next_refresh = float("inf")
     client = await hass_ws_client(hass)
     aioclient_mock.get(f"{BASE_URL}/search", json=SEARCH)
     await client.send_json({"id": 1, "type": f"{DOMAIN}/icons/search", "query": "milk"})

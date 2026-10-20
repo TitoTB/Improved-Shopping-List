@@ -1,6 +1,6 @@
 import { FEATURES, TodoSession, errorMessage, isAvailable, supports } from "./todo-client.js?v=0.3.0";
 import { imageSource, normalizedName } from "./catalog-panel.js?v=0.3.0";
-import { ListSettingsSession } from "./list-settings-client.js?v=0.3.0";
+import { ListSettingsSession, gradientTextColor } from "./list-settings-client.js?v=0.3.0";
 import "./settings-panel.js?v=0.3.0";
 
 const LOGO_URL = new URL("logo.png", import.meta.url).href;
@@ -152,23 +152,23 @@ class ImprovedShoppingListPanel extends HTMLElement {
         .count { padding:5px 10px; border-radius:20px; background:var(--secondary-background-color,#edf4ee); font-size:13px; }
         ul { list-style:none; margin:0; padding:0; }
         #items-card { background:transparent; border:0; padding:0; }
-        .product-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(245px,1fr)); gap:16px; }
+        .product-grid { display:grid; grid-template-columns:repeat(var(--isl-columns,3),minmax(0,1fr)); gap:16px; }
         .product-grid li { display:flex; min-width:0; }
-        .item { position:relative; display:flex; flex-direction:column; align-items:center; width:100%; gap:14px; padding:30px 18px 18px; border:1px solid var(--divider-color,#dfe7e1); border-radius:16px; background:var(--card-background-color,#fff); text-align:center; cursor:pointer; }
-        .item.pending { background:linear-gradient(145deg,rgba(255,85,85,.32),rgba(220,38,38,.12)),var(--card-background-color,#fff); border-color:rgba(220,38,38,.45); }
-        .item .image { width:96px; height:96px; object-fit:contain; border-radius:10px; }
+        .item { position:relative; display:flex; flex-direction:column; align-items:center; width:100%; gap:14px; padding:30px 18px 18px; border:1px solid var(--divider-color,#dfe7e1); border-radius:16px; background:var(--card-background-color,#fff); color:inherit; text-align:center; cursor:pointer; }
+        .item.pending { background:linear-gradient(var(--isl-gradient-start,#ee524f),var(--isl-gradient-end,#b52a27)); border-color:var(--isl-gradient-end,#b52a27); color:var(--isl-gradient-text,#fff); }
+        .item .product-media { display:grid; place-items:center; width:96px; max-width:100%; }
+        .item .image { width:96px; max-width:100%; aspect-ratio:1; height:auto; object-fit:contain; border-radius:10px; }
         .item .placeholder { display:grid; place-items:center; color:var(--secondary-text-color,#63766b); }
         .item .placeholder ha-icon { --mdc-icon-size:64px; }
+        .item.pending .placeholder,.item.pending .subtitle,.item.pending .description { color:inherit; }
+        .item.pending .tag { background:rgba(255,255,255,.2); }
         .category-badge { position:absolute; top:12px; right:12px; display:grid; place-items:center; width:32px; height:32px; border-radius:50%; color:#fff; }
         .category-badge ha-icon { --mdc-icon-size:20px; }
         .item-text { min-width:0; width:100%; overflow-wrap:anywhere; line-height:1.45; }
         .item .summary { display:block; font-size:17px; font-weight:650; }
         .subtitle { display:block; color:var(--secondary-text-color,#63766b); font-size:12px; margin-top:4px; }
-        .tags { display:flex; flex-wrap:wrap; justify-content:center; gap:5px; }
-        .tag { padding:4px 8px; border-radius:20px; font-size:11px; background:var(--secondary-background-color,#edf4ee); }
-        .purchase-control { display:flex; align-items:center; justify-content:center; gap:6px; margin-top:auto; min-height:44px; padding:0 12px; border:1px solid var(--divider-color,#dfe7e1); border-radius:10px; font-size:14px; }
-        input[type=checkbox] { appearance:auto; accent-color:var(--isl-green); width:23px; height:23px; min-height:23px; flex-shrink:0; margin:10px; cursor:pointer; }
-        input[type=checkbox]:disabled { cursor:default; }
+        .tags { display:flex; flex-wrap:wrap; justify-content:center; gap:5px; max-width:100%; min-width:0; }
+        .tag { padding:4px 8px; border-radius:20px; font-size:11px; background:var(--secondary-background-color,#edf4ee); max-width:100%; overflow-wrap:anywhere; }
         .description { display:block; color:var(--secondary-text-color,#63766b); font-size:12px; white-space:pre-wrap; }
         .completed .summary { text-decoration:line-through; color:var(--secondary-text-color,#63766b); }
         .empty { padding:28px 8px; text-align:center; color:var(--secondary-text-color,#63766b); line-height:1.6; }
@@ -179,7 +179,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
         .error { border:1px solid var(--error-color,#bd3636); color:var(--error-color,#bd3636); }
         [hidden] { display:none !important; }
         .sr-only { position:absolute; width:1px; height:1px; padding:0; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
-        @media(max-width:650px) { .product-grid { grid-template-columns:1fr; } }
+        @media(max-width:650px) { .product-grid { grid-template-columns:repeat(var(--isl-mobile-columns,1),minmax(0,1fr)); } .item { padding:30px 8px 16px; } .item .placeholder ha-icon { --mdc-icon-size:clamp(24px,10vw,64px); } }
         @media(max-width:650px) { header { flex-wrap:wrap; padding:10px 12px; } .branding { flex:1; } .brand-logo { width:36px; height:36px; } .brand { font-size:14px; } .version { font-size:11px; margin-left:6px; } .section-nav { width:100%; justify-content:flex-end; } }
         @media(max-width:540px) { main { padding:26px 14px 40px; } .card { padding:18px 16px; border-radius:14px; } .primary { padding:10px 14px; } }
       </style>
@@ -233,6 +233,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
     root.querySelector("#nav-catalog").addEventListener("click", () => this._switchView("catalog"));
     root.querySelector("#nav-settings").addEventListener("click", () => this._switchView("settings"));
     root.querySelector("isl-settings").onAction = (action, entity) => this._settings.update(action, entity);
+    root.querySelector("isl-settings").onAppearance = appearance => this._settings.saveAppearance(appearance);
     root.querySelector("isl-catalog").onAdd = (product) => this._runAction(
       () => this._session.add(product.name), `${product.name} añadido a la lista.`,
     );
@@ -321,6 +322,12 @@ class ImprovedShoppingListPanel extends HTMLElement {
     this._renderOptions();
     const root = this.shadowRoot;
     const session = this._session;
+    const appearance = this._settings.appearance;
+    this.style.setProperty("--isl-gradient-start", appearance.gradient_start);
+    this.style.setProperty("--isl-gradient-end", appearance.gradient_end);
+    this.style.setProperty("--isl-gradient-text", gradientTextColor(appearance.gradient_start, appearance.gradient_end));
+    this.style.setProperty("--isl-columns", appearance.columns);
+    this.style.setProperty("--isl-mobile-columns", appearance.mobile_columns);
     root.querySelector("isl-settings").data = { hass: this._hass, settings: this._settings };
     const state = this._hass.states[session.entityId];
     const available = isAvailable(state);
@@ -480,15 +487,14 @@ class ImprovedShoppingListPanel extends HTMLElement {
       let row = this._rows.get(key);
       if (!row) {
         row = document.createElement("li");
-        const label = document.createElement("label");
+        const card = document.createElement("button");
+        card.type = "button";
         const media = document.createElement("span");
         media.className = "product-media";
         const badge = document.createElement("span");
         badge.className = "category-badge";
-        const checkbox = document.createElement("input");
-        checkbox.type = "checkbox";
-        checkbox.addEventListener("change", () => {
-          const completed = checkbox.checked;
+        card.addEventListener("click", () => {
+          const completed = row._item.status !== "completed";
           void this._runAction(() => this._session.setCompleted(row._item, completed), "Lista actualizada.");
         });
         const text = document.createElement("span");
@@ -501,24 +507,19 @@ class ImprovedShoppingListPanel extends HTMLElement {
         subtitle.className = "subtitle";
         const tags = document.createElement("span");
         tags.className = "tags";
-        const control = document.createElement("span");
-        control.className = "purchase-control";
-        const action = document.createElement("span");
-        action.className = "purchase-action";
-        control.append(checkbox, action);
         text.append(summary, subtitle, description);
-        label.append(badge, media, text, tags, control);
-        row.append(label);
+        card.append(badge, media, text, tags);
+        row.append(card);
         this._rows.set(key, row);
       }
       row._item = item;
-      const label = row.querySelector("label");
-      const checkbox = row.querySelector("input");
-      label.className = `item ${item.status === "completed" ? "completed" : "pending"}`;
-      checkbox.checked = item.status === "completed";
-      checkbox.disabled = disabled || !item.uid;
-      checkbox.dataset.uid = item.uid ?? "";
-      checkbox.setAttribute("aria-label", `${checkbox.checked ? "Volver a poner por comprar" : "Marcar como comprado"}: ${item.summary ?? "Producto"}`);
+      const card = row.querySelector("button");
+      const completed = item.status === "completed";
+      card.className = `item ${completed ? "completed" : "pending"}`;
+      card.disabled = disabled || !item.uid;
+      card.dataset.uid = item.uid ?? "";
+      card.setAttribute("aria-pressed", String(completed));
+      card.setAttribute("aria-label", `${completed ? "Volver a poner por comprar" : "Marcar como comprado"}: ${item.summary ?? "Producto"}`);
       const summary = row.querySelector(".summary");
       summary.textContent = item.summary ?? "Producto sin nombre";
       const product = this._catalogProducts.get(normalizedName(item.summary));
@@ -566,7 +567,6 @@ class ImprovedShoppingListPanel extends HTMLElement {
         return node;
       }));
       tags.hidden = !tags.childElementCount;
-      row.querySelector(".purchase-action").textContent = checkbox.checked ? "Por comprar" : "Comprado";
       const description = row.querySelector(".description");
       description.textContent = item.description ?? "";
       description.hidden = !item.description;
@@ -574,8 +574,8 @@ class ImprovedShoppingListPanel extends HTMLElement {
     });
     container.replaceChildren(...nodes);
     if (focusedUid) {
-      const checkbox = [...container.querySelectorAll("input")].find((input) => input.dataset.uid === focusedUid);
-      checkbox?.focus({ preventScroll: true });
+      const card = [...container.querySelectorAll("button")].find(button => button.dataset.uid === focusedUid);
+      card?.focus({ preventScroll: true });
     }
   }
 

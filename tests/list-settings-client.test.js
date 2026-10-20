@@ -1,12 +1,24 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { ListSettingsSession } from "../custom_components/improved_shopping_list/frontend/list-settings-client.js";
+import { DEFAULT_APPEARANCE, ListSettingsSession, gradientTextColor } from "../custom_components/improved_shopping_list/frontend/list-settings-client.js";
 
 const deferred = () => {
   let resolve;
   const promise = new Promise(done => { resolve = done; });
   return { promise, resolve };
 };
+
+test("personalization defaults and readable text for custom gradients", () => {
+  assert.equal(gradientTextColor("#ee524f", "#b52a27"), "#ffffff");
+  assert.equal(gradientTextColor("#ffe082", "#ffb300"), "#000000");
+  assert.equal(gradientTextColor("#111111", "#222222"), "#ffffff");
+  const session = new ListSettingsSession(() => ({}), () => {});
+  assert.deepEqual(session.appearance, DEFAULT_APPEARANCE);
+  session._receive({entities:[], primary_entity:""});
+  assert.deepEqual(session.appearance, DEFAULT_APPEARANCE);
+  session._receive({appearance:{...DEFAULT_APPEARANCE,columns:6}});
+  assert.equal(session.appearance.columns, 6);
+});
 
 test("a pushed settings snapshot beats an older initial read", async () => {
   const read = deferred();

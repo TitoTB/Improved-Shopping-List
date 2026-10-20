@@ -4,7 +4,7 @@ import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.improved_shopping_list.const import CONF_TODO_ENTITIES, CONF_TODO_ENTITY, DOMAIN
-from custom_components.improved_shopping_list.list_settings import ListSettings, ListSettingsError
+from custom_components.improved_shopping_list.list_settings import DEFAULT_APPEARANCE, ListSettings, ListSettingsError, normalize_appearance
 
 
 async def test_settings_migrate_persist_remove_and_restore(hass):
@@ -14,21 +14,21 @@ async def test_settings_migrate_persist_remove_and_restore(hass):
     entry.add_to_hass(hass)
     settings = ListSettings(hass)
     settings.attach(entry)
-    assert settings.snapshot == {"entities": ["todo.bring", "todo.local"], "primary_entity": "todo.bring"}
+    assert settings.snapshot == {"entities": ["todo.bring", "todo.local"], "primary_entity": "todo.bring", "appearance": DEFAULT_APPEARANCE}
     settings.update("primary", "todo.local")
     settings.update("remove", "todo.bring")
     assert hass.states.get("todo.bring").state == "1"
     assert entry.options["unrelated"] is True
     restored = ListSettings(hass)
     restored.attach(entry)
-    assert restored.snapshot == {"entities": ["todo.local"], "primary_entity": "todo.local"}
+    assert restored.snapshot == {"entities": ["todo.local"], "primary_entity": "todo.local", "appearance": DEFAULT_APPEARANCE}
     restored.update("add", "todo.bring")
     restored.update("add", "todo.bring")
     assert len(restored.snapshot["entities"]) == 2
     restored.update("remove", "todo.local")
     assert restored.snapshot["primary_entity"] == "todo.bring"
     restored.update("remove", "todo.bring")
-    assert restored.snapshot == {"entities": [], "primary_entity": ""}
+    assert restored.snapshot == {"entities": [], "primary_entity": "", "appearance": DEFAULT_APPEARANCE}
     empty = ListSettings(hass)
     empty.attach(entry)
     assert empty.snapshot == restored.snapshot  # Do not re-add deliberately removed lists on reload.
@@ -92,3 +92,54 @@ async def test_settings_cannot_be_changed_by_non_admin(hass, hass_ws_client, has
     await client.send_json({"id": 2, "type": f"{DOMAIN}/settings/update", "action": "remove", "entity_id": "todo.bring"})
     assert (await client.receive_json())["error"]["code"] == "unauthorized"
     assert entry.options[CONF_TODO_ENTITY] == "todo.bring"
+    await client.send_json({"id": 3, "type": f"{DOMAIN}/settings/personalization", "appearance": DEFAULT_APPEARANCE})
+    assert (await client.receive_json())["error"]["code"] == "unauthorized"
+
+
+@pytest.mark.parametrize("changes", [
+    {"columns": 0}, {"columns": 7}, {"columns": True}, {"columns": "3"},
+    {"mobile_columns": 5}, {"gradient_start": "red;display:none"}, {"gradient_end": "#123"},
+    {"extra": "value"},
+])
+def test_personalization_validation(changes):
+    with pytest.raises(ListSettingsError):
+        normalize_appearance({**DEFAULT_APPEARANCE, **changes})
+
+
+async def test_personalization_persists_without_changing_lists(hass):
+    hass.states.async_set("todo.bring", "1")
+    entry = MockConfigEntry(domain=DOMAIN, data={CONF_TODO_ENTITY: "todo.bring"})
+    entry.add_to_hass(hass)
+    settings = ListSettings(hass)
+    settings.attach(entry)
+    changed = {"gradient_start": "#ABCDEF", "gradient_end": "#123456", "columns": 4, "mobile_columns": 2}
+    settings.update_appearance(changed)
+    restored = ListSettings(hass)
+    restored.attach(entry)
+    assert restored.snapshot["appearance"] == {**changed, "gradient_start": "#abcdef"}
+    assert restored.snapshot["entities"] == ["todo.bring"]
+    restored.snapshot["appearance"]["columns"] = 1
+    assert restored.snapshot["appearance"]["columns"] == 4
+    settings.update("remove", "todo.bring")
+    assert settings.snapshot["appearance"]["columns"] == 4
+
+
+async def test_personalization_websocket_push_validation_and_reload(hass, hass_ws_client):
+    entry = MockConfigEntry(domain=DOMAIN, data={CONF_TODO_ENTITY: "todo.bring"})
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    writer = await hass_ws_client(hass)
+    reader = await hass_ws_client(hass)
+    await reader.send_json({"id": 1, "type": f"{DOMAIN}/settings/subscribe"})
+    assert (await reader.receive_json())["success"]
+    assert (await reader.receive_json())["event"]["appearance"] == DEFAULT_APPEARANCE
+    appearance = {**DEFAULT_APPEARANCE, "columns": 5, "mobile_columns": 2}
+    await writer.send_json({"id": 1, "type": f"{DOMAIN}/settings/personalization", "appearance": appearance})
+    assert (await writer.receive_json())["result"]["appearance"] == appearance
+    assert (await reader.receive_json())["event"]["appearance"] == appearance
+    await writer.send_json({"id": 2, "type": f"{DOMAIN}/settings/personalization", "appearance": {**appearance, "columns": 0}})
+    assert (await writer.receive_json())["error"]["code"] == "invalid_appearance"
+    await hass.async_block_till_done()
+    assert await hass.config_entries.async_unload(entry.entry_id)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    assert hass.data[DOMAIN]["settings"].snapshot["appearance"] == appearance

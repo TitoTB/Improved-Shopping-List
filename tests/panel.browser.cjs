@@ -60,6 +60,10 @@ const hass={
   }},
   callWS:async(msg)=>{
     if(msg.type==='improved_shopping_list/settings/get')return structuredClone(window.listSettings);
+    if(msg.type==='improved_shopping_list/settings/personalization'){
+      if(window.failSettings)throw new Error('No se ha podido guardar la personalización');
+      window.listSettings.appearance=structuredClone(msg.appearance);window.emitSettings();return structuredClone(window.listSettings);
+    }
     if(msg.type==='improved_shopping_list/settings/update'){
       if(window.failSettings)throw new Error('No se han podido guardar los ajustes');
       if(msg.action==='add'&&!window.listSettings.entities.includes(msg.entity_id))window.listSettings.entities.push(msg.entity_id);
@@ -202,12 +206,14 @@ async function main() {
     assert.equal(await page.evaluate(() => window.injected), undefined);
     assert.equal(await page.getByLabel("Añadir producto", { exact: true }).inputValue(), "");
 
-    await page.getByRole("checkbox", { name: "Marcar como comprado: Cacao", exact: true }).check();
+    assert.equal(await page.locator(".purchase-control,input[type=checkbox]").count(), 0);
+    assert.equal(await listCards.first().locator("button.item").evaluate(node => getComputedStyle(node).backgroundImage), "linear-gradient(rgb(238, 82, 79), rgb(181, 42, 39))");
+    await page.getByRole("button", { name: "Marcar como comprado: Cacao", exact: true }).click();
     await page.getByText("Comprados (2)", { exact: true }).waitFor();
     assert.equal((await page.evaluate(() => window.calls)).at(-1).item, "cacao-1");
     await page.locator("#completed-summary").click();
-    await page.getByRole("checkbox", { name: "Volver a poner por comprar: Cacao", exact: true }).uncheck();
-    await page.getByRole("checkbox", { name: "Marcar como comprado: Cacao", exact: true }).waitFor();
+    await page.getByRole("button", { name: "Volver a poner por comprar: Cacao", exact: true }).press("Enter");
+    await page.getByRole("button", { name: "Marcar como comprado: Cacao", exact: true }).waitFor();
 
     await page.evaluate(() => window.rename());
     await page.locator("#pending").getByText("Cacao puro", { exact: true }).waitFor();
@@ -219,7 +225,7 @@ async function main() {
     await selectList(page, "todo.readonly");
     await page.locator("#pending").getByText("Lista compartida", { exact: true }).waitFor();
     assert.equal(await page.getByRole("button", { name: "Añadir", exact: true }).isDisabled(), true);
-    assert.equal(await page.getByRole("checkbox").isDisabled(), true);
+    assert.equal(await page.getByRole("button", { name: "Marcar como comprado: Lista compartida", exact: true }).isDisabled(), true);
 
     await selectList(page, "todo.bring");
     await page.locator("#pending").getByText("Cacao puro", { exact: true }).waitFor();
@@ -307,12 +313,12 @@ async function main() {
     assert.equal(await yogurtListCard.locator(".subtitle").textContent(), "Marca de prueba · 4 × 125 g");
     assert.equal((await yogurtListCard.textContent()).includes("2,59"), false);
     await page.screenshot({ path: "test-results/list-grid-desktop.png", fullPage: true });
-    await page.getByRole("checkbox", { name: "Marcar como comprado: Yogur sin azúcar", exact: true }).check();
+    await page.getByRole("button", { name: "Marcar como comprado: Yogur sin azúcar", exact: true }).click();
     await page.getByRole("button", { name: "Catálogo", exact: true }).click();
     assert.equal(await productCard.getAttribute("data-in-list"), "false");
     await page.getByRole("button", { name: "Lista", exact: true }).click();
     await page.locator("#completed-summary").click();
-    await page.getByRole("checkbox", { name: "Volver a poner por comprar: Yogur sin azúcar", exact: true }).uncheck();
+    await page.getByRole("button", { name: "Volver a poner por comprar: Yogur sin azúcar", exact: true }).click();
     await page.getByRole("button", { name: "Catálogo", exact: true }).click();
     assert.equal(await productCard.getAttribute("data-in-list"), "true");
     await page.getByRole("button", { name: "Lista", exact: true }).click();
@@ -561,7 +567,52 @@ async function main() {
     await settingsPage.setViewportSize({ width: 390, height: 844 });
     await settingsPage.screenshot({ path: "test-results/settings-mobile.png", fullPage: true });
     assert.equal(await settingsPage.locator("main").evaluate(node => node.scrollWidth > innerWidth), false);
+    await settingsView.getByRole("button", { name: "Personalización", exact: true }).click();
+    assert.equal(await settingsView.getByLabel("Color inicial del degradado", { exact: true }).inputValue(), "#ee524f");
+    assert.equal(await settingsView.getByLabel("Color final del degradado", { exact: true }).inputValue(), "#b52a27");
+    await settingsView.getByLabel("Color inicial del degradado", { exact: true }).evaluate(input => { input.value="#ffe082";input.dispatchEvent(new Event("input",{bubbles:true})); });
+    await settingsView.getByLabel("Color final del degradado", { exact: true }).evaluate(input => { input.value="#ffb300";input.dispatchEvent(new Event("input",{bubbles:true})); });
+    await settingsView.getByLabel("Productos por fila (ordenador)", { exact: true }).selectOption("4");
+    await settingsView.getByLabel("Productos por fila (móvil)", { exact: true }).selectOption("2");
+    assert.equal(await settingsView.locator("#appearance-preview").evaluate(node => getComputedStyle(node).color), "rgb(0, 0, 0)");
+    await settingsPage.evaluate(() => { window.failSettings=true; });
+    await settingsView.getByRole("button", { name: "Guardar personalización", exact: true }).click();
+    await settingsView.getByRole("alert").filter({ hasText:"No se ha podido guardar la personalización" }).waitFor();
+    assert.equal(await settingsView.getByLabel("Productos por fila (ordenador)", { exact: true }).inputValue(), "4");
+    assert.equal(await settingsView.getByLabel("Color inicial del degradado", { exact: true }).inputValue(), "#ffe082");
+    await settingsPage.evaluate(() => { window.failSettings=false; });
+    await settingsView.getByRole("button", { name: "Guardar personalización", exact: true }).click();
+    await settingsView.getByRole("status").filter({ hasText: "Personalización guardada" }).waitFor();
+    await settingsPage.screenshot({ path: "test-results/personalization-mobile.png", fullPage: true });
+    await settingsPage.getByRole("button", { name: "Lista", exact: true }).click();
+    assert.equal(await settingsPage.locator("#pending").evaluate(node => getComputedStyle(node).gridTemplateColumns.split(" ").length), 2);
+    const customizedCard = settingsPage.locator("#pending .item").first();
+    assert.equal(await customizedCard.evaluate(node => getComputedStyle(node).backgroundImage), "linear-gradient(rgb(255, 224, 130), rgb(255, 179, 0))");
+    assert.equal(await customizedCard.evaluate(node => getComputedStyle(node).color), "rgb(0, 0, 0)");
+    assert.equal(await settingsPage.locator("main").evaluate(node => node.scrollWidth > innerWidth), false);
+    await settingsPage.screenshot({ path: "test-results/personalized-list-mobile.png", fullPage: true });
+    await settingsPage.setViewportSize({ width:320,height:844 });
+    await settingsPage.evaluate(async () => {
+      window.listSettings.appearance.mobile_columns=4;window.emitSettings();
+      await window.testPanel._hass.callWS({type:'improved_shopping_list/catalog/save',product:{name:'Cacao',category:'',tags:['a'.repeat(40)],brand:'Marca larga',format:'250 g',barcode:'',image_url:'/logo.png',icon:'',notes:'',price:null,currency:'EUR'}});
+    });
+    assert.equal(await settingsPage.locator("#pending").evaluate(node => getComputedStyle(node).gridTemplateColumns.split(" ").length), 4);
+    assert.equal(await settingsPage.locator("#items-card").evaluate(node => node.scrollWidth > innerWidth), false);
+    await settingsPage.setViewportSize({ width:1280,height:960 });
+    assert.equal(await settingsPage.locator("#pending").evaluate(node => getComputedStyle(node).gridTemplateColumns.split(" ").length), 4);
+    await settingsPage.reload();
+    await settingsPage.locator("#pending").getByText("Cacao", { exact:true }).waitFor();
+    assert.equal(await settingsPage.locator("#pending").evaluate(node => getComputedStyle(node).gridTemplateColumns.split(" ").length), 4);
+    await settingsPage.getByRole("button", { name:"Ajustes", exact:true }).click();
+    await settingsView.getByRole("button", { name:"Personalización", exact:true }).click();
+    assert.equal(await settingsView.getByLabel("Color inicial del degradado", { exact:true }).inputValue(), "#ffe082");
+    await settingsView.getByRole("button", { name:"Restablecer valores", exact:true }).click();
+    assert.equal(await settingsView.getByLabel("Productos por fila (ordenador)", { exact:true }).inputValue(), "3");
+    await settingsView.getByRole("button", { name:"Guardar personalización", exact:true }).click();
+    await settingsView.getByRole("status").filter({ hasText:"Personalización guardada" }).waitFor();
     await settingsPage.evaluate(() => { window.testPanel.hass={...window.testPanel._hass,user:{is_admin:false}}; });
+    assert.equal(await settingsView.getByRole("button", { name:"Guardar personalización", exact:true }).isDisabled(), true);
+    await settingsView.getByRole("button", { name:"Listas", exact:true }).click();
     assert.equal(await settingsView.getByRole("button", { name: "Añadir lista", exact: true }).isDisabled(), true);
     assert.equal(await settingsView.getByRole("button", { name: "Quitar: Compra · Bring!", exact: true }).isDisabled(), true);
     await settingsContext.close();

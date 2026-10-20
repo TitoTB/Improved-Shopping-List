@@ -1,9 +1,31 @@
-"""Shared list selection stored in the integration's config-entry options."""
+"""Shared list and display settings stored in config-entry options."""
+
+import re
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 
 from .const import CONF_TODO_ENTITY, CONF_TODO_ENTITIES
+
+DEFAULT_APPEARANCE = {
+    "gradient_start": "#ee524f", "gradient_end": "#b52a27",
+    "columns": 3, "mobile_columns": 1,
+}
+
+
+def normalize_appearance(data: dict) -> dict:
+    if not isinstance(data, dict) or set(data) != set(DEFAULT_APPEARANCE):
+        raise ListSettingsError("La personalización contiene campos no válidos.")
+    result = {}
+    for key in ("gradient_start", "gradient_end"):
+        if not isinstance(data[key], str) or not re.fullmatch(r"#[a-fA-F0-9]{6}", data[key]):
+            raise ListSettingsError("Selecciona un color hexadecimal válido, como #ee524f.")
+        result[key] = data[key].lower()
+    for key, limit in (("columns", 6), ("mobile_columns", 4)):
+        if type(data[key]) is not int or not 1 <= data[key] <= limit:
+            raise ListSettingsError(f"El número de productos por fila debe estar entre 1 y {limit}.")
+        result[key] = data[key]
+    return result
 
 
 class ListSettingsError(ValueError):
@@ -14,7 +36,8 @@ def list_options(entry: ConfigEntry) -> dict:
     """Read older entries without losing their configured default."""
     primary = entry.options.get(CONF_TODO_ENTITY, entry.data[CONF_TODO_ENTITY])
     entities = list(entry.options.get(CONF_TODO_ENTITIES, [primary] if primary else []))
-    return {"entities": entities, "primary_entity": primary if primary in entities else next(iter(entities), "")}
+    return {"entities": entities, "primary_entity": primary if primary in entities else next(iter(entities), ""),
+            "appearance": {**DEFAULT_APPEARANCE, **entry.options.get("appearance", {})}}
 
 
 class ListSettings:
@@ -40,7 +63,7 @@ class ListSettings:
 
     @property
     def snapshot(self) -> dict:
-        return list_options(self.entry) if self.entry else {"entities": [], "primary_entity": ""}
+        return list_options(self.entry) if self.entry else {"entities": [], "primary_entity": "", "appearance": dict(DEFAULT_APPEARANCE)}
 
     @callback
     def subscribe(self, listener):
@@ -79,5 +102,14 @@ class ListSettings:
         self.hass.config_entries.async_update_entry(self.entry, options={
             **self.entry.options, CONF_TODO_ENTITIES: entities, CONF_TODO_ENTITY: primary,
         })
+        self.notify()
+        return self.snapshot
+
+    @callback
+    def update_appearance(self, data: dict) -> dict:
+        if not self.entry:
+            raise ListSettingsError("La integración no está activa.")
+        appearance = normalize_appearance(data)
+        self.hass.config_entries.async_update_entry(self.entry, options={**self.entry.options, "appearance": appearance})
         self.notify()
         return self.snapshot

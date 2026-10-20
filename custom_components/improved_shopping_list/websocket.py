@@ -36,6 +36,7 @@ def async_register_commands(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_settings_get)
     websocket_api.async_register_command(hass, ws_settings_subscribe)
     websocket_api.async_register_command(hass, ws_settings_update)
+    websocket_api.async_register_command(hass, ws_personalization)
 
 
 @websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/settings/get"})
@@ -75,6 +76,23 @@ def ws_settings_update(hass: HomeAssistant, connection, msg) -> None:
         result = hass.data[DOMAIN]["settings"].update(msg["action"], msg["entity_id"])
     except ListSettingsError as err:
         connection.send_error(msg["id"], "invalid_list", str(err))
+    else:
+        connection.send_result(msg["id"], result)
+
+
+@websocket_api.websocket_command({
+    vol.Required("type"): f"{DOMAIN}/settings/personalization",
+    vol.Required("appearance"): dict,
+})
+@websocket_api.require_admin
+@callback
+def ws_personalization(hass: HomeAssistant, connection, msg) -> None:
+    if not _catalog(hass, connection, msg):
+        return
+    try:
+        result = hass.data[DOMAIN]["settings"].update_appearance(msg["appearance"])
+    except ListSettingsError as err:
+        connection.send_error(msg["id"], "invalid_appearance", str(err))
     else:
         connection.send_result(msg["id"], result)
 

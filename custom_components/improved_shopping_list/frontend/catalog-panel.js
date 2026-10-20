@@ -10,6 +10,18 @@ function element(tag, className, text) {
   return node;
 }
 
+function iconButton(mdi, label, className = "") {
+  const button = element("button", className);
+  button.type = "button";
+  button.title = label;
+  button.setAttribute("aria-label", label);
+  const icon = element("ha-icon");
+  icon.setAttribute("icon", mdi);
+  icon.setAttribute("aria-hidden", "true");
+  button.append(icon);
+  return button;
+}
+
 export function imageSource(value) {
   if (!value) return "";
   try {
@@ -115,7 +127,8 @@ class ImprovedShoppingCatalog extends HTMLElement {
         .suggestion { display:flex; align-items:center; gap:16px; padding:16px; border:1px solid var(--divider-color,#dfe7e1); border-radius:14px; background:var(--card-background-color,#fff); }
         .suggestion h2 { flex:1; font-size:17px; overflow-wrap:anywhere; min-width:0; }
         .suggestion .actions { margin:0; flex-shrink:0; }
-        @media(max-width:650px) { .suggestion { flex-wrap:wrap; } .suggestion h2 { flex-basis:calc(100% - 48px); } .suggestion .actions { width:100%; } }
+        .suggestion .actions button { flex:0 0 40px; width:40px; min-height:40px; padding:8px; }
+        @media(max-width:650px) { .suggestion { flex-wrap:wrap; } .suggestion .actions { margin-left:auto; } }
         .catalog-tabs button[aria-pressed=true] { background:var(--secondary-background-color,#edf4ee); font-weight:650; }
         h1 { font-size:32px; letter-spacing:-.03em; margin:0; }
         h2 { font-size:23px; margin:0; }
@@ -292,7 +305,10 @@ class ImprovedShoppingCatalog extends HTMLElement {
   _renderSuggestions() {
     if (!this._built) return;
     const root = this.shadowRoot;
-    const selections = new Map([...root.querySelectorAll("[data-pending-id]")].map(row => [row.dataset.pendingId,row.querySelector("select").value]));
+    const selections = new Map([...root.querySelectorAll("[data-pending-id]")].map(row => {
+      const select = row.querySelector("select");
+      return [row.dataset.pendingId, {product:select.value, linking:!select.hidden}];
+    }));
     const error = root.querySelector("#suggestions-error");
     error.hidden = !this._suggestionError;
     error.textContent = this._suggestionError ?? "";
@@ -314,17 +330,11 @@ class ImprovedShoppingCatalog extends HTMLElement {
     suggestions.sort((a, b) => a.localeCompare(b, "es"));
     const rows = suggestions.map(name => {
       const row = element("article", "suggestion");
-      const icon = element("ha-icon");
-      icon.setAttribute("icon", "mdi:shopping");
-      row.append(icon, element("h2", "", name));
+      row.append(element("h2", "", name));
       const actions = element("div", "actions");
-      for (const [label, mdi, action] of [["Añadir al catálogo", "mdi:plus", "add"], ["Descartar", "mdi:close", "dismiss"]]) {
-        const button = element("button", action === "add" ? "primary" : "");
-        button.setAttribute("aria-label", `${label}: ${name}`);
+      for (const [label, mdi, action] of [["Añadir al catálogo", "mdi:plus-thick", "add"], ["Descartar", "mdi:delete", "dismiss"]]) {
+        const button = iconButton(mdi, `${label}: ${name}`, action === "add" ? "primary" : "");
         button.disabled = Boolean(this._suggestionBusy) || this._catalog.loading || Boolean(this._catalog.error);
-        const icon = element("ha-icon");
-        icon.setAttribute("icon", mdi);
-        button.append(icon, document.createTextNode(label));
         button.addEventListener("click", () => void this._actOnSuggestion(name, action));
         actions.append(button);
       }
@@ -344,7 +354,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
     root.querySelector("#suggestions-empty").hidden = suggestions.length > 0 || pending.length > 0 || this._catalog.loading || Boolean(this._catalog.error);
   }
 
-  _codeSuggestion(item, selectedProduct) {
+  _codeSuggestion(item, selection) {
     const row = element("article", "suggestion");
     row.dataset.pendingId=item.id;
     const info = element("div");
@@ -352,22 +362,34 @@ class ImprovedShoppingCatalog extends HTMLElement {
     info.append(element("h2", "", item.kind === "nfc" ? "Etiqueta NFC sin identificar" : "Código sin identificar"), element("p", "subtitle", item.code), element("p", "subtitle", item.reader_name));
     const select = element("select");
     select.setAttribute("aria-label", `Producto para el código ${item.code}`);
-    select.append(new Option("Crear un producto nuevo", ""), ...this._catalog.products.map(product => new Option([product.name,product.brand,product.format].filter(Boolean).join(" · "),product.id)));
-    if(this._catalog.products.some(product=>product.id===selectedProduct))select.value=selectedProduct;
+    select.append(new Option("Selecciona un producto del catálogo", ""), ...this._catalog.products.map(product => new Option([product.name,product.brand,product.format].filter(Boolean).join(" · "),product.id)));
+    if(this._catalog.products.some(product=>product.id===selection?.product))select.value=selection.product;
+    select.hidden = !selection?.linking;
+    const openSelected = () => {
+      const product = this._catalog.products.find(product => product.id === select.value);
+      if (product) this._openProduct(product, "", item);
+    };
+    select.addEventListener("change", openSelected);
     info.append(select);
     const actions = element("div", "actions");
-    const add = element("button", "primary", "Completar ficha");
-    add.setAttribute("aria-label", `Completar ficha del código ${item.code}`);
-    add.addEventListener("click", () => this._openProduct(this._catalog.products.find(product => product.id === select.value), "", item));
-    const dismiss = element("button", "", "Descartar");
-    dismiss.setAttribute("aria-label", `Descartar código ${item.code}`);
+    const add = iconButton("mdi:plus-thick", `Crear producto con el código ${item.code}`, "primary");
+    add.addEventListener("click", () => this._openProduct(undefined, "", item));
+    const link = iconButton("mdi:view-grid", `Asignar código ${item.code} a un producto del catálogo`);
+    link.disabled = !this._catalog.products.length;
+    if (link.disabled) link.title = "Añade primero un producto al catálogo";
+    link.addEventListener("click", () => {
+      select.hidden = false;
+      if (select.value) openSelected();
+      else select.focus();
+    });
+    const dismiss = iconButton("mdi:delete", `Descartar código ${item.code}`);
     dismiss.addEventListener("click", async () => {
       dismiss.disabled = true;
       try { await this._readers.dismiss(item.id); }
       catch(error) { this._suggestionError = error.message ?? "No se ha podido descartar el código."; }
       finally { this._renderSuggestions(); }
     });
-    actions.append(add,dismiss);row.append(info,actions);return row;
+    actions.append(add,link,dismiss);row.append(info,actions);return row;
   }
 
   _renderReaderActions() {

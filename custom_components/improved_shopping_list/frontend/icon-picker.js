@@ -176,7 +176,7 @@ class ImprovedShoppingIconPicker extends HTMLElement {
       this._query = result.query || query;
       if (result.query) this.shadowRoot.querySelector("#query").value = result.query;
       this._searchOptions = {};
-      this._status(this._icons.length ? "" : "No se han encontrado iconos a color. Puedes escribir otro término o indicar una URL Imagen/Icono.");
+      this._status(this._icons.length ? "" : "No se han encontrado iconos. Puedes escribir otro término o indicar una URL Imagen/Icono.");
       return true;
     } catch (error) {
       if (generation !== this._generation || !this.isConnected) return;
@@ -230,6 +230,7 @@ class ImprovedShoppingIconPicker extends HTMLElement {
     more.type = "button";
     more.id = "more-icons";
     more.className = "option more";
+    more.hidden = this._icons.length === 0;
     more.title = "Ver otros iconos";
     more.setAttribute("aria-label", more.title);
     const plus = node("ha-icon"); plus.setAttribute("icon", "mdi:plus-thick"); plus.setAttribute("aria-hidden", "true"); more.append(plus);

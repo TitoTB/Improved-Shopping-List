@@ -99,10 +99,10 @@ export class ListSettingsSession {
     if (generation === this._generation && revision === this._revision) this._receive(data);
   }
 
-  async saveStore(enabled, postalCode) {
+  async saveStore(enabled, postalCode, verify = false) {
     const generation = this._generation;
     const revision = ++this._revision;
-    const data = await this.getHass().callWS({ type: `${PREFIX}store`, store: "mercadona", enabled, postal_code: postalCode });
+    const data = await this.getHass().callWS({ type: `${PREFIX}store`, store: "mercadona", enabled, postal_code: postalCode, verify });
     if (generation === this._generation && revision === this._revision) this._receive(data);
   }
 

@@ -119,9 +119,14 @@ const hass={
       if(window.failSettings)throw new Error('No se ha podido guardar la personalización');
       window.listSettings.appearance=structuredClone(msg.appearance);window.emitSettings();return structuredClone(window.listSettings);
     }
+    if(msg.type==='improved_shopping_list/settings/store_products'){
+      (window.storeProductCalls??=[]).push(msg);
+      return {warehouse:'mad3',enabled:true,products:[{name:'Tomate',ean:'8430543025611',store_name:'Tomate rallado',store_product_id:'69938',price:msg.force?1.55:1.45,reference_price:5,reference_unit:'kg',checked_at:1800000000}],error:window.failStoreProducts?'Mercadona ha rechazado la consulta (HTTP 403)':'',remaining:0};
+    }
     if(msg.type==='improved_shopping_list/settings/store'){
       if(window.failSettings)throw new Error('Mercadona no está disponible');
-      window.listSettings.stores={mercadona:{enabled:msg.enabled,postal_code:msg.postal_code||'28001',warehouse:'mad3',checked_at:12345}};
+      const previous=window.listSettings.stores?.mercadona??{};
+      window.listSettings.stores={mercadona:msg.enabled||msg.verify?{enabled:msg.enabled,postal_code:msg.postal_code||'28001',warehouse:'mad3',checked_at:12345}:{...previous,enabled:false}};
       window.listSettings.favorite_store=msg.enabled?'mercadona':'';
       window.emitSettings();return structuredClone(window.listSettings);
     }
@@ -810,6 +815,7 @@ async function main() {
     assert.equal(await predictiveInput.getAttribute("aria-expanded"), "false");
     await predictiveContext.close();
     const settingsContext = await browser.newContext({ viewport: { width: 1280, height: 960 } });
+    await settingsContext.route("https://i.pinimg.com/**",route=>route.fulfill({contentType:"image/svg+xml",body:'<svg xmlns="http://www.w3.org/2000/svg" width="56" height="56"><rect width="56" height="56" fill="green"/></svg>'}));
     const settingsPage = await settingsContext.newPage();
     settingsPage.on("pageerror", error => errors.push(error.message));
     await settingsPage.goto(url);
@@ -823,21 +829,41 @@ async function main() {
     await settingsView.getByLabel("Código postal",{exact:true}).fill("28001");
     await settingsView.getByRole("button",{name:"Comprobar y guardar",exact:true}).click();
     await settingsView.locator("#mercadona-warehouse").filter({hasText:"Almacén: mad3"}).waitFor();
-    assert.equal(await settingsView.locator("#store-favorite").textContent(), "Tienda favorita: Mercadona");
+    assert.equal(await settingsView.locator("#store-favorite").textContent(), "Favorita");
+    const storeDialog = settingsView.getByRole("dialog",{name:"Mercadona",exact:true});
+    await storeDialog.getByRole("button",{name:"Cerrar",exact:true}).click();
+    const storeRow = settingsView.locator("#mercadona-row");
+    assert.equal(await storeRow.locator("img").getAttribute("src"),"https://i.pinimg.com/736x/66/bc/4e/66bc4e8d1482e6ec4525987c1691c83e.jpg");
+    assert.equal(await storeRow.locator("ha-icon").getAttribute("icon"),"mdi:cog");
+    assert.ok(await storeRow.evaluate(row=>{const image=row.querySelector('img').getBoundingClientRect(),name=row.querySelector('h3').getBoundingClientRect(),controls=row.querySelector('.store-controls').getBoundingClientRect();return image.right<=name.left && name.right<=controls.left;}));
     await settingsPage.reload();
     await settingsPage.getByRole("button",{name:"Ajustes",exact:true}).click();
     await settingsView.getByRole("button",{name:"Tiendas",exact:true}).click();
+    await settingsView.getByRole("button",{name:"Ajustes de Mercadona",exact:true}).click();
+    await storeDialog.getByText("Tomate",{exact:true}).waitFor();
+    assert.match(await storeDialog.locator(".store-price strong").textContent(),/1,45/);
+    await storeDialog.getByRole("button",{name:"Forzar actualización",exact:true}).click();
+    await storeDialog.locator(".store-price strong").filter({hasText:'1,55'}).waitFor();
+    await settingsPage.evaluate(()=>{window.failStoreProducts=true;});
+    await storeDialog.getByRole("button",{name:"Forzar actualización",exact:true}).click();
+    await storeDialog.getByRole("alert").filter({hasText:'HTTP 403'}).waitFor();
+    assert.match(await storeDialog.locator(".store-price strong").textContent(),/1,55/);
+    await settingsPage.setViewportSize({width:390,height:844});
+    await settingsPage.screenshot({path:'test-results/store-products-mobile.png',fullPage:true});
+    assert.ok(await storeDialog.evaluate(dialog=>dialog.scrollWidth<=dialog.clientWidth+1));
+    await storeDialog.getByRole("button",{name:"Configuración",exact:true}).click();
     assert.equal(await settingsView.getByLabel("Código postal",{exact:true}).inputValue(), "28001");
     await settingsPage.evaluate(()=>{window.failSettings=true;});
     await settingsView.getByLabel("Código postal",{exact:true}).fill("46001");
     await settingsView.getByRole("button",{name:"Comprobar y guardar",exact:true}).click();
-    await settingsView.getByRole("alert").filter({hasText:"Mercadona no está disponible"}).waitFor();
+    await storeDialog.getByRole("alert").filter({hasText:"Mercadona no está disponible"}).waitFor();
     assert.match(await settingsView.locator("#mercadona-warehouse").textContent(), /28001/);
     assert.equal(await settingsView.getByLabel("Código postal",{exact:true}).inputValue(), "46001");
     await settingsPage.evaluate(()=>{window.failSettings=false;});
-    await settingsView.getByLabel("Habilitar Mercadona").uncheck();
-    await settingsView.getByRole("button",{name:"Guardar",exact:true}).click();
-    await settingsView.locator("#mercadona-warehouse").filter({hasText:"Deshabilitada"}).waitFor();
+    await storeDialog.getByRole("button",{name:"Cerrar",exact:true}).click();
+    await settingsView.getByRole("switch",{name:"Habilitar Mercadona",exact:true}).uncheck();
+    assert.equal(await settingsView.getByRole("switch",{name:"Habilitar Mercadona",exact:true}).isChecked(),false);
+    assert.equal(await settingsPage.evaluate(()=>window.listSettings.stores.mercadona.postal_code),"28001");
     await settingsPage.screenshot({path:"test-results/stores-mobile.png",fullPage:true});
     await settingsView.getByRole("button",{name:"Comunidad",exact:true}).click();
     await settingsView.getByRole("heading",{name:"Comunidad",exact:true}).waitFor();

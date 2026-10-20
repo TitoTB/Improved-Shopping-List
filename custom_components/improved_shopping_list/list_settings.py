@@ -84,7 +84,7 @@ class ListSettings:
     def snapshot(self) -> dict:
         return list_options(self.entry) if self.entry else {"entities": [], "primary_entity": "", "appearance": dict(DEFAULT_APPEARANCE), "stores": deepcopy(DEFAULT_STORES), "favorite_store": ""}
 
-    async def async_update_store(self, enabled: bool, postal_code: str) -> dict:
+    async def async_update_store(self, enabled: bool, postal_code: str, verify: bool = False) -> dict:
         """Verify before saving, serialize writes and preserve unrelated options."""
         generation = self._generation
         async with self._stores_lock:
@@ -92,9 +92,9 @@ class ListSettings:
             if generation != self._generation or not entry or not self.hass.data.get(DOMAIN, {}).get("active"):
                 raise StoreError("La integración no está activa.")
             current = self.snapshot["stores"]["mercadona"]
-            if enabled:
+            if enabled or verify:
                 warehouse = await async_resolve_mercadona(self.hass, postal_code)
-                store = {"enabled": True, "postal_code": postal_code, "warehouse": warehouse, "checked_at": int(time.time())}
+                store = {"enabled": enabled, "postal_code": postal_code, "warehouse": warehouse, "checked_at": int(time.time())}
             else:
                 store = {**current, "enabled": False}
             if generation != self._generation or self.entry is not entry or not self.hass.data.get(DOMAIN, {}).get("active"):

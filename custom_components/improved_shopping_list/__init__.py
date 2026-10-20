@@ -14,6 +14,7 @@ from .community import CommunityLibrary
 from .icons import ICONS_URL, IconLibrary
 from .list_settings import ListSettings
 from .readers import ReaderManager
+from .store_products import StoreProducts
 from .const import (
     CONF_TODO_ENTITY,
     DOMAIN,
@@ -32,6 +33,8 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         catalog = Catalog(hass)
         await catalog.async_load()
         settings = ListSettings(hass)
+        store_products = StoreProducts(hass, catalog, settings)
+        await store_products.async_load()
         readers = ReaderManager(hass, catalog, settings)
         await readers.async_load()
         activity = ActivityLog(hass, catalog, settings, readers)
@@ -45,7 +48,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
             [StaticPathConfig(STATIC_URL, str(Path(__file__).parent / "frontend"), False),
              StaticPathConfig(ICONS_URL, str(icons.directory), True)]
         )
-        hass.data[DOMAIN] = {"catalog": catalog, "settings": settings, "readers": readers, "icons": icons, "community": community, "activity": activity, "active": False}
+        hass.data[DOMAIN] = {"catalog": catalog, "settings": settings, "store_products": store_products, "readers": readers, "icons": icons, "community": community, "activity": activity, "active": False}
         async_register_commands(hass)
     return True
 

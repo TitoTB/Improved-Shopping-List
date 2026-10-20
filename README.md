@@ -159,8 +159,15 @@ Se reutiliza la caché persistente de identificación (30 días para productos e
 
 ## Tiendas: Mercadona
 
-En **Ajustes → Tiendas**, habilita Mercadona, introduce un código postal español y pulsa **Comprobar y guardar**. Home Assistant consulta directamente a Mercadona sin iniciar sesión y guarda el almacén devuelto para ese código postal, con la fecha de comprobación. Al ser la única tienda disponible, se marca como favorita automáticamente. Puedes comprobar de nuevo el mismo código postal para renovar el almacén asignado o deshabilitar la tienda sin hacer consultas.
+En **Ajustes → Tiendas**, cada tienda se muestra en un bloque horizontal con su logo, nombre, interruptor y botón de configuración. El logo de Mercadona se carga desde la URL externa indicada; los precios no dependen de esa imagen. El interruptor habilita o deshabilita la tienda. Si todavía no tiene ubicación, al habilitarla se abre la configuración para introducir un código postal.
 
-La operación requiere una cuenta administradora de Home Assistant. Si Mercadona no confirma un almacén válido, el código postal no tiene cobertura o se produce un fallo de red, se muestra un error y se conserva la configuración guardada. No se utiliza un almacén de sustitución ni una tabla fija de almacenes. El código postal se guarda en las opciones de Home Assistant y solo se envía a Mercadona al comprobar; no se publican códigos postales ni capturas HAR en GitHub.
+El botón de engranaje abre un popup con dos vistas:
 
-Esta versión incorpora la configuración de tienda y almacén. La vinculación de cada producto con su referencia de Mercadona y la actualización de precios se incorporarán posteriormente; el campo de precio de la ficha sigue siendo manual.
+- **Productos**: productos del catálogo con un EAN/GTIN válido encontrado exactamente en Mercadona para el almacén configurado. Muestra nombre, EAN, referencia comercial, precio en euros, precio por unidad de referencia cuando existe, disponibilidad y fecha de consulta. Los precios aproximados se indican con ≈. El botón **Forzar actualización** vuelve a consultar los precios y requiere permisos de administrador.
+- **Configuración**: código postal y almacén asignado. **Comprobar y guardar** consulta a Mercadona sin iniciar sesión. También permite preparar la ubicación mientras la tienda está deshabilitada. La tienda habilitada queda como favorita al ser la única disponible.
+
+Los precios se consultan al abrir Productos y se reutilizan durante seis horas. El refresco revisa hasta 20 códigos por lote, empezando por los más antiguos, y permite continuar con el botón manual. No se descargan todos los productos de la tienda ni se ejecuta un proceso periódico en segundo plano. Primero se busca el EAN y, si no hay coincidencia, el nombre; un resultado solo se incorpora si su EAN coincide, nunca por similitud del nombre. Los códigos QR y las etiquetas NFC no se envían para buscar precios.
+
+Las consultas utilizan el buscador web de Mercadona, que puede rechazar peticiones externas (por ejemplo, HTTP 403). Estos errores se muestran y conservan los precios anteriores con su fecha de consulta; se aplica una espera de un minuto antes de reintentar. Los resultados se guardan en Home Assistant, separados por almacén, y no se muestran como precios de otra región ni de una tienda deshabilitada. Esta función todavía no sustituye el precio manual de la ficha del producto.
+
+El código postal se guarda en las opciones de Home Assistant y solo se envía a Mercadona al comprobar la ubicación; no se publican códigos postales ni capturas HAR en GitHub. Los errores conservan la configuración anterior y no asignan un almacén de sustitución.

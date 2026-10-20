@@ -14,6 +14,8 @@ class ImprovedShoppingSettings extends HTMLElement {
     this._render();
   }
 
+  disconnectedCallback() { this._productsGeneration = (this._productsGeneration || 0) + 1; this.shadowRoot.querySelector("#store-dialog")?.close(); }
+
   _build() {
     this.shadowRoot.innerHTML = `
       <style>
@@ -38,6 +40,20 @@ class ImprovedShoppingSettings extends HTMLElement {
         .appearance-actions { display:flex; justify-content:flex-end; flex-wrap:wrap; gap:10px; margin-top:24px; }
         .preview { display:grid; place-items:center; min-height:120px; border-radius:16px; margin-top:24px; padding:20px; font-weight:650; }
         @media(max-width:540px) { .appearance-fields { grid-template-columns:1fr; } }
+        .store-row { flex-wrap:nowrap; gap:12px; }
+        .store-logo { width:56px; height:56px; flex:none; object-fit:contain; border-radius:10px; background:white; }
+        .store-name { flex:1; min-width:0; }
+        .store-controls { display:flex; align-items:center; gap:12px; margin-left:auto; flex:none; }
+        .store-toggle[type=checkbox] { appearance:none; position:relative; width:40px; height:24px; min-height:24px; margin:0; padding:0; border:0; border-radius:20px; background:#b3261e; cursor:pointer; }
+        .store-toggle::before { content:""; position:absolute; top:4px; left:4px; width:16px; height:16px; border-radius:50%; background:white; }
+        .store-toggle:checked { background:#267052; }.store-toggle:checked::before { transform:translateX(16px); }
+        .store-cog { display:flex; align-items:center; justify-content:center; padding:0; width:44px; height:44px; min-height:44px; }
+        .store-cog ha-icon { display:flex; align-items:center; justify-content:center; width:24px; height:24px; --mdc-icon-size:24px; }
+        dialog { color:inherit; background:var(--card-background-color,#fff); width:min(680px,calc(100vw - 28px)); max-height:calc(100dvh - 28px); border:1px solid var(--divider-color,#dfe7e1); border-radius:18px; padding:24px; }
+        dialog::backdrop { background:rgba(0,0,0,.4); }
+        .store-products { display:grid; gap:12px; margin-top:16px; }.store-product { display:flex; justify-content:space-between; align-items:center; gap:12px; border:1px solid var(--divider-color,#dfe7e1); border-radius:10px; padding:14px; }
+        .store-product-info { min-width:0; overflow-wrap:anywhere; }.store-product-info p { margin:4px 0 0; }.store-price { flex:none; max-width:50%; text-align:right; }.store-price p { margin:4px 0; font-size:12px; }
+        @media(max-width:540px) { dialog { padding:18px; }.store-row { padding:12px; gap:8px; }.store-logo { width:40px; height:40px; }.store-controls { gap:8px; } }
         .primary { color:#fff; background:#267052; border:0; }
         .add-row { display:flex; align-items:end; gap:10px; }
         .select-wrap { flex:1; min-width:0; }
@@ -86,18 +102,32 @@ class ImprovedShoppingSettings extends HTMLElement {
       </section>
       <section id="settings-stores" class="card" aria-labelledby="settings-stores-title" hidden>
         <h2 id="settings-stores-title">Tiendas</h2>
-        <form id="store-form">
-          <h3>Mercadona</h3>
-          <p>Introduce tu código postal para obtener el almacén asignado por Mercadona. No necesitas una cuenta.</p>
-          <label><input id="mercadona-enabled" type="checkbox"> Habilitar Mercadona</label>
-          <label for="mercadona-postal">Código postal</label>
-          <input id="mercadona-postal" type="text" inputmode="numeric" autocomplete="postal-code" maxlength="5" pattern="(?:0[1-9]|[1-4][0-9]|5[0-2])[0-9]{3}" placeholder="28001">
-          <p id="mercadona-warehouse" role="status"></p>
-          <p id="store-favorite"></p>
-          <div class="appearance-actions"><button id="save-store" class="primary" type="submit">Comprobar y guardar</button></div>
-          <p>La asociación de productos y la consulta de precios se incorporarán en un siguiente paso.</p>
-        </form>
+        <article class="store-row" id="mercadona-row">
+          <img class="store-logo" src="https://i.pinimg.com/736x/66/bc/4e/66bc4e8d1482e6ec4525987c1691c83e.jpg" alt="Logo de Mercadona" referrerpolicy="no-referrer" loading="lazy" width="56" height="56">
+          <div class="store-name"><h3>Mercadona</h3><span id="store-favorite" class="badge"></span></div>
+          <div class="store-controls"><input id="mercadona-enabled" class="store-toggle" type="checkbox" role="switch" aria-label="Habilitar Mercadona"><button id="configure-mercadona" class="store-cog" type="button" aria-label="Ajustes de Mercadona" title="Ajustes de Mercadona"><ha-icon icon="mdi:cog" aria-hidden="true"></ha-icon></button></div>
+        </article>
       </section>
+      <dialog id="store-dialog" aria-labelledby="store-dialog-title">
+        <h2 id="store-dialog-title">Mercadona</h2>
+        <nav class="settings-tabs" aria-label="Vistas de Mercadona"><button id="store-view-products" aria-pressed="true" type="button"><ha-icon icon="mdi:view-grid" aria-hidden="true"></ha-icon>Productos</button><button id="store-view-configuration" aria-pressed="false" type="button"><ha-icon icon="mdi:cog" aria-hidden="true"></ha-icon>Configuración</button></nav>
+        <div id="store-dialog-error" class="notice error" role="alert" hidden></div>
+        <section id="store-products-view">
+          <div class="appearance-actions"><button id="refresh-store-products" type="button"><ha-icon icon="mdi:refresh" aria-hidden="true"></ha-icon> Forzar actualización</button></div>
+          <p id="store-products-status" role="status"></p><div id="store-products-error" class="notice error" role="alert" hidden></div>
+          <div id="store-products" class="store-products"></div>
+        </section>
+        <section id="store-configuration-view" hidden>
+          <form id="store-form">
+            <p>Introduce tu código postal para obtener el almacén asignado por Mercadona. No necesitas una cuenta.</p>
+            <label for="mercadona-postal">Código postal</label>
+            <input id="mercadona-postal" type="text" inputmode="numeric" autocomplete="postal-code" maxlength="5" pattern="(?:0[1-9]|[1-4][0-9]|5[0-2])[0-9]{3}" placeholder="28001" required>
+            <p id="mercadona-warehouse" role="status"></p>
+            <div class="appearance-actions"><button id="save-store" class="primary" type="submit">Comprobar y guardar</button></div>
+          </form>
+        </section>
+        <div class="appearance-actions"><button id="close-store-dialog" type="button">Cerrar</button></div>
+      </dialog>
       <section id="settings-community" class="card" aria-labelledby="settings-community-title" hidden>
         <h2 id="settings-community-title">Comunidad</h2>
         <p>Exporta un diccionario con los nombres de tus productos, sus traducciones disponibles y las imágenes locales asignadas. Puedes enviarlo al mantenedor para incorporar las imágenes revisadas al catálogo comunitario.</p>
@@ -122,7 +152,24 @@ class ImprovedShoppingSettings extends HTMLElement {
         this._render();
       });
     }
-    root.querySelector("#store-form").addEventListener("submit", event => { event.preventDefault(); void this._saveStore(); });
+    root.querySelector("#store-form").addEventListener("submit", event => { event.preventDefault(); void this._saveStore(this._storeEnableDraft ?? Boolean(this._data.settings.stores?.mercadona?.enabled), true); });
+    root.querySelector("#mercadona-enabled").addEventListener("change", () => {
+      const enabled = root.querySelector("#mercadona-enabled").checked;
+      const store = this._data.settings.stores?.mercadona ?? {};
+      if (enabled && !store.postal_code) { this._storeEnableDraft = true; this._openStore("configuration"); }
+      else void this._saveStore(enabled, false);
+    });
+    root.querySelector("#configure-mercadona").addEventListener("click", () => this._openStore("products"));
+    root.querySelector("#close-store-dialog").addEventListener("click", () => root.querySelector("#store-dialog").close());
+    root.querySelector("#store-dialog").addEventListener("cancel", event => { if (this._busy) event.preventDefault(); });
+    root.querySelector("#store-dialog").addEventListener("close", () => {
+      if (root.querySelector("#store-dialog").open) return;
+      this._storeEnableDraft = undefined; this._storeDirty = false;
+      this._productsGeneration = (this._productsGeneration || 0) + 1; this._productsLoading = false;
+      this._error = ""; this._render();
+    });
+    for (const view of ["products", "configuration"]) root.querySelector(`#store-view-${view}`).addEventListener("click", () => this._switchStoreView(view));
+    root.querySelector("#refresh-store-products").addEventListener("click", () => void this._loadStoreProducts(true));
     root.querySelector("#store-form").addEventListener("input", () => { this._storeDirty = true; this._renderStore(); });
     root.querySelector("#export-community").addEventListener("click", () => void this._exportCommunity());
     root.querySelector("#appearance-form").addEventListener("input", () => { this._appearanceDirty = true; this._preview(); });
@@ -143,7 +190,7 @@ class ImprovedShoppingSettings extends HTMLElement {
     root.querySelector("#export-community").disabled = locked;
     const error = root.querySelector("#settings-error");
     error.textContent = this._error || settings.error;
-    error.hidden = !error.textContent;
+    error.hidden = !error.textContent || root.querySelector("#store-dialog").open;
     const status = root.querySelector("#settings-status");
     status.textContent = settings.loading ? "Cargando ajustes…" : this._notice ?? "";
     status.hidden = !status.textContent;
@@ -208,37 +255,107 @@ class ImprovedShoppingSettings extends HTMLElement {
     const enabled = root.querySelector("#mercadona-enabled");
     const postal = root.querySelector("#mercadona-postal");
     if (!this._storeDirty && !this._busy) {
-      enabled.checked = store.enabled === true;
+      enabled.checked = this._storeEnableDraft ?? (store.enabled === true);
       postal.value = store.postal_code ?? "";
     }
     const locked = hass?.user?.is_admin !== true || !settings.loaded || settings.loading || this._busy;
     enabled.disabled = locked;
-    postal.disabled = locked || !enabled.checked;
-    postal.required = enabled.checked;
+    postal.disabled = locked;
+    root.querySelector("#configure-mercadona").disabled = !settings.loaded || settings.loading || this._busy;
+    root.querySelector("#close-store-dialog").disabled = Boolean(this._busy);
+    root.querySelector("#store-dialog-error").textContent = this._error || "";
+    root.querySelector("#store-dialog-error").hidden = !this._error;
     const save = root.querySelector("#save-store");
     save.disabled = locked;
-    save.textContent = this._busy ? "Guardando…" : enabled.checked ? "Comprobar y guardar" : "Guardar";
+    save.textContent = this._busy ? "Guardando…" : "Comprobar y guardar";
     root.querySelector("#mercadona-warehouse").textContent = store.warehouse
       ? `Configuración guardada: ${store.postal_code} · Almacén: ${store.warehouse}${store.enabled ? "" : " · Deshabilitada"}`
       : "Todavía no se ha configurado un almacén.";
     root.querySelector("#store-favorite").textContent = store.enabled && settings.favoriteStore === "mercadona"
-      ? "Tienda favorita: Mercadona" : "";
+      ? "Favorita" : "";
+    this._renderStoreProducts();
   }
 
-  async _saveStore() {
+  async _saveStore(enabled, verify) {
     if (this._busy || this._data?.hass?.user?.is_admin !== true) return;
     const root = this.shadowRoot;
-    const enabled = root.querySelector("#mercadona-enabled").checked;
-    const postal = root.querySelector("#mercadona-postal").value.trim();
+    const postal = verify ? root.querySelector("#mercadona-postal").value.trim() : this._data.settings.stores?.mercadona?.postal_code ?? "";
     this._busy = true;
     this._error = this._notice = "";
     this._render();
     try {
-      await this._data.settings.saveStore(enabled, postal);
+      await this._data.settings.saveStore(enabled, postal, verify);
+      this._storeEnableDraft = undefined;
       this._storeDirty = false;
-      this._notice = enabled ? "Mercadona configurada correctamente." : "Mercadona deshabilitada.";
+      this._notice = verify ? "Configuración de Mercadona guardada." : enabled ? "Mercadona activada." : "Mercadona deshabilitada.";
     } catch (error) { this._error = error.message ?? "No se ha podido configurar Mercadona."; }
     finally { this._busy = false; this._render(); }
+  }
+
+  _openStore(view) {
+    const root = this.shadowRoot;
+    this._error = ""; this._storeDirty = false;
+    this._renderStore();
+    root.querySelector("#store-dialog").showModal();
+    this._switchStoreView(view);
+  }
+
+  _switchStoreView(view) {
+    const root = this.shadowRoot;
+    for (const section of ["products", "configuration"]) {
+      root.querySelector(`#store-${section}-view`).hidden = view !== section;
+      root.querySelector(`#store-view-${section}`).setAttribute("aria-pressed", String(view === section));
+    }
+    if (view === "products") void this._loadStoreProducts(false);
+  }
+
+  _renderStoreProducts() {
+    const root = this.shadowRoot;
+    const store = this._data.settings.stores?.mercadona ?? {};
+    const data = this._storeProducts?.warehouse === store.warehouse && store.enabled ? this._storeProducts : null;
+    const refresh = root.querySelector("#refresh-store-products");
+    refresh.disabled = !store.enabled || !store.warehouse || this._productsLoading || this._busy || this._data.hass?.user?.is_admin !== true;
+    const error = root.querySelector("#store-products-error");
+    error.textContent = data?.error || this._productsError || "";
+    error.hidden = !error.textContent;
+    root.querySelector("#store-products-status").textContent = this._productsLoading ? "Consultando productos y precios…"
+      : !store.enabled ? "Habilita la tienda para consultar sus productos."
+      : data?.remaining ? `Quedan ${data.remaining} códigos por revisar. Puedes continuar con Forzar actualización.`
+      : !data?.products?.length ? "No hay productos encontrados. Se buscan los EAN válidos de tu catálogo."
+      : `${data.products.length} productos encontrados · Almacén: ${store.warehouse}`;
+    const money = value => new Intl.NumberFormat("es-ES",{style:"currency",currency:"EUR"}).format(value);
+    root.querySelector("#store-products").replaceChildren(...(data?.products ?? []).map(product => {
+      const row = document.createElement("div"); row.className = "store-product";
+      const info = document.createElement("div"); info.className = "store-product-info";
+      const name = document.createElement("strong"); name.textContent = product.name;
+      const code = document.createElement("p"); code.textContent = `EAN: ${product.ean}`;
+      const source = document.createElement("a"); source.textContent = product.store_name || "Ver en Mercadona";
+      source.href = `https://tienda.mercadona.es/product/${encodeURIComponent(product.store_product_id)}`; source.target = "_blank"; source.rel = "noopener noreferrer";
+      info.append(name,code,source);
+      const prices = document.createElement("div"); prices.className = "store-price";
+      const price = document.createElement("strong"); price.textContent = `${product.approximate ? "≈ " : ""}${money(product.price)}`;
+      const checked = document.createElement("p"); checked.textContent = `Consultado: ${new Date(product.checked_at*1000).toLocaleString("es-ES")}`;
+      prices.append(price);
+      if (Number.isFinite(product.reference_price) && product.reference_unit) {
+        const reference = document.createElement("p"); reference.textContent = `${money(product.reference_price)}/${product.reference_unit}`; prices.append(reference);
+      }
+      if (product.available === false) { const unavailable = document.createElement("p"); unavailable.textContent = "No disponible"; prices.append(unavailable); }
+      prices.append(checked); row.append(info,prices); return row;
+    }));
+  }
+
+  async _loadStoreProducts(force) {
+    if (this._productsLoading) return;
+    const store = this._data.settings.stores?.mercadona ?? {};
+    if (!store.enabled || !store.warehouse) { this._renderStoreProducts(); return; }
+    const generation = this._productsGeneration = (this._productsGeneration || 0) + 1;
+    const warehouse = store.warehouse;
+    this._productsLoading = true; this._productsError = ""; this._renderStoreProducts();
+    try {
+      const data = await this._data.hass.callWS({type:"improved_shopping_list/settings/store_products",force});
+      if (generation === this._productsGeneration && this._data.settings.stores?.mercadona?.warehouse === warehouse) this._storeProducts = data;
+    } catch (error) { if (generation === this._productsGeneration) this._productsError = error.message ?? "No se han podido consultar los precios."; }
+    finally { if (generation === this._productsGeneration) { this._productsLoading = false; this._renderStoreProducts(); } }
   }
 
   _fillAppearance(appearance) {

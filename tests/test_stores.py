@@ -133,3 +133,20 @@ async def test_store_ws_requires_admin(hass, hass_ws_client, hass_read_only_user
     await client.send_json({"id": 1, "type": f"{DOMAIN}/settings/store", "store": "mercadona", "enabled": True, "postal_code": "28001"})
     assert (await client.receive_json())["error"]["code"] == "unauthorized"
     assert aioclient_mock.call_count == 0
+    await client.send_json({"id": 2, "type": f"{DOMAIN}/settings/store_products", "force": True})
+    assert (await client.receive_json())["error"]["code"] == "unauthorized"
+    await client.send_json({"id": 3, "type": f"{DOMAIN}/settings/store_products"})
+    assert (await client.receive_json())["result"]["products"] == []
+
+
+async def test_can_configure_region_while_store_stays_disabled(hass, monkeypatch):
+    entry = MockConfigEntry(domain=DOMAIN, data={CONF_TODO_ENTITY: "todo.bring"})
+    entry.add_to_hass(hass)
+    settings = ListSettings(hass)
+    settings.attach(entry)
+    hass.data[DOMAIN] = {"active": True}
+    monkeypatch.setattr("custom_components.improved_shopping_list.list_settings.async_resolve_mercadona", AsyncMock(return_value="mad3"))
+    result = await settings.async_update_store(False, "28001", True)
+    assert result["stores"]["mercadona"]["warehouse"] == "mad3"
+    assert result["stores"]["mercadona"]["enabled"] is False
+    assert result["favorite_store"] == ""

@@ -200,7 +200,7 @@ class ImprovedShoppingSettings extends HTMLElement {
     error.hidden = !error.textContent || root.querySelector("#store-dialog").open;
     const status = root.querySelector("#settings-status");
     status.textContent = settings.loading ? "Cargando ajustes…" : this._notice ?? "";
-    status.hidden = !status.textContent;
+    status.hidden = !status.textContent || (!settings.loading && !root.querySelector("#settings-stores").hidden);
     root.querySelector("#admin-help").hidden = admin;
     const select = root.querySelector("#todo-entity");
     const previous = select.value;
@@ -294,7 +294,6 @@ class ImprovedShoppingSettings extends HTMLElement {
       await this._data.settings.saveStore(enabled, postal, verify);
       this._storeEnableDraft = undefined;
       this._storeDirty = false;
-      this._notice = verify ? "Configuración de Mercadona guardada." : enabled ? "Mercadona activada." : "Mercadona deshabilitada.";
     } catch (error) { this._error = error.message ?? "No se ha podido configurar Mercadona."; }
     finally { this._busy = false; this._render(); }
   }

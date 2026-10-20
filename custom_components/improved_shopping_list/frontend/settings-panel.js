@@ -42,6 +42,7 @@ class ImprovedShoppingSettings extends HTMLElement {
         .preview { display:grid; place-items:center; min-height:120px; border-radius:16px; margin-top:24px; padding:20px; font-weight:650; }
         @media(max-width:540px) { .appearance-fields { grid-template-columns:1fr; } }
         .store-row { flex-wrap:nowrap; gap:12px; }
+        .store-row + .store-row { margin-top:12px; }
         .store-logo { width:56px; height:56px; padding:8px; flex:none; object-fit:contain; border-radius:10px; background:#fff; }
         .store-name { flex:1; min-width:0; }
         .store-controls { display:flex; align-items:center; gap:12px; margin-left:auto; flex:none; }

@@ -63,7 +63,10 @@ async def test_pending_union_deduplicates_and_reads_do_not_fetch(env):
 
 
 async def test_last_price_remains_when_bought_and_failure_does_not_overwrite(env):
+    assert env.manager.progress["last_updated"] == 0
     await env.manager.async_tick()
+    updated = env.manager.progress["last_updated"]
+    assert updated == env.clock[0]
     old = deepcopy(env.manager._data["offers"])
     env.items["todo.one"] = env.items["todo.two"] = []
     env.clock[0] += 86400
@@ -77,6 +80,7 @@ async def test_last_price_remains_when_bought_and_failure_does_not_overwrite(env
     await env.manager.async_tick()
     assert env.manager._data["offers"] == old
     assert "403" in env.manager.snapshot("alcampo")["error"]
+    assert env.manager.progress["last_updated"] == updated
 
 
 async def test_five_minutes_persist_after_restart_and_skip_removed_items(env, hass):

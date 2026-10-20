@@ -54,7 +54,7 @@ const hass={
   },
   connection:{subscribeMessage:async(callback,msg)=>{
     if(msg.type==='improved_shopping_list/settings/store_progress'){
-      (window.storeProgressListeners??=new Set()).add(callback);callback({running:false});
+      (window.storeProgressListeners??=new Set()).add(callback);callback({running:false,last_updated:window.lastPriceUpdateFixture??0});
       return()=>window.storeProgressListeners.delete(callback);
     }
     if(msg.type==='improved_shopping_list/logs/subscribe'){
@@ -925,7 +925,7 @@ async function main() {
     await settingsPage.evaluate(()=>{window.holdStoreRefresh=false;window.finishStoreRefresh();});
     await storeDialog.locator(".store-price strong").filter({hasText:'1,55'}).waitFor();
     assert.equal(await progressBar.isVisible(),false);
-    assert.equal(await settingsPage.evaluate(()=>window.storeProgressListeners.size),0);
+    assert.equal(await settingsPage.evaluate(()=>window.storeProgressListeners.size),1); // Header keeps its own live timestamp subscription.
     await settingsPage.evaluate(()=>{window.failStoreProducts=true;});
     await storeDialog.getByRole("button",{name:"Forzar actualización",exact:true}).click();
     await storeDialog.getByRole("alert").filter({hasText:'HTTP 403'}).waitFor();
@@ -970,11 +970,20 @@ async function main() {
     assert.equal(await settingsView.locator('#mercadona-linked-count').textContent(),'0');
     const updateAll = settingsView.getByRole('button',{name:'Actualizar ahora',exact:true});
     assert.equal(await updateAll.count(),1);
+    assert.equal(await updateAll.locator('ha-icon').getAttribute('icon'),'mdi:refresh');
+    assert.equal(await settingsView.locator('#stores-last-updated').textContent(),'—');
+    await settingsPage.evaluate(()=>{
+      document.querySelector('improved-shopping-list-panel').shadowRoot.querySelector('isl-settings')._data.hass.config={time_zone:'Europe/Madrid'};
+      window.lastPriceUpdateFixture=Date.parse('2026-10-20T18:35:00Z')/1000;
+      for(const callback of window.storeProgressListeners)callback({running:false,last_updated:window.lastPriceUpdateFixture});
+    });
+    assert.equal(await settingsView.locator('#stores-last-updated').textContent(),'20/10 20:35');
     assert.equal(await settingsView.locator('.store-row .store-refresh').count(),0);
     await updateAll.click();
     await settingsView.locator('#refresh-all-prices:not([disabled])').waitFor();
     assert.deepEqual(await settingsPage.evaluate(()=>window.calls.filter(call=>call.type==='improved_shopping_list/settings/refresh_prices').map(call=>call.store)),['mercadona','carrefour']);
     assert.equal(await settingsView.locator('#stores-refresh-error').isVisible(),false);
+    assert.equal(await settingsView.locator('#stores-last-updated').textContent(),'20/10 20:35'); // Queueing alone must not change a price's timestamp.
     assert.doesNotMatch(await settingsView.locator('#settings-stores').textContent(),/referencias pendientes en cola/);
     await settingsPage.evaluate(()=>{window.failManualPriceRefresh=true;});
     await updateAll.click();

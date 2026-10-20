@@ -15,7 +15,7 @@ class ImprovedShoppingSettings extends HTMLElement {
     this._render();
   }
 
-  disconnectedCallback() { clearTimeout(this._storeRetryTimer); clearInterval(this._storeProgressTimer); this._stopStoreProgress?.(); this._stopStoreProgress = null; this._productsLoading = false; this._productsGeneration = (this._productsGeneration || 0) + 1; this._carrefourGeneration = (this._carrefourGeneration || 0) + 1; this._carrefourLoading = false; this._alcampoGeneration = (this._alcampoGeneration || 0) + 1; this.shadowRoot.querySelector("#alcampo-dialog")?.close(); this.shadowRoot.querySelector("#carrefour-dialog")?.close(); this.shadowRoot.querySelector("#store-dialog")?.close(); }
+  disconnectedCallback() { this._priceStatusToken = null; this._priceStatusConnection = null; this._stopPriceStatus?.(); this._stopPriceStatus = null; clearTimeout(this._storeRetryTimer); clearInterval(this._storeProgressTimer); this._stopStoreProgress?.(); this._stopStoreProgress = null; this._productsLoading = false; this._productsGeneration = (this._productsGeneration || 0) + 1; this._carrefourGeneration = (this._carrefourGeneration || 0) + 1; this._carrefourLoading = false; this._alcampoGeneration = (this._alcampoGeneration || 0) + 1; this.shadowRoot.querySelector("#alcampo-dialog")?.close(); this.shadowRoot.querySelector("#carrefour-dialog")?.close(); this.shadowRoot.querySelector("#store-dialog")?.close(); }
 
   _build() {
     this.shadowRoot.innerHTML = `
@@ -47,9 +47,12 @@ class ImprovedShoppingSettings extends HTMLElement {
         .store-row .store-logo { grid-column:1; grid-row:1; }
         .store-name { grid-column:2; grid-row:1; min-width:0; display:flex; flex-direction:column; justify-content:center; overflow-wrap:anywhere; }
         .store-favorite[aria-pressed=true] { color:#e53935; }
-        .stores-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:16px; }
+        .stores-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:16px; }
         .stores-heading h2 { margin:0; }
-        .store-refresh { flex:none; min-height:40px; padding:8px 12px; font-size:13px; }
+        .stores-heading-actions { display:flex; align-items:center; justify-content:flex-end; gap:10px; margin-left:auto; }
+        #stores-last-updated { font-size:12px; color:var(--secondary-text-color,#63766b); white-space:nowrap; }
+        .store-refresh { display:inline-flex; align-items:center; justify-content:center; gap:6px; flex:none; min-height:40px; padding:8px 12px; font-size:13px; }
+        .store-refresh ha-icon { width:20px; height:20px; flex:none; --mdc-icon-size:20px; }
         .store-count { font-size:13px; white-space:nowrap; }
         .store-controls { grid-column:3; grid-row:1; display:flex; align-items:center; gap:12px; margin-left:auto; flex:none; }
         .store-toggle[type=checkbox] { appearance:none; position:relative; width:40px; height:24px; min-height:24px; margin:0; padding:0; border:0; border-radius:20px; background:#b3261e; cursor:pointer; }
@@ -126,7 +129,7 @@ class ImprovedShoppingSettings extends HTMLElement {
         </form>
       </section>
       <section id="settings-stores" class="card" aria-labelledby="settings-stores-title" hidden>
-        <div class="stores-heading"><h2 id="settings-stores-title">Tiendas</h2><button id="refresh-all-prices" class="store-refresh" type="button">Actualizar ahora</button></div>
+        <div class="stores-heading"><h2 id="settings-stores-title">Tiendas</h2><div class="stores-heading-actions"><time id="stores-last-updated" title="Última actualización correcta de precios">—</time><button id="refresh-all-prices" class="store-refresh" type="button"><ha-icon icon="mdi:refresh" aria-hidden="true"></ha-icon><span>Actualizar ahora</span></button></div></div>
         <div id="stores-refresh-error" class="notice error" role="alert" hidden></div>
         <article class="store-row" id="mercadona-row">
           <img class="store-logo" src="https://i.pinimg.com/736x/66/bc/4e/66bc4e8d1482e6ec4525987c1691c83e.jpg" alt="Logo de Mercadona" referrerpolicy="no-referrer" loading="lazy" width="56" height="56">
@@ -250,7 +253,9 @@ class ImprovedShoppingSettings extends HTMLElement {
     const locked = !admin || !settings.loaded || settings.loading || this._busy;
     const refresh = root.querySelector("#refresh-all-prices");
     refresh.disabled = locked || this._pricesRefreshing || !Object.values(settings.stores ?? {}).some(store=>store.enabled);
-    refresh.textContent = this._pricesRefreshing ? "Preparando…" : "Actualizar ahora";
+    refresh.querySelector("span").textContent = this._pricesRefreshing ? "Preparando…" : "Actualizar ahora";
+    this._watchPriceStatus();
+    this._renderPriceTimestamp();
     for (const store of ["mercadona", "carrefour", "alcampo"]) {
       const count = (this._data.products ?? []).filter(product => Boolean(product.store_links?.[store])).length;
       const label = `${count} ${count === 1 ? "producto vinculado" : "productos vinculados"}`;
@@ -359,6 +364,36 @@ class ImprovedShoppingSettings extends HTMLElement {
       ? `Configuración guardada: ${store.postal_code} · Almacén: ${store.warehouse}${store.enabled ? "" : " · Deshabilitada"}`
       : "Todavía no se ha configurado un almacén.";
     this._renderStoreProducts();
+  }
+
+  _watchPriceStatus() {
+    const connection = this._data?.hass?.connection;
+    if (!this.isConnected || !connection || this._priceStatusConnection === connection) return;
+    this._stopPriceStatus?.(); this._stopPriceStatus = null;
+    this._priceStatusConnection = connection;
+    this._lastPriceUpdated = 0;
+    const token = this._priceStatusToken = {};
+    void connection.subscribeMessage(progress=>{
+      if (this._priceStatusToken !== token || !this.isConnected) return;
+      if (progress.last_updated !== undefined) this._lastPriceUpdated = progress.last_updated;
+      this._renderPriceTimestamp();
+    },{type:"improved_shopping_list/settings/store_progress"}).then(stop=>{
+      if (this._priceStatusToken !== token || !this.isConnected) stop();
+      else this._stopPriceStatus = stop;
+    }).catch(()=>{ if (this._priceStatusToken === token) this._priceStatusConnection = null; });
+  }
+
+  _renderPriceTimestamp() {
+    const node = this.shadowRoot.querySelector("#stores-last-updated");
+    const timestamp = Number(this._lastPriceUpdated);
+    const date = new Date(timestamp*1000);
+    if (!Number.isFinite(timestamp) || timestamp <= 0 || !Number.isFinite(date.getTime())) {
+      node.textContent = "—"; node.removeAttribute("datetime"); node.setAttribute("aria-label","Todavía no hay precios actualizados"); return;
+    }
+    const parts = Object.fromEntries(new Intl.DateTimeFormat("es-ES",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit",hourCycle:"h23",timeZone:this._data?.hass?.config?.time_zone}).formatToParts(date).map(part=>[part.type,part.value]));
+    node.textContent = `${parts.day}/${parts.month} ${parts.hour}:${parts.minute}`;
+    node.dateTime = date.toISOString();
+    node.setAttribute("aria-label",`Última actualización correcta de precios: ${node.textContent}`);
   }
 
   async _refreshPricesNow() {

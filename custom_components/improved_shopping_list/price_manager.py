@@ -121,6 +121,7 @@ class PriceManager:
         running = bool(self._data["pending"])
         remaining = len(self._data["pending"])
         return {"running":running, "total":self._data["total"], "processed":self._data["processed"],
+            "last_updated":max((offer.get("checked_at", 0) for offer in self._data["offers"].values()), default=0),
             "started_at":self._data.get("started_at", time.time()), "phase":"waiting" if running else "processed",
             "estimated_seconds":max(0, self._data["next_request"]-time.time())+max(0, remaining-1)*INTERVAL if running else 0}
 

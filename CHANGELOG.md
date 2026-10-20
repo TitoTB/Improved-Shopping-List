@@ -1,5 +1,16 @@
 # Historial de cambios
 
+## 0.8.0
+
+- Nuevo apartado Logs (`mdi:format-list-group`), con historial persistente de las últimas 1.000 entradas, búsqueda y filtros por actividad y origen. Registra cambios reales de listas, compras y recuperaciones, catálogo, categorías, configuración y uso de lectores; identifica automatizaciones cuando Home Assistant conserva el contexto y muestra los orígenes desconocidos como tales.
+- Sugerencias de iconos directamente en la ficha, debajo del nombre del producto, sin botón ni popup adicional. Se actualizan automáticamente al escribir, agrupan las pulsaciones y muestran tres propuestas a color sin nombres visibles y un cuarto bloque `+` que abre la búsqueda completa en Iconify en otra pestaña o ventana.
+- Corregida la búsqueda de productos antiguos sin traducción: se obtiene y guarda el nombre inglés al mostrar sus sugerencias, sin exigir guardar otra vez ni provocar conflictos con la ficha abierta. Las búsquedas escritas manualmente se respetan.
+- Selección de imágenes con protección frente a respuestas tardías y bloqueo de Guardar mientras se descarga el icono. Las imágenes y su atribución siguen guardándose en Home Assistant.
+- Añadir desde Catálogo no muestra mensajes de confirmación y bloquea las tarjetas de productos ya pendientes. Antes de añadir se comprueba el contenido actual, se agrupan pulsaciones equivalentes y se recupera por identificador una entrada comprada para evitar duplicados.
+- Texto «Por comprar» sustituido por «Lista de la compra» y «Comprados» por «Compras recientes» en la vista Lista.
+- Productos del catálogo con el botón de editar siempre naranja/amarillo y el contenido centrado verticalmente sin reservar espacio para las acciones. Botones de editar y eliminar categorías juntos en la esquina superior derecha.
+- Pruebas ampliadas del historial, persistencia y orígenes, traducción y selección automática de iconos, duplicados y disposición móvil.
+
 ## 0.7.0
 
 - Traducción automática del nombre del producto del español al inglés mediante MyMemory al guardar la ficha. La traducción se conserva en Home Assistant y se reutiliza para buscar iconos; se actualiza al cambiar el nombre. Los fallos o límites del servicio no impiden guardar el producto.

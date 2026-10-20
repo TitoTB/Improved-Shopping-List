@@ -1,5 +1,5 @@
-import { todoEntities, isAvailable } from "./todo-client.js?v=0.7.0";
-import { DEFAULT_APPEARANCE, gradientTextColor } from "./list-settings-client.js?v=0.7.0";
+import { todoEntities, isAvailable } from "./todo-client.js?v=0.8.0";
+import { DEFAULT_APPEARANCE, gradientTextColor } from "./list-settings-client.js?v=0.8.0";
 
 class ImprovedShoppingSettings extends HTMLElement {
   constructor() {

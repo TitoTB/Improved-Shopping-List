@@ -132,7 +132,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
         .count { color:var(--secondary-text-color,#63766b); font-size:12px; margin:12px 0; }
         .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(245px,1fr)); gap:16px; }
         .product { position:relative; display:flex; flex-direction:column; gap:12px; background:var(--card-background-color,#fff); border:1px solid var(--divider-color,#dfe7e1); border-radius:16px; padding:30px 18px 18px; min-width:0; text-align:center; }
-        .product.in-list { background:linear-gradient(145deg,rgba(255,85,85,.32),rgba(220,38,38,.12)),var(--card-background-color,#fff); border-color:rgba(220,38,38,.45); }
+        .product.in-list { background:linear-gradient(var(--isl-gradient-start,#ee524f),var(--isl-gradient-end,#b52a27)); border-color:var(--isl-gradient-end,#b52a27); }
         .product.in-list,.product.in-list .placeholder,.product.in-list .subtitle,.product.in-list button,.product.in-list ha-icon { color:#fff; }
         .product-top { display:flex; flex-direction:column; gap:14px; align-items:center; }
         .image { width:96px; height:96px; object-fit:contain; border-radius:10px; flex-shrink:0; }
@@ -465,7 +465,9 @@ class ImprovedShoppingCatalog extends HTMLElement {
     const add = element("button", "primary");
     const addIcon = element("ha-icon");
     addIcon.setAttribute("icon", "mdi:cart-plus");
-    add.append(addIcon, document.createTextNode("Añadir"));
+    addIcon.setAttribute("aria-hidden", "true");
+    add.append(addIcon);
+    add.title = "Añadir a la lista";
     add.setAttribute("aria-label", `Añadir ${product.name} a la lista`);
     add.title = this._canAdd ? `Añadir a «${this._listName}»` : "Selecciona una lista disponible en el apartado Lista para añadir productos.";
     add.disabled = !this._canAdd || Boolean(this._adding);
@@ -473,7 +475,9 @@ class ImprovedShoppingCatalog extends HTMLElement {
     const edit = element("button");
     const editIcon = element("ha-icon");
     editIcon.setAttribute("icon", "mdi:note-edit");
-    edit.append(editIcon, document.createTextNode("Editar"));
+    editIcon.setAttribute("aria-hidden", "true");
+    edit.append(editIcon);
+    edit.title = "Editar producto";
     edit.setAttribute("aria-label", `Editar ${product.name}`);
     edit.addEventListener("click", () => this._openProduct(product));
     actions.append(add, edit);

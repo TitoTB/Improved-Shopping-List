@@ -313,7 +313,8 @@ async function main() {
     assert.equal((await productCard.textContent()).includes("2,59"), false);
     assert.equal(await productCard.locator(".category-badge").evaluate(node => getComputedStyle(node).color), "rgb(255, 255, 255)");
     assert.equal(await productCard.locator(".category-badge").evaluate(node => getComputedStyle(node).backgroundColor), "rgb(156, 39, 176)");
-    assert.equal(await productCard.locator(".actions button").first().textContent(), "Añadir");
+    assert.equal(await productCard.locator(".actions button").first().textContent(), "");
+    assert.equal(await productCard.locator(".actions button").last().textContent(), "");
     assert.equal(await productCard.locator(".actions button").first().locator("ha-icon").getAttribute("icon"), "mdi:cart-plus");
     assert.equal(await productCard.locator(".actions button").last().locator("ha-icon").getAttribute("icon"), "mdi:note-edit");
     assert.ok(await productCard.evaluate(card => {
@@ -354,6 +355,7 @@ async function main() {
     assert.equal((await page.evaluate(() => window.calls)).at(-1).entity_id, "todo.bring");
     assert.equal((await page.evaluate(() => window.calls)).at(-1).item, "Yogur sin azúcar");
     assert.equal(await productCard.getAttribute("data-in-list"), "true");
+    assert.equal(await productCard.evaluate(node => getComputedStyle(node).backgroundImage), "linear-gradient(rgb(238, 82, 79), rgb(181, 42, 39))");
     assert.ok((await productCard.evaluate(node => getComputedStyle(node).backgroundImage)).includes("linear-gradient"));
     await page.screenshot({ path: "test-results/catalog-desktop.png", fullPage: true });
     await page.getByRole("button", { name: "Lista", exact: true }).click();
@@ -694,6 +696,10 @@ async function main() {
     assert.equal(await settingsPage.locator("#items-card").evaluate(node => node.scrollWidth > innerWidth), false);
     await settingsPage.setViewportSize({ width:1280,height:960 });
     assert.equal(await settingsPage.locator("#pending").evaluate(node => getComputedStyle(node).gridTemplateColumns.split(" ").length), 4);
+    const listGradient = await settingsPage.locator("#pending .item").first().evaluate(node => getComputedStyle(node).backgroundImage);
+    await settingsPage.getByRole("button", { name:"Catálogo", exact:true }).click();
+    assert.equal(await settingsPage.locator("isl-catalog #catalog-grid .product.in-list").first().evaluate(node => getComputedStyle(node).backgroundImage), listGradient);
+    await settingsPage.getByRole("button", { name:"Lista", exact:true }).click();
     await settingsPage.reload();
     await settingsPage.locator("#pending").getByText("Cacao", { exact:true }).waitFor();
     assert.equal(await settingsPage.locator("#pending").evaluate(node => getComputedStyle(node).gridTemplateColumns.split(" ").length), 4);

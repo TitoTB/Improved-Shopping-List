@@ -876,6 +876,7 @@ async function main() {
     await settingsPage.evaluate(() => {
       window.listData['todo.bring'].push({uid:'square-long',summary:'Producto con un nombre muy largo '.repeat(6),description:'Una descripción extensa '.repeat(20),status:'needs_action'});
       window.listData['todo.bring'].push({uid:'square-completed',summary:'Producto comprado de nombre largo',status:'completed'});
+      window.listData['todo.bring'].push({uid:'square-completed-category',summary:'Cacao',status:'completed'});
       window.emit('todo.bring');
     });
     await settingsPage.locator("#completed-summary").click();
@@ -894,6 +895,21 @@ async function main() {
         for (const card of metrics) {
           assert.ok(Math.abs(card.width-card.height)<1,`Square card at ${width}px / ${columns} columns: ${JSON.stringify(card)}`);
           assert.ok(card.fits,`Content fits at ${width}px / ${columns} columns: ${JSON.stringify(card)}`);
+        }
+        const badges = await settingsPage.locator("#items-card .category-badge:not([hidden])").evaluateAll(nodes => nodes.map(badge => {
+          const bounds=badge.getBoundingClientRect(),icon=badge.querySelector("ha-icon").getBoundingClientRect(),style=getComputedStyle(badge);
+          return {width:bounds.width,height:bounds.height,iconWidth:icon.width,iconHeight:icon.height,
+            dx:Math.abs((bounds.left+bounds.right-icon.left-icon.right)/2),
+            dy:Math.abs((bounds.top+bounds.bottom-icon.top-icon.bottom)/2),
+            border:style.borderWidth,shadow:style.boxShadow,color:style.color};
+        }));
+        assert.ok(badges.length>=2,"Category badges exist on pending and purchased products");
+        for (const badge of badges) {
+          assert.ok(badge.width>0&&Math.abs(badge.width-badge.height)<.1,`Circular list badge at ${width}px / ${columns} columns: ${JSON.stringify(badge)}`);
+          assert.ok(badge.iconWidth>0&&Math.abs(badge.iconWidth-badge.iconHeight)<.1&&badge.dx<.5&&badge.dy<.5);
+          assert.equal(badge.border,"0px");
+          assert.notEqual(badge.shadow,"none");
+          assert.equal(badge.color,"rgb(255, 255, 255)");
         }
         sizes.push(metrics[0]);
       }

@@ -1,4 +1,5 @@
-import { FEATURES, TodoSession, errorMessage, isAvailable, supports, todoEntities } from "./todo-client.js?v=0.1.2";
+import { FEATURES, TodoSession, errorMessage, isAvailable, supports, todoEntities } from "./todo-client.js?v=0.2.0";
+import "./catalog-panel.js?v=0.2.0";
 
 const LOGO_URL = new URL("logo.png", import.meta.url).href;
 
@@ -9,6 +10,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
     this._session = new TodoSession(() => this._hass, () => this._renderData());
     this._busy = false;
     this._rows = new Map();
+    this._view = "shopping";
     this._onVisibility = () => {
       if (document.visibilityState === "visible") void this._session.refresh();
     };
@@ -19,6 +21,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
     const previousState = this._hass?.states[this._session.entityId];
     this._hass = value;
     if (!this.isConnected) return;
+    if (this._built) this.shadowRoot.querySelector("isl-catalog").hass = value;
     this._ensureStarted();
     this._renderOptions();
     if (previousConnection && previousConnection !== value.connection && this._session.entityId) {
@@ -73,12 +76,18 @@ class ImprovedShoppingListPanel extends HTMLElement {
         button { cursor:pointer; }
         button:disabled { cursor:default; opacity:.5; }
         button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visible { outline:3px solid var(--primary-color,#267052); outline-offset:3px; }
-        header { display:flex; align-items:center; gap:12px; padding:16px 24px; border-bottom:1px solid var(--divider-color,#dfe7e1); background:var(--card-background-color,#fff); }
+        header { display:flex; align-items:center; gap:12px; padding:16px 24px; border-bottom:1px solid var(--divider-color,#dfe7e1); background:transparent; }
         .menu { border:0; background:transparent; color:inherit; padding:8px; width:44px; height:44px; display:none; }
         :host([narrow]) .menu { display:inline-flex; align-items:center; justify-content:center; }
-        .brand { flex:1; font-size:16px; font-weight:650; }
+        .branding { display:flex; align-items:center; gap:10px; min-width:0; }
+        .brand-copy { min-width:0; }
+        .brand { font-size:16px; font-weight:650; }
         .brand-logo { width:44px; height:44px; object-fit:contain; flex-shrink:0; }
-        .version { color:var(--secondary-text-color,#63766b); font-size:12px; }
+        .version { color:var(--secondary-text-color,#63766b); font-size:12px; margin-left:8px; white-space:nowrap; }
+        .section-nav { display:flex; gap:8px; margin-left:auto; }
+        .section-nav button { display:inline-flex; align-items:center; gap:8px; padding:10px 12px; min-height:44px; border:0; border-radius:10px; color:var(--secondary-text-color,#63766b); background:transparent; }
+        .section-nav button[aria-pressed=true] { background:var(--secondary-background-color,#edf4ee); color:var(--primary-text-color,#20352d); font-weight:650; }
+        .section-nav ha-icon { --mdc-icon-size:20px; }
         main { max-width:900px; margin:auto; padding:36px 24px 64px; }
         .eyebrow { text-transform:uppercase; letter-spacing:.13em; font-size:11px; color:var(--secondary-text-color,#63766b); font-weight:700; margin:0 0 10px; }
         h1 { font-size:clamp(30px,5vw,42px); line-height:1.15; letter-spacing:-.04em; margin:0 0 12px; font-weight:650; }
@@ -114,17 +123,21 @@ class ImprovedShoppingListPanel extends HTMLElement {
         [hidden] { display:none !important; }
         .sr-only { position:absolute; width:1px; height:1px; padding:0; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
         footer { text-align:center; color:var(--secondary-text-color,#63766b); font-size:12px; line-height:1.7; margin-top:24px; }
-        @media(max-width:540px) { header { padding:10px 12px; } main { padding:26px 14px 40px; } .card { padding:18px 16px; border-radius:14px; } .primary { padding:10px 14px; } .version { display:none; } }
+        @media(max-width:650px) { header { flex-wrap:wrap; padding:10px 12px; } .branding { flex:1; } .brand-logo { width:36px; height:36px; } .brand { font-size:14px; } .version { font-size:11px; margin-left:6px; } .section-nav { width:100%; justify-content:flex-end; } }
+        @media(max-width:540px) { main { padding:26px 14px 40px; } .card { padding:18px 16px; border-radius:14px; } .primary { padding:10px 14px; } }
       </style>
       <header>
         <button class="menu" aria-label="Abrir menú de Home Assistant"><ha-icon icon="mdi:menu"></ha-icon></button>
-        <img class="brand-logo" src="${LOGO_URL}" alt="" width="44" height="44">
-        <span class="brand">Improved Shopping List</span><span class="version">0.1.2</span>
+        <div class="branding"><img class="brand-logo" src="${LOGO_URL}" alt="" width="44" height="44"><div class="brand-copy"><span class="brand">Improved Shopping List</span><span class="version">0.2.0</span></div></div>
+        <nav class="section-nav" aria-label="Apartados">
+          <button id="nav-shopping" aria-pressed="true"><ha-icon icon="mdi:shopping"></ha-icon>Lista</button>
+          <button id="nav-catalog" aria-pressed="false"><ha-icon icon="mdi:view-grid"></ha-icon>Catálogo</button>
+        </nav>
       </header>
       <main>
-        <p class="eyebrow">Tu lista, conectada</p>
+        <div id="shopping-intro"><p class="eyebrow">Tu lista, conectada</p>
         <h1>Vamos a por la compra.</h1>
-        <p class="intro">Todo lo que necesitas, en la lista que ya utilizas.</p>
+        <p class="intro">Todo lo que necesitas, en la lista que ya utilizas.</p></div>
         <div id="error" class="notice error" role="alert" hidden></div>
         <div id="status" class="notice" role="status" hidden></div>
         <section class="card" aria-label="Seleccionar lista y añadir productos">
@@ -143,11 +156,17 @@ class ImprovedShoppingListPanel extends HTMLElement {
           <div id="empty" class="empty" hidden></div>
           <details id="completed-details"><summary id="completed-summary">Comprados</summary><ul id="completed"></ul></details>
         </section>
+        <isl-catalog hidden></isl-catalog>
         <footer>Los cambios se guardan en tu lista de Home Assistant.<br>También los verás en la aplicación de tu proveedor.</footer>
         <div id="announcement" class="sr-only" role="status" aria-live="polite"></div>
       </main>`;
     this._built = true;
     const root = this.shadowRoot;
+    root.querySelector("#nav-shopping").addEventListener("click", () => this._switchView("shopping"));
+    root.querySelector("#nav-catalog").addEventListener("click", () => this._switchView("catalog"));
+    root.querySelector("isl-catalog").onAdd = (product) => this._runAction(
+      () => this._session.add(product.name), `${product.name} añadido a la lista.`,
+    );
     root.querySelector(".menu").addEventListener("click", () => {
       this.dispatchEvent(new CustomEvent("hass-toggle-menu", { bubbles: true, composed: true }));
     });
@@ -163,6 +182,22 @@ class ImprovedShoppingListPanel extends HTMLElement {
       event.preventDefault();
       void this._addItem();
     });
+  }
+
+  _switchView(view) {
+    this._view = view;
+    this._actionError = "";
+    const root = this.shadowRoot;
+    root.querySelector("#shopping-intro").hidden = view !== "shopping";
+    root.querySelector("#items-card").hidden = view !== "shopping";
+    root.querySelector("#add-form").hidden = view !== "shopping";
+    root.querySelector("isl-catalog").hidden = view !== "catalog";
+    root.querySelector("#nav-shopping").setAttribute("aria-pressed", String(view === "shopping"));
+    root.querySelector("#nav-catalog").setAttribute("aria-pressed", String(view === "catalog"));
+    root.querySelector("footer").textContent = view === "catalog"
+      ? "Tu catálogo se guarda en Home Assistant y se comparte entre tus dispositivos."
+      : "Los cambios se guardan en tu lista de Home Assistant. También los verás en la aplicación de tu proveedor.";
+    this._renderData();
   }
 
   _renderOptions() {
@@ -194,6 +229,10 @@ class ImprovedShoppingListPanel extends HTMLElement {
     const available = isAvailable(state);
     const canCreate = available && supports(state, FEATURES.CREATE);
     const canUpdate = available && supports(state, FEATURES.UPDATE);
+    const catalog = root.querySelector("isl-catalog");
+    catalog.hass = this._hass;
+    catalog.canAdd = canCreate && !this._busy && !session.loading;
+    catalog.listName = state?.attributes.friendly_name ?? session.entityId;
     const locked = this._busy || session.loading || !available;
     root.querySelector("#product-input").disabled = locked || !canCreate;
     root.querySelector("#add-button").disabled = locked || !canCreate;
@@ -203,7 +242,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
       ? "Puedes cambiar entre las listas integradas en Home Assistant."
       : "Configura primero una integración de listas, como Shopping List o Bring!.";
     const capabilityHelp = root.querySelector("#capability-help");
-    capabilityHelp.hidden = !available || (canCreate && canUpdate);
+    capabilityHelp.hidden = this._view === "catalog" || !available || (canCreate && canUpdate);
     capabilityHelp.textContent = !canCreate
       ? "Esta lista no permite añadir productos desde Home Assistant."
       : "Esta lista permite añadir productos, pero no marcarlos como comprados.";

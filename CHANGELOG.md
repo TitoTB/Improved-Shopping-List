@@ -1,5 +1,15 @@
 # Historial de cambios
 
+## 0.2.0
+
+- Cabecera con logo, título y versión juntos, sin un fondo diferente al del panel.
+- Navegación a la derecha entre Lista y Catálogo, con el icono `mdi:view-grid`.
+- Catálogo local compartido, guardado en el almacenamiento de Home Assistant.
+- Alta y edición de productos con categoría, etiquetas, marca, formato, código de barras, precio orientativo, moneda, imagen mediante URL y notas.
+- Búsqueda y filtros por categoría y etiqueta.
+- Añadir productos del catálogo a la entidad `todo.*` seleccionada.
+- Actualizaciones del catálogo entre sesiones y detección de ediciones simultáneas.
+
 ## 0.1.2
 
 - Icono `mdi:shopping` para el acceso al panel desde el menú lateral.

@@ -4,7 +4,7 @@
 
 Una interfaz propia para gestionar las listas de la compra que ya tienes integradas en Home Assistant.
 
-Versión actual: **0.1.2**. Interfaz en español, pensada para móvil y ordenador. Requiere **Home Assistant Core 2026.10 o posterior**. La referencia de desarrollo es Core 2026.10.2.
+Versión actual: **0.2.0**. Interfaz en español, pensada para móvil y ordenador. Requiere **Home Assistant Core 2026.10 o posterior**. La referencia de desarrollo es Core 2026.10.2.
 
 ## Qué puedes hacer
 
@@ -13,6 +13,9 @@ Versión actual: **0.1.2**. Interfaz en español, pensada para móvil y ordenado
 - Añadir productos, marcarlos como comprados y volver a ponerlos por comprar.
 - Recibir cambios del proveedor mediante la API nativa de listas de Home Assistant.
 - Cambiar de lista desde el panel y cambiar la predeterminada desde la configuración de la integración.
+- Crear y editar productos en un catálogo local compartido entre los usuarios de Home Assistant.
+- Asignar categorías, etiquetas, marcas, formatos, códigos de barras, precios orientativos, imágenes y notas.
+- Buscar, filtrar y añadir productos del catálogo a la lista seleccionada.
 
 Cada lista conserva sus datos en su integración original. Las operaciones disponibles dependen de lo que admita ese proveedor. Por ejemplo, una lista de solo lectura se puede consultar, pero sus controles de edición aparecen desactivados. La frecuencia con la que Bring! u otro proveedor recibe cambios de su nube depende de su propia integración.
 
@@ -41,15 +44,21 @@ Para publicar una versión, los mantenedores actualizan la versión en `manifest
 
 ## Alcance de esta primera versión
 
-El objetivo inicial es comprobar el funcionamiento del panel y su interoperabilidad con las listas existentes. Todavía no hay catálogo propio, lector de códigos, consulta de Open Food Facts, precios, scrapeo ni importación de PDF.
+El catálogo se guarda en el almacenamiento de Home Assistant, no en el navegador. Todos los usuarios autenticados que utilicen el panel comparten el mismo catálogo. Las listas siguen perteneciendo a sus proveedores originales; se añade el nombre del producto a la lista, y las propiedades adicionales permanecen en su ficha del catálogo.
+
+Solo es obligatorio el nombre. Cada producto tiene una categoría y varias etiquetas, que puedes crear al escribirlas. Las imágenes se asignan mediante una URL http/https o una ruta local como `/local/cacao.png`; esta versión no incluye subida de archivos ni descarga de imágenes al servidor. El navegador carga la imagen desde la ubicación indicada.
+
+El precio es manual y orientativo, asociado al formato y la moneda indicados, con su fecha de actualización. Todavía no hay comparación de ofertas por supermercado, consulta automática de precios, lector de códigos, Open Food Facts, scrapeo ni importación de PDF. El código de barras se guarda como texto para conservar sus ceros iniciales.
+
+Las ediciones simultáneas se detectan: si otra sesión ha cambiado una ficha, se pide volver a abrirla antes de guardar. No se borra el catálogo al cambiar de lista ni al recargar la integración. Se conserva también al retirar la integración para permitir reinstalarla; los productos de las listas originales tampoco se eliminan.
 
 La configuración de la lista predeterminada se guarda en Home Assistant. El selector del panel permite abrir otra lista durante la sesión; no modifica la predeterminada. Para cambiarla de forma permanente, utiliza **Configurar** en la integración.
 
-Eliminar la integración retira el panel; los productos siguen en sus listas originales.
+Eliminar la integración retira el panel y desactiva sus comandos de catálogo.
 
 ## Desarrollo y comprobaciones
 
-La integración Python registra la configuración y el panel. La interfaz utiliza un Web Component sin proceso de compilación. `todo-client.js` encapsula las llamadas nativas y la gestión de suscripciones; no duplica el almacenamiento del proveedor.
+La integración Python registra la configuración, el panel y los comandos WebSocket autenticados del catálogo. `catalog.py` valida y guarda el catálogo con `Store`; no depende de ningún proveedor de listas. La interfaz utiliza Web Components sin proceso de compilación. `todo-client.js` encapsula las llamadas nativas y la gestión de suscripciones; no duplica el almacenamiento del proveedor. `catalog-panel.js` y `catalog-client.js` implementan la vista y el acceso al catálogo.
 
 ```sh
 npm ci

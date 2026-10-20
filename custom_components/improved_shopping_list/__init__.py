@@ -8,6 +8,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.typing import ConfigType
 
+from .catalog import Catalog
 from .const import (
     CONF_TODO_ENTITY,
     DOMAIN,
@@ -17,15 +18,19 @@ from .const import (
     STATIC_URL,
     VERSION,
 )
+from .websocket import async_register_commands
 
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     """Register public frontend assets once, including after entry reloads."""
     if DOMAIN not in hass.data:
+        catalog = Catalog(hass)
+        await catalog.async_load()
         await hass.http.async_register_static_paths(
             [StaticPathConfig(STATIC_URL, str(Path(__file__).parent / "frontend"), False)]
         )
-        hass.data[DOMAIN] = {}
+        hass.data[DOMAIN] = {"catalog": catalog, "active": False}
+        async_register_commands(hass)
     return True
 
 
@@ -46,6 +51,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         },
         require_admin=False,
     )
+    hass.data[DOMAIN]["active"] = True
     entry.async_on_unload(entry.add_update_listener(_async_options_updated))
     return True
 
@@ -53,6 +59,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Remove the panel without changing any shopping-list items."""
     frontend.async_remove_panel(hass, PANEL_PATH)
+    hass.data[DOMAIN]["active"] = False
     return True
 
 

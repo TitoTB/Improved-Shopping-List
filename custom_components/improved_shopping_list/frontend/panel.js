@@ -168,7 +168,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
         .item .placeholder ha-icon { --mdc-icon-size:clamp(14px,30cqi,160px); }
         .item.pending .placeholder,.item.pending .subtitle,.item.pending .description,.item.completed .placeholder,.item.completed .subtitle,.item.completed .description { color:inherit; }
         .item.pending .tag,.item.completed .tag { background:rgba(255,255,255,.2); }
-        .category-badge { position:absolute; top:clamp(3px,4cqi,12px); right:clamp(3px,4cqi,12px); display:grid; place-items:center; width:clamp(14px,13cqi,32px); aspect-ratio:1; border-radius:50%; color:#fff; }
+        .category-badge { position:absolute; top:clamp(3px,4cqi,12px); right:clamp(3px,4cqi,12px); display:grid; place-items:center; width:clamp(14px,13cqi,32px); aspect-ratio:1; border:2px solid #fff; border-radius:50%; color:#fff; }
         .category-badge ha-icon { --mdc-icon-size:clamp(10px,8cqi,20px); }
         .item-text { min-width:0; width:100%; overflow:hidden; flex-shrink:0; overflow-wrap:anywhere; line-height:1.2; }
         .item .summary { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:3; overflow:hidden; font-size:clamp(8px,7cqi,32px); font-weight:650; }

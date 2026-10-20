@@ -1,5 +1,14 @@
 # Historial de cambios
 
+## 0.12.0
+
+- Carrefour en Ajustes → Tiendas, con activación independiente y selección de tienda favorita cuando hay varias habilitadas. Su popup muestra los productos del catálogo con coincidencia exacta de EAN, precio, moneda y enlace original de afiliado.
+- Precios de Carrefour en Información adicional de la ficha del producto, con fecha de publicación y aviso cuando se conserva una descarga anterior. No sustituyen el precio manual ni el Nutri-Score de Open Food Facts. El feed no tiene precios por código postal.
+- Consulta diaria de un catálogo de cinco campos alojado en la rama de datos de GitHub, sin credenciales de Awin o GitHub en Home Assistant. Utiliza ETag, deltas y descarga completa de recuperación, valida la integridad y conserva la última copia válida ante errores. Actualizar los precios no requiere nuevas versiones de HACS.
+- Exportador validado, publicador atómico y enlace de referencia con Aguacatec para preparar la descarga periódica del feed. La disponibilidad de precios requiere configurar y publicar ese catálogo desde Aguacatec; esta versión no activa el servidor ni publica datos reales por sí sola.
+- Mercadona continúa automáticamente todos los códigos del lote tanto en revisiones manuales como automáticas, manteniendo las pausas entre peticiones. Los puntos internos de continuación ya no requieren volver a pulsar el botón. Barra de progreso más gruesa y visible durante ambas revisiones.
+- Pruebas ampliadas de exportación limitada a los cinco campos, validación de códigos, deltas, integridad, conservación de precios, permisos, selección de favorita y precios en la ficha del producto.
+
 ## 0.11.1
 
 - Sustituida la búsqueda de Mercadona que devolvía HTTP 403 por Algolia, la alternativa incluida en su cliente web público. No requiere cuenta, claves del usuario ni asociaciones manuales. Se buscan candidatos por el nombre del catálogo y, cuando ya está guardado, por el nombre comercial de Open Food Facts; cada referencia se comprueba en la API directa y solo se incorpora si coincide exactamente el EAN.

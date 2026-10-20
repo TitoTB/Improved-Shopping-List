@@ -4,13 +4,13 @@
 
 Una interfaz propia para gestionar las listas de la compra que ya tienes integradas en Home Assistant.
 
-Versión actual: **0.11.1**. Interfaz en español, pensada para móvil y ordenador. Requiere **Home Assistant Core 2026.10 o posterior**. La referencia de desarrollo es Core 2026.10.2.
+Versión actual: **0.12.0**. Interfaz en español, pensada para móvil y ordenador. Requiere **Home Assistant Core 2026.10 o posterior**. La referencia de desarrollo es Core 2026.10.2.
 
-En desarrollo, todavía sin publicar como versión: soporte de precios de Carrefour
-mediante un catálogo público de cinco campos alojado en GitHub. La preparación,
-actualización periódica y publicación se describen en
-[mantenimiento del feed](maintenance/aguacatec/README.md). El catálogo público aún
-no está habilitado; no hay que actualizar HACS para cada cambio futuro de precios.
+Carrefour permite consultar precios mediante un catálogo público de cinco campos
+alojado en GitHub. Su preparación y publicación desde Aguacatec se describen en
+[mantenimiento del feed](maintenance/aguacatec/README.md). La disponibilidad de precios
+depende de que ese catálogo esté publicado. Los cambios posteriores de precios no
+requieren actualizar HACS; la integración los comprueba cada 24 horas.
 
 ## Qué puedes hacer
 

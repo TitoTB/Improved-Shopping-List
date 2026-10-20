@@ -171,3 +171,12 @@ Los precios se consultan al abrir Productos y se reutilizan durante seis horas. 
 Las consultas utilizan el buscador web de Mercadona, que puede rechazar peticiones externas (por ejemplo, HTTP 403). Estos errores se muestran y conservan los precios anteriores con su fecha de consulta; se aplica una espera de un minuto antes de reintentar. Los resultados se guardan en Home Assistant, separados por almacén, y no se muestran como precios de otra región ni de una tienda deshabilitada. Esta función todavía no sustituye el precio manual de la ficha del producto.
 
 El código postal se guarda en las opciones de Home Assistant y solo se envía a Mercadona al comprobar la ubicación; no se publican códigos postales ni capturas HAR en GitHub. Los errores conservan la configuración anterior y no asignan un almacén de sustitución.
+
+
+## Compras recurrentes
+
+Al final de **Automatización** en la ficha de un producto, activa **Comprar cada X días** e indica entre 1 y 3650 días. La recurrencia utiliza la lista principal configurada en Ajustes. El primer plazo empieza al guardar su activación; cambiar los días o desactivarla y volver a activarla inicia un plazo nuevo. Editar otros datos o asociar un código conserva el periodo.
+
+Home Assistant comprueba los vencimientos cada minuto aunque el panel esté cerrado. Al vencer, consulta el contenido actual de la lista sin distinguir tildes, mayúsculas ni espacios sobrantes. Si el producto ya está pendiente, no crea otra entrada. Si está comprado, recupera el mismo elemento por su identificador cuando el proveedor lo permite; si no existe, lo añade. Al terminar, incluso si ya estaba pendiente, reinicia el plazo desde ese momento. No se reinicia al marcar una compra como completada.
+
+La programación se guarda en Home Assistant y sobrevive a reinicios. Si un plazo ha vencido mientras estaba apagado, se procesa una sola vez al volver, sin acumular compras atrasadas. Si la lista no está disponible o el proveedor rechaza la operación, se conserva el vencimiento y se reintenta después de cinco minutos. No se crea un duplicado de una entrada comprada si el proveedor no permite recuperarla. Las acciones, los periodos reiniciados y los errores se registran en **Logs → Recurrencias**, con origen automático.

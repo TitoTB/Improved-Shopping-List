@@ -21,7 +21,7 @@ STORAGE_KEY = f"{DOMAIN}.catalog"
 FIELDS = {
     "id", "revision", "name", "category", "tags", "barcode",
     "price", "currency", "image_url", "icon", "notes",
-    "barcodes", "nfc_tags", "reader_actions",
+    "barcodes", "nfc_tags", "reader_actions", "recurrence",
 }
 READER_ACTIONS = {"none", "add_list", "stock_remove", "stock_add"}
 LEGACY_PRODUCT_FIELDS = {"brand", "format"}
@@ -123,6 +123,12 @@ def normalize_product(data: dict[str, Any]) -> dict[str, Any]:
     ):
         raise CatalogError("Las acciones de los lectores no son válidas.")
     product["reader_actions"] = dict(actions)
+    recurrence = data.get("recurrence", {"enabled": False, "days": 7})
+    if (not isinstance(recurrence, dict) or set(recurrence) != {"enabled", "days"}
+        or type(recurrence["enabled"]) is not bool or type(recurrence["days"]) is not int
+        or not 1 <= recurrence["days"] <= 3650):
+        raise CatalogError("La recurrencia debe indicar si está activa y un número entero de días entre 1 y 3650.")
+    product["recurrence"] = dict(recurrence)
     tags = data.get("tags", [])
     if not isinstance(tags, list) or len(tags) > 20:
         raise CatalogError("Puedes asignar hasta 20 etiquetas.")
@@ -293,6 +299,8 @@ class Catalog:
                 for field in ("barcodes", "nfc_tags", "reader_actions"):
                     if field not in data:
                         product[field] = deepcopy(current.get(field, {} if field == "reader_actions" else []))
+                if "recurrence" not in data:
+                    product["recurrence"] = deepcopy(current.get("recurrence", {"enabled": False, "days": 7}))
             if product["category"]:
                 category = next((item for item in self._categories.values()
                                  if item["name"].casefold() == product["category"].casefold()), None)
@@ -311,6 +319,11 @@ class Catalog:
                 else await async_translate_name(self.hass, product["name"])
             )
             now = datetime.now(UTC).isoformat()
+            product["recurrence_started_at"] = (
+                current.get("recurrence_started_at")
+                if current and current.get("recurrence_started_at") and current.get("recurrence") == product["recurrence"]
+                else now if product["recurrence"]["enabled"] else None
+            )
             product.update({
                 "id": current["id"] if current else str(uuid4()),
                 "revision": current["revision"] + 1 if current else 1,

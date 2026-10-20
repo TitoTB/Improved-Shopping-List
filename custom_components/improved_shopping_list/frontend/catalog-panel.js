@@ -198,6 +198,10 @@ class ImprovedShoppingCatalog extends HTMLElement {
         .product-views button { display:inline-flex; align-items:center; justify-content:center; gap:6px; flex:1 1 130px; min-width:0; font-size:13px; padding:10px 8px; }
         .product-views ha-icon { display:flex; align-items:center; justify-content:center; flex:none; width:18px; height:18px; --mdc-icon-size:18px; line-height:0; }
         .product-views [aria-pressed=true] { background:var(--secondary-background-color,#edf4ee); font-weight:650; }
+        .recurrence-controls { display:flex; align-items:center; flex-wrap:wrap; gap:8px; margin-top:12px; }
+        .recurrence-controls label { display:flex; align-items:center; gap:8px; }
+        .recurrence-controls input[type=checkbox] { width:20px; min-height:20px; margin:0; padding:0; accent-color:var(--primary-color,#267052); }
+        .recurrence-controls input[type=number] { width:88px; margin:0; }
         .nutriscore-item { display:flex; align-items:center; flex-wrap:wrap; gap:12px; padding:12px 0; border-top:1px solid var(--divider-color,#dfe7e1); }
         .nutriscore-item img { width:130px; height:auto; flex:none; }
         .nutriscore-item p { margin:4px 0; overflow-wrap:anywhere; }
@@ -267,6 +271,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
             <label class="wide">Otros códigos de barras o QR<textarea name="barcodes" maxlength="52000" placeholder="Un código por línea"></textarea></label>
             <label class="wide">Etiquetas NFC<textarea name="nfc_tags" maxlength="52000" placeholder="Un identificador por línea"></textarea></label>
             <div class="wide"><h3>Acciones de los lectores</h3><div id="product-reader-actions"></div><p class="helper">La acción se aplica solo al reconocer este producto. Las acciones de stock quedan guardadas para cuando esté disponible el inventario.</p></div>
+            <div class="wide" id="product-recurrence"><h3>Recurrencia</h3><div class="recurrence-controls"><label><input name="recurrence_enabled" type="checkbox">Comprar cada</label><input name="recurrence_days" type="number" min="1" max="3650" step="1" value="7" aria-label="Días de recurrencia" disabled required><span>días</span></div><p class="helper">Se añadirá a la lista principal sin duplicar productos pendientes. El periodo empieza al activar la recurrencia o cambiar los días.</p></div>
           </section>
           <div class="form-actions"><button id="cancel-product" type="button">Cancelar</button><button id="save-product" class="primary" type="submit">Guardar producto</button></div>
         </form>
@@ -333,6 +338,9 @@ class ImprovedShoppingCatalog extends HTMLElement {
     root.querySelector("#catalog-refresh").addEventListener("click", () => void this._catalog.refresh());
     root.querySelector("#catalog-search").addEventListener("input", () => this._renderProducts());
     root.querySelector("#category-filter").addEventListener("change", () => this._renderProducts());
+    root.querySelector('[name="recurrence_enabled"]').addEventListener("change", () => {
+      root.querySelector('[name="recurrence_days"]').disabled = !root.querySelector('[name="recurrence_enabled"]').checked;
+    });
     root.querySelector("#cancel-product").addEventListener("click", () => root.querySelector("dialog").close());
     root.querySelector("dialog").addEventListener("cancel", (event) => { if (this._saving) event.preventDefault(); });
     root.querySelector("#product-form").addEventListener("submit", (event) => { event.preventDefault(); void this._saveProduct(); });
@@ -585,7 +593,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
     const selected = this._catalog.products.find(product => product.id === this._linkProductId);
     if (!selected) { this._renderLinkDialog(); return; }
     // Send editable fields only; use the latest revision and retain all other product data.
-    const fields = ["id", "revision", "name", "category", "tags", "barcode", "price", "currency", "image_url", "icon", "notes", "barcodes", "nfc_tags", "reader_actions"];
+    const fields = ["id", "revision", "name", "category", "tags", "barcode", "price", "currency", "image_url", "icon", "notes", "barcodes", "nfc_tags", "reader_actions", "recurrence"];
     const product = Object.fromEntries(fields.filter(key => key in selected).map(key => [key, structuredClone(selected[key])]));
     const reading = this._linkReading;
     if (reading.kind === "barcode" && !product.barcode) product.barcode = reading.code;
@@ -843,6 +851,9 @@ class ImprovedShoppingCatalog extends HTMLElement {
     }
     this._renderReaderActions();
     this._editing = product ? structuredClone(product) : null;
+    form.elements.recurrence_enabled.checked = product?.recurrence?.enabled === true;
+    form.elements.recurrence_days.value = product?.recurrence?.days ?? 7;
+    form.elements.recurrence_days.disabled = !form.elements.recurrence_enabled.checked;
     root.querySelector("#product-dialog-title").textContent = product ? "Editar producto" : "Nuevo producto";
     root.querySelector("#product-error").hidden = true;
     if (product) {
@@ -877,6 +888,9 @@ class ImprovedShoppingCatalog extends HTMLElement {
     const fields = Object.fromEntries(new FormData(form));
     const product = { ...fields, price: fields.price || null, tags: this._editing?.tags ?? [], icon: this._editing?.icon ?? "", notes: this._editing?.notes ?? "" };
     for (const key of ["barcodes","nfc_tags"]) product[key] = fields[key].split(/\r?\n/).map(value => value.trim()).filter(Boolean);
+    product.recurrence = {enabled:form.elements.recurrence_enabled.checked, days:Number(form.elements.recurrence_days.value) || 7};
+    delete product.recurrence_enabled;
+    delete product.recurrence_days;
     product.reader_actions = Object.fromEntries([...root.querySelectorAll("[data-reader-action]")].map(select => [select.dataset.readerAction,select.value]));
     if (this._editing) Object.assign(product, { id: this._editing.id, revision: this._editing.revision });
     this._saving = true;

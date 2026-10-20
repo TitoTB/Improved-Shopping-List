@@ -1204,6 +1204,12 @@ async function main() {
     assert.equal(await codeDialog.getByLabel("Nombre del producto",{exact:true}).inputValue(),"");
     await codeDialog.getByLabel("Nombre del producto",{exact:true}).fill("Cacao lector");
     await codeDialog.getByRole("button",{name:"Automatización",exact:true}).click();
+    await codeDialog.getByRole("heading",{name:"Recurrencia",exact:true}).waitFor();
+    const recurrenceDays = codeDialog.getByRole("spinbutton",{name:"Días de recurrencia",exact:true});
+    assert.equal(await recurrenceDays.isDisabled(),true);
+    await codeDialog.getByRole("checkbox",{name:"Comprar cada",exact:true}).check();
+    assert.equal(await recurrenceDays.isDisabled(),false);
+    await recurrenceDays.fill("12");
     await codeDialog.getByLabel("Otros códigos de barras o QR",{exact:true}).fill("https://example.test/cacao\n0012345678906");
     await codeDialog.getByLabel("Etiquetas NFC",{exact:true}).fill("AA:BB:CC:DD\ntag-despensa");
     await codeDialog.getByLabel("Cocina",{exact:true}).selectOption("add_list");
@@ -1213,6 +1219,7 @@ async function main() {
     assert.equal(await readerCatalog.getByRole("button",{name:"Crear producto con el código 0012345678905",exact:true}).count(),0);
     assert.deepEqual(await readerPage.evaluate(()=>window.catalogProducts[0].barcodes),["https://example.test/cacao","0012345678906"]);
     assert.equal(await readerPage.evaluate(()=>Object.values(window.catalogProducts[0].reader_actions).includes("stock_remove")),true);
+    assert.deepEqual(await readerPage.evaluate(()=>window.catalogProducts[0].recurrence),{enabled:true,days:12});
     await readerPage.evaluate(()=>{const reader=window.readerFixture.readers[1];window.readerFixture.pending=[{id:'scan-2',kind:'nfc',code:'11223344',reader_id:reader.id,reader_name:reader.name,time:new Date().toISOString()}];window.emitReaders();});
     assert.equal(await readerCatalog.locator('[data-pending-id="scan-2"] input').count(),0);
     await readerCatalog.getByRole("button",{name:"Asignar código 11223344 a un producto del catálogo",exact:true}).click();
@@ -1255,6 +1262,7 @@ async function main() {
     assert.equal(await readerPage.evaluate(()=>window.catalogProducts.length),1);
     assert.equal(await readerPage.evaluate(()=>window.catalogProducts[0].nfc_tags.includes('11223344')),true);
     assert.equal(await readerPage.evaluate(()=>Object.values(window.catalogProducts[0].reader_actions).includes('add_list')),true);
+    assert.deepEqual(await readerPage.evaluate(()=>window.catalogProducts[0].recurrence),{enabled:true,days:12});
     await readerPage.evaluate(()=>{window.readerFixture.pending=[{id:'scan-discard',kind:'barcode',code:'999999',reader_name:'Cocina',time:new Date().toISOString()}];window.emitReaders();});
     await readerCatalog.getByRole("button",{name:"Descartar código 999999",exact:true}).click();
     assert.equal(await readerCatalog.locator('#scan-suggestions [data-pending-id="scan-discard"]').count(),0);

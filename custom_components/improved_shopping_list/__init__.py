@@ -15,6 +15,7 @@ from .icons import ICONS_URL, IconLibrary
 from .list_settings import ListSettings
 from .readers import ReaderManager
 from .store_products import StoreProducts
+from .recurrence import RecurrenceManager
 from .const import (
     CONF_TODO_ENTITY,
     DOMAIN,
@@ -40,6 +41,8 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         activity = ActivityLog(hass, catalog, settings, readers)
         await activity.async_load()
         readers.activity = activity
+        recurrence = RecurrenceManager(hass, catalog, settings, activity, readers._operation_lock)
+        await recurrence.async_load()
         icons = IconLibrary(hass)
         await icons.async_load()
         community = CommunityLibrary(hass, icons)
@@ -48,7 +51,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
             [StaticPathConfig(STATIC_URL, str(Path(__file__).parent / "frontend"), False),
              StaticPathConfig(ICONS_URL, str(icons.directory), True)]
         )
-        hass.data[DOMAIN] = {"catalog": catalog, "settings": settings, "store_products": store_products, "readers": readers, "icons": icons, "community": community, "activity": activity, "active": False}
+        hass.data[DOMAIN] = {"catalog": catalog, "settings": settings, "store_products": store_products, "recurrence": recurrence, "readers": readers, "icons": icons, "community": community, "activity": activity, "active": False}
         async_register_commands(hass)
     return True
 
@@ -60,6 +63,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.data[DOMAIN]["active"] = True
     hass.data[DOMAIN]["activity"].start()
     hass.data[DOMAIN]["readers"].start()
+    hass.data[DOMAIN]["recurrence"].start()
     hass.data[DOMAIN]["settings"].notify()
     entry.async_on_unload(entry.add_update_listener(_async_options_updated))
     return True
@@ -87,6 +91,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Remove the panel without changing any shopping-list items."""
     frontend.async_remove_panel(hass, PANEL_PATH)
     hass.data[DOMAIN]["active"] = False
+    await hass.data[DOMAIN]["recurrence"].async_stop()
     hass.data[DOMAIN]["settings"].detach()
     await hass.data[DOMAIN]["readers"].async_stop()
     await hass.data[DOMAIN]["activity"].async_stop()

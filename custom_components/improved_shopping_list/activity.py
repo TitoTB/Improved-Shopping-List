@@ -207,7 +207,7 @@ class ActivityLog:
             new = {item["id"]: item for item in current[field]}
             for uid in dict.fromkeys([*old, *new]):
                 before, after = old.get(uid), new.get(uid)
-                ignored = {"id", "revision", "updated_at", "created_at", "product_count", "name_en", "price_updated_at"}
+                ignored = {"id", "revision", "updated_at", "created_at", "product_count", "name_en", "price_updated_at", "recurrence_started_at"}
                 changed = [key for key in set(before or {}) | set(after or {}) if key not in ignored and (before or {}).get(key) != (after or {}).get(key)]
                 if before and after and not changed:
                     continue

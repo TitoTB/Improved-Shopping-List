@@ -92,7 +92,7 @@ async def test_settings_cannot_be_changed_by_non_admin(hass, hass_ws_client, has
     await client.send_json({"id": 2, "type": f"{DOMAIN}/settings/update", "action": "remove", "entity_id": "todo.bring"})
     assert (await client.receive_json())["error"]["code"] == "unauthorized"
     assert entry.options[CONF_TODO_ENTITY] == "todo.bring"
-    await client.send_json({"id": 3, "type": f"{DOMAIN}/settings/personalization", "appearance": DEFAULT_APPEARANCE, "stores": DEFAULT_STORES, "favorite_store": ""})
+    await client.send_json({"id": 3, "type": f"{DOMAIN}/settings/personalization", "appearance": DEFAULT_APPEARANCE})
     assert (await client.receive_json())["error"]["code"] == "unauthorized"
 
 

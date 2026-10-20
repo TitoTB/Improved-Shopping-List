@@ -1,4 +1,7 @@
 import { CatalogSession } from "./catalog-client.js?v=0.2.0";
+import "./category-panel.js?v=0.2.0";
+
+const normalizedName = value => String(value ?? "").normalize("NFKC").trim().replace(/\s+/g, " ").toLocaleLowerCase("es");
 
 function element(tag, className, text) {
   const node = document.createElement(tag);
@@ -22,6 +25,8 @@ class ImprovedShoppingCatalog extends HTMLElement {
     this._catalog = new CatalogSession(() => this._hass, () => this._render());
     this._canAdd = false;
     this._notice = "";
+    this._view = "products";
+    this._pendingNames = new Set();
   }
 
   set hass(value) {
@@ -39,6 +44,15 @@ class ImprovedShoppingCatalog extends HTMLElement {
 
   set listName(value) {
     this._listName = value;
+  }
+
+  set pendingItems(value) {
+    const names = new Set((value ?? []).map(item => normalizedName(item.summary)).filter(Boolean));
+    const signature = JSON.stringify([...names].sort());
+    if (signature === this._pendingSignature) return;
+    this._pendingSignature = signature;
+    this._pendingNames = names;
+    this._renderProducts();
   }
 
   connectedCallback() {
@@ -70,6 +84,8 @@ class ImprovedShoppingCatalog extends HTMLElement {
         button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible { outline:3px solid var(--primary-color,#267052); outline-offset:3px; }
         .heading { display:flex; align-items:center; justify-content:space-between; gap:16px; margin:28px 0 12px; }
         .heading-actions { display:flex; align-items:center; gap:8px; margin-left:auto; }
+        .catalog-tabs { display:flex; gap:8px; margin:18px 0; }
+        .catalog-tabs button[aria-pressed=true] { background:var(--secondary-background-color,#edf4ee); font-weight:650; }
         h1 { font-size:32px; letter-spacing:-.03em; margin:0; }
         h2 { font-size:23px; margin:0; }
         .helper { color:var(--secondary-text-color,#63766b); font-size:13px; line-height:1.6; margin:8px 0 18px; }
@@ -82,18 +98,21 @@ class ImprovedShoppingCatalog extends HTMLElement {
         textarea { resize:vertical; min-height:76px; }
         .count { color:var(--secondary-text-color,#63766b); font-size:12px; margin:12px 0; }
         .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(245px,1fr)); gap:16px; }
-        .product { display:flex; flex-direction:column; gap:12px; background:var(--card-background-color,#fff); border:1px solid var(--divider-color,#dfe7e1); border-radius:16px; padding:18px; min-width:0; }
-        .product-top { display:flex; gap:14px; align-items:center; }
-        .image { width:64px; height:64px; object-fit:contain; border-radius:10px; flex-shrink:0; }
-        .placeholder { display:grid; place-items:center; background:var(--secondary-background-color,#edf4ee); color:var(--secondary-text-color,#63766b); }
-        .title { font-size:17px; line-height:1.4; font-weight:650; margin:0; overflow-wrap:anywhere; }
+        .product { position:relative; display:flex; flex-direction:column; gap:12px; background:var(--card-background-color,#fff); border:1px solid var(--divider-color,#dfe7e1); border-radius:16px; padding:30px 18px 18px; min-width:0; text-align:center; }
+        .product.in-list { background:linear-gradient(145deg,rgba(255,85,85,.32),rgba(220,38,38,.12)),var(--card-background-color,#fff); border-color:rgba(220,38,38,.45); }
+        .product-top { display:flex; flex-direction:column; gap:14px; align-items:center; }
+        .image { width:96px; height:96px; object-fit:contain; border-radius:10px; flex-shrink:0; }
+        .placeholder { display:grid; place-items:center; color:var(--secondary-text-color,#63766b); }
+        .placeholder ha-icon { --mdc-icon-size:64px; }
+        .category-badge { position:absolute; top:12px; right:12px; display:grid; place-items:center; width:32px; height:32px; border-radius:50%; color:#fff; }
+        .category-badge ha-icon { --mdc-icon-size:20px; }
+        .title { font-size:17px; line-height:1.4; font-weight:650; margin:0; overflow-wrap:anywhere; text-align:center; }
         .subtitle { color:var(--secondary-text-color,#63766b); font-size:12px; margin:4px 0 0; overflow-wrap:anywhere; }
-        .category { color:var(--secondary-text-color,#63766b); font-size:12px; margin:0; }
-        .tags { display:flex; flex-wrap:wrap; gap:5px; }
+        .tags { display:flex; flex-wrap:wrap; justify-content:center; gap:5px; }
         .tag { padding:4px 8px; border-radius:20px; font-size:11px; background:var(--secondary-background-color,#edf4ee); }
-        .price { margin:0; font-weight:650; }
-        .price small { font-size:11px; font-weight:400; color:var(--secondary-text-color,#63766b); margin-left:6px; }
         .actions { display:flex; gap:8px; margin-top:auto; }
+        .actions button { display:inline-flex; align-items:center; justify-content:center; gap:7px; }
+        .actions ha-icon { --mdc-icon-size:20px; }
         .actions .primary { flex:1; }
         .notice { font-size:13px; line-height:1.6; padding:12px 14px; background:var(--secondary-background-color,#edf4ee); border-radius:10px; margin:14px 0; }
         .error { color:var(--error-color,#bd3636); border:1px solid var(--error-color,#bd3636); }
@@ -109,8 +128,10 @@ class ImprovedShoppingCatalog extends HTMLElement {
       </style>
       <div class="heading"><h1>Catálogo</h1><div class="heading-actions"><button id="new-product" class="primary">Nuevo producto</button><button id="catalog-refresh" aria-label="Actualizar catálogo" title="Actualizar catálogo"><ha-icon icon="mdi:refresh"></ha-icon></button></div></div>
       <p class="helper">Tus productos, categorías y etiquetas, disponibles para todas tus listas.</p>
+      <nav class="catalog-tabs" aria-label="Vistas del catálogo"><button id="view-products" aria-pressed="true">Productos</button><button id="view-categories" aria-pressed="false">Categorías</button></nav>
       <div id="catalog-error" class="notice error" role="alert" hidden></div>
       <div id="catalog-status" class="notice" role="status" hidden></div>
+      <section id="products-view">
       <div class="filters">
         <label class="search">Buscar productos<input id="catalog-search" type="search" placeholder="Nombre, marca, código o etiqueta"></label>
         <label>Categoría<select id="category-filter"><option value="">Todas</option></select></label>
@@ -119,6 +140,8 @@ class ImprovedShoppingCatalog extends HTMLElement {
       <p id="catalog-count" class="count" aria-live="polite"></p>
       <div id="catalog-grid" class="grid"></div>
       <p id="catalog-empty" class="empty" hidden></p>
+      </section>
+      <isl-categories hidden></isl-categories>
       <dialog aria-labelledby="product-dialog-title">
         <form id="product-form">
           <div class="dialog-heading"><h2 id="product-dialog-title">Nuevo producto</h2></div>
@@ -126,7 +149,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
           <div id="product-error" class="notice error" role="alert" hidden></div>
           <div class="fields">
             <label class="wide">Nombre del producto<input name="name" required maxlength="160" placeholder="Por ejemplo, Cacao"></label>
-            <label>Categoría<input name="category" list="category-suggestions" maxlength="80" placeholder="Despensa"></label>
+            <div><label for="product-category">Categoría</label><select id="product-category" name="category"><option value="">Sin categoría</option></select></div>
             <label>Etiquetas<input name="tags" maxlength="850" placeholder="Desayuno, sin gluten"></label>
             <label>Marca<input name="brand" maxlength="100"></label>
             <label>Formato<input name="format" maxlength="100" placeholder="250 g, 1 l, 6 unidades…"></label>
@@ -134,15 +157,19 @@ class ImprovedShoppingCatalog extends HTMLElement {
             <label>Precio orientativo<input name="price" type="number" min="0" max="1000000" step="0.01" placeholder="Sin precio"></label>
             <label>Moneda<select name="currency"><option value="EUR">EUR · Euro</option><option value="USD">USD · Dólar</option><option value="GBP">GBP · Libra</option></select></label>
             <label class="wide">URL de la imagen<input name="image_url" maxlength="2048" placeholder="https://… o /local/producto.png"></label>
+            <label class="wide">Icono del producto<input name="icon" maxlength="100" pattern="mdi:[a-z0-9]+(-[a-z0-9]+)*" placeholder="mdi:shopping"></label>
             <label class="wide">Notas<textarea name="notes" maxlength="1000"></textarea></label>
           </div>
-          <datalist id="category-suggestions"></datalist>
           <div class="form-actions"><button id="cancel-product" type="button">Cancelar</button><button id="save-product" class="primary" type="submit">Guardar producto</button></div>
         </form>
       </dialog>`;
     this._built = true;
     const root = this.shadowRoot;
     root.querySelector("#new-product").addEventListener("click", () => this._openProduct());
+    root.querySelector("#view-products").addEventListener("click", () => this._switchView("products"));
+    root.querySelector("#view-categories").addEventListener("click", () => this._switchView("categories"));
+    root.querySelector("isl-categories").onSave = category => this._catalog.saveCategory(category);
+    root.querySelector("isl-categories").onDelete = category => this._catalog.deleteCategory(category);
     root.querySelector("#catalog-refresh").addEventListener("click", () => void this._catalog.refresh());
     root.querySelector("#catalog-search").addEventListener("input", () => this._renderProducts());
     root.querySelector("#category-filter").addEventListener("change", () => this._renderProducts());
@@ -152,6 +179,16 @@ class ImprovedShoppingCatalog extends HTMLElement {
     root.querySelector("#product-form").addEventListener("submit", (event) => { event.preventDefault(); void this._saveProduct(); });
     this.listName = this._listName;
     this._render();
+  }
+
+  _switchView(view) {
+    this._view = view;
+    const root = this.shadowRoot;
+    root.querySelector("#products-view").hidden = view !== "products";
+    root.querySelector("#new-product").hidden = view !== "products";
+    root.querySelector("isl-categories").hidden = view !== "categories";
+    root.querySelector("#view-products").setAttribute("aria-pressed", String(view === "products"));
+    root.querySelector("#view-categories").setAttribute("aria-pressed", String(view === "categories"));
   }
 
   _render() {
@@ -164,11 +201,17 @@ class ImprovedShoppingCatalog extends HTMLElement {
     status.hidden = !this._catalog.loading && !this._notice;
     status.textContent = this._catalog.loading ? "Cargando catálogo…" : this._notice;
     root.querySelector("#catalog-refresh").disabled = this._catalog.loading;
-    const categories = [...new Set(this._catalog.products.map(product => product.category).filter(Boolean))].sort((a, b) => a.localeCompare(b, "es"));
+    const categories = this._catalog.categories.map(category => category.name).sort((a, b) => a.localeCompare(b, "es"));
     const tags = [...new Set(this._catalog.products.flatMap(product => product.tags))].sort((a, b) => a.localeCompare(b, "es"));
     this._fillFilter(root.querySelector("#category-filter"), categories);
     this._fillFilter(root.querySelector("#tag-filter"), tags);
-    root.querySelector("#category-suggestions").replaceChildren(...categories.map(category => new Option(category, category)));
+    const categorySelect = root.querySelector("[name=category]");
+    const selectedCategory = categorySelect.value;
+    const options = categories.map(category => new Option(category, category));
+    if (selectedCategory && !categories.includes(selectedCategory)) options.push(new Option(`${selectedCategory} · No disponible`, selectedCategory));
+    categorySelect.replaceChildren(new Option("Sin categoría", ""), ...options);
+    categorySelect.value = selectedCategory;
+    root.querySelector("isl-categories").categories = this._catalog.categories;
     this._renderProducts();
   }
 
@@ -185,7 +228,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
     const category = root.querySelector("#category-filter").value;
     const tag = root.querySelector("#tag-filter").value;
     const products = this._catalog.products.filter(product =>
-      (!category || product.category === category) && (!tag || product.tags.includes(tag)) &&
+      (!category || normalizedName(product.category) === normalizedName(category)) && (!tag || product.tags.includes(tag)) &&
       [product.name, product.brand, product.barcode, product.category, ...product.tags].join(" ").toLocaleLowerCase("es").includes(query));
     root.querySelector("#catalog-count").textContent = `${products.length} de ${this._catalog.products.length} productos`;
     root.querySelector("#catalog-grid").replaceChildren(...products.map(product => this._productCard(product)));
@@ -197,10 +240,25 @@ class ImprovedShoppingCatalog extends HTMLElement {
   _productCard(product) {
     const card = element("article", "product");
     card.dataset.productId = product.id;
+    const inList = this._pendingNames.has(normalizedName(product.name));
+    card.classList.toggle("in-list", inList);
+    card.dataset.inList = String(inList);
+    if (inList) card.setAttribute("aria-description", "Pendiente en la lista seleccionada");
+    const category = this._catalog.categories.find(category => normalizedName(category.name) === normalizedName(product.category));
+    if (category) {
+      const badge = element("span", "category-badge");
+      badge.style.backgroundColor = category.color;
+      badge.title = category.name;
+      badge.setAttribute("aria-label", `Categoría: ${category.name}`);
+      const categoryIcon = element("ha-icon");
+      categoryIcon.setAttribute("icon", category.icon);
+      badge.append(categoryIcon);
+      card.append(badge);
+    }
     const top = element("div", "product-top");
     const placeholder = element("div", "image placeholder");
     const icon = element("ha-icon");
-    icon.setAttribute("icon", "mdi:package-variant-closed");
+    icon.setAttribute("icon", product.icon || "mdi:shopping");
     placeholder.append(icon);
     const source = imageSource(product.image_url);
     if (source) {
@@ -217,31 +275,29 @@ class ImprovedShoppingCatalog extends HTMLElement {
     const subtitle = [product.brand, product.format].filter(Boolean).join(" · ");
     if (subtitle) title.append(element("p", "subtitle", subtitle));
     top.append(title);
-    card.append(top, element("p", "category", product.category || "Sin categoría"));
+    card.append(top);
     if (product.tags.length) {
       const tags = element("div", "tags");
       tags.append(...product.tags.map(tag => element("span", "tag", tag)));
       card.append(tags);
     }
-    const price = element("p", "price");
-    if (product.price !== null) {
-      let formatted;
-      try { formatted = new Intl.NumberFormat("es-ES", { style: "currency", currency: product.currency }).format(Number(product.price)); }
-      catch { formatted = `${product.price} ${product.currency}`; }
-      price.append(document.createTextNode(formatted), element("small", "", "orientativo"));
-      if (product.price_updated_at) price.title = `Actualizado el ${new Date(product.price_updated_at).toLocaleDateString("es-ES")}`;
-    } else price.append(element("small", "", "Sin precio"));
     const actions = element("div", "actions");
-    const add = element("button", "primary", this._adding === product.id ? "Añadiendo…" : "Añadir a lista");
+    const add = element("button", "primary");
+    const addIcon = element("ha-icon");
+    addIcon.setAttribute("icon", "mdi:cart-plus");
+    add.append(addIcon, document.createTextNode("Añadir"));
     add.setAttribute("aria-label", `Añadir ${product.name} a la lista`);
     add.title = this._canAdd ? `Añadir a «${this._listName}»` : "Selecciona una lista disponible en el apartado Lista para añadir productos.";
     add.disabled = !this._canAdd || Boolean(this._adding);
     add.addEventListener("click", () => void this._addToList(product));
-    const edit = element("button", "", "Editar");
+    const edit = element("button");
+    const editIcon = element("ha-icon");
+    editIcon.setAttribute("icon", "mdi:note-edit");
+    edit.append(editIcon, document.createTextNode("Editar"));
     edit.setAttribute("aria-label", `Editar ${product.name}`);
     edit.addEventListener("click", () => this._openProduct(product));
     actions.append(add, edit);
-    card.append(price, actions);
+    card.append(actions);
     return card;
   }
 
@@ -254,7 +310,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
     root.querySelector("#product-dialog-title").textContent = product ? "Editar producto" : "Nuevo producto";
     root.querySelector("#product-error").hidden = true;
     if (product) {
-      for (const key of ["name", "category", "brand", "barcode", "format", "price", "image_url", "notes"]) form.elements[key].value = product[key] ?? "";
+      for (const key of ["name", "category", "brand", "barcode", "format", "price", "image_url", "icon", "notes"]) form.elements[key].value = product[key] ?? "";
       if (![...form.elements.currency.options].some(option => option.value === product.currency)) form.elements.currency.add(new Option(product.currency, product.currency));
       form.elements.currency.value = product.currency;
       form.elements.tags.value = product.tags.join(", ");

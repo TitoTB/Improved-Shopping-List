@@ -19,6 +19,13 @@ const data = {
 };
 const listeners = new Map();
 window.catalogProducts=JSON.parse(localStorage.getItem('catalog-fixture')??'[]');
+window.catalogCategories=JSON.parse(localStorage.getItem('category-fixture')??'[]');
+const snapshot=()=>({products:structuredClone(window.catalogProducts),categories:window.catalogCategories.map(category=>({...category,product_count:window.catalogProducts.filter(product=>product.category===category.name).length}))});
+const emitCatalog=()=>{
+  localStorage.setItem('catalog-fixture',JSON.stringify(window.catalogProducts));
+  localStorage.setItem('category-fixture',JSON.stringify(window.catalogCategories));
+  for(const listener of listeners.keys())if(listener.catalog)listener.callback(snapshot());
+};
 window.calls=[];window.fail=false;window.failCatalog=false;
 const panel=document.createElement('improved-shopping-list-panel');
 const hass={
@@ -30,7 +37,7 @@ const hass={
   connection:{subscribeMessage:async(callback,msg)=>{
     if(msg.type==='improved_shopping_list/catalog/subscribe'){
       const listener={callback,catalog:true};listeners.set(listener,true);
-      callback({products:structuredClone(window.catalogProducts)});
+      callback(snapshot());
       return ()=>listeners.delete(listener);
     }
     const listener={callback,entityId:msg.entity_id}; listeners.set(listener,true);
@@ -38,14 +45,25 @@ const hass={
     return ()=>listeners.delete(listener);
   }},
   callWS:async(msg)=>{
-    if(msg.type==='improved_shopping_list/catalog/get')return {products:structuredClone(window.catalogProducts)};
+    if(msg.type==='improved_shopping_list/catalog/get')return snapshot();
+    if(msg.type==='improved_shopping_list/catalog/category/save'){
+      const old=window.catalogCategories.find(category=>category.id===msg.category.id);
+      const category={...msg.category,id:old?.id??crypto.randomUUID(),revision:(old?.revision??0)+1};
+      if(old&&old.name!==category.name)window.catalogProducts=window.catalogProducts.map(product=>product.category===old.name?{...product,category:category.name,revision:product.revision+1}:product);
+      window.catalogCategories=window.catalogCategories.filter(item=>item.id!==category.id);window.catalogCategories.push(category);
+      emitCatalog();return {category};
+    }
+    if(msg.type==='improved_shopping_list/catalog/category/delete'){
+      const category=window.catalogCategories.find(item=>item.id===msg.category_id);
+      window.catalogProducts=window.catalogProducts.map(product=>product.category===category.name?{...product,category:'',revision:product.revision+1}:product);
+      window.catalogCategories=window.catalogCategories.filter(item=>item.id!==category.id);emitCatalog();return {};
+    }
     if(msg.type==='improved_shopping_list/catalog/save'){
       if(window.failCatalog)throw new Error('No se ha podido guardar el catálogo');
       const old=window.catalogProducts.find(product=>product.id===msg.product.id);
       const product={...msg.product,id:old?.id??crypto.randomUUID(),revision:(old?.revision??0)+1,price_updated_at:new Date().toISOString()};
       window.catalogProducts=window.catalogProducts.filter(item=>item.id!==product.id);window.catalogProducts.push(product);
-      localStorage.setItem('catalog-fixture',JSON.stringify(window.catalogProducts));
-      for(const listener of listeners.keys())if(listener.catalog)listener.callback({products:structuredClone(window.catalogProducts)});
+      emitCatalog();
       return {product};
     }
     return {items:structuredClone(data[msg.entity_id]??[])};
@@ -75,7 +93,7 @@ async function main() {
   const server = http.createServer(async (req, res) => {
     const pathname = new URL(req.url, "http://localhost").pathname;
     if (pathname === "/") { res.setHeader("content-type", "text/html; charset=utf-8"); res.end(html); return; }
-    if (!["/panel.js", "/todo-client.js", "/catalog-panel.js", "/catalog-client.js", "/logo.png"].includes(pathname)) { res.writeHead(404).end(); return; }
+    if (!["/panel.js", "/todo-client.js", "/catalog-panel.js", "/catalog-client.js", "/category-panel.js", "/logo.png"].includes(pathname)) { res.writeHead(404).end(); return; }
     res.setHeader("content-type", pathname.endsWith(".png") ? "image/png" : "text/javascript; charset=utf-8");
     res.end(await fs.readFile(path.join(root, pathname.slice(1))));
   });
@@ -145,35 +163,107 @@ async function main() {
     await page.getByText("Cacao", { exact: true }).waitFor();
     await page.getByRole("button", { name: "Catálogo", exact: true }).click();
     const catalog = page.locator("isl-catalog");
+    const categories = catalog.locator("isl-categories");
+    await catalog.getByRole("button", { name: "Categorías", exact: true }).click();
+    await categories.getByRole("button", { name: "Nueva categoría", exact: true }).click();
+    await categories.getByLabel("Nombre de la categoría", { exact: true }).fill("Lácteos");
+    await categories.getByLabel("Icono MDI", { exact: true }).fill("mdi:shopping");
+    await categories.getByLabel("Color", { exact: true }).evaluate(input => { input.value = "#9c27b0"; input.dispatchEvent(new Event("input", { bubbles: true })); });
+    await categories.getByRole("button", { name: "Guardar categoría", exact: true }).click();
+    await categories.getByRole("heading", { name: "Lácteos", exact: true }).waitFor();
+    await catalog.getByRole("button", { name: "Productos", exact: true }).click();
     await catalog.getByRole("button", { name: "Nuevo producto", exact: true }).click();
     await catalog.getByLabel("Nombre del producto", { exact: true }).fill("Yogur natural");
-    await catalog.getByLabel("Categoría", { exact: true }).last().fill("Lácteos");
+    await catalog.getByLabel("Categoría", { exact: true }).last().selectOption("Lácteos");
     await catalog.getByLabel("Etiquetas", { exact: true }).fill("Desayuno, Fresco");
     await catalog.getByLabel("Marca", { exact: true }).fill("Marca de prueba");
     await catalog.getByLabel("Formato", { exact: true }).fill("4 × 125 g");
     await catalog.getByLabel("Código de barras", { exact: true }).fill("0012345678905");
     await catalog.getByLabel("Precio orientativo", { exact: true }).fill("2.59");
-    await catalog.getByLabel("URL de la imagen", { exact: true }).fill("/logo.png");
     await catalog.getByRole("button", { name: "Guardar producto", exact: true }).click();
     await catalog.getByRole("heading", { name: "Yogur natural", exact: true }).waitFor();
     assert.equal(await page.evaluate(() => window.catalogProducts[0].barcode), "0012345678905");
+    const productCard = catalog.locator("#catalog-grid article").first();
+    assert.equal(await productCard.locator(".placeholder ha-icon").getAttribute("icon"), "mdi:shopping");
+    assert.equal(await productCard.getByText("Lácteos", { exact: true }).count(), 0);
+    assert.equal((await productCard.textContent()).includes("2,59"), false);
+    assert.equal(await productCard.locator(".category-badge").evaluate(node => getComputedStyle(node).color), "rgb(255, 255, 255)");
+    assert.equal(await productCard.locator(".category-badge").evaluate(node => getComputedStyle(node).backgroundColor), "rgb(156, 39, 176)");
+    assert.equal(await productCard.locator(".actions button").first().textContent(), "Añadir");
+    assert.equal(await productCard.locator(".actions button").first().locator("ha-icon").getAttribute("icon"), "mdi:cart-plus");
+    assert.equal(await productCard.locator(".actions button").last().locator("ha-icon").getAttribute("icon"), "mdi:note-edit");
+    assert.ok(await productCard.evaluate(card => {
+      const image = card.querySelector(".image").getBoundingClientRect();
+      const title = card.querySelector(".title").getBoundingClientRect();
+      const bounds = card.getBoundingClientRect();
+      return Math.abs((image.left + image.right) / 2 - (bounds.left + bounds.right) / 2) < 2 && image.bottom <= title.top;
+    }));
     await catalog.getByRole("button", { name: "Editar Yogur natural", exact: true }).click();
     await catalog.getByLabel("Nombre del producto", { exact: true }).fill("Yogur sin azúcar");
+    await catalog.getByLabel("Icono del producto", { exact: true }).fill("mdi:view-grid");
     await catalog.getByRole("button", { name: "Guardar producto", exact: true }).click();
     await catalog.getByRole("heading", { name: "Yogur sin azúcar", exact: true }).waitFor();
     assert.equal(await page.evaluate(() => window.catalogProducts.length), 1);
+    assert.equal(await productCard.locator(".placeholder ha-icon").getAttribute("icon"), "mdi:view-grid");
+    await catalog.getByRole("button", { name: "Categorías", exact: true }).click();
+    await categories.getByRole("button", { name: "Editar categoría Lácteos", exact: true }).click();
+    await categories.getByLabel("Nombre de la categoría", { exact: true }).fill("Lácteos y frescos");
+    await categories.getByRole("button", { name: "Guardar categoría", exact: true }).click();
+    await categories.getByRole("heading", { name: "Lácteos y frescos", exact: true }).waitFor();
+    await page.screenshot({ path: "test-results/categories-desktop.png", fullPage: true });
+    await catalog.getByRole("button", { name: "Productos", exact: true }).click();
+    assert.equal(await productCard.locator(".category-badge").getAttribute("title"), "Lácteos y frescos");
     await catalog.getByLabel("Buscar productos", { exact: true }).fill("inexistente");
     await catalog.getByText("No hay productos que coincidan con estos filtros.", { exact: true }).waitFor();
     await catalog.getByLabel("Buscar productos", { exact: true }).fill("");
-    await catalog.locator("#category-filter").selectOption("Lácteos");
+    await catalog.locator("#category-filter").selectOption("Lácteos y frescos");
     await catalog.locator("#tag-filter").selectOption("Desayuno");
     await catalog.getByRole("button", { name: "Añadir Yogur sin azúcar a la lista", exact: true }).click();
     await catalog.getByRole("status").filter({ hasText: "Yogur sin azúcar añadido" }).waitFor();
     assert.equal((await page.evaluate(() => window.calls)).at(-1).entity_id, "todo.bring");
     assert.equal((await page.evaluate(() => window.calls)).at(-1).item, "Yogur sin azúcar");
+    assert.equal(await productCard.getAttribute("data-in-list"), "true");
+    assert.ok((await productCard.evaluate(node => getComputedStyle(node).backgroundImage)).includes("linear-gradient"));
     await page.screenshot({ path: "test-results/catalog-desktop.png", fullPage: true });
     await page.getByRole("button", { name: "Lista", exact: true }).click();
     await page.locator("#pending").getByText("Yogur sin azúcar", { exact: true }).waitFor();
+    await page.getByRole("checkbox", { name: "Marcar como comprado: Yogur sin azúcar", exact: true }).check();
+    await page.getByRole("button", { name: "Catálogo", exact: true }).click();
+    assert.equal(await productCard.getAttribute("data-in-list"), "false");
+    await page.getByRole("button", { name: "Lista", exact: true }).click();
+    await page.locator("#completed-summary").click();
+    await page.getByRole("checkbox", { name: "Volver a poner por comprar: Yogur sin azúcar", exact: true }).uncheck();
+    await page.getByRole("button", { name: "Catálogo", exact: true }).click();
+    assert.equal(await productCard.getAttribute("data-in-list"), "true");
+    await page.getByRole("button", { name: "Lista", exact: true }).click();
+    await page.getByLabel("Lista de la compra", { exact: true }).selectOption("todo.local");
+    await page.locator("#pending").getByText("Detergente", { exact: true }).waitFor();
+    await page.getByRole("button", { name: "Catálogo", exact: true }).click();
+    assert.equal(await productCard.getAttribute("data-in-list"), "false");
+    await catalog.locator("#category-filter").selectOption("");
+    await catalog.getByRole("button", { name: "Categorías", exact: true }).click();
+    await categories.getByRole("button", { name: "Nueva categoría", exact: true }).click();
+    await categories.getByLabel("Nombre de la categoría", { exact: true }).fill("Temporal");
+    await categories.getByRole("button", { name: "Guardar categoría", exact: true }).click();
+    await categories.getByRole("heading", { name: "Temporal", exact: true }).waitFor();
+    await catalog.getByRole("button", { name: "Productos", exact: true }).click();
+    await catalog.getByRole("button", { name: "Editar Yogur sin azúcar", exact: true }).click();
+    await catalog.getByLabel("Categoría", { exact: true }).last().selectOption("Temporal");
+    await catalog.getByRole("button", { name: "Guardar producto", exact: true }).click();
+    await catalog.getByRole("button", { name: "Categorías", exact: true }).click();
+    await categories.getByRole("button", { name: "Eliminar categoría Temporal", exact: true }).click();
+    await categories.getByRole("button", { name: "Eliminar categoría", exact: true }).click();
+    await categories.getByRole("status").filter({ hasText: "Categoría eliminada" }).waitFor();
+    assert.equal(await page.evaluate(() => window.catalogProducts.length), 1);
+    assert.equal(await page.evaluate(() => window.catalogProducts[0].category), "");
+    await catalog.getByRole("button", { name: "Productos", exact: true }).click();
+    assert.equal(await productCard.locator(".category-badge").count(), 0);
+    await catalog.getByRole("button", { name: "Editar Yogur sin azúcar", exact: true }).click();
+    await catalog.getByLabel("Categoría", { exact: true }).last().selectOption("Lácteos y frescos");
+    await catalog.getByLabel("URL de la imagen", { exact: true }).fill("/logo.png");
+    await catalog.getByRole("button", { name: "Guardar producto", exact: true }).click();
+    await productCard.locator("img").evaluate(image => image.decode());
+    assert.equal(await productCard.locator(".placeholder").count(), 0);
     await page.goto(url);
     await page.getByRole("button", { name: "Catálogo", exact: true }).click();
     await catalog.getByRole("heading", { name: "Yogur sin azúcar", exact: true }).waitFor();
@@ -201,6 +291,9 @@ async function main() {
     await catalog.getByRole("heading", { name: "Yogur sin azúcar", exact: true }).waitFor();
     await page.screenshot({ path: "test-results/catalog-mobile.png", fullPage: true });
     assert.equal(await catalog.evaluate(node => node.shadowRoot.querySelector("#catalog-grid").scrollWidth > innerWidth), false);
+    await catalog.getByRole("button", { name: "Categorías", exact: true }).click();
+    await categories.getByRole("heading", { name: "Lácteos y frescos", exact: true }).waitFor();
+    await page.screenshot({ path: "test-results/categories-mobile.png", fullPage: true });
     await page.evaluate(() => window.testPanel.remove());
     assert.equal(await page.evaluate(() => window.listenerCount()), 0);
     assert.deepEqual(errors, []);

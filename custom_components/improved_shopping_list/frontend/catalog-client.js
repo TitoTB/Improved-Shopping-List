@@ -6,6 +6,7 @@ export class CatalogSession {
     this.getHass = getHass;
     this.onChange = onChange;
     this.products = [];
+    this.categories = [];
     this.loading = false;
     this.error = "";
     this._generation = 0;
@@ -24,6 +25,7 @@ export class CatalogSession {
         if (generation !== this._generation) return;
         this._revision += 1;
         this.products = data.products ?? [];
+        this.categories = data.categories ?? [];
         this.loading = false;
         this.error = "";
         this.onChange();
@@ -46,6 +48,7 @@ export class CatalogSession {
       const data = await this.getHass().callWS({ type: `${PREFIX}get` });
       if (generation !== this._generation || revision !== this._revision) return;
       this.products = data.products ?? [];
+      this.categories = data.categories ?? [];
       this.error = "";
     } catch (error) {
       if (generation !== this._generation || revision !== this._revision) return;
@@ -63,6 +66,19 @@ export class CatalogSession {
     const result = await this.getHass().callWS({ type: `${PREFIX}save`, product });
     if (generation === this._generation) await this.refresh();
     return result.product;
+  }
+
+  async saveCategory(category) {
+    const generation = this._generation;
+    const result = await this.getHass().callWS({ type: `${PREFIX}category/save`, category });
+    if (generation === this._generation) await this.refresh();
+    return result.category;
+  }
+
+  async deleteCategory(category) {
+    const generation = this._generation;
+    await this.getHass().callWS({ type: `${PREFIX}category/delete`, category_id: category.id, revision: category.revision });
+    if (generation === this._generation) await this.refresh();
   }
 
   stop() {

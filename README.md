@@ -13,7 +13,7 @@ Versión actual: **0.2.0**. Interfaz en español, pensada para móvil y ordenado
 - Añadir productos, marcarlos como comprados y volver a ponerlos por comprar.
 - Recibir cambios del proveedor mediante la API nativa de listas de Home Assistant.
 - Cambiar de lista desde el panel y cambiar la predeterminada desde la configuración de la integración.
-- Crear y editar productos en un catálogo local compartido entre los usuarios de Home Assistant.
+- Crear y editar productos en un catálogo local compartido entre los usuarios de Home Assistant, con vistas Productos y Categorías.
 - Asignar categorías, etiquetas, marcas, formatos, códigos de barras, precios orientativos, imágenes y notas.
 - Buscar, filtrar y añadir productos del catálogo a la lista seleccionada.
 
@@ -46,9 +46,13 @@ Para publicar una versión, los mantenedores actualizan la versión en `manifest
 
 El catálogo se guarda en el almacenamiento de Home Assistant, no en el navegador. Todos los usuarios autenticados que utilicen el panel comparten el mismo catálogo. Las listas siguen perteneciendo a sus proveedores originales; se añade el nombre del producto a la lista, y las propiedades adicionales permanecen en su ficha del catálogo.
 
-Solo es obligatorio el nombre. Cada producto tiene una categoría y varias etiquetas, que puedes crear al escribirlas. Las imágenes se asignan mediante una URL http/https o una ruta local como `/local/cacao.png`; esta versión no incluye subida de archivos ni descarga de imágenes al servidor. El navegador carga la imagen desde la ubicación indicada.
+Solo es obligatorio el nombre. Las categorías se crean, editan y eliminan desde la vista Categorías, donde puedes elegir su icono MDI y su color. Renombrar una categoría actualiza sus productos; eliminarla los conserva sin categoría. Las categorías introducidas en instalaciones anteriores se recuperan automáticamente con un icono y un color predeterminados. Las etiquetas se introducen separadas por comas en la ficha del producto.
 
-El precio es manual y orientativo, asociado al formato y la moneda indicados, con su fecha de actualización. Todavía no hay comparación de ofertas por supermercado, consulta automática de precios, lector de códigos, Open Food Facts, scrapeo ni importación de PDF. El código de barras se guarda como texto para conservar sus ceros iniciales.
+Las tarjetas muestran primero la imagen o el icono del producto y debajo su nombre, centrados. Si no hay imagen ni icono asignados se usa `mdi:shopping`. La categoría se representa con un icono blanco sobre un círculo de su color en la esquina superior derecha. Las imágenes se asignan mediante una URL http/https o una ruta local como `/local/cacao.png`; esta versión no incluye subida de archivos ni descarga de imágenes al servidor. El navegador carga la imagen desde la ubicación indicada.
+
+Los productos pendientes en la lista seleccionada se resaltan con un degradado rojo. La coincidencia se realiza por nombre, sin distinguir mayúsculas ni diferencias de espacios; los elementos comprados no se resaltan. Cambiar de lista actualiza este estado visual y conserva el catálogo común.
+
+El precio es manual y orientativo, asociado al formato y la moneda indicados, con su fecha de actualización. Se conserva en la ficha de edición, pero no se muestra en las tarjetas. Todavía no hay comparación de ofertas por supermercado, consulta automática de precios, lector de códigos, Open Food Facts, scrapeo ni importación de PDF. El código de barras se guarda como texto para conservar sus ceros iniciales.
 
 Las ediciones simultáneas se detectan: si otra sesión ha cambiado una ficha, se pide volver a abrirla antes de guardar. No se borra el catálogo al cambiar de lista ni al recargar la integración. Se conserva también al retirar la integración para permitir reinstalarla; los productos de las listas originales tampoco se eliminan.
 

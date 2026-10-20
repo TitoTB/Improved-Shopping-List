@@ -29,13 +29,15 @@ def async_register_commands(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_catalog_get)
     websocket_api.async_register_command(hass, ws_catalog_subscribe)
     websocket_api.async_register_command(hass, ws_catalog_save)
+    websocket_api.async_register_command(hass, ws_category_save)
+    websocket_api.async_register_command(hass, ws_category_delete)
 
 
 @websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/catalog/get"})
 @callback
 def ws_catalog_get(hass: HomeAssistant, connection, msg: dict[str, Any]) -> None:
     if catalog := _catalog(hass, connection, msg):
-        connection.send_result(msg["id"], {"products": catalog.products})
+        connection.send_result(msg["id"], catalog.snapshot)
 
 
 @websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/catalog/subscribe"})
@@ -46,7 +48,7 @@ def ws_catalog_subscribe(hass: HomeAssistant, connection, msg: dict[str, Any]) -
 
     @callback
     def on_update() -> None:
-        connection.send_event(msg["id"], {"products": catalog.products})
+        connection.send_event(msg["id"], catalog.snapshot)
 
     connection.subscriptions[msg["id"]] = catalog.subscribe(on_update)
     connection.send_result(msg["id"])
@@ -70,3 +72,42 @@ async def ws_catalog_save(hass: HomeAssistant, connection, msg: dict[str, Any]) 
         connection.send_error(msg["id"], "storage_error", "No se ha podido guardar el catálogo. Inténtalo de nuevo.")
     else:
         connection.send_result(msg["id"], {"product": product})
+
+
+@websocket_api.websocket_command({
+    vol.Required("type"): f"{DOMAIN}/catalog/category/save",
+    vol.Required("category"): dict,
+})
+@websocket_api.async_response
+async def ws_category_save(hass: HomeAssistant, connection, msg: dict[str, Any]) -> None:
+    if not (catalog := _catalog(hass, connection, msg)):
+        return
+    try:
+        category = await catalog.async_save_category(msg["category"])
+    except CatalogError as err:
+        connection.send_error(msg["id"], err.code, str(err))
+    except (OSError, HomeAssistantError):
+        _LOGGER.exception("Could not persist category")
+        connection.send_error(msg["id"], "storage_error", "No se ha podido guardar la categoría.")
+    else:
+        connection.send_result(msg["id"], {"category": category})
+
+
+@websocket_api.websocket_command({
+    vol.Required("type"): f"{DOMAIN}/catalog/category/delete",
+    vol.Required("category_id"): str,
+    vol.Required("revision"): int,
+})
+@websocket_api.async_response
+async def ws_category_delete(hass: HomeAssistant, connection, msg: dict[str, Any]) -> None:
+    if not (catalog := _catalog(hass, connection, msg)):
+        return
+    try:
+        await catalog.async_delete_category(msg["category_id"], msg["revision"])
+    except CatalogError as err:
+        connection.send_error(msg["id"], err.code, str(err))
+    except (OSError, HomeAssistantError):
+        _LOGGER.exception("Could not delete category")
+        connection.send_error(msg["id"], "storage_error", "No se ha podido eliminar la categoría.")
+    else:
+        connection.send_result(msg["id"])

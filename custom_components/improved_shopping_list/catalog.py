@@ -1,6 +1,7 @@
 """Local shared product catalog, independent of any to-do list provider."""
 
 from asyncio import Lock
+from collections import Counter
 from copy import deepcopy
 from datetime import UTC, datetime
 from decimal import Decimal, InvalidOperation
@@ -17,8 +18,33 @@ from .const import DOMAIN
 STORAGE_KEY = f"{DOMAIN}.catalog"
 FIELDS = {
     "id", "revision", "name", "category", "tags", "brand", "barcode",
-    "format", "price", "currency", "image_url", "notes",
+    "format", "price", "currency", "image_url", "icon", "notes",
 }
+CATEGORY_FIELDS = {"id", "revision", "name", "icon", "color"}
+DEFAULT_CATEGORY_ICON = "mdi:tag"
+DEFAULT_CATEGORY_COLOR = "#64748b"
+
+
+def _mdi_icon(value: Any, *, optional: bool = False) -> str:
+    if optional and value == "":
+        return ""
+    if not isinstance(value, str) or len(value) > 100 or not re.fullmatch(r"mdi:[a-z0-9]+(?:-[a-z0-9]+)*", value):
+        raise CatalogError("Utiliza un icono MDI como mdi:shopping.")
+    return value
+
+
+def normalize_category(data: dict[str, Any]) -> dict[str, Any]:
+    """Validate category properties before using colors in the frontend."""
+    if not isinstance(data, dict) or set(data) - CATEGORY_FIELDS:
+        raise CatalogError("La categoría contiene campos no admitidos.")
+    name = _text(data, "name", 80)
+    if not name:
+        raise CatalogError("El nombre de la categoría es obligatorio.")
+    icon = _mdi_icon(data.get("icon", DEFAULT_CATEGORY_ICON))
+    color = data.get("color", DEFAULT_CATEGORY_COLOR)
+    if not isinstance(color, str) or not re.fullmatch(r"#[a-fA-F0-9]{6}", color):
+        raise CatalogError("Selecciona un color hexadecimal válido, como #267052.")
+    return {"name": name, "icon": icon, "color": color.lower()}
 
 
 class CatalogError(ValueError):
@@ -49,6 +75,7 @@ def normalize_product(data: dict[str, Any]) -> dict[str, Any]:
     }
     if not product["name"]:
         raise CatalogError("El nombre del producto es obligatorio.")
+    product["icon"] = _mdi_icon(data.get("icon", ""), optional=True)
     tags = data.get("tags", [])
     if not isinstance(tags, list) or len(tags) > 20:
         raise CatalogError("Puedes asignar hasta 20 etiquetas.")
@@ -97,6 +124,7 @@ class Catalog:
     def __init__(self, hass: HomeAssistant) -> None:
         self._store = Store(hass, 1, STORAGE_KEY)
         self._products: dict[str, dict[str, Any]] = {}
+        self._categories: dict[str, dict[str, Any]] = {}
         self._lock = Lock()
         self._listeners: set = set()
 
@@ -107,11 +135,58 @@ class Catalog:
             if not isinstance(data, dict) or not isinstance(data.get("products"), dict):
                 raise CatalogError("No se ha podido leer el catálogo guardado.", "storage_error")
             self._products = data["products"]
+            categories = data.get("categories", {})
+            if not isinstance(categories, dict):
+                raise CatalogError("No se han podido leer las categorías guardadas.", "storage_error")
+            categories = deepcopy(categories)
+            known = {category["name"].casefold() for category in categories.values()}
+            migrated = "categories" not in data
+            # Earlier installations stored category names directly on products.
+            # Promote those names without dropping products or their metadata.
+            for product in self._products.values():
+                name = product.get("category", "")
+                if name and name.casefold() not in known:
+                    now = datetime.now(UTC).isoformat()
+                    category_id = str(uuid4())
+                    categories[category_id] = {
+                        "id": category_id, "revision": 1, "name": name,
+                        "icon": DEFAULT_CATEGORY_ICON, "color": DEFAULT_CATEGORY_COLOR,
+                        "created_at": now, "updated_at": now,
+                    }
+                    known.add(name.casefold())
+                    migrated = True
+            if migrated:
+                await self._store.async_save({"products": self._products, "categories": categories})
+            self._categories = categories
 
     @property
     def products(self) -> list[dict[str, Any]]:
         """Return a snapshot so callers cannot mutate stored products."""
         return deepcopy(sorted(self._products.values(), key=lambda item: item["name"].casefold()))
+
+    @property
+    def categories(self) -> list[dict[str, Any]]:
+        """Include usage counts without persisting derived information."""
+        counts = Counter(product["category"].casefold() for product in self._products.values())
+        return [
+            {**deepcopy(category), "product_count": counts[category["name"].casefold()]}
+            for category in sorted(self._categories.values(), key=lambda item: item["name"].casefold())
+        ]
+
+    @property
+    def snapshot(self) -> dict[str, Any]:
+        return {"products": self.products, "categories": self.categories}
+
+    async def _persist(self, products, categories) -> None:
+        """Commit related category and product changes together under the lock."""
+        await self._store.async_save({"products": products, "categories": categories})
+        self._products = products
+        self._categories = categories
+
+    @callback
+    def _notify(self) -> None:
+        for listener in tuple(self._listeners):
+            listener()
 
     @callback
     def subscribe(self, listener):
@@ -139,6 +214,12 @@ class Catalog:
                     "Otra sesión ha modificado este producto. Cierra y vuelve a abrir su ficha.",
                     "conflict",
                 )
+            if product["category"]:
+                category = next((item for item in self._categories.values()
+                                 if item["name"].casefold() == product["category"].casefold()), None)
+                if category is None:
+                    raise CatalogError("La categoría ya no existe. Selecciona otra o créala en Categorías.")
+                product["category"] = category["name"]
             if product["barcode"] and any(
                 item["barcode"] == product["barcode"] and item["id"] != product_id
                 for item in self._products.values()
@@ -158,8 +239,57 @@ class Catalog:
                 ),
             })
             updated = {**self._products, product["id"]: product}
-            await self._store.async_save({"products": updated})
-            self._products = updated
-        for listener in tuple(self._listeners):
-            listener()
+            await self._persist(updated, self._categories)
+        self._notify()
         return deepcopy(product)
+
+    async def async_save_category(self, data: dict[str, Any]) -> dict[str, Any]:
+        """Create or rename a category and keep product references consistent."""
+        category = normalize_category(data)
+        async with self._lock:
+            category_id = data.get("id")
+            if category_id is not None and not isinstance(category_id, str):
+                raise CatalogError("Identificador de categoría no válido.")
+            current = self._categories.get(category_id) if category_id else None
+            if category_id and current is None:
+                raise CatalogError("La categoría ya no existe.", "not_found")
+            if current and data.get("revision") != current["revision"]:
+                raise CatalogError("Otra sesión ha modificado esta categoría. Vuelve a abrirla.", "conflict")
+            if any(item["name"].casefold() == category["name"].casefold() and item["id"] != category_id
+                   for item in self._categories.values()):
+                raise CatalogError("Ya existe una categoría con ese nombre.", "duplicate_category")
+            now = datetime.now(UTC).isoformat()
+            category.update({
+                "id": current["id"] if current else str(uuid4()),
+                "revision": current["revision"] + 1 if current else 1,
+                "created_at": current["created_at"] if current else now,
+                "updated_at": now,
+            })
+            products = self._products
+            if current and current["name"] != category["name"]:
+                products = self._reassign_category(current["name"], category["name"], now)
+            await self._persist(products, {**self._categories, category["id"]: category})
+        self._notify()
+        return deepcopy(category)
+
+    async def async_delete_category(self, category_id: str, revision: int) -> None:
+        """Remove only the category, retaining its products without a category."""
+        async with self._lock:
+            current = self._categories.get(category_id)
+            if current is None:
+                raise CatalogError("La categoría ya no existe.", "not_found")
+            if revision != current["revision"]:
+                raise CatalogError("Otra sesión ha modificado esta categoría. Vuelve a abrirla.", "conflict")
+            now = datetime.now(UTC).isoformat()
+            products = self._reassign_category(current["name"], "", now)
+            categories = {key: value for key, value in self._categories.items() if key != category_id}
+            await self._persist(products, categories)
+        self._notify()
+
+    def _reassign_category(self, previous: str, replacement: str, now: str) -> dict:
+        return {
+            key: {**product, "category": replacement, "revision": product["revision"] + 1,
+                  "updated_at": now}
+            if product["category"].casefold() == previous.casefold() else product
+            for key, product in self._products.items()
+        }

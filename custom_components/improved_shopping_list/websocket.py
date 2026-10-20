@@ -47,6 +47,7 @@ def async_register_commands(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_personalization)
     websocket_api.async_register_command(hass, ws_store_update)
     websocket_api.async_register_command(hass, ws_store_products)
+    websocket_api.async_register_command(hass, ws_store_progress)
     websocket_api.async_register_command(hass, ws_readers_get)
     websocket_api.async_register_command(hass, ws_readers_subscribe)
     websocket_api.async_register_command(hass, ws_readers_save)
@@ -295,6 +296,22 @@ async def ws_store_update(hass, connection, msg):
         connection.send_error(msg["id"], "invalid_store", str(err))
     else:
         connection.send_result(msg["id"], result)
+
+
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/settings/store_progress"})
+@callback
+def ws_store_progress(hass, connection, msg):
+    if not _catalog(hass, connection, msg):
+        return
+    products = hass.data[DOMAIN]["store_products"]
+
+    @callback
+    def on_update():
+        connection.send_event(msg["id"], deepcopy(products.progress))
+
+    connection.subscriptions[msg["id"]] = products.subscribe(on_update)
+    connection.send_result(msg["id"])
+    on_update()
 
 
 @websocket_api.websocket_command({

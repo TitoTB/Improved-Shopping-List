@@ -97,7 +97,22 @@ class StoreProducts:
         self._next_request = 0
         self._request_count = 0
         self._batch_id = ""
+        self._listeners = set()
+        self.progress = {"running": False}
         self.activity = None
+
+    def subscribe(self, listener):
+        self._listeners.add(listener)
+        return lambda: self._listeners.discard(listener)
+
+    def _update_progress(self, **changes):
+        self.progress = {**self.progress, **changes}
+        if self.progress.get("running"):
+            elapsed = max(0, time.time() - self.progress["started_at"])
+            remaining = self.progress["total"] - self.progress["processed"]
+            self.progress["estimated_seconds"] = round(max(0, min(35 - elapsed, remaining * (2 * REQUEST_INTERVAL + 1))))
+        for listener in tuple(self._listeners):
+            listener()
 
     async def async_load(self):
         data = await self._store.async_load()
@@ -140,73 +155,83 @@ class StoreProducts:
 
     async def async_refresh(self, force=False):
         async with self._lock:
-            result = self.snapshot()
-            warehouse = result["warehouse"]
-            entry = self.settings.entry
-            generation = self.settings._generation
-            if not result["enabled"] or not warehouse:
-                return result
-            now = time.time()
-            codes = self._codes()
-            pending = [(key, product) for key, product in codes.items()
-                       if force or now - self._cache.get(f"{warehouse}:{key}", {}).get("checked_at", 0) >= TTL]
-            pending.sort(key=lambda item: self._cache.get(f"{warehouse}:{item[0]}", {}).get("checked_at", 0))
-            error, changed, processed = "", False, 0
-            if pending and now < self._retry_after:
-                result["error"] = self._last_error or "Las consultas de Mercadona están temporalmente pausadas."
-                self._record("cooldown", "Mercadona: consulta omitida durante la pausa de reintento", {
-                    "warehouse": warehouse, "retry_at": self._retry_after, "wait_seconds": int(self._retry_after - now),
-                    "http_requests": 0, "last_http_status": self._last_diagnostics.get("http_status")})
-                return result
-            self._batch_id = uuid4().hex
-            self._request_count = 0
-            self._record("refresh", "Mercadona: inicio de actualización de precios", {
-                "batch_id": self._batch_id, "warehouse": warehouse, "force": force,
-                "valid_codes": len(codes), "pending_codes": len(pending), "request_interval_seconds": REQUEST_INTERVAL})
-            for key, product in pending[:20]:
-                if time.time() - now >= 35:
-                    break
-                try:
-                    offer = await self._fetch(product["code"], warehouse, product["name"])
-                except StoreError as err:
-                    error = str(err)
-                    self._failures += 1
-                    diagnostics = {"endpoint": SEARCH_URL, "method": "POST", "warehouse": warehouse,
-                        "ean": product["code"], "batch_id": self._batch_id,
-                        **getattr(err, "diagnostics", {"response_class": "invalid_response"})}
-                    status = diagnostics.get("http_status")
-                    base = 900 if status == 403 else 300 if status == 429 else 60
-                    wait = max(min(base * 2 ** min(self._failures - 1, 5), 3600), getattr(err, "retry_seconds", 0))
-                    self._retry_after = time.time() + wait
-                    diagnostics.update(retry_seconds=wait, retry_at=self._retry_after, consecutive_failures=self._failures)
-                    self._last_error, self._last_diagnostics = error, diagnostics
-                    self._record("error", f"Mercadona: error al consultar precios. {error}", diagnostics,
-                                 product=product["name"], code=product["code"])
-                    _LOGGER.warning("Mercadona price lookup failed: %s", json.dumps(diagnostics, ensure_ascii=False))
-                    changed = True
-                    break
-                current = self.settings.snapshot["stores"]["mercadona"]
-                if (not self.hass.data.get(DOMAIN, {}).get("active") or self.settings.entry is not entry
-                    or self.settings._generation != generation or not current.get("enabled")
-                    or current.get("warehouse") != warehouse):
-                    raise StoreError("La configuración de la tienda ha cambiado. Vuelve a abrir el popup.")
-                self._cache[f"{warehouse}:{key}"] = {"offer": offer, "checked_at": int(time.time())}
-                changed = True
-                processed += 1
-                self._last_error, self._last_diagnostics = "", {}
-                self._retry_after, self._failures = 0, 0
-            if changed:
-                self._cache = dict(sorted(self._cache.items(), key=lambda item: item[1].get("checked_at", 0), reverse=True)[:2000])
-                await self._persist()
-            result = self.snapshot()
-            result.update(error=error or self._last_error, remaining=len(pending) - processed,
-                          processed=processed, total=len(pending))
-            self._record("summary", "Mercadona: actualización detenida por un error" if error else "Mercadona: actualización finalizada", {
-                "batch_id": self._batch_id, "warehouse": warehouse, "processed_codes": processed,
-                "pending_codes": len(pending) - processed, "http_requests": self._request_count,
-                "elapsed_ms": round((time.time() - now) * 1000), "failed": bool(error),
-                "retry_at": self._retry_after, "matched_products": len(result["products"])})
+            try:
+                return await self._async_refresh(force)
+            finally:
+                if self.progress.get("running"):
+                    self._update_progress(running=False, estimated_seconds=0)
+
+    async def _async_refresh(self, force=False):
+        result = self.snapshot()
+        warehouse = result["warehouse"]
+        entry = self.settings.entry
+        generation = self.settings._generation
+        if not result["enabled"] or not warehouse:
             return result
+        now = time.time()
+        codes = self._codes()
+        pending = [(key, product) for key, product in codes.items()
+                   if force or now - self._cache.get(f"{warehouse}:{key}", {}).get("checked_at", 0) >= TTL]
+        pending.sort(key=lambda item: self._cache.get(f"{warehouse}:{item[0]}", {}).get("checked_at", 0))
+        error, changed, processed = "", False, 0
+        if pending and now < self._retry_after:
+            result["error"] = self._last_error or "Las consultas de Mercadona están temporalmente pausadas."
+            self._record("cooldown", "Mercadona: consulta omitida durante la pausa de reintento", {
+                "warehouse": warehouse, "retry_at": self._retry_after, "wait_seconds": int(self._retry_after - now),
+                "http_requests": 0, "last_http_status": self._last_diagnostics.get("http_status")})
+            return result
+        self._batch_id = uuid4().hex
+        self._request_count = 0
+        self._update_progress(running=True, batch_id=self._batch_id, warehouse=warehouse,
+                              started_at=now, total=len(pending), processed=0, phase="starting")
+        self._record("refresh", "Mercadona: inicio de actualización de precios", {
+            "batch_id": self._batch_id, "warehouse": warehouse, "force": force,
+            "valid_codes": len(codes), "pending_codes": len(pending), "request_interval_seconds": REQUEST_INTERVAL})
+        for key, product in pending[:20]:
+            if time.time() - now >= 35:
+                break
+            try:
+                offer = await self._fetch(product["code"], warehouse, product["name"])
+            except StoreError as err:
+                error = str(err)
+                self._failures += 1
+                diagnostics = {"endpoint": SEARCH_URL, "method": "POST", "warehouse": warehouse,
+                    "ean": product["code"], "batch_id": self._batch_id,
+                    **getattr(err, "diagnostics", {"response_class": "invalid_response"})}
+                status = diagnostics.get("http_status")
+                base = 900 if status == 403 else 300 if status == 429 else 60
+                wait = max(min(base * 2 ** min(self._failures - 1, 5), 3600), getattr(err, "retry_seconds", 0))
+                self._retry_after = time.time() + wait
+                diagnostics.update(retry_seconds=wait, retry_at=self._retry_after, consecutive_failures=self._failures)
+                self._last_error, self._last_diagnostics = error, diagnostics
+                self._record("error", f"Mercadona: error al consultar precios. {error}", diagnostics,
+                             product=product["name"], code=product["code"])
+                _LOGGER.warning("Mercadona price lookup failed: %s", json.dumps(diagnostics, ensure_ascii=False))
+                changed = True
+                break
+            current = self.settings.snapshot["stores"]["mercadona"]
+            if (not self.hass.data.get(DOMAIN, {}).get("active") or self.settings.entry is not entry
+                or self.settings._generation != generation or not current.get("enabled")
+                or current.get("warehouse") != warehouse):
+                raise StoreError("La configuración de la tienda ha cambiado. Vuelve a abrir el popup.")
+            self._cache[f"{warehouse}:{key}"] = {"offer": offer, "checked_at": int(time.time())}
+            changed = True
+            processed += 1
+            self._update_progress(processed=processed, phase="processed")
+            self._last_error, self._last_diagnostics = "", {}
+            self._retry_after, self._failures = 0, 0
+        if changed:
+            self._cache = dict(sorted(self._cache.items(), key=lambda item: item[1].get("checked_at", 0), reverse=True)[:2000])
+            await self._persist()
+        result = self.snapshot()
+        result.update(error=error or self._last_error, remaining=len(pending) - processed,
+                      processed=processed, total=len(pending))
+        self._record("summary", "Mercadona: actualización detenida por un error" if error else "Mercadona: actualización finalizada", {
+            "batch_id": self._batch_id, "warehouse": warehouse, "processed_codes": processed,
+            "pending_codes": len(pending) - processed, "http_requests": self._request_count,
+            "elapsed_ms": round((time.time() - now) * 1000), "failed": bool(error),
+            "retry_at": self._retry_after, "matched_products": len(result["products"])})
+        return result
 
     async def _fetch(self, code, warehouse, name):
         session = async_create_clientsession(self.hass, auto_cleanup=False, cookie_jar=aiohttp.DummyCookieJar())
@@ -229,7 +254,9 @@ class StoreProducts:
         async with self._request_lock:
             delay = max(0, self._next_request - time.monotonic())
             if delay:
+                self._update_progress(phase="waiting")
                 await sleep(delay)
+            self._update_progress(phase=query_type)
             started = time.monotonic()
             self._request_count += 1
             diagnostics["request_number"] = self._request_count

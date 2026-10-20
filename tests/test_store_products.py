@@ -106,6 +106,45 @@ async def test_fetch_exact_ean(hass, aioclient_mock):
     assert aioclient_mock.call_count == 1
 
 
+@pytest.mark.parametrize("cancel", [False, True])
+async def test_progress_is_pushed_before_refresh_finishes_and_on_cancellation(hass, monkeypatch, cancel):
+    service = environment(hass)
+    service.catalog.products.append({"name": "Otro", "barcode": "3017620422003"})
+    events, entered, resume = [], asyncio.Event(), asyncio.Event()
+    stop = service.subscribe(lambda: events.append(dict(service.progress)))
+    calls = 0
+
+    async def fetch(*args):
+        nonlocal calls
+        calls += 1
+        if calls == 2:
+            entered.set()
+            await resume.wait()
+        return None
+
+    monkeypatch.setattr(service, "_fetch", fetch)
+    task = asyncio.create_task(service.async_refresh(True))
+    await entered.wait()
+    assert not task.done()
+    assert events[0]["running"] and events[0]["total"] == 2
+    assert events[-1]["processed"] == 1 and events[-1]["running"]
+    assert 0 < events[-1]["estimated_seconds"] <= 35
+    if cancel:
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+    else:
+        resume.set()
+        result = await task
+        assert result["processed"] == 2 and result["remaining"] == 0
+        assert events[-1]["processed"] == 2
+    assert not events[-1]["running"] and events[-1]["estimated_seconds"] == 0
+    stop()
+    before = len(events)
+    service._update_progress(phase="ignored")
+    assert len(events) == before
+
+
 async def test_fetch_tries_name_but_never_uses_a_similar_ean(hass, aioclient_mock):
     service = environment(hass)
     aioclient_mock.post(SEARCH_URL, json={"hits": [{**HIT, "ean": "3017620422003"}]})

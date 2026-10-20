@@ -14,7 +14,7 @@ class ImprovedShoppingSettings extends HTMLElement {
     this._render();
   }
 
-  disconnectedCallback() { clearTimeout(this._storeRetryTimer); this._productsGeneration = (this._productsGeneration || 0) + 1; this.shadowRoot.querySelector("#store-dialog")?.close(); }
+  disconnectedCallback() { clearTimeout(this._storeRetryTimer); clearInterval(this._storeProgressTimer); this._stopStoreProgress?.(); this._stopStoreProgress = null; this._productsLoading = false; this._productsGeneration = (this._productsGeneration || 0) + 1; this.shadowRoot.querySelector("#store-dialog")?.close(); }
 
   _build() {
     this.shadowRoot.innerHTML = `
@@ -52,6 +52,7 @@ class ImprovedShoppingSettings extends HTMLElement {
         dialog { color:inherit; background:var(--card-background-color,#fff); width:min(680px,calc(100vw - 28px)); max-height:calc(100dvh - 28px); border:1px solid var(--divider-color,#dfe7e1); border-radius:18px; padding:24px; }
         dialog::backdrop { background:rgba(0,0,0,.4); }
         .store-products { display:grid; gap:12px; margin-top:16px; }.store-product { display:flex; justify-content:space-between; align-items:center; gap:12px; border:1px solid var(--divider-color,#dfe7e1); border-radius:10px; padding:14px; }
+        .store-progress progress { display:block; width:100%; height:14px; accent-color:var(--primary-color,#267052); }.store-progress p { margin:6px 0; }
         .store-product-info { min-width:0; overflow-wrap:anywhere; }.store-product-info p { margin:4px 0 0; }.store-price { flex:none; max-width:50%; text-align:right; }.store-price p { margin:4px 0; font-size:12px; }
         @media(max-width:540px) { dialog { padding:18px; }.store-row { padding:12px; gap:8px; }.store-logo { width:40px; height:40px; }.store-controls { gap:8px; } }
         .primary { color:#fff; background:#267052; border:0; }
@@ -119,6 +120,7 @@ class ImprovedShoppingSettings extends HTMLElement {
         <section id="store-products-view">
           <div class="appearance-actions"><button id="refresh-store-products" type="button"><ha-icon icon="mdi:refresh" aria-hidden="true"></ha-icon> Forzar actualización</button></div>
           <p id="store-products-status" role="status"></p><div id="store-products-error" class="notice error" role="alert" hidden></div>
+          <div id="store-progress" class="store-progress" hidden><progress aria-label="Progreso de actualización de precios"></progress><p id="store-progress-count" role="status"></p><p id="store-progress-time"></p><p>Se revisan hasta 20 códigos por lote, durante unos 35 segundos. La estimación puede variar según la respuesta de la tienda.</p></div>
           <div id="store-products" class="store-products"></div>
         </section>
         <section id="store-configuration-view" hidden>
@@ -316,6 +318,7 @@ class ImprovedShoppingSettings extends HTMLElement {
   _renderStoreProducts() {
     const root = this.shadowRoot;
     const store = this._data.settings.stores?.mercadona ?? {};
+    this._renderStoreProgress();
     const data = this._storeProducts?.warehouse === store.warehouse && store.enabled ? this._storeProducts : null;
     const retryAt = Number.isFinite(data?.retry_at) ? data.retry_at : 0;
     const paused = retryAt > Date.now()/1000;
@@ -358,18 +361,56 @@ class ImprovedShoppingSettings extends HTMLElement {
     }));
   }
 
+  _renderStoreProgress() {
+    const root = this.shadowRoot;
+    const state = this._storeProgress;
+    const store = this._data.settings.stores?.mercadona ?? {};
+    const visible = this._productsLoading && this._productsForced && store.enabled && store.warehouse === this._productsWarehouse;
+    root.querySelector("#store-progress").hidden = !visible;
+    if (!visible) return;
+    const bar = root.querySelector("#store-progress progress");
+    const total = Math.max(0, Number(state?.total) || 0);
+    const processed = Math.min(total, Math.max(0, Number(state?.processed) || 0));
+    bar.max = total || 1;
+    if (total) bar.value = processed; else bar.removeAttribute("value");
+    const phase = {starting:"Preparando consultas", waiting:"Esperando entre consultas", ean:"Buscando por EAN", name:"Buscando por nombre", processed:"Código revisado"}[state?.phase] ?? "Preparando actualización";
+    root.querySelector("#store-progress-count").textContent = total ? `${processed} de ${total} códigos revisados · ${phase}` : "Preparando actualización…";
+    const seconds = Math.max(0, Math.ceil((state?.estimated_seconds ?? 0) - (Date.now() - (this._storeProgressReceived ?? Date.now())) / 1000));
+    root.querySelector("#store-progress-time").textContent = state?.running
+      ? seconds > 0 ? `Tiempo estimado restante de este lote: ${seconds} s` : "Finalizando lote…"
+      : "Esperando respuesta…";
+  }
+
   async _loadStoreProducts(force) {
     if (this._productsLoading) return;
     const store = this._data.settings.stores?.mercadona ?? {};
     if (!store.enabled || !store.warehouse) { this._renderStoreProducts(); return; }
     const generation = this._productsGeneration = (this._productsGeneration || 0) + 1;
     const warehouse = store.warehouse;
-    this._productsLoading = true; this._productsError = ""; this._renderStoreProducts();
+    this._productsLoading = true; this._productsForced = force; this._productsWarehouse = warehouse; this._storeProgress = null; this._productsError = ""; this._renderStoreProducts();
+    let unsubscribe;
     try {
+      if (force) {
+        const stop = await this._data.hass.connection.subscribeMessage(state => {
+          if (generation !== this._productsGeneration || state.warehouse !== warehouse || this._data.settings.stores?.mercadona?.warehouse !== warehouse) return;
+          this._storeProgress = state; this._storeProgressReceived = Date.now(); this._renderStoreProgress();
+        }, {type:"improved_shopping_list/settings/store_progress"});
+        let stopped = false;
+        unsubscribe = () => { if (!stopped) { stopped = true; stop(); } };
+        if (generation !== this._productsGeneration) return;
+        this._stopStoreProgress = unsubscribe;
+        this._storeProgressTimer = setInterval(() => this._renderStoreProgress(), 1000);
+      }
       const data = await this._data.hass.callWS({type:"improved_shopping_list/settings/store_products",force});
       if (generation === this._productsGeneration && this._data.settings.stores?.mercadona?.warehouse === warehouse) this._storeProducts = data;
     } catch (error) { if (generation === this._productsGeneration) this._productsError = error.message ?? "No se han podido consultar los precios."; }
-    finally { if (generation === this._productsGeneration) { this._productsLoading = false; this._renderStoreProducts(); } }
+    finally {
+      unsubscribe?.();
+      if (generation === this._productsGeneration) {
+        clearInterval(this._storeProgressTimer); this._stopStoreProgress = null;
+        this._productsLoading = false; this._renderStoreProducts();
+      }
+    }
   }
 
   _fillAppearance(appearance) {

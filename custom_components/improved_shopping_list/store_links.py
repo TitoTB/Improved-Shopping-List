@@ -28,7 +28,9 @@ def normalize_link(store, value):
     if "://" in value:
         parts = urlsplit(value)
         if (parts.scheme != "https" or parts.hostname not in HOSTS[store] or parts.username or parts.password
-            or parts.port not in (None, 443) or "%" in parts.netloc):
+            or parts.port not in (None, 443) or "%" in parts.netloc or "\\" in parts.path
+            or any(segment in (".", "..") for segment in parts.path.split("/"))
+            or re.search(r"%(?:2f|5c|2e)", parts.path, re.I)):
             raise ValueError(f"Utiliza un enlace HTTPS de {STORES[store]}.")
         patterns = {"mercadona": r"/product/([0-9]{1,12})(?:/[^/]*)?/?",
             "alcampo": r"/products/[^/]+/([0-9]{1,12})/?",

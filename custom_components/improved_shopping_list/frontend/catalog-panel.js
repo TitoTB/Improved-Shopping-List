@@ -812,7 +812,14 @@ class ImprovedShoppingCatalog extends HTMLElement {
         const link = document.createElement("a"); link.textContent = `${names[product.store] ?? product.store}: ${new Intl.NumberFormat("es-ES",{style:"currency",currency:product.currency}).format(Number(product.price))} · ${product.store_name || product.name || "Ver producto"}${product.reference_id ? ` · ID ${product.reference_id}` : ""}`;
         link.href = product.url; link.target = "_blank"; link.rel = "noopener noreferrer";
         const date = document.createElement("p"); date.className = "helper"; date.textContent = `Último precio conocido: ${new Date(product.checked_at*1000).toLocaleString("es-ES")}${product.error ? " · No se pudo actualizar" : ""}${product.available === false ? " · No disponible" : ""}`;
-        row.append(link,date); return row;
+        row.append(link);
+        if(product.reference_price != null && Number.isFinite(Number(product.reference_price)) && product.reference_unit){
+          const unit=document.createElement("p");unit.className="helper";
+          const units={PER_1KG:"kg",PER_1L:"l",PER_100G:"100 g",PER_100ML:"100 ml",PER_EACH:"ud"};
+          unit.textContent=`${new Intl.NumberFormat("es-ES",{style:"currency",currency:product.currency}).format(Number(product.reference_price))}/${units[product.reference_unit] ?? product.reference_unit}`;
+          row.append(unit);
+        }
+        row.append(date); return row;
       });
       root.querySelector("#store-price-results").replaceChildren(...rows);
       root.querySelector("#product-store-prices").hidden = !rows.length;

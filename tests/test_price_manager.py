@@ -109,6 +109,24 @@ async def test_no_daytime_first_run_and_daily_configurable_start(env):
     assert len(env.requests) == 1
 
 
+async def test_unavailable_list_does_not_block_known_pending_from_other_list(env,hass):
+    hass.states.async_set("todo.one", "unavailable")
+    await env.manager.async_tick()
+    assert len(env.requests) == 1
+
+
+async def test_lists_can_finish_starting_during_the_nightly_window(env,hass):
+    for entity in env.settings.snapshot["entities"]:
+        hass.states.async_set(entity,"unavailable")
+    await env.manager.async_tick()
+    assert not env.requests
+    env.clock[0] += 300
+    for entity in env.settings.snapshot["entities"]:
+        hass.states.async_set(entity,"1")
+    await env.manager.async_tick()
+    assert len(env.requests) == 1
+
+
 async def test_blocked_store_stops_but_other_store_continues(env):
     env.catalog.products = [product("Arroz"), product("Segundo","1234"), product("Tomate","69938","mercadona")]
     env.items["todo.one"] = [{"summary":p["name"],"status":"needs_action"} for p in env.catalog.products]

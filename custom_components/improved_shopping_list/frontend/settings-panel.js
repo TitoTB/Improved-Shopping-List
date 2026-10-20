@@ -57,6 +57,10 @@ class ImprovedShoppingSettings extends HTMLElement {
         .primary { color:#fff; background:#267052; border:0; }
         .add-row { display:flex; align-items:end; gap:10px; }
         .select-wrap { flex:1; min-width:0; }
+        .community-export { display:flex; align-items:center; gap:24px; }
+        .community-export p { flex:1; min-width:0; }
+        .community-export button { flex:none; max-width:42%; }
+        #settings-community a { color:var(--primary-color,#267052); }
         label { display:block; font-size:13px; font-weight:600; margin-bottom:8px; }
         select { width:100%; background:var(--card-background-color,#fff); }
         .lists { display:grid; gap:12px; margin-top:24px; }
@@ -130,10 +134,9 @@ class ImprovedShoppingSettings extends HTMLElement {
       </dialog>
       <section id="settings-community" class="card" aria-labelledby="settings-community-title" hidden>
         <h2 id="settings-community-title">Comunidad</h2>
-        <p>Exporta un diccionario con los nombres de tus productos, sus traducciones disponibles y las imágenes locales asignadas. Puedes enviarlo al mantenedor para incorporar las imágenes revisadas al catálogo comunitario.</p>
+        <div class="community-export"><p>Exporta un diccionario con los nombres de tus productos, sus traducciones disponibles y las imágenes locales asignadas. Puedes enviarlo al mantenedor para incorporar las imágenes revisadas al catálogo comunitario, creando un Issue en el <a href="https://github.com/TitoTB/Improved-Shopping-List" target="_blank" rel="noopener noreferrer">repositorio de Github</a>.</p><button id="export-community" class="primary" type="button">Exportar mis iconos</button></div>
         <p>No se envía nada automáticamente. El ZIP no incluye listas, códigos, notas ni datos de tu cuenta. Las imágenes externas se indican como referencias y las licencias desconocidas quedan pendientes de revisión.</p>
-        <button id="export-community" class="primary" type="button">Exportar mis iconos</button>
-        <p>Las sugerencias comunitarias se muestran antes que Iconify, ordenadas por aportaciones revisadas; no representan un recuento global de usuarios. El catálogo empieza vacío.</p>
+        <p>Este proyecto ha sido desarrollado por la <a href="https://t.me/aguacatec_es/3" target="_blank" rel="noopener noreferrer">comunidad de Aguacatec</a>. Si tienes cualquier duda o sugerencia puedes unirte a través de Telegram o apoyarnos <a href="https://www.patreon.com/c/aguacatec/membership" target="_blank" rel="noopener noreferrer">haciéndote Patreon</a>.</p>
       </section>`;
     this._built = true;
     this.shadowRoot.querySelector("#add-list").addEventListener("click", () => {

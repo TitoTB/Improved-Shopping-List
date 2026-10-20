@@ -547,6 +547,23 @@ async function main() {
         await page.locator(`#nav-${view}`).click();
         assert.equal(await page.locator(".section-nav .nav-label:visible").count(), 1);
         assert.equal(await page.locator(`#nav-${view} .nav-label`).isVisible(), true);
+        if (view === "catalog") {
+          for (const tab of ["products","categories","suggestions"]) {
+            await catalog.locator(`#view-${tab}`).click();
+            assert.equal(await catalog.locator(".catalog-tabs .tab-label:visible").count(),1);
+            assert.equal(await catalog.locator(`#view-${tab} .tab-label`).isVisible(),true);
+            assert.equal(await catalog.locator(".catalog-tabs ha-icon:visible").count(),3);
+            assert.ok(await catalog.locator(".catalog-toolbar").evaluate(toolbar=>{
+              const tabs=toolbar.querySelector(".catalog-tabs");
+              const bounds=toolbar.getBoundingClientRect();
+              return tabs.scrollWidth<=tabs.clientWidth+1 && [...toolbar.querySelectorAll("button")].filter(button=>button.getClientRects().length).every(button=>{
+                const rect=button.getBoundingClientRect();
+                return rect.left>=bounds.left && rect.right<=bounds.right+1;
+              });
+            }),`Compact catalog tabs fit at ${width}px with ${tab} active`);
+          }
+          await catalog.locator("#view-products").click();
+        }
         assert.equal(await page.locator("header").evaluate(header => {
           const buttons = [...header.querySelectorAll(".section-nav button")];
           const logo = header.querySelector(".brand-logo").getBoundingClientRect();
@@ -560,6 +577,9 @@ async function main() {
     await page.setViewportSize({ width:1280, height:960 });
     assert.equal(await page.locator(".brand-copy").isVisible(), true);
     assert.equal(await page.locator(".section-nav .nav-label:visible").count(), 4);
+    await page.getByRole("button",{name:"Catálogo",exact:true}).click();
+    assert.equal(await catalog.locator(".catalog-tabs .tab-label:visible").count(),3);
+    await page.getByRole("button",{name:"Lista",exact:true}).click();
     await page.setViewportSize({ width:390, height:844 });
     await page.getByRole("button", { name: "Abrir menú de Home Assistant" }).click();
     assert.equal(await page.evaluate(() => window.menuOpened), true);

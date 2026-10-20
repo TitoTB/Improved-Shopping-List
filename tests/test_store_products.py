@@ -7,13 +7,20 @@ from unittest.mock import AsyncMock, Mock
 import pytest
 
 from custom_components.improved_shopping_list.const import DOMAIN
-from custom_components.improved_shopping_list.store_products import SEARCH_URL, StoreProducts, exact_offer
+from custom_components.improved_shopping_list.store_products import StoreProducts, exact_offer, search_url
 from custom_components.improved_shopping_list.stores import StoreError
 from custom_components.improved_shopping_list import store_products as module
 
 CODE = "8430543025611"
+SEARCH_URL = search_url("mad3")
+DETAIL_URL = module.PRODUCT_URL.format(identifier="69938", warehouse="mad3")
 HIT = {"id": "69938", "ean": CODE, "display_name": "Tomate rallado", "published": True,
        "price_instructions": {"unit_price": "1.45", "reference_price": "5.00", "reference_format": "kg", "approx_size": False}}
+
+
+@pytest.fixture(autouse=True)
+def no_real_network_wait(monkeypatch):
+    monkeypatch.setattr(module, "sleep", AsyncMock())
 
 
 def environment(hass):
@@ -101,9 +108,10 @@ async def test_configuration_change_discards_late_result(hass, monkeypatch):
 
 async def test_fetch_exact_ean(hass, aioclient_mock):
     service = environment(hass)
-    aioclient_mock.post(SEARCH_URL, json={"hits": [HIT]})
+    aioclient_mock.post(SEARCH_URL, json={"hits": [{"id": "69938", "ean": "untrusted-search-field"}]})
+    aioclient_mock.get(DETAIL_URL, json=HIT)
     assert (await service._fetch(CODE, "mad3", "Tomate"))["price"] == 1.45
-    assert aioclient_mock.call_count == 1
+    assert aioclient_mock.call_count == 2
 
 
 @pytest.mark.parametrize("cancel", [False, True])
@@ -147,7 +155,8 @@ async def test_progress_is_pushed_before_refresh_finishes_and_on_cancellation(ha
 
 async def test_fetch_tries_name_but_never_uses_a_similar_ean(hass, aioclient_mock):
     service = environment(hass)
-    aioclient_mock.post(SEARCH_URL, json={"hits": [{**HIT, "ean": "3017620422003"}]})
+    aioclient_mock.post(SEARCH_URL, json={"hits": [HIT]})
+    aioclient_mock.get(DETAIL_URL, json={**HIT, "ean": "3017620422003"})
     assert await service._fetch(CODE, "mad3", "Tomate") is None
     assert aioclient_mock.call_count == 2
 
@@ -160,7 +169,7 @@ async def test_fetch_rejects_http_errors(hass, aioclient_mock, status):
         await service._fetch(CODE, "mad3", "Tomate")
 
 
-async def test_all_requests_are_paced_including_name_fallback(hass, aioclient_mock, monkeypatch):
+async def test_search_and_detail_requests_are_all_paced(hass, aioclient_mock, monkeypatch):
     service = environment(hass)
     clock, waits = [100.0], []
     monkeypatch.setattr(module, "time", SimpleNamespace(time=lambda: 1800000000 + clock[0], monotonic=lambda: clock[0]))
@@ -170,8 +179,10 @@ async def test_all_requests_are_paced_including_name_fallback(hass, aioclient_mo
         clock[0] += seconds
 
     monkeypatch.setattr(module, "sleep", advance)
-    aioclient_mock.post(SEARCH_URL, json={"hits": []})
+    aioclient_mock.post(SEARCH_URL, json={"hits": [{"id": "69938"}]})
+    aioclient_mock.get(DETAIL_URL, json=HIT)
     await service._fetch(CODE, "mad3", "Tomate")
+    service._details.clear()
     await service._fetch(CODE, "mad3", "Tomate")
     assert aioclient_mock.call_count == 4
     assert waits == pytest.approx([5, 5, 5])
@@ -193,7 +204,7 @@ async def test_403_persists_cooldown_and_logs_safe_diagnostics(hass, aioclient_m
     assert diagnostics["response_class"] == "service_misuse"
     assert diagnostics["x-request-id"] == "safe-reference"
     assert diagnostics["block_reference"] == "0.aabbccdd.1792508361.1234abcd"
-    assert diagnostics["query_type"] == "ean" and diagnostics["request_number"] == 1
+    assert diagnostics["query_type"] == "name" and diagnostics["request_number"] == 1
     assert diagnostics["retry_seconds"] == 900
     assert "private-cookie" not in str(records) + caplog.text
     assert "private-body" not in str(records) + caplog.text
@@ -263,3 +274,128 @@ async def test_timeout_has_technical_context(hass, aioclient_mock):
     await service.async_refresh(True)
     assert service._last_diagnostics["response_class"] == "timeout"
     assert service._last_diagnostics["exception_type"] == "TimeoutError"
+
+
+async def test_no_candidates_is_a_success_without_backoff(hass, aioclient_mock):
+    service = environment(hass)
+    aioclient_mock.post(SEARCH_URL, json={"hits": [], "nbPages": 0})
+    result = await service.async_refresh(True)
+    assert result["processed"] == 1 and result["remaining"] == 0
+    assert result["not_found"] == 1 and not result["products"]
+    assert not result["error"] and result["retry_at"] == 0
+    assert aioclient_mock.call_count == 1
+
+
+async def test_known_reference_updates_directly_and_rechecks_its_ean(hass, aioclient_mock):
+    service = environment(hass)
+    service._cache[f"mad3:{CODE.zfill(14)}"] = {"offer": exact_offer([HIT], CODE), "checked_at": 0}
+    aioclient_mock.get(DETAIL_URL, json={**HIT, "price_instructions": {"unit_price": "1.65"}})
+    result = await service.async_refresh(True)
+    assert result["products"][0]["price"] == 1.65
+    assert aioclient_mock.call_count == 1
+    assert aioclient_mock.mock_calls[0][0] == "GET"
+
+
+async def test_pagination_checks_all_candidates_not_only_first_page(hass, aioclient_mock, monkeypatch):
+    service = environment(hass)
+    search = AsyncMock(side_effect=[
+        ({"hits": [{"id": "123"}], "page": 0, "nbPages": 2}, {}),
+        ({"hits": [{"id": "69938"}], "page": 1, "nbPages": 2}, {}),
+    ])
+    monkeypatch.setattr(service, "_search", search)
+    aioclient_mock.get(module.PRODUCT_URL.format(identifier="123", warehouse="mad3"), json={**HIT, "id": "123", "ean": "3017620422003"})
+    aioclient_mock.get(DETAIL_URL, json=HIT)
+    assert (await service.async_refresh(True))["products"][0]["ean"] == CODE
+    assert [call.args[-1] for call in search.await_args_list] == [0, 1]
+    assert aioclient_mock.call_count == 2
+
+
+async def test_duplicate_exact_references_are_not_silently_chosen(hass, aioclient_mock):
+    service = environment(hass)
+    aioclient_mock.post(SEARCH_URL, json={"hits": [{"id": "69938"}, {"id": "123"}]})
+    aioclient_mock.get(DETAIL_URL, json=HIT)
+    aioclient_mock.get(module.PRODUCT_URL.format(identifier="123", warehouse="mad3"), json={**HIT, "id": "123"})
+    result = await service.async_refresh(True)
+    assert "varias referencias" in result["error"]
+    assert not result["products"] and result["not_found"] == 0
+
+
+async def test_candidate_scan_resumes_after_restart_without_recording_a_false_miss(hass, aioclient_mock, monkeypatch):
+    service = environment(hass)
+    clock = [100.0]
+    monkeypatch.setattr(module, "time", SimpleNamespace(time=lambda: 1800000000 + clock[0], monotonic=lambda: clock[0]))
+
+    async def advance(seconds):
+        clock[0] += seconds
+
+    monkeypatch.setattr(module, "sleep", advance)
+    ids = [str(100 + index) for index in range(8)]
+    aioclient_mock.post(SEARCH_URL, json={"hits": [{"id": identifier} for identifier in ids]})
+    for index, identifier in enumerate(ids):
+        aioclient_mock.get(module.PRODUCT_URL.format(identifier=identifier, warehouse="mad3"),
+            json={**HIT, "id": identifier, "ean": CODE if index == 0 else "3017620422003"})
+    partial = await service.async_refresh(True)
+    assert partial["remaining"] == 1 and partial["processed"] == 0
+    assert not partial["error"] and partial["retry_at"] == 0 and partial["not_found"] == 0
+    assert not partial["products"]  # Don't publish until ambiguity has also been checked.
+    checked = service._lookups[f"mad3:{CODE.zfill(14)}"]["cursor"]
+    assert 0 < checked < 8
+    restored = environment(hass)
+    await restored.async_load()
+    result = await restored.async_refresh(True)
+    assert result["processed"] == 1 and result["remaining"] == 0
+    assert result["products"][0]["ean"] == CODE
+    assert aioclient_mock.call_count == 9  # One search and eight distinct detail requests.
+    assert restored._lookups == {}
+
+
+async def test_completed_force_batch_is_not_restarted_when_continuing(hass, monkeypatch):
+    service = environment(hass)
+    products = []
+    for index in range(21):
+        prefix = f"84300000{index:04}"
+        checksum = (10 - sum(int(digit) * (3 if position % 2 == 0 else 1)
+            for position, digit in enumerate(reversed(prefix))) % 10) % 10
+        products.append({"name": f"Producto {index}", "barcode": prefix + str(checksum)})
+    service.catalog.products = products
+    fetch = AsyncMock(return_value=None)
+    monkeypatch.setattr(service, "_fetch", fetch)
+    first = await service.async_refresh(True)
+    assert first["processed"] == 20 and first["remaining"] == 1
+    second = await service.async_refresh(True)
+    assert second["processed"] == 1 and second["remaining"] == 0
+    assert fetch.await_count == 21
+
+
+async def test_removed_candidate_is_not_a_network_failure(hass, aioclient_mock):
+    service = environment(hass)
+    aioclient_mock.post(SEARCH_URL, json={"hits": [{"id": "69938"}]})
+    aioclient_mock.get(DETAIL_URL, status=404)
+    result = await service.async_refresh(True)
+    assert not result["error"] and result["not_found"] == 1 and result["retry_at"] == 0
+
+
+async def test_legacy_403_does_not_block_the_new_provider(hass, aioclient_mock):
+    service = environment(hass)
+    await service._store.async_save({"offers": {}, "retry_after": module.time.time() + 3600,
+        "last_error": "HTTP 403", "failures": 3, "last_diagnostics": {"endpoint": module.LEGACY_SEARCH_URL, "http_status": 403}})
+    await service.async_load()
+    aioclient_mock.post(SEARCH_URL, json={"hits": []})
+    result = await service.async_refresh(True)
+    assert not result["error"] and not result["automatic_refresh_blocked"]
+    assert result["processed"] == 1 and result["retry_at"] == 0
+    assert aioclient_mock.call_count == 1
+
+
+async def test_entry_change_during_pause_stops_before_the_next_request(hass, aioclient_mock, monkeypatch):
+    service = environment(hass)
+    aioclient_mock.post(SEARCH_URL, json={"hits": [{"id": "69938"}]})
+
+    async def change_entry(seconds):
+        service.settings._generation += 1
+
+    monkeypatch.setattr(module, "sleep", change_entry)
+    with pytest.raises(StoreError, match="configuración"):
+        await service.async_refresh(True)
+    assert aioclient_mock.call_count == 1
+    assert not service.snapshot()["products"] and not service.progress["running"]

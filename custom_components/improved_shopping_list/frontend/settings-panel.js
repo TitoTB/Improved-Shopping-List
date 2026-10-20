@@ -120,7 +120,7 @@ class ImprovedShoppingSettings extends HTMLElement {
         <section id="store-products-view">
           <div class="appearance-actions"><button id="refresh-store-products" type="button"><ha-icon icon="mdi:refresh" aria-hidden="true"></ha-icon> Forzar actualización</button></div>
           <p id="store-products-status" role="status"></p><div id="store-products-error" class="notice error" role="alert" hidden></div>
-          <p id="store-access-block" hidden>Mercadona ha rechazado el acceso al buscador. Abrir esta vista no repetirá la consulta. La hora indicada es la espera mínima para reintentar manualmente; no garantiza que el bloqueo desaparezca.</p>
+          <p id="store-access-block" hidden>Mercadona ha rechazado una consulta. Abrir esta vista no repetirá la consulta. La hora indicada es la espera mínima para reintentar manualmente; no garantiza que el bloqueo desaparezca.</p>
           <div id="store-progress" class="store-progress" hidden><progress aria-label="Progreso de actualización de precios"></progress><p id="store-progress-count" role="status"></p><p id="store-progress-time"></p><p>Se revisan hasta 20 códigos por lote, durante unos 35 segundos. La estimación puede variar según la respuesta de la tienda.</p></div>
           <div id="store-products" class="store-products"></div>
         </section>
@@ -340,6 +340,7 @@ class ImprovedShoppingSettings extends HTMLElement {
       : paused ? `Actualización pausada hasta las ${new Date(retryAt*1000).toLocaleTimeString("es-ES")}.${progress} Consulta el diagnóstico en Logs → Tiendas.`
       : error.textContent ? `La última actualización no se pudo completar.${progress} Consulta el diagnóstico en Logs → Tiendas.`
       : data?.remaining ? `Quedan ${data.remaining} códigos por revisar. Puedes continuar con Forzar actualización.`
+      : data?.not_found && !data?.products?.length ? `${data.not_found} códigos revisados sin coincidencia exacta de EAN entre los candidatos consultados. No es un error de conexión.`
       : !data?.products?.length ? "No hay productos encontrados. Se buscan los EAN válidos de tu catálogo."
       : `${data.products.length} productos encontrados · Almacén: ${store.warehouse}`;
     const money = value => new Intl.NumberFormat("es-ES",{style:"currency",currency:"EUR"}).format(value);
@@ -375,8 +376,9 @@ class ImprovedShoppingSettings extends HTMLElement {
     const processed = Math.min(total, Math.max(0, Number(state?.processed) || 0));
     bar.max = total || 1;
     if (total) bar.value = processed; else bar.removeAttribute("value");
-    const phase = {starting:"Preparando consultas", waiting:"Esperando entre consultas", ean:"Buscando por EAN", name:"Buscando por nombre", processed:"Código revisado"}[state?.phase] ?? "Preparando actualización";
-    root.querySelector("#store-progress-count").textContent = total ? `${processed} de ${total} códigos revisados · ${phase}` : "Preparando actualización…";
+    const phase = {starting:"Preparando consultas", waiting:"Esperando entre consultas", ean:"Buscando por EAN", name:"Buscando candidatos", details:"Comprobando EAN en la ficha", continuation:"Guardando avance para continuar", processed:"Código revisado"}[state?.phase] ?? "Preparando actualización";
+    const candidates = state?.candidates ? ` · ${state.candidates} referencias comprobadas` : "";
+    root.querySelector("#store-progress-count").textContent = total ? `${processed} de ${total} códigos revisados · ${phase}${candidates}` : "Preparando actualización…";
     const seconds = Math.max(0, Math.ceil((state?.estimated_seconds ?? 0) - (Date.now() - (this._storeProgressReceived ?? Date.now())) / 1000));
     root.querySelector("#store-progress-time").textContent = state?.running
       ? seconds > 0 ? `Tiempo estimado restante de este lote: ${seconds} s` : "Finalizando lote…"

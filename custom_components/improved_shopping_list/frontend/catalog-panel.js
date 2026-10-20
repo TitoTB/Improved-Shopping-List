@@ -275,6 +275,12 @@ class ImprovedShoppingCatalog extends HTMLElement {
         <h2 id="delete-product-title">Eliminar producto</h2><p id="delete-product-description"></p>
         <div id="delete-product-error" class="notice error" role="alert" hidden></div>
         <div class="form-actions"><button id="cancel-delete-product" type="button">Cancelar</button><button id="confirm-delete-product" type="button" style="background:#000;color:#fff;border:0">Eliminar producto</button></div>
+      </dialog>
+      <dialog id="link-code-dialog" aria-labelledby="link-code-title">
+        <h2 id="link-code-title">Asignar código a un producto</h2><p id="link-code-description" class="helper"></p>
+        <div id="link-code-error" class="notice error" role="alert" hidden></div>
+        <div id="link-code-search"></div><p id="link-code-selection" class="helper" role="status"></p>
+        <div class="form-actions"><button id="cancel-link-code" type="button">Cancelar</button><button id="confirm-link-code" class="primary" type="button" disabled>Asignar</button></div>
       </dialog>`;
     this._built = true;
     const root = this.shadowRoot;
@@ -301,6 +307,10 @@ class ImprovedShoppingCatalog extends HTMLElement {
     root.querySelector('[name="image_url"]').addEventListener("input", event => { iconPicker.value = event.target.value; });
     root.querySelector("dialog").addEventListener("close", () => { iconPicker.close(); this._resetNutriscores(); });
     for (const field of ["barcode", "barcodes"]) root.querySelector(`[name=${field}]`).addEventListener("input", () => this._resetNutriscores());
+    root.querySelector("#cancel-link-code").addEventListener("click", () => root.querySelector("#link-code-dialog").close());
+    root.querySelector("#confirm-link-code").addEventListener("click", () => void this._assignCode());
+    root.querySelector("#link-code-dialog").addEventListener("cancel", event => { if (this._linkBusy) event.preventDefault(); });
+    root.querySelector("#link-code-dialog").addEventListener("close", () => { if (root.querySelector("#link-code-dialog").open) return; this._linkReading = null; this._linkProductId = null; this._refreshLinkPredictions = null; });
     root.querySelector("#cancel-delete-product").addEventListener("click", () => root.querySelector("#delete-product-dialog").close());
     root.querySelector("#confirm-delete-product").addEventListener("click", () => void this._deleteProduct());
     root.querySelector("#delete-product-dialog").addEventListener("cancel", event => { if (this._deletingProduct) event.preventDefault(); });
@@ -374,12 +384,6 @@ class ImprovedShoppingCatalog extends HTMLElement {
   _renderSuggestions() {
     if (!this._built) return;
     const root = this.shadowRoot;
-    const selections = new Map([...root.querySelectorAll("[data-pending-id]")].map(row => {
-      const input = row.querySelector(".link-search input");
-      return [row.dataset.pendingId, {query:input.value, linking:!input.parentElement.hidden,
-        focused:root.activeElement === input, start:input.selectionStart, end:input.selectionEnd,
-        expanded:input.getAttribute("aria-expanded") === "true"}];
-    }));
     const error = root.querySelector("#suggestions-error");
     error.hidden = !this._suggestionError;
     error.textContent = this._suggestionError ?? "";
@@ -417,19 +421,8 @@ class ImprovedShoppingCatalog extends HTMLElement {
       return values.includes(item.code);
     }));
     root.querySelector("#list-suggestions").replaceChildren(...rows);
-    root.querySelector("#scan-suggestions").replaceChildren(...pending.map(item => this._codeSuggestion(item,selections.get(item.id))));
-    for (const row of root.querySelectorAll("[data-pending-id]")) {
-      const selection = selections.get(row.dataset.pendingId);
-      if (!selection?.focused) continue;
-      const input = row.querySelector(".link-search input");
-      input.focus({preventScroll:true});
-      input.setSelectionRange(selection.start, selection.end);
-      if (!selection.expanded) {
-        row.querySelector(".link-results").hidden = true;
-        input.setAttribute("aria-expanded", "false");
-        input.removeAttribute("aria-activedescendant");
-      }
-    }
+    root.querySelector("#scan-suggestions").replaceChildren(...pending.map(item => this._codeSuggestion(item)));
+    this._renderLinkDialog();
     root.querySelector("#list-suggestions-count").textContent = String(suggestions.length);
     root.querySelector("#scan-suggestions-count").textContent = String(pending.length);
     root.querySelector("#list-suggestions-empty").hidden = suggestions.length > 0 || this._catalog.loading || Boolean(this._catalog.error);
@@ -437,7 +430,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
     root.querySelector("#suggestions-empty").hidden = suggestions.length > 0 || pending.length > 0 || this._catalog.loading || Boolean(this._catalog.error);
   }
 
-  _codeSuggestion(item, selection) {
+  _codeSuggestion(item) {
     const row = element("article", "suggestion");
     row.dataset.pendingId=item.id;
     const info = element("div");
@@ -456,20 +449,13 @@ class ImprovedShoppingCatalog extends HTMLElement {
       const message = hint.status === "pending" ? "Consultando Open Food Facts…" : hint.status === "not_found" ? "Sin nombre disponible en Open Food Facts." : "Consulta no disponible. Puedes identificarlo manualmente.";
       info.append(element("p", "subtitle", message));
     }
-    const candidateIds = new Set(candidates.map(product => product.id));
-    const ordered = [...candidates, ...this._catalog.products.filter(product => !candidateIds.has(product.id))];
-    const search = this._productLinkSearch(item, ordered, candidateIds, selection);
-    info.append(search);
     const actions = element("div", "actions");
     const add = iconButton("mdi:plus-thick", `Crear producto con el código ${item.code}`, "primary");
     add.addEventListener("click", () => this._openProduct(undefined, "", item));
     const link = iconButton("mdi:view-grid", `Asignar código ${item.code} a un producto del catálogo`, "link");
-    link.disabled = !this._catalog.products.length;
+    link.disabled = !this._catalog.products.length || this._linkBusy;
     if (link.disabled) link.title = "Añade primero un producto al catálogo";
-    link.addEventListener("click", () => {
-      search.hidden = false;
-      search.querySelector("input").focus();
-    });
+    link.addEventListener("click", () => this._openLinkDialog(item));
     const dismiss = iconButton("mdi:delete", `Descartar código ${item.code}`, "danger");
     dismiss.addEventListener("click", async () => {
       dismiss.disabled = true;
@@ -480,13 +466,11 @@ class ImprovedShoppingCatalog extends HTMLElement {
     actions.append(add,link,dismiss);row.append(info,actions);return row;
   }
 
-  _productLinkSearch(item, products, candidateIds, selection) {
+  _productLinkSearch(item) {
     const search = element("div", "link-search");
-    search.hidden = !selection?.linking;
     const input = element("input");
     input.type = "text";
     input.placeholder = "Buscar un producto del catálogo…";
-    input.value = selection?.query ?? "";
     input.autocomplete = "off";
     input.setAttribute("aria-label", `Producto para el código ${item.code}`);
     input.setAttribute("role", "combobox");
@@ -508,7 +492,8 @@ class ImprovedShoppingCatalog extends HTMLElement {
     const choose = product => {
       input.value = product.name;
       close();
-      this._openProduct(product, "", item);
+      this._linkProductId = product.id;
+      this._renderLinkDialog();
     };
     const highlight = () => {
       [...results.children].forEach((option, index) => option.setAttribute("aria-selected", String(index === active)));
@@ -520,6 +505,9 @@ class ImprovedShoppingCatalog extends HTMLElement {
     };
     const predict = (expanded = true) => {
       const query = productNameKey(input.value);
+      const candidates = matchCatalogProducts(item.identification, this._catalog.products);
+      const candidateIds = new Set(candidates.map(product => product.id));
+      const products = [...candidates, ...this._catalog.products.filter(product => !candidateIds.has(product.id))];
       matches = products.filter(product => productNameKey(product.name).includes(query)).slice(0, 8);
       active = -1;
       results.replaceChildren(...matches.map((product, index) => {
@@ -527,6 +515,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
         option.type = "button";
         option.id = `${results.id}-${index}`;
         option.tabIndex = -1;
+        option.disabled = Boolean(this._linkBusy);
         option.setAttribute("role", "option");
         option.setAttribute("aria-selected", "false");
         option.addEventListener("pointerdown", event => event.preventDefault());
@@ -538,7 +527,11 @@ class ImprovedShoppingCatalog extends HTMLElement {
       input.setAttribute("aria-expanded", String(!results.hidden));
       input.removeAttribute("aria-activedescendant");
     };
-    input.addEventListener("input", () => predict());
+    input.addEventListener("input", () => {
+      this._linkProductId = null;
+      this._renderLinkDialog();
+      predict();
+    });
     input.addEventListener("focus", () => predict());
     input.addEventListener("blur", close);
     input.addEventListener("keydown", event => {
@@ -556,8 +549,67 @@ class ImprovedShoppingCatalog extends HTMLElement {
       }
     });
     search.append(input, results, empty);
-    predict(selection?.expanded ?? false);
+    this._refreshLinkPredictions = () => predict(input.getAttribute("aria-expanded") === "true");
+    predict(false);
     return search;
+  }
+
+  _openLinkDialog(item) {
+    if (this._linkBusy) return;
+    const root = this.shadowRoot;
+    this._linkReading = structuredClone(item);
+    this._linkProductId = null;
+    root.querySelector("#link-code-description").textContent = `Código: ${item.code}`;
+    root.querySelector("#link-code-error").hidden = true;
+    root.querySelector("#link-code-search").replaceChildren(this._productLinkSearch(item));
+    root.querySelector("#link-code-dialog").showModal();
+    this._renderLinkDialog();
+    root.querySelector("#link-code-search input").focus();
+  }
+
+  _renderLinkDialog() {
+    const root = this.shadowRoot;
+    if (!root.querySelector("#link-code-dialog").open) return;
+    const product = this._catalog.products.find(product => product.id === this._linkProductId);
+    const valid = Boolean(product);
+    root.querySelector("#link-code-selection").textContent = valid ? `Producto seleccionado: ${product.name}` : "Selecciona un producto para asignarle el código.";
+    root.querySelector("#confirm-link-code").disabled = this._linkBusy || !valid || this._catalog.loading || Boolean(this._catalog.error);
+    root.querySelector("#confirm-link-code").textContent = this._linkBusy ? "Asignando…" : "Asignar";
+    root.querySelector("#cancel-link-code").disabled = Boolean(this._linkBusy);
+    root.querySelector("#link-code-search input").disabled = Boolean(this._linkBusy);
+    this._refreshLinkPredictions?.();
+  }
+
+  async _assignCode() {
+    if (this._linkBusy || !this._linkReading) return;
+    const selected = this._catalog.products.find(product => product.id === this._linkProductId);
+    if (!selected) { this._renderLinkDialog(); return; }
+    // Send editable fields only; use the latest revision and retain all other product data.
+    const fields = ["id", "revision", "name", "category", "tags", "barcode", "price", "currency", "image_url", "icon", "notes", "barcodes", "nfc_tags", "reader_actions"];
+    const product = Object.fromEntries(fields.filter(key => key in selected).map(key => [key, structuredClone(selected[key])]));
+    const reading = this._linkReading;
+    if (reading.kind === "barcode" && !product.barcode) product.barcode = reading.code;
+    else {
+      const field = reading.kind === "nfc" ? "nfc_tags" : "barcodes";
+      product[field] = [...(product[field] ?? [])];
+      if (!product[field].includes(reading.code) && !(reading.kind === "barcode" && product.barcode === reading.code)) product[field].push(reading.code);
+    }
+    this._linkBusy = true;
+    const root = this.shadowRoot;
+    root.querySelector("#link-code-error").hidden = true;
+    this._renderLinkDialog();
+    try {
+      await this._catalog.save(product);
+      root.querySelector("#link-code-dialog").close();
+      this._notice = "Código asignado al producto.";
+    } catch (error) {
+      const notice = root.querySelector("#link-code-error");
+      notice.textContent = error.message ?? "No se ha podido asignar el código al producto.";
+      notice.hidden = false;
+    } finally {
+      this._linkBusy = false;
+      this._render();
+    }
   }
 
   _renderReaderActions() {

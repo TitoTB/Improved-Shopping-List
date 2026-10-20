@@ -60,9 +60,9 @@ python -m compileall -q custom_components
 
 Las pruebas de navegador utilizan una API de Home Assistant simulada. Comprueban la interfaz y sus llamadas, pero no sustituyen la prueba final en una instancia real con Bring! u otro proveedor. Las capturas se generan en `test-results/`.
 
-GitHub Actions añade las validaciones de Hassfest y HACS. La instalación real en Home Assistant debe comprobarse con el recorrido siguiente:
+GitHub Actions añade las validaciones de Hassfest y HACS. También ejecuta pruebas de configuración, registro del panel, cambios de opciones, recarga y entrega de archivos usando Home Assistant Core 2026.10.2 real sobre Linux. Para ejecutarlas localmente necesitas Python 3.14.2 o posterior: `pip install -r requirements_test.txt` y `pytest -q`.
 
-También ejecuta pruebas de configuración, registro del panel, cambios de opciones, recarga y entrega de archivos usando Home Assistant Core 2026.10.2 real sobre Linux. Para ejecutarlas localmente necesitas Python 3.14.2 o posterior: `pip install -r requirements_test.txt` y `pytest -q`.
+La instalación real en Home Assistant debe comprobarse con el recorrido siguiente:
 
 1. Configurar la integración con Bring! y abrir el panel.
 2. Añadir un producto y comprobar que aparece en Bring!.

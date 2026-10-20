@@ -14,8 +14,8 @@ def editable(product, **changes):
     """Build the same public edit payload a client sends, without server metadata."""
     return {
         **{key: product[key] for key in (
-            "id", "revision", "name", "category", "tags", "brand", "barcode",
-            "format", "price", "currency", "image_url", "icon", "notes",
+            "id", "revision", "name", "category", "tags", "barcode",
+            "price", "currency", "image_url", "icon", "notes",
         )},
         **changes,
     }

@@ -1,5 +1,5 @@
 import { FEATURES, TodoSession, errorMessage, isAvailable, supports } from "./todo-client.js?v=0.6.0";
-import { imageSource, normalizedName } from "./catalog-panel.js?v=0.6.0";
+import { imageSource, normalizedName, productNameKey } from "./catalog-panel.js?v=0.6.0";
 import { ListSettingsSession, gradientTextColor } from "./list-settings-client.js?v=0.6.0";
 import "./settings-panel.js?v=0.6.0";
 import { ReadersSession } from "./readers-client.js?v=0.6.0";
@@ -232,7 +232,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
     this._built = true;
     const root = this.shadowRoot;
     root.querySelector("isl-catalog").addEventListener("catalog-change", event => {
-      this._catalogProducts = new Map(event.detail.products.map(product => [normalizedName(product.name), product]));
+      this._catalogProducts = new Map(event.detail.products.map(product => [productNameKey(product.name), product]));
       this._catalogCategories = new Map(event.detail.categories.map(category => [normalizedName(category.name), category]));
       this._renderData();
     });
@@ -246,6 +246,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
     root.querySelector("isl-catalog").onAdd = (product) => this._runAction(
       () => this._session.add(product.name), `${product.name} añadido a la lista.`,
     );
+    root.querySelector("isl-catalog").onRenameSuggestion = (source, name) => this._session.renameFromSuggestion(source,name);
     root.querySelector(".menu").addEventListener("click", () => {
       this.dispatchEvent(new CustomEvent("hass-toggle-menu", { bubbles: true, composed: true }));
     });
@@ -352,6 +353,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
     catalog.readerData = this._readers;
     catalog.canAdd = canCreate && !this._busy && !session.loading;
     catalog.listName = state?.attributes.friendly_name ?? session.entityId;
+    catalog.listEntity = session.entityId;
     catalog.listItems = available && !session.loading ? session.items : [];
     catalog.pendingItems = available && !session.loading
       ? session.items.filter(item => item.status !== "completed") : [];
@@ -530,7 +532,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
       card.setAttribute("aria-label", `${completed ? "Volver a poner por comprar" : "Marcar como comprado"}: ${item.summary ?? "Producto"}`);
       const summary = row.querySelector(".summary");
       summary.textContent = item.summary ?? "Producto sin nombre";
-      const product = this._catalogProducts.get(normalizedName(item.summary));
+      const product = this._catalogProducts.get(productNameKey(item.summary));
       const category = this._catalogCategories.get(normalizedName(product?.category));
       const badge = row.querySelector(".category-badge");
       badge.hidden = !category;

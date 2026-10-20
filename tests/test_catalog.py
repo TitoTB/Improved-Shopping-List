@@ -6,8 +6,25 @@ from unittest.mock import AsyncMock
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.improved_shopping_list.catalog import Catalog, CatalogError, normalize_category, normalize_product
+from custom_components.improved_shopping_list.catalog import Catalog, CatalogError, normalize_category, normalize_product, normalized_name
 from custom_components.improved_shopping_list.const import CONF_TODO_ENTITY, DOMAIN
+
+
+@pytest.mark.parametrize(("first","second"), [("Seitan","Seitán"),("SEITA\u0301N", " seitan "),("ＣＡＦÉ   molido","cafe molido")])
+def test_product_name_keys_ignore_accents_case_and_extra_spaces(first,second):
+    assert normalized_name(first) == normalized_name(second)
+
+
+async def test_accent_insensitive_suggestion_matching_keeps_catalog_spelling(hass):
+    catalog=Catalog(hass)
+    await catalog.async_load()
+    first=await catalog.async_save_product({"name":"Seitán"})
+    match=await catalog.async_save_product({"name":"SEITAN"},from_suggestion=True)
+    assert match["id"] == first["id"] and match["name"] == "Seitán"
+    await catalog.async_dismiss_suggestion("CAFÉ molido")
+    restored=Catalog(hass)
+    await restored.async_load()
+    assert restored.snapshot["dismissed_suggestions"] == ["cafe molido"]
 
 
 def editable(product, **changes):

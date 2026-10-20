@@ -152,7 +152,7 @@ const hass={
     if(window.fail)throw new Error('Proveedor sin conexión');
     window.calls.push({domain,service,...args});
     if(service==='add_item')data[args.entity_id].push({uid:crypto.randomUUID(),summary:args.item,status:'needs_action'});
-    if(service==='update_item')data[args.entity_id].find(item=>item.uid===args.item).status=args.status;
+    if(service==='update_item'){const item=data[args.entity_id].find(item=>item.uid===args.item);if(!item)throw new Error('Item missing');if('status' in args)item.status=args.status;if('rename' in args)item.summary=args.rename;}
     window.emit(args.entity_id);
   }
 };
@@ -191,7 +191,7 @@ async function main() {
       return;
     }
     if (pathname === "/") { res.setHeader("content-type", "text/html; charset=utf-8"); res.end(html); return; }
-    if (!["/panel.js", "/todo-client.js", "/catalog-panel.js", "/catalog-client.js", "/category-panel.js", "/icon-picker.js", "/list-settings-client.js", "/settings-panel.js", "/readers-client.js", "/readers-panel.js", "/product-matching.js", "/logo.png"].includes(pathname)) { res.writeHead(404).end(); return; }
+    if (!["/panel.js", "/todo-client.js", "/catalog-panel.js", "/catalog-client.js", "/category-panel.js", "/icon-picker.js", "/list-settings-client.js", "/settings-panel.js", "/readers-client.js", "/readers-panel.js", "/product-matching.js", "/product-names.js", "/logo.png"].includes(pathname)) { res.writeHead(404).end(); return; }
     res.setHeader("content-type", pathname.endsWith(".png") ? "image/png" : "text/javascript; charset=utf-8");
     res.end(await fs.readFile(path.join(root, pathname.slice(1))));
   });
@@ -1255,6 +1255,66 @@ async function main() {
     await iconPage.getByRole("button",{name:"Catálogo",exact:true}).click();
     await iconCatalog.getByText("Tu catálogo empieza aquí.",{exact:false}).waitFor();
     await iconContext.close();
+    // Correcting a list suggestion renames original UIDs, preserving status and avoiding catalog duplicates on retry.
+    const renameContext=await browser.newContext({viewport:{width:1280,height:960}});
+    const renamePage=await renameContext.newPage();
+    renamePage.on("pageerror",error=>errors.push(error.message));
+    await renamePage.goto(url);
+    await renamePage.evaluate(()=>{
+      window.listData['todo.bring']=[
+        {uid:'seitan-1',summary:'Seitan',status:'needs_action',description:'Conservar descripción'},
+        {uid:'seitan-2',summary:'SEITÁN',status:'completed'},
+        {uid:'avocado',summary:'Aguacat',status:'needs_action'},
+      ];
+      window.listData['todo.local']=[{uid:'other-seitan',summary:'Seitan',status:'needs_action'}];
+      window.emit('todo.bring');
+    });
+    await renamePage.getByRole("button",{name:"Catálogo",exact:true}).click();
+    const renameCatalog=renamePage.locator("isl-catalog");
+    await renameCatalog.getByRole("button",{name:"Sugerencias",exact:true}).click();
+    await renameCatalog.locator("#list-suggestions-summary").click();
+    const renameSuggestions=renameCatalog.locator("#list-suggestions");
+    assert.deepEqual(await renameSuggestions.locator("h2").allTextContents(),["Aguacat","Seitan"]);
+    await renameSuggestions.getByRole("button",{name:"Añadir al catálogo: Seitan",exact:true}).click();
+    const renameForm=renameCatalog.locator("#product-form");
+    await renameForm.getByLabel("Nombre del producto",{exact:true}).fill("Seitán");
+    await renameForm.getByLabel("Icono del producto",{exact:true}).fill("mdi:food");
+    await renamePage.evaluate(()=>{window.fail=true;});
+    await renameForm.getByRole("button",{name:"Guardar producto",exact:true}).click();
+    await renameForm.getByRole("alert").filter({hasText:"guardado en el catálogo, pero"}).waitFor();
+    assert.equal(await renamePage.evaluate(()=>window.catalogProducts.length),1);
+    assert.equal(await renamePage.evaluate(()=>window.listData['todo.bring'][0].summary),"Seitan");
+    await renamePage.evaluate(()=>{window.fail=false;});
+    await renameForm.getByRole("button",{name:"Guardar producto",exact:true}).click();
+    await renameCatalog.getByRole("status").filter({hasText:"nombre actualizado en la lista"}).waitFor();
+    assert.equal(await renamePage.evaluate(()=>window.catalogProducts.length),1);
+    assert.deepEqual(await renamePage.evaluate(()=>window.listData['todo.bring'].slice(0,2)),[
+      {uid:'seitan-1',summary:'Seitán',status:'needs_action',description:'Conservar descripción'},
+      {uid:'seitan-2',summary:'Seitán',status:'completed'},
+    ]);
+    assert.equal(await renamePage.evaluate(()=>window.listData['todo.local'][0].summary),"Seitan");
+    assert.deepEqual(await renameSuggestions.locator("h2").allTextContents(),["Aguacat"]);
+    assert.equal(await renamePage.evaluate(()=>window.calls.every(call=>call.service==='update_item'&&call.rename==='Seitán'&&!('status' in call))),true);
+    await renameSuggestions.getByRole("button",{name:"Añadir al catálogo: Aguacat",exact:true}).click();
+    await renameForm.getByLabel("Nombre del producto",{exact:true}).fill("Aguacate");
+    await renameForm.getByRole("button",{name:"Guardar producto",exact:true}).click();
+    await renameCatalog.getByRole("status").filter({hasText:"nombre actualizado en la lista"}).waitFor();
+    assert.equal(await renamePage.evaluate(()=>window.listData['todo.bring'].find(item=>item.uid==='avocado').summary),"Aguacate");
+    assert.equal(await renameSuggestions.locator("h2").count(),0);
+    // Later accent/case variants remain associated with the catalog and do not become suggestions.
+    await renamePage.evaluate(()=>{
+      window.listData['todo.bring'].push({uid:'seitan-later',summary:'sEiTaN',status:'needs_action'});
+      window.emit('todo.bring');
+    });
+    assert.equal(await renameSuggestions.locator("h2").count(),0);
+    await renamePage.getByRole("button",{name:"Lista",exact:true}).click();
+    assert.equal(await renamePage.getByRole("button",{name:"Marcar como comprado: sEiTaN",exact:true}).locator(".placeholder ha-icon").getAttribute("icon"),"mdi:food");
+    await renamePage.evaluate(()=>{window.listData['todo.bring'].push({uid:'tea-1',summary:'Té',status:'needs_action'});window.emit('todo.bring');});
+    await renamePage.getByRole("button",{name:"Catálogo",exact:true}).click();
+    await renameSuggestions.getByRole("button",{name:"Descartar: Té",exact:true}).click();
+    await renamePage.evaluate(()=>{window.listData['todo.bring'].push({uid:'tea-2',summary:'TE',status:'needs_action'});window.emit('todo.bring');});
+    assert.equal(await renameSuggestions.locator("h2").count(),0);
+    await renameContext.close();
     await page.evaluate(() => window.testPanel.remove());
     assert.equal(await page.evaluate(() => window.listenerCount()), 0);
     assert.deepEqual(errors, []);

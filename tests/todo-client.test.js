@@ -1,12 +1,58 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { FEATURES, TodoSession, isAvailable, supports, todoEntities } from "../custom_components/improved_shopping_list/frontend/todo-client.js";
+import { productNameKey } from "../custom_components/improved_shopping_list/frontend/product-names.js";
 
 const deferred = () => {
   let resolve, reject;
   const promise = new Promise((yes, no) => { resolve = yes; reject = no; });
   return { promise, resolve, reject };
 };
+
+test("product names compare without accents, case, compatibility or spacing differences", () => {
+  assert.equal(productNameKey("  SEITA\u0301N  "), productNameKey("Seitán"));
+  assert.equal(productNameKey("ＣＡＦÉ   molido"), productNameKey("cafe molido"));
+  assert.notEqual(productNameKey("Leche entera"), productNameKey("Leche sin lactosa"));
+});
+
+test("renames suggestion UIDs on their original list without sending status or other fields", async () => {
+  const {hass,session,calls} = fixture();
+  const items = [{uid:"first",summary:"Seitan",status:"completed",description:"Keep me"}, {uid:"second",summary:"SEITÁN",status:"needs_action"}];
+  hass.callWS = async ({entity_id}) => ({items:entity_id === "todo.bring" ? structuredClone(items) : []});
+  await session.select("todo.local");
+  assert.equal(await session.renameFromSuggestion({entityId:"todo.bring",items},"Seitán"),2);
+  assert.deepEqual(calls,[
+    ["todo","update_item",{entity_id:"todo.bring",item:"first",rename:"Seitán"}],
+    ["todo","update_item",{entity_id:"todo.bring",item:"second",rename:"Seitán"}],
+  ]);
+  assert.equal(session.entityId,"todo.local");
+  assert.deepEqual(session.items,[]);
+  session.dispose();
+});
+
+test("rename retry skips removed or already renamed items and rejects concurrent unrelated changes", async () => {
+  const {hass,session,calls} = fixture();
+  const source={entityId:"todo.bring",items:[{uid:"gone",summary:"Seitan"},{uid:"done",summary:"Seitan"},{uid:"pending",summary:"Seitan"}]};
+  let items=[{uid:"done",summary:"Seitán"},{uid:"pending",summary:"Arroz"}];
+  hass.callWS=async()=>({items});
+  await assert.rejects(session.renameFromSuggestion(source,"Seitán"),/otra sesión/);
+  assert.equal(calls.length,0);
+  items[1].summary="SEITAN";
+  assert.equal(await session.renameFromSuggestion(source,"Seitán"),1);
+  assert.equal(calls[0][2].item,"pending");
+});
+
+test("rename validates capabilities and propagates provider errors for retry", async () => {
+  const {hass,session,calls}=fixture();
+  const source={entityId:"todo.bring",items:[{uid:"a",summary:"Seitan"}]};
+  hass.states['todo.bring'].attributes.supported_features=0;
+  await assert.rejects(session.renameFromSuggestion(source,"Seitán"),/no permite renombrar/);
+  hass.states['todo.bring'].attributes.supported_features=5;
+  hass.callWS=async()=>({items:source.items});
+  hass.callService=async()=>{throw new Error("Provider failed");};
+  await assert.rejects(session.renameFromSuggestion(source,"Seitán"),/Provider failed/);
+  assert.equal(calls.length,0);
+});
 
 function fixture() {
   const calls = [];

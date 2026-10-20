@@ -2,6 +2,8 @@ import { CatalogSession } from "./catalog-client.js?v=0.6.0";
 import { matchCatalogProducts } from "./product-matching.js?v=0.6.0";
 import "./category-panel.js?v=0.6.0";
 import "./icon-picker.js?v=0.6.0";
+import { productNameKey } from "./product-names.js?v=0.6.0";
+export { productNameKey };
 
 export const normalizedName = value => String(value ?? "").normalize("NFKC").trim().replace(/\s+/g, " ").toLocaleLowerCase("es");
 
@@ -70,9 +72,10 @@ class ImprovedShoppingCatalog extends HTMLElement {
   }
 
   showSuggestions() { this._switchView("suggestions"); }
+  set listEntity(value) { this._listEntity = value; }
 
   set listItems(value) {
-    const signature = JSON.stringify((value ?? []).map(item => item.summary));
+    const signature = JSON.stringify([this._listEntity, (value ?? []).map(item => [item.uid,item.summary,item.status])]);
     if (signature === this._listSignature) return;
     this._listSignature = signature;
     this._listItems = value ?? [];
@@ -80,7 +83,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
   }
 
   set pendingItems(value) {
-    const names = new Set((value ?? []).map(item => normalizedName(item.summary)).filter(Boolean));
+    const names = new Set((value ?? []).map(item => productNameKey(item.summary)).filter(Boolean));
     const signature = JSON.stringify([...names].sort());
     if (signature === this._pendingSignature) return;
     this._pendingSignature = signature;
@@ -344,13 +347,13 @@ class ImprovedShoppingCatalog extends HTMLElement {
       ? `Productos de «${this._listName}» que todavía no están en tu catálogo y códigos desconocidos de tus lectores.`
       : "Aquí aparecerán los códigos desconocidos de tus lectores. Selecciona una lista para ver también sus productos sugeridos.";
     const excluded = new Set([
-      ...this._catalog.products.map(product => normalizedName(product.name)),
-      ...this._catalog.dismissedSuggestions.map(normalizedName),
+      ...this._catalog.products.map(product => productNameKey(product.name)),
+      ...this._catalog.dismissedSuggestions.map(productNameKey),
     ]);
     const suggestions = [];
     for (const item of this._listItems) {
       const name = String(item.summary ?? "").trim();
-      const key = normalizedName(name);
+      const key = productNameKey(name);
       if (!key || excluded.has(key)) continue;
       excluded.add(key);
       suggestions.push(name);
@@ -458,7 +461,9 @@ class ImprovedShoppingCatalog extends HTMLElement {
   async _actOnSuggestion(name, action) {
     if (this._suggestionBusy) return;
     if (action === "add") {
-      this._openProduct(undefined, name);
+      const items = this._listItems.filter(item => productNameKey(item.summary) === productNameKey(name))
+        .map(item => ({uid:item.uid,summary:item.summary}));
+      this._openProduct(undefined, name, null, {entityId:this._listEntity,items,summary:name});
       return;
     }
     this._suggestionBusy = true;
@@ -500,7 +505,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
   _productCard(product) {
     const card = element("article", "product");
     card.dataset.productId = product.id;
-    const inList = this._pendingNames.has(normalizedName(product.name));
+    const inList = this._pendingNames.has(productNameKey(product.name));
     card.classList.toggle("in-list", inList);
     card.dataset.inList = String(inList);
     if (inList) card.setAttribute("aria-description", "Pendiente en la lista seleccionada");
@@ -583,10 +588,11 @@ class ImprovedShoppingCatalog extends HTMLElement {
     }
   }
 
-  _openProduct(product, suggestedName = "", reading = null) {
+  _openProduct(product, suggestedName = "", reading = null, listOrigin = null) {
     if (this._saving) return;
     const root = this.shadowRoot;
     const form = root.querySelector("form");
+    this._listOrigin = listOrigin;
     form.reset();
     form.elements.name.value = suggestedName;
     if (!product && reading?.identification?.status === "found") {
@@ -638,9 +644,21 @@ class ImprovedShoppingCatalog extends HTMLElement {
     root.querySelector("#cancel-product").disabled = true;
     root.querySelector("#product-error").hidden = true;
     try {
-      await this._catalog.save(product);
+      const saved = await this._catalog.save(product);
+      this._editing = structuredClone(saved);
+      let renamed = 0;
+      if (this._listOrigin && saved.name !== this._listOrigin.summary) {
+        try {
+          if (!this.onRenameSuggestion) throw new Error("No se ha podido conectar con la lista de origen.");
+          renamed = await this.onRenameSuggestion(this._listOrigin, saved.name);
+        } catch (error) {
+          root.querySelector("#product-dialog-title").textContent = "Editar producto";
+          throw new Error(`El producto se ha guardado en el catálogo, pero no se ha podido actualizar su nombre en la lista. ${error.message ?? "Inténtalo de nuevo."}`);
+        }
+      }
+      this._listOrigin = null;
       root.querySelector("dialog").close();
-      this._notice = "Producto guardado en el catálogo.";
+      this._notice = renamed ? "Producto guardado y nombre actualizado en la lista." : "Producto guardado en el catálogo.";
       this._render();
       root.querySelector(this._view === "suggestions" ? "#view-suggestions" : "#new-product").focus();
     } catch (error) {

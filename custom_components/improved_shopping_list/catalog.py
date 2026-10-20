@@ -7,7 +7,7 @@ from datetime import UTC, datetime
 from decimal import Decimal, InvalidOperation
 import re
 from typing import Any
-from unicodedata import normalize
+from unicodedata import category as unicode_category, normalize
 from urllib.parse import urlsplit
 from uuid import uuid4
 
@@ -55,8 +55,9 @@ DEFAULT_CATEGORY_COLOR = "#64748b"
 
 
 def normalized_name(value: str) -> str:
-    """Match list and catalog names regardless of case or extra whitespace."""
-    return " ".join(normalize("NFKC", value).split()).lower()
+    """Compare product names without accents, case or spacing differences."""
+    value = "".join(char for char in normalize("NFKD", value) if not unicode_category(char).startswith("M"))
+    return " ".join(value.split()).lower()
 
 
 def _mdi_icon(value: Any, *, optional: bool = False) -> str:

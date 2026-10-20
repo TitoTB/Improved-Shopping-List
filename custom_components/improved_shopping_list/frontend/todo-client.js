@@ -1,4 +1,5 @@
 /** Native Home Assistant APIs; the selected provider owns all list data. */
+import { productNameKey } from "./product-names.js?v=0.6.0";
 export const FEATURES = Object.freeze({ CREATE: 1, UPDATE: 4 });
 
 export function todoEntities(hass) {
@@ -108,6 +109,32 @@ export class TodoSession {
     return this._mutate("update_item", {
       item: item.uid, status: completed ? "completed" : "needs_action",
     }, FEATURES.UPDATE);
+  }
+
+  async renameFromSuggestion(source, summary) {
+    const name = summary.trim();
+    const candidates = source.items.filter(item => String(item.summary ?? "").trim() !== name);
+    if (!candidates.length) return 0;
+    const entityId = source.entityId;
+    const generation = this._generation;
+    const state = this.getHass().states[entityId];
+    if (!isAvailable(state)) throw new Error("La lista de origen no está disponible.");
+    if (!supports(state, FEATURES.UPDATE)) throw new Error("La lista de origen no permite renombrar productos.");
+    if (candidates.some(item => !item.uid)) throw new Error("El producto de la lista no tiene un identificador válido.");
+    const {items} = await this.getHass().callWS({type:"todo/item/list",entity_id:entityId});
+    const updates = [];
+    for (const original of new Map(candidates.map(item => [item.uid,item])).values()) {
+      const current = items.find(item => item.uid === original.uid);
+      // A removed item stays removed. Successful earlier renames are safe to retry.
+      if (!current || current.summary === name) continue;
+      if (productNameKey(current.summary) !== productNameKey(original.summary)) {
+        throw new Error("El producto de la lista ha cambiado en otra sesión. Revisa su nombre antes de continuar.");
+      }
+      updates.push(current.uid);
+    }
+    for (const uid of updates) await this.getHass().callService("todo","update_item",{entity_id:entityId,item:uid,rename:name});
+    if (generation === this._generation && this.entityId === entityId) await this.refresh();
+    return updates.length;
   }
 
   async _mutate(service, data, feature) {

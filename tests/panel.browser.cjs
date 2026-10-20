@@ -275,7 +275,7 @@ async function main() {
     const catalog = page.locator("isl-catalog");
     const categories = catalog.locator("#catalog-categories");
     assert.equal(await catalog.locator(".heading #new-product").count(), 0);
-    assert.equal(await catalog.locator(".category-controls #new-product ha-icon").getAttribute("icon"), "mdi:plus-thick");
+    assert.equal(await catalog.locator(".catalog-tools #new-product ha-icon").getAttribute("icon"), "mdi:plus-thick");
     assert.equal(await catalog.locator("#new-product").textContent(), "");
     await catalog.getByRole("button", { name: "Nuevo producto", exact: true }).click();
     await catalog.getByLabel("Nombre del producto", { exact: true }).fill("Yogur natural");
@@ -384,7 +384,7 @@ async function main() {
     assert.equal(await productCard.getAttribute("data-in-list"), "false");
     await catalog.locator("#category-filter").selectOption("");
     await catalog.getByRole("button", { name: "Categorías", exact: true }).click();
-    await categories.getByRole("button", { name: "Nueva categoría", exact: true }).click();
+    await catalog.getByRole("button", { name: "Nueva categoría", exact: true }).click();
     await categories.getByLabel("Nombre de la categoría", { exact: true }).fill("Temporal");
     await categories.getByRole("button", { name: "Guardar categoría", exact: true }).click();
     await categories.getByRole("heading", { name: "Temporal", exact: true }).waitFor();
@@ -459,7 +459,7 @@ async function main() {
     const suggestionCatalog = suggestionPage.locator("isl-catalog");
     await suggestionCatalog.getByRole("button", { name:"Categorías", exact:true }).click();
     const suggestionCategories = suggestionCatalog.locator("#catalog-categories");
-    await suggestionCategories.getByRole("button", { name:"Nueva categoría", exact:true }).click();
+    await suggestionCatalog.getByRole("button", { name:"Nueva categoría", exact:true }).click();
     await suggestionCategories.getByLabel("Nombre de la categoría", { exact:true }).fill("Despensa");
     await suggestionCategories.getByRole("button", { name:"Guardar categoría", exact:true }).click();
     await suggestionCategories.getByRole("heading", { name:"Despensa", exact:true }).waitFor();

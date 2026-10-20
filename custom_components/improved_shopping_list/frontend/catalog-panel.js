@@ -114,9 +114,10 @@ class ImprovedShoppingCatalog extends HTMLElement {
         button:disabled { opacity:.5; cursor:default; }
         button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible { outline:3px solid var(--primary-color,#267052); outline-offset:3px; }
         .heading { display:flex; align-items:center; justify-content:space-between; gap:16px; margin:28px 0 12px; }
-        .heading-actions { display:flex; align-items:center; gap:8px; margin-left:auto; }
-        .catalog-tabs { display:flex; flex-wrap:wrap; gap:8px; margin:18px 0; }
-        .catalog-tabs button { display:inline-flex; align-items:center; gap:6px; }
+        .catalog-toolbar { display:flex; align-items:center; gap:12px; margin:18px 0; }
+        .catalog-tools { display:flex; align-items:center; gap:8px; flex-shrink:0; margin-left:auto; }
+        .catalog-tabs { display:flex; flex:1; min-width:0; gap:8px; overflow-x:auto; scrollbar-width:thin; }
+        .catalog-tabs button { display:inline-flex; align-items:center; gap:6px; flex-shrink:0; white-space:nowrap; }
         .catalog-tabs ha-icon { --mdc-icon-size:20px; }
         .suggestions { display:grid; gap:12px; }
         .suggestion-groups { display:grid; gap:16px; }
@@ -137,15 +138,12 @@ class ImprovedShoppingCatalog extends HTMLElement {
         button { min-height:44px; padding:10px 14px; border:1px solid var(--divider-color,#dfe7e1); border-radius:10px; background:transparent; color:inherit; }
         .primary { background:#267052; color:#fff; border:0; font-weight:650; }
         .filters { display:grid; grid-template-columns:2fr 1fr; gap:12px; margin:24px 0 14px; align-items:end; }
-        .category-controls { display:flex; align-items:end; gap:8px; min-width:0; }
-        .category-controls label { flex:1; min-width:0; }
-        #new-product { display:grid; place-items:center; flex:0 0 46px; width:46px; height:46px; padding:0; }
-        #new-product ha-icon { --mdc-icon-size:24px; }
+        #new-product,#new-catalog-category,#catalog-refresh { display:grid; place-items:center; flex:0 0 44px; width:44px; height:44px; padding:0; }
+        #new-product ha-icon,#new-catalog-category ha-icon { --mdc-icon-size:24px; }
         .product-category-controls { display:flex; align-items:end; gap:8px; }
         .product-category-controls select { flex:1; min-width:0; }
         #add-product-category { display:grid; place-items:center; flex:0 0 46px; width:46px; height:46px; padding:0; }
         #add-product-category ha-icon { --mdc-icon-size:22px; }
-        #catalog-refresh { width:44px; padding:10px; flex-shrink:0; }
         label { font-size:13px; font-weight:600; display:block; }
         input,select,textarea { display:block; min-height:46px; width:100%; margin-top:7px; padding:10px 12px; color:inherit; background:var(--card-background-color,#fff); border:1px solid var(--divider-color,#dfe7e1); border-radius:9px; min-width:0; }
         textarea { resize:vertical; min-height:76px; }
@@ -184,20 +182,23 @@ class ImprovedShoppingCatalog extends HTMLElement {
         @media(max-width:650px) { .filters { grid-template-columns:1fr; } .grid { grid-template-columns:repeat(var(--isl-mobile-columns,1),minmax(0,1fr)); } .product { padding:30px 6px 12px; } .heading { gap:10px; flex-wrap:wrap; } h1 { font-size:28px; } dialog { padding:20px; } }
         @media(max-width:390px) { .fields { grid-template-columns:1fr; } .heading { align-items:flex-start; } }
       </style>
-      <div class="heading"><h1>Catálogo</h1><div class="heading-actions"><button id="catalog-refresh" aria-label="Actualizar catálogo" title="Actualizar catálogo"><ha-icon icon="mdi:refresh"></ha-icon></button></div></div>
-      <nav class="catalog-tabs" aria-label="Vistas del catálogo"><button id="view-products" aria-pressed="true"><ha-icon icon="mdi:package-variant"></ha-icon>Productos</button><button id="view-categories" aria-pressed="false"><ha-icon icon="mdi:shape"></ha-icon>Categorías</button><button id="view-suggestions" aria-pressed="false"><ha-icon icon="mdi:creation"></ha-icon>Sugerencias</button></nav>
+      <div class="heading"><h1>Catálogo</h1></div>
+      <div class="catalog-toolbar">
+        <nav class="catalog-tabs" aria-label="Vistas del catálogo"><button id="view-products" aria-pressed="true"><ha-icon icon="mdi:package-variant"></ha-icon>Productos</button><button id="view-categories" aria-pressed="false"><ha-icon icon="mdi:shape"></ha-icon>Categorías</button><button id="view-suggestions" aria-pressed="false"><ha-icon icon="mdi:creation"></ha-icon>Sugerencias</button></nav>
+        <div class="catalog-tools"><button id="new-product" class="primary" type="button" aria-label="Nuevo producto" title="Nuevo producto"><ha-icon icon="mdi:plus-thick"></ha-icon></button><button id="new-catalog-category" class="primary" type="button" aria-label="Nueva categoría" title="Nueva categoría" hidden><ha-icon icon="mdi:plus-thick"></ha-icon></button><button id="catalog-refresh" type="button" aria-label="Actualizar catálogo" title="Actualizar catálogo"><ha-icon icon="mdi:refresh"></ha-icon></button></div>
+      </div>
       <div id="catalog-error" class="notice error" role="alert" hidden></div>
       <div id="catalog-status" class="notice" role="status" hidden></div>
       <section id="products-view">
       <div class="filters">
         <label class="search">Buscar productos<input id="catalog-search" type="search" placeholder="Nombre, código o etiqueta"></label>
-        <div class="category-controls"><label>Categoría<select id="category-filter"><option value="">Todas</option></select></label><button id="new-product" class="primary" type="button" aria-label="Nuevo producto" title="Nuevo producto"><ha-icon icon="mdi:plus-thick"></ha-icon></button></div>
+        <label>Categoría<select id="category-filter"><option value="">Todas</option></select></label>
       </div>
       <p id="catalog-count" class="count" aria-live="polite"></p>
       <div id="catalog-grid" class="grid"></div>
       <p id="catalog-empty" class="empty" hidden></p>
       </section>
-      <isl-categories id="catalog-categories" hidden></isl-categories>
+      <isl-categories id="catalog-categories" embedded hidden></isl-categories>
       <section id="suggestions-view" hidden>
         <p id="suggestions-source" class="helper"></p>
         <div id="suggestions-error" class="notice error" role="alert" hidden></div>
@@ -244,6 +245,8 @@ class ImprovedShoppingCatalog extends HTMLElement {
     root.querySelector("#view-suggestions").addEventListener("click", () => this._switchView("suggestions"));
     root.querySelector("isl-categories").onSave = category => this._catalog.saveCategory(category);
     root.querySelector("isl-categories").onDelete = category => this._catalog.deleteCategory(category);
+    root.querySelector("isl-categories").onClose = () => root.querySelector("#new-catalog-category").focus();
+    root.querySelector("#new-catalog-category").addEventListener("click", () => root.querySelector("isl-categories").create());
     const categoryEditor = root.querySelector("#product-category-editor");
     categoryEditor.onSave = async category => {
       const saved = await this._catalog.saveCategory(category);
@@ -267,6 +270,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
     const root = this.shadowRoot;
     root.querySelector("#products-view").hidden = view !== "products";
     root.querySelector("#new-product").hidden = view !== "products";
+    root.querySelector("#new-catalog-category").hidden = view !== "categories";
     root.querySelector("isl-categories").hidden = view !== "categories";
     root.querySelector("#suggestions-view").hidden = view !== "suggestions";
     root.querySelector("#view-products").setAttribute("aria-pressed", String(view === "products"));

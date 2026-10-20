@@ -27,6 +27,7 @@ class ImprovedShoppingCategories extends HTMLElement {
       <style>
         :host { display:block; color:var(--primary-text-color,#20352d); }
         :host([hidden]),[hidden] { display:none !important; }
+        :host([embedded]) .toolbar { display:none; }
         :host([editor-only]) .toolbar,:host([editor-only]) #category-notice,:host([editor-only]) #category-grid,:host([editor-only]) #category-empty { display:none; }
         * { box-sizing:border-box; }
         button,input { font:inherit; }
@@ -189,7 +190,7 @@ class ImprovedShoppingCategories extends HTMLElement {
       await this.onSave(category);
       root.querySelector("#category-dialog").close();
       this._notice("Categoría guardada.");
-      if (!this.hasAttribute("editor-only")) root.querySelector("#new-category").focus();
+      if (!this.hasAttribute("editor-only") && !this.hasAttribute("embedded")) root.querySelector("#new-category").focus();
     } catch (error) {
       const notice = root.querySelector("#category-error");
       notice.textContent = error.message ?? "No se ha podido guardar la categoría.";

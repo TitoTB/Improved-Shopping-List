@@ -159,8 +159,8 @@ class ImprovedShoppingCatalog extends HTMLElement {
         .image { width:min(96px,80cqi); height:auto; aspect-ratio:1; object-fit:contain; border-radius:10px; flex-shrink:0; }
         .placeholder { display:grid; place-items:center; color:var(--secondary-text-color,#63766b); }
         .placeholder ha-icon { --mdc-icon-size:clamp(14px,65cqi,64px); }
-        .category-badge { position:absolute; top:12px; right:12px; display:grid; place-items:center; width:32px; height:32px; min-height:32px; padding:0; border:0; border-radius:50%; color:#fff; box-shadow:0 2px 6px rgba(0,0,0,.22); }
-        .category-badge ha-icon { --mdc-icon-size:20px; }
+        .product > button.category-badge { --isl-badge-size:32px; --isl-badge-icon-size:20px; position:absolute; top:12px; right:12px; display:flex; align-items:center; justify-content:center; appearance:none; -webkit-appearance:none; box-sizing:border-box; width:var(--isl-badge-size); min-width:var(--isl-badge-size); max-width:var(--isl-badge-size); height:var(--isl-badge-size); min-height:var(--isl-badge-size); max-height:var(--isl-badge-size); aspect-ratio:1 / 1; margin:0; padding:0; border:0 none; border-radius:50%; line-height:0; color:#fff; box-shadow:0 2px 6px rgba(0,0,0,.22); }
+        .product > button.category-badge ha-icon { --mdc-icon-size:var(--isl-badge-icon-size); display:flex; align-items:center; justify-content:center; flex:none; width:var(--isl-badge-icon-size); height:var(--isl-badge-icon-size); margin:0; padding:0; }
         .title { font-size:clamp(9px,14cqi,17px); line-height:1.4; font-weight:650; margin:0; overflow-wrap:anywhere; text-align:center; }
         .subtitle { color:var(--secondary-text-color,#63766b); font-size:12px; margin:4px 0 0; overflow-wrap:anywhere; }
         .tags { display:flex; flex-wrap:wrap; justify-content:center; gap:5px; }
@@ -172,7 +172,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
         .product .actions { gap:clamp(2px,4cqi,8px); }
         .product .actions button { flex:1 1 0; min-width:0; min-height:32px; font-size:12px; padding:clamp(2px,4cqi,6px); gap:4px; border-radius:8px; }
         .product .actions ha-icon { --mdc-icon-size:clamp(10px,24cqi,16px); }
-        @container(max-width:100px) { .category-badge { width:20px; height:20px; min-height:20px; top:6px; right:6px; } .category-badge ha-icon { --mdc-icon-size:14px; } .tag { font-size:9px; padding:3px; } }
+        @container(max-width:100px) { .product > button.category-badge { --isl-badge-size:20px; --isl-badge-icon-size:14px; top:6px; right:6px; } .tag { font-size:9px; padding:3px; } }
         .notice { font-size:13px; line-height:1.6; padding:12px 14px; background:var(--secondary-background-color,#edf4ee); border-radius:10px; margin:14px 0; }
         .error { color:var(--error-color,#bd3636); border:1px solid var(--error-color,#bd3636); }
         .empty { text-align:center; padding:38px 16px; color:var(--secondary-text-color,#63766b); line-height:1.7; border:1px dashed var(--divider-color,#dfe7e1); border-radius:16px; }

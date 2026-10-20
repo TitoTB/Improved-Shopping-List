@@ -1,5 +1,16 @@
 # Historial de cambios
 
+## 0.10.0
+
+- Tiendas se presenta en bloques horizontales con logo, nombre, interruptor y engranaje. Mercadona utiliza el logo indicado y abre un popup con las vistas Productos y Configuración.
+- Consulta de productos del catálogo con EAN/GTIN válido coincidente exactamente con Mercadona, mostrando precio, referencia, disponibilidad y fecha de consulta por almacén. Caché de seis horas, lotes de hasta 20 códigos y actualización manual para administradores. No sustituye el precio manual de las fichas ni ejecuta consultas periódicas en segundo plano.
+- Los errores de consulta conservan los precios anteriores y aplican una espera antes de reintentar. La prueba real desde el entorno de desarrollo devuelve HTTP 403 de Mercadona; la conectividad debe comprobarse desde Home Assistant. No se garantiza el acceso al buscador externo.
+- Configuración de código postal en el popup, también con la tienda deshabilitada, conservando los ajustes ante errores.
+- Botón azul para vincular códigos escaneados. Abre un popup con buscador predictivo sin diferencias de tildes o mayúsculas y botones Asignar y Cancelar. Solo Asignar guarda el código; conserva los demás datos y acciones del producto y no ejecuta lecturas pasadas.
+- Icono de papelera delante de Limpiar productos en Compras recientes.
+- Eliminado el espacio reservado por sugerencias de iconos vacías. Actualizado el texto de procedencia y retirado el botón Buscar en Flaticon.
+- Pruebas ampliadas de interfaz móvil, configuración, selección predictiva, persistencia de precios, coincidencias de EAN, permisos y errores externos.
+
 ## 0.9.1
 
 - Botón azul con `mdi:eye-outline` a la izquierda de Editar en cada lector. Abre la información de su entidad en el popup nativo de Home Assistant, con el estado actualizado en directo.

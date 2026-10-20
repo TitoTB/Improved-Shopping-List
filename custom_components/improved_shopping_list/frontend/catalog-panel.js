@@ -129,7 +129,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
         .image { width:96px; height:96px; object-fit:contain; border-radius:10px; flex-shrink:0; }
         .placeholder { display:grid; place-items:center; color:var(--secondary-text-color,#63766b); }
         .placeholder ha-icon { --mdc-icon-size:64px; }
-        .category-badge { position:absolute; top:12px; right:12px; display:grid; place-items:center; width:32px; height:32px; border-radius:50%; color:#fff; }
+        .category-badge { position:absolute; top:12px; right:12px; display:grid; place-items:center; width:32px; height:32px; min-height:32px; padding:0; border:0; border-radius:50%; color:#fff; }
         .category-badge ha-icon { --mdc-icon-size:20px; }
         .title { font-size:17px; line-height:1.4; font-weight:650; margin:0; overflow-wrap:anywhere; text-align:center; }
         .subtitle { color:var(--secondary-text-color,#63766b); font-size:12px; margin:4px 0 0; overflow-wrap:anywhere; }
@@ -405,10 +405,17 @@ class ImprovedShoppingCatalog extends HTMLElement {
     if (inList) card.setAttribute("aria-description", "Pendiente en la lista seleccionada");
     const category = this._catalog.categories.find(category => normalizedName(category.name) === normalizedName(product.category));
     if (category) {
-      const badge = element("span", "category-badge");
+      const badge = element("button", "category-badge");
+      badge.type = "button";
       badge.style.backgroundColor = category.color;
       badge.title = category.name;
-      badge.setAttribute("aria-label", `Categoría: ${category.name}`);
+      badge.setAttribute("aria-label", `Filtrar por categoría: ${category.name}`);
+      badge.addEventListener("click", () => {
+        const filter = this.shadowRoot.querySelector("#category-filter");
+        filter.value = category.name;
+        this._renderProducts();
+        filter.focus();
+      });
       const categoryIcon = element("ha-icon");
       categoryIcon.setAttribute("icon", category.icon);
       badge.append(categoryIcon);

@@ -58,6 +58,8 @@ En **Ajustes → Personalización** puedes elegir por separado los dos colores d
 
 El campo Añadir producto ofrece hasta ocho coincidencias del catálogo mientras escribes, por nombre, marca, código de barras o etiquetas, sin distinguir tildes ni mayúsculas. Puedes tocar una coincidencia o seleccionarla con las flechas y Enter para añadir su nombre a la lista. Escape cierra el desplegable. También puedes escribir y añadir un producto nuevo libremente.
 
+El número de tarjetas por fila configurado en Personalización se aplica a Lista, Catálogo → Productos y Catálogo → Categorías, con valores separados para móvil y ordenador.
+
 La barra de Lista reúne en una sola fila el buscador, el botón de añadir (`mdi:plus-thick`) y el selector de listas (`mdi:format-list-checks`). Este último abre un popup con las listas integradas en Home Assistant y marca la seleccionada; toca otra lista para cambiar. La opción de actualizar la lista está dentro de ese popup.
 
 La vista **Sugerencias** (`mdi:creation`) muestra los nombres de productos de la lista seleccionada que aún no están en el catálogo, incluidos los elementos comprados que siguen en la lista. Añadir al catálogo abre el formulario con el nombre ya rellenado, para completar categoría, marca, etiquetas y otros datos antes de guardar. Cancelar conserva la sugerencia sin crear el producto. También puedes descartar sugerencias sin modificar la lista. Los nombres repetidos se agrupan ignorando mayúsculas y espacios sobrantes. Los descartes se guardan en Home Assistant, se comparten entre sesiones y listas y se conservan tras reiniciar. Para cambiar la lista de origen, utiliza el selector del apartado Lista.

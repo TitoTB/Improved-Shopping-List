@@ -36,15 +36,18 @@ class ImprovedShoppingCategories extends HTMLElement {
         .primary { color:#fff; background:#267052; border:0; font-weight:650; }
         .danger { color:#fff; background:#b3261e; border:0; }
         .toolbar { display:flex; justify-content:flex-end; margin:18px 0; }
-        .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(245px,1fr)); gap:16px; }
-        article { padding:22px 18px 18px; border:1px solid var(--divider-color,#dfe7e1); border-radius:16px; background:var(--card-background-color,#fff); text-align:center; }
-        .category-icon { display:grid; place-items:center; width:56px; height:56px; border-radius:50%; color:#fff; margin:0 auto 14px; }
-        .category-icon ha-icon { --mdc-icon-size:30px; }
-        h2 { font-size:18px; line-height:1.5; margin:0; overflow-wrap:anywhere; }
+        .grid { display:grid; grid-template-columns:repeat(var(--isl-columns,3),minmax(0,1fr)); gap:16px; }
+        article { padding:22px 18px 18px; border:1px solid var(--divider-color,#dfe7e1); border-radius:16px; background:var(--card-background-color,#fff); text-align:center; min-width:0; container-type:inline-size; overflow-wrap:anywhere; }
+        .category-icon { display:grid; place-items:center; width:min(56px,80cqi); aspect-ratio:1; border-radius:50%; color:#fff; margin:0 auto 14px; }
+        .category-icon ha-icon { --mdc-icon-size:clamp(12px,45cqi,30px); }
+        h2 { font-size:clamp(9px,15cqi,18px); line-height:1.5; margin:0; overflow-wrap:anywhere; }
         p { color:var(--secondary-text-color,#63766b); line-height:1.6; font-size:13px; }
-        .actions { display:flex; gap:8px; justify-content:center; margin-top:18px; }
-        .actions button { display:inline-flex; align-items:center; justify-content:center; gap:6px; }
-        .actions ha-icon { --mdc-icon-size:20px; }
+        article p { font-size:clamp(9px,12cqi,13px); }
+        .actions { display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin-top:18px; }
+        .actions button { display:inline-flex; align-items:center; justify-content:center; gap:4px; max-width:100%; padding:6px 4px; font-size:clamp(9px,12cqi,14px); }
+        .actions ha-icon { --mdc-icon-size:clamp(10px,18cqi,20px); }
+        @container(max-width:110px) { .actions { flex-direction:column; } }
+        @container(max-width:65px) { .actions button { flex-direction:column; } }
         .notice { padding:12px 14px; border-radius:10px; background:var(--secondary-background-color,#edf4ee); font-size:13px; line-height:1.6; margin:14px 0; }
         .error { color:var(--error-color,#bd3636); border:1px solid var(--error-color,#bd3636); }
         .empty { text-align:center; border:1px dashed var(--divider-color,#dfe7e1); border-radius:16px; padding:32px 18px; }
@@ -57,7 +60,7 @@ class ImprovedShoppingCategories extends HTMLElement {
         .preview label { flex:1; margin:0; }
         .preview .category-icon { margin:0; }
         .form-actions { display:flex; justify-content:flex-end; gap:10px; margin-top:24px; }
-        @media(max-width:650px) { .grid { grid-template-columns:1fr; } }
+        @media(max-width:650px) { .grid { grid-template-columns:repeat(var(--isl-mobile-columns,1),minmax(0,1fr)); } article { padding:18px 6px 12px; } }
       </style>
       <div class="toolbar"><button id="new-category" class="primary">Nueva categoría</button></div>
       <div id="category-notice" class="notice" role="status" hidden></div>

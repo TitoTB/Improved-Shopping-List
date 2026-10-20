@@ -150,26 +150,28 @@ class ImprovedShoppingCatalog extends HTMLElement {
         input,select,textarea { display:block; min-height:46px; width:100%; margin-top:7px; padding:10px 12px; color:inherit; background:var(--card-background-color,#fff); border:1px solid var(--divider-color,#dfe7e1); border-radius:9px; min-width:0; }
         textarea { resize:vertical; min-height:76px; }
         .count { color:var(--secondary-text-color,#63766b); font-size:12px; margin:12px 0; }
-        .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(245px,1fr)); gap:16px; }
-        .product { position:relative; display:flex; flex-direction:column; gap:12px; background:var(--card-background-color,#fff); border:1px solid var(--divider-color,#dfe7e1); border-radius:16px; padding:30px 18px 18px; min-width:0; text-align:center; }
+        .grid { display:grid; grid-template-columns:repeat(var(--isl-columns,3),minmax(0,1fr)); gap:16px; }
+        .product { position:relative; display:flex; flex-direction:column; gap:12px; background:var(--card-background-color,#fff); border:1px solid var(--divider-color,#dfe7e1); border-radius:16px; padding:30px 18px 18px; min-width:0; text-align:center; container-type:inline-size; }
         .product.in-list { background:linear-gradient(var(--isl-gradient-start,#ee524f),var(--isl-gradient-end,#b52a27)); border-color:var(--isl-gradient-end,#b52a27); }
         .product.in-list,.product.in-list .placeholder,.product.in-list .subtitle,.product.in-list button,.product.in-list ha-icon { color:#fff; }
         .product-top { display:flex; flex-direction:column; gap:14px; align-items:center; }
-        .image { width:96px; height:96px; object-fit:contain; border-radius:10px; flex-shrink:0; }
+        .image { width:min(96px,80cqi); height:auto; aspect-ratio:1; object-fit:contain; border-radius:10px; flex-shrink:0; }
         .placeholder { display:grid; place-items:center; color:var(--secondary-text-color,#63766b); }
-        .placeholder ha-icon { --mdc-icon-size:64px; }
+        .placeholder ha-icon { --mdc-icon-size:clamp(14px,65cqi,64px); }
         .category-badge { position:absolute; top:12px; right:12px; display:grid; place-items:center; width:32px; height:32px; min-height:32px; padding:0; border:0; border-radius:50%; color:#fff; box-shadow:0 2px 6px rgba(0,0,0,.22); }
         .category-badge ha-icon { --mdc-icon-size:20px; }
-        .title { font-size:17px; line-height:1.4; font-weight:650; margin:0; overflow-wrap:anywhere; text-align:center; }
+        .title { font-size:clamp(9px,14cqi,17px); line-height:1.4; font-weight:650; margin:0; overflow-wrap:anywhere; text-align:center; }
         .subtitle { color:var(--secondary-text-color,#63766b); font-size:12px; margin:4px 0 0; overflow-wrap:anywhere; }
         .tags { display:flex; flex-wrap:wrap; justify-content:center; gap:5px; }
-        .tag { padding:4px 8px; border-radius:20px; font-size:11px; background:var(--secondary-background-color,#edf4ee); }
+        .tag { padding:4px 8px; border-radius:20px; font-size:11px; background:var(--secondary-background-color,#edf4ee); max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
         .actions { display:flex; gap:8px; margin-top:auto; }
         .actions button { display:inline-flex; align-items:center; justify-content:center; gap:7px; }
         .actions ha-icon { --mdc-icon-size:20px; }
         .actions .primary { flex:1; }
-        .product .actions button { flex:1 1 0; min-width:0; min-height:32px; font-size:12px; padding:6px; gap:4px; border-radius:8px; }
-        .product .actions ha-icon { --mdc-icon-size:16px; }
+        .product .actions { gap:clamp(2px,4cqi,8px); }
+        .product .actions button { flex:1 1 0; min-width:0; min-height:32px; font-size:12px; padding:clamp(2px,4cqi,6px); gap:4px; border-radius:8px; }
+        .product .actions ha-icon { --mdc-icon-size:clamp(10px,24cqi,16px); }
+        @container(max-width:100px) { .category-badge { width:20px; height:20px; min-height:20px; top:6px; right:6px; } .category-badge ha-icon { --mdc-icon-size:14px; } .tag { font-size:9px; padding:3px; } }
         .notice { font-size:13px; line-height:1.6; padding:12px 14px; background:var(--secondary-background-color,#edf4ee); border-radius:10px; margin:14px 0; }
         .error { color:var(--error-color,#bd3636); border:1px solid var(--error-color,#bd3636); }
         .empty { text-align:center; padding:38px 16px; color:var(--secondary-text-color,#63766b); line-height:1.7; border:1px dashed var(--divider-color,#dfe7e1); border-radius:16px; }
@@ -179,7 +181,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
         .fields { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin:22px 0; }
         .wide { grid-column:1/-1; }
         .form-actions { display:flex; justify-content:flex-end; gap:10px; margin-top:22px; }
-        @media(max-width:650px) { .filters { grid-template-columns:1fr; } .grid { grid-template-columns:1fr; } .heading { gap:10px; flex-wrap:wrap; } h1 { font-size:28px; } dialog { padding:20px; } }
+        @media(max-width:650px) { .filters { grid-template-columns:1fr; } .grid { grid-template-columns:repeat(var(--isl-mobile-columns,1),minmax(0,1fr)); } .product { padding:30px 6px 12px; } .heading { gap:10px; flex-wrap:wrap; } h1 { font-size:28px; } dialog { padding:20px; } }
         @media(max-width:390px) { .fields { grid-template-columns:1fr; } .heading { align-items:flex-start; } }
       </style>
       <div class="heading"><h1>Catálogo</h1><div class="heading-actions"><button id="catalog-refresh" aria-label="Actualizar catálogo" title="Actualizar catálogo"><ha-icon icon="mdi:refresh"></ha-icon></button></div></div>

@@ -192,6 +192,10 @@ class ImprovedShoppingCatalog extends HTMLElement {
         .product-views { display:flex; flex-wrap:wrap; gap:8px; margin-top:18px; }
         .product-views button { flex:1 1 130px; min-width:0; font-size:13px; padding:10px 8px; }
         .product-views [aria-pressed=true] { background:var(--secondary-background-color,#edf4ee); font-weight:650; }
+        .nutriscore-item { display:flex; align-items:center; flex-wrap:wrap; gap:12px; padding:12px 0; border-top:1px solid var(--divider-color,#dfe7e1); }
+        .nutriscore-item img { width:130px; height:auto; flex:none; }
+        .nutriscore-item p { margin:4px 0; overflow-wrap:anywhere; }
+        .nutriscore-item a { color:var(--primary-color,#267052); }
         .fields { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin:22px 0; }
         .wide { grid-column:1/-1; }
         .form-actions { display:flex; justify-content:flex-end; gap:10px; margin-top:22px; }
@@ -250,6 +254,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
           <section id="product-additional" class="fields" aria-label="Información adicional" hidden>
             <label>Precio orientativo<input name="price" type="number" min="0" max="1000000" step="0.01" placeholder="Sin precio"></label>
             <label>Moneda<select name="currency"><option value="EUR">EUR · Euro</option><option value="USD">USD · Dólar</option><option value="GBP">GBP · Libra</option></select></label>
+            <div id="product-nutriscore" class="wide" hidden><h3>Nutri-Score</h3><div id="nutriscore-results"></div></div>
           </section>
           <section id="product-automation" class="fields" aria-label="Automatización" hidden>
             <label class="wide">Código de barras<input name="barcode" type="text" maxlength="1024"></label>
@@ -289,7 +294,8 @@ class ImprovedShoppingCatalog extends HTMLElement {
     iconPicker.onBusyChange = busy => { root.querySelector("#save-product").disabled = Boolean(this._saving || busy); };
     root.querySelector('[name="name"]').addEventListener("input", () => iconPicker.suggest());
     root.querySelector('[name="image_url"]').addEventListener("input", event => { iconPicker.value = event.target.value; });
-    root.querySelector("dialog").addEventListener("close", () => iconPicker.close());
+    root.querySelector("dialog").addEventListener("close", () => { iconPicker.close(); this._resetNutriscores(); });
+    for (const field of ["barcode", "barcodes"]) root.querySelector(`[name=${field}]`).addEventListener("input", () => this._resetNutriscores());
     root.querySelector("#cancel-delete-product").addEventListener("click", () => root.querySelector("#delete-product-dialog").close());
     root.querySelector("#confirm-delete-product").addEventListener("click", () => void this._deleteProduct());
     root.querySelector("#delete-product-dialog").addEventListener("cancel", event => { if (this._deletingProduct) event.preventDefault(); });
@@ -621,6 +627,66 @@ class ImprovedShoppingCatalog extends HTMLElement {
       button.setAttribute("aria-pressed", String(selected));
       this.shadowRoot.querySelector(`#${button.getAttribute("aria-controls")}`).hidden = !selected;
     }
+    if (view === "additional") void this._loadNutriscores();
+  }
+
+  _resetNutriscores() {
+    this._nutriGeneration = (this._nutriGeneration || 0) + 1;
+    this._nutriCodesKey = "";
+    this.shadowRoot.querySelector("#nutriscore-results").replaceChildren();
+    this.shadowRoot.querySelector("#product-nutriscore").hidden = true;
+  }
+
+  async _loadNutriscores() {
+    const root = this.shadowRoot;
+    const form = root.querySelector("#product-form");
+    const seen = new Set();
+    const codes = [form.elements.barcode.value, ...form.elements.barcodes.value.split(/\r?\n/)]
+      .map(code => code.trim()).filter(code => {
+        if (!/^(?:\d{8}|\d{12,14})$/.test(code)) return false;
+        const total = [...code.slice(0,-1)].reverse().reduce((sum,digit,index) => sum + Number(digit) * (index % 2 ? 1 : 3),0);
+        const key = code.padStart(14,"0");
+        if ((10 - total % 10) % 10 !== Number(code.at(-1)) || seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+    const key = JSON.stringify(codes);
+    if (key === this._nutriCodesKey || !this._hass) return;
+    this._resetNutriscores();
+    this._nutriCodesKey = key;
+    const generation = this._nutriGeneration;
+    for (const code of codes) {
+      if (generation !== this._nutriGeneration || !root.querySelector("dialog").open || !this.isConnected) return;
+      try {
+        const result = await this._hass.callWS({type:"improved_shopping_list/catalog/nutriscore",code});
+        if (generation !== this._nutriGeneration || !root.querySelector("dialog").open || !this.isConnected) return;
+        const data = result.nutriscore;
+        if (!data || !/^[a-e]$/.test(data.grade)) continue;
+        const row = document.createElement("div"); row.className = "nutriscore-item";
+        row.dataset.code = code;
+        const image = document.createElement("img");
+        image.src = `https://static.openfoodfacts.org/images/attributes/dist/nutriscore-${data.grade}${data.version === "2023" ? "-new-en" : ""}.svg`;
+        image.alt = `Nutri-Score ${data.grade.toUpperCase()}`;
+        image.referrerPolicy = "no-referrer";
+        const info = document.createElement("div");
+        const title = document.createElement("p");
+        title.textContent = result.product_name ? `${result.product_name} · ${code}` : code;
+        const grade = document.createElement("p"); grade.textContent = `Nutri-Score: ${data.grade.toUpperCase()}`;
+        const source = document.createElement("a");
+        source.textContent = "Open Food Facts · ODbL";
+        source.href = `https://world.openfoodfacts.org/product/${code}`;
+        source.target = "_blank"; source.rel = "noopener noreferrer";
+        info.append(title, grade, source);
+        if (Number.isFinite(data.checked_at) && data.checked_at > 0) {
+          const date = document.createElement("p"); date.className = "helper";
+          date.textContent = `Consultado: ${new Date(data.checked_at * 1000).toLocaleDateString("es-ES")}`;
+          info.append(date);
+        }
+        row.append(image, info);
+        root.querySelector("#nutriscore-results").append(row);
+        root.querySelector("#product-nutriscore").hidden = false;
+      } catch { /* Optional nutrition must never prevent editing or saving. */ }
+    }
   }
 
   _openProduct(product, suggestedName = "", reading = null, listOrigin = null) {
@@ -629,6 +695,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
     const form = root.querySelector("form");
     this._listOrigin = listOrigin;
     form.reset();
+    this._resetNutriscores();
     this._switchProductView("main");
     form.elements.name.value = suggestedName;
     if (!product && reading?.identification?.status === "found") {

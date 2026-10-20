@@ -15,7 +15,7 @@ from .const import DOMAIN, VERSION
 
 _LOGGER = logging.getLogger(__name__)
 BASE_URL = "https://world.openfoodfacts.org"
-FIELDS = "code,generic_name_es,generic_name,product_name_es,product_name"
+FIELDS = "code,generic_name_es,generic_name,product_name_es,product_name,nutriscore_grade,nutriscore_score,nutriscore_version"
 TTLS = {"found": 30 * 86400, "not_found": 86400, "error": 300}
 
 
@@ -39,11 +39,19 @@ def product_hint(data, code):
         return " ".join(value.split())[:limit] if isinstance(value, str) else ""
 
     name = next((value for key in ("generic_name_es", "generic_name", "product_name_es", "product_name") if (value := field(key, 160))), "")
-    if not name:
-        return {"status": "not_found"}
-    return {"status": "found", "name": name, "product_name": field("product_name_es", 160) or field("product_name", 160),
-            "source": "Open Food Facts",
-            "url": f"{BASE_URL}/product/{code}", "license": "ODbL"}
+    result = ({"status": "found", "name": name, "product_name": field("product_name_es", 160) or field("product_name", 160),
+               "source": "Open Food Facts", "url": f"{BASE_URL}/product/{code}", "license": "ODbL"}
+              if name else {"status": "not_found"})
+    grade = field("nutriscore_grade", 20).lower()
+    if grade in ("a", "b", "c", "d", "e"):
+        result["nutriscore"] = {"grade": grade}
+        score = product.get("nutriscore_score")
+        if type(score) is int and -100 <= score <= 100:
+            result["nutriscore"]["score"] = score
+        version = product.get("nutriscore_version")
+        if str(version) in ("2021", "2023"):
+            result["nutriscore"]["version"] = str(version)
+    return result
 
 
 class ProductLookup:
@@ -73,7 +81,7 @@ class ProductLookup:
 
     def is_fresh(self, code):
         entry = self._cache.get(code.zfill(14))
-        return bool(entry and entry["expires"] > time.time())
+        return bool(entry and entry.get("fields") == FIELDS and entry["expires"] > time.time())
 
     async def async_lookup(self, code):
         if not is_product_barcode(code):
@@ -90,7 +98,9 @@ class ProductLookup:
                 result = await self._fetch(code)
             except (ClientError, TimeoutError, ValueError, TypeError):
                 result = {"status": "error"}
-            self._cache[code.zfill(14)] = {"expires": time.time() + TTLS[result["status"]], "result": result}
+            if result.get("nutriscore"):
+                result["nutriscore"]["checked_at"] = int(time.time())
+            self._cache[code.zfill(14)] = {"expires": time.time() + TTLS[result["status"]], "fields": FIELDS, "result": result}
             self._cache = dict(sorted(self._cache.items(), key=lambda item: item[1]["expires"])[-500:])
             try:
                 await self._store.async_save(self._cache)

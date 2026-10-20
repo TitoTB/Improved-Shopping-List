@@ -145,3 +145,9 @@ MIT. Consulta [LICENSE](LICENSE).
 En **Ajustes → Comunidad → Exportar mis iconos** se descarga un ZIP con un diccionario JSON e imágenes locales. No hay envíos automáticos: puedes facilitarlo al mantenedor para revisar traducciones, permisos y duplicados antes de incorporarlo al [catálogo comunitario](community/README.md). Las URL externas y licencias desconocidas requieren revisión. El archivo no contiene listas, códigos ni notas.
 
 Las imágenes comunitarias revisadas se consultan desde este repositorio, se muestran antes que Iconify y se ordenan por presencia en aportaciones revisadas, sin estadísticas globales de usuarios. El índice empieza vacío y puede actualizarse sin publicar otra versión de la integración. Las traducciones que falten se completan al revisar la aportación.
+
+### Nutri-Score en la ficha
+
+La vista **Información adicional** consulta Open Food Facts para los códigos de barras válidos de la ficha y muestra el Nutri-Score A–E cuando está disponible. Cada resultado indica el producto concreto, su código, la fecha de consulta y la fuente. Si una ficha genérica agrupa varios códigos, los resultados se presentan por separado. Las etiquetas NFC, los QR y los códigos con dígito de control incorrecto no se envían.
+
+Se reutiliza la caché persistente de identificación (30 días para productos encontrados); los resultados sin calificación y los fallos no impiden guardar la ficha. Las consultas se limitan y agrupan por código, incluidas las variantes UPC/EAN equivalentes. No se calcula una nota propia ni se asigna una calificación genérica a todos los códigos del producto. Los distintivos se cargan desde los recursos oficiales publicados por Open Food Facts; la letra también se muestra como texto.

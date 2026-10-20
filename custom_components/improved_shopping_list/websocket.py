@@ -17,6 +17,7 @@ from .list_settings import ListSettingsError
 from .icons import IconError
 from .community import build_export
 from .product_translation import async_translate_name
+from .product_lookup import is_product_barcode
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -52,6 +53,7 @@ def async_register_commands(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_icons_import)
     websocket_api.async_register_command(hass, ws_icons_info)
     websocket_api.async_register_command(hass, ws_community_export)
+    websocket_api.async_register_command(hass, ws_nutriscore)
     websocket_api.async_register_command(hass, ws_logs_get)
     websocket_api.async_register_command(hass, ws_logs_subscribe)
 
@@ -143,6 +145,18 @@ async def ws_community_export(hass, connection, msg):
         connection.send_error(msg["id"], "community_export_error", str(err))
     else:
         connection.send_result(msg["id"], result)
+
+
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/catalog/nutriscore", vol.Required("code"): str})
+@websocket_api.async_response
+async def ws_nutriscore(hass, connection, msg):
+    if not _catalog(hass, connection, msg):
+        return
+    code = msg["code"].strip()
+    result = await hass.data[DOMAIN]["readers"].lookup.async_lookup(code)
+    connection.send_result(msg["id"], {"code": code, "nutriscore": result.get("nutriscore"),
+                                      "product_name": result.get("product_name", result.get("name", "")),
+                                      "source_url": f"https://world.openfoodfacts.org/product/{code}" if is_product_barcode(code) else ""})
 
 
 @websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/readers/get"})

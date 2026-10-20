@@ -92,6 +92,12 @@ const hass={
       const asset={id:msg.icon_id,url:'/improved_shopping_list_icons/fixture.svg',collection:'Tabler Icons',author:'Paweł Kuna',author_url:'https://github.com/tabler/tabler-icons',license:'MIT',license_url:'https://github.com/tabler/tabler-icons/blob/master/LICENSE',source_url:'https://icon-sets.iconify.design/tabler/milk/'};
       localStorage.setItem('icon-asset-fixture',JSON.stringify(asset));return asset;
     }
+    if(msg.type==='improved_shopping_list/catalog/nutriscore'){
+      (window.nutriCalls??=[]).push(msg.code);
+      if(window.delayNutriCode===msg.code)await new Promise(resolve=>{window.releaseNutri=resolve;});
+      if(window.failNutri)throw new Error('OFF sin conexión');
+      return {code:msg.code,product_name:'Producto '+msg.code,nutriscore:window.nutriFixture?.[msg.code]??null};
+    }
     if(msg.type==='improved_shopping_list/community/export'){
       if(window.failCommunityExport)throw new Error('No se ha podido exportar el diccionario');
       return {data:'UEsFBgAAAAAAAAAAAAAAAAAAAAAAAA==',entries:2,images:1,skipped:0};
@@ -1196,6 +1202,42 @@ async function main() {
     await readersView.getByRole("status").filter({hasText:"Lector quitado"}).waitFor();
     assert.equal(await readerPage.evaluate(()=>window.readerFixture.readers.length),1);
     await readerContext.close();
+    // Nutrition is code-specific, optional, lazy, and stale responses cannot cross product forms.
+    const nutriContext = await browser.newContext({viewport:{width:390,height:844}});
+    await nutriContext.route('https://static.openfoodfacts.org/**',route=>route.fulfill({contentType:'image/svg+xml',body:'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 60"><rect width="120" height="60" fill="green"/></svg>'}));
+    const nutriPage = await nutriContext.newPage();
+    nutriPage.on('pageerror',error=>errors.push(error.message));
+    await nutriPage.goto(url);
+    await nutriPage.getByRole('button',{name:'Catálogo',exact:true}).click();
+    const nutriCatalog=nutriPage.locator('isl-catalog');
+    const nutriForm=nutriCatalog.locator('#product-form');
+    await nutriCatalog.getByRole('button',{name:'Nuevo producto',exact:true}).click();
+    assert.equal(await nutriPage.evaluate(()=>window.nutriCalls?.length??0),0);
+    await nutriPage.evaluate(()=>{window.nutriFixture={'8410109115543':{grade:'a',version:'2023',checked_at:1800000000},'3017620422003':{grade:'d',checked_at:1800000000}};});
+    await nutriForm.getByRole('button',{name:'Automatización',exact:true}).click();
+    await nutriForm.getByLabel('Código de barras',{exact:true}).fill('8410109115543');
+    await nutriForm.getByLabel('Otros códigos de barras o QR',{exact:true}).fill('08410109115543\n3017620422003\nhttps://private.test/qr\n3017620422004');
+    await nutriForm.getByLabel('Etiquetas NFC',{exact:true}).fill('AA:BB:CC:DD');
+    await nutriForm.getByRole('button',{name:'Información adicional',exact:true}).click();
+    await nutriForm.getByText('Nutri-Score: D',{exact:true}).waitFor();
+    assert.equal(await nutriForm.locator('.nutriscore-item').count(),2);
+    assert.deepEqual(await nutriPage.evaluate(()=>window.nutriCalls),['8410109115543','3017620422003']);
+    await nutriForm.getByRole('button',{name:'Características principales',exact:true}).click();
+    await nutriForm.getByRole('button',{name:'Información adicional',exact:true}).click();
+    assert.equal(await nutriPage.evaluate(()=>window.nutriCalls.length),2);
+    await nutriForm.getByRole('button',{name:'Cancelar',exact:true}).click();
+    await nutriCatalog.getByRole('button',{name:'Nuevo producto',exact:true}).click();
+    await nutriForm.getByRole('button',{name:'Automatización',exact:true}).click();
+    await nutriForm.getByLabel('Código de barras',{exact:true}).fill('3017620422003');
+    await nutriPage.evaluate(()=>{window.delayNutriCode='3017620422003';});
+    await nutriForm.getByRole('button',{name:'Información adicional',exact:true}).click();
+    await nutriPage.waitForFunction(()=>typeof window.releaseNutri==='function');
+    await nutriForm.getByRole('button',{name:'Cancelar',exact:true}).click();
+    await nutriCatalog.getByRole('button',{name:'Nuevo producto',exact:true}).click();
+    await nutriPage.evaluate(()=>window.releaseNutri());
+    await nutriForm.getByRole('button',{name:'Información adicional',exact:true}).click();
+    assert.equal(await nutriForm.locator('#product-nutriscore').isVisible(),false);
+    await nutriContext.close();
     // Clearing completed items uses the native provider action, with no effect on pending items.
     const clearContext = await browser.newContext({viewport:{width:320,height:844}});
     const clearPage = await clearContext.newPage();

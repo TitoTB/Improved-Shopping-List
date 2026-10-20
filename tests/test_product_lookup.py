@@ -6,9 +6,11 @@ from unittest.mock import AsyncMock
 
 from aiohttp import ClientError
 import pytest
+from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.improved_shopping_list import product_lookup as module
 from custom_components.improved_shopping_list.product_lookup import BASE_URL, ProductLookup, is_product_barcode, product_hint
+from custom_components.improved_shopping_list.const import CONF_TODO_ENTITY, DOMAIN
 
 CODE = "3017620422003"
 PAYLOAD = {"product":{"code":CODE,"generic_name_es":" Crema de avellanas ","generic_name":"Hazelnut spread",
@@ -95,3 +97,48 @@ async def test_memory_cache_still_works_when_disk_is_full(hass, monkeypatch):
     monkeypatch.setattr(lookup._store,"async_save",AsyncMock(side_effect=OSError("Disk full")))
     assert (await lookup.async_lookup(CODE))["status"] == "found"
     assert lookup.is_fresh(CODE)
+
+
+@pytest.mark.parametrize("grade", ["a", "b", "c", "d", "e", "A"])
+def test_nutriscore_is_validated_without_requiring_a_name(grade):
+    result = product_hint({"product": {"code": CODE, "nutriscore_grade": grade, "nutriscore_score": 0, "nutriscore_version": "2023"}}, CODE)
+    assert result["nutriscore"] == {"grade": grade.lower(), "score": 0, "version": "2023"}
+    assert result["status"] == "not_found"
+
+
+@pytest.mark.parametrize("grade", [None, "unknown", "not-applicable", "f", "<script>", 1])
+def test_missing_or_invalid_nutriscore_stays_absent(grade):
+    assert "nutriscore" not in product_hint({"product": {**PAYLOAD["product"], "nutriscore_grade": grade}}, CODE)
+
+
+async def test_old_name_only_cache_is_refreshed_and_nutriscore_survives_reload(hass, monkeypatch):
+    lookup = ProductLookup(hass)
+    lookup._cache[CODE.zfill(14)] = {"expires": module.time.time() + 86400, "result": product_hint(PAYLOAD, CODE)}
+    fetch = AsyncMock(return_value=product_hint({"product": {**PAYLOAD["product"], "nutriscore_grade": "d"}}, CODE))
+    monkeypatch.setattr(lookup, "_fetch", fetch)
+    result = await lookup.async_lookup(CODE)
+    assert result["nutriscore"]["grade"] == "d" and result["nutriscore"]["checked_at"] > 0
+    fetch.assert_awaited_once()
+    restored = ProductLookup(hass)
+    await restored.async_load()
+    monkeypatch.setattr(restored, "_fetch", AsyncMock(side_effect=AssertionError("Must use persisted cache")))
+    assert await restored.async_lookup(CODE) == result
+
+
+async def test_nutriscore_endpoint_reuses_lookup_and_never_sends_qr_or_nfc(hass, hass_ws_client, monkeypatch):
+    entry = MockConfigEntry(domain=DOMAIN, data={CONF_TODO_ENTITY: "todo.bring"})
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    lookup = hass.data[DOMAIN]["readers"].lookup
+    fetch = AsyncMock(return_value=product_hint({"product": {**PAYLOAD["product"], "nutriscore_grade": "b"}}, CODE))
+    monkeypatch.setattr(lookup, "_fetch", fetch)
+    client = await hass_ws_client(hass)
+    await client.send_json({"id": 1, "type": f"{DOMAIN}/catalog/nutriscore", "code": CODE})
+    result = (await client.receive_json())["result"]
+    assert result["nutriscore"]["grade"] == "b" and result["code"] == CODE
+    await client.send_json({"id": 2, "type": f"{DOMAIN}/catalog/nutriscore", "code": "https://private.test/qr"})
+    assert (await client.receive_json())["result"]["nutriscore"] is None
+    fetch.assert_awaited_once_with(CODE)
+    assert await hass.config_entries.async_unload(entry.entry_id)
+    await client.send_json({"id": 3, "type": f"{DOMAIN}/catalog/nutriscore", "code": CODE})
+    assert (await client.receive_json())["error"]["code"] == "not_loaded"

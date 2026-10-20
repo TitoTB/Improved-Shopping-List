@@ -1,5 +1,18 @@
 # Historial de cambios
 
+## 0.4.0
+
+- Nuevo apartado Lectores para configurar lectores de códigos de barras, QR y NFC mediante entidades de Home Assistant o eventos de etiquetas NFC.
+- Asociación de varios códigos a cada producto y selección de una acción por producto y lector, con lista de destino configurable y la principal por defecto.
+- Protección contra lecturas repetidas, sin duplicar productos pendientes y recuperando los comprados cuando el proveedor lo permite.
+- Códigos desconocidos como sugerencias para crear un producto o asociarlos a uno existente, con descartes persistentes.
+- Acciones de añadir o quitar stock disponibles para configurar; su ejecución queda pendiente de implementar el inventario.
+- Personalización de los degradados de productos pendientes y comprados y del número de columnas en móvil y ordenador.
+- Tarjetas de la lista que cambian entre pendiente y comprado al pulsarlas, sin botones interiores.
+- Alta desde sugerencias mediante la ficha completa del producto y botones Añadir y Editar del catálogo con texto más pequeño y el mismo ancho.
+- Filtro de categoría al pulsar su icono en las tarjetas del catálogo.
+- Eliminado el texto introductorio de la vista Lista.
+
 ## 0.3.0
 
 - Nuevo apartado Ajustes (`mdi:cog`) para añadir entidades `todo`, quitar listas de la interfaz y elegir una principal, con configuración compartida y persistente en Home Assistant.

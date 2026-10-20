@@ -1,8 +1,10 @@
 # Improved Shopping List
 
+<img src="custom_components/improved_shopping_list/brand/icon.png" alt="Improved Shopping List" width="96">
+
 Una interfaz propia para gestionar las listas de la compra que ya tienes integradas en Home Assistant.
 
-Primera versión: **0.1.0**. Interfaz en español, pensada para móvil y ordenador. Requiere **Home Assistant Core 2026.10 o posterior**. La referencia de desarrollo es Core 2026.10.2.
+Versión actual: **0.1.1**. Interfaz en español, pensada para móvil y ordenador. Requiere **Home Assistant Core 2026.10 o posterior**. La referencia de desarrollo es Core 2026.10.2.
 
 ## Qué puedes hacer
 

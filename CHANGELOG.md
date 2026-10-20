@@ -1,5 +1,11 @@
 # Historial de cambios
 
+## 0.1.1
+
+- Logo propio de la integración, incluido localmente para Home Assistant.
+- Logo en la cabecera del panel y en la documentación del repositorio.
+- Se conserva el archivo original facilitado por TitoTB.
+
 ## 0.1.0
 
 - Primera versión de la integración Improved Shopping List.

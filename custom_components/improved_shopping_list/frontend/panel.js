@@ -1,4 +1,6 @@
-import { FEATURES, TodoSession, errorMessage, isAvailable, supports, todoEntities } from "./todo-client.js?v=0.1.0";
+import { FEATURES, TodoSession, errorMessage, isAvailable, supports, todoEntities } from "./todo-client.js?v=0.1.1";
+
+const LOGO_URL = new URL("logo.png", import.meta.url).href;
 
 class ImprovedShoppingListPanel extends HTMLElement {
   constructor() {
@@ -75,6 +77,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
         .menu { border:0; background:transparent; color:inherit; padding:8px; width:44px; height:44px; display:none; }
         :host([narrow]) .menu { display:inline-flex; align-items:center; justify-content:center; }
         .brand { flex:1; font-size:16px; font-weight:650; }
+        .brand-logo { width:44px; height:44px; object-fit:contain; flex-shrink:0; }
         .version { color:var(--secondary-text-color,#63766b); font-size:12px; }
         main { max-width:900px; margin:auto; padding:36px 24px 64px; }
         .eyebrow { text-transform:uppercase; letter-spacing:.13em; font-size:11px; color:var(--secondary-text-color,#63766b); font-weight:700; margin:0 0 10px; }
@@ -115,7 +118,8 @@ class ImprovedShoppingListPanel extends HTMLElement {
       </style>
       <header>
         <button class="menu" aria-label="Abrir menú de Home Assistant"><ha-icon icon="mdi:menu"></ha-icon></button>
-        <span class="brand">Improved Shopping List</span><span class="version">0.1.0</span>
+        <img class="brand-logo" src="${LOGO_URL}" alt="" width="44" height="44">
+        <span class="brand">Improved Shopping List</span><span class="version">0.1.1</span>
       </header>
       <main>
         <p class="eyebrow">Tu lista, conectada</p>

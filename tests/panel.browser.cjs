@@ -57,8 +57,8 @@ async function main() {
   const server = http.createServer(async (req, res) => {
     const pathname = new URL(req.url, "http://localhost").pathname;
     if (pathname === "/") { res.setHeader("content-type", "text/html; charset=utf-8"); res.end(html); return; }
-    if (!["/panel.js", "/todo-client.js"].includes(pathname)) { res.writeHead(404).end(); return; }
-    res.setHeader("content-type", "text/javascript; charset=utf-8");
+    if (!["/panel.js", "/todo-client.js", "/logo.png"].includes(pathname)) { res.writeHead(404).end(); return; }
+    res.setHeader("content-type", pathname.endsWith(".png") ? "image/png" : "text/javascript; charset=utf-8");
     res.end(await fs.readFile(path.join(root, pathname.slice(1))));
   });
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -71,6 +71,8 @@ async function main() {
     const url = `http://127.0.0.1:${server.address().port}`;
     await page.goto(url);
     await page.getByText("Cacao", { exact: true }).waitFor();
+    await page.locator(".brand-logo").evaluate(image => image.decode());
+    assert.equal(await page.locator(".brand-logo").evaluate(image => image.naturalWidth > 0), true);
     await page.screenshot({ path: "test-results/panel-desktop.png", fullPage: true });
 
     // Input is text, even if a provider supplies something resembling HTML.

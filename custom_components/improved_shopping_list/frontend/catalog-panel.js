@@ -157,6 +157,11 @@ class ImprovedShoppingCatalog extends HTMLElement {
         .product-category-controls select { flex:1; min-width:0; }
         #add-product-category { display:grid; place-items:center; flex:0 0 46px; width:46px; height:46px; padding:0; }
         #add-product-category ha-icon { --mdc-icon-size:22px; }
+        .store-link-add { display:grid; grid-template-columns:minmax(0,1.2fr) minmax(0,1.4fr) 46px; gap:8px; align-items:center; margin-top:7px; }
+        .store-link-add input,.store-link-add select,.store-link-add button { width:100%; min-width:0; height:46px; min-height:46px; margin:0; }
+        .store-link-add select { appearance:none; -webkit-appearance:none; padding-right:32px; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right 12px center; }
+        #add-product-store-link { display:grid; place-items:center; padding:0; }
+        #add-product-store-link ha-icon { display:block; width:24px; height:24px; --mdc-icon-size:24px; }
         label { font-size:13px; font-weight:600; display:block; }
         input,select,textarea { display:block; min-height:46px; width:100%; margin-top:7px; padding:10px 12px; color:inherit; background:var(--card-background-color,#fff); border:1px solid var(--divider-color,#dfe7e1); border-radius:9px; min-width:0; }
         textarea { resize:vertical; min-height:76px; }
@@ -265,7 +270,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
           <section id="product-additional" class="fields" aria-label="Información adicional" hidden>
             <label>Precio orientativo<input name="price" type="number" min="0" max="1000000" step="0.01" placeholder="Sin precio"></label>
             <label>Moneda<select name="currency"><option value="EUR">EUR · Euro</option><option value="USD">USD · Dólar</option><option value="GBP">GBP · Libra</option></select></label>
-            <div class="wide"><h3>Vinculaciones con tiendas</h3><div id="product-store-links"></div><div style="display:grid;grid-template-columns:minmax(0,1fr) 44px;gap:8px"><select id="product-link-store" aria-label="Tienda del producto" style="grid-column:1/-1"></select><input id="product-link-value" aria-label="Enlace o ID del producto" maxlength="2048" placeholder="Enlace o ID del producto" style="min-width:0"><button id="add-product-store-link" type="button" aria-label="Añadir vinculación"><ha-icon icon="mdi:plus-thick" aria-hidden="true"></ha-icon></button></div><p class="helper">Los precios se revisan de madrugada cuando el producto está pendiente de comprar. Se conserva el último precio conocido.</p></div>
+            <div class="wide"><h3>Vinculaciones con tiendas</h3><div id="product-store-links"></div><div class="store-link-add"><select id="product-link-store" aria-label="Tienda del producto"></select><input id="product-link-value" aria-label="Enlace o ID del producto" maxlength="2048" placeholder="Enlace o ID del producto"><button id="add-product-store-link" type="button" aria-label="Añadir vinculación"><ha-icon icon="mdi:plus-thick" aria-hidden="true"></ha-icon></button></div></div>
             <div id="product-nutriscore" class="wide" hidden><h3>Nutri-Score</h3><div id="nutriscore-results"></div></div>
             <div id="product-store-prices" class="wide" hidden><h3>Precios de tiendas</h3><div id="store-price-results"></div></div>
           </section>

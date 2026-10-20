@@ -166,6 +166,8 @@ class ImprovedShoppingSettings extends HTMLElement {
     root.querySelector("#configure-alcampo").addEventListener("click",()=>{root.querySelector("#alcampo-region").value=this._data.settings.stores?.alcampo?.region_id ?? "";root.querySelector("#alcampo-dialog").showModal();void this._loadAlcampo();});
     root.querySelector("#refresh-alcampo").addEventListener("click",()=>void this._loadAlcampo());
     root.querySelector("#close-alcampo").addEventListener("click",()=>root.querySelector("#alcampo-dialog").close());
+    root.querySelector("#alcampo-dialog").addEventListener("cancel",event=>{if(this._busy)event.preventDefault();});
+    const alcampoError=document.createElement("div");alcampoError.id="alcampo-error";alcampoError.className="notice error";alcampoError.setAttribute("role","alert");alcampoError.hidden=true;root.querySelector("#alcampo-title").after(alcampoError);
     for(const view of ["products","config"])root.querySelector(`#alcampo-${view}-tab`).addEventListener("click",()=>{root.querySelector("#alcampo-products-view").hidden=view!=="products";root.querySelector("#alcampo-config-view").hidden=view!=="config";});
     root.querySelector("#save-alcampo").addEventListener("click",()=>void this._saveRetailSettings(()=>this._data.settings.saveAlcampo(root.querySelector("#alcampo-enabled").checked,root.querySelector("#alcampo-region").value.trim())));
     for (const [id, view] of [["settings-view-lists", "lists"], ["settings-view-appearance", "appearance"], ["settings-view-community", "community"], ["settings-view-stores", "stores"]]) {
@@ -282,6 +284,10 @@ class ImprovedShoppingSettings extends HTMLElement {
     root.querySelector("#alcampo-enabled").disabled = locked;
     root.querySelector("#alcampo-favorite").textContent = settings.favoriteStore === "alcampo" ? "Favorita" : "";
     root.querySelector("#save-alcampo").disabled = locked;
+    root.querySelector("#alcampo-region").disabled = locked;
+    root.querySelector("#close-alcampo").disabled = Boolean(this._busy);
+    root.querySelector("#alcampo-error").textContent = this._error || "";
+    root.querySelector("#alcampo-error").hidden = !this._error;
     root.querySelector("#save-price-update-time").disabled = locked;
     root.querySelector("#price-update-time").disabled = locked;
     if(root.activeElement !== root.querySelector("#price-update-time"))root.querySelector("#price-update-time").value = settings.priceUpdateTime ?? "01:00";
@@ -375,7 +381,7 @@ class ImprovedShoppingSettings extends HTMLElement {
         const text=document.createElement("p");text.textContent=`${new Intl.NumberFormat("es-ES",{style:"currency",currency:product.currency}).format(Number(product.price))} · Último precio: ${new Date(product.checked_at*1000).toLocaleString("es-ES")}`;
         row.append(link,text);return row;
       }));
-    } catch(error){if(this.isConnected&&dialog.open)root.querySelector("#alcampo-status").textContent=error.message??"No se pudo leer la caché de precios.";}
+    } catch(error){if(this.isConnected&&dialog.open&&generation===this._alcampoGeneration)root.querySelector("#alcampo-status").textContent=error.message??"No se pudo leer la caché de precios.";}
   }
 
   async _saveStore(enabled, verify) {

@@ -131,6 +131,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
         .actions button { display:inline-flex; align-items:center; justify-content:center; gap:7px; }
         .actions ha-icon { --mdc-icon-size:20px; }
         .actions .primary { flex:1; }
+        .product .actions button { flex:1 1 0; min-width:0; font-size:13px; padding:10px 8px; }
         .notice { font-size:13px; line-height:1.6; padding:12px 14px; background:var(--secondary-background-color,#edf4ee); border-radius:10px; margin:14px 0; }
         .error { color:var(--error-color,#bd3636); border:1px solid var(--error-color,#bd3636); }
         .empty { text-align:center; padding:38px 16px; color:var(--secondary-text-color,#63766b); line-height:1.7; border:1px dashed var(--divider-color,#dfe7e1); border-radius:16px; }

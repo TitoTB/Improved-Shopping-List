@@ -1,5 +1,12 @@
 # Historial de cambios
 
+## 0.8.1
+
+- Iconos y círculos de categoría más grandes en los productos de Lista, conservando el formato circular, la sombra y el escalado adaptable.
+- El botón «+» de las sugerencias de iconos muestra otras tres propuestas en los mismos contenedores, sin abrir páginas externas. Reutiliza los resultados disponibles y carga más cuando hace falta, sin saltarse opciones entre lotes.
+- Campo «URL Imagen/Icono» junto a las sugerencias para indicar una imagen propia. La URL escrita manualmente se respeta aunque termine después una descarga de icono pendiente.
+- Pruebas ampliadas de navegación entre iconos, recuperación tras errores y guardado de imágenes manuales.
+
 ## 0.8.0
 
 - Nuevo apartado Logs (`mdi:format-list-group`), con historial persistente de las últimas 1.000 entradas, búsqueda y filtros por actividad y origen. Registra cambios reales de listas, compras y recuperaciones, catálogo, categorías, configuración y uso de lectores; identifica automatizaciones cuando Home Assistant conserva el contexto y muestra los orígenes desconocidos como tales.

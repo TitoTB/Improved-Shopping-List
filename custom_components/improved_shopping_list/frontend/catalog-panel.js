@@ -235,6 +235,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
           <div id="product-error" class="notice error" role="alert" hidden></div>
           <div class="fields">
             <label class="wide">Nombre del producto<input name="name" required maxlength="160" placeholder="Por ejemplo, Cacao"></label>
+            <isl-icon-picker class="wide"></isl-icon-picker>
             <div><label for="product-category">Categoría</label><div class="product-category-controls"><select id="product-category" name="category"><option value="">Sin categoría</option></select><button id="add-product-category" type="button" aria-label="Nueva categoría" title="Nueva categoría"><ha-icon icon="mdi:plus-thick"></ha-icon></button></div></div>
             <label>Etiquetas<input name="tags" maxlength="850" placeholder="Desayuno, sin gluten"></label>
             <label class="wide">Código de barras<input name="barcode" type="text" maxlength="1024"></label>
@@ -245,7 +246,6 @@ class ImprovedShoppingCatalog extends HTMLElement {
             <label>Moneda<select name="currency"><option value="EUR">EUR · Euro</option><option value="USD">USD · Dólar</option><option value="GBP">GBP · Libra</option></select></label>
             <label class="wide">URL de la imagen<input name="image_url" maxlength="2048" placeholder="https://… o /local/producto.png"></label>
             <label class="wide">Icono del producto<input name="icon" maxlength="100" pattern="mdi:[a-z0-9]+(-[a-z0-9]+)*" placeholder="mdi:shopping"></label>
-            <isl-icon-picker class="wide"></isl-icon-picker>
             <label class="wide">Notas<textarea name="notes" maxlength="1000"></textarea></label>
           </div>
           <div class="form-actions"><button id="cancel-product" type="button">Cancelar</button><button id="save-product" class="primary" type="submit">Guardar producto</button></div>
@@ -271,6 +271,8 @@ class ImprovedShoppingCatalog extends HTMLElement {
       return {translate: !sameProduct || !this._editing.name_en, ...(sameProduct ? {product_id:this._editing.id} : {})};
     };
     iconPicker.onSelect = asset => { root.querySelector("form").elements.image_url.value = asset.url; };
+    iconPicker.onBusyChange = busy => { root.querySelector("#save-product").disabled = Boolean(this._saving || busy); };
+    root.querySelector('[name="name"]').addEventListener("input", () => iconPicker.suggest());
     root.querySelector('[name="image_url"]').addEventListener("input", event => { iconPicker.value = event.target.value; });
     root.querySelector("dialog").addEventListener("close", () => iconPicker.close());
     root.querySelector("#cancel-delete-product").addEventListener("click", () => root.querySelector("#delete-product-dialog").close());
@@ -635,6 +637,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
     iconPicker.hass = this._hass;
     iconPicker.value = form.elements.image_url.value;
     root.querySelector("dialog").showModal();
+    iconPicker.open(iconPicker.getQuery());
     form.elements.name.focus();
   }
 

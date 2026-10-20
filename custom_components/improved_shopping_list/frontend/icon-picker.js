@@ -31,10 +31,12 @@ class ImprovedShoppingIconPicker extends HTMLElement {
   set hass(value) { this._hass = value; }
   set disabled(value) {
     this._disabled = value;
-    if (this._built) this.shadowRoot.querySelector("#open-picker").disabled = Boolean(value);
+    if (value) { clearTimeout(this._timer); this._generation += 1; this._busy = false; }
+    if (this._built) this._renderResults();
   }
   set value(value) {
     this._value = value ?? "";
+    this._selectedId = undefined;
     this._showAttribution(null);
     const generation = ++this._infoGeneration;
     if (!this._value.startsWith(LOCAL_PREFIX) || !this._hass) return;
@@ -52,30 +54,23 @@ class ImprovedShoppingIconPicker extends HTMLElement {
         :host{display:block;min-width:0}*{box-sizing:border-box}[hidden]{display:none!important}
         button,input{font:inherit;color:inherit}button{cursor:pointer;border:1px solid var(--divider-color,#dfe7e1);border-radius:10px;background:transparent;padding:10px 12px;min-height:44px}
         button:disabled{opacity:.5;cursor:default}button:focus-visible,input:focus-visible,a:focus-visible{outline:3px solid var(--primary-color,#267052);outline-offset:3px}
-        #open-picker{display:inline-flex;align-items:center;gap:8px}ha-icon{--mdc-icon-size:20px}
-        dialog{color:var(--primary-text-color,#20352d);background:var(--card-background-color,#fff);width:min(620px,calc(100vw - 28px));max-height:calc(100dvh - 28px);border:1px solid var(--divider-color,#dfe7e1);border-radius:18px;padding:24px}dialog::backdrop{background:rgba(0,0,0,.4)}
-        h2{margin:0 0 18px;font-size:22px}.search{display:flex;align-items:end;gap:8px}label{flex:1;min-width:0;font-size:13px;font-weight:600}input{display:block;width:100%;margin-top:7px;min-height:46px;border:1px solid var(--divider-color,#dfe7e1);border-radius:10px;padding:10px 12px;background:var(--card-background-color,#fff)}
+        ha-icon{--mdc-icon-size:20px}h3{margin:0 0 12px;font-size:15px}label{display:block;min-width:0;font-size:13px;font-weight:600}input{display:block;width:100%;margin-top:7px;min-height:46px;border:1px solid var(--divider-color,#dfe7e1);border-radius:10px;padding:10px 12px;background:var(--card-background-color,#fff)}
         .helper,.attribution{font-size:12px;line-height:1.5;color:var(--secondary-text-color,#63766b)}a{color:var(--primary-color,#267052)}
-        #results{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:18px 0}.option{min-width:0;padding:8px 4px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;aspect-ratio:1;overflow:hidden}.option img{width:64px;height:64px;max-width:100%;object-fit:contain}.option span{font-size:11px;overflow-wrap:anywhere;max-width:100%}.more{border:1px solid var(--divider-color,#dfe7e1);border-radius:10px;text-decoration:none;color:inherit}.more ha-icon{--mdc-icon-size:32px;width:32px;height:32px}.empty{border:1px dashed var(--divider-color,#dfe7e1);border-radius:10px;opacity:.3}.more[aria-disabled=true]{opacity:.4;pointer-events:none}
-        .footer{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px;margin-top:18px}#status{font-size:13px}#status.error{color:var(--error-color,#bd3636)}
+        #results{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:14px 0}.option{min-width:0;padding:8px 4px;display:flex;align-items:center;justify-content:center;aspect-ratio:1;overflow:hidden}.option img{width:min(64px,100%);height:auto;max-height:100%;aspect-ratio:1;object-fit:contain}.option[aria-pressed=true]{border:2px solid var(--primary-color,#267052)}.more{border:1px solid var(--divider-color,#dfe7e1);border-radius:10px;text-decoration:none;color:inherit}.more ha-icon{--mdc-icon-size:32px;width:32px;height:32px}.empty{border:1px dashed var(--divider-color,#dfe7e1);border-radius:10px;opacity:.3}.more[aria-disabled=true]{opacity:.4;pointer-events:none}
+        #status{font-size:13px}#status.error{color:var(--error-color,#bd3636)}
         #selected{display:flex;align-items:center;gap:12px;margin-top:12px}#selected img{width:48px;height:48px;object-fit:contain;flex-shrink:0}
-        @media(max-width:400px){dialog{padding:18px}.option img{width:44px;height:44px}#results{gap:4px}.option span{display:none}.search button{padding:10px}}
+        @media(max-width:400px){#results{gap:4px}}
       </style>
-      <button id="open-picker" type="button"><ha-icon icon="mdi:image-search" aria-hidden="true"></ha-icon>Buscar icono</button>
-      <div id="selected" hidden></div>
-      <dialog aria-labelledby="picker-title">
-        <h2 id="picker-title">Buscar icono</h2>
-        <div class="search"><label>Buscar iconos<input id="query" type="search" minlength="2" maxlength="100" placeholder="Por ejemplo, milk o bread"></label><button id="search" type="button">Buscar</button></div>
-        <p class="helper">Traducimos el nombre al inglés para buscar iconos. Puedes cambiar el término. El botón + abre todas las opciones en Iconify.</p>
+      <section aria-label="Iconos sugeridos">
+        <h3>Iconos sugeridos</h3>
         <p id="status" role="status" hidden></p><div id="results" aria-label="Iconos sugeridos"></div>
+        <label>Buscar iconos<input id="query" type="search" minlength="2" maxlength="100" placeholder="Puedes escribir otro término"></label>
+        <p class="helper">Las sugerencias se actualizan con el nombre del producto. El botón + abre todas las opciones en Iconify.</p>
+        <div id="selected" hidden></div>
         <p class="helper">Iconos de <a href="https://iconify.design/" target="_blank" rel="noopener noreferrer">Iconify</a>. Se conservarán el autor y la licencia del icono elegido.</p>
-        <div class="footer"><button id="close" type="button">Cerrar</button></div>
-      </dialog>`;
+      </section>`;
     this._built = true;
     const root = this.shadowRoot;
-    root.querySelector("#open-picker").disabled = Boolean(this._disabled);
-    root.querySelector("#open-picker").addEventListener("click", () => this.open(this.getQuery?.() ?? ""));
-    root.querySelector("#search").addEventListener("click", () => void this._search());
     root.querySelector("#query").addEventListener("keydown", event => {
       if (event.key === "Enter") { event.preventDefault(); void this._search(); }
     });
@@ -86,18 +81,16 @@ class ImprovedShoppingIconPicker extends HTMLElement {
       this._searchOptions = {};
       this._status("");
       this._renderResults();
+      clearTimeout(this._timer);
+      this._timer = setTimeout(() => void this._search(), 500);
     });
-    root.querySelector("#close").addEventListener("click", () => this.close());
-    root.querySelector("dialog").addEventListener("close", () => {
-      if (root.querySelector("dialog").open) return;
-      this._generation += 1;
-      this._busy = this._importing = false;
-      root.querySelector("#open-picker").focus();
-    });
+    this._renderResults();
   }
 
   open(query) {
     if (this._disabled || !this._hass) return;
+    clearTimeout(this._timer);
+    this._active = true;
     this._generation += 1;
     this._busy = this._importing = false;
     this._icons = [];
@@ -105,15 +98,34 @@ class ImprovedShoppingIconPicker extends HTMLElement {
     this.shadowRoot.querySelector("#query").value = query.slice(0, 100);
     this._status("");
     this._renderResults();
-    this.shadowRoot.querySelector("dialog").showModal();
-    this.shadowRoot.querySelector("#query").focus();
+    this.onBusyChange?.(false);
     if (query.trim().length >= 2) void this._search();
+    else this._status("Escribe el nombre del producto para ver sugerencias.");
+  }
+
+  suggest() {
+    if (!this._active || this._disabled) return;
+    clearTimeout(this._timer);
+    this._generation += 1;
+    this._busy = false;
+    this._importing = false;
+    this.onBusyChange?.(false);
+    this._icons = [];
+    this._searchOptions = this.getSearchOptions?.() ?? {};
+    const query = this.getQuery?.() ?? "";
+    this.shadowRoot.querySelector("#query").value = query.slice(0, 100);
+    this._status(query.trim().length >= 2 ? "Buscando iconos…" : "Escribe el nombre del producto para ver sugerencias.");
+    this._renderResults();
+    this._timer = setTimeout(() => void this._search(), 500);
   }
 
   close() {
     this._generation += 1;
+    this._infoGeneration += 1;
+    clearTimeout(this._timer);
+    this._active = false;
     this._busy = this._importing = false;
-    this.shadowRoot.querySelector("dialog")?.close();
+    this.onBusyChange?.(false);
   }
 
   _status(message, error = false) {
@@ -124,13 +136,15 @@ class ImprovedShoppingIconPicker extends HTMLElement {
   }
 
   async _search() {
+    clearTimeout(this._timer);
+    if (!this._active || this._disabled || this._importing || !this._hass) return;
     const query = this.shadowRoot.querySelector("#query").value.trim();
     const generation = ++this._generation;
     this._icons = [];
     this._query = query;
     if (query.length < 2) {
       this._busy = false;
-      this._status("Escribe al menos dos caracteres.", true);
+      this._status("Escribe el nombre del producto para ver sugerencias.");
       this._renderResults();
       return;
     }
@@ -166,14 +180,15 @@ class ImprovedShoppingIconPicker extends HTMLElement {
       button.type = "button";
       button.title = `${icon.collection} · ${icon.author} · ${icon.license}`;
       button.setAttribute("aria-label", `Elegir ${icon.label} (${icon.collection})`);
-      button.disabled = Boolean(this._busy);
+      button.disabled = Boolean(this._busy || this._disabled);
+      button.setAttribute("aria-pressed", String(this._selectedId === icon.id));
       const image = node("img");
       // Preview URLs are constructed by the backend, never inserted as markup.
       image.src = icon.preview_url;
       image.alt = "";
       image.referrerPolicy = "no-referrer";
       image.addEventListener("error", () => { image.hidden = true; }, { once:true });
-      button.append(image, node("span", icon.label));
+      button.append(image);
       button.addEventListener("click", () => void this._select(icon));
       return button;
     });
@@ -184,31 +199,33 @@ class ImprovedShoppingIconPicker extends HTMLElement {
     more.title = "Ver todos los iconos en Iconify";
     more.setAttribute("aria-label", more.title);
     const plus = node("ha-icon"); plus.setAttribute("icon", "mdi:plus-thick"); plus.setAttribute("aria-hidden", "true"); more.append(plus);
-    if (query.length < 2) { more.removeAttribute("href"); more.setAttribute("aria-disabled", "true"); more.tabIndex = -1; }
+    if (query.length < 2 || this._disabled) { more.removeAttribute("href"); more.setAttribute("aria-disabled", "true"); more.tabIndex = -1; }
     root.querySelector("#results").replaceChildren(...suggestions, more);
-    root.querySelector("#search").disabled = Boolean(this._importing);
-    root.querySelector("#query").disabled = Boolean(this._importing);
+    root.querySelector("#query").disabled = Boolean(this._importing || this._disabled);
   }
 
   async _select(icon) {
-    if (this._busy) return;
+    if (this._busy || this._disabled || !this._active) return;
     const generation = ++this._generation;
     this._busy = this._importing = true;
+    this.onBusyChange?.(true);
     this._status("Guardando icono en Home Assistant…");
     this._renderResults();
     try {
       const asset = await this._hass.callWS({ type: `${PREFIX}import`, icon_id: icon.id });
       if (generation !== this._generation || !this.isConnected) return;
       this._value = asset.url;
+      this._selectedId = icon.id;
       this._infoGeneration += 1;
       this._showAttribution(asset);
       this.onSelect?.(asset);
-      this.close();
+      this._status("");
     } catch (error) {
       if (generation === this._generation && this.isConnected) this._status(error.message ?? "No se ha podido guardar el icono.", true);
     } finally {
-      if (generation === this._generation || !this.shadowRoot.querySelector("dialog").open) {
+      if (generation === this._generation || !this._active) {
         this._busy = this._importing = false;
+        this.onBusyChange?.(false);
         if (this.isConnected) this._renderResults();
       }
     }

@@ -11,6 +11,8 @@ class ImprovedShoppingCategories extends HTMLElement {
     this._render();
   }
 
+  create() { this._open(); }
+
   connectedCallback() {
     if (!this._built) this._build();
     this._render();
@@ -25,6 +27,7 @@ class ImprovedShoppingCategories extends HTMLElement {
       <style>
         :host { display:block; color:var(--primary-text-color,#20352d); }
         :host([hidden]),[hidden] { display:none !important; }
+        :host([editor-only]) .toolbar,:host([editor-only]) #category-notice,:host([editor-only]) #category-grid,:host([editor-only]) #category-empty { display:none; }
         * { box-sizing:border-box; }
         button,input { font:inherit; }
         button { cursor:pointer; min-height:44px; padding:10px 14px; border:1px solid var(--divider-color,#dfe7e1); border-radius:10px; background:transparent; color:inherit; }
@@ -80,6 +83,7 @@ class ImprovedShoppingCategories extends HTMLElement {
     const root = this.shadowRoot;
     root.querySelector("#new-category").addEventListener("click", () => this._open());
     root.querySelector("#cancel-category").addEventListener("click", () => root.querySelector("#category-dialog").close());
+    root.querySelector("#category-dialog").addEventListener("close", () => this.onClose?.());
     root.querySelector("#cancel-delete-category").addEventListener("click", () => root.querySelector("#delete-category-dialog").close());
     root.querySelector("#confirm-delete-category").addEventListener("click", () => void this._delete());
     root.querySelector("#category-form").addEventListener("submit", event => { event.preventDefault(); void this._save(); });
@@ -179,7 +183,7 @@ class ImprovedShoppingCategories extends HTMLElement {
       await this.onSave(category);
       root.querySelector("#category-dialog").close();
       this._notice("Categoría guardada.");
-      root.querySelector("#new-category").focus();
+      if (!this.hasAttribute("editor-only")) root.querySelector("#new-category").focus();
     } catch (error) {
       const notice = root.querySelector("#category-error");
       notice.textContent = error.message ?? "No se ha podido guardar la categoría.";

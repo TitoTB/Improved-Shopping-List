@@ -121,6 +121,10 @@ class ImprovedShoppingCatalog extends HTMLElement {
         .category-controls label { flex:1; min-width:0; }
         #new-product { display:grid; place-items:center; flex:0 0 46px; width:46px; height:46px; padding:0; }
         #new-product ha-icon { --mdc-icon-size:24px; }
+        .product-category-controls { display:flex; align-items:end; gap:8px; }
+        .product-category-controls select { flex:1; min-width:0; }
+        #add-product-category { display:grid; place-items:center; flex:0 0 46px; width:46px; height:46px; padding:0; }
+        #add-product-category ha-icon { --mdc-icon-size:22px; }
         #catalog-refresh { width:44px; padding:10px; flex-shrink:0; }
         label { font-size:13px; font-weight:600; display:block; }
         input,select,textarea { display:block; min-height:46px; width:100%; margin-top:7px; padding:10px 12px; color:inherit; background:var(--card-background-color,#fff); border:1px solid var(--divider-color,#dfe7e1); border-radius:9px; min-width:0; }
@@ -172,7 +176,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
       <div id="catalog-grid" class="grid"></div>
       <p id="catalog-empty" class="empty" hidden></p>
       </section>
-      <isl-categories hidden></isl-categories>
+      <isl-categories id="catalog-categories" hidden></isl-categories>
       <section id="suggestions-view" hidden>
         <p id="suggestions-source" class="helper"></p>
         <div id="suggestions-error" class="notice error" role="alert" hidden></div>
@@ -186,7 +190,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
           <div id="product-error" class="notice error" role="alert" hidden></div>
           <div class="fields">
             <label class="wide">Nombre del producto<input name="name" required maxlength="160" placeholder="Por ejemplo, Cacao"></label>
-            <div><label for="product-category">Categoría</label><select id="product-category" name="category"><option value="">Sin categoría</option></select></div>
+            <div><label for="product-category">Categoría</label><div class="product-category-controls"><select id="product-category" name="category"><option value="">Sin categoría</option></select><button id="add-product-category" type="button" aria-label="Nueva categoría" title="Nueva categoría"><ha-icon icon="mdi:plus-thick"></ha-icon></button></div></div>
             <label>Etiquetas<input name="tags" maxlength="850" placeholder="Desayuno, sin gluten"></label>
             <label>Marca<input name="brand" maxlength="100"></label>
             <label>Formato<input name="format" maxlength="100" placeholder="250 g, 1 l, 6 unidades…"></label>
@@ -202,6 +206,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
           </div>
           <div class="form-actions"><button id="cancel-product" type="button">Cancelar</button><button id="save-product" class="primary" type="submit">Guardar producto</button></div>
         </form>
+        <isl-categories id="product-category-editor" editor-only></isl-categories>
       </dialog>`;
     this._built = true;
     const root = this.shadowRoot;
@@ -211,6 +216,14 @@ class ImprovedShoppingCatalog extends HTMLElement {
     root.querySelector("#view-suggestions").addEventListener("click", () => this._switchView("suggestions"));
     root.querySelector("isl-categories").onSave = category => this._catalog.saveCategory(category);
     root.querySelector("isl-categories").onDelete = category => this._catalog.deleteCategory(category);
+    const categoryEditor = root.querySelector("#product-category-editor");
+    categoryEditor.onSave = async category => {
+      const saved = await this._catalog.saveCategory(category);
+      root.querySelector("#product-category").value = saved.name;
+      return saved;
+    };
+    categoryEditor.onClose = () => root.querySelector("#add-product-category").focus();
+    root.querySelector("#add-product-category").addEventListener("click", () => categoryEditor.create());
     root.querySelector("#catalog-refresh").addEventListener("click", () => void this._catalog.refresh());
     root.querySelector("#catalog-search").addEventListener("input", () => this._renderProducts());
     root.querySelector("#category-filter").addEventListener("change", () => this._renderProducts());

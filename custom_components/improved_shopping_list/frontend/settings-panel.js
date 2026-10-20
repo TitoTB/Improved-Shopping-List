@@ -29,6 +29,8 @@ class ImprovedShoppingSettings extends HTMLElement {
         button:disabled,select:disabled,input:disabled { opacity:.5; cursor:default; }
         button:focus-visible,select:focus-visible,input:focus-visible { outline:3px solid var(--primary-color,#267052); outline-offset:3px; }
         .settings-tabs { display:flex; flex-wrap:wrap; gap:8px; margin:18px 0; }
+        .settings-tabs button { display:inline-flex; align-items:center; justify-content:center; gap:8px; }
+        .settings-tabs ha-icon { --mdc-icon-size:20px; display:flex; align-items:center; justify-content:center; width:20px; height:20px; flex:none; line-height:0; }
         .settings-tabs [aria-pressed=true] { background:var(--secondary-background-color,#edf4ee); font-weight:650; }
         .appearance-fields { display:grid; grid-template-columns:1fr 1fr; gap:18px; }
         input[type=color] { display:block; width:100%; padding:5px; cursor:pointer; }
@@ -53,7 +55,7 @@ class ImprovedShoppingSettings extends HTMLElement {
         @media(max-width:540px) { .card { padding:18px 14px; } .add-row { flex-wrap:wrap; } .select-wrap { flex-basis:100%; } .actions { width:100%; } }
       </style>
       <h1>Ajustes</h1>
-      <nav class="settings-tabs" aria-label="Vistas de ajustes"><button id="settings-view-lists" aria-pressed="true">Listas</button><button id="settings-view-appearance" aria-pressed="false">Personalización</button></nav>
+      <nav class="settings-tabs" aria-label="Vistas de ajustes"><button id="settings-view-lists" aria-pressed="true"><ha-icon icon="mdi:format-list-checks" aria-hidden="true"></ha-icon>Listas</button><button id="settings-view-appearance" aria-pressed="false"><ha-icon icon="mdi:palette" aria-hidden="true"></ha-icon>Personalización</button></nav>
       <div id="settings-error" class="notice error" role="alert" hidden></div>
       <div id="settings-status" class="notice" role="status" hidden></div>
       <p id="admin-help" hidden>Necesitas una cuenta administradora de Home Assistant para modificar estos ajustes.</p>

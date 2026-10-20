@@ -189,6 +189,9 @@ class ImprovedShoppingCatalog extends HTMLElement {
         dialog { color:inherit; background:var(--card-background-color,#fff); width:min(640px,calc(100vw - 28px)); max-height:calc(100dvh - 28px); border:1px solid var(--divider-color,#dfe7e1); border-radius:18px; padding:24px; }
         dialog::backdrop { background:rgba(0,0,0,.4); }
         .dialog-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+        .product-views { display:flex; flex-wrap:wrap; gap:8px; margin-top:18px; }
+        .product-views button { flex:1 1 130px; min-width:0; font-size:13px; padding:10px 8px; }
+        .product-views [aria-pressed=true] { background:var(--secondary-background-color,#edf4ee); font-weight:650; }
         .fields { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin:22px 0; }
         .wide { grid-column:1/-1; }
         .form-actions { display:flex; justify-content:flex-end; gap:10px; margin-top:22px; }
@@ -233,21 +236,27 @@ class ImprovedShoppingCatalog extends HTMLElement {
           <div class="dialog-heading"><h2 id="product-dialog-title">Nuevo producto</h2></div>
           <p class="helper">Solo necesitas un nombre para empezar. Puedes completar el resto más adelante.</p>
           <div id="product-error" class="notice error" role="alert" hidden></div>
-          <div class="fields">
+          <nav class="product-views" aria-label="Vistas de la ficha del producto">
+            <button type="button" data-product-view="main" aria-pressed="true" aria-controls="product-main">Características principales</button>
+            <button type="button" data-product-view="additional" aria-pressed="false" aria-controls="product-additional">Información adicional</button>
+            <button type="button" data-product-view="automation" aria-pressed="false" aria-controls="product-automation">Automatización</button>
+          </nav>
+          <section id="product-main" class="fields" aria-label="Características principales">
             <label class="wide">Nombre del producto<input name="name" required maxlength="160" placeholder="Por ejemplo, Cacao"></label>
             <isl-icon-picker class="wide"></isl-icon-picker>
             <label class="wide">URL Imagen/Icono<input name="image_url" maxlength="2048" placeholder="https://… o /local/producto.png"></label>
-            <div><label for="product-category">Categoría</label><div class="product-category-controls"><select id="product-category" name="category"><option value="">Sin categoría</option></select><button id="add-product-category" type="button" aria-label="Nueva categoría" title="Nueva categoría"><ha-icon icon="mdi:plus-thick"></ha-icon></button></div></div>
-            <label>Etiquetas<input name="tags" maxlength="850" placeholder="Desayuno, sin gluten"></label>
+            <div class="wide"><label for="product-category">Categoría</label><div class="product-category-controls"><select id="product-category" name="category"><option value="">Sin categoría</option></select><button id="add-product-category" type="button" aria-label="Nueva categoría" title="Nueva categoría"><ha-icon icon="mdi:plus-thick"></ha-icon></button></div></div>
+          </section>
+          <section id="product-additional" class="fields" aria-label="Información adicional" hidden>
+            <label>Precio orientativo<input name="price" type="number" min="0" max="1000000" step="0.01" placeholder="Sin precio"></label>
+            <label>Moneda<select name="currency"><option value="EUR">EUR · Euro</option><option value="USD">USD · Dólar</option><option value="GBP">GBP · Libra</option></select></label>
+          </section>
+          <section id="product-automation" class="fields" aria-label="Automatización" hidden>
             <label class="wide">Código de barras<input name="barcode" type="text" maxlength="1024"></label>
             <label class="wide">Otros códigos de barras o QR<textarea name="barcodes" maxlength="52000" placeholder="Un código por línea"></textarea></label>
             <label class="wide">Etiquetas NFC<textarea name="nfc_tags" maxlength="52000" placeholder="Un identificador por línea"></textarea></label>
             <div class="wide"><h3>Acciones de los lectores</h3><div id="product-reader-actions"></div><p class="helper">La acción se aplica solo al reconocer este producto. Las acciones de stock quedan guardadas para cuando esté disponible el inventario.</p></div>
-            <label>Precio orientativo<input name="price" type="number" min="0" max="1000000" step="0.01" placeholder="Sin precio"></label>
-            <label>Moneda<select name="currency"><option value="EUR">EUR · Euro</option><option value="USD">USD · Dólar</option><option value="GBP">GBP · Libra</option></select></label>
-            <label class="wide">Icono del producto<input name="icon" maxlength="100" pattern="mdi:[a-z0-9]+(-[a-z0-9]+)*" placeholder="mdi:shopping"></label>
-            <label class="wide">Notas<textarea name="notes" maxlength="1000"></textarea></label>
-          </div>
+          </section>
           <div class="form-actions"><button id="cancel-product" type="button">Cancelar</button><button id="save-product" class="primary" type="submit">Guardar producto</button></div>
         </form>
         <isl-categories id="product-category-editor" editor-only></isl-categories>
@@ -259,6 +268,11 @@ class ImprovedShoppingCatalog extends HTMLElement {
       </dialog>`;
     this._built = true;
     const root = this.shadowRoot;
+    for (const button of root.querySelectorAll("[data-product-view]")) button.addEventListener("click", () => this._switchProductView(button.dataset.productView));
+    root.querySelector("#product-form").addEventListener("invalid", event => {
+      const panel = event.target.closest("section[id^=product-]");
+      if (panel) this._switchProductView(panel.id.slice("product-".length));
+    }, true);
     const iconPicker = root.querySelector("isl-icon-picker");
     iconPicker.getProductName = () => root.querySelector("form").elements.name.value;
     iconPicker.getQuery = () => {
@@ -600,27 +614,35 @@ class ImprovedShoppingCatalog extends HTMLElement {
     }
   }
 
+  _switchProductView(view) {
+    if (this._saving) return;
+    for (const button of this.shadowRoot.querySelectorAll("[data-product-view]")) {
+      const selected = button.dataset.productView === view;
+      button.setAttribute("aria-pressed", String(selected));
+      this.shadowRoot.querySelector(`#${button.getAttribute("aria-controls")}`).hidden = !selected;
+    }
+  }
+
   _openProduct(product, suggestedName = "", reading = null, listOrigin = null) {
     if (this._saving) return;
     const root = this.shadowRoot;
     const form = root.querySelector("form");
     this._listOrigin = listOrigin;
     form.reset();
+    this._switchProductView("main");
     form.elements.name.value = suggestedName;
     if (!product && reading?.identification?.status === "found") {
       const hint = reading.identification;
       form.elements.name.value = hint.name ?? "";
-      form.elements.notes.value = `Fuente: Open Food Facts (ODbL). https://world.openfoodfacts.org/product/${encodeURIComponent(reading.code)}`;
     }
     this._renderReaderActions();
     this._editing = product ? structuredClone(product) : null;
     root.querySelector("#product-dialog-title").textContent = product ? "Editar producto" : "Nuevo producto";
     root.querySelector("#product-error").hidden = true;
     if (product) {
-      for (const key of ["name", "category", "barcode", "price", "image_url", "icon", "notes"]) form.elements[key].value = product[key] ?? "";
+      for (const key of ["name", "category", "barcode", "price", "image_url"]) form.elements[key].value = product[key] ?? "";
       if (![...form.elements.currency.options].some(option => option.value === product.currency)) form.elements.currency.add(new Option(product.currency, product.currency));
       form.elements.currency.value = product.currency;
-      form.elements.tags.value = product.tags.join(", ");
       form.elements.barcodes.value = (product.barcodes ?? []).join("\n");
       form.elements.nfc_tags.value = (product.nfc_tags ?? []).join("\n");
     }
@@ -647,7 +669,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
     const root = this.shadowRoot;
     const form = root.querySelector("form");
     const fields = Object.fromEntries(new FormData(form));
-    const product = { ...fields, tags: fields.tags.split(",").map(tag => tag.trim()).filter(Boolean), price: fields.price || null };
+    const product = { ...fields, price: fields.price || null, tags: this._editing?.tags ?? [], icon: this._editing?.icon ?? "", notes: this._editing?.notes ?? "" };
     for (const key of ["barcodes","nfc_tags"]) product[key] = fields[key].split(/\r?\n/).map(value => value.trim()).filter(Boolean);
     product.reader_actions = Object.fromEntries([...root.querySelectorAll("[data-reader-action]")].map(select => [select.dataset.readerAction,select.value]));
     if (this._editing) Object.assign(product, { id: this._editing.id, revision: this._editing.revision });

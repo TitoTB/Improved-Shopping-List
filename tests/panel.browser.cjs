@@ -348,11 +348,18 @@ async function main() {
     assert.equal(await catalog.locator("#product-category").inputValue(), "Lácteos");
     assert.equal(await catalog.getByLabel("Nombre del producto", { exact:true }).inputValue(), "Yogur natural");
     assert.equal(await page.evaluate(() => window.catalogProducts.length), 0);
-    await catalog.getByLabel("Etiquetas", { exact: true }).fill("Desayuno, Fresco");
+    assert.equal(await catalog.getByLabel("Etiquetas", { exact:true }).count(),0);
+    assert.equal(await catalog.getByLabel("Icono del producto", { exact:true }).count(),0);
+    assert.equal(await catalog.getByLabel("Notas", { exact:true }).count(),0);
+    await catalog.getByRole("button",{name:"Automatización",exact:true}).click();
     assert.equal(await catalog.getByLabel("Marca", { exact: true }).count(), 0);
     assert.equal(await catalog.getByLabel("Formato", { exact: true }).count(), 0);
     await catalog.getByLabel("Código de barras", { exact: true }).fill("0012345678905");
+    await catalog.getByRole("button",{name:"Información adicional",exact:true}).click();
     await catalog.getByLabel("Precio orientativo", { exact: true }).fill("2.59");
+    await catalog.getByRole("button",{name:"Características principales",exact:true}).click();
+    assert.equal(await catalog.getByLabel("Nombre del producto",{exact:true}).inputValue(),"Yogur natural");
+    assert.equal(await catalog.locator("#product-automation").isVisible(),false);
     await catalog.getByRole("button", { name: "Guardar producto", exact: true }).click();
     await catalog.getByRole("heading", { name: "Yogur natural", exact: true }).waitFor();
     assert.equal(await page.evaluate(() => window.catalogProducts[0].barcode), "0012345678905");
@@ -420,9 +427,15 @@ async function main() {
       const bounds = card.getBoundingClientRect();
       return Math.abs((image.left + image.right) / 2 - (bounds.left + bounds.right) / 2) < 2 && image.bottom <= title.top;
     }));
+    // Earlier catalog data survives when fields are removed from the editor.
+    await page.evaluate(async()=>{
+      const product=window.catalogProducts[0];
+      await window.testPanel._hass.callWS({type:'improved_shopping_list/catalog/save',product:{...product,icon:'mdi:view-grid',tags:['Legacy'],notes:'Existing note'}});
+    });
     await catalog.getByRole("button", { name: "Editar Yogur natural", exact: true }).click();
+    assert.equal(await catalog.locator("#product-main").isVisible(),true);
     await catalog.getByLabel("Nombre del producto", { exact: true }).fill("Yogur sin azúcar");
-    await catalog.getByLabel("Icono del producto", { exact: true }).fill("mdi:view-grid");
+    assert.equal(await catalog.getByLabel("Icono del producto",{exact:true}).count(),0);
     await catalog.getByRole("button", { name: "Guardar producto", exact: true }).click();
     await catalog.getByRole("heading", { name: "Yogur sin azúcar", exact: true }).waitFor();
     assert.equal(await page.evaluate(() => window.catalogProducts.length), 1);
@@ -681,7 +694,7 @@ async function main() {
     assert.deepEqual(await suggestions.locator("h2").allTextContents(), ["Arroz", "Cacao"]);
     await suggestions.getByRole("button", { name:"Añadir al catálogo: Cacao", exact:true }).click();
     await suggestionDialog.getByLabel("Categoría", { exact:true }).selectOption("Despensa");
-    await suggestionDialog.getByLabel("Etiquetas", { exact:true }).fill("Desayuno");
+    assert.equal(await suggestionDialog.getByLabel("Etiquetas", { exact:true }).count(),0);
     await suggestionPage.evaluate(() => { window.failCatalog=true; });
     await suggestionDialog.getByRole("button", { name:"Guardar producto", exact:true }).click();
     await suggestionDialog.getByRole("alert").filter({ hasText:"No se ha podido guardar" }).waitFor();
@@ -1098,6 +1111,7 @@ async function main() {
     assert.equal(await codeDialog.getByLabel("Código de barras",{exact:true}).inputValue(),"0012345678905");
     assert.equal(await codeDialog.getByLabel("Nombre del producto",{exact:true}).inputValue(),"");
     await codeDialog.getByLabel("Nombre del producto",{exact:true}).fill("Cacao lector");
+    await codeDialog.getByRole("button",{name:"Automatización",exact:true}).click();
     await codeDialog.getByLabel("Otros códigos de barras o QR",{exact:true}).fill("https://example.test/cacao\n0012345678906");
     await codeDialog.getByLabel("Etiquetas NFC",{exact:true}).fill("AA:BB:CC:DD\ntag-despensa");
     await codeDialog.getByLabel("Cocina",{exact:true}).selectOption("add_list");
@@ -1424,7 +1438,7 @@ async function main() {
     await renameSuggestions.getByRole("button",{name:"Añadir al catálogo: Seitan",exact:true}).click();
     const renameForm=renameCatalog.locator("#product-form");
     await renameForm.getByLabel("Nombre del producto",{exact:true}).fill("Seitán");
-    await renameForm.getByLabel("Icono del producto",{exact:true}).fill("mdi:food");
+    assert.equal(await renameForm.getByLabel("Icono del producto",{exact:true}).count(),0);
     await renamePage.evaluate(()=>{window.fail=true;});
     await renameForm.getByRole("button",{name:"Guardar producto",exact:true}).click();
     await renameForm.getByRole("alert").filter({hasText:"guardado en el catálogo, pero"}).waitFor();
@@ -1454,7 +1468,7 @@ async function main() {
     });
     assert.equal(await renameSuggestions.locator("h2").count(),0);
     await renamePage.getByRole("button",{name:"Lista",exact:true}).click();
-    assert.equal(await renamePage.getByRole("button",{name:"Marcar como comprado: sEiTaN",exact:true}).locator(".placeholder ha-icon").getAttribute("icon"),"mdi:food");
+    assert.equal(await renamePage.getByRole("button",{name:"Marcar como comprado: sEiTaN",exact:true}).locator(".placeholder ha-icon").getAttribute("icon"),"mdi:shopping");
     await renamePage.evaluate(()=>{window.listData['todo.bring'].push({uid:'tea-1',summary:'Té',status:'needs_action'});window.emit('todo.bring');});
     await renamePage.getByRole("button",{name:"Catálogo",exact:true}).click();
     await renameSuggestions.getByRole("button",{name:"Descartar: Té",exact:true}).click();

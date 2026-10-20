@@ -456,7 +456,8 @@ async function main() {
           const bounds = card.getBoundingClientRect();
           return buttons.every(button => getComputedStyle(button).borderWidth === "0px" && button.textContent === "") &&
             getComputedStyle(buttons[0]).backgroundColor === "rgb(249, 168, 37)" &&
-            getComputedStyle(buttons[1]).backgroundColor === "rgb(179, 38, 30)" &&
+            getComputedStyle(buttons[1]).backgroundColor === "rgb(0, 0, 0)" &&
+            buttons.every(button => getComputedStyle(button).borderRadius === "50%" && getComputedStyle(button).color === "rgb(255, 255, 255)") &&
             Math.abs(edit.top-remove.top) < 1 && edit.right <= remove.left &&
             edit.left >= bounds.left && remove.right <= bounds.right &&
             remove.top-bounds.top <= 14 && bounds.right-remove.right <= 14 &&

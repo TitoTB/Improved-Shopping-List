@@ -49,8 +49,10 @@ class ImprovedShoppingCategories extends HTMLElement {
         article h2 { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; overflow:hidden; flex-shrink:0; max-width:100%; font-size:clamp(12px,9cqi,24px); line-height:1.2; }
         article p { font-size:clamp(10px,6cqi,14px); line-height:1.2; margin:0; flex-shrink:0; }
         .actions { position:absolute; z-index:2; top:clamp(3px,4cqi,12px); right:clamp(3px,4cqi,12px); display:flex; flex-wrap:nowrap; gap:clamp(2px,2cqi,6px); margin:0; }
-        .actions button { --isl-category-action-size:clamp(18px,13cqi,32px); display:inline-flex; align-items:center; justify-content:center; appearance:none; -webkit-appearance:none; flex:none; width:var(--isl-category-action-size); min-width:var(--isl-category-action-size); max-width:var(--isl-category-action-size); height:var(--isl-category-action-size); min-height:var(--isl-category-action-size); max-height:var(--isl-category-action-size); aspect-ratio:1 / 1; margin:0; padding:0; border:0; line-height:0; box-shadow:0 2px 6px rgba(0,0,0,.22); }
+        .actions button { --isl-category-action-size:clamp(18px,13cqi,32px); display:inline-flex; align-items:center; justify-content:center; appearance:none; -webkit-appearance:none; flex:none; width:var(--isl-category-action-size); min-width:var(--isl-category-action-size); max-width:var(--isl-category-action-size); height:var(--isl-category-action-size); min-height:var(--isl-category-action-size); max-height:var(--isl-category-action-size); aspect-ratio:1 / 1; margin:0; padding:0; border:0; border-radius:50%; line-height:0; color:#fff; box-shadow:0 2px 6px rgba(0,0,0,.22); }
         .actions .edit { background:#f9a825; }
+        .actions .danger { background:#000; }
+        .actions button:focus-visible { outline-offset:1px; }
         .actions ha-icon { --mdc-icon-size:clamp(12px,8cqi,20px); display:flex; align-items:center; justify-content:center; width:var(--mdc-icon-size); height:var(--mdc-icon-size); flex:none; line-height:0; }
         .notice { padding:12px 14px; border-radius:10px; background:var(--secondary-background-color,#edf4ee); font-size:13px; line-height:1.6; margin:14px 0; }
         .error { color:var(--error-color,#bd3636); border:1px solid var(--error-color,#bd3636); }

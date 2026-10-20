@@ -188,7 +188,8 @@ class ImprovedShoppingListPanel extends HTMLElement {
         #completed-summary::before { content:"▸"; flex:none; }
         #completed-details[open] #completed-summary::before { content:"▾"; }
         #completed-label { flex:1; min-width:0; }
-        #clear-completed { flex:none; margin-left:auto; min-height:36px; font-size:12px; padding:8px 10px; white-space:nowrap; border:1px solid var(--divider-color,#dfe7e1); border-radius:10px; background:transparent; color:inherit; }
+        #clear-completed { display:inline-flex; align-items:center; justify-content:center; gap:6px; flex:none; margin-left:auto; min-height:36px; font-size:12px; padding:8px 10px; white-space:nowrap; border:1px solid var(--divider-color,#dfe7e1); border-radius:10px; background:transparent; color:inherit; }
+        #clear-completed ha-icon { display:flex; align-items:center; justify-content:center; flex:none; width:18px; height:18px; --mdc-icon-size:18px; }
         .notice { line-height:1.6; padding:12px 16px; border-radius:12px; background:var(--secondary-background-color,#edf4ee); margin:0 0 18px; font-size:14px; }
         .error { border:1px solid var(--error-color,#bd3636); color:var(--error-color,#bd3636); }
         [hidden] { display:none !important; }
@@ -231,7 +232,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
           <div class="list-header"><h2 id="pending-title">Lista de la compra</h2><span id="pending-count" class="count">0 productos</span></div>
           <ul id="pending" class="product-grid" aria-label="Lista de la compra"></ul>
           <div id="empty" class="empty" hidden></div>
-          <details id="completed-details"><summary id="completed-summary"><span id="completed-label">Compras recientes</span><button id="clear-completed" type="button">Limpiar productos</button></summary><ul id="completed" class="product-grid" aria-label="Compras recientes"></ul></details>
+          <details id="completed-details"><summary id="completed-summary"><span id="completed-label">Compras recientes</span><button id="clear-completed" type="button"><ha-icon icon="mdi:delete" aria-hidden="true"></ha-icon>Limpiar productos</button></summary><ul id="completed" class="product-grid" aria-label="Compras recientes"></ul></details>
         </section>
         <isl-catalog hidden></isl-catalog>
         <isl-settings hidden></isl-settings>

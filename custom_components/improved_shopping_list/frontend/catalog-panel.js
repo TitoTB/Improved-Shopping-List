@@ -159,7 +159,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
         .product { position:relative; align-self:start; width:100%; aspect-ratio:1 / 1; min-width:0; min-height:0; padding:0; overflow:hidden; background:var(--card-background-color,#fff); border:1px solid var(--divider-color,#dfe7e1); border-radius:16px; text-align:center; container-type:inline-size; }
         .product.in-list { background:linear-gradient(var(--isl-gradient-start,#ee524f),var(--isl-gradient-end,#b52a27)); border-color:var(--isl-gradient-end,#b52a27); }
         .product.in-list,.product.in-list .placeholder,.product.in-list .subtitle,.product.in-list button,.product.in-list ha-icon { color:#fff; }
-        .product-top { position:absolute; inset:0; display:flex; flex-direction:column; gap:clamp(2px,2.5cqi,12px); align-items:center; justify-content:center; padding:clamp(4px,5cqi,24px); padding-top:calc(clamp(3px,4cqi,12px) + clamp(18px,13cqi,32px) + clamp(2px,2cqi,6px)); pointer-events:none; }
+        .product-top { position:absolute; inset:0; display:flex; flex-direction:column; gap:clamp(2px,2.5cqi,12px); align-items:center; justify-content:center; padding:clamp(4px,5cqi,24px); pointer-events:none; }
         .product-media { display:grid; place-items:center; width:clamp(14px,36cqi,192px); max-width:100%; min-height:0; flex-shrink:1; aspect-ratio:1; }
         .product-name { min-width:0; width:100%; max-width:100%; flex-shrink:0; }
         .image { width:100%; max-width:100%; height:auto; max-height:100%; aspect-ratio:1; object-fit:contain; border-radius:10px; }
@@ -169,6 +169,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
         .product .add-product:focus-visible { outline-offset:-3px; }
         .product-controls { position:absolute; z-index:2; top:clamp(3px,4cqi,12px); right:clamp(3px,4cqi,12px); display:flex; gap:clamp(2px,2cqi,6px); }
         .product-controls button { --isl-control-size:clamp(18px,13cqi,32px); display:flex; align-items:center; justify-content:center; appearance:none; -webkit-appearance:none; flex:none; width:var(--isl-control-size); min-width:var(--isl-control-size); max-width:var(--isl-control-size); height:var(--isl-control-size); min-height:var(--isl-control-size); max-height:var(--isl-control-size); aspect-ratio:1; margin:0; padding:0; border:0; border-radius:50%; line-height:0; color:#fff; box-shadow:0 2px 6px rgba(0,0,0,.22); }
+        .product-controls .edit-product { background:#f9a825; }
         .product-controls .delete-product { background:#000; }
         .product-controls button:focus-visible { outline-offset:1px; }
         .product-controls ha-icon { --mdc-icon-size:clamp(12px,8cqi,20px); display:flex; align-items:center; justify-content:center; flex:none; width:var(--mdc-icon-size); height:var(--mdc-icon-size); margin:0; padding:0; }
@@ -552,7 +553,6 @@ class ImprovedShoppingCatalog extends HTMLElement {
     }
     const controls = element("div", "product-controls");
     const edit = iconButton("mdi:note-edit", `Editar ${product.name}`, "edit-product");
-    edit.style.backgroundColor = category?.color || "#64748b";
     edit.addEventListener("click", event => { event.stopPropagation(); this._openProduct(product); });
     const remove = iconButton("mdi:delete", `Eliminar ${product.name}`, "delete-product");
     remove.addEventListener("click", event => { event.stopPropagation(); this._confirmDeleteProduct(product); });

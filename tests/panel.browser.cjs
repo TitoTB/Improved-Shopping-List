@@ -347,7 +347,7 @@ async function main() {
     assert.equal(await productCard.getByText("Lácteos", { exact: true }).count(), 0);
     assert.equal((await productCard.textContent()).includes("2,59"), false);
     assert.equal(await productCard.locator(".edit-product").evaluate(node => getComputedStyle(node).color), "rgb(255, 255, 255)");
-    assert.equal(await productCard.locator(".edit-product").evaluate(node => getComputedStyle(node).backgroundColor), "rgb(156, 39, 176)");
+    assert.equal(await productCard.locator(".edit-product").evaluate(node => getComputedStyle(node).backgroundColor), "rgb(249, 168, 37)");
     const assertCatalogBadge = async () => {
       assert.ok(await productCard.locator(".edit-product").evaluate(badge => {
         const bounds = badge.getBoundingClientRect();
@@ -371,9 +371,9 @@ async function main() {
         }, columns);
         await assertCatalogBadge();
         assert.ok(await productCard.evaluate(card => {
-          const bounds=card.getBoundingClientRect(),name=card.querySelector(".title").getBoundingClientRect(),media=card.querySelector(".product-media").getBoundingClientRect();
+          const bounds=card.getBoundingClientRect(),name=card.querySelector(".title").getBoundingClientRect();
           return Math.abs(bounds.width-bounds.height)<1 && name.left>=bounds.left && name.right<=bounds.right && name.top>=bounds.top && name.bottom<=bounds.bottom &&
-            [...card.querySelectorAll(".product-controls button")].every(button=>{const rect=button.getBoundingClientRect();return Math.abs(rect.width-rect.height)<.1&&rect.left>=bounds.left&&rect.right<=bounds.right&&rect.bottom<=media.top+.5;});
+            [...card.querySelectorAll(".product-controls button")].every(button=>{const rect=button.getBoundingClientRect();return Math.abs(rect.width-rect.height)<.1&&rect.left>=bounds.left&&rect.right<=bounds.right&&rect.bottom<=bounds.bottom;});
         }),`Square catalog card with content inside at ${width}px / ${columns} columns`);
         sizes.push(await productCard.evaluate(card => ({
           font:parseFloat(getComputedStyle(card.querySelector(".title")).fontSize),
@@ -392,7 +392,7 @@ async function main() {
     assert.equal(await productCard.locator(".product-controls button").first().locator("ha-icon").getAttribute("icon"), "mdi:note-edit");
     assert.equal(await productCard.locator(".product-controls button").last().locator("ha-icon").getAttribute("icon"), "mdi:delete");
     const assertEditButton = async () => {
-      assert.equal(await productCard.locator(".edit-product").evaluate(button => getComputedStyle(button).backgroundColor), "rgb(156, 39, 176)");
+      assert.equal(await productCard.locator(".edit-product").evaluate(button => getComputedStyle(button).backgroundColor), "rgb(249, 168, 37)");
       assert.equal(await productCard.locator(".edit-product").evaluate(button => getComputedStyle(button).borderWidth), "0px");
     };
     await assertEditButton();
@@ -513,7 +513,7 @@ async function main() {
     assert.equal(await page.evaluate(() => window.catalogProducts.length), 1);
     assert.equal(await page.evaluate(() => window.catalogProducts[0].category), "");
     await catalog.getByRole("button", { name: "Productos", exact: true }).click();
-    assert.equal(await productCard.locator(".edit-product").evaluate(button => getComputedStyle(button).backgroundColor), "rgb(100, 116, 139)");
+    assert.equal(await productCard.locator(".edit-product").evaluate(button => getComputedStyle(button).backgroundColor), "rgb(249, 168, 37)");
     await catalog.getByRole("button", { name: "Editar Yogur sin azúcar", exact: true }).click();
     await catalog.getByLabel("Categoría", { exact: true }).last().selectOption("Lácteos y frescos");
     await catalog.getByLabel("URL de la imagen", { exact: true }).fill("/logo.png");

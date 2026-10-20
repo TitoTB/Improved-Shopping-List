@@ -246,7 +246,9 @@ class ImprovedShoppingIconPicker extends HTMLElement {
     const plus = node("ha-icon"); plus.setAttribute("icon", "mdi:plus-thick"); plus.setAttribute("aria-hidden", "true"); more.append(plus);
     more.disabled = query.length < 2 || Boolean(this._busy || this._disabled) || (this._icons.length <= PAGE_SIZE && !this._hasMore);
     more.addEventListener("click", () => void this._more());
-    root.querySelector("#results").replaceChildren(...suggestions, more);
+    const results = root.querySelector("#results");
+    results.hidden = this._icons.length === 0;
+    results.replaceChildren(...suggestions, more);
     root.querySelector("#query").disabled = Boolean(this._importing || this._disabled);
   }
 

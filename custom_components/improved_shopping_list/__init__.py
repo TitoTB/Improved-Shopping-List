@@ -41,6 +41,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         activity = ActivityLog(hass, catalog, settings, readers)
         await activity.async_load()
         readers.activity = activity
+        store_products.activity = activity
         recurrence = RecurrenceManager(hass, catalog, settings, activity, readers._operation_lock)
         await recurrence.async_load()
         icons = IconLibrary(hass)

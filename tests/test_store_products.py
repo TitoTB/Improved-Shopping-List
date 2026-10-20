@@ -2,13 +2,14 @@
 
 import asyncio
 from types import SimpleNamespace
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 
 from custom_components.improved_shopping_list.const import DOMAIN
 from custom_components.improved_shopping_list.store_products import SEARCH_URL, StoreProducts, exact_offer
 from custom_components.improved_shopping_list.stores import StoreError
+from custom_components.improved_shopping_list import store_products as module
 
 CODE = "8430543025611"
 HIT = {"id": "69938", "ean": CODE, "display_name": "Tomate rallado", "published": True,
@@ -118,3 +119,85 @@ async def test_fetch_rejects_http_errors(hass, aioclient_mock, status):
     aioclient_mock.post(SEARCH_URL, status=status)
     with pytest.raises(StoreError):
         await service._fetch(CODE, "mad3", "Tomate")
+
+
+async def test_all_requests_are_paced_including_name_fallback(hass, aioclient_mock, monkeypatch):
+    service = environment(hass)
+    clock, waits = [100.0], []
+    monkeypatch.setattr(module, "time", SimpleNamespace(time=lambda: 1800000000 + clock[0], monotonic=lambda: clock[0]))
+
+    async def advance(seconds):
+        waits.append(seconds)
+        clock[0] += seconds
+
+    monkeypatch.setattr(module, "sleep", advance)
+    aioclient_mock.post(SEARCH_URL, json={"hits": []})
+    await service._fetch(CODE, "mad3", "Tomate")
+    await service._fetch(CODE, "mad3", "Tomate")
+    assert aioclient_mock.call_count == 4
+    assert waits == pytest.approx([2, 2, 2])
+
+
+async def test_403_persists_cooldown_and_logs_safe_diagnostics(hass, aioclient_mock, monkeypatch, caplog):
+    service = environment(hass)
+    service.activity = SimpleNamespace(record=Mock())
+    aioclient_mock.post(SEARCH_URL, status=403,
+        text="<html>Uso indebido del servicio. description: 0.aabbccdd.1792508361.1234abcd client_ip: 192.0.2.10 token=private-body</html>",
+        headers={"Content-Type": "text/html", "Set-Cookie": "session=private-cookie", "x-request-id": "safe-reference"})
+    result = await service.async_refresh(True)
+    assert result["processed"] == 0 and result["remaining"] == 1
+    assert result["retry_at"] - module.time.time() >= 899
+    records = service.activity.record.call_args_list
+    error = next(call for call in records if call.args[0] == "stores.error")
+    diagnostics = error.kwargs["diagnostics"]
+    assert diagnostics["http_status"] == 403
+    assert diagnostics["response_class"] == "service_misuse"
+    assert diagnostics["x-request-id"] == "safe-reference"
+    assert diagnostics["block_reference"] == "0.aabbccdd.1792508361.1234abcd"
+    assert diagnostics["query_type"] == "ean" and diagnostics["request_number"] == 1
+    assert diagnostics["retry_seconds"] == 900
+    assert "private-cookie" not in str(records) + caplog.text
+    assert "private-body" not in str(records) + caplog.text
+    assert "192.0.2.10" not in str(records) + caplog.text
+    restored = StoreProducts(hass, service.catalog, service.settings)
+    await restored.async_load()
+    fetch = AsyncMock(side_effect=AssertionError("Restart must not bypass cooldown"))
+    monkeypatch.setattr(restored, "_fetch", fetch)
+    blocked = await restored.async_refresh(True)
+    assert blocked["retry_at"] == result["retry_at"]
+    assert "HTTP 403" in blocked["error"]
+    assert fetch.await_count == 0
+    assert aioclient_mock.call_count == 1
+
+
+@pytest.mark.parametrize("status", [403, 429])
+async def test_respects_server_retry_after(hass, aioclient_mock, status):
+    service = environment(hass)
+    aioclient_mock.post(SEARCH_URL, status=status, headers={"Retry-After": "1800"})
+    result = await service.async_refresh(True)
+    assert result["retry_at"] - module.time.time() >= 1799
+    assert service._last_diagnostics["server_retry_seconds"] == 1800
+
+
+def test_retry_after_dates_and_invalid_values(monkeypatch):
+    monkeypatch.setattr(module, "time", SimpleNamespace(time=lambda: 1000))
+    assert module.retry_seconds("Thu, 01 Jan 1970 00:36:40 GMT") == 1200
+    assert module.retry_seconds("200000") == 86400
+    assert module.retry_seconds("invalid") == 0
+
+
+async def test_invalid_json_has_technical_context(hass, aioclient_mock):
+    service = environment(hass)
+    aioclient_mock.post(SEARCH_URL, text="not JSON")
+    result = await service.async_refresh(True)
+    assert "JSON" in result["error"]
+    assert service._last_diagnostics["response_class"] == "invalid_json"
+    assert service._last_diagnostics["http_status"] == 200
+
+
+async def test_timeout_has_technical_context(hass, aioclient_mock):
+    service = environment(hass)
+    aioclient_mock.post(SEARCH_URL, exc=asyncio.TimeoutError())
+    await service.async_refresh(True)
+    assert service._last_diagnostics["response_class"] == "timeout"
+    assert service._last_diagnostics["exception_type"] == "TimeoutError"

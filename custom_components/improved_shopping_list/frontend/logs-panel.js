@@ -1,7 +1,7 @@
 import { ListSettingsSession } from "./list-settings-client.js?v=0.10.0";
 
 const SOURCES = {manual:"Usuario / API",automatic:"Automático · Home Assistant",reader:"Lector",integration:"Integración",external:"Proveedor externo · origen desconocido",home_assistant:"Home Assistant · origen desconocido"};
-const GROUPS = {list:"Listas",catalog:"Catálogo y categorías",reader:"Lectores",settings:"Ajustes",recurrence:"Recurrencias"};
+const GROUPS = {list:"Listas",catalog:"Catálogo y categorías",reader:"Lectores",settings:"Ajustes",recurrence:"Recurrencias",stores:"Tiendas"};
 const FIELDS = {name:"nombre",category:"categoría",icon:"icono",color:"color",image_url:"imagen",price:"precio",currency:"moneda",tags:"etiquetas",notes:"notas",barcode:"código",barcodes:"códigos de barras",nfc_tags:"etiquetas NFC",reader_actions:"acciones de lectores",recurrence:"recurrencia",price_updated_at:"fecha del precio"};
 const node = (tag, text, className) => { const value=document.createElement(tag); if(text!==undefined)value.textContent=text; if(className)value.className=className;return value; };
 
@@ -54,6 +54,7 @@ class ImprovedShoppingLogs extends HTMLElement {
         ol{list-style:none;padding:0;margin:16px 0;display:grid;gap:10px}li{display:grid;grid-template-columns:32px minmax(0,1fr);gap:12px;border:1px solid var(--divider-color,#dfe7e1);border-radius:12px;padding:16px;background:var(--card-background-color,#fff)}.event-icon{display:grid;place-items:center;align-self:start;border-radius:50%;width:32px;height:32px;background:var(--secondary-background-color,#edf4ee);color:var(--primary-color,#267052)}
         .message{margin:0;font-size:15px;line-height:1.5;font-weight:600;overflow-wrap:anywhere}.meta{display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:6px;font-size:12px;line-height:1.5;color:var(--secondary-text-color,#63766b)}.detail{margin:6px 0 0;font-size:12px;line-height:1.5;overflow-wrap:anywhere;color:var(--secondary-text-color,#63766b)}.footer{text-align:center}
         @media(max-width:650px){h1{font-size:28px}.filters{grid-template-columns:1fr 1fr}.search{grid-column:1/-1}li{padding:12px;gap:8px}}
+        .technical{margin-top:10px;font-size:12px;min-width:0}.technical summary{cursor:pointer}.technical pre{white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word;padding:10px;border-radius:8px;background:var(--secondary-background-color,#edf4ee);line-height:1.5}
       </style>
       <div class="heading"><h1>Logs</h1><button id="refresh" type="button" aria-label="Actualizar logs" title="Actualizar logs"><ha-icon icon="mdi:refresh"></ha-icon></button></div>
       <div class="filters"><label class="search">Buscar en el historial<input id="search" type="search" placeholder="Producto, categoría, lector o lista"></label><label>Actividad<select id="kind" aria-label="Actividad"><option value="">Toda la actividad</option>${Object.entries(GROUPS).map(([key,label])=>`<option value="${key}">${label}</option>`).join("")}</select></label><label>Origen<select id="source" aria-label="Origen"><option value="">Todos los orígenes</option>${Object.entries(SOURCES).map(([key,label])=>`<option value="${key}">${label}</option>`).join("")}</select></label></div>
@@ -79,11 +80,11 @@ class ImprovedShoppingLogs extends HTMLElement {
     const key=value=>String(value??"").normalize("NFD").replace(/\p{M}/gu,"").toLocaleLowerCase("es");
     const search=key(root.querySelector("#search").value.trim());
     const kind=root.querySelector("#kind").value,source=root.querySelector("#source").value;
-    const entries=session.entries.filter(entry=>(!kind||entry.kind.startsWith(kind+"."))&&(!source||entry.source===source)&&(!search||key([entry.message,entry.product,entry.category,entry.reader,entry.list_name,entry.list_entity,entry.code,entry.previous_name].join(" ")).includes(search)));
+    const entries=session.entries.filter(entry=>(!kind||entry.kind.startsWith(kind+"."))&&(!source||entry.source===source)&&(!search||key([entry.message,entry.product,entry.category,entry.reader,entry.list_name,entry.list_entity,entry.code,entry.previous_name,JSON.stringify(entry.diagnostics??{})].join(" ")).includes(search)));
     const content=entries.slice(0,this._visible).map(entry=>{
       const row=node("li");row.dataset.entryId=entry.id;
       const badge=node("span",undefined,"event-icon"),icon=node("ha-icon");
-      icon.setAttribute("icon",entry.kind.startsWith("reader.")?"mdi:barcode-scan":entry.kind.includes("categories")?"mdi:label":entry.kind.startsWith("catalog.")?"mdi:view-grid":entry.kind==="list.removed"?"mdi:cart-minus":entry.kind==="list.completed"?"mdi:check":entry.kind.startsWith("settings.")?"mdi:cog":"mdi:cart-plus");
+      icon.setAttribute("icon",entry.kind.startsWith("stores.")?"mdi:store":entry.kind.startsWith("reader.")?"mdi:barcode-scan":entry.kind.includes("categories")?"mdi:label":entry.kind.startsWith("catalog.")?"mdi:view-grid":entry.kind==="list.removed"?"mdi:cart-minus":entry.kind==="list.completed"?"mdi:check":entry.kind.startsWith("settings.")?"mdi:cog":"mdi:cart-plus");
       icon.setAttribute("aria-hidden","true");badge.append(icon);
       const body=node("div");body.append(node("p",entry.message,"message"));
       const meta=node("div",undefined,"meta"),date=new Date(entry.time),time=node("time",Number.isNaN(date.getTime())?entry.time:date.toLocaleString());time.dateTime=entry.time;
@@ -94,6 +95,11 @@ class ImprovedShoppingLogs extends HTMLElement {
       if(entry.previous_name)body.append(node("p",`Nombre anterior: ${entry.previous_name}`,"detail"));
       if(entry.changed_fields?.length)body.append(node("p",`Campos: ${entry.changed_fields.map(field=>FIELDS[field]??field).join(", ")}`,"detail"));
       if(entry.code)body.append(node("p",`Código: ${entry.code}`,"detail"));
+      if(entry.diagnostics && typeof entry.diagnostics === "object") {
+        const details=node("details",undefined,"technical");
+        details.append(node("summary","Información técnica"),node("pre",JSON.stringify(entry.diagnostics,null,2)));
+        body.append(details);
+      }
       row.append(badge,body);return row;
     });
     root.querySelector("#entries").replaceChildren(...content);

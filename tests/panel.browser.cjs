@@ -121,7 +121,7 @@ const hass={
     }
     if(msg.type==='improved_shopping_list/settings/store_products'){
       (window.storeProductCalls??=[]).push(msg);
-      return {warehouse:'mad3',enabled:true,products:[{name:'Tomate',ean:'8430543025611',store_name:'Tomate rallado',store_product_id:'69938',price:msg.force?1.55:1.45,reference_price:5,reference_unit:'kg',checked_at:1800000000}],error:window.failStoreProducts?'Mercadona ha rechazado la consulta (HTTP 403)':'',remaining:0};
+      return {warehouse:'mad3',enabled:true,products:[{name:'Tomate',ean:'8430543025611',store_name:'Tomate rallado',store_product_id:'69938',price:msg.force?1.55:1.45,reference_price:5,reference_unit:'kg',checked_at:1800000000}],error:window.failStoreProducts?'Mercadona ha rechazado la consulta (HTTP 403)':'',remaining:window.failStoreProducts?20:0,processed:0,total:20,retry_at:window.failStoreProducts?Date.now()/1000+900:0};
     }
     if(msg.type==='improved_shopping_list/settings/store'){
       if(window.failSettings)throw new Error('Mercadona no está disponible');
@@ -847,6 +847,10 @@ async function main() {
     await settingsPage.evaluate(()=>{window.failStoreProducts=true;});
     await storeDialog.getByRole("button",{name:"Forzar actualización",exact:true}).click();
     await storeDialog.getByRole("alert").filter({hasText:'HTTP 403'}).waitFor();
+    assert.equal(await storeDialog.getByRole("button",{name:"Forzar actualización",exact:true}).isDisabled(),true);
+    await storeDialog.locator("#store-products-status").filter({hasText:"Actualización pausada"}).waitFor();
+    assert.equal((await storeDialog.locator("#store-products-status").textContent()).includes("Quedan"),false);
+    assert.equal((await storeDialog.locator("#store-products-status").textContent()).includes("No hay productos"),false);
     assert.match(await storeDialog.locator(".store-price strong").textContent(),/1,55/);
     await settingsPage.setViewportSize({width:390,height:844});
     await settingsPage.screenshot({path:'test-results/store-products-mobile.png',fullPage:true});
@@ -1662,8 +1666,22 @@ async function main() {
     await logs.getByLabel('Actividad',{exact:true}).selectOption('');
     await page.evaluate(()=>{window.logFixture.entries.unshift({id:'new',time:new Date().toISOString(),kind:'list.removed',source:'manual',message:'Eliminado de la lista: Cacao'});window.emitLogs();});
     await logs.getByText('Eliminado de la lista: Cacao',{exact:true}).waitFor();
+    await page.evaluate(()=>{
+      window.logFixture.entries.unshift({id:'store-error',time:new Date().toISOString(),kind:'stores.error',source:'integration',message:'Mercadona: HTTP 403',diagnostics:{http_status:403,warehouse:'mad3',response_class:'service_misuse','x-request-id':'reference-test-403',query_type:'<img src=x onerror=alert(1)>'}});
+      window.emitLogs();
+    });
+    await logs.getByLabel('Actividad',{exact:true}).selectOption('stores');
+    assert.equal(await logs.locator('#entries > li').count(),1);
+    await logs.getByText('Información técnica',{exact:true}).click();
+    assert.match(await logs.locator('.technical pre').textContent(),/reference-test-403/);
+    assert.equal(await logs.locator('.technical img').count(),0);
+    await logs.getByLabel('Buscar en el historial',{exact:true}).fill('reference-test-403');
+    assert.equal(await logs.locator('#entries > li').count(),1);
+    await logs.getByLabel('Buscar en el historial',{exact:true}).fill('');
+    await logs.getByLabel('Actividad',{exact:true}).selectOption('');
     await page.screenshot({path:'test-results/logs-desktop.png',fullPage:true});
     await page.setViewportSize({width:320,height:844});
+    await logs.locator('[data-entry-id="store-error"] summary').click();
     assert.equal(await logs.evaluate(node=>node.scrollWidth<=node.clientWidth),true);
     await page.screenshot({path:'test-results/logs-mobile.png',fullPage:true});
     await page.evaluate(()=>{window.failLogs=true;});

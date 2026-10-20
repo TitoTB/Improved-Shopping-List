@@ -14,7 +14,7 @@ class ImprovedShoppingSettings extends HTMLElement {
     this._render();
   }
 
-  disconnectedCallback() { this._productsGeneration = (this._productsGeneration || 0) + 1; this.shadowRoot.querySelector("#store-dialog")?.close(); }
+  disconnectedCallback() { clearTimeout(this._storeRetryTimer); this._productsGeneration = (this._productsGeneration || 0) + 1; this.shadowRoot.querySelector("#store-dialog")?.close(); }
 
   _build() {
     this.shadowRoot.innerHTML = `
@@ -167,6 +167,7 @@ class ImprovedShoppingSettings extends HTMLElement {
     root.querySelector("#store-dialog").addEventListener("cancel", event => { if (this._busy) event.preventDefault(); });
     root.querySelector("#store-dialog").addEventListener("close", () => {
       if (root.querySelector("#store-dialog").open) return;
+      clearTimeout(this._storeRetryTimer);
       this._storeEnableDraft = undefined; this._storeDirty = false;
       this._productsGeneration = (this._productsGeneration || 0) + 1; this._productsLoading = false;
       this._error = ""; this._render();
@@ -316,13 +317,23 @@ class ImprovedShoppingSettings extends HTMLElement {
     const root = this.shadowRoot;
     const store = this._data.settings.stores?.mercadona ?? {};
     const data = this._storeProducts?.warehouse === store.warehouse && store.enabled ? this._storeProducts : null;
+    const retryAt = Number.isFinite(data?.retry_at) ? data.retry_at : 0;
+    const paused = retryAt > Date.now()/1000;
+    clearTimeout(this._storeRetryTimer);
+    if (paused && root.querySelector("#store-dialog").open) {
+      this._storeRetryTimer = setTimeout(() => this._renderStoreProducts(), (retryAt-Date.now()/1000)*1000+100);
+    }
     const refresh = root.querySelector("#refresh-store-products");
-    refresh.disabled = !store.enabled || !store.warehouse || this._productsLoading || this._busy || this._data.hass?.user?.is_admin !== true;
+    refresh.disabled = !store.enabled || !store.warehouse || paused || this._productsLoading || this._busy || this._data.hass?.user?.is_admin !== true;
+    refresh.title = paused ? "Espera al final de la pausa indicada antes de volver a consultar." : "Consultar de nuevo los precios de la tienda";
     const error = root.querySelector("#store-products-error");
-    error.textContent = data?.error || this._productsError || "";
-    error.hidden = !error.textContent;
+    error.textContent = store.enabled ? data?.error || this._productsError || "" : "";
+    error.hidden = !error.textContent || this._productsLoading;
+    const progress = Number.isFinite(data?.total) && data.total > 0 ? ` ${data.processed ?? 0} de ${data.total} códigos revisados.` : "";
     root.querySelector("#store-products-status").textContent = this._productsLoading ? "Consultando productos y precios…"
       : !store.enabled ? "Habilita la tienda para consultar sus productos."
+      : paused ? `Actualización pausada hasta las ${new Date(retryAt*1000).toLocaleTimeString("es-ES")}.${progress} Consulta el diagnóstico en Logs → Tiendas.`
+      : error.textContent ? `La última actualización no se pudo completar.${progress} Consulta el diagnóstico en Logs → Tiendas.`
       : data?.remaining ? `Quedan ${data.remaining} códigos por revisar. Puedes continuar con Forzar actualización.`
       : !data?.products?.length ? "No hay productos encontrados. Se buscan los EAN válidos de tu catálogo."
       : `${data.products.length} productos encontrados · Almacén: ${store.warehouse}`;

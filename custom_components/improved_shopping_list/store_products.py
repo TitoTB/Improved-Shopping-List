@@ -1,10 +1,15 @@
 """Warehouse-scoped Mercadona offers, matched only by exact GTIN."""
 
 import asyncio
+from asyncio import sleep
 from copy import deepcopy
 from decimal import Decimal, InvalidOperation
+from email.utils import parsedate_to_datetime
 import json
+import logging
+import re
 import time
+from uuid import uuid4
 
 import aiohttp
 from homeassistant.helpers.aiohttp_client import async_create_clientsession
@@ -16,6 +21,26 @@ from .stores import StoreError
 
 SEARCH_URL = "https://tornillos.mercadona.es/search"
 TTL = 6 * 3600
+REQUEST_INTERVAL = 2.0
+_LOGGER = logging.getLogger(__name__)
+
+
+class StoreRequestError(StoreError):
+    """Safe technical diagnostics, never raw headers, bodies or credentials."""
+
+    def __init__(self, message, diagnostics, retry_seconds=0):
+        super().__init__(message)
+        self.diagnostics = diagnostics
+        self.retry_seconds = retry_seconds
+
+
+def retry_seconds(value):
+    """Respect Retry-After seconds or HTTP dates, bounded to one day."""
+    try:
+        seconds = int(value) if str(value).isdigit() else parsedate_to_datetime(value).timestamp() - time.time()
+        return max(0, min(86400, int(seconds)))
+    except (TypeError, ValueError, OverflowError):
+        return 0
 
 
 def exact_offer(hits, code):
@@ -64,10 +89,31 @@ class StoreProducts:
         self._cache = {}
         self._lock = asyncio.Lock()
         self._retry_after = 0
+        self._last_error = ""
+        self._failures = 0
+        self._last_diagnostics = {}
+        self._request_lock = asyncio.Lock()
+        self._next_request = 0
+        self._request_count = 0
+        self._batch_id = ""
+        self.activity = None
 
     async def async_load(self):
         data = await self._store.async_load()
         self._cache = data.get("offers", {}) if isinstance(data, dict) else {}
+        if isinstance(data, dict):
+            self._retry_after = data.get("retry_after", 0)
+            self._last_error = data.get("last_error", "")
+            self._last_diagnostics = data.get("last_diagnostics", {})
+            self._failures = data.get("failures", 0)
+
+    async def _persist(self):
+        await self._store.async_save({"offers": self._cache, "retry_after": self._retry_after,
+            "last_error": self._last_error, "last_diagnostics": self._last_diagnostics, "failures": self._failures})
+
+    def _record(self, kind, message, diagnostics, **fields):
+        if self.activity:
+            self.activity.record(f"stores.{kind}", message, store="Mercadona", diagnostics=deepcopy(diagnostics), **fields)
 
     def _codes(self):
         codes = {}
@@ -87,7 +133,9 @@ class StoreProducts:
                 if offer := cached.get("offer"):
                     products.append({**deepcopy(offer), "name": product["name"], "checked_at": cached["checked_at"]})
         return {"products": sorted(products, key=lambda product: product["name"].casefold()),
-                "enabled": store.get("enabled", False), "warehouse": warehouse, "error": "", "remaining": 0}
+                "enabled": store.get("enabled", False), "warehouse": warehouse,
+                "error": self._last_error if store.get("enabled") else "", "remaining": 0,
+                "retry_at": self._retry_after if store.get("enabled") else 0, "processed": 0, "total": len(self._codes())}
 
     async def async_refresh(self, force=False):
         async with self._lock:
@@ -104,8 +152,16 @@ class StoreProducts:
             pending.sort(key=lambda item: self._cache.get(f"{warehouse}:{item[0]}", {}).get("checked_at", 0))
             error, changed, processed = "", False, 0
             if pending and now < self._retry_after:
-                result["error"] = "Mercadona no está disponible. Espera un minuto antes de volver a intentarlo."
+                result["error"] = self._last_error or "Las consultas de Mercadona están temporalmente pausadas."
+                self._record("cooldown", "Mercadona: consulta omitida durante la pausa de reintento", {
+                    "warehouse": warehouse, "retry_at": self._retry_after, "wait_seconds": int(self._retry_after - now),
+                    "http_requests": 0, "last_http_status": self._last_diagnostics.get("http_status")})
                 return result
+            self._batch_id = uuid4().hex
+            self._request_count = 0
+            self._record("refresh", "Mercadona: inicio de actualización de precios", {
+                "batch_id": self._batch_id, "warehouse": warehouse, "force": force,
+                "valid_codes": len(codes), "pending_codes": len(pending), "request_interval_seconds": REQUEST_INTERVAL})
             for key, product in pending[:20]:
                 if time.time() - now >= 35:
                     break
@@ -113,7 +169,20 @@ class StoreProducts:
                     offer = await self._fetch(product["code"], warehouse, product["name"])
                 except StoreError as err:
                     error = str(err)
-                    self._retry_after = time.time() + 60
+                    self._failures += 1
+                    diagnostics = {"endpoint": SEARCH_URL, "method": "POST", "warehouse": warehouse,
+                        "ean": product["code"], "batch_id": self._batch_id,
+                        **getattr(err, "diagnostics", {"response_class": "invalid_response"})}
+                    status = diagnostics.get("http_status")
+                    base = 900 if status == 403 else 300 if status == 429 else 60
+                    wait = max(min(base * 2 ** min(self._failures - 1, 5), 3600), getattr(err, "retry_seconds", 0))
+                    self._retry_after = time.time() + wait
+                    diagnostics.update(retry_seconds=wait, retry_at=self._retry_after, consecutive_failures=self._failures)
+                    self._last_error, self._last_diagnostics = error, diagnostics
+                    self._record("error", f"Mercadona: error al consultar precios. {error}", diagnostics,
+                                 product=product["name"], code=product["code"])
+                    _LOGGER.warning("Mercadona price lookup failed: %s", json.dumps(diagnostics, ensure_ascii=False))
+                    changed = True
                     break
                 current = self.settings.snapshot["stores"]["mercadona"]
                 if (not self.hass.data.get(DOMAIN, {}).get("active") or self.settings.entry is not entry
@@ -123,38 +192,88 @@ class StoreProducts:
                 self._cache[f"{warehouse}:{key}"] = {"offer": offer, "checked_at": int(time.time())}
                 changed = True
                 processed += 1
-                if processed < min(len(pending), 20):
-                    await asyncio.sleep(.3)
+                self._last_error, self._last_diagnostics = "", {}
+                self._retry_after, self._failures = 0, 0
             if changed:
                 self._cache = dict(sorted(self._cache.items(), key=lambda item: item[1].get("checked_at", 0), reverse=True)[:2000])
-                await self._store.async_save({"offers": self._cache})
+                await self._persist()
             result = self.snapshot()
-            result.update(error=error, remaining=len(pending) - processed)
+            result.update(error=error or self._last_error, remaining=len(pending) - processed,
+                          processed=processed, total=len(pending))
+            self._record("summary", "Mercadona: actualización detenida por un error" if error else "Mercadona: actualización finalizada", {
+                "batch_id": self._batch_id, "warehouse": warehouse, "processed_codes": processed,
+                "pending_codes": len(pending) - processed, "http_requests": self._request_count,
+                "elapsed_ms": round((time.time() - now) * 1000), "failed": bool(error),
+                "retry_at": self._retry_after, "matched_products": len(result["products"])})
             return result
 
     async def _fetch(self, code, warehouse, name):
         session = async_create_clientsession(self.hass, auto_cleanup=False, cookie_jar=aiohttp.DummyCookieJar())
         try:
-            # Search by code first, then by catalog name; both require an exact EAN in the result.
             for query in dict.fromkeys((code, name)):
+                data, diagnostics = await self._search(session, query, code, warehouse, "ean" if query == code else "name")
+                try:
+                    offer = exact_offer(data.get("hits") if isinstance(data, dict) else None, code)
+                except StoreError as err:
+                    raise StoreRequestError(str(err), {**diagnostics, "response_class": "invalid_response"}) from err
+                if offer is not None:
+                    return offer
+            return None
+        finally:
+            session.detach()
+
+    async def _search(self, session, query, code, warehouse, query_type):
+        diagnostics = {"endpoint": SEARCH_URL, "method": "POST", "warehouse": warehouse,
+                       "ean": code, "query_type": query_type, "batch_id": self._batch_id}
+        async with self._request_lock:
+            delay = max(0, self._next_request - time.monotonic())
+            if delay:
+                await sleep(delay)
+            started = time.monotonic()
+            self._request_count += 1
+            diagnostics["request_number"] = self._request_count
+            try:
                 async with session.post(SEARCH_URL, json={"query": query, "wh": warehouse, "lang": "es"},
                     headers={"Accept": "application/json", "Origin": "https://tienda.mercadona.es", "Referer": "https://tienda.mercadona.es/"},
                     timeout=aiohttp.ClientTimeout(total=8), allow_redirects=False) as response:
-                    if response.status != 200:
-                        raise StoreError(f"Mercadona ha rechazado la consulta de productos (HTTP {response.status}). Se conservan los precios anteriores.")
+                    diagnostics["http_status"] = response.status
+                    for header, key in (("Content-Type", "content_type"), ("Server", "server")):
+                        value = response.headers.get(header, "")
+                        if value:
+                            diagnostics[key] = re.sub(r"[^a-zA-Z0-9_./:+;= -]", "", value)[:100]
+                    for header in ("x-request-id", "x-correlation-id", "cf-ray"):
+                        value = response.headers.get(header, "")
+                        if re.fullmatch(r"[a-zA-Z0-9._:/-]{1,100}", value):
+                            diagnostics[header] = value
                     body = bytearray()
+                    limit = 16384 if response.status != 200 else 2 * 1024 * 1024
                     async for chunk in response.content.iter_chunked(8192):
                         body.extend(chunk)
-                        if len(body) > 2 * 1024 * 1024:
-                            raise StoreError("La respuesta de productos de Mercadona es demasiado grande.")
-                    data = json.loads(body)
-                    offer = exact_offer(data.get("hits") if isinstance(data, dict) else None, code)
-                    if offer is not None:
-                        return offer
-            return None
-        except (aiohttp.ClientError, asyncio.TimeoutError, ValueError) as err:
-            if isinstance(err, StoreError):
-                raise
-            raise StoreError("No se han podido consultar los precios de Mercadona. Se conservan los anteriores.") from err
-        finally:
-            session.detach()
+                        if len(body) > limit:
+                            if response.status != 200:
+                                break
+                            raise StoreRequestError("La respuesta de productos de Mercadona es demasiado grande.",
+                                {**diagnostics, "response_class": "response_too_large"})
+                    diagnostics["elapsed_ms"] = round((time.monotonic() - started) * 1000)
+                    if response.status != 200:
+                        # Classify known block pages without retaining their HTML, IP or other personal data.
+                        blocked = b"uso indebido" in body.lower() or b"service is being misused" in body.lower()
+                        reference = re.search(rb"\b(?:0|18)\.[a-fA-F0-9]{6,16}\.[0-9]{8,12}\.[a-fA-F0-9]{6,32}\b", body)
+                        if reference:
+                            diagnostics["block_reference"] = reference.group().decode("ascii")
+                        diagnostics["response_class"] = "service_misuse" if blocked else "access_denied" if response.status == 403 else "rate_limited" if response.status == 429 else "server_error" if response.status >= 500 else "unexpected_status"
+                        server_wait = retry_seconds(response.headers.get("Retry-After"))
+                        if server_wait:
+                            diagnostics["server_retry_seconds"] = server_wait
+                        raise StoreRequestError(f"Mercadona ha rechazado la consulta de productos (HTTP {response.status}). Se conservan los precios anteriores.", diagnostics, server_wait)
+                    try:
+                        return json.loads(body), diagnostics
+                    except (ValueError, UnicodeError) as err:
+                        raise StoreRequestError("La respuesta de Mercadona no contiene datos JSON válidos.",
+                            {**diagnostics, "response_class": "invalid_json"}) from err
+            except (aiohttp.ClientError, asyncio.TimeoutError) as err:
+                diagnostics.update(response_class="timeout" if isinstance(err, asyncio.TimeoutError) else "network_error",
+                                   exception_type=type(err).__name__, elapsed_ms=round((time.monotonic() - started) * 1000))
+                raise StoreRequestError("No se han podido consultar los precios de Mercadona. Se conservan los anteriores.", diagnostics) from err
+            finally:
+                self._next_request = time.monotonic() + REQUEST_INTERVAL

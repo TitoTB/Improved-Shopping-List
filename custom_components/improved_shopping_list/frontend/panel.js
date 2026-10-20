@@ -195,9 +195,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
     root.querySelector("isl-catalog").hidden = view !== "catalog";
     root.querySelector("#nav-shopping").setAttribute("aria-pressed", String(view === "shopping"));
     root.querySelector("#nav-catalog").setAttribute("aria-pressed", String(view === "catalog"));
-    root.querySelector("footer").textContent = view === "catalog"
-      ? "Tu catálogo se guarda en Home Assistant y se comparte entre tus dispositivos."
-      : "Los cambios se guardan en tu lista de Home Assistant. También los verás en la aplicación de tu proveedor.";
+    root.querySelector("footer").hidden = view === "catalog";
     this._renderData();
   }
 

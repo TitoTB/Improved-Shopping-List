@@ -1,5 +1,5 @@
-import { CatalogSession } from "./catalog-client.js?v=0.2.0";
-import "./category-panel.js?v=0.2.0";
+import { CatalogSession } from "./catalog-client.js?v=0.3.0";
+import "./category-panel.js?v=0.3.0";
 
 export const normalizedName = value => String(value ?? "").normalize("NFKC").trim().replace(/\s+/g, " ").toLocaleLowerCase("es");
 

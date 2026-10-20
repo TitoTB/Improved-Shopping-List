@@ -1,7 +1,7 @@
-import { FEATURES, TodoSession, errorMessage, isAvailable, supports } from "./todo-client.js?v=0.2.0";
-import { imageSource, normalizedName } from "./catalog-panel.js?v=0.2.0";
-import { ListSettingsSession } from "./list-settings-client.js?v=0.2.0";
-import "./settings-panel.js?v=0.2.0";
+import { FEATURES, TodoSession, errorMessage, isAvailable, supports } from "./todo-client.js?v=0.3.0";
+import { imageSource, normalizedName } from "./catalog-panel.js?v=0.3.0";
+import { ListSettingsSession } from "./list-settings-client.js?v=0.3.0";
+import "./settings-panel.js?v=0.3.0";
 
 const LOGO_URL = new URL("logo.png", import.meta.url).href;
 const searchText = value => normalizedName(value).normalize("NFD").replace(/\p{M}/gu, "");
@@ -185,7 +185,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
       </style>
       <header>
         <button class="menu" aria-label="Abrir menú de Home Assistant"><ha-icon icon="mdi:menu"></ha-icon></button>
-        <div class="branding"><img class="brand-logo" src="${LOGO_URL}" alt="" width="44" height="44"><div class="brand-copy"><span class="brand">Improved Shopping List</span><span class="version">0.2.0</span></div></div>
+        <div class="branding"><img class="brand-logo" src="${LOGO_URL}" alt="" width="44" height="44"><div class="brand-copy"><span class="brand">Improved Shopping List</span><span class="version">0.3.0</span></div></div>
         <nav class="section-nav" aria-label="Apartados">
           <button id="nav-shopping" aria-pressed="true"><ha-icon icon="mdi:shopping"></ha-icon>Lista</button>
           <button id="nav-catalog" aria-pressed="false"><ha-icon icon="mdi:view-grid"></ha-icon>Catálogo</button>

@@ -1,4 +1,4 @@
-import { todoEntities, isAvailable } from "./todo-client.js?v=0.2.0";
+import { todoEntities, isAvailable } from "./todo-client.js?v=0.3.0";
 
 class ImprovedShoppingSettings extends HTMLElement {
   constructor() {

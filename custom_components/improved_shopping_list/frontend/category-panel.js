@@ -120,10 +120,13 @@ class ImprovedShoppingCategories extends HTMLElement {
         ["Eliminar", "mdi:delete", () => this._confirmDelete(category)],
       ]) {
         const button = document.createElement("button");
+        button.type = "button";
+        button.title = `${label} categoría ${category.name}`;
         button.setAttribute("aria-label", `${label} categoría ${category.name}`);
         const icon = document.createElement("ha-icon");
         icon.setAttribute("icon", mdi);
-        button.append(icon, document.createTextNode(label));
+        icon.setAttribute("aria-hidden", "true");
+        button.append(icon);
         button.addEventListener("click", action);
         actions.append(button);
       }

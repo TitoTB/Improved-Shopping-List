@@ -121,9 +121,6 @@ class ImprovedShoppingListPanel extends HTMLElement {
         .section-nav button[aria-pressed=true] { background:var(--secondary-background-color,#edf4ee); color:var(--primary-text-color,#20352d); font-weight:650; }
         .section-nav ha-icon { --mdc-icon-size:20px; }
         main { max-width:900px; margin:auto; padding:36px 24px 64px; }
-        .eyebrow { text-transform:uppercase; letter-spacing:.13em; font-size:11px; color:var(--secondary-text-color,#63766b); font-weight:700; margin:0 0 10px; }
-        h1 { font-size:clamp(30px,5vw,42px); line-height:1.15; letter-spacing:-.04em; margin:0 0 12px; font-weight:650; }
-        .intro { color:var(--secondary-text-color,#63766b); margin:0 0 28px; line-height:1.6; }
         .card { background:var(--card-background-color,#fff); border:1px solid var(--divider-color,#dfe7e1); border-radius:18px; padding:22px; margin-bottom:18px; }
         .label { display:block; font-size:13px; font-weight:650; margin:0 0 10px; }
         select,input { color:inherit; background:var(--secondary-background-color,#f6f8f6); border:1px solid var(--divider-color,#dfe7e1); border-radius:10px; min-height:48px; padding:10px 12px; min-width:0; }
@@ -203,9 +200,6 @@ class ImprovedShoppingListPanel extends HTMLElement {
         </nav>
       </header>
       <main>
-        <div id="shopping-intro"><p class="eyebrow">Tu lista, conectada</p>
-        <h1>Vamos a por la compra.</h1>
-        <p class="intro">Todo lo que necesitas, en la lista que ya utilizas.</p></div>
         <div id="error" class="notice error" role="alert" hidden></div>
         <div id="status" class="notice" role="status" hidden></div>
         <section id="list-controls" aria-label="Seleccionar lista y añadir productos">
@@ -282,7 +276,6 @@ class ImprovedShoppingListPanel extends HTMLElement {
     this._view = view;
     this._actionError = "";
     const root = this.shadowRoot;
-    root.querySelector("#shopping-intro").hidden = view !== "shopping";
     root.querySelector("#list-controls").hidden = view !== "shopping";
     root.querySelector("#items-card").hidden = view !== "shopping";
     root.querySelector("#add-form").hidden = view !== "shopping";

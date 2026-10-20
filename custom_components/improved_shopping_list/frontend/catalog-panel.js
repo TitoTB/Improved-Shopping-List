@@ -294,13 +294,17 @@ class ImprovedShoppingCatalog extends HTMLElement {
 
   async _actOnSuggestion(name, action) {
     if (this._suggestionBusy) return;
+    if (action === "add") {
+      this._openProduct(undefined, name);
+      return;
+    }
     this._suggestionBusy = true;
     this._suggestionError = "";
     this._notice = "";
     this._render();
     try {
       await this._catalog.actOnSuggestion(name, action);
-      this._notice = action === "add" ? `${name} añadido al catálogo.` : `Sugerencia descartada: ${name}.`;
+      this._notice = `Sugerencia descartada: ${name}.`;
     } catch (error) {
       this._suggestionError = error.message ?? "No se ha podido guardar el cambio.";
     } finally {
@@ -395,11 +399,12 @@ class ImprovedShoppingCatalog extends HTMLElement {
     return card;
   }
 
-  _openProduct(product) {
+  _openProduct(product, suggestedName = "") {
     if (this._saving) return;
     const root = this.shadowRoot;
     const form = root.querySelector("form");
     form.reset();
+    form.elements.name.value = suggestedName;
     this._editing = product ? structuredClone(product) : null;
     root.querySelector("#product-dialog-title").textContent = product ? "Editar producto" : "Nuevo producto";
     root.querySelector("#product-error").hidden = true;
@@ -429,7 +434,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
       root.querySelector("dialog").close();
       this._notice = "Producto guardado en el catálogo.";
       this._render();
-      root.querySelector("#new-product").focus();
+      root.querySelector(this._view === "suggestions" ? "#view-suggestions" : "#new-product").focus();
     } catch (error) {
       const notice = root.querySelector("#product-error");
       notice.textContent = error.message ?? "No se ha podido guardar el producto.";

@@ -352,13 +352,22 @@ async function main() {
     };
     for (const width of [1280, 390, 320]) {
       await page.setViewportSize({width,height:960});
+      const sizes = [];
       for (const columns of width > 650 ? [1,3,6] : [1,2,4]) {
         await catalog.evaluate((node,columns) => {
           node.style.setProperty("--isl-columns", columns);
           node.style.setProperty("--isl-mobile-columns", columns);
         }, columns);
         await assertCatalogBadge();
+        sizes.push(await productCard.evaluate(card => ({
+          font:parseFloat(getComputedStyle(card.querySelector(".title")).fontSize),
+          icon:card.querySelector(".placeholder ha-icon").getBoundingClientRect().width,
+          image:card.querySelector(".image").getBoundingClientRect().width,
+        })));
       }
+      assert.ok(sizes[0].font > sizes.at(-1).font);
+      assert.ok(sizes[0].icon > sizes.at(-1).icon);
+      assert.ok(sizes[0].image > sizes.at(-1).image);
     }
     await catalog.evaluate(node => { node.style.removeProperty("--isl-columns"); node.style.removeProperty("--isl-mobile-columns"); });
     await page.setViewportSize({width:1280,height:960});
@@ -366,6 +375,11 @@ async function main() {
     assert.equal(await productCard.locator(".actions button").last().textContent(), "");
     assert.equal(await productCard.locator(".actions button").first().locator("ha-icon").getAttribute("icon"), "mdi:cart-plus");
     assert.equal(await productCard.locator(".actions button").last().locator("ha-icon").getAttribute("icon"), "mdi:note-edit");
+    const assertEditButton = async () => {
+      assert.equal(await productCard.locator(".edit-product").evaluate(button => getComputedStyle(button).backgroundColor), "rgb(249, 168, 37)");
+      assert.equal(await productCard.locator(".edit-product").evaluate(button => getComputedStyle(button).borderWidth), "0px");
+    };
+    await assertEditButton();
     assert.ok(await productCard.evaluate(card => {
       const image = card.querySelector(".image").getBoundingClientRect();
       const title = card.querySelector(".title").getBoundingClientRect();
@@ -397,14 +411,15 @@ async function main() {
     await page.keyboard.press("Enter");
     assert.equal(await catalog.locator("#category-filter").inputValue(), "Lácteos y frescos");
     assert.equal(await catalog.locator("#tag-filter").count(), 0);
-    assert.equal(await catalog.locator("#view-products ha-icon").getAttribute("icon"), "mdi:package-variant");
-    assert.equal(await catalog.locator("#view-categories ha-icon").getAttribute("icon"), "mdi:shape");
+    assert.equal(await catalog.locator("#view-products ha-icon").getAttribute("icon"), "mdi:view-grid");
+    assert.equal(await catalog.locator("#view-categories ha-icon").getAttribute("icon"), "mdi:label");
     await catalog.getByRole("button", { name: "Añadir Yogur sin azúcar a la lista", exact: true }).click();
     await catalog.getByRole("status").filter({ hasText: "Yogur sin azúcar añadido" }).waitFor();
     assert.equal((await page.evaluate(() => window.calls)).at(-1).entity_id, "todo.bring");
     assert.equal((await page.evaluate(() => window.calls)).at(-1).item, "Yogur sin azúcar");
     assert.equal(await productCard.getAttribute("data-in-list"), "true");
     await assertCatalogBadge();
+    await assertEditButton();
     assert.equal(await productCard.evaluate(node => getComputedStyle(node).backgroundImage), "linear-gradient(rgb(238, 82, 79), rgb(181, 42, 39))");
     assert.ok((await productCard.evaluate(node => getComputedStyle(node).backgroundImage)).includes("linear-gradient"));
     await page.screenshot({ path: "test-results/catalog-desktop.png", fullPage: true });

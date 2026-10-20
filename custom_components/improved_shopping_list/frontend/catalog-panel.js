@@ -156,12 +156,13 @@ class ImprovedShoppingCatalog extends HTMLElement {
         .product.in-list { background:linear-gradient(var(--isl-gradient-start,#ee524f),var(--isl-gradient-end,#b52a27)); border-color:var(--isl-gradient-end,#b52a27); }
         .product.in-list,.product.in-list .placeholder,.product.in-list .subtitle,.product.in-list button,.product.in-list ha-icon { color:#fff; }
         .product-top { display:flex; flex-direction:column; gap:14px; align-items:center; }
-        .image { width:min(96px,80cqi); height:auto; aspect-ratio:1; object-fit:contain; border-radius:10px; flex-shrink:0; }
+        .product-name { min-width:0; max-width:100%; }
+        .image { width:clamp(14px,36cqi,192px); max-width:100%; height:auto; aspect-ratio:1; object-fit:contain; border-radius:10px; flex-shrink:0; }
         .placeholder { display:grid; place-items:center; color:var(--secondary-text-color,#63766b); }
-        .placeholder ha-icon { --mdc-icon-size:clamp(14px,65cqi,64px); }
+        .placeholder ha-icon { --mdc-icon-size:clamp(14px,30cqi,160px); width:var(--mdc-icon-size); height:var(--mdc-icon-size); }
         .product > button.category-badge { --isl-badge-size:32px; --isl-badge-icon-size:20px; position:absolute; top:12px; right:12px; display:flex; align-items:center; justify-content:center; appearance:none; -webkit-appearance:none; box-sizing:border-box; width:var(--isl-badge-size); min-width:var(--isl-badge-size); max-width:var(--isl-badge-size); height:var(--isl-badge-size); min-height:var(--isl-badge-size); max-height:var(--isl-badge-size); aspect-ratio:1 / 1; margin:0; padding:0; border:0 none; border-radius:50%; line-height:0; color:#fff; box-shadow:0 2px 6px rgba(0,0,0,.22); }
         .product > button.category-badge ha-icon { --mdc-icon-size:var(--isl-badge-icon-size); display:flex; align-items:center; justify-content:center; flex:none; width:var(--isl-badge-icon-size); height:var(--isl-badge-icon-size); margin:0; padding:0; }
-        .title { font-size:clamp(9px,14cqi,17px); line-height:1.4; font-weight:650; margin:0; overflow-wrap:anywhere; text-align:center; }
+        .title { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:3; overflow:hidden; font-size:clamp(8px,7cqi,32px); line-height:1.4; font-weight:650; margin:0; overflow-wrap:anywhere; text-align:center; }
         .subtitle { color:var(--secondary-text-color,#63766b); font-size:12px; margin:4px 0 0; overflow-wrap:anywhere; }
         .tags { display:flex; flex-wrap:wrap; justify-content:center; gap:5px; }
         .tag { padding:4px 8px; border-radius:20px; font-size:11px; background:var(--secondary-background-color,#edf4ee); max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
@@ -171,6 +172,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
         .actions .primary { flex:1; }
         .product .actions { gap:clamp(2px,4cqi,8px); }
         .product .actions button { flex:1 1 0; min-width:0; min-height:32px; font-size:12px; padding:clamp(2px,4cqi,6px); gap:4px; border-radius:8px; }
+        .product .actions .edit-product { background:#f9a825; border:0; }
         .product .actions ha-icon { --mdc-icon-size:clamp(10px,24cqi,16px); }
         @container(max-width:100px) { .product > button.category-badge { --isl-badge-size:20px; --isl-badge-icon-size:14px; top:6px; right:6px; } .tag { font-size:9px; padding:3px; } }
         .notice { font-size:13px; line-height:1.6; padding:12px 14px; background:var(--secondary-background-color,#edf4ee); border-radius:10px; margin:14px 0; }
@@ -187,7 +189,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
       </style>
       <div class="heading"><h1>Catálogo</h1></div>
       <div class="catalog-toolbar">
-        <nav class="catalog-tabs" aria-label="Vistas del catálogo"><button id="view-products" aria-pressed="true"><ha-icon icon="mdi:package-variant"></ha-icon>Productos</button><button id="view-categories" aria-pressed="false"><ha-icon icon="mdi:shape"></ha-icon>Categorías</button><button id="view-suggestions" aria-pressed="false"><ha-icon icon="mdi:creation"></ha-icon>Sugerencias</button></nav>
+        <nav class="catalog-tabs" aria-label="Vistas del catálogo"><button id="view-products" aria-pressed="true"><ha-icon icon="mdi:view-grid"></ha-icon>Productos</button><button id="view-categories" aria-pressed="false"><ha-icon icon="mdi:label"></ha-icon>Categorías</button><button id="view-suggestions" aria-pressed="false"><ha-icon icon="mdi:creation"></ha-icon>Sugerencias</button></nav>
         <div class="catalog-tools"><button id="new-product" class="primary" type="button" aria-label="Nuevo producto" title="Nuevo producto"><ha-icon icon="mdi:plus-thick"></ha-icon></button><button id="new-catalog-category" class="primary" type="button" aria-label="Nueva categoría" title="Nueva categoría" hidden><ha-icon icon="mdi:plus-thick"></ha-icon></button><button id="catalog-refresh" type="button" aria-label="Actualizar catálogo" title="Actualizar catálogo"><ha-icon icon="mdi:refresh"></ha-icon></button></div>
       </div>
       <div id="catalog-error" class="notice error" role="alert" hidden></div>
@@ -522,7 +524,8 @@ class ImprovedShoppingCatalog extends HTMLElement {
       image.addEventListener("error", () => image.replaceWith(placeholder), { once: true });
       top.append(image);
     } else top.append(placeholder);
-    const title = element("div");
+    const title = element("div", "product-name");
+    title.title = product.name;
     title.append(element("h2", "title", product.name));
     top.append(title);
     card.append(top);
@@ -542,7 +545,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
     add.title = this._canAdd ? `Añadir a «${this._listName}»` : "Selecciona una lista disponible en el apartado Lista para añadir productos.";
     add.disabled = !this._canAdd || Boolean(this._adding);
     add.addEventListener("click", () => void this._addToList(product));
-    const edit = element("button");
+    const edit = element("button", "edit-product");
     const editIcon = element("ha-icon");
     editIcon.setAttribute("icon", "mdi:note-edit");
     editIcon.setAttribute("aria-hidden", "true");

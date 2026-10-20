@@ -187,17 +187,18 @@ class ImprovedShoppingListPanel extends HTMLElement {
         [hidden] { display:none !important; }
         .sr-only { position:absolute; width:1px; height:1px; padding:0; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
         @media(max-width:650px) { .product-grid { grid-template-columns:repeat(var(--isl-mobile-columns,1),minmax(0,1fr)); } }
-        @media(max-width:650px) { header { flex-wrap:wrap; padding:10px 12px; } .branding { flex:1; } .brand-logo { width:36px; height:36px; } .brand { font-size:14px; } .version { font-size:11px; margin-left:6px; } .section-nav { width:100%; justify-content:flex-end; } }
+        @media(max-width:650px) { header { flex-wrap:nowrap; gap:6px; padding:10px 12px; } .branding { flex:0 0 auto; } .brand-copy { display:none; } .brand-logo { width:36px; height:36px; } .section-nav { flex-wrap:nowrap; gap:0; } .section-nav button { flex:0 0 auto; gap:4px; padding:10px 8px; min-width:44px; justify-content:center; font-size:13px; white-space:nowrap; } .section-nav button[aria-pressed=false] .nav-label { display:none; } }
+        @media(max-width:360px) { header { gap:4px; padding:10px 8px; } .brand-logo { width:28px; height:28px; } .section-nav button { padding:10px 6px; font-size:12px; } }
         @media(max-width:540px) { main { padding:26px 14px 40px; } .card { padding:18px 16px; border-radius:14px; } .primary { padding:10px 14px; } }
       </style>
       <header>
         <button class="menu" aria-label="Abrir menú de Home Assistant"><ha-icon icon="mdi:menu"></ha-icon></button>
         <div class="branding"><img class="brand-logo" src="${LOGO_URL}" alt="" width="44" height="44"><div class="brand-copy"><span class="brand">Improved Shopping List</span><span class="version">0.5.0</span></div></div>
         <nav class="section-nav" aria-label="Apartados">
-          <button id="nav-shopping" aria-pressed="true"><ha-icon icon="mdi:shopping"></ha-icon>Lista</button>
-          <button id="nav-catalog" aria-pressed="false"><ha-icon icon="mdi:view-grid"></ha-icon>Catálogo</button>
-          <button id="nav-readers" aria-pressed="false"><ha-icon icon="mdi:barcode-scan"></ha-icon>Lectores</button>
-          <button id="nav-settings" aria-pressed="false"><ha-icon icon="mdi:cog"></ha-icon>Ajustes</button>
+          <button id="nav-shopping" aria-label="Lista" aria-pressed="true"><ha-icon icon="mdi:shopping" aria-hidden="true"></ha-icon><span class="nav-label">Lista</span></button>
+          <button id="nav-catalog" aria-label="Catálogo" aria-pressed="false"><ha-icon icon="mdi:view-grid" aria-hidden="true"></ha-icon><span class="nav-label">Catálogo</span></button>
+          <button id="nav-readers" aria-label="Lectores" aria-pressed="false"><ha-icon icon="mdi:barcode-scan" aria-hidden="true"></ha-icon><span class="nav-label">Lectores</span></button>
+          <button id="nav-settings" aria-label="Ajustes" aria-pressed="false"><ha-icon icon="mdi:cog" aria-hidden="true"></ha-icon><span class="nav-label">Ajustes</span></button>
         </nav>
       </header>
       <main>

@@ -428,6 +428,28 @@ async function main() {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto(url);
     await page.locator("#pending").getByText("Cacao", { exact: true }).waitFor();
+    for (const width of [320, 390, 650]) {
+      await page.setViewportSize({ width, height:844 });
+      assert.equal(await page.locator(".brand-copy").isVisible(), false);
+      assert.equal(await page.locator(".brand-logo").isVisible(), true);
+      for (const view of ["catalog", "readers", "settings", "shopping"]) {
+        await page.locator(`#nav-${view}`).click();
+        assert.equal(await page.locator(".section-nav .nav-label:visible").count(), 1);
+        assert.equal(await page.locator(`#nav-${view} .nav-label`).isVisible(), true);
+        assert.equal(await page.locator("header").evaluate(header => {
+          const buttons = [...header.querySelectorAll(".section-nav button")];
+          const logo = header.querySelector(".brand-logo").getBoundingClientRect();
+          return buttons.every(button => {
+            const rect = button.getBoundingClientRect();
+            return rect.right <= innerWidth && rect.top < logo.bottom && rect.bottom > logo.top;
+          }) && header.scrollWidth <= header.clientWidth;
+        }), true);
+      }
+    }
+    await page.setViewportSize({ width:1280, height:960 });
+    assert.equal(await page.locator(".brand-copy").isVisible(), true);
+    assert.equal(await page.locator(".section-nav .nav-label:visible").count(), 4);
+    await page.setViewportSize({ width:390, height:844 });
     await page.getByRole("button", { name: "Abrir menú de Home Assistant" }).click();
     assert.equal(await page.evaluate(() => window.menuOpened), true);
     assert.equal(await page.evaluate(() => {
@@ -439,7 +461,7 @@ async function main() {
     await page.getByRole("button", { name: "Seleccionar lista", exact: true }).click();
     await page.screenshot({ path: "test-results/list-selector-mobile.png", fullPage: true });
     await listDialog.getByRole("button", { name: "Cerrar", exact: true }).click();
-    assert.equal(await page.locator(".version").isVisible(), true);
+    assert.equal(await page.locator(".version").isVisible(), false);
     assert.equal(await page.locator("#pending").evaluate(node => getComputedStyle(node).gridTemplateColumns.split(" ").length), 1);
     await page.locator("#completed-summary").click();
     assert.equal(await page.locator("#completed .item.completed").count(), 1);

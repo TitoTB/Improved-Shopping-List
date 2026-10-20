@@ -386,6 +386,67 @@ async function main() {
     await suggestionPage.screenshot({ path: "test-results/suggestions-mobile.png", fullPage: true });
     assert.equal(await suggestionCatalog.evaluate(node => node.shadowRoot.querySelector("#suggestions-list").scrollWidth > innerWidth), false);
     await suggestionContext.close();
+    // Predictive catalog search: canonical names, keyboard/touch, free text and provider failures.
+    const predictiveContext = await browser.newContext({ viewport: { width: 1280, height: 960 } });
+    const predictivePage = await predictiveContext.newPage();
+    predictivePage.on("pageerror", error => errors.push(error.message));
+    await predictivePage.goto(url);
+    await predictivePage.evaluate(() => {
+      const products = ["Café molido", "Cacao puro", "Leche sin lactosa"].map((name, index) => ({
+        id: `predictive-${index}`, revision: 1, name, category: "", tags: index === 2 ? ["Desayuno"] : [],
+        brand: index === 2 ? "Marca especial" : "", format: "250 g", barcode: `001234${index}`,
+        image_url: index === 0 ? "/logo.png" : "", icon: "mdi:shopping", price: null, currency: "EUR", notes: "",
+      }));
+      localStorage.setItem("catalog-fixture", JSON.stringify(products));
+    });
+    await predictivePage.reload();
+    const predictiveInput = predictivePage.getByRole("combobox", { name: "Añadir producto", exact: true });
+    const predictions = predictivePage.getByRole("listbox", { name: "Productos del catálogo", exact: true });
+    await predictiveInput.fill("CAFE");
+    await predictions.getByRole("option", { name: "Café molido 250 g", exact: true }).waitFor();
+    assert.equal(await predictiveInput.getAttribute("aria-expanded"), "true");
+    await predictions.locator("img").evaluate(image => image.decode());
+    await predictivePage.screenshot({ path: "test-results/predictive-desktop.png", fullPage: true });
+    await predictiveInput.press("ArrowDown");
+    assert.equal(await predictions.getByRole("option").getAttribute("aria-selected"), "true");
+    assert.ok(await predictiveInput.getAttribute("aria-activedescendant"));
+    await predictiveInput.press("Enter");
+    await predictivePage.locator("#pending").getByText("Café molido", { exact: true }).waitFor();
+    assert.equal((await predictivePage.evaluate(() => window.calls)).at(-1).item, "Café molido");
+    assert.equal(await predictiveInput.inputValue(), "");
+    await predictiveInput.fill("marca especial");
+    await predictions.getByRole("option").filter({ hasText: "Leche sin lactosa" }).waitFor();
+    await predictiveInput.press("Escape");
+    assert.equal(await predictiveInput.getAttribute("aria-expanded"), "false");
+    await predictiveInput.fill("0012342");
+    await predictions.getByRole("option").filter({ hasText: "Leche sin lactosa" }).waitFor();
+    await predictiveInput.fill("desayuno");
+    assert.equal(await predictions.getByRole("option").count(), 1);
+    await predictivePage.setViewportSize({ width: 390, height: 844 });
+    await predictivePage.screenshot({ path: "test-results/predictive-mobile.png", fullPage: true });
+    assert.ok(await predictions.evaluate(node => node.getBoundingClientRect().right <= innerWidth));
+    await predictions.getByRole("option").click();
+    await predictivePage.locator("#pending").getByText("Leche sin lactosa", { exact: true }).waitFor();
+    assert.equal((await predictivePage.evaluate(() => window.calls)).at(-1).item, "Leche sin lactosa");
+    await predictiveInput.fill("Producto nuevo");
+    assert.equal(await predictiveInput.getAttribute("aria-expanded"), "false");
+    await predictiveInput.press("Enter");
+    await predictivePage.locator("#pending").getByText("Producto nuevo", { exact: true }).waitFor();
+    await predictivePage.evaluate(() => { window.fail = true; });
+    await predictiveInput.fill("cacao");
+    await predictiveInput.press("ArrowUp");
+    await predictiveInput.press("Enter");
+    await predictivePage.getByRole("alert").filter({ hasText: "Proveedor sin conexión" }).waitFor();
+    assert.equal(await predictiveInput.inputValue(), "Cacao puro");
+    await predictivePage.evaluate(() => { window.fail = false; });
+    await predictiveInput.press("Escape");
+    await predictivePage.getByRole("button", { name: "Añadir", exact: true }).click();
+    await predictivePage.locator("#pending").getByText("Cacao puro", { exact: true }).waitFor();
+    assert.equal(await predictivePage.evaluate(() => window.calls.length), 4);
+    await predictivePage.getByLabel("Lista de la compra", { exact: true }).selectOption("todo.readonly");
+    assert.equal(await predictiveInput.isDisabled(), true);
+    assert.equal(await predictiveInput.getAttribute("aria-expanded"), "false");
+    await predictiveContext.close();
     await page.evaluate(() => window.testPanel.remove());
     assert.equal(await page.evaluate(() => window.listenerCount()), 0);
     assert.deepEqual(errors, []);

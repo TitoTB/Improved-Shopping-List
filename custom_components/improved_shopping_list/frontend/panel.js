@@ -2,6 +2,7 @@ import { FEATURES, TodoSession, errorMessage, isAvailable, supports, todoEntitie
 import { imageSource, normalizedName } from "./catalog-panel.js?v=0.2.0";
 
 const LOGO_URL = new URL("logo.png", import.meta.url).href;
+const searchText = value => normalizedName(value).normalize("NFD").replace(/\p{M}/gu, "");
 
 class ImprovedShoppingListPanel extends HTMLElement {
   constructor() {
@@ -102,7 +103,15 @@ class ImprovedShoppingListPanel extends HTMLElement {
         .refresh { flex-shrink:0; min-width:48px; border:1px solid var(--divider-color,#dfe7e1); border-radius:10px; background:transparent; color:inherit; }
         .helper { font-size:12px; color:var(--secondary-text-color,#63766b); line-height:1.6; margin:10px 0 0; }
         form { display:flex; gap:10px; margin-top:22px; }
-        .input-wrap { flex:1; min-width:0; }
+        .input-wrap { flex:1; min-width:0; position:relative; }
+        .predictive-results { position:absolute; top:calc(100% + 6px); left:0; right:0; z-index:10; max-height:320px; overflow:auto; padding:6px; background:var(--card-background-color,#fff); border:1px solid var(--divider-color,#dfe7e1); border-radius:12px; box-shadow:0 8px 24px rgba(0,0,0,.14); }
+        .predictive-option { display:flex; align-items:center; gap:10px; padding:10px; min-height:54px; border-radius:8px; cursor:pointer; }
+        .predictive-option:hover,.predictive-option[aria-selected=true] { background:var(--secondary-background-color,#edf4ee); }
+        .predictive-image { width:36px; height:36px; object-fit:contain; flex-shrink:0; display:grid; place-items:center; }
+        .predictive-image ha-icon { --mdc-icon-size:28px; }
+        .predictive-text { min-width:0; overflow-wrap:anywhere; font-size:14px; }
+        .predictive-text strong { display:block; }
+        .predictive-text small { display:block; color:var(--secondary-text-color,#63766b); margin-top:3px; }
         input[type=text] { width:100%; }
         .primary { min-height:48px; padding:10px 20px; border:0; border-radius:10px; color:white; background:var(--isl-green); font-weight:650; align-self:end; }
         .list-header { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:14px; }
@@ -160,7 +169,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
           <div class="selector-row"><select id="list-select"></select><button id="refresh" class="refresh" aria-label="Actualizar lista" title="Actualizar lista"><ha-icon icon="mdi:refresh"></ha-icon></button></div>
           <p id="list-help" class="helper"></p>
           <form id="add-form">
-            <div class="input-wrap"><label class="label" for="product-input">Añadir producto</label><input id="product-input" type="text" maxlength="255" placeholder="Por ejemplo, cacao" autocomplete="off" required></div>
+            <div class="input-wrap"><label class="label" for="product-input">Añadir producto</label><input id="product-input" type="text" maxlength="255" placeholder="Busca en tu catálogo o escribe un producto" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="product-suggestions" aria-describedby="predictive-count" required><ul id="product-suggestions" class="predictive-results" role="listbox" aria-label="Productos del catálogo" hidden></ul><span id="predictive-count" class="sr-only" role="status" aria-live="polite"></span></div>
             <button id="add-button" class="primary" type="submit">Añadir</button>
           </form>
           <p id="capability-help" class="helper" hidden></p>
@@ -201,6 +210,11 @@ class ImprovedShoppingListPanel extends HTMLElement {
       event.preventDefault();
       void this._addItem();
     });
+    const input = root.querySelector("#product-input");
+    input.addEventListener("input", () => { this._predictionIndex = -1; this._predictionClosed = false; this._renderPredictions(); });
+    input.addEventListener("focus", () => { this._predictionClosed = false; this._renderPredictions(); });
+    input.addEventListener("blur", () => { this._predictionClosed = true; this._renderPredictions(); });
+    input.addEventListener("keydown", event => this._predictionKeydown(event));
   }
 
   _switchView(view) {
@@ -299,6 +313,100 @@ class ImprovedShoppingListPanel extends HTMLElement {
       title.textContent = "Todo listo por aquí";
       empty.replaceChildren(title, document.createTextNode("Añade lo que necesites para tu próxima compra."));
     }
+    this._renderPredictions();
+  }
+
+  _renderPredictions() {
+    if (!this._built) return;
+    const root = this.shadowRoot;
+    const input = root.querySelector("#product-input");
+    const list = root.querySelector("#product-suggestions");
+    const query = searchText(input.value);
+    const searching = Boolean(query) && this._view === "shopping" && !input.disabled &&
+      !this._predictionClosed && root.activeElement === input;
+    this._predictions = searching ? [...this._catalogProducts.values()]
+      .filter(product => [product.name, product.brand, product.barcode, ...(product.tags ?? [])].some(value => searchText(value).includes(query)))
+      .sort((a, b) => Number(searchText(b.name).startsWith(query)) - Number(searchText(a.name).startsWith(query)) || a.name.localeCompare(b.name, "es"))
+      .slice(0, 8) : [];
+    if (!Number.isInteger(this._predictionIndex) || this._predictionIndex >= this._predictions.length) this._predictionIndex = -1;
+    const options = this._predictions.map((product, index) => {
+      const option = document.createElement("li");
+      option.id = `product-prediction-${index}`;
+      option.className = "predictive-option";
+      option.setAttribute("role", "option");
+      option.setAttribute("aria-selected", String(index === this._predictionIndex));
+      const placeholder = document.createElement("span");
+      placeholder.className = "predictive-image";
+      const icon = document.createElement("ha-icon");
+      icon.setAttribute("icon", product.icon || "mdi:shopping");
+      placeholder.append(icon);
+      const source = imageSource(product.image_url);
+      if (source) {
+        const image = document.createElement("img");
+        image.className = "predictive-image";
+        image.src = source;
+        image.alt = "";
+        image.referrerPolicy = "no-referrer";
+        image.addEventListener("error", () => image.replaceWith(placeholder), { once: true });
+        option.append(image);
+      } else option.append(placeholder);
+      const text = document.createElement("span");
+      text.className = "predictive-text";
+      const name = document.createElement("strong");
+      name.textContent = product.name;
+      text.append(name);
+      const details = [product.brand, product.format].filter(Boolean).join(" · ");
+      if (details) {
+        const detail = document.createElement("small");
+        detail.textContent = details;
+        text.append(detail);
+      }
+      option.append(text);
+      option.addEventListener("pointerdown", event => event.preventDefault());
+      option.addEventListener("click", () => this._selectPrediction(product));
+      return option;
+    });
+    list.replaceChildren(...options);
+    list.hidden = !options.length;
+    input.setAttribute("aria-expanded", String(options.length > 0));
+    if (options.length && this._predictionIndex >= 0) {
+      input.setAttribute("aria-activedescendant", options[this._predictionIndex].id);
+      options[this._predictionIndex].scrollIntoView({ block: "nearest" });
+    } else input.removeAttribute("aria-activedescendant");
+    root.querySelector("#predictive-count").textContent = searching
+      ? options.length ? `${options.length} coincidencias del catálogo. Usa las flechas para elegir y Enter para añadir.` : "Sin coincidencias en el catálogo. Puedes añadir el nombre escrito."
+      : "";
+  }
+
+  _predictionKeydown(event) {
+    if (event.isComposing) return;
+    if (event.key === "Escape") {
+      this._predictionClosed = true;
+      this._predictionIndex = -1;
+      this._renderPredictions();
+    } else if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      event.preventDefault();
+      this._predictionClosed = false;
+      this._renderPredictions();
+      const count = this._predictions.length;
+      if (!count) return;
+      this._predictionIndex = this._predictionIndex < 0 ? (event.key === "ArrowDown" ? 0 : count - 1)
+        : (this._predictionIndex + (event.key === "ArrowDown" ? 1 : -1) + count) % count;
+      this._renderPredictions();
+    } else if (event.key === "Enter" && this._predictionIndex >= 0 && this._predictions[this._predictionIndex]) {
+      event.preventDefault();
+      this._selectPrediction(this._predictions[this._predictionIndex]);
+    }
+  }
+
+  _selectPrediction(product) {
+    const input = this.shadowRoot.querySelector("#product-input");
+    if (this._busy || input.disabled) return;
+    input.value = product.name;
+    this._predictionClosed = true;
+    this._predictionIndex = -1;
+    this._renderPredictions();
+    void this._addItem();
   }
 
   _renderItems(container, items, disabled) {

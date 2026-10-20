@@ -193,7 +193,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
         .form-actions { display:flex; justify-content:flex-end; gap:10px; margin-top:22px; }
         @media(max-width:650px) { .filters { grid-template-columns:1fr; } .grid { grid-template-columns:repeat(var(--isl-mobile-columns,1),minmax(0,1fr)); } .heading { gap:10px; flex-wrap:wrap; } h1 { font-size:28px; } dialog { padding:20px; } }
         @media(max-width:650px) { .catalog-toolbar { gap:6px; } .catalog-tabs { gap:4px; } .catalog-tabs button { gap:4px; min-width:36px; justify-content:center; padding:10px 6px; font-size:13px; } .catalog-tabs button[aria-pressed=false] .tab-label { display:none; } }
-        @media(max-width:390px) { .fields { grid-template-columns:1fr; } .heading { align-items:flex-start; } }
+        @media(max-width:390px) { .fields { grid-template-columns:1fr; } .heading { align-items:flex-start; } .catalog-tabs { gap:3px; } .catalog-tabs button { min-width:32px; padding-inline:4px; } .catalog-tools { gap:4px; } }
       </style>
       <div class="heading"><h1>Catálogo</h1></div>
       <div class="catalog-toolbar">

@@ -260,6 +260,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
     this._built = true;
     const root = this.shadowRoot;
     const iconPicker = root.querySelector("isl-icon-picker");
+    iconPicker.getProductName = () => root.querySelector("form").elements.name.value;
     iconPicker.getQuery = () => {
       const name = root.querySelector("form").elements.name.value;
       return this._editing?.name_en && productNameKey(name) === productNameKey(this._editing.name)

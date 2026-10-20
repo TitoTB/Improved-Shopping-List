@@ -63,6 +63,7 @@ class ImprovedShoppingIconPicker extends HTMLElement {
         button:disabled{opacity:.5;cursor:default}button:focus-visible,input:focus-visible,a:focus-visible{outline:3px solid var(--primary-color,#267052);outline-offset:3px}
         ha-icon{--mdc-icon-size:20px}h3{margin:0 0 12px;font-size:15px}label{display:block;min-width:0;font-size:13px;font-weight:600}input{display:block;width:100%;margin-top:7px;min-height:46px;border:1px solid var(--divider-color,#dfe7e1);border-radius:10px;padding:10px 12px;background:var(--card-background-color,#fff)}
         .helper,.attribution{font-size:12px;line-height:1.5;color:var(--secondary-text-color,#63766b)}a{color:var(--primary-color,#267052)}
+        .external-search{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:10px 12px;border:1px solid var(--divider-color,#dfe7e1);border-radius:10px;text-decoration:none;color:inherit}.external-search[aria-disabled=true]{opacity:.5;pointer-events:none}.external-search ha-icon{display:flex;align-items:center;justify-content:center;width:20px;height:20px;flex:none;line-height:0}
         #results{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:14px 0}.option{min-width:0;padding:8px 4px;display:flex;align-items:center;justify-content:center;aspect-ratio:1;overflow:hidden}.option img{width:min(64px,100%);height:auto;max-height:100%;aspect-ratio:1;object-fit:contain}.option[aria-pressed=true]{border:2px solid var(--primary-color,#267052)}.more{border:1px solid var(--divider-color,#dfe7e1);border-radius:10px;text-decoration:none;color:inherit}.more ha-icon{--mdc-icon-size:32px;width:32px;height:32px}.empty{border:1px dashed var(--divider-color,#dfe7e1);border-radius:10px;opacity:.3}.more[aria-disabled=true]{opacity:.4;pointer-events:none}
         #status{font-size:13px}#status.error{color:var(--error-color,#bd3636)}
         #selected{display:flex;align-items:center;gap:12px;margin-top:12px}#selected img{width:48px;height:48px;object-fit:contain;flex-shrink:0}
@@ -75,6 +76,7 @@ class ImprovedShoppingIconPicker extends HTMLElement {
         <p class="helper">Las sugerencias se actualizan con el nombre del producto. Pulsa + para ver otras propuestas.</p>
         <div id="selected" hidden></div>
         <p class="helper">Iconos de <a href="https://iconify.design/" target="_blank" rel="noopener noreferrer">Iconify</a>. Se conservarán el autor y la licencia del icono elegido. También puedes consultar la web de <a href="https://www.flaticon.es/" target="_blank" rel="noopener noreferrer">Flaticon</a>.</p>
+        <a id="flaticon-search" class="external-search" target="_blank" rel="noopener noreferrer"><ha-icon icon="mdi:open-in-new" aria-hidden="true"></ha-icon>Buscar en Flaticon</a>
       </section>`;
     this._built = true;
     const root = this.shadowRoot;
@@ -207,6 +209,12 @@ class ImprovedShoppingIconPicker extends HTMLElement {
 
   _renderResults() {
     const root = this.shadowRoot;
+    const productName = (this.getProductName?.() ?? "").trim();
+    const externalSearch = root.querySelector("#flaticon-search");
+    if (productName) externalSearch.href = `https://www.flaticon.es/buscar?word=${encodeURIComponent(productName)}`;
+    else externalSearch.removeAttribute("href");
+    externalSearch.setAttribute("aria-disabled", String(!productName));
+    externalSearch.tabIndex = productName ? 0 : -1;
     const suggestions = Array.from({length:PAGE_SIZE}, (_, index) => {
       const position = (this._pageStart || 0) + index;
       const icon = this._icons[this._icons.length >= PAGE_SIZE ? position % this._icons.length : position];

@@ -158,7 +158,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
         .image { width:96px; height:96px; object-fit:contain; border-radius:10px; flex-shrink:0; }
         .placeholder { display:grid; place-items:center; color:var(--secondary-text-color,#63766b); }
         .placeholder ha-icon { --mdc-icon-size:64px; }
-        .category-badge { position:absolute; top:12px; right:12px; display:grid; place-items:center; width:32px; height:32px; min-height:32px; padding:0; border:0; border-radius:50%; color:#fff; }
+        .category-badge { position:absolute; top:12px; right:12px; display:grid; place-items:center; width:32px; height:32px; min-height:32px; padding:0; border:0; border-radius:50%; color:#fff; box-shadow:0 2px 6px rgba(0,0,0,.22); }
         .category-badge ha-icon { --mdc-icon-size:20px; }
         .title { font-size:17px; line-height:1.4; font-weight:650; margin:0; overflow-wrap:anywhere; text-align:center; }
         .subtitle { color:var(--secondary-text-color,#63766b); font-size:12px; margin:4px 0 0; overflow-wrap:anywhere; }

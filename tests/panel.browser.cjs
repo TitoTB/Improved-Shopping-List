@@ -148,6 +148,11 @@ const hass={
     if(msg.type==='improved_shopping_list/settings/price_schedule'){
       window.listSettings.price_update_time=msg.time;window.emitSettings();return structuredClone(window.listSettings);
     }
+    if(msg.type==='improved_shopping_list/settings/refresh_prices'){
+      window.calls.push(structuredClone(msg));
+      if(window.failManualPriceRefresh)throw new Error('La tienda ha indicado una pausa.');
+      return {queued:2,products:[]};
+    }
     if(msg.type==='improved_shopping_list/catalog/store_prices'){
       const products=window.storePriceFixture??((msg.codes??[]).includes('8431876279146')?[{store:'carrefour',store_name:'Alcaparras Carrefour',ean:'8431876279146',price:'1.35',currency:'EUR',url:'https://www.awin1.com/pclick.php?p=123&a=1535625&m=25399',checked_at:1792490400}]:[]);
       return {nightly:true,products:msg.store?products.filter(p=>p.store===msg.store):products,enabled:true,update_time:window.listSettings.price_update_time??'01:00'};
@@ -954,6 +959,22 @@ async function main() {
     await carrefourDialog.getByRole("button",{name:"Actualizar vista",exact:true}).click();
     await carrefourDialog.getByText("Alcaparras Carrefour",{exact:true}).waitFor();
     await carrefourDialog.getByRole("button",{name:"Cerrar",exact:true}).click();
+    await settingsPage.evaluate(()=>document.querySelector('improved-shopping-list-panel').shadowRoot.querySelector('isl-catalog').dispatchEvent(new CustomEvent('catalog-change',{detail:{products:[{id:'linked-1',name:'Vinculado',store_links:{carrefour:{id:'R-123'}}},{id:'unlinked-1',name:'Sin vincular'}],categories:[]}})));
+    assert.equal(await settingsView.locator('#carrefour-linked-count').textContent(),'1');
+    assert.equal(await settingsView.locator('#mercadona-linked-count').textContent(),'0');
+    await settingsView.getByRole('button',{name:'Actualizar ahora Carrefour',exact:true}).click();
+    await settingsView.locator('#carrefour-refresh-status').filter({hasText:'2 referencias pendientes en cola'}).waitFor();
+    assert.equal(await settingsPage.evaluate(()=>window.calls.filter(call=>call.type==='improved_shopping_list/settings/refresh_prices').at(-1).store),'carrefour');
+    await settingsPage.evaluate(()=>{window.failManualPriceRefresh=true;});
+    await settingsView.getByRole('button',{name:'Actualizar ahora Carrefour',exact:true}).click();
+    await settingsView.locator('#carrefour-refresh-status').filter({hasText:'pausa'}).waitFor();
+    await settingsPage.evaluate(()=>{window.failManualPriceRefresh=false;document.querySelector('improved-shopping-list-panel').shadowRoot.querySelector('isl-catalog').dispatchEvent(new CustomEvent('catalog-change',{detail:{products:window.catalogProducts,categories:window.catalogCategories}}));});
+    for(const row of await settingsView.locator('.store-row').all()){
+      const geometry=await row.evaluate(node=>{const name=node.querySelector('.store-name').getBoundingClientRect(),logo=node.querySelector('.store-logo').getBoundingClientRect();return {difference:Math.abs(name.y+name.height/2-logo.y-logo.height/2),overflow:node.scrollWidth-node.clientWidth};});
+      assert.ok(geometry.difference<2,'Store name and logo are vertically centered');
+      assert.ok(geometry.overflow<=1,'Store controls fit the mobile card');
+    }
+    assert.match(await settingsView.locator('img[alt="Logo de Alcampo"]').getAttribute('src'),/almeria.online/);
     await settingsView.getByRole("switch",{name:"Habilitar Mercadona",exact:true}).uncheck();
     assert.equal(await settingsView.getByRole("switch",{name:"Habilitar Mercadona",exact:true}).isChecked(),false);
     assert.equal(await settingsPage.evaluate(()=>window.listSettings.stores.mercadona.postal_code),"28001");

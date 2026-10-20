@@ -171,6 +171,8 @@ async def test_store_ws_requires_admin(hass, hass_ws_client, hass_read_only_user
     assert (await client.receive_json())["error"]["code"] == "unauthorized"
     await client.send_json({"id": 9, "type": f"{DOMAIN}/catalog/store_prices"})
     assert (await client.receive_json())["result"]["products"] == []
+    await client.send_json({"id": 10, "type": f"{DOMAIN}/settings/refresh_prices", "store":"alcampo"})
+    assert (await client.receive_json())["error"]["code"] == "unauthorized"
     assert aioclient_mock.call_count == 0
 
 

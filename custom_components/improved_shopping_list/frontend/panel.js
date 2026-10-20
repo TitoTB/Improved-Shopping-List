@@ -364,7 +364,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
     this.style.setProperty("--isl-completed-gradient-text", gradientTextColor(appearance.completed_gradient_start, appearance.completed_gradient_end));
     this.style.setProperty("--isl-columns", appearance.columns);
     this.style.setProperty("--isl-mobile-columns", appearance.mobile_columns);
-    root.querySelector("isl-settings").data = { hass: this._hass, settings: this._settings };
+    root.querySelector("isl-settings").data = { hass: this._hass, settings: this._settings, products:[...this._catalogProducts.values()] };
     root.querySelector("isl-readers").data = { hass: this._hass, settings: this._settings, readers: this._readers };
     root.querySelector("isl-logs").hass = this._hass;
     const state = this._hass.states[session.entityId];

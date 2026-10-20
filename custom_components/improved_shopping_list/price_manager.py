@@ -186,10 +186,9 @@ class PriceManager:
     async def _prepare(self, day):
         names, failures = await self.pending_names()
         jobs = {}
-        if failures and self._data["day"] == day:
-            for job in self._data["pending"]:
-                if self._linked_job(job):
-                    jobs[self.key(job["store"],job["link"],job["scope"])] = job
+        for job in self._data["pending"]:
+            if (job.get("manual") or failures and self._data["day"] == day) and self._linked_job(job):
+                jobs[self.key(job["store"],job["link"],job["scope"])] = job
         for product in self.catalog.products:
             if normalized_name(product["name"]) not in names:
                 continue
@@ -198,7 +197,7 @@ class PriceManager:
                     scope = self.scope(store)
                     key = self.key(store, link, scope)
                     if self._data["attempts"].get(key) != day:
-                        jobs[key] = {"store":store, "link":link, "scope":scope}
+                        jobs.setdefault(key, {"store":store, "link":link, "scope":scope})
         pending = sorted(jobs.values(), key=lambda job:self._data["offers"].get(self.key(job["store"], job["link"], job["scope"]), {}).get("checked_at", 0))
         processed = self._data["processed"] if self._data["day"] == day else 0
         self._data.update(day=day, pending=pending, total=processed+len(pending), processed=processed,
@@ -208,6 +207,54 @@ class PriceManager:
         self.activity.record("stores.queue", "Revisión nocturna de precios preparada", source="automatic",
             diagnostics={"references":len(pending), "interval_seconds":INTERVAL, "unavailable_lists":failures})
         self._notify()
+
+    async def async_refresh_store(self, store):
+        """Queue a deliberate manual run without bypassing durable HTTP pacing."""
+        async with self._lock:
+            if not self._active or not self.hass.data.get(DOMAIN, {}).get("active"):
+                raise ValueError("La integración no está disponible.")
+            if not self.settings.snapshot["stores"].get(store, {}).get("enabled"):
+                raise ValueError("Habilita la tienda antes de actualizar sus precios.")
+            if store == "mercadona" and not self.scope(store):
+                raise ValueError("Configura el código postal de Mercadona antes de actualizar.")
+            if time.time() < self._data["blocked_until"].get(store, 0):
+                raise ValueError("La tienda ha indicado una pausa. Espera antes de volver a actualizar.")
+            active = [job for job in self._data["pending"] if job["store"] == store and not job.get("blocked")]
+            if active:
+                return {**self.snapshot(store), "queued":len(active)}
+            blocked = [job for job in self._data["pending"] if job["store"] == store and job.get("blocked")]
+            for job in blocked:
+                self._data["pending"].remove(job)
+                self._data["processed"] += 1
+            names, failures = await self.pending_names()
+            if failures:
+                raise ValueError("No se pudieron leer todas las listas. Comprueba su disponibilidad y vuelve a intentarlo.")
+            jobs = {}
+            for product in self.catalog.products:
+                link = self.links_for_product(product).get(store)
+                if link and normalized_name(product["name"]) in names:
+                    scope = self.scope(store)
+                    key = self.key(store, link, scope)
+                    jobs[key] = {"store":store, "link":link, "scope":scope, "manual":True}
+            existing = {self.key(job["store"],job["link"],job["scope"]):job for job in self._data["pending"]}
+            added = 0
+            for key, job in jobs.items():
+                # Repeated clicks cannot restart an active run or replay reserved requests.
+                if key not in existing:
+                    self._data["pending"].append(job)
+                    added += 1
+            if not self._data["pending"]:
+                return {**self.snapshot(store), "queued":0}
+            if len(self._data["pending"]) == added:
+                self._data.update(total=added, processed=0, started_at=time.time())
+            else:
+                self._data["total"] += added
+            await self._save()
+            self.activity.record("stores.queue", f"{STORES[store]}: actualización manual solicitada", source="manual",
+                diagnostics={"references":len(jobs), "added":added, "interval_seconds":INTERVAL})
+            self._notify()
+        self._queue()
+        return {**self.snapshot(store), "queued":len(jobs)}
 
     def _current_job(self, job, names):
         return (self._linked_job(job) and any(
@@ -234,6 +281,7 @@ class PriceManager:
             raise PriceError("No se pudo confirmar la lista; consulta aplazada." if failures else "El producto ya no está pendiente; consulta omitida.",
                 response_class="list_unavailable" if failures else "no_longer_pending")
         self._data["attempts"][self.key(job["store"],job["link"],job["scope"])] = dt_util.now().date().isoformat()
+        job["reserved"] = True
         self._data["next_request"] = time.time()+INTERVAL
         await self._save()  # Persist request reservation before touching the retailer.
 
@@ -259,8 +307,9 @@ class PriceManager:
                     self._data["pending"].append(self._data["pending"].pop(0))
                     deferred += 1
                     continue
-                if (not self._current_job(job, names) or self._data["attempts"].get(key) == day
-                    or self._data["blocked_day"].get(store) == day or time.time() < self._data["blocked_until"].get(store, 0)):
+                if (not self._current_job(job, names) or job.get("reserved") or job.get("blocked")
+                    or not job.get("manual") and (self._data["attempts"].get(key) == day or self._data["blocked_day"].get(store) == day)
+                    or time.time() < self._data["blocked_until"].get(store, 0)):
                     self._data["pending"].pop(0)
                     self._data["processed"] += 1
                     await self._save()
@@ -268,6 +317,7 @@ class PriceManager:
                     continue
                 entry, generation = self.settings.entry, self.settings._generation
                 configuration = deepcopy(self.settings.snapshot["stores"][store])
+                source = "manual" if job.get("manual") else "automatic"
                 self._configuration = (entry, generation, configuration, job)
                 try:
                     result = await self.sources.fetch(store, job["link"], configuration, self._reserve_request)
@@ -277,14 +327,15 @@ class PriceManager:
                     if isinstance(result, dict):
                         self._data["offers"][key] = {**result, "checked_at":time.time(), "scope":job["scope"]}
                         self._data["errors"].pop(store, None)
-                        self.activity.record("stores.price", f"{STORES[store]}: precio actualizado", source="automatic",
+                        self.activity.record("stores.price", f"{STORES[store]}: precio actualizado", source=source,
                             diagnostics={"reference_id":job["link"]["id"], "price":result["price"], "currency":result["currency"]})
                     elif result is None:
-                        self.activity.record("stores.not_found", f"{STORES[store]}: referencia no disponible; se conserva el último precio", source="automatic",
+                        self.activity.record("stores.not_found", f"{STORES[store]}: referencia no disponible; se conserva el último precio", source=source,
                             diagnostics={"reference_id":job["link"]["id"], "http_status":404})
                 except (PriceError, aiohttp.ClientError, asyncio.TimeoutError, ValueError, KeyError, TypeError) as err:
                     diagnostics = getattr(err, "diagnostics", {"response_class":"invalid_response"})
                     if diagnostics.get("response_class") == "list_unavailable":
+                        await self._save()
                         return
                     if diagnostics.get("response_class") in ("configuration_changed", "no_longer_pending"):
                         self._data["pending"].pop(0)
@@ -296,7 +347,10 @@ class PriceManager:
                     if diagnostics.get("http_status") in (403, 429):
                         self._data["blocked_day"][store] = day
                         self._data["blocked_until"][store] = time.time()+diagnostics.get("retry_seconds", 0)
-                    self.activity.record("stores.error", self._data["errors"][store], source="automatic", store=STORES[store],
+                        for queued in self._data["pending"]:
+                            if queued["store"] == store:
+                                queued["blocked"] = True
+                    self.activity.record("stores.error", self._data["errors"][store], source=source, store=STORES[store],
                         diagnostics={**diagnostics, "reference_id":job["link"]["id"], "next_attempt":"next_daily_run"})
                 finally:
                     self._configuration = None

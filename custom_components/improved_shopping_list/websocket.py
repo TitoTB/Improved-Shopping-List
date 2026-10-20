@@ -53,6 +53,7 @@ def async_register_commands(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_favorite_store)
     websocket_api.async_register_command(hass, ws_price_schedule)
     websocket_api.async_register_command(hass, ws_cached_prices)
+    websocket_api.async_register_command(hass, ws_refresh_prices)
     websocket_api.async_register_command(hass, ws_readers_get)
     websocket_api.async_register_command(hass, ws_readers_subscribe)
     websocket_api.async_register_command(hass, ws_readers_save)
@@ -359,6 +360,21 @@ async def ws_price_schedule(hass, connection, msg):
         result = hass.data[DOMAIN]["settings"].update_price_schedule(msg["time"])
     except StoreError as err:
         connection.send_error(msg["id"], "invalid_schedule", str(err))
+    else:
+        connection.send_result(msg["id"], result)
+
+
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/settings/refresh_prices",
+    vol.Required("store"):vol.In(("mercadona", "carrefour", "alcampo"))})
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_refresh_prices(hass, connection, msg):
+    if not _catalog(hass, connection, msg):
+        return
+    try:
+        result = await hass.data[DOMAIN]["price_manager"].async_refresh_store(msg["store"])
+    except (ValueError, OSError) as err:
+        connection.send_error(msg["id"], "price_refresh_error", str(err))
     else:
         connection.send_result(msg["id"], result)
 

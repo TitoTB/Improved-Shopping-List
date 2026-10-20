@@ -109,6 +109,81 @@ async def test_no_daytime_first_run_and_daily_configurable_start(env):
     assert len(env.requests) == 1
 
 
+async def test_manual_daytime_run_only_pending_selected_store_and_shared_pacing(env):
+    env.manager._queue = Mock()
+    env.clock[0] += 12*3600
+    env.items["todo.one"].append({"summary":"Café","status":"needs_action"})
+    env.catalog.products.append(product("Arroz","69938","mercadona"))
+    result = await env.manager.async_refresh_store("alcampo")
+    assert result["queued"] == 2 and not env.requests
+    await env.manager.async_tick()
+    assert len(env.requests) == 1
+    # Clicking again while the remaining references wait does not requeue the first.
+    await env.manager.async_refresh_store("alcampo")
+    assert len(env.manager._data["pending"]) == 1
+    env.clock[0] += 299
+    await env.manager.async_tick()
+    assert len(env.requests) == 1
+    env.clock[0] += 1
+    await env.manager.async_tick()
+    assert len(env.requests) == 2 and all(request[0] == "alcampo" for request in env.requests)
+    assert env.manager.activity.record.call_args.kwargs["source"] == "manual"
+
+
+async def test_manual_can_repeat_today_but_preserves_five_minute_wait(env):
+    env.manager._queue = Mock()
+    await env.manager.async_tick()
+    assert len(env.requests) == 1
+    await env.manager.async_refresh_store("alcampo")
+    await env.manager.async_tick()
+    assert len(env.requests) == 1
+    env.clock[0] += 300
+    await env.manager.async_tick()
+    assert len(env.requests) == 2
+
+
+async def test_manual_skips_bought_during_wait_and_keeps_last_price(env):
+    env.manager._queue = Mock()
+    await env.manager.async_tick()
+    old = deepcopy(env.manager._data["offers"])
+    await env.manager.async_refresh_store("alcampo")
+    env.items["todo.one"] = env.items["todo.two"] = []
+    env.clock[0] += 300
+    await env.manager.async_tick()
+    assert len(env.requests) == 1 and env.manager._data["offers"] == old
+    assert not env.manager._data["pending"]
+
+
+async def test_manual_rejects_disabled_unavailable_lists_and_server_wait(env,hass):
+    env.manager._queue = Mock()
+    env.settings.snapshot["stores"]["alcampo"]["enabled"] = False
+    with pytest.raises(ValueError,match="Habilita"):
+        await env.manager.async_refresh_store("alcampo")
+    env.settings.snapshot["stores"]["alcampo"]["enabled"] = True
+    hass.states.async_set("todo.one","unavailable")
+    with pytest.raises(ValueError,match="listas"):
+        await env.manager.async_refresh_store("alcampo")
+    env.manager._data["blocked_until"]["alcampo"] = env.clock[0]+600
+    with pytest.raises(ValueError,match="pausa"):
+        await env.manager.async_refresh_store("alcampo")
+    assert not env.requests
+
+
+async def test_manual_reserved_request_not_replayed_after_restart(env,hass):
+    env.manager._queue = Mock()
+    env.clock[0] += 12*3600
+    await env.manager.async_refresh_store("alcampo")
+    job = env.manager._data["pending"][0]
+    job["reserved"] = True  # Crash after durable reservation, before reply.
+    await env.manager._save()
+    restored = PriceManager(hass,env.catalog,env.settings,env.manager.activity)
+    await restored.async_load()
+    restored._active = True
+    restored.sources = env.manager.sources
+    await restored.async_tick()
+    assert not env.requests and not restored._data["pending"]
+
+
 async def test_unavailable_list_does_not_block_known_pending_from_other_list(env,hass):
     hass.states.async_set("todo.one", "unavailable")
     await env.manager.async_tick()

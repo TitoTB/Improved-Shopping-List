@@ -1,8 +1,10 @@
 """Exercise configuration, actual panel registration and reloads in HA Core."""
 
+import pytest
+
 from homeassistant.components.frontend import DATA_PANELS
 from homeassistant.config_entries import SOURCE_USER
-from homeassistant.data_entry_flow import FlowResultType
+from homeassistant.data_entry_flow import FlowResultType, InvalidData
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.improved_shopping_list.const import (
@@ -20,12 +22,16 @@ async def test_config_flow_rejects_missing_and_non_todo_entities(hass):
         DOMAIN, context={"source": SOURCE_USER}
     )
     assert result["type"] == FlowResultType.FORM
-    for entity_id in ("todo.missing", "sensor.example"):
-        result = await hass.config_entries.flow.async_configure(
-            result["flow_id"], {CONF_TODO_ENTITY: entity_id}
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {CONF_TODO_ENTITY: "todo.missing"}
+    )
+    assert result["type"] == FlowResultType.FORM
+    assert result["errors"] == {CONF_TODO_ENTITY: "invalid_entity"}
+    # The native entity selector rejects the wrong domain before our handler.
+    with pytest.raises(InvalidData):
+        await hass.config_entries.flow.async_configure(
+            result["flow_id"], {CONF_TODO_ENTITY: "sensor.example"}
         )
-        assert result["type"] == FlowResultType.FORM
-        assert result["errors"] == {CONF_TODO_ENTITY: "invalid_entity"}
 
 
 async def test_config_flow_creates_entry_and_prevents_duplicate(hass):

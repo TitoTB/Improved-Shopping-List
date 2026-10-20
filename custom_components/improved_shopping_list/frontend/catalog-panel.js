@@ -185,7 +185,6 @@ class ImprovedShoppingCatalog extends HTMLElement {
         @media(max-width:390px) { .fields { grid-template-columns:1fr; } .heading { align-items:flex-start; } }
       </style>
       <div class="heading"><h1>Catálogo</h1><div class="heading-actions"><button id="catalog-refresh" aria-label="Actualizar catálogo" title="Actualizar catálogo"><ha-icon icon="mdi:refresh"></ha-icon></button></div></div>
-      <p class="helper">Tus productos, categorías y etiquetas, disponibles para todas tus listas.</p>
       <nav class="catalog-tabs" aria-label="Vistas del catálogo"><button id="view-products" aria-pressed="true"><ha-icon icon="mdi:package-variant"></ha-icon>Productos</button><button id="view-categories" aria-pressed="false"><ha-icon icon="mdi:shape"></ha-icon>Categorías</button><button id="view-suggestions" aria-pressed="false"><ha-icon icon="mdi:creation"></ha-icon>Sugerencias</button></nav>
       <div id="catalog-error" class="notice error" role="alert" hidden></div>
       <div id="catalog-status" class="notice" role="status" hidden></div>

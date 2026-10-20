@@ -236,6 +236,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
           <div class="fields">
             <label class="wide">Nombre del producto<input name="name" required maxlength="160" placeholder="Por ejemplo, Cacao"></label>
             <isl-icon-picker class="wide"></isl-icon-picker>
+            <label class="wide">URL Imagen/Icono<input name="image_url" maxlength="2048" placeholder="https://… o /local/producto.png"></label>
             <div><label for="product-category">Categoría</label><div class="product-category-controls"><select id="product-category" name="category"><option value="">Sin categoría</option></select><button id="add-product-category" type="button" aria-label="Nueva categoría" title="Nueva categoría"><ha-icon icon="mdi:plus-thick"></ha-icon></button></div></div>
             <label>Etiquetas<input name="tags" maxlength="850" placeholder="Desayuno, sin gluten"></label>
             <label class="wide">Código de barras<input name="barcode" type="text" maxlength="1024"></label>
@@ -244,7 +245,6 @@ class ImprovedShoppingCatalog extends HTMLElement {
             <div class="wide"><h3>Acciones de los lectores</h3><div id="product-reader-actions"></div><p class="helper">La acción se aplica solo al reconocer este producto. Las acciones de stock quedan guardadas para cuando esté disponible el inventario.</p></div>
             <label>Precio orientativo<input name="price" type="number" min="0" max="1000000" step="0.01" placeholder="Sin precio"></label>
             <label>Moneda<select name="currency"><option value="EUR">EUR · Euro</option><option value="USD">USD · Dólar</option><option value="GBP">GBP · Libra</option></select></label>
-            <label class="wide">URL de la imagen<input name="image_url" maxlength="2048" placeholder="https://… o /local/producto.png"></label>
             <label class="wide">Icono del producto<input name="icon" maxlength="100" pattern="mdi:[a-z0-9]+(-[a-z0-9]+)*" placeholder="mdi:shopping"></label>
             <label class="wide">Notas<textarea name="notes" maxlength="1000"></textarea></label>
           </div>

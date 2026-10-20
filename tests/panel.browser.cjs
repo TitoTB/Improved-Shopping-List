@@ -81,8 +81,9 @@ const hass={
       if(msg.query==='slow')await new Promise(resolve=>{window.releaseIconSearch=resolve;});
       const query=msg.translate?({Leche:'Milk',Pan:'Bread',Arroz:'Rice'}[msg.query]??msg.query):msg.query;
       if(msg.translate&&msg.product_id){const product=window.catalogProducts.find(product=>product.id===msg.product_id);if(product){product.name_en=query;emitCatalog();}}
-      const icons=Array.from({length:12},(_,i)=>({id:'fluent-emoji-flat:milk-'+i,label:query+' '+(i+1),collection:'Fluent Emoji Flat',author:'Microsoft',license:'MIT',preview_url:'/improved_shopping_list_icons/fixture.svg'}));
-      return {icons:['zzzz','Arroz','Leche'].includes(query)?[]:icons,next_start:32,has_more:false,query};
+      const count=query==='paged'?(msg.start?3:32):12;
+      const icons=Array.from({length:count},(_,i)=>({id:'fluent-emoji-flat:milk-'+((msg.start??0)+i),label:query+' '+((msg.start??0)+i+1),collection:'Fluent Emoji Flat',author:'Microsoft',license:'MIT',preview_url:'/improved_shopping_list_icons/fixture.svg'}));
+      return {icons:['zzzz','Arroz','Leche'].includes(query)?[]:icons,next_start:(msg.start??0)+32,has_more:query==='paged'&&!msg.start,query};
     }
     if(msg.type==='improved_shopping_list/icons/import'){
       (window.iconImports??=[]).push(msg);
@@ -532,7 +533,7 @@ async function main() {
     assert.equal(await productCard.locator(".edit-product").evaluate(button => getComputedStyle(button).backgroundColor), "rgb(249, 168, 37)");
     await catalog.getByRole("button", { name: "Editar Yogur sin azúcar", exact: true }).click();
     await catalog.getByLabel("Categoría", { exact: true }).last().selectOption("Lácteos y frescos");
-    await catalog.getByLabel("URL de la imagen", { exact: true }).fill("/logo.png");
+    await catalog.getByLabel("URL Imagen/Icono", { exact: true }).fill("/logo.png");
     await catalog.getByRole("button", { name: "Guardar producto", exact: true }).click();
     await productCard.locator("img").evaluate(image => image.decode());
     assert.equal(await productCard.locator(".placeholder").count(), 0);
@@ -1177,23 +1178,41 @@ async function main() {
     await pickerDialog.getByRole("button",{name:"Elegir Milk 1 (Fluent Emoji Flat)",exact:true}).waitFor();
     assert.equal(await picker.getByRole("button",{name:"Buscar icono",exact:true}).count(),0);
     assert.equal(await picker.locator("dialog").count(),0);
-    assert.deepEqual(await picker.locator("button.option").allTextContents(),["","",""]);
+    assert.deepEqual(await picker.locator("button.option").allTextContents(),["","","",""]);
     assert.equal(await pickerDialog.locator(".option").count(),4);
-    assert.equal(await pickerDialog.locator("button.option").count(),3);
+    assert.equal(await pickerDialog.locator("button.option:not(.more)").count(),3);
     assert.equal(await pickerDialog.getByLabel("Buscar iconos",{exact:true}).inputValue(),"Milk");
-    const allIcons=pickerDialog.getByRole("link",{name:"Ver todos los iconos en Iconify",exact:true});
-    assert.equal(await allIcons.getAttribute('target'),'_blank');
+    const allIcons=pickerDialog.getByRole("button",{name:"Ver otros iconos",exact:true});
+    assert.equal(await allIcons.getAttribute('type'),'button');
     assert.equal(await allIcons.locator('ha-icon').getAttribute('icon'),'mdi:plus-thick');
     assert.equal(await allIcons.textContent(),'');
-    assert.equal(await pickerDialog.locator('#results > :last-child').getAttribute('id'),'all-icons');
-    await iconContext.route('https://icon-sets.iconify.design/**',route=>route.fulfill({contentType:'text/html',body:'<title>Iconify search</title>'}));
-    const popupPromise=iconPage.waitForEvent('popup');
+    assert.equal(await pickerDialog.locator('#results > :last-child').getAttribute('id'),'more-icons');
+    const pagesBeforeMore=iconContext.pages().length;
     await allIcons.click();
-    const popup=await popupPromise;
-    await popup.waitForURL('https://icon-sets.iconify.design/**');
-    assert.equal(new URL(popup.url()).searchParams.get('query'),'Milk');
-    await popup.close();
+    await pickerDialog.getByRole('button',{name:'Elegir Milk 4 (Fluent Emoji Flat)',exact:true}).waitFor();
+    assert.equal(await pickerDialog.locator('.option').count(),4);
+    assert.equal(iconContext.pages().length,pagesBeforeMore);
+    await allIcons.click();
+    await pickerDialog.getByRole('button',{name:'Elegir Milk 7 (Fluent Emoji Flat)',exact:true}).waitFor();
+    await allIcons.click();
+    await pickerDialog.getByRole('button',{name:'Elegir Milk 10 (Fluent Emoji Flat)',exact:true}).waitFor();
+    await allIcons.click();
+    await pickerDialog.getByRole('button',{name:'Elegir Milk 1 (Fluent Emoji Flat)',exact:true}).waitFor();
     assert.equal(await iconPage.evaluate(()=>window.iconCalls.length),1);
+    // Crossing an API batch boundary must not skip result 33.
+    await pickerDialog.getByLabel('Buscar iconos',{exact:true}).fill('paged');
+    await pickerDialog.getByLabel('Buscar iconos',{exact:true}).press('Enter');
+    await pickerDialog.getByRole('button',{name:'Elegir paged 1 (Fluent Emoji Flat)',exact:true}).waitFor();
+    for(let index=0;index<9;index++)await allIcons.click();
+    await pickerDialog.getByRole('button',{name:'Elegir paged 28 (Fluent Emoji Flat)',exact:true}).waitFor();
+    await iconPage.evaluate(()=>{window.failIconSearch=true;});
+    await allIcons.click();
+    await pickerDialog.getByRole('status').filter({hasText:'Iconify sin conexión'}).waitFor();
+    assert.equal(await pickerDialog.getByRole('button',{name:'Elegir paged 28 (Fluent Emoji Flat)',exact:true}).count(),1);
+    await iconPage.evaluate(()=>{window.failIconSearch=false;});
+    await allIcons.click();
+    await pickerDialog.getByRole('button',{name:'Elegir paged 33 (Fluent Emoji Flat)',exact:true}).waitFor();
+    assert.equal(await iconPage.evaluate(()=>window.iconCalls.at(-1).start),32);
     // A newer search wins over a delayed response, without submitting the enclosing product form.
     await pickerDialog.getByLabel("Buscar iconos",{exact:true}).fill("slow");
     await pickerDialog.getByLabel("Buscar iconos",{exact:true}).press("Enter");
@@ -1217,7 +1236,7 @@ async function main() {
     await iconPage.evaluate(()=>{window.failIconImport=true;});
     await pickerDialog.getByRole("button",{name:"Elegir milk 1 (Fluent Emoji Flat)",exact:true}).click();
     await pickerDialog.getByRole("status").filter({hasText:"No se ha podido guardar"}).waitFor();
-    assert.equal(await iconForm.getByLabel("URL de la imagen",{exact:true}).inputValue(),"");
+    assert.equal(await iconForm.getByLabel("URL Imagen/Icono",{exact:true}).inputValue(),"");
     await iconPage.evaluate(()=>{window.failIconImport=false;});
     await iconPage.screenshot({path:"test-results/icon-picker-desktop.png",fullPage:true});
     await iconPage.setViewportSize({width:320,height:844});
@@ -1226,8 +1245,8 @@ async function main() {
     assert.equal(await pickerDialog.evaluate(dialog=>dialog.scrollWidth<=dialog.clientWidth),true);
     await pickerDialog.getByRole("button",{name:"Elegir milk 1 (Fluent Emoji Flat)",exact:true}).click();
     await picker.getByRole("link",{name:"MIT",exact:true}).waitFor();
-    assert.equal(await picker.locator("button.option").count(),3);
-    assert.equal(await iconForm.getByLabel("URL de la imagen",{exact:true}).inputValue(),"/improved_shopping_list_icons/fixture.svg");
+    assert.equal(await picker.locator("button.option:not(.more)").count(),3);
+    assert.equal(await iconForm.getByLabel("URL Imagen/Icono",{exact:true}).inputValue(),"/improved_shopping_list_icons/fixture.svg");
     await picker.getByRole("link",{name:"MIT",exact:true}).waitFor();
     assert.equal(await iconPage.evaluate(()=>window.catalogProducts.length),0);
     await iconForm.getByRole("button",{name:"Guardar producto",exact:true}).click();
@@ -1243,7 +1262,7 @@ async function main() {
     await iconCatalog.getByRole("button",{name:"Editar Leche",exact:true}).click();
     const editIconForm = iconCatalog.getByRole("dialog",{name:"Editar producto",exact:true});
     await picker.getByRole("link",{name:"MIT",exact:true}).waitFor();
-    assert.equal(await editIconForm.getByLabel("URL de la imagen",{exact:true}).inputValue(),savedIconProduct.image_url);
+    assert.equal(await editIconForm.getByLabel("URL Imagen/Icono",{exact:true}).inputValue(),savedIconProduct.image_url);
     await pickerDialog.getByRole("button",{name:"Elegir Milk 1 (Fluent Emoji Flat)",exact:true}).waitFor();
     assert.equal(await iconPage.evaluate(()=>window.iconCalls?.length??0),1);
     // Cancel a download, open a different draft, then resolve the old request: it must not change the draft.
@@ -1262,7 +1281,7 @@ async function main() {
     await iconCatalog.getByRole("button",{name:"Nuevo producto",exact:true}).click();
     await iconForm.getByLabel("Nombre del producto",{exact:true}).fill("Pan");
     await iconPage.evaluate(()=>window.releaseIconImport());
-    assert.equal(await iconForm.getByLabel("URL de la imagen",{exact:true}).inputValue(),"");
+    assert.equal(await iconForm.getByLabel("URL Imagen/Icono",{exact:true}).inputValue(),"");
     assert.equal(await iconForm.getByLabel("Nombre del producto",{exact:true}).inputValue(),"Pan");
     await iconForm.getByRole("button",{name:"Cancelar",exact:true}).click();
     // Clicking the tile adds to the provider; edit/delete controls never do.
@@ -1313,6 +1332,23 @@ async function main() {
     await oldCatalog.getByRole('button',{name:'Editar Arroz',exact:true}).click();
     await oldPicker.getByRole('button',{name:'Elegir Rice 1 (Fluent Emoji Flat)',exact:true}).waitFor();
     assert.equal(await oldIconPage.evaluate(()=>window.iconCalls.at(-1).translate),false);
+    // A hand-entered URL wins over an in-flight icon import, and persists on save/reload.
+    const customImage='https://example.test/custom-icon.svg';
+    await oldIconContext.route(customImage,route=>route.fulfill({contentType:'image/svg+xml',body:'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="#f9a825" d="M2 2h20v20H2z"/></svg>'}));
+    await oldIconPage.evaluate(()=>{window.delayIconImport=true;});
+    await oldPicker.getByRole('button',{name:'Elegir Rice 1 (Fluent Emoji Flat)',exact:true}).click();
+    await oldIconPage.waitForFunction(()=>typeof window.releaseIconImport==='function');
+    await oldCatalog.locator('#product-form').getByLabel('URL Imagen/Icono',{exact:true}).fill(customImage);
+    await oldIconPage.evaluate(()=>window.releaseIconImport());
+    assert.equal(await oldCatalog.locator('#product-form').getByLabel('URL Imagen/Icono',{exact:true}).inputValue(),customImage);
+    assert.equal(await oldCatalog.getByRole('button',{name:'Guardar producto',exact:true}).isDisabled(),false);
+    await oldCatalog.getByRole('button',{name:'Guardar producto',exact:true}).click();
+    await oldCatalog.getByRole('heading',{name:'Arroz',exact:true}).waitFor();
+    await oldIconPage.reload();
+    await oldIconPage.getByRole('button',{name:'Catálogo',exact:true}).click();
+    assert.equal(await oldIconPage.evaluate(()=>window.catalogProducts[0].image_url),customImage);
+    await oldCatalog.getByRole('button',{name:'Editar Arroz',exact:true}).click();
+    assert.equal(await oldCatalog.locator('#product-form').getByLabel('URL Imagen/Icono',{exact:true}).inputValue(),customImage);
     await oldIconContext.close();
     // Correcting a list suggestion renames original UIDs, preserving status and avoiding catalog duplicates on retry.
     const renameContext=await browser.newContext({viewport:{width:1280,height:960}});

@@ -1,4 +1,4 @@
-/** Three color suggestions and a fourth tile opening the full Iconify search. */
+/** Three color suggestions and a fourth tile cycling through other results. */
 const PREFIX = "improved_shopping_list/icons/";
 const LOCAL_PREFIX = "/improved_shopping_list_icons/";
 
@@ -35,9 +35,15 @@ class ImprovedShoppingIconPicker extends HTMLElement {
     if (this._built) this._renderResults();
   }
   set value(value) {
+    if (this._importing) {
+      this._generation += 1;
+      this._busy = this._importing = false;
+      this.onBusyChange?.(false);
+    }
     this._value = value ?? "";
     this._selectedId = undefined;
     this._showAttribution(null);
+    if (this._built) this._renderResults();
     const generation = ++this._infoGeneration;
     if (!this._value.startsWith(LOCAL_PREFIX) || !this._hass) return;
     void this._hass.callWS({ type: `${PREFIX}info`, image_url: this._value }).then(info => {
@@ -65,7 +71,7 @@ class ImprovedShoppingIconPicker extends HTMLElement {
         <h3>Iconos sugeridos</h3>
         <p id="status" role="status" hidden></p><div id="results" aria-label="Iconos sugeridos"></div>
         <label>Buscar iconos<input id="query" type="search" minlength="2" maxlength="100" placeholder="Puedes escribir otro término"></label>
-        <p class="helper">Las sugerencias se actualizan con el nombre del producto. El botón + abre todas las opciones en Iconify.</p>
+        <p class="helper">Las sugerencias se actualizan con el nombre del producto. Pulsa + para ver otras propuestas.</p>
         <div id="selected" hidden></div>
         <p class="helper">Iconos de <a href="https://iconify.design/" target="_blank" rel="noopener noreferrer">Iconify</a>. Se conservarán el autor y la licencia del icono elegido.</p>
       </section>`;
@@ -78,6 +84,7 @@ class ImprovedShoppingIconPicker extends HTMLElement {
       this._generation += 1;
       this._busy = false;
       this._icons = [];
+      this._hasMore = false;
       this._searchOptions = {};
       this._status("");
       this._renderResults();
@@ -94,6 +101,7 @@ class ImprovedShoppingIconPicker extends HTMLElement {
     this._generation += 1;
     this._busy = this._importing = false;
     this._icons = [];
+    this._hasMore = false;
     this._searchOptions = this.getSearchOptions?.() ?? {};
     this.shadowRoot.querySelector("#query").value = query.slice(0, 100);
     this._status("");
@@ -111,6 +119,7 @@ class ImprovedShoppingIconPicker extends HTMLElement {
     this._importing = false;
     this.onBusyChange?.(false);
     this._icons = [];
+    this._hasMore = false;
     this._searchOptions = this.getSearchOptions?.() ?? {};
     const query = this.getQuery?.() ?? "";
     this.shadowRoot.querySelector("#query").value = query.slice(0, 100);
@@ -141,6 +150,8 @@ class ImprovedShoppingIconPicker extends HTMLElement {
     const query = this.shadowRoot.querySelector("#query").value.trim();
     const generation = ++this._generation;
     this._icons = [];
+    this._pageStart = 0;
+    this._hasMore = false;
     this._query = query;
     if (query.length < 2) {
       this._busy = false;
@@ -158,10 +169,14 @@ class ImprovedShoppingIconPicker extends HTMLElement {
     try {
       const result = await this._hass.callWS({ type: `${PREFIX}search`, query, start, ...this._searchOptions });
       if (generation !== this._generation || !this.isConnected) return;
-      this._icons = result.icons.slice(0, 3);
+      const ids = new Set(this._icons.map(icon => icon.id));
+      this._icons.push(...result.icons.filter(icon => !ids.has(icon.id) && ids.add(icon.id)));
+      this._hasMore = Boolean(result.has_more);
+      this._nextStart = result.next_start;
+      this._query = result.query || query;
       if (result.query) this.shadowRoot.querySelector("#query").value = result.query;
       this._searchOptions = {};
-      this._status(this._icons.length ? "" : "No se han encontrado iconos a color. Prueba con otro término o abre la búsqueda completa con +.");
+      this._status(this._icons.length ? "" : "No se han encontrado iconos a color. Puedes escribir otro término o indicar una URL Imagen/Icono.");
       return true;
     } catch (error) {
       if (generation !== this._generation || !this.isConnected) return;
@@ -171,10 +186,28 @@ class ImprovedShoppingIconPicker extends HTMLElement {
     }
   }
 
+  async _more() {
+    if (this._busy || this._disabled || !this._active) return;
+    const generation = this._generation;
+    const next = this._pageStart + 3;
+    if (next + 3 > this._icons.length && this._hasMore) {
+      if (!await this._load(this._query, this._nextStart, generation) || generation !== this._generation) return;
+    }
+    if (generation !== this._generation || !this._active) return;
+    if (next < this._icons.length) {
+      this._pageStart = next;
+      this._status("");
+    } else if (!this._hasMore && this._icons.length > 3) {
+      this._pageStart = 0;
+      this._status("");
+    } else this._status("No hay otras propuestas disponibles. Puedes cambiar el término o indicar una URL Imagen/Icono.");
+    this._renderResults();
+  }
+
   _renderResults() {
     const root = this.shadowRoot;
     const suggestions = Array.from({length:3}, (_, index) => {
-      const icon = this._icons[index];
+      const icon = this._icons[(this._pageStart || 0) + index];
       if (!icon) { const empty = node("span", undefined, "option empty"); empty.setAttribute("aria-hidden", "true"); return empty; }
       const button = node("button", undefined, "option");
       button.type = "button";
@@ -193,13 +226,15 @@ class ImprovedShoppingIconPicker extends HTMLElement {
       return button;
     });
     const query = root.querySelector("#query").value.trim();
-    const more = link("", `https://icon-sets.iconify.design/?query=${encodeURIComponent(query)}`);
-    more.id = "all-icons";
+    const more = node("button");
+    more.type = "button";
+    more.id = "more-icons";
     more.className = "option more";
-    more.title = "Ver todos los iconos en Iconify";
+    more.title = "Ver otros iconos";
     more.setAttribute("aria-label", more.title);
     const plus = node("ha-icon"); plus.setAttribute("icon", "mdi:plus-thick"); plus.setAttribute("aria-hidden", "true"); more.append(plus);
-    if (query.length < 2 || this._disabled) { more.removeAttribute("href"); more.setAttribute("aria-disabled", "true"); more.tabIndex = -1; }
+    more.disabled = query.length < 2 || Boolean(this._busy || this._disabled) || (this._icons.length <= 3 && !this._hasMore);
+    more.addEventListener("click", () => void this._more());
     root.querySelector("#results").replaceChildren(...suggestions, more);
     root.querySelector("#query").disabled = Boolean(this._importing || this._disabled);
   }

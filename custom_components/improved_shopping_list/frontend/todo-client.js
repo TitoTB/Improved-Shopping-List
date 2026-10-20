@@ -32,6 +32,7 @@ export class TodoSession {
     this.error = "";
     this._generation = 0;
     this._revision = 0;
+    this._pendingAdds = new Map();
   }
 
   async select(entityId) {
@@ -100,7 +101,35 @@ export class TodoSession {
   async add(summary) {
     const item = summary.trim();
     if (!item) return false;
-    return this._mutate("add_item", { item }, FEATURES.CREATE);
+    const entityId = this.entityId;
+    const generation = this._generation;
+    const key = JSON.stringify([entityId, productNameKey(item)]);
+    if (this._pendingAdds.has(key)) return this._pendingAdds.get(key);
+    const operation = (async () => {
+      const validate = feature => {
+        const state = this.getHass().states[entityId];
+        if (!isAvailable(state)) throw new Error("La lista seleccionada no está disponible.");
+        if (!supports(state, feature)) throw new Error("Esta lista no admite esa operación.");
+      };
+      validate(FEATURES.CREATE);
+      // Read the provider before writing: the panel snapshot may be out of date.
+      const {items} = await this.getHass().callWS({type:"todo/item/list",entity_id:entityId});
+      if (!Array.isArray(items)) throw new Error("No se ha podido comprobar el contenido de la lista.");
+      const matches = items.filter(value => productNameKey(value.summary) === productNameKey(item));
+      if (!matches.some(value => value.status !== "completed")) {
+        const completed = matches.find(value => value.uid && value.status === "completed");
+        if (matches.length && !completed) throw new Error("El producto de la lista no tiene un identificador válido.");
+        validate(completed ? FEATURES.UPDATE : FEATURES.CREATE);
+        await this.getHass().callService("todo", completed ? "update_item" : "add_item", completed
+          ? {entity_id:entityId,item:completed.uid,status:"needs_action"}
+          : {entity_id:entityId,item});
+      }
+      if (generation === this._generation) await this.refresh();
+      return true;
+    })();
+    this._pendingAdds.set(key, operation);
+    try { return await operation; }
+    finally { if (this._pendingAdds.get(key) === operation) this._pendingAdds.delete(key); }
   }
 
   async setCompleted(item, completed) {

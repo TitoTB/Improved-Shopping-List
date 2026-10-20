@@ -76,6 +76,54 @@ function fixture() {
   return { hass, session, calls, listeners };
 }
 
+test("adding checks fresh names without accents or case and reuses completed UIDs", async () => {
+  const {hass,session,calls}=fixture();
+  await session.select("todo.bring");
+  let items=[{uid:"existing",summary:"  SEITÁN  ",status:"needs_action"}];
+  hass.callWS=async()=>({items:structuredClone(items)});
+  await session.add("Seitan");
+  assert.equal(calls.length,0);
+  items[0].status="completed";
+  await session.add("Seitan");
+  assert.deepEqual(calls,[["todo","update_item",{entity_id:"todo.bring",item:"existing",status:"needs_action"}]]);
+  session.dispose();
+});
+
+test("simultaneous equivalent additions share one write and a failure permits retry", async () => {
+  const {hass,session,calls}=fixture();
+  await session.select("todo.bring");
+  const read=deferred();
+  hass.callWS=()=>read.promise;
+  const first=session.add("Seitán");
+  const second=session.add("SEITAN");
+  read.resolve({items:[]});
+  await Promise.all([first,second]);
+  assert.equal(calls.length,1);
+  hass.callWS=async()=>{throw new Error("Lectura fallida");};
+  await assert.rejects(session.add("Arroz"),/Lectura fallida/);
+  hass.callWS=async()=>({items:[]});
+  await session.add("Arroz");
+  assert.equal(calls.length,2);
+  session.dispose();
+});
+
+test("a delayed add keeps its original list and refuses to duplicate completed items without update support", async () => {
+  const {hass,session,calls}=fixture();
+  await session.select("todo.bring");
+  const read=deferred();
+  hass.callWS=({entity_id})=>entity_id==="todo.bring"?read.promise:Promise.resolve({items:[]});
+  const adding=session.add("Cacao");
+  await session.select("todo.local");
+  read.resolve({items:[]});
+  await adding;
+  assert.equal(calls[0][2].entity_id,"todo.bring");
+  hass.states['todo.local'].attributes.supported_features=1;
+  hass.callWS=async()=>({items:[{uid:"done",summary:"Pan",status:"completed"}]});
+  await assert.rejects(session.add("Pan"),/no admite/);
+  assert.equal(calls.length,1);
+  session.dispose();
+});
+
 test("discovers every todo provider and respects capability flags", () => {
   const { hass } = fixture();
   hass.states["sensor.other"] = { entity_id: "sensor.other", attributes: {} };

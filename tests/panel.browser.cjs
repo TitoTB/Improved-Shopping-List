@@ -465,10 +465,15 @@ async function main() {
     assert.equal(await page.evaluate(()=>window.calls.length),callsBeforeProductControls);
     await catalog.getByRole("button", { name: "Añadir Yogur sin azúcar a la lista", exact: true }).focus();
     await page.keyboard.press("Enter");
-    await catalog.getByRole("status").filter({ hasText: "Yogur sin azúcar añadido" }).waitFor();
+    await page.waitForFunction(()=>window.listData['todo.bring'].some(item=>item.summary==='Yogur sin azúcar'&&item.status==='needs_action'));
     assert.equal((await page.evaluate(() => window.calls)).at(-1).entity_id, "todo.bring");
     assert.equal((await page.evaluate(() => window.calls)).at(-1).item, "Yogur sin azúcar");
     assert.equal(await productCard.getAttribute("data-in-list"), "true");
+    assert.equal(await productCard.locator(".add-product").isDisabled(),true);
+    const callsAfterCatalogAdd=await page.evaluate(()=>window.calls.length);
+    await productCard.locator(".add-product").evaluate(button=>button.click());
+    assert.equal(await page.evaluate(()=>window.calls.length),callsAfterCatalogAdd);
+    assert.equal(await catalog.getByRole("status").filter({hasText:"añadido"}).count(),0);
     await assertCatalogBadge();
     await assertEditButton();
     assert.equal(await productCard.evaluate(node => getComputedStyle(node).backgroundImage), "linear-gradient(rgb(238, 82, 79), rgb(181, 42, 39))");
@@ -1246,7 +1251,7 @@ async function main() {
     await iconForm.getByRole("button",{name:"Cancelar",exact:true}).click();
     // Clicking the tile adds to the provider; edit/delete controls never do.
     await iconCatalog.locator("#catalog-grid .product").click();
-    await iconCatalog.getByRole("status").filter({hasText:"Leche añadido"}).waitFor();
+    await iconPage.waitForFunction(()=>window.listData['todo.bring'].some(item=>item.summary==='Leche'&&item.status==='needs_action'));
     const providerCallsBeforeDelete = await iconPage.evaluate(()=>window.calls.length);
     await iconCatalog.getByRole("button",{name:"Eliminar Leche",exact:true}).click();
     const deleteProductDialog = iconCatalog.getByRole("dialog",{name:"Eliminar producto",exact:true});

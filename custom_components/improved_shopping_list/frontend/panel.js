@@ -244,7 +244,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
     root.querySelector("isl-settings").onAction = (action, entity) => this._settings.update(action, entity);
     root.querySelector("isl-settings").onAppearance = appearance => this._settings.saveAppearance(appearance);
     root.querySelector("isl-catalog").onAdd = (product) => this._runAction(
-      () => this._session.add(product.name), `${product.name} añadido a la lista.`,
+      () => this._session.add(product.name), "",
     );
     root.querySelector("isl-catalog").onRenameSuggestion = (source, name) => this._session.renameFromSuggestion(source,name);
     root.querySelector(".menu").addEventListener("click", () => {

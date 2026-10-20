@@ -519,9 +519,9 @@ class ImprovedShoppingCatalog extends HTMLElement {
     // Edit/delete are sibling controls above it, so they never activate list writes.
     const add = element("button", "add-product");
     add.type = "button";
-    add.title = this._canAdd ? `Añadir ${product.name} a «${this._listName}»` : "Selecciona una lista disponible en el apartado Lista para añadir productos.";
+    add.title = inList ? "Este producto ya está en la lista." : this._canAdd ? `Añadir ${product.name} a «${this._listName}»` : "Selecciona una lista disponible en el apartado Lista para añadir productos.";
     add.setAttribute("aria-label", `Añadir ${product.name} a la lista`);
-    add.disabled = !this._canAdd || Boolean(this._adding);
+    add.disabled = inList || !this._canAdd || Boolean(this._adding);
     add.addEventListener("click", () => void this._addToList(product));
     card.append(add);
     const top = element("div", "product-top");
@@ -678,13 +678,12 @@ class ImprovedShoppingCatalog extends HTMLElement {
   }
 
   async _addToList(product) {
-    if (!this._canAdd || this._adding || !this.onAdd) return;
-    const listName = this._listName;
+    if (!this._canAdd || this._adding || !this.onAdd || this._pendingNames.has(productNameKey(product.name))) return;
     this._adding = product.id;
     this._notice = "";
     this._render();
     try {
-      if (await this.onAdd(product)) this._notice = `${product.name} añadido a «${listName}».`;
+      await this.onAdd(product);
     } finally {
       this._adding = undefined;
       this._render();

@@ -84,7 +84,9 @@ async def test_settings_cannot_be_changed_by_non_admin(hass, hass_ws_client, has
     entry = MockConfigEntry(domain=DOMAIN, data={CONF_TODO_ENTITY: "todo.bring"})
     entry.add_to_hass(hass)
     assert await hass.config_entries.async_setup(entry.entry_id)
-    client = await hass_ws_client(hass, hass_read_only_user)
+    refresh_token = await hass.auth.async_create_refresh_token(hass_read_only_user)
+    access_token = hass.auth.async_create_access_token(refresh_token)
+    client = await hass_ws_client(hass, access_token)
     await client.send_json({"id": 1, "type": f"{DOMAIN}/settings/get"})
     assert (await client.receive_json())["success"]
     await client.send_json({"id": 2, "type": f"{DOMAIN}/settings/update", "action": "remove", "entity_id": "todo.bring"})

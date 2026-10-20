@@ -66,7 +66,7 @@ async def add_product(env, reader, **changes):
 async def test_lookup_enriches_unknown_scan_without_associating_or_adding(hass, reader_env, monkeypatch):
     env=reader_env
     reader=await add_reader(env)
-    fetch=AsyncMock(return_value={"status":"found","name":"Cacao soluble","brand":"Marca","quantity":"500 g"})
+    fetch=AsyncMock(return_value={"status":"found","name":"Cacao soluble"})
     monkeypatch.setattr(env.manager.lookup,"_fetch",fetch)
     await env.manager.async_process(reader["id"],"3017620422003")
     await asyncio.gather(*tuple(env.manager._tasks))

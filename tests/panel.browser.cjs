@@ -118,6 +118,7 @@ const hass={
       if(window.failCatalog)throw new Error('No se ha podido guardar el catálogo');
       const old=window.catalogProducts.find(product=>product.id===msg.product.id);
       const product={...msg.product,id:old?.id??crypto.randomUUID(),revision:(old?.revision??0)+1,price_updated_at:new Date().toISOString()};
+      delete product.brand;delete product.format;
       window.catalogProducts=window.catalogProducts.filter(item=>item.id!==product.id);window.catalogProducts.push(product);
       emitCatalog();
       return {product};
@@ -300,8 +301,8 @@ async function main() {
     assert.equal(await catalog.getByLabel("Nombre del producto", { exact:true }).inputValue(), "Yogur natural");
     assert.equal(await page.evaluate(() => window.catalogProducts.length), 0);
     await catalog.getByLabel("Etiquetas", { exact: true }).fill("Desayuno, Fresco");
-    await catalog.getByLabel("Marca", { exact: true }).fill("Marca de prueba");
-    await catalog.getByLabel("Formato", { exact: true }).fill("4 × 125 g");
+    assert.equal(await catalog.getByLabel("Marca", { exact: true }).count(), 0);
+    assert.equal(await catalog.getByLabel("Formato", { exact: true }).count(), 0);
     await catalog.getByLabel("Código de barras", { exact: true }).fill("0012345678905");
     await catalog.getByLabel("Precio orientativo", { exact: true }).fill("2.59");
     await catalog.getByRole("button", { name: "Guardar producto", exact: true }).click();
@@ -364,7 +365,7 @@ async function main() {
     assert.equal(await yogurtListCard.locator(".placeholder ha-icon").getAttribute("icon"), "mdi:view-grid");
     assert.equal(await yogurtListCard.locator(".category-badge").getAttribute("title"), "Lácteos y frescos");
     assert.equal(await yogurtListCard.locator(".category-badge").evaluate(node => getComputedStyle(node).color), "rgb(255, 255, 255)");
-    assert.equal(await yogurtListCard.locator(".subtitle").textContent(), "Marca de prueba · 4 × 125 g");
+    assert.equal(await yogurtListCard.locator(".subtitle").count(), 0);
     assert.equal((await yogurtListCard.textContent()).includes("2,59"), false);
     await page.screenshot({ path: "test-results/list-grid-desktop.png", fullPage: true });
     await page.getByRole("button", { name: "Marcar como comprado: Yogur sin azúcar", exact: true }).click();
@@ -500,7 +501,6 @@ async function main() {
     assert.deepEqual(await suggestions.locator("h2").allTextContents(), ["Arroz", "Cacao"]);
     await suggestions.getByRole("button", { name:"Añadir al catálogo: Cacao", exact:true }).click();
     await suggestionDialog.getByLabel("Categoría", { exact:true }).selectOption("Despensa");
-    await suggestionDialog.getByLabel("Marca", { exact:true }).fill("Marca de cacao");
     await suggestionDialog.getByLabel("Etiquetas", { exact:true }).fill("Desayuno");
     await suggestionPage.evaluate(() => { window.failCatalog=true; });
     await suggestionDialog.getByRole("button", { name:"Guardar producto", exact:true }).click();
@@ -511,7 +511,7 @@ async function main() {
     await suggestionDialog.getByRole("button", { name:"Guardar producto", exact:true }).click();
     await suggestionCatalog.getByRole("status").filter({ hasText:"Producto guardado en el catálogo" }).waitFor();
     assert.equal(await suggestionPage.evaluate(() => window.catalogProducts[0].category), "Despensa");
-    assert.equal(await suggestionPage.evaluate(() => window.catalogProducts[0].brand), "Marca de cacao");
+    assert.equal(await suggestionPage.evaluate(() => 'brand' in window.catalogProducts[0] || 'format' in window.catalogProducts[0]), false);
     assert.deepEqual(await suggestions.locator("h2").allTextContents(), ["Arroz"]);
     assert.equal(await suggestionPage.evaluate(() => window.calls.length), 0);
     assert.equal(await suggestionPage.evaluate(() => window.catalogProducts.length), 1);
@@ -526,7 +526,7 @@ async function main() {
     await suggestionCatalog.locator("#list-suggestions-summary").click();
     await suggestions.getByRole("button", { name: "Añadir al catálogo: Arroz", exact: true }).click();
     assert.equal(await suggestionDialog.getByLabel("Nombre del producto", { exact:true }).inputValue(), "Arroz");
-    assert.equal(await suggestionDialog.getByLabel("Marca", { exact:true }).inputValue(), "");
+    assert.equal(await suggestionDialog.getByLabel("Marca", { exact:true }).count(), 0);
     await suggestionDialog.getByRole("button", { name:"Guardar producto", exact:true }).click();
     await suggestionCatalog.locator("#suggestions-empty").waitFor();
     await suggestionPage.getByRole("button", { name: "Lista", exact: true }).click();
@@ -560,7 +560,7 @@ async function main() {
     const predictiveInput = predictivePage.getByRole("combobox", { name: "Añadir producto", exact: true });
     const predictions = predictivePage.getByRole("listbox", { name: "Productos del catálogo", exact: true });
     await predictiveInput.fill("CAFE");
-    await predictions.getByRole("option", { name: "Café molido 250 g", exact: true }).waitFor();
+    await predictions.getByRole("option", { name: "Café molido", exact: true }).waitFor();
     assert.equal(await predictiveInput.getAttribute("aria-expanded"), "true");
     await predictions.locator("img").evaluate(image => image.decode());
     await predictivePage.screenshot({ path: "test-results/predictive-desktop.png", fullPage: true });
@@ -572,7 +572,7 @@ async function main() {
     assert.equal((await predictivePage.evaluate(() => window.calls)).at(-1).item, "Café molido");
     assert.equal(await predictiveInput.inputValue(), "");
     await predictiveInput.fill("marca especial");
-    await predictions.getByRole("option").filter({ hasText: "Leche sin lactosa" }).waitFor();
+    assert.equal(await predictions.getByRole("option").count(), 0);
     await predictiveInput.press("Escape");
     assert.equal(await predictiveInput.getAttribute("aria-expanded"), "false");
     await predictiveInput.fill("0012342");
@@ -855,8 +855,9 @@ async function main() {
     assert.equal(await readerPage.evaluate(()=>window.catalogProducts.length),2);
     await identified.getByRole("button",{name:"Crear producto con el código 8410109115543",exact:true}).click();
     assert.equal(await codeDialog.getByLabel("Nombre del producto",{exact:true}).inputValue(),"Cacao soluble");
-    assert.equal(await codeDialog.getByLabel("Marca",{exact:true}).inputValue(),"Marca externa");
-    assert.equal(await codeDialog.getByLabel("Formato",{exact:true}).inputValue(),"500 g");
+    assert.equal(await codeDialog.getByLabel("Marca",{exact:true}).count(),0);
+    assert.equal(await codeDialog.getByLabel("Formato",{exact:true}).count(),0);
+    assert.equal(await identified.getByText("Marca externa · 500 g",{exact:true}).count(),0);
     await codeDialog.getByLabel("Nombre del producto",{exact:true}).fill("Nombre elegido por mí");
     await readerPage.evaluate(()=>window.emitReaders());
     assert.equal(await codeDialog.getByLabel("Nombre del producto",{exact:true}).inputValue(),"Nombre elegido por mí");
@@ -866,8 +867,8 @@ async function main() {
     await readerPage.screenshot({path:"test-results/open-food-facts-suggestion.png",fullPage:true});
     await identified.getByRole("button",{name:"Asignar código 8410109115543 a un producto del catálogo",exact:true}).click();
     assert.equal(await linkDialog.getByLabel("Nombre del producto",{exact:true}).inputValue(),"Cacao");
-    assert.equal(await linkDialog.getByLabel("Marca",{exact:true}).inputValue(),"Marca local");
-    assert.equal(await linkDialog.getByLabel("Formato",{exact:true}).inputValue(),"250 g");
+    assert.equal(await linkDialog.getByLabel("Marca",{exact:true}).count(),0);
+    assert.equal(await linkDialog.getByLabel("Formato",{exact:true}).count(),0);
     await linkDialog.getByRole("button",{name:"Guardar producto",exact:true}).click();
     assert.equal(await identified.count(),0);
     assert.equal(await readerPage.evaluate(()=>window.catalogProducts.length),2);

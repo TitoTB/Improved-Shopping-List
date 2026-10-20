@@ -24,7 +24,8 @@ def test_only_valid_numeric_product_codes(code, expected):
 
 def test_prefers_common_spanish_name_and_checks_returned_code():
     hint = product_hint(PAYLOAD,CODE)
-    assert hint["name"] == "Crema de avellanas" and hint["brand"] == "Ferrero" and hint["quantity"] == "400 g"
+    assert hint["name"] == "Crema de avellanas"
+    assert "brand" not in hint and "quantity" not in hint
     assert hint["url"] == f"{BASE_URL}/product/{CODE}"
     assert product_hint({"product":{"code":CODE,"product_name_es":"Nombre comercial"}},CODE)["name"] == "Nombre comercial"
     assert product_hint({"product":{"code":CODE}},CODE) == {"status":"not_found"}

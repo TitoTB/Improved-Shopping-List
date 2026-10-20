@@ -409,7 +409,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
     const searching = Boolean(query) && this._view === "shopping" && !input.disabled &&
       !this._predictionClosed && root.activeElement === input;
     this._predictions = searching ? [...this._catalogProducts.values()]
-      .filter(product => [product.name, product.brand, product.barcode, ...(product.barcodes ?? []), ...(product.nfc_tags ?? []), ...(product.tags ?? [])].some(value => searchText(value).includes(query)))
+      .filter(product => [product.name, product.barcode, ...(product.barcodes ?? []), ...(product.nfc_tags ?? []), ...(product.tags ?? [])].some(value => searchText(value).includes(query)))
       .sort((a, b) => Number(searchText(b.name).startsWith(query)) - Number(searchText(a.name).startsWith(query)) || a.name.localeCompare(b.name, "es"))
       .slice(0, 8) : [];
     if (!Number.isInteger(this._predictionIndex) || this._predictionIndex >= this._predictions.length) this._predictionIndex = -1;
@@ -439,12 +439,6 @@ class ImprovedShoppingListPanel extends HTMLElement {
       const name = document.createElement("strong");
       name.textContent = product.name;
       text.append(name);
-      const details = [product.brand, product.format].filter(Boolean).join(" · ");
-      if (details) {
-        const detail = document.createElement("small");
-        detail.textContent = details;
-        text.append(detail);
-      }
       option.append(text);
       option.addEventListener("pointerdown", event => event.preventDefault());
       option.addEventListener("click", () => this._selectPrediction(product));
@@ -517,11 +511,9 @@ class ImprovedShoppingListPanel extends HTMLElement {
         summary.className = "summary";
         const description = document.createElement("span");
         description.className = "description";
-        const subtitle = document.createElement("span");
-        subtitle.className = "subtitle";
         const tags = document.createElement("span");
         tags.className = "tags";
-        text.append(summary, subtitle, description);
+        text.append(summary, description);
         card.append(badge, media, text, tags);
         row.append(card);
         this._rows.set(key, row);
@@ -571,9 +563,6 @@ class ImprovedShoppingListPanel extends HTMLElement {
         }
         row.querySelector(".product-media").replaceChildren(media);
       }
-      const subtitle = row.querySelector(".subtitle");
-      subtitle.textContent = [product?.brand, product?.format].filter(Boolean).join(" · ");
-      subtitle.hidden = !subtitle.textContent;
       const tags = row.querySelector(".tags");
       tags.replaceChildren(...(product?.tags ?? []).map(tag => {
         const node = document.createElement("span");

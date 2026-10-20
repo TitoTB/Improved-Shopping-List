@@ -47,6 +47,22 @@ async def test_catalog_persists_normalizes_and_returns_snapshots(hass):
     assert catalog.products == [product]
 
 
+async def test_removed_brand_and_format_migrate_without_losing_products(hass):
+    catalog=Catalog(hass)
+    await catalog.async_load()
+    product=await catalog.async_save_product({"name":"Cacao","brand":"Marca antigua","format":"500 g","barcode":"0012345","tags":["Desayuno"]})
+    assert "brand" not in product and "format" not in product
+    await catalog._store.async_save({"products":{product["id"]:{**product,"brand":"Marca antigua","format":"500 g"}},"categories":{},"dismissed_suggestions":[]})
+    restored=Catalog(hass)
+    await restored.async_load()
+    assert restored.products == [product]
+    stored=await restored._store.async_load()
+    assert "brand" not in stored["products"][product["id"]] and "format" not in stored["products"][product["id"]]
+    updated=await restored.async_save_product(editable(product,brand="Desde una sesión antigua",format="250 g"))
+    assert "brand" not in updated and "format" not in updated
+    assert updated["barcode"] == "0012345" and updated["tags"] == ["Desayuno"]
+
+
 async def test_catalog_edit_keeps_id_and_price_date_when_price_unchanged(hass):
     catalog = Catalog(hass)
     await catalog.async_load()

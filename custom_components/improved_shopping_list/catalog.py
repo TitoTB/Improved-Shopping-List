@@ -18,11 +18,12 @@ from .const import DOMAIN
 
 STORAGE_KEY = f"{DOMAIN}.catalog"
 FIELDS = {
-    "id", "revision", "name", "category", "tags", "brand", "barcode",
-    "format", "price", "currency", "image_url", "icon", "notes",
+    "id", "revision", "name", "category", "tags", "barcode",
+    "price", "currency", "image_url", "icon", "notes",
     "barcodes", "nfc_tags", "reader_actions",
 }
 READER_ACTIONS = {"none", "add_list", "stock_remove", "stock_add"}
+LEGACY_PRODUCT_FIELDS = {"brand", "format"}
 
 
 def code_key(kind: str, code: str) -> str:
@@ -97,13 +98,13 @@ def _text(data: dict[str, Any], key: str, limit: int) -> str:
 
 def normalize_product(data: dict[str, Any]) -> dict[str, Any]:
     """Validate editable fields and keep identifiers as text, including leading zeros."""
-    if not isinstance(data, dict) or set(data) - FIELDS:
+    if not isinstance(data, dict) or set(data) - FIELDS - LEGACY_PRODUCT_FIELDS:
         raise CatalogError("El producto contiene campos no admitidos.")
     product = {
         key: _text(data, key, limit)
         for key, limit in (
-            ("name", 160), ("category", 80), ("brand", 100),
-            ("barcode", 1024), ("format", 100), ("image_url", 2048), ("notes", 1000),
+            ("name", 160), ("category", 80),
+            ("barcode", 1024), ("image_url", 2048), ("notes", 1000),
         )
     }
     if not product["name"]:
@@ -193,6 +194,10 @@ class Catalog:
             # Earlier installations stored category names directly on products.
             # Promote those names without dropping products or their metadata.
             for product in self._products.values():
+                for field in LEGACY_PRODUCT_FIELDS:
+                    if field in product:
+                        del product[field]
+                        migrated = True
                 name = product.get("category", "")
                 if name and name.casefold() not in known:
                     now = datetime.now(UTC).isoformat()

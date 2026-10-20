@@ -189,7 +189,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
       <div id="catalog-status" class="notice" role="status" hidden></div>
       <section id="products-view">
       <div class="filters">
-        <label class="search">Buscar productos<input id="catalog-search" type="search" placeholder="Nombre, marca, código o etiqueta"></label>
+        <label class="search">Buscar productos<input id="catalog-search" type="search" placeholder="Nombre, código o etiqueta"></label>
         <div class="category-controls"><label>Categoría<select id="category-filter"><option value="">Todas</option></select></label><button id="new-product" class="primary" type="button" aria-label="Nuevo producto" title="Nuevo producto"><ha-icon icon="mdi:plus-thick"></ha-icon></button></div>
       </div>
       <p id="catalog-count" class="count" aria-live="polite"></p>
@@ -221,8 +221,6 @@ class ImprovedShoppingCatalog extends HTMLElement {
             <label class="wide">Nombre del producto<input name="name" required maxlength="160" placeholder="Por ejemplo, Cacao"></label>
             <div><label for="product-category">Categoría</label><div class="product-category-controls"><select id="product-category" name="category"><option value="">Sin categoría</option></select><button id="add-product-category" type="button" aria-label="Nueva categoría" title="Nueva categoría"><ha-icon icon="mdi:plus-thick"></ha-icon></button></div></div>
             <label>Etiquetas<input name="tags" maxlength="850" placeholder="Desayuno, sin gluten"></label>
-            <label>Marca<input name="brand" maxlength="100"></label>
-            <label>Formato<input name="format" maxlength="100" placeholder="250 g, 1 l, 6 unidades…"></label>
             <label class="wide">Código de barras<input name="barcode" type="text" maxlength="1024"></label>
             <label class="wide">Otros códigos de barras o QR<textarea name="barcodes" maxlength="52000" placeholder="Un código por línea"></textarea></label>
             <label class="wide">Etiquetas NFC<textarea name="nfc_tags" maxlength="52000" placeholder="Un identificador por línea"></textarea></label>
@@ -365,8 +363,6 @@ class ImprovedShoppingCatalog extends HTMLElement {
     const candidates = matchCatalogProducts(hint, this._catalog.products);
     info.append(element("h2", "", found ? hint.name : item.kind === "nfc" ? "Etiqueta NFC sin identificar" : "Código sin identificar"), element("p", "subtitle", item.code), element("p", "subtitle", item.reader_name));
     if (found) {
-      const detail = [hint.brand, hint.quantity].filter(Boolean).join(" · ");
-      if (detail) info.append(element("p", "subtitle", detail));
       const source = element("a", "subtitle", "Fuente: Open Food Facts (ODbL)");
       source.href = `https://world.openfoodfacts.org/product/${encodeURIComponent(item.code)}`;
       source.target = "_blank"; source.rel = "noopener noreferrer";
@@ -380,7 +376,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
     select.setAttribute("aria-label", `Producto para el código ${item.code}`);
     const candidateIds = new Set(candidates.map(product => product.id));
     const ordered = [...candidates, ...this._catalog.products.filter(product => !candidateIds.has(product.id))];
-    select.append(new Option("Selecciona un producto del catálogo", ""), ...ordered.map(product => new Option(`${candidateIds.has(product.id) ? "Sugerido: " : ""}${[product.name,product.brand,product.format].filter(Boolean).join(" · ")}`,product.id)));
+    select.append(new Option("Selecciona un producto del catálogo", ""), ...ordered.map(product => new Option(`${candidateIds.has(product.id) ? "Sugerido: " : ""}${product.name}`,product.id)));
     if(this._catalog.products.some(product=>product.id===selection?.product))select.value=selection.product;
     else if (!selection?.linking && candidates.length) select.value = candidates[0].id;
     select.hidden = !selection?.linking;
@@ -464,7 +460,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
     const category = root.querySelector("#category-filter").value;
     const products = this._catalog.products.filter(product =>
       (!category || normalizedName(product.category) === normalizedName(category)) &&
-      [product.name, product.brand, product.barcode, ...(product.barcodes??[]), ...(product.nfc_tags??[]), product.category, ...product.tags].join(" ").toLocaleLowerCase("es").includes(query));
+      [product.name, product.barcode, ...(product.barcodes??[]), ...(product.nfc_tags??[]), product.category, ...product.tags].join(" ").toLocaleLowerCase("es").includes(query));
     root.querySelector("#catalog-count").textContent = `${products.length} de ${this._catalog.products.length} productos`;
     root.querySelector("#catalog-grid").replaceChildren(...products.map(product => this._productCard(product)));
     const empty = root.querySelector("#catalog-empty");
@@ -514,8 +510,6 @@ class ImprovedShoppingCatalog extends HTMLElement {
     } else top.append(placeholder);
     const title = element("div");
     title.append(element("h2", "title", product.name));
-    const subtitle = [product.brand, product.format].filter(Boolean).join(" · ");
-    if (subtitle) title.append(element("p", "subtitle", subtitle));
     top.append(title);
     card.append(top);
     if (product.tags.length) {
@@ -556,8 +550,6 @@ class ImprovedShoppingCatalog extends HTMLElement {
     if (!product && reading?.identification?.status === "found") {
       const hint = reading.identification;
       form.elements.name.value = hint.name ?? "";
-      form.elements.brand.value = hint.brand ?? "";
-      form.elements.format.value = hint.quantity ?? "";
       form.elements.notes.value = `Fuente: Open Food Facts (ODbL). https://world.openfoodfacts.org/product/${encodeURIComponent(reading.code)}`;
     }
     this._renderReaderActions();
@@ -565,7 +557,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
     root.querySelector("#product-dialog-title").textContent = product ? "Editar producto" : "Nuevo producto";
     root.querySelector("#product-error").hidden = true;
     if (product) {
-      for (const key of ["name", "category", "brand", "barcode", "format", "price", "image_url", "icon", "notes"]) form.elements[key].value = product[key] ?? "";
+      for (const key of ["name", "category", "barcode", "price", "image_url", "icon", "notes"]) form.elements[key].value = product[key] ?? "";
       if (![...form.elements.currency.options].some(option => option.value === product.currency)) form.elements.currency.add(new Option(product.currency, product.currency));
       form.elements.currency.value = product.currency;
       form.elements.tags.value = product.tags.join(", ");

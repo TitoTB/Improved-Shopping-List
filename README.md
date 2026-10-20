@@ -52,6 +52,8 @@ Las tarjetas muestran primero la imagen o el icono del producto y debajo su nomb
 
 Los productos pendientes en la lista seleccionada se resaltan con un degradado rojo. La coincidencia se realiza por nombre, sin distinguir mayúsculas ni diferencias de espacios; los elementos comprados no se resaltan. Cambiar de lista actualiza este estado visual y conserva el catálogo común.
 
+La vista **Sugerencias** (`mdi:creation`) muestra los nombres de productos de la lista seleccionada que aún no están en el catálogo, incluidos los elementos comprados que siguen en la lista. Puedes añadirlos al catálogo en un clic y completar su ficha más adelante, o descartarlos sin modificar la lista. Los nombres repetidos se agrupan ignorando mayúsculas y espacios sobrantes. Los descartes se guardan en Home Assistant, se comparten entre sesiones y listas y se conservan tras reiniciar. Para cambiar la lista de origen, utiliza el selector del apartado Lista.
+
 El precio es manual y orientativo, asociado al formato y la moneda indicados, con su fecha de actualización. Se conserva en la ficha de edición, pero no se muestra en las tarjetas. Todavía no hay comparación de ofertas por supermercado, consulta automática de precios, lector de códigos, Open Food Facts, scrapeo ni importación de PDF. El código de barras se guarda como texto para conservar sus ceros iniciales.
 
 Las ediciones simultáneas se detectan: si otra sesión ha cambiado una ficha, se pide volver a abrirla antes de guardar. No se borra el catálogo al cambiar de lista ni al recargar la integración. Se conserva también al retirar la integración para permitir reinstalarla; los productos de las listas originales tampoco se eliminan.

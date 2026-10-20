@@ -20,10 +20,13 @@ const data = {
 const listeners = new Map();
 window.catalogProducts=JSON.parse(localStorage.getItem('catalog-fixture')??'[]');
 window.catalogCategories=JSON.parse(localStorage.getItem('category-fixture')??'[]');
-const snapshot=()=>({products:structuredClone(window.catalogProducts),categories:window.catalogCategories.map(category=>({...category,product_count:window.catalogProducts.filter(product=>product.category===category.name).length}))});
+window.dismissedSuggestions=JSON.parse(localStorage.getItem('dismissed-fixture')??'[]');
+const normalizeName=name=>name.normalize('NFKC').trim().replace(/\\s+/g,' ').toLowerCase();
+const snapshot=()=>({products:structuredClone(window.catalogProducts),dismissed_suggestions:[...window.dismissedSuggestions],categories:window.catalogCategories.map(category=>({...category,product_count:window.catalogProducts.filter(product=>product.category===category.name).length}))});
 const emitCatalog=()=>{
   localStorage.setItem('catalog-fixture',JSON.stringify(window.catalogProducts));
   localStorage.setItem('category-fixture',JSON.stringify(window.catalogCategories));
+  localStorage.setItem('dismissed-fixture',JSON.stringify(window.dismissedSuggestions));
   for(const listener of listeners.keys())if(listener.catalog)listener.callback(snapshot());
 };
 window.calls=[];window.fail=false;window.failCatalog=false;
@@ -46,6 +49,16 @@ const hass={
   }},
   callWS:async(msg)=>{
     if(msg.type==='improved_shopping_list/catalog/get')return snapshot();
+    if(msg.type==='improved_shopping_list/catalog/suggestion'){
+      if(window.failCatalog)throw new Error('No se ha podido guardar el cambio');
+      if(msg.action==='dismiss'){
+        window.dismissedSuggestions=[...new Set([...window.dismissedSuggestions,normalizeName(msg.name)])];emitCatalog();return {};
+      }
+      const existing=window.catalogProducts.find(product=>normalizeName(product.name)===normalizeName(msg.name));
+      if(existing)return {product:existing};
+      const product={name:msg.name,category:'',tags:[],brand:'',barcode:'',format:'',price:null,currency:'EUR',image_url:'',icon:'',notes:'',id:crypto.randomUUID(),revision:1};
+      window.catalogProducts.push(product);emitCatalog();return {product};
+    }
     if(msg.type==='improved_shopping_list/catalog/category/save'){
       const old=window.catalogCategories.find(category=>category.id===msg.category.id);
       const category={...msg.category,id:old?.id??crypto.randomUUID(),revision:(old?.revision??0)+1};
@@ -79,6 +92,7 @@ const hass={
 window.emit=(entityId)=>{
   for(const listener of listeners.keys()) if(listener.entityId===entityId)listener.callback({items:structuredClone(data[entityId])});
 };
+window.listData=data;
 window.rename=()=>{data['todo.bring'][0].summary='Cacao puro';window.emit('todo.bring');};
 window.makeUnavailable=()=>{panel.hass={...hass,states:{...hass.states,'todo.bring':{...hass.states['todo.bring'],state:'unavailable'}}};};
 window.listenerCount=()=>listeners.size;
@@ -106,7 +120,7 @@ async function main() {
     page.on("pageerror", (error) => errors.push(error.message));
     const url = `http://127.0.0.1:${server.address().port}`;
     await page.goto(url);
-    await page.getByText("Cacao", { exact: true }).waitFor();
+    await page.locator("#pending").getByText("Cacao", { exact: true }).waitFor();
     await page.locator(".brand-logo").evaluate(image => image.decode());
     assert.equal(await page.locator(".brand-logo").evaluate(image => image.naturalWidth > 0), true);
     const header = await page.locator("header").evaluate(node => {
@@ -125,7 +139,7 @@ async function main() {
     const dangerous = '<img src=x onerror="window.injected=true">';
     await page.getByLabel("Añadir producto", { exact: true }).fill(dangerous);
     await page.getByRole("button", { name: "Añadir", exact: true }).click();
-    await page.getByText(dangerous, { exact: true }).waitFor();
+    await page.locator("#pending").getByText(dangerous, { exact: true }).waitFor();
     assert.equal(await page.evaluate(() => window.injected), undefined);
     assert.equal(await page.getByLabel("Añadir producto", { exact: true }).inputValue(), "");
 
@@ -137,19 +151,19 @@ async function main() {
     await page.getByRole("checkbox", { name: "Marcar como comprado: Cacao", exact: true }).waitFor();
 
     await page.evaluate(() => window.rename());
-    await page.getByText("Cacao puro", { exact: true }).waitFor();
+    await page.locator("#pending").getByText("Cacao puro", { exact: true }).waitFor();
     await page.getByLabel("Lista de la compra", { exact: true }).selectOption("todo.local");
-    await page.getByText("Detergente", { exact: true }).waitFor();
-    assert.equal(await page.getByText("Cacao puro", { exact: true }).count(), 0);
+    await page.locator("#pending").getByText("Detergente", { exact: true }).waitFor();
+    assert.equal(await page.locator("#pending").getByText("Cacao puro", { exact: true }).count(), 0);
     assert.equal(await page.evaluate(() => window.listenerCount()), 2);
 
     await page.getByLabel("Lista de la compra", { exact: true }).selectOption("todo.readonly");
-    await page.getByText("Lista compartida", { exact: true }).waitFor();
+    await page.locator("#pending").getByText("Lista compartida", { exact: true }).waitFor();
     assert.equal(await page.getByRole("button", { name: "Añadir", exact: true }).isDisabled(), true);
     assert.equal(await page.getByRole("checkbox").isDisabled(), true);
 
     await page.getByLabel("Lista de la compra", { exact: true }).selectOption("todo.bring");
-    await page.getByText("Cacao puro", { exact: true }).waitFor();
+    await page.locator("#pending").getByText("Cacao puro", { exact: true }).waitFor();
     await page.evaluate(() => { window.fail = true; });
     await page.getByLabel("Añadir producto", { exact: true }).fill("Aceite");
     await page.getByRole("button", { name: "Añadir", exact: true }).click();
@@ -160,7 +174,7 @@ async function main() {
 
     // Catalog form, persistence on reload, edit, filtering and native list add.
     await page.goto(url);
-    await page.getByText("Cacao", { exact: true }).waitFor();
+    await page.locator("#pending").getByText("Cacao", { exact: true }).waitFor();
     await page.getByRole("button", { name: "Catálogo", exact: true }).click();
     const catalog = page.locator("isl-catalog");
     const categories = catalog.locator("isl-categories");
@@ -278,7 +292,7 @@ async function main() {
     // Actual narrow layout, sidebar access and horizontal overflow.
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto(url);
-    await page.getByText("Cacao", { exact: true }).waitFor();
+    await page.locator("#pending").getByText("Cacao", { exact: true }).waitFor();
     await page.getByRole("button", { name: "Abrir menú de Home Assistant" }).click();
     assert.equal(await page.evaluate(() => window.menuOpened), true);
     assert.equal(await page.evaluate(() => {
@@ -294,6 +308,58 @@ async function main() {
     await catalog.getByRole("button", { name: "Categorías", exact: true }).click();
     await categories.getByRole("heading", { name: "Lácteos y frescos", exact: true }).waitFor();
     await page.screenshot({ path: "test-results/categories-mobile.png", fullPage: true });
+    // Suggestions are derived from the current native list; dismissals live in shared catalog storage.
+    const suggestionContext = await browser.newContext({ viewport: { width: 1280, height: 960 } });
+    const suggestionPage = await suggestionContext.newPage();
+    suggestionPage.on("pageerror", error => errors.push(error.message));
+    await suggestionPage.goto(url);
+    await suggestionPage.locator("#pending").getByText("Cacao", { exact: true }).waitFor();
+    await suggestionPage.getByRole("button", { name: "Catálogo", exact: true }).click();
+    const suggestionCatalog = suggestionPage.locator("isl-catalog");
+    await suggestionCatalog.getByRole("button", { name: "Sugerencias", exact: true }).click();
+    assert.equal(await suggestionCatalog.locator("#view-suggestions ha-icon").getAttribute("icon"), "mdi:creation");
+    const suggestions = suggestionCatalog.locator("#suggestions-list");
+    assert.deepEqual(await suggestions.locator("h2").allTextContents(), ["Arroz", "Cacao", "Leche entera"]);
+    await suggestionPage.evaluate(() => {
+      window.listData['todo.bring'].push({uid:'duplicate',summary:'  CACAO  ',status:'needs_action'});
+      window.emit('todo.bring');
+    });
+    assert.equal(await suggestions.locator("article").count(), 3);
+    await suggestionPage.evaluate(() => { window.failCatalog = true; });
+    await suggestions.getByRole("button", { name: "Descartar: Leche entera", exact: true }).click();
+    await suggestionCatalog.locator("#suggestions-error").filter({ hasText: "No se ha podido guardar" }).waitFor();
+    assert.equal(await suggestions.locator("article").count(), 3);
+    await suggestionPage.evaluate(() => { window.failCatalog = false; });
+    await suggestions.getByRole("button", { name: "Descartar: Leche entera", exact: true }).click();
+    await suggestionCatalog.getByRole("status").filter({ hasText: "Sugerencia descartada" }).waitFor();
+    await suggestions.getByRole("button", { name: "Añadir al catálogo: Cacao", exact: true }).click();
+    await suggestionCatalog.getByRole("status").filter({ hasText: "Cacao añadido al catálogo" }).waitFor();
+    assert.deepEqual(await suggestions.locator("h2").allTextContents(), ["Arroz"]);
+    assert.equal(await suggestionPage.evaluate(() => window.calls.length), 0);
+    assert.equal(await suggestionPage.evaluate(() => window.catalogProducts.length), 1);
+    await suggestionCatalog.getByRole("button", { name: "Productos", exact: true }).click();
+    await suggestionCatalog.getByRole("heading", { name: "Cacao", exact: true }).waitFor();
+    assert.equal(await suggestionCatalog.locator("#catalog-grid article").getAttribute("data-in-list"), "true");
+    await suggestionPage.reload();
+    await suggestionPage.getByRole("button", { name: "Catálogo", exact: true }).click();
+    await suggestionCatalog.getByRole("button", { name: "Sugerencias", exact: true }).click();
+    assert.deepEqual(await suggestions.locator("h2").allTextContents(), ["Arroz"]);
+    await suggestions.getByRole("button", { name: "Añadir al catálogo: Arroz", exact: true }).click();
+    await suggestionCatalog.locator("#suggestions-empty").waitFor();
+    await suggestionPage.getByRole("button", { name: "Lista", exact: true }).click();
+    await suggestionPage.getByLabel("Lista de la compra", { exact: true }).selectOption("todo.local");
+    await suggestionPage.getByRole("button", { name: "Catálogo", exact: true }).click();
+    await suggestions.getByRole("heading", { name: "Detergente", exact: true }).waitFor();
+    await suggestionPage.evaluate(() => {
+      window.listData['todo.local'].push({uid:'dismissed',summary:' LECHE   entera ',status:'needs_action'});
+      window.emit('todo.local');
+    });
+    assert.deepEqual(await suggestions.locator("h2").allTextContents(), ["Detergente"]);
+    await suggestionPage.screenshot({ path: "test-results/suggestions-desktop.png", fullPage: true });
+    await suggestionPage.setViewportSize({ width: 390, height: 844 });
+    await suggestionPage.screenshot({ path: "test-results/suggestions-mobile.png", fullPage: true });
+    assert.equal(await suggestionCatalog.evaluate(node => node.shadowRoot.querySelector("#suggestions-list").scrollWidth > innerWidth), false);
+    await suggestionContext.close();
     await page.evaluate(() => window.testPanel.remove());
     assert.equal(await page.evaluate(() => window.listenerCount()), 0);
     assert.deepEqual(errors, []);

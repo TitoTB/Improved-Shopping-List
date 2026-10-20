@@ -27,6 +27,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
     this._notice = "";
     this._view = "products";
     this._pendingNames = new Set();
+    this._listItems = [];
   }
 
   set hass(value) {
@@ -44,6 +45,15 @@ class ImprovedShoppingCatalog extends HTMLElement {
 
   set listName(value) {
     this._listName = value;
+    this._renderSuggestions();
+  }
+
+  set listItems(value) {
+    const signature = JSON.stringify((value ?? []).map(item => item.summary));
+    if (signature === this._listSignature) return;
+    this._listSignature = signature;
+    this._listItems = value ?? [];
+    this._renderSuggestions();
   }
 
   set pendingItems(value) {
@@ -84,7 +94,14 @@ class ImprovedShoppingCatalog extends HTMLElement {
         button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible { outline:3px solid var(--primary-color,#267052); outline-offset:3px; }
         .heading { display:flex; align-items:center; justify-content:space-between; gap:16px; margin:28px 0 12px; }
         .heading-actions { display:flex; align-items:center; gap:8px; margin-left:auto; }
-        .catalog-tabs { display:flex; gap:8px; margin:18px 0; }
+        .catalog-tabs { display:flex; flex-wrap:wrap; gap:8px; margin:18px 0; }
+        .catalog-tabs button { display:inline-flex; align-items:center; gap:6px; }
+        .catalog-tabs ha-icon { --mdc-icon-size:20px; }
+        .suggestions { display:grid; gap:12px; }
+        .suggestion { display:flex; align-items:center; gap:16px; padding:16px; border:1px solid var(--divider-color,#dfe7e1); border-radius:14px; background:var(--card-background-color,#fff); }
+        .suggestion h2 { flex:1; font-size:17px; overflow-wrap:anywhere; min-width:0; }
+        .suggestion .actions { margin:0; flex-shrink:0; }
+        @media(max-width:650px) { .suggestion { flex-wrap:wrap; } .suggestion h2 { flex-basis:calc(100% - 48px); } .suggestion .actions { width:100%; } }
         .catalog-tabs button[aria-pressed=true] { background:var(--secondary-background-color,#edf4ee); font-weight:650; }
         h1 { font-size:32px; letter-spacing:-.03em; margin:0; }
         h2 { font-size:23px; margin:0; }
@@ -128,7 +145,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
       </style>
       <div class="heading"><h1>Catálogo</h1><div class="heading-actions"><button id="new-product" class="primary">Nuevo producto</button><button id="catalog-refresh" aria-label="Actualizar catálogo" title="Actualizar catálogo"><ha-icon icon="mdi:refresh"></ha-icon></button></div></div>
       <p class="helper">Tus productos, categorías y etiquetas, disponibles para todas tus listas.</p>
-      <nav class="catalog-tabs" aria-label="Vistas del catálogo"><button id="view-products" aria-pressed="true">Productos</button><button id="view-categories" aria-pressed="false">Categorías</button></nav>
+      <nav class="catalog-tabs" aria-label="Vistas del catálogo"><button id="view-products" aria-pressed="true">Productos</button><button id="view-categories" aria-pressed="false">Categorías</button><button id="view-suggestions" aria-pressed="false"><ha-icon icon="mdi:creation"></ha-icon>Sugerencias</button></nav>
       <div id="catalog-error" class="notice error" role="alert" hidden></div>
       <div id="catalog-status" class="notice" role="status" hidden></div>
       <section id="products-view">
@@ -142,6 +159,12 @@ class ImprovedShoppingCatalog extends HTMLElement {
       <p id="catalog-empty" class="empty" hidden></p>
       </section>
       <isl-categories hidden></isl-categories>
+      <section id="suggestions-view" hidden>
+        <p id="suggestions-source" class="helper"></p>
+        <div id="suggestions-error" class="notice error" role="alert" hidden></div>
+        <div id="suggestions-list" class="suggestions"></div>
+        <p id="suggestions-empty" class="empty" hidden>No hay sugerencias nuevas en esta lista.</p>
+      </section>
       <dialog aria-labelledby="product-dialog-title">
         <form id="product-form">
           <div class="dialog-heading"><h2 id="product-dialog-title">Nuevo producto</h2></div>
@@ -168,6 +191,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
     root.querySelector("#new-product").addEventListener("click", () => this._openProduct());
     root.querySelector("#view-products").addEventListener("click", () => this._switchView("products"));
     root.querySelector("#view-categories").addEventListener("click", () => this._switchView("categories"));
+    root.querySelector("#view-suggestions").addEventListener("click", () => this._switchView("suggestions"));
     root.querySelector("isl-categories").onSave = category => this._catalog.saveCategory(category);
     root.querySelector("isl-categories").onDelete = category => this._catalog.deleteCategory(category);
     root.querySelector("#catalog-refresh").addEventListener("click", () => void this._catalog.refresh());
@@ -187,8 +211,12 @@ class ImprovedShoppingCatalog extends HTMLElement {
     root.querySelector("#products-view").hidden = view !== "products";
     root.querySelector("#new-product").hidden = view !== "products";
     root.querySelector("isl-categories").hidden = view !== "categories";
+    root.querySelector("#suggestions-view").hidden = view !== "suggestions";
     root.querySelector("#view-products").setAttribute("aria-pressed", String(view === "products"));
     root.querySelector("#view-categories").setAttribute("aria-pressed", String(view === "categories"));
+    root.querySelector("#view-suggestions").setAttribute("aria-pressed", String(view === "suggestions"));
+    this._notice = "";
+    this._render();
   }
 
   _render() {
@@ -213,6 +241,69 @@ class ImprovedShoppingCatalog extends HTMLElement {
     categorySelect.value = selectedCategory;
     root.querySelector("isl-categories").categories = this._catalog.categories;
     this._renderProducts();
+    this._renderSuggestions();
+  }
+
+  _renderSuggestions() {
+    if (!this._built) return;
+    const root = this.shadowRoot;
+    const error = root.querySelector("#suggestions-error");
+    error.hidden = !this._suggestionError;
+    error.textContent = this._suggestionError ?? "";
+    root.querySelector("#suggestions-source").textContent = this._listName
+      ? `Productos de «${this._listName}» que todavía no están en tu catálogo. Puedes cambiar de lista en el apartado Lista.`
+      : "Selecciona una lista en el apartado Lista para ver sus sugerencias.";
+    const excluded = new Set([
+      ...this._catalog.products.map(product => normalizedName(product.name)),
+      ...this._catalog.dismissedSuggestions.map(normalizedName),
+    ]);
+    const suggestions = [];
+    for (const item of this._listItems) {
+      const name = String(item.summary ?? "").trim();
+      const key = normalizedName(name);
+      if (!key || excluded.has(key)) continue;
+      excluded.add(key);
+      suggestions.push(name);
+    }
+    suggestions.sort((a, b) => a.localeCompare(b, "es"));
+    const rows = suggestions.map(name => {
+      const row = element("article", "suggestion");
+      const icon = element("ha-icon");
+      icon.setAttribute("icon", "mdi:shopping");
+      row.append(icon, element("h2", "", name));
+      const actions = element("div", "actions");
+      for (const [label, mdi, action] of [["Añadir al catálogo", "mdi:plus", "add"], ["Descartar", "mdi:close", "dismiss"]]) {
+        const button = element("button", action === "add" ? "primary" : "");
+        button.setAttribute("aria-label", `${label}: ${name}`);
+        button.disabled = Boolean(this._suggestionBusy) || this._catalog.loading || Boolean(this._catalog.error);
+        const icon = element("ha-icon");
+        icon.setAttribute("icon", mdi);
+        button.append(icon, document.createTextNode(label));
+        button.addEventListener("click", () => void this._actOnSuggestion(name, action));
+        actions.append(button);
+      }
+      row.append(actions);
+      return row;
+    });
+    root.querySelector("#suggestions-list").replaceChildren(...rows);
+    root.querySelector("#suggestions-empty").hidden = suggestions.length > 0 || this._catalog.loading || Boolean(this._catalog.error);
+  }
+
+  async _actOnSuggestion(name, action) {
+    if (this._suggestionBusy) return;
+    this._suggestionBusy = true;
+    this._suggestionError = "";
+    this._notice = "";
+    this._render();
+    try {
+      await this._catalog.actOnSuggestion(name, action);
+      this._notice = action === "add" ? `${name} añadido al catálogo.` : `Sugerencia descartada: ${name}.`;
+    } catch (error) {
+      this._suggestionError = error.message ?? "No se ha podido guardar el cambio.";
+    } finally {
+      this._suggestionBusy = false;
+      this._render();
+    }
   }
 
   _fillFilter(select, values) {

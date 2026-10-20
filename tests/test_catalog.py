@@ -111,7 +111,7 @@ async def test_catalog_websocket_save_push_get_and_unload(hass, hass_ws_client):
     client = await hass_ws_client(hass)
     await client.send_json({"id": 1, "type": f"{DOMAIN}/catalog/subscribe"})
     assert (await client.receive_json())["success"]
-    assert (await client.receive_json())["event"] == {"products": [], "categories": []}
+    assert (await client.receive_json())["event"] == {"products": [], "categories": [], "dismissed_suggestions": []}
     await client.send_json({"id": 2, "type": f"{DOMAIN}/catalog/save", "product": {"name": "Cacao"}})
     messages = [await client.receive_json(), await client.receive_json()]
     saved = next(message for message in messages if message["id"] == 2)
@@ -119,13 +119,13 @@ async def test_catalog_websocket_save_push_get_and_unload(hass, hass_ws_client):
     product = saved["result"]["product"]
     assert next(message for message in messages if message["id"] == 1)["event"]["products"] == [product]
     await client.send_json({"id": 3, "type": f"{DOMAIN}/catalog/get"})
-    assert (await client.receive_json())["result"] == {"products": [product], "categories": []}
+    assert (await client.receive_json())["result"] == {"products": [product], "categories": [], "dismissed_suggestions": []}
     assert await hass.config_entries.async_unload(entry.entry_id)
     await client.send_json({"id": 4, "type": f"{DOMAIN}/catalog/get"})
     assert (await client.receive_json())["error"]["code"] == "not_loaded"
     assert await hass.config_entries.async_setup(entry.entry_id)
     await client.send_json({"id": 5, "type": f"{DOMAIN}/catalog/get"})
-    assert (await client.receive_json())["result"] == {"products": [product], "categories": []}
+    assert (await client.receive_json())["result"] == {"products": [product], "categories": [], "dismissed_suggestions": []}
     await client.send_json({"id": 6, "type": f"{DOMAIN}/catalog/save", "product": {"name": "Cacao", "price": -1}})
     assert (await client.receive_json())["error"]["code"] == "invalid_product"
     await client.send_json({"id": 7, "type": f"{DOMAIN}/catalog/category/save", "category": {"name": "Despensa", "icon": "mdi:shopping", "color": "#267052"}})
@@ -140,6 +140,57 @@ async def test_catalog_websocket_save_push_get_and_unload(hass, hass_ws_client):
     assert next(message for message in messages if message["id"] == 9)["success"]
     retained = next(message for message in messages if message["id"] == 1)["event"]["products"][0]
     assert retained["id"] == updated["id"] and retained["category"] == ""
+    await client.send_json({"id": 10, "type": f"{DOMAIN}/catalog/suggestion", "action": "dismiss", "name": "Leche"})
+    messages = [await client.receive_json(), await client.receive_json()]
+    assert next(message for message in messages if message["id"] == 10)["success"]
+    assert next(message for message in messages if message["id"] == 1)["event"]["dismissed_suggestions"] == ["leche"]
+    await client.send_json({"id": 11, "type": f"{DOMAIN}/catalog/suggestion", "action": "add", "name": "Arroz"})
+    messages = [await client.receive_json(), await client.receive_json()]
+    assert next(message for message in messages if message["id"] == 11)["result"]["product"]["name"] == "Arroz"
+    await client.send_json({"id": 12, "type": f"{DOMAIN}/catalog/suggestion", "action": "add", "name": " ARROZ "})
+    assert (await client.receive_json())["success"]
+    assert len(hass.data[DOMAIN]["catalog"].products) == 2
+
+
+async def test_suggestions_durable_dismissals_and_concurrent_acceptance(hass):
+    catalog = Catalog(hass)
+    await catalog.async_load()
+    results = await asyncio.gather(
+        catalog.async_save_product({"name": "Leche entera"}, from_suggestion=True),
+        catalog.async_save_product({"name": "  LECHE   entera "}, from_suggestion=True),
+    )
+    assert results[0]["id"] == results[1]["id"]
+    assert len(catalog.products) == 1
+    await catalog.async_dismiss_suggestion(" ＣＡＣＡＯ   puro ")
+    await catalog.async_dismiss_suggestion("cacao puro")
+    # Subsequent product/category writes must keep dismissals.
+    await catalog.async_save_category({"name": "Despensa"})
+    await catalog.async_save_product({"name": "Arroz"})
+    restored = Catalog(hass)
+    await restored.async_load()
+    assert restored.snapshot["dismissed_suggestions"] == ["cacao puro"]
+    assert len(restored.products) == 2
+    restored.snapshot["dismissed_suggestions"].clear()
+    assert restored.snapshot["dismissed_suggestions"] == ["cacao puro"]
+
+
+async def test_suggestion_write_failure_keeps_state_and_can_retry(hass, monkeypatch):
+    catalog = Catalog(hass)
+    await catalog.async_load()
+    save = catalog._store.async_save
+    notifications = []
+    catalog.subscribe(lambda: notifications.append(True))
+    monkeypatch.setattr(catalog._store, "async_save", AsyncMock(side_effect=OSError("Disk full")))
+    with pytest.raises(OSError):
+        await catalog.async_dismiss_suggestion("Cacao")
+    assert catalog.snapshot["dismissed_suggestions"] == []
+    assert notifications == []
+    monkeypatch.setattr(catalog._store, "async_save", save)
+    await catalog.async_dismiss_suggestion("Cacao")
+    assert catalog.snapshot["dismissed_suggestions"] == ["cacao"]
+    assert notifications == [True]
+    with pytest.raises(CatalogError):
+        await catalog.async_dismiss_suggestion(" ")
 
 
 async def test_category_rename_delete_and_stale_product_edit(hass):

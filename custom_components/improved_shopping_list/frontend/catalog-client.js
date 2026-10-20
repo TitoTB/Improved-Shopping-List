@@ -7,6 +7,7 @@ export class CatalogSession {
     this.onChange = onChange;
     this.products = [];
     this.categories = [];
+    this.dismissedSuggestions = [];
     this.loading = false;
     this.error = "";
     this._generation = 0;
@@ -26,6 +27,7 @@ export class CatalogSession {
         this._revision += 1;
         this.products = data.products ?? [];
         this.categories = data.categories ?? [];
+        this.dismissedSuggestions = data.dismissed_suggestions ?? [];
         this.loading = false;
         this.error = "";
         this.onChange();
@@ -49,6 +51,7 @@ export class CatalogSession {
       if (generation !== this._generation || revision !== this._revision) return;
       this.products = data.products ?? [];
       this.categories = data.categories ?? [];
+      this.dismissedSuggestions = data.dismissed_suggestions ?? [];
       this.error = "";
     } catch (error) {
       if (generation !== this._generation || revision !== this._revision) return;
@@ -79,6 +82,13 @@ export class CatalogSession {
     const generation = this._generation;
     await this.getHass().callWS({ type: `${PREFIX}category/delete`, category_id: category.id, revision: category.revision });
     if (generation === this._generation) await this.refresh();
+  }
+
+  async actOnSuggestion(name, action) {
+    const generation = this._generation;
+    const result = await this.getHass().callWS({ type: `${PREFIX}suggestion`, name, action });
+    if (generation === this._generation) await this.refresh();
+    return result.product;
   }
 
   stop() {

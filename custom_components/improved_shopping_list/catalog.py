@@ -7,6 +7,7 @@ from datetime import UTC, datetime
 from decimal import Decimal, InvalidOperation
 import re
 from typing import Any
+from unicodedata import normalize
 from urllib.parse import urlsplit
 from uuid import uuid4
 
@@ -23,6 +24,11 @@ FIELDS = {
 CATEGORY_FIELDS = {"id", "revision", "name", "icon", "color"}
 DEFAULT_CATEGORY_ICON = "mdi:tag"
 DEFAULT_CATEGORY_COLOR = "#64748b"
+
+
+def normalized_name(value: str) -> str:
+    """Match list and catalog names regardless of case or extra whitespace."""
+    return " ".join(normalize("NFKC", value).split()).lower()
 
 
 def _mdi_icon(value: Any, *, optional: bool = False) -> str:
@@ -125,6 +131,7 @@ class Catalog:
         self._store = Store(hass, 1, STORAGE_KEY)
         self._products: dict[str, dict[str, Any]] = {}
         self._categories: dict[str, dict[str, Any]] = {}
+        self._dismissed_suggestions: set[str] = set()
         self._lock = Lock()
         self._listeners: set = set()
 
@@ -135,6 +142,10 @@ class Catalog:
             if not isinstance(data, dict) or not isinstance(data.get("products"), dict):
                 raise CatalogError("No se ha podido leer el catálogo guardado.", "storage_error")
             self._products = data["products"]
+            dismissed = data.get("dismissed_suggestions", [])
+            if not isinstance(dismissed, list) or any(not isinstance(name, str) for name in dismissed):
+                raise CatalogError("No se han podido leer las sugerencias descartadas.", "storage_error")
+            self._dismissed_suggestions = {normalized_name(name) for name in dismissed}
             categories = data.get("categories", {})
             if not isinstance(categories, dict):
                 raise CatalogError("No se han podido leer las categorías guardadas.", "storage_error")
@@ -156,7 +167,8 @@ class Catalog:
                     known.add(name.casefold())
                     migrated = True
             if migrated:
-                await self._store.async_save({"products": self._products, "categories": categories})
+                await self._store.async_save({"products": self._products, "categories": categories,
+                                              "dismissed_suggestions": sorted(self._dismissed_suggestions)})
             self._categories = categories
 
     @property
@@ -175,13 +187,18 @@ class Catalog:
 
     @property
     def snapshot(self) -> dict[str, Any]:
-        return {"products": self.products, "categories": self.categories}
+        return {"products": self.products, "categories": self.categories,
+                "dismissed_suggestions": sorted(self._dismissed_suggestions)}
 
-    async def _persist(self, products, categories) -> None:
+    async def _persist(self, products, categories, dismissed=None) -> None:
         """Commit related category and product changes together under the lock."""
-        await self._store.async_save({"products": products, "categories": categories})
+        if dismissed is None:
+            dismissed = self._dismissed_suggestions
+        await self._store.async_save({"products": products, "categories": categories,
+                                      "dismissed_suggestions": sorted(dismissed)})
         self._products = products
         self._categories = categories
+        self._dismissed_suggestions = dismissed
 
     @callback
     def _notify(self) -> None:
@@ -199,10 +216,14 @@ class Catalog:
 
         return unsubscribe
 
-    async def async_save_product(self, data: dict[str, Any]) -> dict[str, Any]:
+    async def async_save_product(self, data: dict[str, Any], *, from_suggestion: bool = False) -> dict[str, Any]:
         """Persist before publishing, preserving the previous state on write failure."""
         product = normalize_product(data)
         async with self._lock:
+            if from_suggestion:
+                for existing in self._products.values():
+                    if normalized_name(existing["name"]) == normalized_name(product["name"]):
+                        return deepcopy(existing)
             product_id = data.get("id")
             if product_id is not None and not isinstance(product_id, str):
                 raise CatalogError("Identificador de producto no válido.")
@@ -242,6 +263,18 @@ class Catalog:
             await self._persist(updated, self._categories)
         self._notify()
         return deepcopy(product)
+
+    async def async_dismiss_suggestion(self, name: str) -> None:
+        """Persist shared dismissals without modifying the native shopping list."""
+        name = _text({"name": name}, "name", 160)
+        key = normalized_name(name)
+        if not key:
+            raise CatalogError("El nombre de la sugerencia es obligatorio.")
+        async with self._lock:
+            if key in self._dismissed_suggestions:
+                return
+            await self._persist(self._products, self._categories, self._dismissed_suggestions | {key})
+        self._notify()
 
     async def async_save_category(self, data: dict[str, Any]) -> dict[str, Any]:
         """Create or rename a category and keep product references consistent."""

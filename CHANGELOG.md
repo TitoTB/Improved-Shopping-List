@@ -1,5 +1,14 @@
 # Historial de cambios
 
+## 0.11.1
+
+- Sustituida la búsqueda de Mercadona que devolvía HTTP 403 por Algolia, la alternativa incluida en su cliente web público. No requiere cuenta, claves del usuario ni asociaciones manuales. Se buscan candidatos por el nombre del catálogo y, cuando ya está guardado, por el nombre comercial de Open Food Facts; cada referencia se comprueba en la API directa y solo se incorpora si coincide exactamente el EAN.
+- Las consultas correctas sin coincidencias se muestran como resultados sin coincidencia, sin errores ni penalización. Un código sin revisar o con una búsqueda incompleta no se considera no encontrado. La comprobación se limita a los candidatos obtenidos; no prueba la ausencia del producto en toda la tienda.
+- Búsquedas paginadas con avance persistente, caché de fichas por almacén y continuación de lotes sin reiniciar los códigos ya revisados. Las referencias identificadas actualizan su precio directamente y vuelven a verificar su EAN. Se mantienen cinco segundos entre peticiones y el progreso en directo incluye las referencias comprobadas.
+- Una pausa guardada del antiguo buscador no bloquea al proveedor nuevo. Los errores de las consultas actuales conservan los precios previos y sus pausas de reintento; después de un 403, abrir el popup no vuelve a consultar automáticamente ni alarga la espera.
+- Verificado con consultas reales desde el entorno de desarrollo: coincidencia exacta para 8430543025611 y resultado sin coincidencia para 8721201901058. El acceso sigue dependiendo de los servicios externos y debe comprobarse desde cada Home Assistant.
+- Pruebas ampliadas de coincidencias exactas, ausencia de candidatos, referencias ambiguas, paginación, continuación tras reinicio, migración de pausas, cambios de configuración y errores HTTP.
+
 ## 0.11.0
 
 - Recurrencia en Automatización de la ficha del producto: permite comprar cada X días en la lista principal. Funciona con el panel cerrado, conserva el calendario tras reiniciar, evita duplicados pendientes y recupera entradas completadas cuando el proveedor lo permite. Registra los resultados y los errores en Logs.

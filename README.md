@@ -12,7 +12,7 @@ Versión actual: **0.2.0**. Interfaz en español, pensada para móvil y ordenado
 - Consultar productos pendientes y comprados.
 - Añadir productos, marcarlos como comprados y volver a ponerlos por comprar.
 - Recibir cambios del proveedor mediante la API nativa de listas de Home Assistant.
-- Cambiar de lista desde el panel y cambiar la predeterminada desde la configuración de la integración.
+- Añadir o quitar entidades `todo` desde Ajustes y marcar una lista como principal.
 - Crear y editar productos en un catálogo local compartido entre los usuarios de Home Assistant, con vistas Productos y Categorías.
 - Asignar categorías, etiquetas, marcas, formatos, códigos de barras, precios orientativos, imágenes y notas.
 - Buscar, filtrar y añadir productos del catálogo a la lista seleccionada.
@@ -64,7 +64,9 @@ El precio es manual y orientativo, asociado al formato y la moneda indicados, co
 
 Las ediciones simultáneas se detectan: si otra sesión ha cambiado una ficha, se pide volver a abrirla antes de guardar. No se borra el catálogo al cambiar de lista ni al recargar la integración. Se conserva también al retirar la integración para permitir reinstalarla; los productos de las listas originales tampoco se eliminan.
 
-La configuración de la lista predeterminada se guarda en Home Assistant. El selector del panel permite abrir otra lista durante la sesión; no modifica la predeterminada. Para cambiarla de forma permanente, utiliza **Configurar** en la integración.
+El apartado **Ajustes** (`mdi:cog`) permite añadir cualquier entidad `todo` de Home Assistant, quitar listas de esta interfaz y marcar una como principal. El popup de Lista muestra únicamente las listas añadidas; la principal se abre al iniciar el panel. Quitar una lista conserva su entidad y sus productos originales. Si quitas la principal, pasa a ser principal la primera restante; si quitas todas, puedes volver a añadir una desde Ajustes.
+
+La selección de listas y la principal se guardan en las opciones de la integración en Home Assistant, se comparten entre dispositivos y se sincronizan en los paneles abiertos. Las instalaciones anteriores conservan las listas que tenían disponibles al actualizar. Un administrador puede modificar estos ajustes; el resto de usuarios pueden consultar y utilizar las listas según los permisos de Home Assistant. **Configurar** en la integración también permite cambiar la principal sin perder las listas añadidas. Cambiar de lista desde el popup solo cambia la selección de esa sesión.
 
 Eliminar la integración retira el panel y desactiva sus comandos de catálogo.
 

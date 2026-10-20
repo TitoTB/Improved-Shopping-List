@@ -11,6 +11,7 @@ from homeassistant.exceptions import HomeAssistantError
 
 from .catalog import Catalog, CatalogError
 from .const import DOMAIN
+from .list_settings import ListSettingsError
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -32,6 +33,50 @@ def async_register_commands(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_category_save)
     websocket_api.async_register_command(hass, ws_category_delete)
     websocket_api.async_register_command(hass, ws_suggestion)
+    websocket_api.async_register_command(hass, ws_settings_get)
+    websocket_api.async_register_command(hass, ws_settings_subscribe)
+    websocket_api.async_register_command(hass, ws_settings_update)
+
+
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/settings/get"})
+@callback
+def ws_settings_get(hass: HomeAssistant, connection, msg) -> None:
+    if _catalog(hass, connection, msg):
+        connection.send_result(msg["id"], hass.data[DOMAIN]["settings"].snapshot)
+
+
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/settings/subscribe"})
+@callback
+def ws_settings_subscribe(hass: HomeAssistant, connection, msg) -> None:
+    if not _catalog(hass, connection, msg):
+        return
+    settings = hass.data[DOMAIN]["settings"]
+
+    @callback
+    def on_update():
+        connection.send_event(msg["id"], settings.snapshot)
+
+    connection.subscriptions[msg["id"]] = settings.subscribe(on_update)
+    connection.send_result(msg["id"])
+    on_update()
+
+
+@websocket_api.websocket_command({
+    vol.Required("type"): f"{DOMAIN}/settings/update",
+    vol.Required("action"): vol.In(("add", "remove", "primary")),
+    vol.Required("entity_id"): str,
+})
+@websocket_api.require_admin
+@callback
+def ws_settings_update(hass: HomeAssistant, connection, msg) -> None:
+    if not _catalog(hass, connection, msg):
+        return
+    try:
+        result = hass.data[DOMAIN]["settings"].update(msg["action"], msg["entity_id"])
+    except ListSettingsError as err:
+        connection.send_error(msg["id"], "invalid_list", str(err))
+    else:
+        connection.send_result(msg["id"], result)
 
 
 @websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/catalog/get"})

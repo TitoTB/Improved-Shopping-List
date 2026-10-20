@@ -1,5 +1,7 @@
-import { FEATURES, TodoSession, errorMessage, isAvailable, supports, todoEntities } from "./todo-client.js?v=0.2.0";
+import { FEATURES, TodoSession, errorMessage, isAvailable, supports } from "./todo-client.js?v=0.2.0";
 import { imageSource, normalizedName } from "./catalog-panel.js?v=0.2.0";
+import { ListSettingsSession } from "./list-settings-client.js?v=0.2.0";
+import "./settings-panel.js?v=0.2.0";
 
 const LOGO_URL = new URL("logo.png", import.meta.url).href;
 const searchText = value => normalizedName(value).normalize("NFD").replace(/\p{M}/gu, "");
@@ -9,39 +11,43 @@ class ImprovedShoppingListPanel extends HTMLElement {
     super();
     this.attachShadow({ mode: "open" });
     this._session = new TodoSession(() => this._hass, () => this._renderData());
+    this._settings = new ListSettingsSession(() => this._hass, () => this._applySettings());
     this._busy = false;
     this._rows = new Map();
     this._catalogProducts = new Map();
     this._catalogCategories = new Map();
     this._view = "shopping";
     this._onVisibility = () => {
-      if (document.visibilityState === "visible") void this._session.refresh();
+      if (document.visibilityState === "visible") {
+        void this._session.refresh();
+        void this._settings.refresh();
+      }
     };
   }
 
   set hass(value) {
+    const previousHass = this._hass;
     const previousConnection = this._hass?.connection;
-    const previousState = this._hass?.states[this._session.entityId];
+    const signature = JSON.stringify(Object.values(value.states ?? {}).filter(state => state.entity_id.startsWith("todo."))
+      .map(state => [state.entity_id, state.attributes.friendly_name, isAvailable(state), state.attributes.supported_features])
+      .sort((a, b) => a[0].localeCompare(b[0])));
+    const changed = signature !== this._todoStatesSignature || previousHass?.user !== value.user ||
+      previousHass?.states[this._session.entityId] !== value.states[this._session.entityId];
+    this._todoStatesSignature = signature;
     this._hass = value;
     if (!this.isConnected) return;
     if (this._built) this.shadowRoot.querySelector("isl-catalog").hass = value;
     this._ensureStarted();
-    this._renderOptions();
-    if (previousConnection && previousConnection !== value.connection && this._session.entityId) {
-      void this._session.select(this._session.entityId);
-    } else if (previousState !== value.states[this._session.entityId]) {
-      this._renderData();
+    if (previousConnection && previousConnection !== value.connection) {
+      void this._settings.start();
+      if (this._session.entityId) void this._session.select(this._session.entityId);
     }
+    if (changed || previousConnection !== value.connection) this._renderData();
   }
 
   set panel(value) {
-    const previousDefault = this._panel?.config?.default_entity;
     this._panel = value;
     this._ensureStarted();
-    const nextDefault = value?.config?.default_entity;
-    if (this.isConnected && this._hass && previousDefault && previousDefault !== nextDefault) {
-      void this._session.select(nextDefault);
-    }
   }
 
   set narrow(value) {
@@ -58,6 +64,8 @@ class ImprovedShoppingListPanel extends HTMLElement {
   disconnectedCallback() {
     document.removeEventListener("visibilitychange", this._onVisibility);
     this._session.dispose();
+    this._settings.stop();
+    this._settingsApplied = false;
     this._started = false;
     this.shadowRoot.querySelector("#list-dialog")?.close();
   }
@@ -65,9 +73,21 @@ class ImprovedShoppingListPanel extends HTMLElement {
   _ensureStarted() {
     if (!this.isConnected || !this._built || !this._hass || !this._panel || this._started) return;
     this._started = true;
-    this._renderOptions();
-    const initial = this._panel.config?.default_entity ?? todoEntities(this._hass)[0]?.entity_id ?? "";
-    void this._session.select(initial);
+    void this._settings.start();
+  }
+
+  _applySettings() {
+    if (!this._built || !this._hass) return;
+    const settings = this._settings;
+    if (settings.loaded) {
+      if (!this._settingsApplied || settings.primary !== this._previousPrimary ||
+          (this._session.entityId && !settings.entities.includes(this._session.entityId))) {
+        this._settingsApplied = true;
+        this._previousPrimary = settings.primary;
+        void this._session.select(settings.primary);
+      }
+    }
+    this._renderData();
   }
 
   _build() {
@@ -169,6 +189,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
         <nav class="section-nav" aria-label="Apartados">
           <button id="nav-shopping" aria-pressed="true"><ha-icon icon="mdi:shopping"></ha-icon>Lista</button>
           <button id="nav-catalog" aria-pressed="false"><ha-icon icon="mdi:view-grid"></ha-icon>Catálogo</button>
+          <button id="nav-settings" aria-pressed="false"><ha-icon icon="mdi:cog"></ha-icon>Ajustes</button>
         </nav>
       </header>
       <main>
@@ -188,7 +209,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
         <dialog id="list-dialog" aria-labelledby="list-dialog-title">
           <h2 id="list-dialog-title">Seleccionar lista</h2>
           <div id="list-options" role="group" aria-label="Listas de la compra"></div>
-          <p id="no-lists" class="helper" hidden>No hay listas disponibles. Añade una integración de listas en Home Assistant, como Shopping List o Bring!.</p>
+          <p id="no-lists" class="helper" hidden>No hay listas añadidas. Puedes añadir entidades todo desde Ajustes.</p>
           <div class="dialog-actions"><button id="refresh" type="button">Actualizar lista</button><button id="close-list-dialog" type="button">Cerrar</button></div>
         </dialog>
         <section class="card" aria-labelledby="pending-title" id="items-card">
@@ -198,6 +219,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
           <details id="completed-details"><summary id="completed-summary">Comprados</summary><ul id="completed" class="product-grid" aria-label="Comprados"></ul></details>
         </section>
         <isl-catalog hidden></isl-catalog>
+        <isl-settings hidden></isl-settings>
         <div id="announcement" class="sr-only" role="status" aria-live="polite"></div>
       </main>`;
     this._built = true;
@@ -209,6 +231,8 @@ class ImprovedShoppingListPanel extends HTMLElement {
     });
     root.querySelector("#nav-shopping").addEventListener("click", () => this._switchView("shopping"));
     root.querySelector("#nav-catalog").addEventListener("click", () => this._switchView("catalog"));
+    root.querySelector("#nav-settings").addEventListener("click", () => this._switchView("settings"));
+    root.querySelector("isl-settings").onAction = (action, entity) => this._settings.update(action, entity);
     root.querySelector("isl-catalog").onAdd = (product) => this._runAction(
       () => this._session.add(product.name), `${product.name} añadido a la lista.`,
     );
@@ -227,6 +251,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
     root.querySelector("#refresh").addEventListener("click", () => {
       this._actionError = "";
       void this._session.refresh();
+      void this._settings.refresh();
     });
     root.querySelector("#add-form").addEventListener("submit", (event) => {
       event.preventDefault();
@@ -248,23 +273,24 @@ class ImprovedShoppingListPanel extends HTMLElement {
     root.querySelector("#items-card").hidden = view !== "shopping";
     root.querySelector("#add-form").hidden = view !== "shopping";
     root.querySelector("isl-catalog").hidden = view !== "catalog";
+    root.querySelector("isl-settings").hidden = view !== "settings";
     root.querySelector("#nav-shopping").setAttribute("aria-pressed", String(view === "shopping"));
     root.querySelector("#nav-catalog").setAttribute("aria-pressed", String(view === "catalog"));
+    root.querySelector("#nav-settings").setAttribute("aria-pressed", String(view === "settings"));
     this._renderData();
   }
 
   _renderOptions() {
     if (!this._built || !this._hass) return;
     const root = this.shadowRoot;
-    const entities = todoEntities(this._hass).slice();
+    const entities = this._settings.entities.map(entity => this._hass.states[entity] ?? {
+      entity_id: entity, state: "unavailable", attributes: {},
+    });
     const signature = JSON.stringify(entities.map((state) => [state.entity_id, state.attributes.friendly_name, state.state === "unavailable"]));
-    const selected = this._session.entityId || this._panel?.config?.default_entity || "";
+    const selected = this._session.entityId;
     if (signature !== this._optionsSignature || selected !== this._optionsSelected) {
       this._optionsSignature = signature;
       this._optionsSelected = selected;
-      if (selected && !entities.some((state) => state.entity_id === selected)) {
-        entities.unshift({ entity_id: selected, state: "unavailable", attributes: {} });
-      }
       root.querySelector("#no-lists").hidden = entities.length > 0;
       const options = entities.map(state => {
         const button = document.createElement("button");
@@ -295,6 +321,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
     this._renderOptions();
     const root = this.shadowRoot;
     const session = this._session;
+    root.querySelector("isl-settings").data = { hass: this._hass, settings: this._settings };
     const state = this._hass.states[session.entityId];
     const available = isAvailable(state);
     const canCreate = available && supports(state, FEATURES.CREATE);
@@ -312,17 +339,17 @@ class ImprovedShoppingListPanel extends HTMLElement {
     root.querySelector("#add-button").setAttribute("aria-busy", String(this._busy));
     root.querySelector("#refresh").disabled = session.loading || !session.entityId;
     const capabilityHelp = root.querySelector("#capability-help");
-    capabilityHelp.hidden = this._view === "catalog" || !available || (canCreate && canUpdate);
+    capabilityHelp.hidden = this._view !== "shopping" || !available || (canCreate && canUpdate);
     capabilityHelp.textContent = !canCreate
       ? "Esta lista no permite añadir productos desde Home Assistant."
       : "Esta lista permite añadir productos, pero no marcarlos como comprados.";
     const status = root.querySelector("#status");
-    status.hidden = this._view === "catalog" || (available && !session.loading);
-    status.textContent = session.loading ? "Cargando tu lista…"
+    status.hidden = this._view !== "shopping" || (available && !session.loading);
+    status.textContent = !this._settings.loaded && this._settings.loading ? "Cargando ajustes…" : session.loading ? "Cargando tu lista…"
       : session.entityId ? "La lista seleccionada no está disponible. Comprueba su integración o selecciona otra lista."
-        : "Todavía no hay una lista seleccionada.";
+        : "Añade una lista de la compra desde Ajustes para empezar.";
     const error = root.querySelector("#error");
-    const message = this._actionError || (this._view === "shopping" ? session.error : "");
+    const message = this._actionError || (this._view === "shopping" ? session.error || this._settings.error : "");
     error.hidden = !message;
     error.textContent = message;
     const pending = session.items.filter((item) => item.status !== "completed");

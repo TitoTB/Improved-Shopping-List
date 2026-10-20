@@ -8,7 +8,8 @@ from homeassistant import config_entries
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import selector
 
-from .const import CONF_TODO_ENTITY, DOMAIN, NAME
+from .const import CONF_TODO_ENTITY, CONF_TODO_ENTITIES, DOMAIN, NAME
+from .list_settings import list_options
 
 
 def _schema(selected: str | None = None) -> vol.Schema:
@@ -64,7 +65,12 @@ class ImprovedShoppingListOptionsFlow(config_entries.OptionsFlow):
         errors: dict[str, str] = {}
         if user_input is not None:
             if _valid_entity(self.hass, user_input[CONF_TODO_ENTITY]):
-                return self.async_create_entry(title="", data=user_input)
+                entities = list_options(self.config_entry)["entities"]
+                if user_input[CONF_TODO_ENTITY] not in entities:
+                    entities.append(user_input[CONF_TODO_ENTITY])
+                return self.async_create_entry(title="", data={
+                    **self.config_entry.options, **user_input, CONF_TODO_ENTITIES: entities,
+                })
             errors[CONF_TODO_ENTITY] = "invalid_entity"
         selected = self.config_entry.options.get(
             CONF_TODO_ENTITY, self.config_entry.data[CONF_TODO_ENTITY]

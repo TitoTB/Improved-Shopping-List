@@ -9,6 +9,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.typing import ConfigType
 
 from .catalog import Catalog
+from .list_settings import ListSettings
 from .const import (
     CONF_TODO_ENTITY,
     DOMAIN,
@@ -29,13 +30,22 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         await hass.http.async_register_static_paths(
             [StaticPathConfig(STATIC_URL, str(Path(__file__).parent / "frontend"), False)]
         )
-        hass.data[DOMAIN] = {"catalog": catalog, "active": False}
+        hass.data[DOMAIN] = {"catalog": catalog, "settings": ListSettings(hass), "active": False}
         async_register_commands(hass)
     return True
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Add the sidebar panel. List data stays in the selected to-do provider."""
+    hass.data[DOMAIN]["settings"].attach(entry)
+    await _async_register_panel(hass, entry)
+    hass.data[DOMAIN]["active"] = True
+    hass.data[DOMAIN]["settings"].notify()
+    entry.async_on_unload(entry.add_update_listener(_async_options_updated))
+    return True
+
+
+async def _async_register_panel(hass: HomeAssistant, entry: ConfigEntry) -> None:
     await panel_custom.async_register_panel(
         hass,
         frontend_url_path=PANEL_PATH,
@@ -51,9 +61,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         },
         require_admin=False,
     )
-    hass.data[DOMAIN]["active"] = True
-    entry.async_on_unload(entry.add_update_listener(_async_options_updated))
-    return True
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -64,5 +71,14 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 
 async def _async_options_updated(hass: HomeAssistant, entry: ConfigEntry) -> None:
-    """Refresh the default list after changing integration options."""
-    await hass.config_entries.async_reload(entry.entry_id)
+    """Notify open panels while keeping provider subscriptions alive."""
+    if not hass.data[DOMAIN]["active"]:
+        return
+    hass.data[DOMAIN]["settings"].notify()
+    panel = hass.data.get(frontend.DATA_PANELS, {}).get(PANEL_PATH)
+    if panel:
+        frontend.async_register_built_in_panel(
+            hass, component_name="custom", sidebar_title=NAME, sidebar_icon="mdi:shopping",
+            frontend_url_path=PANEL_PATH, require_admin=False, update=True,
+            config={**panel.config, "default_entity": entry.options.get(CONF_TODO_ENTITY, entry.data[CONF_TODO_ENTITY])},
+        )

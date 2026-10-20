@@ -3,6 +3,7 @@
 DOMAIN = "improved_shopping_list"
 NAME = "Improved Shopping List"
 CONF_TODO_ENTITY = "todo_entity"
+CONF_TODO_ENTITIES = "todo_entities"
 PANEL_PATH = "improved-shopping-list"
 PANEL_ELEMENT = "improved-shopping-list-panel"
 STATIC_URL = "/improved_shopping_list_static"

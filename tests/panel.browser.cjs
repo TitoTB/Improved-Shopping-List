@@ -30,14 +30,25 @@ const emitCatalog=()=>{
   for(const listener of listeners.keys())if(listener.catalog)listener.callback(snapshot());
 };
 window.calls=[];window.fail=false;window.failCatalog=false;
+window.listSettings=JSON.parse(localStorage.getItem('settings-fixture')??'{"entities":["todo.bring","todo.local","todo.readonly"],"primary_entity":"todo.bring"}');
+window.failSettings=false;
+window.emitSettings=()=>{
+  localStorage.setItem('settings-fixture',JSON.stringify(window.listSettings));
+  for(const listener of listeners.keys())if(listener.settings)listener.callback(structuredClone(window.listSettings));
+};
 const panel=document.createElement('improved-shopping-list-panel');
 const hass={
+  user:{is_admin:true},
   states: {
     'todo.bring':{entity_id:'todo.bring',state:'2',attributes:{friendly_name:'Compra · Bring!',supported_features:5}},
     'todo.local':{entity_id:'todo.local',state:'1',attributes:{friendly_name:'Casa',supported_features:5}},
     'todo.readonly':{entity_id:'todo.readonly',state:'1',attributes:{friendly_name:'Solo lectura',supported_features:0}}
   },
   connection:{subscribeMessage:async(callback,msg)=>{
+    if(msg.type==='improved_shopping_list/settings/subscribe'){
+      const listener={callback,settings:true};listeners.set(listener,true);
+      callback(structuredClone(window.listSettings));return ()=>listeners.delete(listener);
+    }
     if(msg.type==='improved_shopping_list/catalog/subscribe'){
       const listener={callback,catalog:true};listeners.set(listener,true);
       callback(snapshot());
@@ -48,6 +59,15 @@ const hass={
     return ()=>listeners.delete(listener);
   }},
   callWS:async(msg)=>{
+    if(msg.type==='improved_shopping_list/settings/get')return structuredClone(window.listSettings);
+    if(msg.type==='improved_shopping_list/settings/update'){
+      if(window.failSettings)throw new Error('No se han podido guardar los ajustes');
+      if(msg.action==='add'&&!window.listSettings.entities.includes(msg.entity_id))window.listSettings.entities.push(msg.entity_id);
+      if(msg.action==='remove')window.listSettings.entities=window.listSettings.entities.filter(entity=>entity!==msg.entity_id);
+      if(msg.action==='primary')window.listSettings.primary_entity=msg.entity_id;
+      if(!window.listSettings.entities.includes(window.listSettings.primary_entity))window.listSettings.primary_entity=window.listSettings.entities[0]??'';
+      window.emitSettings();return structuredClone(window.listSettings);
+    }
     if(msg.type==='improved_shopping_list/catalog/get')return snapshot();
     if(msg.type==='improved_shopping_list/catalog/suggestion'){
       if(window.failCatalog)throw new Error('No se ha podido guardar el cambio');
@@ -114,7 +134,7 @@ async function main() {
   const server = http.createServer(async (req, res) => {
     const pathname = new URL(req.url, "http://localhost").pathname;
     if (pathname === "/") { res.setHeader("content-type", "text/html; charset=utf-8"); res.end(html); return; }
-    if (!["/panel.js", "/todo-client.js", "/catalog-panel.js", "/catalog-client.js", "/category-panel.js", "/logo.png"].includes(pathname)) { res.writeHead(404).end(); return; }
+    if (!["/panel.js", "/todo-client.js", "/catalog-panel.js", "/catalog-client.js", "/category-panel.js", "/list-settings-client.js", "/settings-panel.js", "/logo.png"].includes(pathname)) { res.writeHead(404).end(); return; }
     res.setHeader("content-type", pathname.endsWith(".png") ? "image/png" : "text/javascript; charset=utf-8");
     res.end(await fs.readFile(path.join(root, pathname.slice(1))));
   });
@@ -194,7 +214,7 @@ async function main() {
     await selectList(page, "todo.local");
     await page.locator("#pending").getByText("Detergente", { exact: true }).waitFor();
     assert.equal(await page.locator("#pending").getByText("Cacao puro", { exact: true }).count(), 0);
-    assert.equal(await page.evaluate(() => window.listenerCount()), 2);
+    assert.equal(await page.evaluate(() => window.listenerCount()), 3);
 
     await selectList(page, "todo.readonly");
     await page.locator("#pending").getByText("Lista compartida", { exact: true }).waitFor();
@@ -480,6 +500,71 @@ async function main() {
     assert.equal(await predictiveInput.isDisabled(), true);
     assert.equal(await predictiveInput.getAttribute("aria-expanded"), "false");
     await predictiveContext.close();
+    const settingsContext = await browser.newContext({ viewport: { width: 1280, height: 960 } });
+    const settingsPage = await settingsContext.newPage();
+    settingsPage.on("pageerror", error => errors.push(error.message));
+    await settingsPage.goto(url);
+    await settingsPage.locator("#pending").getByText("Cacao", { exact: true }).waitFor();
+    assert.equal(await settingsPage.locator("#nav-settings ha-icon").getAttribute("icon"), "mdi:cog");
+    const settingsView = settingsPage.locator("isl-settings");
+    await settingsPage.getByRole("button", { name: "Ajustes", exact: true }).click();
+    const configured = settingsView.locator("#configured-lists article");
+    assert.equal(await configured.count(), 3);
+    assert.equal(await configured.filter({ hasText: "todo.bring" }).locator(".badge").textContent(), "Principal");
+    await settingsView.getByRole("button", { name: "Quitar: Casa", exact: true }).click();
+    await settingsView.getByRole("status").filter({ hasText: "Ajustes guardados" }).waitFor();
+    assert.equal(await configured.count(), 2);
+    assert.equal(await settingsPage.evaluate(() => window.listData['todo.local'].length), 1);
+    await settingsPage.getByRole("button", { name: "Lista", exact: true }).click();
+    await settingsPage.getByRole("button", { name: "Seleccionar lista", exact: true }).click();
+    const configuredDialog = settingsPage.getByRole("dialog", { name: "Seleccionar lista", exact: true });
+    assert.equal(await configuredDialog.locator(".list-option").count(), 2);
+    assert.equal(await configuredDialog.getByRole("button", { name: "Casa", exact: true }).count(), 0);
+    await configuredDialog.getByRole("button", { name: "Cerrar", exact: true }).click();
+    await settingsPage.getByRole("button", { name: "Ajustes", exact: true }).click();
+    await settingsView.getByLabel("Entidad todo", { exact: true }).selectOption("todo.local");
+    await settingsView.getByRole("button", { name: "Añadir lista", exact: true }).click();
+    await configured.filter({ hasText: "todo.local" }).waitFor();
+    await settingsView.getByRole("button", { name: "Hacer principal: Casa", exact: true }).click();
+    await configured.filter({ hasText: "todo.local" }).locator(".badge").waitFor();
+    await settingsPage.screenshot({ path: "test-results/settings-desktop.png", fullPage: true });
+    await settingsPage.getByRole("button", { name: "Lista", exact: true }).click();
+    await settingsPage.locator("#pending").getByText("Detergente", { exact: true }).waitFor();
+    await settingsPage.reload();
+    await settingsPage.locator("#pending").getByText("Detergente", { exact: true }).waitFor();
+    await settingsPage.getByRole("button", { name: "Ajustes", exact: true }).click();
+    await settingsPage.evaluate(() => { window.failSettings = true; });
+    await settingsView.getByRole("button", { name: "Quitar: Casa", exact: true }).click();
+    await settingsView.getByRole("alert").filter({ hasText: "No se han podido guardar" }).waitFor();
+    assert.equal(await configured.count(), 3);
+    await settingsPage.evaluate(() => { window.failSettings = false; });
+    await settingsView.getByRole("button", { name: "Quitar: Casa", exact: true }).click();
+    await configured.filter({ hasText: "todo.bring" }).locator(".badge").waitFor();
+    await settingsView.getByRole("button", { name: "Quitar: Compra · Bring!", exact: true }).click();
+    await settingsView.getByRole("button", { name: "Quitar: Solo lectura", exact: true }).click();
+    await settingsView.getByText("No hay listas añadidas. Añade una entidad todo para empezar.", { exact: true }).waitFor();
+    await settingsPage.reload();
+    assert.equal(await settingsPage.locator("#product-input").isDisabled(), true);
+    await settingsPage.getByRole("button", { name: "Ajustes", exact: true }).click();
+    assert.equal(await configured.count(), 0);
+    await settingsPage.evaluate(() => {
+      const panel = window.testPanel;
+      panel.hass = {...panel._hass, states:{...panel._hass.states, 'todo.custom_provider':{entity_id:'todo.custom_provider',state:'0',attributes:{friendly_name:'Otra integración',supported_features:5}}}};
+      window.listData['todo.custom_provider']=[];
+    });
+    await settingsView.getByLabel("Entidad todo", { exact: true }).selectOption("todo.custom_provider");
+    await settingsView.getByRole("button", { name: "Añadir lista", exact: true }).click();
+    await configured.filter({ hasText: "todo.custom_provider" }).locator(".badge").waitFor();
+    // A settings snapshot from another session updates the selected provider immediately.
+    await settingsPage.evaluate(() => { window.listSettings={entities:['todo.bring','todo.custom_provider'],primary_entity:'todo.bring'};window.emitSettings(); });
+    await configured.filter({ hasText: "todo.bring" }).locator(".badge").waitFor();
+    await settingsPage.setViewportSize({ width: 390, height: 844 });
+    await settingsPage.screenshot({ path: "test-results/settings-mobile.png", fullPage: true });
+    assert.equal(await settingsPage.locator("main").evaluate(node => node.scrollWidth > innerWidth), false);
+    await settingsPage.evaluate(() => { window.testPanel.hass={...window.testPanel._hass,user:{is_admin:false}}; });
+    assert.equal(await settingsView.getByRole("button", { name: "Añadir lista", exact: true }).isDisabled(), true);
+    assert.equal(await settingsView.getByRole("button", { name: "Quitar: Compra · Bring!", exact: true }).isDisabled(), true);
+    await settingsContext.close();
     await page.evaluate(() => window.testPanel.remove());
     assert.equal(await page.evaluate(() => window.listenerCount()), 0);
     assert.deepEqual(errors, []);

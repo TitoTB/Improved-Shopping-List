@@ -19,6 +19,7 @@ from .icons import IconError
 from .community import build_export
 from .product_translation import async_translate_name
 from .product_lookup import is_product_barcode
+from .store_links import normalize_links
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -50,6 +51,8 @@ def async_register_commands(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_store_progress)
     websocket_api.async_register_command(hass, ws_carrefour_products)
     websocket_api.async_register_command(hass, ws_favorite_store)
+    websocket_api.async_register_command(hass, ws_price_schedule)
+    websocket_api.async_register_command(hass, ws_cached_prices)
     websocket_api.async_register_command(hass, ws_readers_get)
     websocket_api.async_register_command(hass, ws_readers_subscribe)
     websocket_api.async_register_command(hass, ws_readers_save)
@@ -282,10 +285,11 @@ def ws_personalization(hass: HomeAssistant, connection, msg) -> None:
 
 @websocket_api.websocket_command({
     vol.Required("type"): f"{DOMAIN}/settings/store",
-    vol.Required("store"): vol.In(("mercadona", "carrefour")),
+    vol.Required("store"): vol.In(("mercadona", "carrefour", "alcampo")),
     vol.Required("enabled"): bool,
     vol.Optional("postal_code", default=""): str,
     vol.Optional("verify", default=False): bool,
+    vol.Optional("region_id", default=""): str,
 })
 @websocket_api.require_admin
 @websocket_api.async_response
@@ -294,7 +298,8 @@ async def ws_store_update(hass, connection, msg):
         return
     try:
         settings = hass.data[DOMAIN]["settings"]
-        result = (await settings.async_update_carrefour(msg["enabled"]) if msg["store"] == "carrefour"
+        result = (await settings.async_update_alcampo(msg["enabled"], msg["region_id"]) if msg["store"] == "alcampo"
+            else await settings.async_update_carrefour(msg["enabled"]) if msg["store"] == "carrefour"
             else await settings.async_update_store(msg["enabled"], msg["postal_code"], msg["verify"]))
     except StoreError as err:
         connection.send_error(msg["id"], "invalid_store", str(err))
@@ -302,7 +307,7 @@ async def ws_store_update(hass, connection, msg):
         connection.send_result(msg["id"], result)
 
 
-@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/settings/favorite_store", vol.Required("store"): vol.In(("mercadona", "carrefour"))})
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/settings/favorite_store", vol.Required("store"): vol.In(("mercadona", "carrefour", "alcampo"))})
 @websocket_api.require_admin
 @websocket_api.async_response
 async def ws_favorite_store(hass, connection, msg):
@@ -324,7 +329,7 @@ async def ws_carrefour_products(hass, connection, msg):
     if msg["force"] and not connection.user.is_admin:
         connection.send_error(msg["id"], "unauthorized", "Solo los administradores pueden forzar la actualización.")
         return
-    result = await hass.data[DOMAIN]["retail_feed"].async_refresh(msg["force"])
+    result = hass.data[DOMAIN]["price_manager"].snapshot("carrefour")
     connection.send_result(msg["id"], result)
 
 
@@ -342,6 +347,42 @@ def ws_store_progress(hass, connection, msg):
     connection.subscriptions[msg["id"]] = products.subscribe(on_update)
     connection.send_result(msg["id"])
     on_update()
+
+
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/settings/price_schedule", vol.Required("time"):str})
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_price_schedule(hass, connection, msg):
+    if not _catalog(hass, connection, msg):
+        return
+    try:
+        result = hass.data[DOMAIN]["settings"].update_price_schedule(msg["time"])
+    except StoreError as err:
+        connection.send_error(msg["id"], "invalid_schedule", str(err))
+    else:
+        connection.send_result(msg["id"], result)
+
+
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/catalog/store_prices",
+    vol.Optional("links", default={}):dict, vol.Optional("codes", default=[]):[str],
+    vol.Optional("store", default=""):vol.In(("", "mercadona", "carrefour", "alcampo"))})
+@websocket_api.async_response
+async def ws_cached_prices(hass, connection, msg):
+    if not _catalog(hass, connection, msg):
+        return
+    manager = hass.data[DOMAIN]["price_manager"]
+    try:
+        links = normalize_links(msg["links"])
+        if len(msg["codes"]) > 51 or any(len(code) > 1024 for code in msg["codes"]):
+            raise ValueError("Demasiados códigos de producto.")
+    except ValueError as err:
+        connection.send_error(msg["id"], "invalid_store_link", str(err))
+        return
+    if msg["store"]:
+        result = manager.snapshot(msg["store"])
+    else:
+        result = {"products":manager.prices_for({"store_links":links,"barcodes":msg["codes"]}), "nightly":True}
+    connection.send_result(msg["id"], result)
 
 
 @websocket_api.websocket_command({

@@ -16,12 +16,13 @@ from homeassistant.helpers.storage import Store
 
 from .const import DOMAIN
 from .product_translation import async_translate_name
+from .store_links import normalize_links
 
 STORAGE_KEY = f"{DOMAIN}.catalog"
 FIELDS = {
     "id", "revision", "name", "category", "tags", "barcode",
     "price", "currency", "image_url", "icon", "notes",
-    "barcodes", "nfc_tags", "reader_actions", "recurrence",
+    "barcodes", "nfc_tags", "reader_actions", "recurrence", "store_links",
 }
 READER_ACTIONS = {"none", "add_list", "stock_remove", "stock_add"}
 LEGACY_PRODUCT_FIELDS = {"brand", "format"}
@@ -129,6 +130,10 @@ def normalize_product(data: dict[str, Any]) -> dict[str, Any]:
         or not 1 <= recurrence["days"] <= 3650):
         raise CatalogError("La recurrencia debe indicar si está activa y un número entero de días entre 1 y 3650.")
     product["recurrence"] = dict(recurrence)
+    try:
+        product["store_links"] = normalize_links(data.get("store_links", {}))
+    except ValueError as err:
+        raise CatalogError(str(err)) from err
     tags = data.get("tags", [])
     if not isinstance(tags, list) or len(tags) > 20:
         raise CatalogError("Puedes asignar hasta 20 etiquetas.")
@@ -301,6 +306,8 @@ class Catalog:
                         product[field] = deepcopy(current.get(field, {} if field == "reader_actions" else []))
                 if "recurrence" not in data:
                     product["recurrence"] = deepcopy(current.get("recurrence", {"enabled": False, "days": 7}))
+                if "store_links" not in data:
+                    product["store_links"] = deepcopy(current.get("store_links", {}))
             if product["category"]:
                 category = next((item for item in self._categories.values()
                                  if item["name"].casefold() == product["category"].casefold()), None)

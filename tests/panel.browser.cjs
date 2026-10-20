@@ -131,8 +131,8 @@ const hass={
     }
     if(msg.type==='improved_shopping_list/settings/store'){
       if(window.failSettings)throw new Error('Mercadona no está disponible');
-      if(msg.store==='carrefour'){
-        window.listSettings.stores={...window.listSettings.stores,carrefour:{enabled:msg.enabled}};
+      if(msg.store==='carrefour'||msg.store==='alcampo'){
+        window.listSettings.stores={...window.listSettings.stores,[msg.store]:{enabled:msg.enabled,...(msg.store==='alcampo'?{region_id:msg.region_id}: {})}};
         const active=Object.keys(window.listSettings.stores).filter(key=>window.listSettings.stores[key].enabled);
         if(!active.includes(window.listSettings.favorite_store))window.listSettings.favorite_store=active[0]??'';
         window.emitSettings();return structuredClone(window.listSettings);
@@ -144,6 +144,13 @@ const hass={
     }
     if(msg.type==='improved_shopping_list/settings/favorite_store'){
       window.listSettings.favorite_store=msg.store;window.emitSettings();return structuredClone(window.listSettings);
+    }
+    if(msg.type==='improved_shopping_list/settings/price_schedule'){
+      window.listSettings.price_update_time=msg.time;window.emitSettings();return structuredClone(window.listSettings);
+    }
+    if(msg.type==='improved_shopping_list/catalog/store_prices'){
+      const products=window.storePriceFixture??((msg.codes??[]).includes('8431876279146')?[{store:'carrefour',store_name:'Alcaparras Carrefour',ean:'8431876279146',price:'1.35',currency:'EUR',url:'https://www.awin1.com/pclick.php?p=123&a=1535625&m=25399',checked_at:1792490400}]:[]);
+      return {nightly:true,products:msg.store?products.filter(p=>p.store===msg.store):products,enabled:true,update_time:window.listSettings.price_update_time??'01:00'};
     }
     if(msg.type==='improved_shopping_list/settings/carrefour_products')return {
       enabled:!!window.listSettings.stores?.carrefour?.enabled,version:'published',generated_at:'2026-10-20T12:00:00+00:00',error:'',stale:false,
@@ -294,7 +301,7 @@ async function main() {
       };
       visit(document);
       return dialogs.filter(dialog => dialog.querySelectorAll(".isl-dialog-close[aria-label='Cerrar ventana']").length === 1).length;
-    }), 13);
+    }), 14);
     await page.getByRole("button", { name: "Seleccionar lista", exact: true }).click();
     const listDialog = page.getByRole("dialog", { name: "Seleccionar lista", exact: true });
     assert.equal(await listDialog.getByRole("button", { name: "Compra · Bring!", exact: true }).getAttribute("aria-pressed"), "true");
@@ -944,7 +951,7 @@ async function main() {
     await carrefourDialog.getByText("Alcaparras Carrefour",{exact:true}).waitFor();
     assert.match(await carrefourDialog.locator(".store-product").textContent(),/1,35/);
     assert.match(await carrefourDialog.getByRole("link").getAttribute("href"),/awin1.com\/pclick.php/);
-    await carrefourDialog.getByRole("button",{name:"Forzar actualización",exact:true}).click();
+    await carrefourDialog.getByRole("button",{name:"Actualizar vista",exact:true}).click();
     await carrefourDialog.getByText("Alcaparras Carrefour",{exact:true}).waitFor();
     await carrefourDialog.getByRole("button",{name:"Cerrar",exact:true}).click();
     await settingsView.getByRole("switch",{name:"Habilitar Mercadona",exact:true}).uncheck();
@@ -1450,6 +1457,49 @@ async function main() {
     await nutriForm.getByRole('button',{name:'Información adicional',exact:true}).click();
     assert.equal(await nutriForm.locator('#product-nutriscore').isVisible(),false);
     await nutriContext.close();
+    // Store bindings persist without barcodes; all product-price UI reads use cache.
+    const linksContext=await browser.newContext({viewport:{width:390,height:844}});
+    const linksPage=await linksContext.newPage();
+    linksPage.on('pageerror',error=>errors.push(error.message));
+    await linksPage.goto(url);
+    await linksPage.getByRole('button',{name:'Catálogo',exact:true}).click();
+    const linksCatalog=linksPage.locator('isl-catalog');
+    await linksCatalog.getByRole('button',{name:'Nuevo producto',exact:true}).click();
+    const linksForm=linksCatalog.locator('#product-form');
+    await linksForm.getByLabel('Nombre del producto',{exact:true}).fill('Arroz vinculado');
+    await linksForm.getByRole('button',{name:'Información adicional',exact:true}).click();
+    await linksForm.getByLabel('Tienda del producto',{exact:true}).selectOption('mercadona');
+    await linksForm.getByLabel('Enlace o ID del producto',{exact:true}).fill('69938');
+    await linksForm.getByRole('button',{name:'Añadir vinculación',exact:true}).click();
+    await linksForm.getByLabel('Tienda del producto',{exact:true}).selectOption('alcampo');
+    await linksForm.getByLabel('Enlace o ID del producto',{exact:true}).fill('https://www.compraonline.alcampo.es/products/arroz/24097');
+    await linksForm.getByRole('button',{name:'Añadir vinculación',exact:true}).click();
+    assert.equal(await linksForm.getByLabel('Enlace o ID de Mercadona',{exact:true}).inputValue(),'69938');
+    await linksPage.screenshot({path:'test-results/store-links-mobile.png',fullPage:true});
+    assert.ok(await linksCatalog.locator('dialog[open]').evaluate(dialog=>dialog.scrollWidth<=dialog.clientWidth+1));
+    await linksForm.getByRole('button',{name:'Guardar producto',exact:true}).click();
+    assert.equal(await linksPage.evaluate(()=>window.catalogProducts[0].barcode),'');
+    assert.equal(await linksPage.evaluate(()=>window.catalogProducts[0].store_links.mercadona),'69938');
+    await linksCatalog.getByRole('button',{name:'Editar Arroz vinculado',exact:true}).click();
+    await linksForm.getByRole('button',{name:'Información adicional',exact:true}).click();
+    assert.match(await linksForm.getByLabel('Enlace o ID de Alcampo',{exact:true}).inputValue(),/24097$/);
+    await linksForm.getByRole('button',{name:'Quitar vinculación de Mercadona',exact:true}).click();
+    await linksForm.getByRole('button',{name:'Guardar producto',exact:true}).click();
+    assert.equal(await linksPage.evaluate(()=>window.catalogProducts[0].store_links.mercadona),undefined);
+    await linksPage.getByRole('button',{name:'Ajustes',exact:true}).click();
+    const linkedSettings=linksPage.locator('isl-settings');
+    await linkedSettings.getByRole('button',{name:'Tiendas',exact:true}).click();
+    await linkedSettings.locator('#price-update-time').fill('02:30');
+    await linkedSettings.getByRole('button',{name:'Guardar horario',exact:true}).click();
+    await linksPage.waitForFunction(()=>window.listSettings.price_update_time==='02:30');
+    await linkedSettings.getByLabel('Habilitar Alcampo',{exact:true}).check();
+    await linkedSettings.getByRole('button',{name:'Ajustes de Alcampo',exact:true}).click();
+    const alcampoDialog=linkedSettings.getByRole('dialog',{name:'Alcampo',exact:true});
+    await alcampoDialog.getByRole('button',{name:'Configuración',exact:true}).click();
+    await alcampoDialog.getByLabel('Región de Alcampo',{exact:true}).fill('aa07ac50-43a9-4870-873b-17881ec9a51a');
+    await alcampoDialog.getByRole('button',{name:'Guardar configuración',exact:true}).click();
+    await linksPage.waitForFunction(()=>window.listSettings.stores.alcampo.region_id==='aa07ac50-43a9-4870-873b-17881ec9a51a');
+    await linksContext.close();
     // Clearing completed items uses the native provider action, with no effect on pending items.
     const clearContext = await browser.newContext({viewport:{width:320,height:844}});
     const clearPage = await clearContext.newPage();

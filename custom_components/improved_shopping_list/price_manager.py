@@ -1,0 +1,305 @@
+"""Durable daily pending-list price queue; all UI reads use the last known cache."""
+
+import asyncio
+from copy import deepcopy
+from datetime import timedelta
+import logging
+import time
+
+import aiohttp
+from homeassistant.core import callback
+from homeassistant.helpers.event import async_track_time_interval
+from homeassistant.helpers.storage import Store
+from homeassistant.util import dt as dt_util
+
+from .catalog import normalized_name
+from .const import DOMAIN
+from .price_sources import PriceError, PriceSources
+from .store_links import STORES, normalize_link
+
+INTERVAL = 300
+_LOGGER = logging.getLogger(__name__)
+
+
+class PriceManager:
+    def __init__(self, hass, catalog, settings, activity):
+        self.hass, self.catalog, self.settings, self.activity = hass, catalog, settings, activity
+        self.sources = PriceSources(hass)
+        self._store = Store(hass, 1, f"{DOMAIN}.prices")
+        self._data = {"offers":{}, "attempts":{}, "pending":[], "day":"", "next_request":0,
+            "errors":{}, "blocked_day":{}, "blocked_until":{}, "legacy_ean":{}, "total":0, "processed":0}
+        self._active = False
+        self._lock = asyncio.Lock()
+        self._task = None
+        self._stops, self._listeners = [], set()
+        self._configuration = None
+
+    async def async_load(self):
+        data = await self._store.async_load()
+        if data is not None:
+            if not isinstance(data, dict) or not all(isinstance(data.get(key), dict) for key in ("offers", "attempts")) or not isinstance(data.get("pending"), list):
+                raise ValueError("No se pudo leer la cola de precios guardada.")
+            self._data.update(data)
+            return
+        # Migrate prices locally. Neither of these legacy services is started.
+        legacy = await Store(self.hass, 1, f"{DOMAIN}.store_products").async_load()
+        for key, entry in (legacy or {}).get("offers", {}).items():
+            offer = entry.get("offer") or {}
+            if offer.get("store_product_id"):
+                try:
+                    link = normalize_link("mercadona", str(offer["store_product_id"]))
+                except ValueError:
+                    continue
+                scope = key.split(":", 1)[0]
+                price = {**offer, "store":"mercadona", "reference_id":link["id"], "url":link["url"],
+                    "checked_at":entry.get("checked_at", 0), "scope":scope}
+                self._data["offers"][self.key("mercadona", link, scope)] = price
+                if offer.get("ean"):
+                    self._data["legacy_ean"]["mercadona:"+str(offer["ean"]).zfill(14)] = price
+        feed = await Store(self.hass, 1, f"{DOMAIN}.carrefour").async_load()
+        for key, item in (feed or {}).get("products", {}).items():
+            self._data["legacy_ean"]["carrefour:"+key] = {**item, "store":"carrefour", "store_name":item.get("name", ""),
+                "url":item.get("affiliate_url", ""), "checked_at":(feed or {}).get("checked_at", 0), "source":"legacy_feed"}
+        await self._save()
+
+    async def _save(self):
+        await self._store.async_save(deepcopy(self._data))
+
+    def scope(self, store):
+        config = self.settings.snapshot["stores"].get(store, {})
+        return config.get("warehouse", "") if store == "mercadona" else config.get("region_id", "") if store == "alcampo" else "web"
+
+    @staticmethod
+    def key(store, link, scope):
+        return f"{store}:{scope}:{link['id']}"
+
+    def links_for_product(self, product):
+        links = deepcopy(product.get("store_links", {}))
+        # Preserve exact EAN associations already discovered by the former service.
+        if "mercadona" not in links:
+            for code in [product.get("barcode", ""), *product.get("barcodes", [])]:
+                old = self._data["legacy_ean"].get("mercadona:"+code.zfill(14))
+                if code and old and old.get("scope") == self.scope("mercadona"):
+                    links["mercadona"] = normalize_link("mercadona", str(old["reference_id"]))
+                    break
+        return links
+
+    def prices_for(self, product):
+        prices = []
+        links = self.links_for_product(product)
+        for store, link in links.items():
+            price = self._data["offers"].get(self.key(store, link, self.scope(store)))
+            if price:
+                prices.append({**deepcopy(price), "catalog_product_id":product.get("id"), "name":product.get("name", ""),
+                    "error":self._data["errors"].get(store, "")})
+        for store in STORES:
+            if store in links:
+                continue
+            for code in [product.get("barcode", ""), *product.get("barcodes", [])]:
+                price = self._data["legacy_ean"].get(store+":"+code.zfill(14)) if code else None
+                if price and (store != "mercadona" or price.get("scope") == self.scope(store)):
+                    prices.append({**deepcopy(price), "catalog_product_id":product.get("id"), "name":product.get("name", ""),
+                        "error":self._data["errors"].get(store, "")})
+                    break
+        return prices
+
+    def snapshot(self, store=None):
+        settings = self.settings.snapshot
+        products = [price for product in self.catalog.products for price in self.prices_for(product)
+                    if (store is None or price["store"] == store)]
+        pending = self._data["pending"]
+        return {"products":products, "nightly":True, "update_time":settings.get("price_update_time", "01:00"),
+            "enabled":bool(settings["stores"].get(store, {}).get("enabled")) if store else True,
+            "warehouse":self.scope(store) if store else "", "error":self._data["errors"].get(store, "") if store else "",
+            "remaining":len(pending), "processed":self._data["processed"], "total":self._data["total"],
+            "next_request":self._data["next_request"] if pending else None, "retry_at":0,
+            "automatic_refresh_blocked":False, "running":bool(pending), "not_found":0}
+
+    @property
+    def progress(self):
+        running = bool(self._data["pending"])
+        remaining = len(self._data["pending"])
+        return {"running":running, "total":self._data["total"], "processed":self._data["processed"],
+            "started_at":self._data.get("started_at", time.time()), "phase":"waiting" if running else "processed",
+            "estimated_seconds":max(0, self._data["next_request"]-time.time())+max(0, remaining-1)*INTERVAL if running else 0}
+
+    def subscribe(self, listener):
+        self._listeners.add(listener)
+        return lambda: self._listeners.discard(listener)
+
+    def _notify(self):
+        for listener in tuple(self._listeners):
+            listener()
+
+    @callback
+    def start(self):
+        if self._active:
+            return
+        self._active = True
+        self._stops = [async_track_time_interval(self.hass, self._queue, timedelta(minutes=1))]
+        self._queue()
+
+    @callback
+    def _queue(self, *_args):
+        if self._active and (not self._task or self._task.done()):
+            self._task = self.hass.async_create_background_task(self._run_tick(), "Shopping prices queue")
+
+    async def _run_tick(self):
+        try:
+            await self.async_tick()
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            _LOGGER.exception("Could not advance nightly shopping price queue")
+
+    async def async_stop(self):
+        self._active = False
+        for stop in self._stops:
+            stop()
+        self._stops = []
+        if self._task and not self._task.done():
+            self._task.cancel()
+            await asyncio.gather(self._task, return_exceptions=True)
+        self._task = None
+
+    async def pending_names(self):
+        names = set()
+        failures = []
+        for entity in self.settings.snapshot["entities"]:
+            state = self.hass.states.get(entity)
+            if not state or state.state in ("unknown", "unavailable"):
+                failures.append(entity)
+                continue
+            try:
+                response = await self.hass.services.async_call("todo", "get_items", {"entity_id":entity,
+                    "status":["needs_action"]}, blocking=True, return_response=True)
+                items = response[entity]["items"]
+                if not isinstance(items, list):
+                    raise ValueError("Invalid todo response")
+                names.update(normalized_name(item["summary"]) for item in items
+                    if item.get("status") == "needs_action" and isinstance(item.get("summary"), str))
+            except Exception:
+                failures.append(entity)
+        return names, failures
+
+    async def _prepare(self, day):
+        names, failures = await self.pending_names()
+        jobs = {}
+        for product in self.catalog.products:
+            if normalized_name(product["name"]) not in names:
+                continue
+            for store, link in self.links_for_product(product).items():
+                if self.settings.snapshot["stores"].get(store, {}).get("enabled"):
+                    scope = self.scope(store)
+                    key = self.key(store, link, scope)
+                    if self._data["attempts"].get(key) != day:
+                        jobs[key] = {"store":store, "link":link, "scope":scope}
+        pending = sorted(jobs.values(), key=lambda job:self._data["offers"].get(self.key(job["store"], job["link"], job["scope"]), {}).get("checked_at", 0))
+        self._data.update(day=day, pending=pending, total=len(pending), processed=0, started_at=time.time())
+        await self._save()
+        self.activity.record("stores.queue", "Revisión nocturna de precios preparada", source="automatic",
+            diagnostics={"references":len(pending), "interval_seconds":INTERVAL, "unavailable_lists":failures})
+        self._notify()
+
+    def _current_job(self, job, names):
+        return (self._active and self.hass.data.get(DOMAIN, {}).get("active")
+            and self.settings.snapshot["stores"].get(job["store"], {}).get("enabled")
+            and self.scope(job["store"]) == job["scope"] and any(
+                normalized_name(product["name"]) in names and self.links_for_product(product).get(job["store"]) == job["link"]
+                for product in self.catalog.products))
+
+    async def _reserve_request(self):
+        delay = max(0, self._data["next_request"]-time.time())
+        if delay:
+            await asyncio.sleep(delay)
+        entry, generation, configuration, job = self._configuration
+        if (not self._active or self.settings.entry is not entry or self.settings._generation != generation
+            or self.settings.snapshot["stores"].get(job["store"]) != configuration):
+            raise PriceError("La configuración ha cambiado; consulta cancelada.", response_class="configuration_changed")
+        names, _ = await self.pending_names()
+        if not self._current_job(job, names):
+            raise PriceError("El producto ya no está pendiente; consulta omitida.", response_class="no_longer_pending")
+        self._data["next_request"] = time.time()+INTERVAL
+        await self._save()  # Persist request reservation before touching the retailer.
+
+    async def async_tick(self):
+        async with self._lock:
+            if not self._active or not self.hass.data.get(DOMAIN, {}).get("active"):
+                return
+            now = dt_util.now()
+            day = now.date().isoformat()
+            hour, minute = map(int, self.settings.snapshot.get("price_update_time", "01:00").split(":"))
+            elapsed = now.hour*60+now.minute-hour*60-minute
+            if self._data["day"] != day and 0 <= elapsed < 60:
+                await self._prepare(day)
+            if not self._data["pending"] or time.time() < self._data["next_request"]:
+                return
+            names, failures = await self.pending_names()
+            if failures:
+                # Missing lists are not treated as empty; keep their jobs for a later tick.
+                return
+            while self._data["pending"]:
+                job = self._data["pending"][0]
+                store = job["store"]
+                key = self.key(store, job["link"], job["scope"])
+                if (not self._current_job(job, names) or self._data["attempts"].get(key) == day
+                    or self._data["blocked_day"].get(store) == day or time.time() < self._data["blocked_until"].get(store, 0)):
+                    self._data["pending"].pop(0)
+                    self._data["processed"] += 1
+                    await self._save()
+                    self._notify()
+                    continue
+                entry, generation = self.settings.entry, self.settings._generation
+                configuration = deepcopy(self.settings.snapshot["stores"][store])
+                self._configuration = (entry, generation, configuration, job)
+                # A restart during a request must not replay an uncertain attempt that day.
+                self._data["attempts"][key] = day
+                await self._save()
+                try:
+                    result = await self.sources.fetch(store, job["link"], configuration, self._reserve_request)
+                    names, failures = await self.pending_names()
+                    if (self.settings.entry is not entry or self.settings._generation != generation
+                        or self.settings.snapshot["stores"].get(store) != configuration or not self._current_job(job, names)):
+                        result = "discarded"
+                    if isinstance(result, dict):
+                        self._data["offers"][key] = {**result, "checked_at":time.time(), "scope":job["scope"]}
+                        self._data["errors"].pop(store, None)
+                        self.activity.record("stores.price", f"{STORES[store]}: precio actualizado", source="automatic",
+                            diagnostics={"reference_id":job["link"]["id"], "price":result["price"], "currency":result["currency"]})
+                    elif result is None:
+                        self.activity.record("stores.not_found", f"{STORES[store]}: referencia no disponible; se conserva el último precio", source="automatic",
+                            diagnostics={"reference_id":job["link"]["id"], "http_status":404})
+                except (PriceError, aiohttp.ClientError, asyncio.TimeoutError, ValueError, KeyError, TypeError) as err:
+                    diagnostics = getattr(err, "diagnostics", {"response_class":"invalid_response"})
+                    self._data["errors"][store] = str(err) if isinstance(err, PriceError) else f"{STORES[store]}: no se pudo consultar. Se conserva el último precio."
+                    if diagnostics.get("http_status") in (403, 429):
+                        self._data["blocked_day"][store] = day
+                        self._data["blocked_until"][store] = time.time()+diagnostics.get("retry_seconds", 0)
+                    self.activity.record("stores.error", self._data["errors"][store], source="automatic", store=STORES[store],
+                        diagnostics={**diagnostics, "reference_id":job["link"]["id"], "next_attempt":"next_daily_run"})
+                finally:
+                    self._configuration = None
+                self._data["pending"].pop(0)
+                self._data["processed"] += 1
+                await self._save()
+                self._notify()
+                return  # At most one product per tick; redirects share the same 5-minute reservation.
+
+
+class StorePriceView:
+    """Compatibility adapter: opening or refreshing a popup is a cache-only read."""
+    def __init__(self, manager, store):
+        self.manager, self.store = manager, store
+
+    def snapshot(self):
+        return self.manager.snapshot(self.store)
+
+    @property
+    def progress(self):
+        return {**self.manager.progress, "warehouse":self.manager.scope(self.store)}
+
+    def subscribe(self, callback):
+        return self.manager.subscribe(callback)
+
+    async def async_refresh(self, force=False):
+        return self.snapshot()

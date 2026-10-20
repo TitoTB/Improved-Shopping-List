@@ -14,9 +14,8 @@ from .community import CommunityLibrary
 from .icons import ICONS_URL, IconLibrary
 from .list_settings import ListSettings
 from .readers import ReaderManager
-from .store_products import StoreProducts
+from .price_manager import PriceManager, StorePriceView
 from .recurrence import RecurrenceManager
-from .retail_feed import RetailFeed
 from .const import (
     CONF_TODO_ENTITY,
     DOMAIN,
@@ -35,16 +34,14 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         catalog = Catalog(hass)
         await catalog.async_load()
         settings = ListSettings(hass)
-        store_products = StoreProducts(hass, catalog, settings)
-        await store_products.async_load()
         readers = ReaderManager(hass, catalog, settings)
         await readers.async_load()
         activity = ActivityLog(hass, catalog, settings, readers)
         await activity.async_load()
         readers.activity = activity
-        store_products.activity = activity
-        retail_feed = RetailFeed(hass, catalog, settings, activity)
-        await retail_feed.async_load()
+        prices = PriceManager(hass, catalog, settings, activity)
+        await prices.async_load()
+        store_products = StorePriceView(prices, "mercadona")
         recurrence = RecurrenceManager(hass, catalog, settings, activity, readers._operation_lock)
         await recurrence.async_load()
         icons = IconLibrary(hass)
@@ -55,7 +52,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
             [StaticPathConfig(STATIC_URL, str(Path(__file__).parent / "frontend"), False),
              StaticPathConfig(ICONS_URL, str(icons.directory), True)]
         )
-        hass.data[DOMAIN] = {"catalog": catalog, "settings": settings, "store_products": store_products, "retail_feed": retail_feed, "recurrence": recurrence, "readers": readers, "icons": icons, "community": community, "activity": activity, "active": False}
+        hass.data[DOMAIN] = {"catalog": catalog, "settings": settings, "price_manager":prices, "store_products": store_products, "recurrence": recurrence, "readers": readers, "icons": icons, "community": community, "activity": activity, "active": False}
         async_register_commands(hass)
     return True
 
@@ -68,7 +65,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.data[DOMAIN]["activity"].start()
     hass.data[DOMAIN]["readers"].start()
     hass.data[DOMAIN]["recurrence"].start()
-    hass.data[DOMAIN]["retail_feed"].start()
+    hass.data[DOMAIN]["price_manager"].start()
     hass.data[DOMAIN]["settings"].notify()
     entry.async_on_unload(entry.add_update_listener(_async_options_updated))
     return True
@@ -96,7 +93,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Remove the panel without changing any shopping-list items."""
     frontend.async_remove_panel(hass, PANEL_PATH)
     hass.data[DOMAIN]["active"] = False
-    await hass.data[DOMAIN]["retail_feed"].async_stop()
+    await hass.data[DOMAIN]["price_manager"].async_stop()
     await hass.data[DOMAIN]["recurrence"].async_stop()
     hass.data[DOMAIN]["settings"].detach()
     await hass.data[DOMAIN]["readers"].async_stop()

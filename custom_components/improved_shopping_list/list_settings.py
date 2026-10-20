@@ -17,7 +17,7 @@ DEFAULT_APPEARANCE = {
     "completed_gradient_start": "#4faba2", "completed_gradient_end": "#26857c",
     "columns": 3, "mobile_columns": 1,
 }
-DEFAULT_STORES = {"mercadona": {"enabled": False, "postal_code": "", "warehouse": "", "checked_at": None}, "carrefour": {"enabled": False}}
+DEFAULT_STORES = {"mercadona": {"enabled": False, "postal_code": "", "warehouse": "", "checked_at": None}, "carrefour": {"enabled": False}, "alcampo":{"enabled":False,"region_id":""}}
 
 
 def normalize_appearance(data: dict, *, defaults: dict | None = None) -> dict:
@@ -48,7 +48,7 @@ def list_options(entry: ConfigEntry) -> dict:
     return {"entities": entities, "primary_entity": primary if primary in entities else next(iter(entities), ""),
             "appearance": {**DEFAULT_APPEARANCE, **entry.options.get("appearance", {})},
             "stores": {**deepcopy(DEFAULT_STORES), **deepcopy(entry.options.get("stores", {}))},
-            "favorite_store": entry.options.get("favorite_store", "")}
+            "favorite_store": entry.options.get("favorite_store", ""), "price_update_time":entry.options.get("price_update_time", "01:00")}
 
 
 class ListSettings:
@@ -82,7 +82,7 @@ class ListSettings:
 
     @property
     def snapshot(self) -> dict:
-        return list_options(self.entry) if self.entry else {"entities": [], "primary_entity": "", "appearance": dict(DEFAULT_APPEARANCE), "stores": deepcopy(DEFAULT_STORES), "favorite_store": ""}
+        return list_options(self.entry) if self.entry else {"entities": [], "primary_entity": "", "appearance": dict(DEFAULT_APPEARANCE), "stores": deepcopy(DEFAULT_STORES), "favorite_store": "", "price_update_time":"01:00"}
 
     async def async_update_store(self, enabled: bool, postal_code: str, verify: bool = False) -> dict:
         """Verify before saving, serialize writes and preserve unrelated options."""
@@ -130,6 +130,26 @@ class ListSettings:
             self.hass.config_entries.async_update_entry(self.entry, options={**self.entry.options, "favorite_store": store})
             self.notify()
             return self.snapshot
+
+    async def async_update_alcampo(self, enabled, region_id):
+        if region_id and not re.fullmatch(r"[a-fA-F0-9]{8}(?:-[a-fA-F0-9]{4}){3}-[a-fA-F0-9]{12}", region_id):
+            raise StoreError("La región de Alcampo debe ser un identificador UUID válido.")
+        generation = self._generation
+        async with self._stores_lock:
+            if generation != self._generation or not self.entry or not self.hass.data.get(DOMAIN, {}).get("active"):
+                raise StoreError("La integración no está activa.")
+            stores = {**self.snapshot["stores"], "alcampo":{"enabled":enabled,"region_id":region_id.lower()}}
+            self.hass.config_entries.async_update_entry(self.entry, options={**self.entry.options,
+                "stores":stores,"favorite_store":self._favorite(stores)})
+            self.notify()
+            return self.snapshot
+
+    def update_price_schedule(self, value):
+        if not self.entry or not re.fullmatch(r"(?:[01][0-9]|2[0-3]):[0-5][0-9]", value):
+            raise StoreError("Selecciona una hora válida para la revisión diaria.")
+        self.hass.config_entries.async_update_entry(self.entry, options={**self.entry.options,"price_update_time":value})
+        self.notify()
+        return self.snapshot
 
     @callback
     def subscribe(self, listener):

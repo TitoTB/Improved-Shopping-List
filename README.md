@@ -6,11 +6,34 @@ Una interfaz propia para gestionar las listas de la compra que ya tienes integra
 
 Versión actual: **0.12.0**. Interfaz en español, pensada para móvil y ordenador. Requiere **Home Assistant Core 2026.10 o posterior**. La referencia de desarrollo es Core 2026.10.2.
 
-Carrefour permite consultar precios mediante un catálogo público de cinco campos
-alojado en GitHub. Su preparación y publicación desde Aguacatec se describen en
-[mantenimiento del feed](maintenance/aguacatec/README.md). La disponibilidad de precios
-depende de que ese catálogo esté publicado. Los cambios posteriores de precios no
-requieren actualizar HACS; la integración los comprueba cada 24 horas.
+En desarrollo, todavía sin nueva versión: vinculaciones por enlace o ID con Mercadona,
+Carrefour y Alcampo, y consultas directas desde Home Assistant. Se ha retirado el feed
+de precios de GitHub y la dependencia de Aguacatec.
+
+En Información adicional se elige una tienda y se añade el enlace o referencia del
+artículo. Sus EAN se conservan como metadatos de tienda; los códigos configurados para
+los lectores no se reasignan automáticamente. El precio manual sigue siendo independiente.
+
+La revisión diaria empieza a las 01:00 por defecto, en la zona horaria de Home Assistant,
+y puede configurarse en Ajustes → Tiendas. Solo entra en la cola lo pendiente en las listas
+configuradas, comparando nombres sin diferencias de acentos o mayúsculas. Se deduplican
+referencias compartidas por varias listas y se dejan al menos cinco minutos entre todas
+las peticiones, incluidas redirecciones. La cola y la reserva de peticiones persisten al
+reiniciar. Si Home Assistant se inicia durante la hora siguiente a la programada recupera
+esa ejecución; una cola ya iniciada puede continuar después de la madrugada.
+
+Las fichas y los popups muestran exclusivamente precios guardados. Actualizar vista no
+consulta las tiendas. Se conserva el último precio conocido para todo el catálogo aunque
+el producto se compre, salga de la lista o falle una consulta posterior. Un HTTP 404 se
+registra como referencia no disponible y un 403/429 pausa esa tienda el resto del día;
+las demás pueden continuar. Los precios indican fecha y región cuando corresponde.
+
+Alcampo utiliza la consulta JSON del flujo n8n y admite su `regionId` en Configuración.
+Sin región se solicita el precio que ofrezca la web sin ubicación. Carrefour lee datos
+estructurados de la ficha pública y Mercadona consulta su API por referencia y almacén.
+El acceso depende de cada tienda: durante las pruebas HTTP de desarrollo Alcampo y
+Carrefour han devuelto 403, aunque Alcampo responde en el navegador. Los intervalos no
+garantizan resolver esos bloqueos; los errores se muestran en Logs → Tiendas y no borran precios.
 
 ## Qué puedes hacer
 
@@ -163,27 +186,24 @@ La vista **Información adicional** consulta Open Food Facts para los códigos d
 Se reutiliza la caché persistente de identificación (30 días para productos encontrados); los resultados sin calificación y los fallos no impiden guardar la ficha. Las consultas se limitan y agrupan por código, incluidas las variantes UPC/EAN equivalentes. No se calcula una nota propia ni se asigna una calificación genérica a todos los códigos del producto. Los distintivos se cargan desde los recursos oficiales publicados por Open Food Facts; la letra también se muestra como texto.
 
 
-## Tiendas: Mercadona
+## Tiendas y vinculaciones
 
-En **Ajustes → Tiendas**, cada tienda se muestra en un bloque horizontal con su logo, nombre, interruptor y botón de configuración. El logo de Mercadona se carga desde la URL externa indicada; los precios no dependen de esa imagen. El interruptor habilita o deshabilita la tienda. Si todavía no tiene ubicación, al habilitarla se abre la configuración para introducir un código postal.
+En **Ajustes → Tiendas** se habilitan Mercadona, Carrefour y Alcampo, se elige la
+favorita y se configura la hora de revisión. Mercadona resuelve su almacén desde
+el código postal; Alcampo permite indicar la región de su consulta pública.
 
-El botón de engranaje abre un popup con dos vistas:
+En **Catálogo → Información adicional**, selecciona una tienda, pega su enlace
+o ID y pulsa Añadir vinculación. Puedes editar o quitar cada vínculo antes de
+guardar el producto. Solo se admiten fichas HTTPS de las tiendas registradas,
+sin credenciales, puertos arbitrarios ni redirecciones a otras tiendas o productos.
+No se exige EAN para consultar el precio de una referencia seleccionada por el usuario.
 
-- **Productos**: productos del catálogo con un EAN/GTIN válido encontrado exactamente en Mercadona para el almacén configurado. Muestra nombre, EAN, referencia comercial, precio en euros, precio por unidad de referencia cuando existe, disponibilidad y fecha de consulta. Los precios aproximados se indican con ≈. El botón **Forzar actualización** vuelve a consultar los precios y requiere permisos de administrador.
-- **Configuración**: código postal y almacén asignado. **Comprobar y guardar** consulta a Mercadona sin iniciar sesión. También permite preparar la ubicación mientras la tienda está deshabilitada. La tienda habilitada queda como favorita al ser la única disponible.
-
-Los precios se consultan al abrir Productos y se reutilizan durante seis horas. Una actualización recorre todos los códigos pendientes, empezando por los más antiguos, sin tener que pulsar varias veces. Al forzarla se vuelven a revisar todos los códigos del ciclo. Internamente se guarda el avance tras cada tramo de hasta 20 códigos o unos 35 segundos y se continúa inmediatamente, manteniendo las pausas entre peticiones. Un error detiene la revisión y conserva los precios anteriores; los cambios de configuración también detienen la operación. No se descargan todos los productos de la tienda ni se ejecuta un proceso periódico en segundo plano. Los códigos QR y las etiquetas NFC no se envían para buscar precios.
-
-La búsqueda utiliza la alternativa Algolia que incorpora el cliente web público de Mercadona cuando falla su buscador principal. La configuración de consulta de solo lectura está incluida en la integración: no requiere cuenta, clave del usuario ni vinculación manual. Algolia devuelve referencias y nombres, pero no el EAN. Por eso se buscan candidatos por el nombre del catálogo y, si ya está guardado, por el nombre comercial de Open Food Facts; después se consulta cada ficha en la API directa de Mercadona para verificar el EAN exacto. Nunca se utiliza el precio de un candidato por mera similitud del nombre, ni se confunde una respuesta HTTP correcta sin coincidencias con un error de conexión. Un resultado sin coincidencias describe los candidatos consultados, no demuestra que el artículo no exista en ninguna parte de la tienda.
-
-La consulta recorre las páginas de candidatos y guarda el avance, las fichas verificadas y los códigos pendientes para continuar tras un lote o reinicio. Un código a medio revisar sigue pendiente; no se guarda como no encontrado. Las referencias ya identificadas se actualizan directamente, volviendo a comprobar su EAN. Las fichas se guardan hasta seis horas por almacén para evitar repetir peticiones. Al continuar una actualización manual incompleta no se reinician los códigos ya revisados del mismo ciclo.
-
-Las consultas dependen de servicios externos que pueden cambiar o rechazar peticiones (por ejemplo, HTTP 403). Estos errores se muestran y conservan los precios anteriores con su fecha de consulta; se aplica una pausa progresiva antes de reintentar: al menos 15 minutos ante HTTP 403, cinco minutos ante HTTP 429 y un minuto en otros errores. Se respeta `Retry-After` cuando indica una espera mayor. La pausa se conserva al reiniciar y el botón manual no la omite. Al migrar, una pausa del antiguo endpoint `tornillos.mercadona.es/search` no bloquea al nuevo proveedor: ya no se consulta ese endpoint. Las pausas de los proveedores actuales siguen respetándose. Los resultados se guardan en Home Assistant, separados por almacén, y no se muestran como precios de otra región ni de una tienda deshabilitada. Esta función todavía no sustituye el precio manual de la ficha del producto.
-
-Después de un HTTP 403, abrir la vista Productos solo muestra los datos guardados y el diagnóstico, también cuando ha vencido la pausa o tras reiniciar Home Assistant. No se vuelve a consultar automáticamente un buscador que ha rechazado el acceso: es necesaria una acción manual de Forzar actualización, respetando la espera mínima. Esa hora no garantiza que Mercadona vaya a admitir la siguiente petición.
-
-El código postal se guarda en las opciones de Home Assistant y solo se envía a Mercadona al comprobar la ubicación; no se publican códigos postales ni capturas HAR en GitHub. Los errores conservan la configuración anterior y no asignan un almacén de sustitución.
-
+La cola diaria consulta solo productos pendientes y sus referencias vinculadas.
+Abrir una ficha, abrir Productos en una tienda o pulsar **Actualizar vista** solo
+lee la caché local. Los precios se mantienen separados del precio orientativo manual
+y de los EAN utilizados por los lectores. Las asociaciones exactas de Mercadona
+ya descubiertas y los últimos precios del antiguo feed se recuperan de sus copias
+locales, sin volver a consultar GitHub ni depender de Aguacatec.
 
 ## Compras recurrentes
 
@@ -194,8 +214,12 @@ Home Assistant comprueba los vencimientos cada minuto aunque el panel esté cerr
 La programación se guarda en Home Assistant y sobrevive a reinicios. Si un plazo ha vencido mientras estaba apagado, se procesa una sola vez al volver, sin acumular compras atrasadas. Si la lista no está disponible o el proveedor rechaza la operación, se conserva el vencimiento y se reintenta después de cinco minutos. No se crea un duplicado de una entrada comprada si el proveedor no permite recuperarla. Las acciones, los periodos reiniciados y los errores se registran en **Logs → Recurrencias**, con origen automático.
 
 
-Las peticiones de precios de Mercadona se separan por al menos cinco segundos desde el final de la petición anterior, tanto búsquedas como fichas. Este mínimo coincide con el nodo Delay del flujo original de n8n (Wait 1.1, intervalo predeterminado de cinco segundos). Un rechazo detiene el lote; no se sigue consultando el resto de los EAN. La interfaz muestra que la actualización está pausada, su hora de reanudación y los códigos revisados, sin interpretar un error como ausencia de productos.
+## Diagnóstico de precios
 
-Tanto la consulta automática al abrir Productos como Forzar actualización muestran una barra de progreso en directo de 26 píxeles de alto, alimentada por una suscripción WebSocket a Home Assistant. Cuenta códigos revisados sobre el total de la operación, tengan o no precio encontrado, e indica la búsqueda de candidatos, la comprobación del EAN en sus fichas, el número de referencias comprobadas y las pausas entre consultas. Los contadores no se reinician al guardar un tramo. El tiempo restante estima la operación completa a partir del ritmo observado; hasta completar el primer código se indica que se está calculando. La barra no avanza artificialmente con el tiempo ni presenta un error como revisión completa. La suscripción se retira al finalizar, cerrar el popup o desconectar el panel.
-
-En **Logs → Tiendas**, cada actualización registra inicio y resumen; los errores incluyen un bloque desplegable **Información técnica**. Contiene endpoint y método, almacén, EAN, tipo de búsqueda, número de petición y lote, estado HTTP, duración, tipo de respuesta, referencia de petición si el servidor la proporciona y plazo de reintento. Los errores también se escriben en los registros de Home Assistant. No se guardan cookies, cabeceras de autenticación, direcciones IP ni el cuerpo HTML. La página de «uso indebido del servicio» se clasifica sin copiar su contenido. Un HTTP 403 puede ser un rechazo de acceso desde la primera petición: las pausas evitan ráfagas, pero no garantizan levantar ese bloqueo.
+La barra de progreso muestra las referencias procesadas de la cola nocturna y una
+estimación basada en cinco minutos por petición. La cola puede durar varias horas;
+el porcentaje no representa la antigüedad del precio ni garantiza cobertura de una tienda.
+En **Logs → Tiendas** se registran la preparación de la cola, los precios obtenidos,
+las referencias no disponibles y los errores HTTP. No se guardan cookies, claves
+de acceso ni cuerpos HTML de errores. Un bloqueo 403 no se interpreta como ausencia
+del producto ni provoca consultas repetidas al abrir la interfaz.

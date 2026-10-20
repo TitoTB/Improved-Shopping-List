@@ -178,13 +178,14 @@ async def test_store_progress_subscription_and_cleanup(hass, hass_ws_client):
     service = hass.data[DOMAIN]["store_products"]
     await client.send_json({"id": 1, "type": f"{DOMAIN}/settings/store_progress"})
     assert (await client.receive_json())["success"]
-    assert (await client.receive_json())["event"] == {"running": False}
-    service._update_progress(running=True, warehouse="mad3", started_at=time.time(), total=20, processed=3)
+    assert not (await client.receive_json())["event"]["running"]
+    service.manager._data.update(pending=[{}]*17, total=20, processed=3)
+    service.manager._notify()
     event = (await client.receive_json())["event"]
     assert event["processed"] == 3 and event["total"] == 20 and event["running"]
     await client.send_json({"id": 2, "type": "unsubscribe_events", "subscription": 1})
     assert (await client.receive_json())["success"]
-    assert not service._listeners
+    assert not service.manager._listeners
 
 
 async def test_can_configure_region_while_store_stays_disabled(hass, monkeypatch):

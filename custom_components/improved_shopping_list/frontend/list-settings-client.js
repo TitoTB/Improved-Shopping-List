@@ -38,6 +38,7 @@ export class ListSettingsSession {
     this.primary = data.primary_entity ?? "";
     this.stores = data.stores ?? {};
     this.favoriteStore = data.favorite_store ?? "";
+    this.priceUpdateTime = data.price_update_time ?? "01:00";
     this.appearance = { ...DEFAULT_APPEARANCE, ...data.appearance };
     this.loaded = true;
     this.loading = false;
@@ -115,6 +116,18 @@ export class ListSettingsSession {
   async saveFavoriteStore(store) {
     const generation = this._generation, revision = ++this._revision;
     const data = await this.getHass().callWS({type:`${PREFIX}favorite_store`,store});
+    if (generation === this._generation && revision === this._revision) this._receive(data);
+  }
+
+  async saveAlcampo(enabled, regionId) {
+    const generation = this._generation, revision = ++this._revision;
+    const data = await this.getHass().callWS({type:`${PREFIX}store`,store:"alcampo",enabled,region_id:regionId});
+    if (generation === this._generation && revision === this._revision) this._receive(data);
+  }
+
+  async savePriceSchedule(time) {
+    const generation = this._generation, revision = ++this._revision;
+    const data = await this.getHass().callWS({type:`${PREFIX}price_schedule`,time});
     if (generation === this._generation && revision === this._revision) this._receive(data);
   }
 

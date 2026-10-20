@@ -265,6 +265,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
           <section id="product-additional" class="fields" aria-label="Información adicional" hidden>
             <label>Precio orientativo<input name="price" type="number" min="0" max="1000000" step="0.01" placeholder="Sin precio"></label>
             <label>Moneda<select name="currency"><option value="EUR">EUR · Euro</option><option value="USD">USD · Dólar</option><option value="GBP">GBP · Libra</option></select></label>
+            <div class="wide"><h3>Vinculaciones con tiendas</h3><div id="product-store-links"></div><div style="display:grid;grid-template-columns:minmax(0,1fr) 44px;gap:8px"><select id="product-link-store" aria-label="Tienda del producto" style="grid-column:1/-1"></select><input id="product-link-value" aria-label="Enlace o ID del producto" maxlength="2048" placeholder="Enlace o ID del producto" style="min-width:0"><button id="add-product-store-link" type="button" aria-label="Añadir vinculación"><ha-icon icon="mdi:plus-thick" aria-hidden="true"></ha-icon></button></div><p class="helper">Los precios se revisan de madrugada cuando el producto está pendiente de comprar. Se conserva el último precio conocido.</p></div>
             <div id="product-nutriscore" class="wide" hidden><h3>Nutri-Score</h3><div id="nutriscore-results"></div></div>
             <div id="product-store-prices" class="wide" hidden><h3>Precios de tiendas</h3><div id="store-price-results"></div></div>
           </section>
@@ -293,6 +294,14 @@ class ImprovedShoppingCatalog extends HTMLElement {
     this._built = true;
     const root = this.shadowRoot;
     installDialogCloseButtons(root);
+    root.querySelector("#add-product-store-link").addEventListener("click", () => {
+      const store = root.querySelector("#product-link-store").value, value = root.querySelector("#product-link-value").value.trim();
+      if (!store || !value) return;
+      this._storeLinks[store] = value;
+      root.querySelector("#product-link-value").value = "";
+      this._renderStoreLinks();
+      void this._loadRetailPrices();
+    });
     for (const button of root.querySelectorAll("[data-product-view]")) button.addEventListener("click", () => this._switchProductView(button.dataset.productView));
     root.querySelector("#product-form").addEventListener("invalid", event => {
       const panel = event.target.closest("section[id^=product-]");
@@ -791,20 +800,42 @@ class ImprovedShoppingCatalog extends HTMLElement {
 
   async _loadRetailPrices() {
     const root = this.shadowRoot, form = root.querySelector("#product-form"), generation = this._nutriGeneration;
-    const codes = new Set([form.elements.barcode.value,...form.elements.barcodes.value.split(/\r?\n/)].map(value => value.trim().padStart(14,"0")));
+    root.querySelector("#store-price-results").replaceChildren();
+    root.querySelector("#product-store-prices").hidden = true;
     try {
-      const data = await this._hass.callWS({type:"improved_shopping_list/settings/carrefour_products"});
-      if (generation !== this._nutriGeneration || !root.querySelector("dialog").open || !this.isConnected || !data.enabled) return;
-      const rows = data.products.filter(product => codes.has(product.ean.padStart(14,"0"))).map(product => {
+      const linksKey = JSON.stringify(this._storeLinks ?? {});
+      const data = await this._hass.callWS({type:"improved_shopping_list/catalog/store_prices",links:this._storeLinks ?? {},codes:[form.elements.barcode.value,...form.elements.barcodes.value.split(/\r?\n/)].map(value=>value.trim()).filter(Boolean)});
+      if (generation !== this._nutriGeneration || linksKey !== JSON.stringify(this._storeLinks ?? {}) || !root.querySelector("dialog").open || !this.isConnected) return;
+      const names = {mercadona:"Mercadona",carrefour:"Carrefour",alcampo:"Alcampo"};
+      const rows = data.products.map(product => {
         const row = document.createElement("div"); row.className = "nutriscore-item";
-        const link = document.createElement("a"); link.textContent = `Carrefour: ${new Intl.NumberFormat("es-ES",{style:"currency",currency:product.currency}).format(Number(product.price))} · ${product.name} · EAN ${product.ean} · Enlace de afiliado`;
-        link.href = product.affiliate_url; link.target = "_blank"; link.rel = "sponsored noopener noreferrer";
-        const date = document.createElement("p"); date.className = "helper"; date.textContent = `Precio del feed publicado el ${new Date(data.generated_at).toLocaleString("es-ES")}${data.error || data.stale ? " · Conservado de una descarga anterior" : ""}`;
+        const link = document.createElement("a"); link.textContent = `${names[product.store] ?? product.store}: ${new Intl.NumberFormat("es-ES",{style:"currency",currency:product.currency}).format(Number(product.price))} · ${product.store_name || product.name || "Ver producto"}${product.reference_id ? ` · ID ${product.reference_id}` : ""}`;
+        link.href = product.url; link.target = "_blank"; link.rel = "noopener noreferrer";
+        const date = document.createElement("p"); date.className = "helper"; date.textContent = `Último precio conocido: ${new Date(product.checked_at*1000).toLocaleString("es-ES")}${product.error ? " · No se pudo actualizar" : ""}${product.available === false ? " · No disponible" : ""}`;
         row.append(link,date); return row;
       });
       root.querySelector("#store-price-results").replaceChildren(...rows);
       root.querySelector("#product-store-prices").hidden = !rows.length;
     } catch { /* Optional store data must never prevent editing. */ }
+  }
+
+  _renderStoreLinks() {
+    const root = this.shadowRoot, names = {mercadona:"Mercadona",carrefour:"Carrefour",alcampo:"Alcampo"};
+    root.querySelector("#product-store-links").replaceChildren(...Object.entries(this._storeLinks).map(([store,value])=>{
+      const row = document.createElement("div"); row.className = "product-category-controls";
+      row.style.marginBottom = "10px";
+      const label = document.createElement("label"); label.textContent = names[store] ?? store; label.style.flex = "1";
+      const input = document.createElement("input"); input.value = typeof value === "string" ? value : value.url || value.id; input.maxLength = 2048; input.setAttribute("aria-label",`Enlace o ID de ${names[store]}`);
+      input.addEventListener("input",()=>{this._storeLinks[store]=input.value.trim();});
+      input.addEventListener("change",()=>void this._loadRetailPrices());
+      label.append(input);
+      const remove = document.createElement("button"); remove.type = "button"; remove.setAttribute("aria-label",`Quitar vinculación de ${names[store]}`); remove.innerHTML = '<ha-icon icon="mdi:delete" aria-hidden="true"></ha-icon>';
+      remove.addEventListener("click",()=>{delete this._storeLinks[store];this._renderStoreLinks();void this._loadRetailPrices();});
+      row.append(label,remove);return row;
+    }));
+    const select = root.querySelector("#product-link-store");
+    select.replaceChildren(...Object.entries(names).filter(([key])=>!(key in this._storeLinks)).map(([key,name])=>new Option(name,key)));
+    root.querySelector("#add-product-store-link").disabled = !select.options.length;
   }
 
   async _loadNutriscores() {
@@ -874,6 +905,8 @@ class ImprovedShoppingCatalog extends HTMLElement {
     }
     this._renderReaderActions();
     this._editing = product ? structuredClone(product) : null;
+    this._storeLinks = structuredClone(product?.store_links ?? {});
+    this._renderStoreLinks();
     form.elements.recurrence_enabled.checked = product?.recurrence?.enabled === true;
     form.elements.recurrence_days.value = product?.recurrence?.days ?? 7;
     form.elements.recurrence_days.disabled = !form.elements.recurrence_enabled.checked;
@@ -910,6 +943,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
     const form = root.querySelector("form");
     const fields = Object.fromEntries(new FormData(form));
     const product = { ...fields, price: fields.price || null, tags: this._editing?.tags ?? [], icon: this._editing?.icon ?? "", notes: this._editing?.notes ?? "" };
+    product.store_links = structuredClone(this._storeLinks ?? {});
     for (const key of ["barcodes","nfc_tags"]) product[key] = fields[key].split(/\r?\n/).map(value => value.trim()).filter(Boolean);
     product.recurrence = {enabled:form.elements.recurrence_enabled.checked, days:Number(form.elements.recurrence_days.value) || 7};
     delete product.recurrence_enabled;

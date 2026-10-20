@@ -23,8 +23,8 @@ reiniciar. Si Home Assistant se inicia durante la hora siguiente a la programada
 esa ejecución; una cola ya iniciada puede continuar después de la madrugada.
 
 Las fichas y los popups muestran exclusivamente precios guardados. Actualizar vista no
-consulta las tiendas. El botón Actualizar ahora de cada tienda inicia una revisión manual
-de sus referencias vinculadas pendientes en las listas, incluso si ya se revisaron hoy.
+consulta las tiendas. El botón Actualizar ahora de Ajustes → Tiendas inicia una revisión manual
+de las referencias vinculadas pendientes en las listas de todas las tiendas activas, incluso si ya se revisaron hoy.
 Respeta los cinco minutos entre peticiones y las pausas indicadas por el servidor, evita
 duplicar una revisión en curso y registra los resultados como manuales en Logs → Tiendas.
 El contador junto al interruptor incluye todos los productos del catálogo vinculados a esa tienda.

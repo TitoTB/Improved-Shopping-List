@@ -44,13 +44,14 @@ class ImprovedShoppingSettings extends HTMLElement {
         .store-row { display:grid; grid-template-columns:56px minmax(0,1fr) auto; gap:8px 12px; align-items:center; }
         .store-row + .store-row { margin-top:12px; }
         .store-logo { width:56px; height:56px; padding:8px; flex:none; object-fit:contain; border-radius:10px; background:#fff; }
-        .store-row .store-logo { grid-column:1; grid-row:1 / 3; }
-        .store-name { grid-column:2; grid-row:1 / 3; min-width:0; display:flex; flex-direction:column; justify-content:center; overflow-wrap:anywhere; }
+        .store-row .store-logo { grid-column:1; grid-row:1; }
+        .store-name { grid-column:2; grid-row:1; min-width:0; display:flex; flex-direction:column; justify-content:center; overflow-wrap:anywhere; }
         .store-favorite[aria-pressed=true] { color:#e53935; }
-        .store-refresh { grid-column:3; grid-row:1; justify-self:end; min-height:32px; padding:6px 10px; font-size:12px; }
+        .stores-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:16px; }
+        .stores-heading h2 { margin:0; }
+        .store-refresh { flex:none; min-height:40px; padding:8px 12px; font-size:13px; }
         .store-count { font-size:13px; white-space:nowrap; }
-        .store-refresh-status { grid-column:1 / -1; margin:4px 0 0; }
-        .store-controls { grid-column:3; grid-row:2; display:flex; align-items:center; gap:12px; margin-left:auto; flex:none; }
+        .store-controls { grid-column:3; grid-row:1; display:flex; align-items:center; gap:12px; margin-left:auto; flex:none; }
         .store-toggle[type=checkbox] { appearance:none; position:relative; width:40px; height:24px; min-height:24px; margin:0; padding:0; border:0; border-radius:20px; background:#b3261e; cursor:pointer; }
         .store-toggle::before { content:""; position:absolute; top:4px; left:4px; width:16px; height:16px; border-radius:50%; background:white; }
         .store-toggle:checked { background:#267052; }.store-toggle:checked::before { transform:translateX(16px); }
@@ -125,7 +126,8 @@ class ImprovedShoppingSettings extends HTMLElement {
         </form>
       </section>
       <section id="settings-stores" class="card" aria-labelledby="settings-stores-title" hidden>
-        <h2 id="settings-stores-title">Tiendas</h2>
+        <div class="stores-heading"><h2 id="settings-stores-title">Tiendas</h2><button id="refresh-all-prices" class="store-refresh" type="button">Actualizar ahora</button></div>
+        <div id="stores-refresh-error" class="notice error" role="alert" hidden></div>
         <article class="store-row" id="mercadona-row">
           <img class="store-logo" src="https://i.pinimg.com/736x/66/bc/4e/66bc4e8d1482e6ec4525987c1691c83e.jpg" alt="Logo de Mercadona" referrerpolicy="no-referrer" loading="lazy" width="56" height="56">
           <div class="store-name"><h3>Mercadona</h3></div>
@@ -172,7 +174,7 @@ class ImprovedShoppingSettings extends HTMLElement {
     });
     const root = this.shadowRoot;
     installDialogCloseButtons(root);
-    this._refreshingStores = new Set();
+    root.querySelector("#refresh-all-prices").addEventListener("click",()=>void this._refreshPricesNow());
     for (const store of ["mercadona", "carrefour", "alcampo"]) {
       const row = root.querySelector(`#${store}-enabled`).closest(".store-row");
       const count = document.createElement("span"); count.id = `${store}-linked-count`; count.className = "store-count";
@@ -183,11 +185,6 @@ class ImprovedShoppingSettings extends HTMLElement {
       heart.innerHTML = '<ha-icon icon="mdi:heart-outline" aria-hidden="true"></ha-icon>';
       heart.addEventListener("click",()=>void this._saveRetailSettings(()=>this._data.settings.saveFavoriteStore(store)));
       row.querySelector(".store-controls").append(heart);
-      const button = document.createElement("button"); button.id = `update-${store}-now`; button.className = "store-refresh"; button.type = "button"; button.textContent = "Actualizar ahora";
-      button.setAttribute("aria-label", `Actualizar ahora ${row.querySelector("h3").textContent}`);
-      button.addEventListener("click", () => void this._refreshPricesNow(store));
-      const status = document.createElement("p"); status.id = `${store}-refresh-status`; status.className = "store-refresh-status"; status.setAttribute("role", "status"); status.hidden = true;
-      row.append(button, status);
     }
     root.querySelector("#save-price-update-time").addEventListener("click",()=>void this._saveRetailSettings(()=>this._data.settings.savePriceSchedule(root.querySelector("#price-update-time").value)));
     root.querySelector("#alcampo-enabled").addEventListener("change",()=>void this._saveRetailSettings(()=>this._data.settings.saveAlcampo(root.querySelector("#alcampo-enabled").checked,this._data.settings.stores?.alcampo?.region_id ?? "")));
@@ -251,11 +248,13 @@ class ImprovedShoppingSettings extends HTMLElement {
     const root = this.shadowRoot;
     const admin = hass?.user?.is_admin === true;
     const locked = !admin || !settings.loaded || settings.loading || this._busy;
+    const refresh = root.querySelector("#refresh-all-prices");
+    refresh.disabled = locked || this._pricesRefreshing || !Object.values(settings.stores ?? {}).some(store=>store.enabled);
+    refresh.textContent = this._pricesRefreshing ? "Preparando…" : "Actualizar ahora";
     for (const store of ["mercadona", "carrefour", "alcampo"]) {
       const count = (this._data.products ?? []).filter(product => Boolean(product.store_links?.[store])).length;
       const label = `${count} ${count === 1 ? "producto vinculado" : "productos vinculados"}`;
       const badge = root.querySelector(`#${store}-linked-count`); badge.textContent = String(count); badge.title = label; badge.setAttribute("aria-label", label);
-      root.querySelector(`#update-${store}-now`).disabled = locked || !settings.stores?.[store]?.enabled || this._refreshingStores.has(store);
       const favorite = root.querySelector(`#favorite-${store}`);
       favorite.disabled = locked || !settings.stores?.[store]?.enabled;
       const selected = Boolean(settings.stores?.[store]?.enabled && settings.favoriteStore === store);
@@ -362,20 +361,22 @@ class ImprovedShoppingSettings extends HTMLElement {
     this._renderStoreProducts();
   }
 
-  async _refreshPricesNow(store) {
-    if (this._refreshingStores.has(store)) return;
+  async _refreshPricesNow() {
+    if (this._pricesRefreshing || this._data.hass?.user?.is_admin !== true) return;
     const hass = this._data.hass;
-    const status = this.shadowRoot.querySelector(`#${store}-refresh-status`);
-    this._refreshingStores.add(store); this._render();
-    status.textContent = "Preparando actualización…"; status.hidden = false;
+    const stores = ["mercadona","carrefour","alcampo"].filter(store=>this._data.settings.stores?.[store]?.enabled);
+    if (!stores.length) return;
+    const errorBox = this.shadowRoot.querySelector("#stores-refresh-error");
+    errorBox.textContent = ""; errorBox.hidden = true;
+    this._pricesRefreshing = true; this._render();
     try {
-      const result = await hass.callWS({type:"improved_shopping_list/settings/refresh_prices",store});
+      const results = await Promise.allSettled(stores.map(async store=>hass.callWS({type:"improved_shopping_list/settings/refresh_prices",store})));
       if (!this.isConnected || this._data.hass.connection !== hass.connection) return;
-      status.textContent = result.queued ? `${result.queued} referencias pendientes en cola. Puedes seguir el resultado en Logs → Tiendas.` : "No hay productos vinculados pendientes en tus listas.";
-    } catch (error) {
-      if (this.isConnected && this._data.hass.connection === hass.connection) status.textContent = error.message ?? "No se pudo iniciar la actualización.";
+      const names = {mercadona:"Mercadona",carrefour:"Carrefour",alcampo:"Alcampo"};
+      const errors = results.flatMap((result,index)=>result.status === "rejected" ? [`${names[stores[index]]}: ${result.reason?.message ?? "No se pudo iniciar la actualización."}`] : []);
+      errorBox.textContent = errors.join(" "); errorBox.hidden = !errors.length;
     } finally {
-      this._refreshingStores.delete(store); this._render();
+      this._pricesRefreshing = false; this._render();
     }
   }
 

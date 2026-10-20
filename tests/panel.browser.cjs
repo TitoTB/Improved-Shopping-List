@@ -968,12 +968,17 @@ async function main() {
     await settingsPage.evaluate(()=>document.querySelector('improved-shopping-list-panel').shadowRoot.querySelector('isl-catalog').dispatchEvent(new CustomEvent('catalog-change',{detail:{products:[{id:'linked-1',name:'Vinculado',store_links:{carrefour:{id:'R-123'}}},{id:'unlinked-1',name:'Sin vincular'}],categories:[]}})));
     assert.equal(await settingsView.locator('#carrefour-linked-count').textContent(),'1');
     assert.equal(await settingsView.locator('#mercadona-linked-count').textContent(),'0');
-    await settingsView.getByRole('button',{name:'Actualizar ahora Carrefour',exact:true}).click();
-    await settingsView.locator('#carrefour-refresh-status').filter({hasText:'2 referencias pendientes en cola'}).waitFor();
-    assert.equal(await settingsPage.evaluate(()=>window.calls.filter(call=>call.type==='improved_shopping_list/settings/refresh_prices').at(-1).store),'carrefour');
+    const updateAll = settingsView.getByRole('button',{name:'Actualizar ahora',exact:true});
+    assert.equal(await updateAll.count(),1);
+    assert.equal(await settingsView.locator('.store-row .store-refresh').count(),0);
+    await updateAll.click();
+    await settingsView.locator('#refresh-all-prices:not([disabled])').waitFor();
+    assert.deepEqual(await settingsPage.evaluate(()=>window.calls.filter(call=>call.type==='improved_shopping_list/settings/refresh_prices').map(call=>call.store)),['mercadona','carrefour']);
+    assert.equal(await settingsView.locator('#stores-refresh-error').isVisible(),false);
+    assert.doesNotMatch(await settingsView.locator('#settings-stores').textContent(),/referencias pendientes en cola/);
     await settingsPage.evaluate(()=>{window.failManualPriceRefresh=true;});
-    await settingsView.getByRole('button',{name:'Actualizar ahora Carrefour',exact:true}).click();
-    await settingsView.locator('#carrefour-refresh-status').filter({hasText:'pausa'}).waitFor();
+    await updateAll.click();
+    await settingsView.locator('#stores-refresh-error').filter({hasText:'pausa'}).waitFor();
     await settingsPage.evaluate(()=>{window.failManualPriceRefresh=false;document.querySelector('improved-shopping-list-panel').shadowRoot.querySelector('isl-catalog').dispatchEvent(new CustomEvent('catalog-change',{detail:{products:window.catalogProducts,categories:window.catalogCategories}}));});
     for(const row of await settingsView.locator('.store-row').all()){
       const geometry=await row.evaluate(node=>{const name=node.querySelector('.store-name').getBoundingClientRect(),logo=node.querySelector('.store-logo').getBoundingClientRect();return {difference:Math.abs(name.y+name.height/2-logo.y-logo.height/2),overflow:node.scrollWidth-node.clientWidth};});

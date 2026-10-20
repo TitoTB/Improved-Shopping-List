@@ -106,6 +106,12 @@ class ImprovedShoppingCatalog extends HTMLElement {
         .catalog-tabs button { display:inline-flex; align-items:center; gap:6px; }
         .catalog-tabs ha-icon { --mdc-icon-size:20px; }
         .suggestions { display:grid; gap:12px; }
+        .suggestion-groups { display:grid; gap:16px; }
+        .suggestion-group { border:1px solid var(--divider-color,#dfe7e1); border-radius:14px; background:var(--card-background-color,#fff); min-width:0; }
+        .suggestion-group summary { padding:16px; cursor:pointer; font-weight:650; line-height:1.5; overflow-wrap:anywhere; }
+        .suggestion-group summary:focus-visible { outline:3px solid var(--primary-color,#267052); outline-offset:3px; border-radius:14px; }
+        .suggestion-count { display:inline-block; margin-left:8px; padding:2px 8px; border-radius:20px; font-size:12px; font-weight:500; background:var(--secondary-background-color,#edf4ee); }
+        .suggestion-content { padding:0 14px 14px; }
         .suggestion { display:flex; align-items:center; gap:16px; padding:16px; border:1px solid var(--divider-color,#dfe7e1); border-radius:14px; background:var(--card-background-color,#fff); }
         .suggestion h2 { flex:1; font-size:17px; overflow-wrap:anywhere; min-width:0; }
         .suggestion .actions { margin:0; flex-shrink:0; }
@@ -180,7 +186,16 @@ class ImprovedShoppingCatalog extends HTMLElement {
       <section id="suggestions-view" hidden>
         <p id="suggestions-source" class="helper"></p>
         <div id="suggestions-error" class="notice error" role="alert" hidden></div>
-        <div id="suggestions-list" class="suggestions"></div>
+        <div id="suggestions-list" class="suggestion-groups">
+          <details id="list-suggestions-group" class="suggestion-group">
+            <summary id="list-suggestions-summary">Productos añadidos a la lista<span id="list-suggestions-count" class="suggestion-count">0</span></summary>
+            <div class="suggestion-content"><div id="list-suggestions" class="suggestions"></div><p id="list-suggestions-empty" class="helper" hidden>No hay productos de la lista pendientes de incorporar al catálogo.</p></div>
+          </details>
+          <details id="scan-suggestions-group" class="suggestion-group">
+            <summary id="scan-suggestions-summary">Productos escaneados<span id="scan-suggestions-count" class="suggestion-count">0</span></summary>
+            <div class="suggestion-content"><div id="scan-suggestions" class="suggestions"></div><p id="scan-suggestions-empty" class="helper" hidden>No hay códigos escaneados pendientes de identificar.</p></div>
+          </details>
+        </div>
         <p id="suggestions-empty" class="empty" hidden>No hay sugerencias nuevas en esta lista.</p>
       </section>
       <dialog aria-labelledby="product-dialog-title">
@@ -320,7 +335,12 @@ class ImprovedShoppingCatalog extends HTMLElement {
       const values = item.kind === "nfc" ? product.nfc_tags ?? [] : [product.barcode, ...(product.barcodes ?? [])];
       return values.includes(item.code);
     }));
-    root.querySelector("#suggestions-list").replaceChildren(...rows, ...pending.map(item => this._codeSuggestion(item,selections.get(item.id))));
+    root.querySelector("#list-suggestions").replaceChildren(...rows);
+    root.querySelector("#scan-suggestions").replaceChildren(...pending.map(item => this._codeSuggestion(item,selections.get(item.id))));
+    root.querySelector("#list-suggestions-count").textContent = String(suggestions.length);
+    root.querySelector("#scan-suggestions-count").textContent = String(pending.length);
+    root.querySelector("#list-suggestions-empty").hidden = suggestions.length > 0 || this._catalog.loading || Boolean(this._catalog.error);
+    root.querySelector("#scan-suggestions-empty").hidden = pending.length > 0 || Boolean(this._readers?.loading) || Boolean(this._readers?.error);
     root.querySelector("#suggestions-empty").hidden = suggestions.length > 0 || pending.length > 0 || this._catalog.loading || Boolean(this._catalog.error);
   }
 

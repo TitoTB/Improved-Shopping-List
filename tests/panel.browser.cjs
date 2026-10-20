@@ -464,12 +464,23 @@ async function main() {
     await suggestionCatalog.getByRole("button", { name: "Sugerencias", exact: true }).click();
     assert.equal(await suggestionCatalog.locator("#view-suggestions ha-icon").getAttribute("icon"), "mdi:creation");
     const suggestions = suggestionCatalog.locator("#suggestions-list");
+    assert.equal(await suggestionCatalog.locator("#list-suggestions-group").evaluate(node => node.open), false);
+    assert.equal(await suggestionCatalog.locator("#scan-suggestions-group").evaluate(node => node.open), false);
+    assert.equal(await suggestionCatalog.locator("#list-suggestions-count").textContent(), "3");
+    assert.equal(await suggestionCatalog.locator("#scan-suggestions-count").textContent(), "0");
+    assert.equal(await suggestions.getByRole("button", {name:"Añadir al catálogo: Cacao",exact:true}).isVisible(), false);
+    await suggestionCatalog.locator("#list-suggestions-summary").click();
+    await suggestionCatalog.locator("#scan-suggestions-summary").focus();
+    await suggestionPage.keyboard.press("Enter");
+    await suggestionCatalog.locator("#scan-suggestions-empty").waitFor();
+    await suggestionPage.keyboard.press("Enter");
     assert.deepEqual(await suggestions.locator("h2").allTextContents(), ["Arroz", "Cacao", "Leche entera"]);
     await suggestionPage.evaluate(() => {
       window.listData['todo.bring'].push({uid:'duplicate',summary:'  CACAO  ',status:'needs_action'});
       window.emit('todo.bring');
     });
     assert.equal(await suggestions.locator("article").count(), 3);
+    assert.equal(await suggestionCatalog.locator("#list-suggestions-group").evaluate(node => node.open), true);
     await suggestionPage.evaluate(() => { window.failCatalog = true; });
     await suggestions.getByRole("button", { name: "Descartar: Leche entera", exact: true }).click();
     await suggestionCatalog.locator("#suggestions-error").filter({ hasText: "No se ha podido guardar" }).waitFor();
@@ -508,6 +519,8 @@ async function main() {
     await suggestionPage.getByRole("button", { name: "Catálogo", exact: true }).click();
     await suggestionCatalog.getByRole("button", { name: "Sugerencias", exact: true }).click();
     assert.deepEqual(await suggestions.locator("h2").allTextContents(), ["Arroz"]);
+    assert.equal(await suggestionCatalog.locator("#list-suggestions-group").evaluate(node => node.open), false);
+    await suggestionCatalog.locator("#list-suggestions-summary").click();
     await suggestions.getByRole("button", { name: "Añadir al catálogo: Arroz", exact: true }).click();
     assert.equal(await suggestionDialog.getByLabel("Nombre del producto", { exact:true }).inputValue(), "Arroz");
     assert.equal(await suggestionDialog.getByLabel("Marca", { exact:true }).inputValue(), "");
@@ -781,6 +794,12 @@ async function main() {
     await readerPage.screenshot({path:"test-results/readers-desktop.png",fullPage:true});
     await readersView.getByRole("button",{name:"Ver códigos desconocidos en Sugerencias",exact:true}).click();
     const readerCatalog=readerPage.locator("isl-catalog");
+    assert.equal(await readerCatalog.locator("#list-suggestions-group").evaluate(node => node.open),false);
+    assert.equal(await readerCatalog.locator("#scan-suggestions-group").evaluate(node => node.open),false);
+    assert.equal(await readerCatalog.locator("#scan-suggestions [data-pending-id]").count(),1);
+    assert.equal(await readerCatalog.locator("#list-suggestions [data-pending-id]").count(),0);
+    assert.equal(await readerCatalog.locator("#scan-suggestions-count").textContent(),"1");
+    await readerCatalog.locator("#scan-suggestions-summary").click();
     await readerCatalog.getByRole("button",{name:"Completar ficha del código 0012345678905",exact:true}).click();
     const codeDialog=readerCatalog.getByRole("dialog",{name:"Nuevo producto",exact:true});
     assert.equal(await codeDialog.getByLabel("Código de barras",{exact:true}).inputValue(),"0012345678905");
@@ -799,6 +818,7 @@ async function main() {
     const productId=await readerPage.evaluate(()=>window.catalogProducts[0].id);
     await readerCatalog.getByLabel("Producto para el código 11223344",{exact:true}).selectOption(productId);
     await readerPage.evaluate(()=>window.emitReaders());
+    assert.equal(await readerCatalog.locator("#scan-suggestions-group").evaluate(node => node.open),true);
     assert.equal(await readerCatalog.getByLabel("Producto para el código 11223344",{exact:true}).inputValue(),productId);
     await readerCatalog.getByRole("button",{name:"Completar ficha del código 11223344",exact:true}).click();
     const linkDialog=readerCatalog.getByRole("dialog",{name:"Editar producto",exact:true});

@@ -137,7 +137,6 @@ class ImprovedShoppingCatalog extends HTMLElement {
             <label class="wide">Notas<textarea name="notes" maxlength="1000"></textarea></label>
           </div>
           <datalist id="category-suggestions"></datalist>
-          <p class="helper">Separa las etiquetas con comas. El precio es manual y corresponde al formato indicado; todavía no es una oferta de supermercado.</p>
           <div class="form-actions"><button id="cancel-product" type="button">Cancelar</button><button id="save-product" class="primary" type="submit">Guardar producto</button></div>
         </form>
       </dialog>`;

@@ -1,5 +1,17 @@
 # Historial de cambios
 
+## 0.11.0
+
+- Recurrencia en Automatización de la ficha del producto: permite comprar cada X días en la lista principal. Funciona con el panel cerrado, conserva el calendario tras reiniciar, evita duplicados pendientes y recupera entradas completadas cuando el proveedor lo permite. Registra los resultados y los errores en Logs.
+- Mercadona respeta un mínimo de cinco segundos entre todas las peticiones, incluidas las búsquedas alternativas por nombre, igualando la pausa del flujo original de n8n.
+- Ante errores de Mercadona se conserva el precio anterior y se pausa progresivamente la consulta: inicialmente 15 minutos para HTTP 403, cinco minutos para HTTP 429 y un minuto para otros errores, respetando esperas mayores indicadas por el servidor. La pausa persiste tras reiniciar y bloquea el botón manual hasta la hora indicada.
+- Barra de progreso en directo al forzar la actualización: códigos revisados, estado de búsqueda y tiempo estimado del lote. Se mantienen los lotes de hasta 20 códigos y unos 35 segundos; un error o un lote parcial no se presenta como revisión completa.
+- Nuevo filtro Tiendas en Logs e información técnica desplegable de consultas, errores y reintentos: estado HTTP, almacén, EAN, tiempos y referencias de bloqueo disponibles, sin conservar cuerpos de respuesta, cookies ni credenciales. Un HTTP 403 sigue siendo un rechazo de acceso del servicio externo; las pausas no garantizan que Mercadona permita consultar su buscador.
+- Sugerencias de iconos en una sola fila adaptable e iconos representativos en las vistas de la ficha del producto.
+- Comunidad incluye el enlace al repositorio para aportar diccionarios mediante Issues y los enlaces de Telegram y Patreon de Aguacatec. Texto de exportación y botón alineados en una fila.
+- Engranaje de tiendas sin contenedor visible y logos con mayor padding sobre fondo blanco, adaptado a móvil.
+- Pruebas ampliadas de recurrencia, antirrepetición, pausas persistentes, diagnóstico seguro, progreso WebSocket en directo, permisos y presentación móvil.
+
 ## 0.10.0
 
 - Tiendas se presenta en bloques horizontales con logo, nombre, interruptor y engranaje. Mercadona utiliza el logo indicado y abre un popup con las vistas Productos y Configuración.

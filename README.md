@@ -170,6 +170,8 @@ Los precios se consultan al abrir Productos y se reutilizan durante seis horas. 
 
 Las consultas utilizan el buscador web de Mercadona, que puede rechazar peticiones externas (por ejemplo, HTTP 403). Estos errores se muestran y conservan los precios anteriores con su fecha de consulta; se aplica una pausa progresiva antes de reintentar: al menos 15 minutos ante HTTP 403, cinco minutos ante HTTP 429 y un minuto en otros errores. Se respeta `Retry-After` cuando indica una espera mayor. La pausa se conserva al reiniciar y el botón manual no la omite. Los resultados se guardan en Home Assistant, separados por almacén, y no se muestran como precios de otra región ni de una tienda deshabilitada. Esta función todavía no sustituye el precio manual de la ficha del producto.
 
+Después de un HTTP 403, abrir la vista Productos solo muestra los datos guardados y el diagnóstico, también cuando ha vencido la pausa o tras reiniciar Home Assistant. No se vuelve a consultar automáticamente un buscador que ha rechazado el acceso: es necesaria una acción manual de Forzar actualización, respetando la espera mínima. Esa hora no garantiza que Mercadona vaya a admitir la siguiente petición.
+
 El código postal se guarda en las opciones de Home Assistant y solo se envía a Mercadona al comprobar la ubicación; no se publican códigos postales ni capturas HAR en GitHub. Los errores conservan la configuración anterior y no asignan un almacén de sustitución.
 
 

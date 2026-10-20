@@ -218,6 +218,29 @@ async def test_respects_server_retry_after(hass, aioclient_mock, status):
     assert service._last_diagnostics["server_retry_seconds"] == 1800
 
 
+async def test_opening_view_after_403_does_not_retry_after_cooldown_or_restart(hass, aioclient_mock, monkeypatch):
+    service = environment(hass)
+    aioclient_mock.post(SEARCH_URL, status=403)
+    first = await service.async_refresh(True)
+    assert first["automatic_refresh_blocked"]
+    service._retry_after = 0  # The minimum cooldown has elapsed.
+    await service._persist()
+    restored = environment(hass)
+    await restored.async_load()
+    for _ in range(3):
+        result = await restored.async_refresh(False)
+        assert result["automatic_refresh_blocked"] and result["remaining"] == 1
+    assert aioclient_mock.call_count == 1
+    # Only a deliberate manual action can retry; it still respects future cooldowns.
+    manual = await restored.async_refresh(True)
+    assert aioclient_mock.call_count == 2
+    assert manual["retry_at"] - module.time.time() >= 1799
+    restored._retry_after = 0
+    monkeypatch.setattr(restored, "_fetch", AsyncMock(return_value=None))
+    recovered = await restored.async_refresh(True)
+    assert not recovered["automatic_refresh_blocked"] and not recovered["error"]
+
+
 def test_retry_after_dates_and_invalid_values(monkeypatch):
     monkeypatch.setattr(module, "time", SimpleNamespace(time=lambda: 1000))
     assert module.retry_seconds("Thu, 01 Jan 1970 00:36:40 GMT") == 1200

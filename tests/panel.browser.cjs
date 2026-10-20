@@ -126,7 +126,7 @@ const hass={
     if(msg.type==='improved_shopping_list/settings/store_products'){
       (window.storeProductCalls??=[]).push(msg);
       if(msg.force&&window.holdStoreRefresh)await new Promise(resolve=>window.finishStoreRefresh=resolve);
-      return {warehouse:'mad3',enabled:true,products:[{name:'Tomate',ean:'8430543025611',store_name:'Tomate rallado',store_product_id:'69938',price:msg.force?1.55:1.45,reference_price:5,reference_unit:'kg',checked_at:1800000000}],error:window.failStoreProducts?'Mercadona ha rechazado la consulta (HTTP 403)':'',remaining:window.failStoreProducts?20:0,processed:0,total:20,retry_at:window.failStoreProducts?Date.now()/1000+900:0};
+      return {warehouse:'mad3',enabled:true,products:[{name:'Tomate',ean:'8430543025611',store_name:'Tomate rallado',store_product_id:'69938',price:msg.force?1.55:1.45,reference_price:5,reference_unit:'kg',checked_at:1800000000}],error:window.failStoreProducts?'Mercadona ha rechazado la consulta (HTTP 403)':'',automatic_refresh_blocked:!!window.failStoreProducts,remaining:window.failStoreProducts?20:0,processed:0,total:20,retry_at:window.failStoreProducts?Date.now()/1000+900:0};
     }
     if(msg.type==='improved_shopping_list/settings/store'){
       if(window.failSettings)throw new Error('Mercadona no está disponible');
@@ -873,6 +873,7 @@ async function main() {
     await storeDialog.getByRole("alert").filter({hasText:'HTTP 403'}).waitFor();
     assert.equal(await storeDialog.getByRole("button",{name:"Forzar actualización",exact:true}).isDisabled(),true);
     await storeDialog.locator("#store-products-status").filter({hasText:"Actualización pausada"}).waitFor();
+    await storeDialog.locator("#store-access-block").filter({hasText:"Abrir esta vista no repetirá la consulta"}).waitFor();
     assert.equal((await storeDialog.locator("#store-products-status").textContent()).includes("Quedan"),false);
     assert.equal((await storeDialog.locator("#store-products-status").textContent()).includes("No hay productos"),false);
     assert.match(await storeDialog.locator(".store-price strong").textContent(),/1,55/);

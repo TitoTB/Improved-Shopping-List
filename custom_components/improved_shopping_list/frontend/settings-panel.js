@@ -120,6 +120,7 @@ class ImprovedShoppingSettings extends HTMLElement {
         <section id="store-products-view">
           <div class="appearance-actions"><button id="refresh-store-products" type="button"><ha-icon icon="mdi:refresh" aria-hidden="true"></ha-icon> Forzar actualización</button></div>
           <p id="store-products-status" role="status"></p><div id="store-products-error" class="notice error" role="alert" hidden></div>
+          <p id="store-access-block" hidden>Mercadona ha rechazado el acceso al buscador. Abrir esta vista no repetirá la consulta. La hora indicada es la espera mínima para reintentar manualmente; no garantiza que el bloqueo desaparezca.</p>
           <div id="store-progress" class="store-progress" hidden><progress aria-label="Progreso de actualización de precios"></progress><p id="store-progress-count" role="status"></p><p id="store-progress-time"></p><p>Se revisan hasta 20 códigos por lote, durante unos 35 segundos. La estimación puede variar según la respuesta de la tienda.</p></div>
           <div id="store-products" class="store-products"></div>
         </section>
@@ -332,6 +333,7 @@ class ImprovedShoppingSettings extends HTMLElement {
     const error = root.querySelector("#store-products-error");
     error.textContent = store.enabled ? data?.error || this._productsError || "" : "";
     error.hidden = !error.textContent || this._productsLoading;
+    root.querySelector("#store-access-block").hidden = !data?.automatic_refresh_blocked || this._productsLoading;
     const progress = Number.isFinite(data?.total) && data.total > 0 ? ` ${data.processed ?? 0} de ${data.total} códigos revisados.` : "";
     root.querySelector("#store-products-status").textContent = this._productsLoading ? "Consultando productos y precios…"
       : !store.enabled ? "Habilita la tienda para consultar sus productos."

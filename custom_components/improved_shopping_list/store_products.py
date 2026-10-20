@@ -151,6 +151,7 @@ class StoreProducts:
         return {"products": sorted(products, key=lambda product: product["name"].casefold()),
                 "enabled": store.get("enabled", False), "warehouse": warehouse,
                 "error": self._last_error if store.get("enabled") else "", "remaining": 0,
+                "automatic_refresh_blocked": store.get("enabled", False) and self._last_diagnostics.get("http_status") == 403,
                 "retry_at": self._retry_after if store.get("enabled") else 0, "processed": 0, "total": len(self._codes())}
 
     async def async_refresh(self, force=False):
@@ -174,6 +175,10 @@ class StoreProducts:
                    if force or now - self._cache.get(f"{warehouse}:{key}", {}).get("checked_at", 0) >= TTL]
         pending.sort(key=lambda item: self._cache.get(f"{warehouse}:{item[0]}", {}).get("checked_at", 0))
         error, changed, processed = "", False, 0
+        if not force and result["automatic_refresh_blocked"]:
+            # Opening the view is a read after an access rejection, even after cooldown expires.
+            result["remaining"] = len(pending)
+            return result
         if pending and now < self._retry_after:
             result["error"] = self._last_error or "Las consultas de Mercadona están temporalmente pausadas."
             self._record("cooldown", "Mercadona: consulta omitida durante la pausa de reintento", {

@@ -140,7 +140,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
         <p class="intro">Todo lo que necesitas, en la lista que ya utilizas.</p></div>
         <div id="error" class="notice error" role="alert" hidden></div>
         <div id="status" class="notice" role="status" hidden></div>
-        <section class="card" aria-label="Seleccionar lista y añadir productos">
+        <section id="list-controls" class="card" aria-label="Seleccionar lista y añadir productos">
           <label class="label" for="list-select">Lista de la compra</label>
           <div class="selector-row"><select id="list-select"></select><button id="refresh" class="refresh" aria-label="Actualizar lista" title="Actualizar lista"><ha-icon icon="mdi:refresh"></ha-icon></button></div>
           <p id="list-help" class="helper"></p>
@@ -189,6 +189,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
     this._actionError = "";
     const root = this.shadowRoot;
     root.querySelector("#shopping-intro").hidden = view !== "shopping";
+    root.querySelector("#list-controls").hidden = view !== "shopping";
     root.querySelector("#items-card").hidden = view !== "shopping";
     root.querySelector("#add-form").hidden = view !== "shopping";
     root.querySelector("isl-catalog").hidden = view !== "catalog";
@@ -247,12 +248,12 @@ class ImprovedShoppingListPanel extends HTMLElement {
       ? "Esta lista no permite añadir productos desde Home Assistant."
       : "Esta lista permite añadir productos, pero no marcarlos como comprados.";
     const status = root.querySelector("#status");
-    status.hidden = available && !session.loading;
+    status.hidden = this._view === "catalog" || (available && !session.loading);
     status.textContent = session.loading ? "Cargando tu lista…"
       : session.entityId ? "La lista seleccionada no está disponible. Comprueba su integración o selecciona otra lista."
         : "Todavía no hay una lista seleccionada.";
     const error = root.querySelector("#error");
-    const message = this._actionError || session.error;
+    const message = this._actionError || (this._view === "shopping" ? session.error : "");
     error.hidden = !message;
     error.textContent = message;
     const pending = session.items.filter((item) => item.status !== "completed");

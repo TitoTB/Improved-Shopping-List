@@ -39,8 +39,6 @@ class ImprovedShoppingCatalog extends HTMLElement {
 
   set listName(value) {
     this._listName = value;
-    if (this._built) this.shadowRoot.querySelector("#catalog-list-help").textContent = value
-      ? `Añade productos a «${value}» desde sus fichas.` : "Selecciona una lista para añadir productos.";
   }
 
   connectedCallback() {
@@ -110,7 +108,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
         @media(max-width:390px) { .fields { grid-template-columns:1fr; } .heading { align-items:flex-start; } }
       </style>
       <div class="heading"><h1>Catálogo</h1><div class="heading-actions"><button id="new-product" class="primary">Nuevo producto</button><button id="catalog-refresh" aria-label="Actualizar catálogo" title="Actualizar catálogo"><ha-icon icon="mdi:refresh"></ha-icon></button></div></div>
-      <p id="catalog-list-help" class="helper"></p>
+      <p class="helper">Tus productos, categorías y etiquetas, disponibles para todas tus listas.</p>
       <div id="catalog-error" class="notice error" role="alert" hidden></div>
       <div id="catalog-status" class="notice" role="status" hidden></div>
       <div class="filters">
@@ -237,6 +235,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
     const actions = element("div", "actions");
     const add = element("button", "primary", this._adding === product.id ? "Añadiendo…" : "Añadir a lista");
     add.setAttribute("aria-label", `Añadir ${product.name} a la lista`);
+    add.title = this._canAdd ? `Añadir a «${this._listName}»` : "Selecciona una lista disponible en el apartado Lista para añadir productos.";
     add.disabled = !this._canAdd || Boolean(this._adding);
     add.addEventListener("click", () => void this._addToList(product));
     const edit = element("button", "", "Editar");

@@ -422,7 +422,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
       const placeholder = document.createElement("span");
       placeholder.className = "predictive-image";
       const icon = document.createElement("ha-icon");
-      icon.setAttribute("icon", product.icon || "mdi:shopping");
+      icon.setAttribute("icon", product.icon || this._catalogCategories.get(normalizedName(product.category))?.icon || "mdi:shopping");
       placeholder.append(icon);
       const source = imageSource(product.image_url);
       if (source) {
@@ -542,7 +542,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
         badge.replaceChildren(icon);
       }
       const source = imageSource(product?.image_url);
-      const iconName = product?.icon || "mdi:shopping";
+      const iconName = product?.icon || category?.icon || "mdi:shopping";
       const mediaKey = JSON.stringify([source, iconName]);
       if (row._mediaKey !== mediaKey) {
         row._mediaKey = mediaKey;

@@ -288,7 +288,7 @@ async function main() {
     assert.equal(await page.evaluate(() => window.catalogCategories.length), 0);
     await catalog.getByRole("button", { name:"Nueva categoría", exact:true }).click();
     await categoryEditor.getByLabel("Nombre de la categoría", { exact:true }).fill("Lácteos");
-    await categoryEditor.getByLabel("Icono MDI", { exact:true }).fill("mdi:shopping");
+    await categoryEditor.getByLabel("Icono MDI", { exact:true }).fill("mdi:food");
     await categoryEditor.getByLabel("Color", { exact:true }).evaluate(input => { input.value="#9c27b0";input.dispatchEvent(new Event("input", {bubbles:true})); });
     await page.evaluate(() => { window.failCategory=true; });
     await categoryEditor.getByRole("button", { name:"Guardar categoría", exact:true }).click();
@@ -309,7 +309,8 @@ async function main() {
     await catalog.getByRole("heading", { name: "Yogur natural", exact: true }).waitFor();
     assert.equal(await page.evaluate(() => window.catalogProducts[0].barcode), "0012345678905");
     const productCard = catalog.locator("#catalog-grid article").first();
-    assert.equal(await productCard.locator(".placeholder ha-icon").getAttribute("icon"), "mdi:shopping");
+    assert.equal(await productCard.locator(".placeholder ha-icon").getAttribute("icon"), "mdi:food");
+    assert.equal(await page.evaluate(() => window.catalogProducts[0].icon), "");
     assert.equal(await productCard.getByText("Lácteos", { exact: true }).count(), 0);
     assert.equal((await productCard.textContent()).includes("2,59"), false);
     assert.equal(await productCard.locator(".category-badge").evaluate(node => getComputedStyle(node).color), "rgb(255, 255, 255)");

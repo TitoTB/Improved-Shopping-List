@@ -496,7 +496,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
     const top = element("div", "product-top");
     const placeholder = element("div", "image placeholder");
     const icon = element("ha-icon");
-    icon.setAttribute("icon", product.icon || "mdi:shopping");
+    icon.setAttribute("icon", product.icon || category?.icon || "mdi:shopping");
     placeholder.append(icon);
     const source = imageSource(product.image_url);
     if (source) {

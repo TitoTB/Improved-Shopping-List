@@ -1407,6 +1407,13 @@ async function main() {
     await nutriForm.getByRole('button',{name:'Características principales',exact:true}).click();
     await nutriForm.getByRole('button',{name:'Información adicional',exact:true}).click();
     assert.equal(await nutriPage.evaluate(()=>window.nutriCalls.length),2);
+    await nutriPage.evaluate(()=>{window.listSettings.stores={carrefour:{enabled:true}};window.emitSettings();});
+    await nutriForm.getByRole('button',{name:'Automatización',exact:true}).click();
+    await nutriForm.getByLabel('Código de barras',{exact:true}).fill('8431876279146');
+    await nutriForm.getByRole('button',{name:'Información adicional',exact:true}).click();
+    await nutriForm.locator('#store-price-results').getByRole('link').waitFor();
+    assert.match(await nutriForm.locator('#store-price-results').textContent(),/Carrefour: 1,35/);
+    assert.match(await nutriForm.locator('#store-price-results').getByRole('link').getAttribute('href'),/awin1.com\/pclick.php/);
     await nutriForm.getByRole('button',{name:'Cancelar',exact:true}).click();
     await nutriCatalog.getByRole('button',{name:'Nuevo producto',exact:true}).click();
     await nutriForm.getByRole('button',{name:'Automatización',exact:true}).click();

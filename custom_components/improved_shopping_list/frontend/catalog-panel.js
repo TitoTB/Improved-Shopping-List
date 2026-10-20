@@ -125,6 +125,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
         .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(245px,1fr)); gap:16px; }
         .product { position:relative; display:flex; flex-direction:column; gap:12px; background:var(--card-background-color,#fff); border:1px solid var(--divider-color,#dfe7e1); border-radius:16px; padding:30px 18px 18px; min-width:0; text-align:center; }
         .product.in-list { background:linear-gradient(145deg,rgba(255,85,85,.32),rgba(220,38,38,.12)),var(--card-background-color,#fff); border-color:rgba(220,38,38,.45); }
+        .product.in-list,.product.in-list .placeholder,.product.in-list .subtitle,.product.in-list button,.product.in-list ha-icon { color:#fff; }
         .product-top { display:flex; flex-direction:column; gap:14px; align-items:center; }
         .image { width:96px; height:96px; object-fit:contain; border-radius:10px; flex-shrink:0; }
         .placeholder { display:grid; place-items:center; color:var(--secondary-text-color,#63766b); }

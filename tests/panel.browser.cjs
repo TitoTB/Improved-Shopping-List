@@ -102,6 +102,13 @@ window.testPanel=panel;
 window.menuOpened=false;panel.addEventListener('hass-toggle-menu',()=>window.menuOpened=true);
 </script></body></html>`;
 
+async function selectList(page, entityId) {
+  await page.getByRole("button", { name: "Seleccionar lista", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Seleccionar lista", exact: true });
+  await dialog.locator(`[data-entity-id="${entityId}"]`).click();
+  await dialog.waitFor({ state: "hidden" });
+}
+
 async function main() {
   await fs.mkdir("test-results", { recursive: true });
   const server = http.createServer(async (req, res) => {
@@ -134,6 +141,28 @@ async function main() {
     assert.equal(header.logoFirst, true);
     assert.equal(await page.locator("#nav-catalog ha-icon").getAttribute("icon"), "mdi:view-grid");
     assert.equal(await page.locator("footer").count(), 0);
+    assert.equal(await page.locator("#list-select").count(), 0);
+    assert.equal(await page.locator("#add-button").textContent(), "");
+    assert.equal(await page.locator("#add-button ha-icon").getAttribute("icon"), "mdi:plus-thick");
+    assert.equal(await page.locator("#choose-list ha-icon").getAttribute("icon"), "mdi:format-list-checks");
+    const assertCompactBar = async currentPage => {
+      assert.ok(await currentPage.locator("#add-form").evaluate(form => {
+        const controls = ["#product-input", "#add-button", "#choose-list"].map(selector => form.querySelector(selector).getBoundingClientRect());
+        return controls.every(bounds => Math.abs(bounds.top - controls[0].top) < 2) &&
+          controls[0].right <= controls[1].left && controls[1].right <= controls[2].left && controls[2].right <= innerWidth;
+      }));
+    };
+    await assertCompactBar(page);
+    await page.getByRole("button", { name: "Seleccionar lista", exact: true }).click();
+    const listDialog = page.getByRole("dialog", { name: "Seleccionar lista", exact: true });
+    assert.equal(await listDialog.getByRole("button", { name: "Compra · Bring!", exact: true }).getAttribute("aria-pressed"), "true");
+    assert.equal(await listDialog.locator(".list-option").count(), 3);
+    await page.screenshot({ path: "test-results/list-selector-desktop.png", fullPage: true });
+    await listDialog.getByRole("button", { name: "Cerrar", exact: true }).click();
+    await page.getByRole("button", { name: "Seleccionar lista", exact: true }).press("Enter");
+    await listDialog.waitFor();
+    await page.keyboard.press("Escape");
+    await listDialog.waitFor({ state: "hidden" });
     assert.equal(await page.locator("#pending").evaluate(node => getComputedStyle(node).display), "grid");
     const listCards = page.locator("#pending > li");
     assert.equal(await listCards.first().locator(".placeholder ha-icon").getAttribute("icon"), "mdi:shopping");
@@ -162,17 +191,17 @@ async function main() {
 
     await page.evaluate(() => window.rename());
     await page.locator("#pending").getByText("Cacao puro", { exact: true }).waitFor();
-    await page.getByLabel("Lista de la compra", { exact: true }).selectOption("todo.local");
+    await selectList(page, "todo.local");
     await page.locator("#pending").getByText("Detergente", { exact: true }).waitFor();
     assert.equal(await page.locator("#pending").getByText("Cacao puro", { exact: true }).count(), 0);
     assert.equal(await page.evaluate(() => window.listenerCount()), 2);
 
-    await page.getByLabel("Lista de la compra", { exact: true }).selectOption("todo.readonly");
+    await selectList(page, "todo.readonly");
     await page.locator("#pending").getByText("Lista compartida", { exact: true }).waitFor();
     assert.equal(await page.getByRole("button", { name: "Añadir", exact: true }).isDisabled(), true);
     assert.equal(await page.getByRole("checkbox").isDisabled(), true);
 
-    await page.getByLabel("Lista de la compra", { exact: true }).selectOption("todo.bring");
+    await selectList(page, "todo.bring");
     await page.locator("#pending").getByText("Cacao puro", { exact: true }).waitFor();
     await page.evaluate(() => { window.fail = true; });
     await page.getByLabel("Añadir producto", { exact: true }).fill("Aceite");
@@ -267,7 +296,7 @@ async function main() {
     await page.getByRole("button", { name: "Catálogo", exact: true }).click();
     assert.equal(await productCard.getAttribute("data-in-list"), "true");
     await page.getByRole("button", { name: "Lista", exact: true }).click();
-    await page.getByLabel("Lista de la compra", { exact: true }).selectOption("todo.local");
+    await selectList(page, "todo.local");
     await page.locator("#pending").getByText("Detergente", { exact: true }).waitFor();
     await page.getByRole("button", { name: "Catálogo", exact: true }).click();
     assert.equal(await productCard.getAttribute("data-in-list"), "false");
@@ -296,7 +325,7 @@ async function main() {
     await productCard.locator("img").evaluate(image => image.decode());
     assert.equal(await productCard.locator(".placeholder").count(), 0);
     await page.getByRole("button", { name: "Lista", exact: true }).click();
-    await page.getByLabel("Lista de la compra", { exact: true }).selectOption("todo.bring");
+    await selectList(page, "todo.bring");
     await yogurtListCard.locator("img").evaluate(image => image.decode());
     assert.equal(await yogurtListCard.locator(".placeholder").count(), 0);
     assert.equal(await yogurtListCard.locator(".category-badge").getAttribute("title"), "Lácteos y frescos");
@@ -322,6 +351,10 @@ async function main() {
       return root.querySelector("main").scrollWidth > window.innerWidth;
     }), false);
     await page.screenshot({ path: "test-results/panel-mobile.png", fullPage: true });
+    await assertCompactBar(page);
+    await page.getByRole("button", { name: "Seleccionar lista", exact: true }).click();
+    await page.screenshot({ path: "test-results/list-selector-mobile.png", fullPage: true });
+    await listDialog.getByRole("button", { name: "Cerrar", exact: true }).click();
     assert.equal(await page.locator(".version").isVisible(), true);
     assert.equal(await page.locator("#pending").evaluate(node => getComputedStyle(node).gridTemplateColumns.split(" ").length), 1);
     await page.locator("#completed-summary").click();
@@ -373,7 +406,7 @@ async function main() {
     await suggestions.getByRole("button", { name: "Añadir al catálogo: Arroz", exact: true }).click();
     await suggestionCatalog.locator("#suggestions-empty").waitFor();
     await suggestionPage.getByRole("button", { name: "Lista", exact: true }).click();
-    await suggestionPage.getByLabel("Lista de la compra", { exact: true }).selectOption("todo.local");
+    await selectList(suggestionPage, "todo.local");
     await suggestionPage.getByRole("button", { name: "Catálogo", exact: true }).click();
     await suggestions.getByRole("heading", { name: "Detergente", exact: true }).waitFor();
     await suggestionPage.evaluate(() => {
@@ -443,7 +476,7 @@ async function main() {
     await predictivePage.getByRole("button", { name: "Añadir", exact: true }).click();
     await predictivePage.locator("#pending").getByText("Cacao puro", { exact: true }).waitFor();
     assert.equal(await predictivePage.evaluate(() => window.calls.length), 4);
-    await predictivePage.getByLabel("Lista de la compra", { exact: true }).selectOption("todo.readonly");
+    await selectList(predictivePage, "todo.readonly");
     assert.equal(await predictiveInput.isDisabled(), true);
     assert.equal(await predictiveInput.getAttribute("aria-expanded"), "false");
     await predictiveContext.close();

@@ -59,6 +59,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
     document.removeEventListener("visibilitychange", this._onVisibility);
     this._session.dispose();
     this._started = false;
+    this.shadowRoot.querySelector("#list-dialog")?.close();
   }
 
   _ensureStarted() {
@@ -97,12 +98,24 @@ class ImprovedShoppingListPanel extends HTMLElement {
         .intro { color:var(--secondary-text-color,#63766b); margin:0 0 28px; line-height:1.6; }
         .card { background:var(--card-background-color,#fff); border:1px solid var(--divider-color,#dfe7e1); border-radius:18px; padding:22px; margin-bottom:18px; }
         .label { display:block; font-size:13px; font-weight:650; margin:0 0 10px; }
-        .selector-row { display:flex; gap:10px; }
         select,input { color:inherit; background:var(--secondary-background-color,#f6f8f6); border:1px solid var(--divider-color,#dfe7e1); border-radius:10px; min-height:48px; padding:10px 12px; min-width:0; }
         select { width:100%; }
         .refresh { flex-shrink:0; min-width:48px; border:1px solid var(--divider-color,#dfe7e1); border-radius:10px; background:transparent; color:inherit; }
         .helper { font-size:12px; color:var(--secondary-text-color,#63766b); line-height:1.6; margin:10px 0 0; }
-        form { display:flex; gap:10px; margin-top:22px; }
+        #list-controls { margin-bottom:24px; }
+        #add-form { display:flex; align-items:center; gap:8px; margin:0; }
+        .icon-button { display:inline-flex; align-items:center; justify-content:center; flex:0 0 48px; width:48px; height:48px; padding:0; border:1px solid var(--divider-color,#dfe7e1); border-radius:10px; color:inherit; background:var(--card-background-color,#fff); }
+        #add-button { padding:0; align-self:auto; color:#fff; background:var(--isl-green); border:0; }
+        .icon-button ha-icon { --mdc-icon-size:24px; }
+        dialog { color:inherit; background:var(--card-background-color,#fff); border:1px solid var(--divider-color,#dfe7e1); border-radius:18px; padding:24px; width:min(460px,calc(100vw - 28px)); max-height:calc(100dvh - 28px); }
+        dialog::backdrop { background:rgba(0,0,0,.4); }
+        #list-options { display:grid; gap:8px; margin-top:20px; }
+        .list-option { display:flex; align-items:center; gap:12px; width:100%; min-height:48px; padding:12px; border:1px solid var(--divider-color,#dfe7e1); border-radius:10px; color:inherit; background:transparent; text-align:left; overflow-wrap:anywhere; }
+        .list-option span { flex:1; min-width:0; }
+        .list-option[aria-pressed=true] { border-color:var(--isl-green); background:var(--secondary-background-color,#edf4ee); }
+        .list-option ha-icon { flex-shrink:0; --mdc-icon-size:22px; }
+        .dialog-actions { display:flex; justify-content:flex-end; gap:10px; margin-top:22px; }
+        .dialog-actions button { padding:10px 14px; min-height:44px; border:1px solid var(--divider-color,#dfe7e1); border-radius:10px; color:inherit; background:transparent; }
         .input-wrap { flex:1; min-width:0; position:relative; }
         .predictive-results { position:absolute; top:calc(100% + 6px); left:0; right:0; z-index:10; max-height:320px; overflow:auto; padding:6px; background:var(--card-background-color,#fff); border:1px solid var(--divider-color,#dfe7e1); border-radius:12px; box-shadow:0 8px 24px rgba(0,0,0,.14); }
         .predictive-option { display:flex; align-items:center; gap:10px; padding:10px; min-height:54px; border-radius:8px; cursor:pointer; }
@@ -164,16 +177,20 @@ class ImprovedShoppingListPanel extends HTMLElement {
         <p class="intro">Todo lo que necesitas, en la lista que ya utilizas.</p></div>
         <div id="error" class="notice error" role="alert" hidden></div>
         <div id="status" class="notice" role="status" hidden></div>
-        <section id="list-controls" class="card" aria-label="Seleccionar lista y añadir productos">
-          <label class="label" for="list-select">Lista de la compra</label>
-          <div class="selector-row"><select id="list-select"></select><button id="refresh" class="refresh" aria-label="Actualizar lista" title="Actualizar lista"><ha-icon icon="mdi:refresh"></ha-icon></button></div>
-          <p id="list-help" class="helper"></p>
+        <section id="list-controls" aria-label="Seleccionar lista y añadir productos">
           <form id="add-form">
-            <div class="input-wrap"><label class="label" for="product-input">Añadir producto</label><input id="product-input" type="text" maxlength="255" placeholder="Busca en tu catálogo o escribe un producto" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="product-suggestions" aria-describedby="predictive-count" required><ul id="product-suggestions" class="predictive-results" role="listbox" aria-label="Productos del catálogo" hidden></ul><span id="predictive-count" class="sr-only" role="status" aria-live="polite"></span></div>
-            <button id="add-button" class="primary" type="submit">Añadir</button>
+            <div class="input-wrap"><label class="sr-only" for="product-input">Añadir producto</label><input id="product-input" type="text" maxlength="255" placeholder="Busca o añade un producto" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="product-suggestions" aria-describedby="predictive-count" required><ul id="product-suggestions" class="predictive-results" role="listbox" aria-label="Productos del catálogo" hidden></ul><span id="predictive-count" class="sr-only" role="status" aria-live="polite"></span></div>
+            <button id="add-button" class="icon-button" type="submit" aria-label="Añadir" title="Añadir producto"><ha-icon icon="mdi:plus-thick"></ha-icon></button>
+            <button id="choose-list" class="icon-button" type="button" aria-label="Seleccionar lista" title="Seleccionar lista" aria-haspopup="dialog" aria-controls="list-dialog"><ha-icon icon="mdi:format-list-checks"></ha-icon></button>
           </form>
           <p id="capability-help" class="helper" hidden></p>
         </section>
+        <dialog id="list-dialog" aria-labelledby="list-dialog-title">
+          <h2 id="list-dialog-title">Seleccionar lista</h2>
+          <div id="list-options" role="group" aria-label="Listas de la compra"></div>
+          <p id="no-lists" class="helper" hidden>No hay listas disponibles. Añade una integración de listas en Home Assistant, como Shopping List o Bring!.</p>
+          <div class="dialog-actions"><button id="refresh" type="button">Actualizar lista</button><button id="close-list-dialog" type="button">Cerrar</button></div>
+        </dialog>
         <section class="card" aria-labelledby="pending-title" id="items-card">
           <div class="list-header"><h2 id="pending-title">Por comprar</h2><span id="pending-count" class="count">0 productos</span></div>
           <ul id="pending" class="product-grid" aria-label="Por comprar"></ul>
@@ -198,10 +215,15 @@ class ImprovedShoppingListPanel extends HTMLElement {
     root.querySelector(".menu").addEventListener("click", () => {
       this.dispatchEvent(new CustomEvent("hass-toggle-menu", { bubbles: true, composed: true }));
     });
-    root.querySelector("#list-select").addEventListener("change", (event) => {
-      this._actionError = "";
-      void this._session.select(event.target.value);
+    root.querySelector("#choose-list").addEventListener("click", () => {
+      this._predictionClosed = true;
+      this._renderPredictions();
+      this._renderOptions();
+      root.querySelector("#list-dialog").showModal();
+      root.querySelector('.list-option[aria-pressed="true"]')?.focus();
     });
+    root.querySelector("#close-list-dialog").addEventListener("click", () => root.querySelector("#list-dialog").close());
+    root.querySelector("#list-dialog").addEventListener("close", () => root.querySelector("#choose-list").focus());
     root.querySelector("#refresh").addEventListener("click", () => {
       this._actionError = "";
       void this._session.refresh();
@@ -233,22 +255,39 @@ class ImprovedShoppingListPanel extends HTMLElement {
 
   _renderOptions() {
     if (!this._built || !this._hass) return;
-    const select = this.shadowRoot.querySelector("#list-select");
-    const entities = todoEntities(this._hass);
+    const root = this.shadowRoot;
+    const entities = todoEntities(this._hass).slice();
     const signature = JSON.stringify(entities.map((state) => [state.entity_id, state.attributes.friendly_name, state.state === "unavailable"]));
     const selected = this._session.entityId || this._panel?.config?.default_entity || "";
-    if (signature !== this._optionsSignature || selected !== select.value) {
+    if (signature !== this._optionsSignature || selected !== this._optionsSelected) {
       this._optionsSignature = signature;
-      const options = entities.map((state) => new Option(
-        (state.attributes.friendly_name ?? state.entity_id) + (isAvailable(state) ? "" : " · No disponible"), state.entity_id,
-      ));
+      this._optionsSelected = selected;
       if (selected && !entities.some((state) => state.entity_id === selected)) {
-        options.unshift(new Option(`${selected} · No disponible`, selected));
+        entities.unshift({ entity_id: selected, state: "unavailable", attributes: {} });
       }
-      if (!options.length) options.push(new Option("No hay listas disponibles", ""));
-      select.replaceChildren(...options);
-      select.value = selected;
+      root.querySelector("#no-lists").hidden = entities.length > 0;
+      const options = entities.map(state => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "list-option";
+        button.dataset.entityId = state.entity_id;
+        button.setAttribute("aria-pressed", String(state.entity_id === selected));
+        const icon = document.createElement("ha-icon");
+        icon.setAttribute("icon", state.entity_id === selected ? "mdi:check" : "mdi:format-list-checks");
+        const name = document.createElement("span");
+        name.textContent = (state.attributes.friendly_name ?? state.entity_id) + (isAvailable(state) ? "" : " · No disponible");
+        button.append(icon, name);
+        button.addEventListener("click", () => {
+          root.querySelector("#list-dialog").close();
+          this._actionError = "";
+          void this._session.select(state.entity_id);
+        });
+        return button;
+      });
+      root.querySelector("#list-options").replaceChildren(...options);
     }
+    const listName = this._hass.states[selected]?.attributes.friendly_name ?? selected;
+    root.querySelector("#choose-list").title = listName ? `Lista actual: ${listName}` : "Seleccionar lista";
   }
 
   _renderData() {
@@ -270,11 +309,8 @@ class ImprovedShoppingListPanel extends HTMLElement {
     const locked = this._busy || session.loading || !available;
     root.querySelector("#product-input").disabled = locked || !canCreate;
     root.querySelector("#add-button").disabled = locked || !canCreate;
-    root.querySelector("#add-button").textContent = this._busy ? "Guardando…" : "Añadir";
+    root.querySelector("#add-button").setAttribute("aria-busy", String(this._busy));
     root.querySelector("#refresh").disabled = session.loading || !session.entityId;
-    root.querySelector("#list-help").textContent = session.entityId
-      ? "Puedes cambiar entre las listas integradas en Home Assistant."
-      : "Configura primero una integración de listas, como Shopping List o Bring!.";
     const capabilityHelp = root.querySelector("#capability-help");
     capabilityHelp.hidden = this._view === "catalog" || !available || (canCreate && canUpdate);
     capabilityHelp.textContent = !canCreate

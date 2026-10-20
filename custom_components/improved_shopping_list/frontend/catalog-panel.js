@@ -116,7 +116,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
         .helper { color:var(--secondary-text-color,#63766b); font-size:13px; line-height:1.6; margin:8px 0 18px; }
         button { min-height:44px; padding:10px 14px; border:1px solid var(--divider-color,#dfe7e1); border-radius:10px; background:transparent; color:inherit; }
         .primary { background:#267052; color:#fff; border:0; font-weight:650; }
-        .filters { display:grid; grid-template-columns:2fr 1fr 1fr; gap:12px; margin:24px 0 14px; align-items:end; }
+        .filters { display:grid; grid-template-columns:2fr 1fr; gap:12px; margin:24px 0 14px; align-items:end; }
         #catalog-refresh { width:44px; padding:10px; flex-shrink:0; }
         label { font-size:13px; font-weight:600; display:block; }
         input,select,textarea { display:block; min-height:46px; width:100%; margin-top:7px; padding:10px 12px; color:inherit; background:var(--card-background-color,#fff); border:1px solid var(--divider-color,#dfe7e1); border-radius:9px; min-width:0; }
@@ -151,19 +151,18 @@ class ImprovedShoppingCatalog extends HTMLElement {
         .fields { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin:22px 0; }
         .wide { grid-column:1/-1; }
         .form-actions { display:flex; justify-content:flex-end; gap:10px; margin-top:22px; }
-        @media(max-width:650px) { .filters { grid-template-columns:1fr 1fr; } .search { grid-column:1/-1; } .grid { grid-template-columns:1fr; } .heading { gap:10px; flex-wrap:wrap; } h1 { font-size:28px; } dialog { padding:20px; } }
+        @media(max-width:650px) { .filters { grid-template-columns:1fr; } .grid { grid-template-columns:1fr; } .heading { gap:10px; flex-wrap:wrap; } h1 { font-size:28px; } dialog { padding:20px; } }
         @media(max-width:390px) { .fields { grid-template-columns:1fr; } .heading { align-items:flex-start; } }
       </style>
       <div class="heading"><h1>Catálogo</h1><div class="heading-actions"><button id="new-product" class="primary">Nuevo producto</button><button id="catalog-refresh" aria-label="Actualizar catálogo" title="Actualizar catálogo"><ha-icon icon="mdi:refresh"></ha-icon></button></div></div>
       <p class="helper">Tus productos, categorías y etiquetas, disponibles para todas tus listas.</p>
-      <nav class="catalog-tabs" aria-label="Vistas del catálogo"><button id="view-products" aria-pressed="true">Productos</button><button id="view-categories" aria-pressed="false">Categorías</button><button id="view-suggestions" aria-pressed="false"><ha-icon icon="mdi:creation"></ha-icon>Sugerencias</button></nav>
+      <nav class="catalog-tabs" aria-label="Vistas del catálogo"><button id="view-products" aria-pressed="true"><ha-icon icon="mdi:package-variant"></ha-icon>Productos</button><button id="view-categories" aria-pressed="false"><ha-icon icon="mdi:shape"></ha-icon>Categorías</button><button id="view-suggestions" aria-pressed="false"><ha-icon icon="mdi:creation"></ha-icon>Sugerencias</button></nav>
       <div id="catalog-error" class="notice error" role="alert" hidden></div>
       <div id="catalog-status" class="notice" role="status" hidden></div>
       <section id="products-view">
       <div class="filters">
         <label class="search">Buscar productos<input id="catalog-search" type="search" placeholder="Nombre, marca, código o etiqueta"></label>
         <label>Categoría<select id="category-filter"><option value="">Todas</option></select></label>
-        <label>Etiqueta<select id="tag-filter"><option value="">Todas</option></select></label>
       </div>
       <p id="catalog-count" class="count" aria-live="polite"></p>
       <div id="catalog-grid" class="grid"></div>
@@ -211,7 +210,6 @@ class ImprovedShoppingCatalog extends HTMLElement {
     root.querySelector("#catalog-refresh").addEventListener("click", () => void this._catalog.refresh());
     root.querySelector("#catalog-search").addEventListener("input", () => this._renderProducts());
     root.querySelector("#category-filter").addEventListener("change", () => this._renderProducts());
-    root.querySelector("#tag-filter").addEventListener("change", () => this._renderProducts());
     root.querySelector("#cancel-product").addEventListener("click", () => root.querySelector("dialog").close());
     root.querySelector("dialog").addEventListener("cancel", (event) => { if (this._saving) event.preventDefault(); });
     root.querySelector("#product-form").addEventListener("submit", (event) => { event.preventDefault(); void this._saveProduct(); });
@@ -244,9 +242,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
     status.textContent = this._catalog.loading ? "Cargando catálogo…" : this._notice;
     root.querySelector("#catalog-refresh").disabled = this._catalog.loading;
     const categories = this._catalog.categories.map(category => category.name).sort((a, b) => a.localeCompare(b, "es"));
-    const tags = [...new Set(this._catalog.products.flatMap(product => product.tags))].sort((a, b) => a.localeCompare(b, "es"));
     this._fillFilter(root.querySelector("#category-filter"), categories);
-    this._fillFilter(root.querySelector("#tag-filter"), tags);
     const categorySelect = root.querySelector("[name=category]");
     const selectedCategory = categorySelect.value;
     const options = categories.map(category => new Option(category, category));
@@ -387,9 +383,8 @@ class ImprovedShoppingCatalog extends HTMLElement {
     const root = this.shadowRoot;
     const query = root.querySelector("#catalog-search").value.trim().toLocaleLowerCase("es");
     const category = root.querySelector("#category-filter").value;
-    const tag = root.querySelector("#tag-filter").value;
     const products = this._catalog.products.filter(product =>
-      (!category || normalizedName(product.category) === normalizedName(category)) && (!tag || product.tags.includes(tag)) &&
+      (!category || normalizedName(product.category) === normalizedName(category)) &&
       [product.name, product.brand, product.barcode, ...(product.barcodes??[]), ...(product.nfc_tags??[]), product.category, ...product.tags].join(" ").toLocaleLowerCase("es").includes(query));
     root.querySelector("#catalog-count").textContent = `${products.length} de ${this._catalog.products.length} productos`;
     root.querySelector("#catalog-grid").replaceChildren(...products.map(product => this._productCard(product)));

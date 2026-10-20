@@ -330,7 +330,9 @@ async function main() {
     await productCard.getByRole("button", { name: "Filtrar por categoría: Lácteos y frescos", exact: true }).focus();
     await page.keyboard.press("Enter");
     assert.equal(await catalog.locator("#category-filter").inputValue(), "Lácteos y frescos");
-    await catalog.locator("#tag-filter").selectOption("Desayuno");
+    assert.equal(await catalog.locator("#tag-filter").count(), 0);
+    assert.equal(await catalog.locator("#view-products ha-icon").getAttribute("icon"), "mdi:package-variant");
+    assert.equal(await catalog.locator("#view-categories ha-icon").getAttribute("icon"), "mdi:shape");
     await catalog.getByRole("button", { name: "Añadir Yogur sin azúcar a la lista", exact: true }).click();
     await catalog.getByRole("status").filter({ hasText: "Yogur sin azúcar añadido" }).waitFor();
     assert.equal((await page.evaluate(() => window.calls)).at(-1).entity_id, "todo.bring");

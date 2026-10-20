@@ -1,5 +1,11 @@
 # Historial de cambios
 
+## 0.9.1
+
+- Botón azul con `mdi:eye-outline` a la izquierda de Editar en cada lector. Abre la información de su entidad en el popup nativo de Home Assistant, con el estado actualizado en directo.
+- Los lectores NFC basados en eventos, sin entidad propia, muestran un popup con código, producto identificado, resultado y hora de la última lectura, actualizado en directo.
+- La consulta está disponible también para usuarios sin permisos de administración. Pruebas de apertura desde el panel, actualizaciones de lecturas y presentación segura de los códigos.
+
 ## 0.9.0
 
 - Nueva vista Ajustes → Tiendas con Mercadona. Permite habilitarla, consultar por código postal el almacén asignado y conservarlo tras reiniciar. La tienda habilitada queda como favorita. Los errores conservan la configuración anterior; no se asignan almacenes por defecto. Solo los administradores pueden cambiarla. Esta versión prepara la configuración; todavía no consulta precios ni vincula referencias de Mercadona con productos del catálogo.

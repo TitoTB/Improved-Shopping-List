@@ -1,4 +1,4 @@
-import { FEATURES, TodoSession, errorMessage, isAvailable, supports, todoEntities } from "./todo-client.js?v=0.1.1";
+import { FEATURES, TodoSession, errorMessage, isAvailable, supports, todoEntities } from "./todo-client.js?v=0.1.2";
 
 const LOGO_URL = new URL("logo.png", import.meta.url).href;
 
@@ -119,7 +119,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
       <header>
         <button class="menu" aria-label="Abrir menú de Home Assistant"><ha-icon icon="mdi:menu"></ha-icon></button>
         <img class="brand-logo" src="${LOGO_URL}" alt="" width="44" height="44">
-        <span class="brand">Improved Shopping List</span><span class="version">0.1.1</span>
+        <span class="brand">Improved Shopping List</span><span class="version">0.1.2</span>
       </header>
       <main>
         <p class="eyebrow">Tu lista, conectada</p>

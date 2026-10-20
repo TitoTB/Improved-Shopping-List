@@ -36,7 +36,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         frontend_url_path=PANEL_PATH,
         webcomponent_name=PANEL_ELEMENT,
         sidebar_title=NAME,
-        sidebar_icon="mdi:cart-outline",
+        sidebar_icon="mdi:shopping",
         module_url=f"{STATIC_URL}/panel.js?v={VERSION}",
         config={
             "default_entity": entry.options.get(

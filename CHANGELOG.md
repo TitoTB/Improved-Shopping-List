@@ -1,5 +1,9 @@
 # Historial de cambios
 
+## 0.1.2
+
+- Icono `mdi:shopping` para el acceso al panel desde el menú lateral.
+
 ## 0.1.1
 
 - Logo propio de la integración, incluido localmente para Home Assistant.

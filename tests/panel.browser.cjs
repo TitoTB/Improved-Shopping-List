@@ -415,6 +415,10 @@ async function main() {
     await categories.getByLabel("Nombre de la categoría", { exact: true }).fill("Lácteos y frescos");
     await categories.getByRole("button", { name: "Guardar categoría", exact: true }).click();
     await categories.getByRole("heading", { name: "Lácteos y frescos", exact: true }).waitFor();
+    await categories.evaluate(node=>{
+      node._testOriginalCategories=structuredClone(node._categories);
+      node.categories=Array.from({length:8},(_,index)=>({...node._categories[0],id:`layout-${index}`,name:index?`Categoría con un nombre largo para comprobar el espacio ${index}`:node._categories[0].name}));
+    });
     for (const width of [1280,390,320]) {
       await page.setViewportSize({width,height:960});
       for (const columns of width > 650 ? [1,3,6] : [1,2,4]) {
@@ -422,6 +426,14 @@ async function main() {
           node.style.setProperty("--isl-columns",columns);
           node.style.setProperty("--isl-mobile-columns",columns);
         },columns);
+        assert.equal(await categories.locator("#category-grid").evaluate(grid=>getComputedStyle(grid).gridTemplateColumns.split(" ").length),Math.min(columns,width>650?5:2));
+        assert.ok(await categories.locator("#category-grid article").evaluateAll(cards=>cards.every(card=>{
+          const bounds=card.getBoundingClientRect();
+          return Math.abs(bounds.width-bounds.height)<1 && [...card.querySelectorAll(".category-icon,h2,p,.actions")].every(child=>{
+            const rect=child.getBoundingClientRect();
+            return rect.left>=bounds.left&&rect.right<=bounds.right&&rect.top>=bounds.top&&rect.bottom<=bounds.bottom;
+          }) && [...card.querySelectorAll(".actions button")].every(button=>{const rect=button.getBoundingClientRect();return Math.abs(rect.width-rect.height)<.1;});
+        })),`Square category cards/buttons with content inside at ${width}px / ${columns} requested columns`);
         assert.ok(await categories.locator("#category-grid article").first().evaluate(card => {
           const buttons = [...card.querySelectorAll(".actions button")];
           const [edit,remove] = buttons.map(button => button.getBoundingClientRect());
@@ -434,8 +446,9 @@ async function main() {
             edit.width > 0 && remove.width > 0;
         }), `Category actions fit in one row at ${width}px / ${columns} columns`);
       }
+      await page.screenshot({path:`test-results/categories-square-${width}.png`,fullPage:true});
     }
-    await categories.evaluate(node => { node.style.removeProperty("--isl-columns"); node.style.removeProperty("--isl-mobile-columns"); });
+    await categories.evaluate(node => { node.categories=node._testOriginalCategories;delete node._testOriginalCategories;node.style.removeProperty("--isl-columns"); node.style.removeProperty("--isl-mobile-columns"); });
     await page.setViewportSize({width:1280,height:960});
     await page.screenshot({ path: "test-results/categories-desktop.png", fullPage: true });
     await catalog.getByRole("button", { name: "Productos", exact: true }).click();
@@ -850,7 +863,7 @@ async function main() {
     }));
     await settingsPage.screenshot({path:"test-results/catalog-columns-mobile.png",fullPage:true});
     await settingsCatalog.getByRole("button", { name:"Categorías", exact:true }).click();
-    assert.equal(await settingsCatalog.locator("#catalog-categories #category-grid").evaluate(node => getComputedStyle(node).gridTemplateColumns.split(" ").length), 4);
+    assert.equal(await settingsCatalog.locator("#catalog-categories #category-grid").evaluate(node => getComputedStyle(node).gridTemplateColumns.split(" ").length), 2);
     assert.ok(await settingsCatalog.locator("#catalog-categories #category-grid").evaluate(node => node.scrollWidth<=node.clientWidth+1));
     await settingsPage.screenshot({path:"test-results/category-columns-mobile.png",fullPage:true});
     await settingsCatalog.getByRole("button", { name:"Productos", exact:true }).click();

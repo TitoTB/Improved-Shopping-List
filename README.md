@@ -62,7 +62,7 @@ En **Ajustes → Personalización** puedes elegir por separado los dos colores d
 
 El campo Añadir producto ofrece hasta ocho coincidencias del catálogo mientras escribes, por nombre, marca, código de barras o etiquetas, sin distinguir tildes ni mayúsculas. Puedes tocar una coincidencia o seleccionarla con las flechas y Enter para añadir su nombre a la lista. Escape cierra el desplegable. También puedes escribir y añadir un producto nuevo libremente.
 
-El número de tarjetas por fila configurado en Personalización se aplica a Lista, Catálogo → Productos y Catálogo → Categorías, con valores separados para móvil y ordenador.
+El número de tarjetas por fila configurado en Personalización se aplica a Lista y Catálogo → Productos, con valores separados para móvil y ordenador. Catálogo → Categorías utiliza esos valores con un máximo de 5 columnas en ordenador y 2 en móvil. Sus tarjetas y sus botones de editar y eliminar tienen proporción 1:1; los nombres largos se limitan a dos líneas y se pueden consultar completos al situar el cursor encima.
 
 La barra de Lista reúne en una sola fila el buscador, el botón de añadir (`mdi:plus-thick`) y el selector de listas (`mdi:format-list-checks`). Este último abre un popup con las listas integradas en Home Assistant y marca la seleccionada; toca otra lista para cambiar. La opción de actualizar la lista está dentro de ese popup.
 

@@ -9,6 +9,7 @@ from custom_components.improved_shopping_list.const import (
     CONF_TODO_ENTITY,
     DOMAIN,
     PANEL_PATH,
+    VERSION,
 )
 
 
@@ -59,7 +60,7 @@ async def test_setup_options_reload_unload_and_reinstall(hass):
     await hass.async_block_till_done()
     panel = hass.data[DATA_PANELS][PANEL_PATH]
     assert panel.config["default_entity"] == "todo.bring"
-    assert panel.config["_panel_custom"]["module_url"].endswith("panel.js?v=0.1.0")
+    assert panel.config["_panel_custom"]["module_url"].endswith(f"panel.js?v={VERSION}")
 
     result = await hass.config_entries.options.async_init(entry.entry_id)
     assert result["type"] == FlowResultType.FORM
@@ -83,6 +84,6 @@ async def test_frontend_module_is_served(hass, hass_client):
     entry.add_to_hass(hass)
     assert await hass.config_entries.async_setup(entry.entry_id)
     client = await hass_client()
-    response = await client.get("/improved_shopping_list_static/panel.js?v=0.1.0")
+    response = await client.get(f"/improved_shopping_list_static/panel.js?v={VERSION}")
     assert response.status == 200
     assert "improved-shopping-list-panel" in await response.text()

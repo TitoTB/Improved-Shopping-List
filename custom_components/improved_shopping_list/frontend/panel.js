@@ -1,5 +1,5 @@
 import { FEATURES, TodoSession, errorMessage, isAvailable, supports, todoEntities } from "./todo-client.js?v=0.2.0";
-import "./catalog-panel.js?v=0.2.0";
+import { imageSource, normalizedName } from "./catalog-panel.js?v=0.2.0";
 
 const LOGO_URL = new URL("logo.png", import.meta.url).href;
 
@@ -10,6 +10,8 @@ class ImprovedShoppingListPanel extends HTMLElement {
     this._session = new TodoSession(() => this._hass, () => this._renderData());
     this._busy = false;
     this._rows = new Map();
+    this._catalogProducts = new Map();
+    this._catalogCategories = new Map();
     this._view = "shopping";
     this._onVisibility = () => {
       if (document.visibilityState === "visible") void this._session.refresh();
@@ -107,11 +109,24 @@ class ImprovedShoppingListPanel extends HTMLElement {
         h2 { margin:0; font-size:18px; font-weight:650; }
         .count { padding:5px 10px; border-radius:20px; background:var(--secondary-background-color,#edf4ee); font-size:13px; }
         ul { list-style:none; margin:0; padding:0; }
-        li+li { border-top:1px solid var(--divider-color,#e6ece7); }
-        .item { display:flex; align-items:center; min-height:62px; gap:14px; padding:10px 0; }
+        #items-card { background:transparent; border:0; padding:0; }
+        .product-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(245px,1fr)); gap:16px; }
+        .product-grid li { display:flex; min-width:0; }
+        .item { position:relative; display:flex; flex-direction:column; align-items:center; width:100%; gap:14px; padding:30px 18px 18px; border:1px solid var(--divider-color,#dfe7e1); border-radius:16px; background:var(--card-background-color,#fff); text-align:center; cursor:pointer; }
+        .item.pending { background:linear-gradient(145deg,rgba(255,85,85,.32),rgba(220,38,38,.12)),var(--card-background-color,#fff); border-color:rgba(220,38,38,.45); }
+        .item .image { width:96px; height:96px; object-fit:contain; border-radius:10px; }
+        .item .placeholder { display:grid; place-items:center; color:var(--secondary-text-color,#63766b); }
+        .item .placeholder ha-icon { --mdc-icon-size:64px; }
+        .category-badge { position:absolute; top:12px; right:12px; display:grid; place-items:center; width:32px; height:32px; border-radius:50%; color:#fff; }
+        .category-badge ha-icon { --mdc-icon-size:20px; }
+        .item-text { min-width:0; width:100%; overflow-wrap:anywhere; line-height:1.45; }
+        .item .summary { display:block; font-size:17px; font-weight:650; }
+        .subtitle { display:block; color:var(--secondary-text-color,#63766b); font-size:12px; margin-top:4px; }
+        .tags { display:flex; flex-wrap:wrap; justify-content:center; gap:5px; }
+        .tag { padding:4px 8px; border-radius:20px; font-size:11px; background:var(--secondary-background-color,#edf4ee); }
+        .purchase-control { display:flex; align-items:center; justify-content:center; gap:6px; margin-top:auto; min-height:44px; padding:0 12px; border:1px solid var(--divider-color,#dfe7e1); border-radius:10px; font-size:14px; }
         input[type=checkbox] { appearance:auto; accent-color:var(--isl-green); width:23px; height:23px; min-height:23px; flex-shrink:0; margin:10px; cursor:pointer; }
         input[type=checkbox]:disabled { cursor:default; }
-        .item-text { flex:1; min-width:0; overflow-wrap:anywhere; line-height:1.45; }
         .description { display:block; color:var(--secondary-text-color,#63766b); font-size:12px; white-space:pre-wrap; }
         .completed .summary { text-decoration:line-through; color:var(--secondary-text-color,#63766b); }
         .empty { padding:28px 8px; text-align:center; color:var(--secondary-text-color,#63766b); line-height:1.6; }
@@ -122,7 +137,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
         .error { border:1px solid var(--error-color,#bd3636); color:var(--error-color,#bd3636); }
         [hidden] { display:none !important; }
         .sr-only { position:absolute; width:1px; height:1px; padding:0; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
-        footer { text-align:center; color:var(--secondary-text-color,#63766b); font-size:12px; line-height:1.7; margin-top:24px; }
+        @media(max-width:650px) { .product-grid { grid-template-columns:1fr; } }
         @media(max-width:650px) { header { flex-wrap:wrap; padding:10px 12px; } .branding { flex:1; } .brand-logo { width:36px; height:36px; } .brand { font-size:14px; } .version { font-size:11px; margin-left:6px; } .section-nav { width:100%; justify-content:flex-end; } }
         @media(max-width:540px) { main { padding:26px 14px 40px; } .card { padding:18px 16px; border-radius:14px; } .primary { padding:10px 14px; } }
       </style>
@@ -152,16 +167,20 @@ class ImprovedShoppingListPanel extends HTMLElement {
         </section>
         <section class="card" aria-labelledby="pending-title" id="items-card">
           <div class="list-header"><h2 id="pending-title">Por comprar</h2><span id="pending-count" class="count">0 productos</span></div>
-          <ul id="pending"></ul>
+          <ul id="pending" class="product-grid" aria-label="Por comprar"></ul>
           <div id="empty" class="empty" hidden></div>
-          <details id="completed-details"><summary id="completed-summary">Comprados</summary><ul id="completed"></ul></details>
+          <details id="completed-details"><summary id="completed-summary">Comprados</summary><ul id="completed" class="product-grid" aria-label="Comprados"></ul></details>
         </section>
         <isl-catalog hidden></isl-catalog>
-        <footer>Los cambios se guardan en tu lista de Home Assistant.<br>También los verás en la aplicación de tu proveedor.</footer>
         <div id="announcement" class="sr-only" role="status" aria-live="polite"></div>
       </main>`;
     this._built = true;
     const root = this.shadowRoot;
+    root.querySelector("isl-catalog").addEventListener("catalog-change", event => {
+      this._catalogProducts = new Map(event.detail.products.map(product => [normalizedName(product.name), product]));
+      this._catalogCategories = new Map(event.detail.categories.map(category => [normalizedName(category.name), category]));
+      this._renderData();
+    });
     root.querySelector("#nav-shopping").addEventListener("click", () => this._switchView("shopping"));
     root.querySelector("#nav-catalog").addEventListener("click", () => this._switchView("catalog"));
     root.querySelector("isl-catalog").onAdd = (product) => this._runAction(
@@ -195,7 +214,6 @@ class ImprovedShoppingListPanel extends HTMLElement {
     root.querySelector("isl-catalog").hidden = view !== "catalog";
     root.querySelector("#nav-shopping").setAttribute("aria-pressed", String(view === "shopping"));
     root.querySelector("#nav-catalog").setAttribute("aria-pressed", String(view === "catalog"));
-    root.querySelector("footer").hidden = view === "catalog";
     this._renderData();
   }
 
@@ -292,6 +310,10 @@ class ImprovedShoppingListPanel extends HTMLElement {
       if (!row) {
         row = document.createElement("li");
         const label = document.createElement("label");
+        const media = document.createElement("span");
+        media.className = "product-media";
+        const badge = document.createElement("span");
+        badge.className = "category-badge";
         const checkbox = document.createElement("input");
         checkbox.type = "checkbox";
         checkbox.addEventListener("change", () => {
@@ -304,21 +326,76 @@ class ImprovedShoppingListPanel extends HTMLElement {
         summary.className = "summary";
         const description = document.createElement("span");
         description.className = "description";
-        text.append(summary, description);
-        label.append(checkbox, text);
+        const subtitle = document.createElement("span");
+        subtitle.className = "subtitle";
+        const tags = document.createElement("span");
+        tags.className = "tags";
+        const control = document.createElement("span");
+        control.className = "purchase-control";
+        const action = document.createElement("span");
+        action.className = "purchase-action";
+        control.append(checkbox, action);
+        text.append(summary, subtitle, description);
+        label.append(badge, media, text, tags, control);
         row.append(label);
         this._rows.set(key, row);
       }
       row._item = item;
       const label = row.querySelector("label");
       const checkbox = row.querySelector("input");
-      label.className = `item${item.status === "completed" ? " completed" : ""}`;
+      label.className = `item ${item.status === "completed" ? "completed" : "pending"}`;
       checkbox.checked = item.status === "completed";
       checkbox.disabled = disabled || !item.uid;
       checkbox.dataset.uid = item.uid ?? "";
       checkbox.setAttribute("aria-label", `${checkbox.checked ? "Volver a poner por comprar" : "Marcar como comprado"}: ${item.summary ?? "Producto"}`);
       const summary = row.querySelector(".summary");
       summary.textContent = item.summary ?? "Producto sin nombre";
+      const product = this._catalogProducts.get(normalizedName(item.summary));
+      const category = this._catalogCategories.get(normalizedName(product?.category));
+      const badge = row.querySelector(".category-badge");
+      badge.hidden = !category;
+      if (category) {
+        badge.style.backgroundColor = category.color;
+        badge.title = category.name;
+        badge.setAttribute("aria-label", `Categoría: ${category.name}`);
+        const icon = document.createElement("ha-icon");
+        icon.setAttribute("icon", category.icon);
+        badge.replaceChildren(icon);
+      }
+      const source = imageSource(product?.image_url);
+      const iconName = product?.icon || "mdi:shopping";
+      const mediaKey = JSON.stringify([source, iconName]);
+      if (row._mediaKey !== mediaKey) {
+        row._mediaKey = mediaKey;
+        const placeholder = document.createElement("span");
+        placeholder.className = "image placeholder";
+        const icon = document.createElement("ha-icon");
+        icon.setAttribute("icon", iconName);
+        placeholder.append(icon);
+        let media = placeholder;
+        if (source) {
+          media = document.createElement("img");
+          media.className = "image";
+          media.src = source;
+          media.alt = "";
+          media.loading = "lazy";
+          media.referrerPolicy = "no-referrer";
+          media.addEventListener("error", () => media.replaceWith(placeholder), { once: true });
+        }
+        row.querySelector(".product-media").replaceChildren(media);
+      }
+      const subtitle = row.querySelector(".subtitle");
+      subtitle.textContent = [product?.brand, product?.format].filter(Boolean).join(" · ");
+      subtitle.hidden = !subtitle.textContent;
+      const tags = row.querySelector(".tags");
+      tags.replaceChildren(...(product?.tags ?? []).map(tag => {
+        const node = document.createElement("span");
+        node.className = "tag";
+        node.textContent = tag;
+        return node;
+      }));
+      tags.hidden = !tags.childElementCount;
+      row.querySelector(".purchase-action").textContent = checkbox.checked ? "Por comprar" : "Comprado";
       const description = row.querySelector(".description");
       description.textContent = item.description ?? "";
       description.hidden = !item.description;

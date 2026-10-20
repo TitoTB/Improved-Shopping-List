@@ -1,7 +1,7 @@
 import { CatalogSession } from "./catalog-client.js?v=0.2.0";
 import "./category-panel.js?v=0.2.0";
 
-const normalizedName = value => String(value ?? "").normalize("NFKC").trim().replace(/\s+/g, " ").toLocaleLowerCase("es");
+export const normalizedName = value => String(value ?? "").normalize("NFKC").trim().replace(/\s+/g, " ").toLocaleLowerCase("es");
 
 function element(tag, className, text) {
   const node = document.createElement(tag);
@@ -10,7 +10,7 @@ function element(tag, className, text) {
   return node;
 }
 
-function imageSource(value) {
+export function imageSource(value) {
   if (!value) return "";
   try {
     const url = new URL(value, location.origin);
@@ -242,6 +242,9 @@ class ImprovedShoppingCatalog extends HTMLElement {
     root.querySelector("isl-categories").categories = this._catalog.categories;
     this._renderProducts();
     this._renderSuggestions();
+    this.dispatchEvent(new CustomEvent("catalog-change", {
+      detail: { products: this._catalog.products, categories: this._catalog.categories },
+    }));
   }
 
   _renderSuggestions() {

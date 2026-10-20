@@ -133,6 +133,16 @@ async function main() {
     assert.ok(header.gap >= 0 && header.gap < 20);
     assert.equal(header.logoFirst, true);
     assert.equal(await page.locator("#nav-catalog ha-icon").getAttribute("icon"), "mdi:view-grid");
+    assert.equal(await page.locator("footer").count(), 0);
+    assert.equal(await page.locator("#pending").evaluate(node => getComputedStyle(node).display), "grid");
+    const listCards = page.locator("#pending > li");
+    assert.equal(await listCards.first().locator(".placeholder ha-icon").getAttribute("icon"), "mdi:shopping");
+    assert.ok(await listCards.first().evaluate(node => {
+      const image = node.querySelector(".image").getBoundingClientRect();
+      const title = node.querySelector(".summary").getBoundingClientRect();
+      return image.bottom <= title.top && Math.abs((image.left + image.right) / 2 - (title.left + title.right) / 2) < 2;
+    }));
+    assert.ok(await listCards.evaluateAll(nodes => Math.abs(nodes[0].getBoundingClientRect().top - nodes[1].getBoundingClientRect().top) < 2));
     await page.screenshot({ path: "test-results/panel-desktop.png", fullPage: true });
 
     // Input is text, even if a provider supplies something resembling HTML.
@@ -241,6 +251,13 @@ async function main() {
     await page.screenshot({ path: "test-results/catalog-desktop.png", fullPage: true });
     await page.getByRole("button", { name: "Lista", exact: true }).click();
     await page.locator("#pending").getByText("Yogur sin azúcar", { exact: true }).waitFor();
+    const yogurtListCard = page.locator("#pending > li").filter({ hasText: "Yogur sin azúcar" });
+    assert.equal(await yogurtListCard.locator(".placeholder ha-icon").getAttribute("icon"), "mdi:view-grid");
+    assert.equal(await yogurtListCard.locator(".category-badge").getAttribute("title"), "Lácteos y frescos");
+    assert.equal(await yogurtListCard.locator(".category-badge").evaluate(node => getComputedStyle(node).color), "rgb(255, 255, 255)");
+    assert.equal(await yogurtListCard.locator(".subtitle").textContent(), "Marca de prueba · 4 × 125 g");
+    assert.equal((await yogurtListCard.textContent()).includes("2,59"), false);
+    await page.screenshot({ path: "test-results/list-grid-desktop.png", fullPage: true });
     await page.getByRole("checkbox", { name: "Marcar como comprado: Yogur sin azúcar", exact: true }).check();
     await page.getByRole("button", { name: "Catálogo", exact: true }).click();
     assert.equal(await productCard.getAttribute("data-in-list"), "false");
@@ -278,6 +295,11 @@ async function main() {
     await catalog.getByRole("button", { name: "Guardar producto", exact: true }).click();
     await productCard.locator("img").evaluate(image => image.decode());
     assert.equal(await productCard.locator(".placeholder").count(), 0);
+    await page.getByRole("button", { name: "Lista", exact: true }).click();
+    await page.getByLabel("Lista de la compra", { exact: true }).selectOption("todo.bring");
+    await yogurtListCard.locator("img").evaluate(image => image.decode());
+    assert.equal(await yogurtListCard.locator(".placeholder").count(), 0);
+    assert.equal(await yogurtListCard.locator(".category-badge").getAttribute("title"), "Lácteos y frescos");
     await page.goto(url);
     await page.getByRole("button", { name: "Catálogo", exact: true }).click();
     await catalog.getByRole("heading", { name: "Yogur sin azúcar", exact: true }).waitFor();
@@ -301,6 +323,10 @@ async function main() {
     }), false);
     await page.screenshot({ path: "test-results/panel-mobile.png", fullPage: true });
     assert.equal(await page.locator(".version").isVisible(), true);
+    assert.equal(await page.locator("#pending").evaluate(node => getComputedStyle(node).gridTemplateColumns.split(" ").length), 1);
+    await page.locator("#completed-summary").click();
+    assert.equal(await page.locator("#completed .item.completed").count(), 1);
+    assert.equal(await page.locator("#completed").evaluate(node => getComputedStyle(node).display), "grid");
     await page.getByRole("button", { name: "Catálogo", exact: true }).click();
     await catalog.getByRole("heading", { name: "Yogur sin azúcar", exact: true }).waitFor();
     await page.screenshot({ path: "test-results/catalog-mobile.png", fullPage: true });

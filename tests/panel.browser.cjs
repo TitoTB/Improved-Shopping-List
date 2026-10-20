@@ -1162,7 +1162,7 @@ async function main() {
     await readersView.getByRole("status").filter({hasText:"Lector quitado"}).waitFor();
     assert.equal(await readerPage.evaluate(()=>window.readerFixture.readers.length),1);
     await readerContext.close();
-    // Iconify picker: three color proposals and a fourth tile opening a new web search.
+    // Iconify picker: five color proposals and an in-place next-results button.
     const iconContext = await browser.newContext({viewport:{width:1280,height:960}});
     const iconPage = await iconContext.newPage();
     iconPage.on("pageerror", error => errors.push(error.message));
@@ -1178,9 +1178,9 @@ async function main() {
     await pickerDialog.getByRole("button",{name:"Elegir Milk 1 (Fluent Emoji Flat)",exact:true}).waitFor();
     assert.equal(await picker.getByRole("button",{name:"Buscar icono",exact:true}).count(),0);
     assert.equal(await picker.locator("dialog").count(),0);
-    assert.deepEqual(await picker.locator("button.option").allTextContents(),["","","",""]);
-    assert.equal(await pickerDialog.locator(".option").count(),4);
-    assert.equal(await pickerDialog.locator("button.option:not(.more)").count(),3);
+    assert.deepEqual(await picker.locator("button.option").allTextContents(),["","","","","",""]);
+    assert.equal(await pickerDialog.locator(".option").count(),6);
+    assert.equal(await pickerDialog.locator("button.option:not(.more)").count(),5);
     assert.equal(await pickerDialog.getByLabel("Buscar iconos",{exact:true}).inputValue(),"Milk");
     const allIcons=pickerDialog.getByRole("button",{name:"Ver otros iconos",exact:true});
     assert.equal(await allIcons.getAttribute('type'),'button');
@@ -1189,13 +1189,11 @@ async function main() {
     assert.equal(await pickerDialog.locator('#results > :last-child').getAttribute('id'),'more-icons');
     const pagesBeforeMore=iconContext.pages().length;
     await allIcons.click();
-    await pickerDialog.getByRole('button',{name:'Elegir Milk 4 (Fluent Emoji Flat)',exact:true}).waitFor();
-    assert.equal(await pickerDialog.locator('.option').count(),4);
+    await pickerDialog.getByRole('button',{name:'Elegir Milk 6 (Fluent Emoji Flat)',exact:true}).waitFor();
+    assert.equal(await pickerDialog.locator('.option').count(),6);
     assert.equal(iconContext.pages().length,pagesBeforeMore);
     await allIcons.click();
-    await pickerDialog.getByRole('button',{name:'Elegir Milk 7 (Fluent Emoji Flat)',exact:true}).waitFor();
-    await allIcons.click();
-    await pickerDialog.getByRole('button',{name:'Elegir Milk 10 (Fluent Emoji Flat)',exact:true}).waitFor();
+    await pickerDialog.getByRole('button',{name:'Elegir Milk 11 (Fluent Emoji Flat)',exact:true}).waitFor();
     await allIcons.click();
     await pickerDialog.getByRole('button',{name:'Elegir Milk 1 (Fluent Emoji Flat)',exact:true}).waitFor();
     assert.equal(await iconPage.evaluate(()=>window.iconCalls.length),1);
@@ -1203,15 +1201,15 @@ async function main() {
     await pickerDialog.getByLabel('Buscar iconos',{exact:true}).fill('paged');
     await pickerDialog.getByLabel('Buscar iconos',{exact:true}).press('Enter');
     await pickerDialog.getByRole('button',{name:'Elegir paged 1 (Fluent Emoji Flat)',exact:true}).waitFor();
-    for(let index=0;index<9;index++)await allIcons.click();
-    await pickerDialog.getByRole('button',{name:'Elegir paged 28 (Fluent Emoji Flat)',exact:true}).waitFor();
+    for(let index=0;index<5;index++)await allIcons.click();
+    await pickerDialog.getByRole('button',{name:'Elegir paged 26 (Fluent Emoji Flat)',exact:true}).waitFor();
     await iconPage.evaluate(()=>{window.failIconSearch=true;});
     await allIcons.click();
     await pickerDialog.getByRole('status').filter({hasText:'Iconify sin conexión'}).waitFor();
     assert.equal(await pickerDialog.getByRole('button',{name:'Elegir paged 28 (Fluent Emoji Flat)',exact:true}).count(),1);
     await iconPage.evaluate(()=>{window.failIconSearch=false;});
     await allIcons.click();
-    await pickerDialog.getByRole('button',{name:'Elegir paged 33 (Fluent Emoji Flat)',exact:true}).waitFor();
+    await pickerDialog.getByRole('button',{name:'Elegir paged 31 (Fluent Emoji Flat)',exact:true}).waitFor();
     assert.equal(await iconPage.evaluate(()=>window.iconCalls.at(-1).start),32);
     // A newer search wins over a delayed response, without submitting the enclosing product form.
     await pickerDialog.getByLabel("Buscar iconos",{exact:true}).fill("slow");
@@ -1230,6 +1228,7 @@ async function main() {
     await pickerDialog.getByLabel("Buscar iconos",{exact:true}).fill("zzzz");
     await pickerDialog.getByLabel("Buscar iconos",{exact:true}).press("Enter");
     await pickerDialog.getByRole("status").filter({hasText:"No se han encontrado"}).waitFor();
+    assert.equal(await allIcons.isVisible(),false);
     await pickerDialog.getByLabel("Buscar iconos",{exact:true}).fill("milk");
     await pickerDialog.getByLabel("Buscar iconos",{exact:true}).press("Enter");
     await pickerDialog.getByRole("button",{name:"Elegir milk 1 (Fluent Emoji Flat)",exact:true}).waitFor();
@@ -1245,7 +1244,7 @@ async function main() {
     assert.equal(await pickerDialog.evaluate(dialog=>dialog.scrollWidth<=dialog.clientWidth),true);
     await pickerDialog.getByRole("button",{name:"Elegir milk 1 (Fluent Emoji Flat)",exact:true}).click();
     await picker.getByRole("link",{name:"MIT",exact:true}).waitFor();
-    assert.equal(await picker.locator("button.option:not(.more)").count(),3);
+    assert.equal(await picker.locator("button.option:not(.more)").count(),5);
     assert.equal(await iconForm.getByLabel("URL Imagen/Icono",{exact:true}).inputValue(),"/improved_shopping_list_icons/fixture.svg");
     await picker.getByRole("link",{name:"MIT",exact:true}).waitFor();
     assert.equal(await iconPage.evaluate(()=>window.catalogProducts.length),0);

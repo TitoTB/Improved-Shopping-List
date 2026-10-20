@@ -1,5 +1,6 @@
-/** Three color suggestions and a fourth tile cycling through other results. */
+/** Five color suggestions and a button cycling through other results. */
 const PREFIX = "improved_shopping_list/icons/";
+const PAGE_SIZE = 5;
 const LOCAL_PREFIX = "/improved_shopping_list_icons/";
 
 function node(tag, text, className) {
@@ -62,7 +63,7 @@ class ImprovedShoppingIconPicker extends HTMLElement {
         button:disabled{opacity:.5;cursor:default}button:focus-visible,input:focus-visible,a:focus-visible{outline:3px solid var(--primary-color,#267052);outline-offset:3px}
         ha-icon{--mdc-icon-size:20px}h3{margin:0 0 12px;font-size:15px}label{display:block;min-width:0;font-size:13px;font-weight:600}input{display:block;width:100%;margin-top:7px;min-height:46px;border:1px solid var(--divider-color,#dfe7e1);border-radius:10px;padding:10px 12px;background:var(--card-background-color,#fff)}
         .helper,.attribution{font-size:12px;line-height:1.5;color:var(--secondary-text-color,#63766b)}a{color:var(--primary-color,#267052)}
-        #results{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:14px 0}.option{min-width:0;padding:8px 4px;display:flex;align-items:center;justify-content:center;aspect-ratio:1;overflow:hidden}.option img{width:min(64px,100%);height:auto;max-height:100%;aspect-ratio:1;object-fit:contain}.option[aria-pressed=true]{border:2px solid var(--primary-color,#267052)}.more{border:1px solid var(--divider-color,#dfe7e1);border-radius:10px;text-decoration:none;color:inherit}.more ha-icon{--mdc-icon-size:32px;width:32px;height:32px}.empty{border:1px dashed var(--divider-color,#dfe7e1);border-radius:10px;opacity:.3}.more[aria-disabled=true]{opacity:.4;pointer-events:none}
+        #results{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:14px 0}.option{min-width:0;padding:8px 4px;display:flex;align-items:center;justify-content:center;aspect-ratio:1;overflow:hidden}.option img{width:min(64px,100%);height:auto;max-height:100%;aspect-ratio:1;object-fit:contain}.option[aria-pressed=true]{border:2px solid var(--primary-color,#267052)}.more{border:1px solid var(--divider-color,#dfe7e1);border-radius:10px;text-decoration:none;color:inherit}.more ha-icon{--mdc-icon-size:32px;width:32px;height:32px}.empty{border:1px dashed var(--divider-color,#dfe7e1);border-radius:10px;opacity:.3}.more[aria-disabled=true]{opacity:.4;pointer-events:none}
         #status{font-size:13px}#status.error{color:var(--error-color,#bd3636)}
         #selected{display:flex;align-items:center;gap:12px;margin-top:12px}#selected img{width:48px;height:48px;object-fit:contain;flex-shrink:0}
         @media(max-width:400px){#results{gap:4px}}
@@ -189,15 +190,15 @@ class ImprovedShoppingIconPicker extends HTMLElement {
   async _more() {
     if (this._busy || this._disabled || !this._active) return;
     const generation = this._generation;
-    const next = this._pageStart + 3;
-    if (next + 3 > this._icons.length && this._hasMore) {
+    const next = this._pageStart + PAGE_SIZE;
+    if (next + PAGE_SIZE > this._icons.length && this._hasMore) {
       if (!await this._load(this._query, this._nextStart, generation) || generation !== this._generation) return;
     }
     if (generation !== this._generation || !this._active) return;
     if (next < this._icons.length) {
       this._pageStart = next;
       this._status("");
-    } else if (!this._hasMore && this._icons.length > 3) {
+    } else if (!this._hasMore && this._icons.length > PAGE_SIZE) {
       this._pageStart = 0;
       this._status("");
     } else this._status("No hay otras propuestas disponibles. Puedes cambiar el término o indicar una URL Imagen/Icono.");
@@ -206,8 +207,9 @@ class ImprovedShoppingIconPicker extends HTMLElement {
 
   _renderResults() {
     const root = this.shadowRoot;
-    const suggestions = Array.from({length:3}, (_, index) => {
-      const icon = this._icons[(this._pageStart || 0) + index];
+    const suggestions = Array.from({length:PAGE_SIZE}, (_, index) => {
+      const position = (this._pageStart || 0) + index;
+      const icon = this._icons[this._icons.length >= PAGE_SIZE ? position % this._icons.length : position];
       if (!icon) { const empty = node("span", undefined, "option empty"); empty.setAttribute("aria-hidden", "true"); return empty; }
       const button = node("button", undefined, "option");
       button.type = "button";
@@ -234,7 +236,7 @@ class ImprovedShoppingIconPicker extends HTMLElement {
     more.title = "Ver otros iconos";
     more.setAttribute("aria-label", more.title);
     const plus = node("ha-icon"); plus.setAttribute("icon", "mdi:plus-thick"); plus.setAttribute("aria-hidden", "true"); more.append(plus);
-    more.disabled = query.length < 2 || Boolean(this._busy || this._disabled) || (this._icons.length <= 3 && !this._hasMore);
+    more.disabled = query.length < 2 || Boolean(this._busy || this._disabled) || (this._icons.length <= PAGE_SIZE && !this._hasMore);
     more.addEventListener("click", () => void this._more());
     root.querySelector("#results").replaceChildren(...suggestions, more);
     root.querySelector("#query").disabled = Boolean(this._importing || this._disabled);

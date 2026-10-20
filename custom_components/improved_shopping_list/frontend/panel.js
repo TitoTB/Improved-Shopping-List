@@ -219,10 +219,10 @@ class ImprovedShoppingListPanel extends HTMLElement {
           <div class="dialog-actions"><button id="refresh" type="button">Actualizar lista</button><button id="close-list-dialog" type="button">Cerrar</button></div>
         </dialog>
         <section class="card" aria-labelledby="pending-title" id="items-card">
-          <div class="list-header"><h2 id="pending-title">Por comprar</h2><span id="pending-count" class="count">0 productos</span></div>
-          <ul id="pending" class="product-grid" aria-label="Por comprar"></ul>
+          <div class="list-header"><h2 id="pending-title">Lista de la compra</h2><span id="pending-count" class="count">0 productos</span></div>
+          <ul id="pending" class="product-grid" aria-label="Lista de la compra"></ul>
           <div id="empty" class="empty" hidden></div>
-          <details id="completed-details"><summary id="completed-summary">Comprados</summary><ul id="completed" class="product-grid" aria-label="Comprados"></ul></details>
+          <details id="completed-details"><summary id="completed-summary">Compras recientes</summary><ul id="completed" class="product-grid" aria-label="Compras recientes"></ul></details>
         </section>
         <isl-catalog hidden></isl-catalog>
         <isl-settings hidden></isl-settings>
@@ -392,7 +392,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
     }
     const details = root.querySelector("#completed-details");
     details.hidden = !completed.length;
-    root.querySelector("#completed-summary").textContent = `Comprados (${completed.length})`;
+    root.querySelector("#completed-summary").textContent = `Compras recientes (${completed.length})`;
     const empty = root.querySelector("#empty");
     empty.hidden = pending.length > 0 || session.loading || !available || Boolean(session.error);
     if (!empty.hidden) {

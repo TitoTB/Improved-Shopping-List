@@ -266,7 +266,7 @@ async function main() {
     assert.equal(await page.locator("#items-card .purchase-control,#items-card input[type=checkbox]").count(), 0);
     assert.equal(await listCards.first().locator("button.item").evaluate(node => getComputedStyle(node).backgroundImage), "linear-gradient(rgb(238, 82, 79), rgb(181, 42, 39))");
     await page.getByRole("button", { name: "Marcar como comprado: Cacao", exact: true }).click();
-    await page.getByText("Comprados (2)", { exact: true }).waitFor();
+    await page.getByText("Compras recientes (2)", { exact: true }).waitFor();
     assert.equal((await page.evaluate(() => window.calls)).at(-1).item, "cacao-1");
     await page.locator("#completed-summary").click();
     const completedCard = page.getByRole("button", { name: "Volver a poner por comprar: Cacao", exact: true });

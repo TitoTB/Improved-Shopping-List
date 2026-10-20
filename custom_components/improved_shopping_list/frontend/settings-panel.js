@@ -47,7 +47,7 @@ class ImprovedShoppingSettings extends HTMLElement {
         .store-toggle[type=checkbox] { appearance:none; position:relative; width:40px; height:24px; min-height:24px; margin:0; padding:0; border:0; border-radius:20px; background:#b3261e; cursor:pointer; }
         .store-toggle::before { content:""; position:absolute; top:4px; left:4px; width:16px; height:16px; border-radius:50%; background:white; }
         .store-toggle:checked { background:#267052; }.store-toggle:checked::before { transform:translateX(16px); }
-        .store-cog { display:flex; align-items:center; justify-content:center; padding:0; width:44px; height:44px; min-height:44px; }
+        .store-cog { display:flex; align-items:center; justify-content:center; padding:0; width:44px; height:44px; min-height:44px; border:0; background:transparent; box-shadow:none; }
         .store-cog ha-icon { display:flex; align-items:center; justify-content:center; width:24px; height:24px; --mdc-icon-size:24px; }
         dialog { color:inherit; background:var(--card-background-color,#fff); width:min(680px,calc(100vw - 28px)); max-height:calc(100dvh - 28px); border:1px solid var(--divider-color,#dfe7e1); border-radius:18px; padding:24px; }
         dialog::backdrop { background:rgba(0,0,0,.4); }

@@ -10,6 +10,7 @@ from homeassistant.core import SupportsResponse
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.improved_shopping_list.catalog import Catalog, CatalogError, normalize_product
+from custom_components.improved_shopping_list.activity import ActivityLog
 from custom_components.improved_shopping_list.const import CONF_TODO_ENTITY, DOMAIN
 from custom_components.improved_shopping_list.list_settings import ListSettings
 from custom_components.improved_shopping_list.readers import ReaderManager
@@ -57,6 +58,23 @@ async def reader_env(hass, monkeypatch):
 
 async def add_reader(env, **changes):
     return await env.manager.async_save_reader({"name":"Cocina","entity_id":"sensor.scanner",**changes})
+
+
+async def test_reader_history_runs_without_open_panel(hass, reader_env):
+    env = reader_env
+    activity = ActivityLog(hass, env.catalog, env.settings, env.manager)
+    await activity.async_load()
+    env.manager.activity = activity
+    activity.start()
+    reader = await add_reader(env)
+    await add_product(env, reader)
+    await env.manager.async_process(reader["id"], "0012345")
+    event = activity.snapshot["entries"][0]
+    assert event["kind"] == "reader.scan" and event["source"] == "reader"
+    assert event["reader"] == "Cocina" and event["product"] == "Cacao"
+    assert "Añadido" in event["message"]
+    await activity.async_stop()
+    env.manager.activity = None
 
 
 async def add_product(env, reader, **changes):

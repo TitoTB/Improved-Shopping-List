@@ -47,6 +47,31 @@ def async_register_commands(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_icons_search)
     websocket_api.async_register_command(hass, ws_icons_import)
     websocket_api.async_register_command(hass, ws_icons_info)
+    websocket_api.async_register_command(hass, ws_logs_get)
+    websocket_api.async_register_command(hass, ws_logs_subscribe)
+
+
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/logs/get"})
+@callback
+def ws_logs_get(hass, connection, msg):
+    if _catalog(hass, connection, msg):
+        connection.send_result(msg["id"], hass.data[DOMAIN]["activity"].snapshot)
+
+
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/logs/subscribe"})
+@callback
+def ws_logs_subscribe(hass, connection, msg):
+    if not _catalog(hass, connection, msg):
+        return
+    activity = hass.data[DOMAIN]["activity"]
+
+    @callback
+    def on_update():
+        connection.send_event(msg["id"], activity.snapshot)
+
+    connection.subscriptions[msg["id"]] = activity.subscribe(on_update)
+    connection.send_result(msg["id"])
+    on_update()
 
 
 @websocket_api.websocket_command({

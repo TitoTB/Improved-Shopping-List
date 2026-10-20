@@ -4,6 +4,7 @@ import { ListSettingsSession, gradientTextColor } from "./list-settings-client.j
 import "./settings-panel.js?v=0.7.0";
 import { ReadersSession } from "./readers-client.js?v=0.7.0";
 import "./readers-panel.js?v=0.7.0";
+import "./logs-panel.js?v=0.7.0";
 
 const LOGO_URL = new URL("logo.png", import.meta.url).href;
 const searchText = value => normalizedName(value).normalize("NFD").replace(/\p{M}/gu, "");
@@ -41,6 +42,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
     this._hass = value;
     if (!this.isConnected) return;
     if (this._built) this.shadowRoot.querySelector("isl-catalog").hass = value;
+    if (this._built) this.shadowRoot.querySelector("isl-logs").hass = value;
     this._ensureStarted();
     if (this._view === "readers") this.shadowRoot.querySelector("isl-readers").data = { hass:value, settings:this._settings, readers:this._readers };
     if (previousConnection && previousConnection !== value.connection) {
@@ -188,7 +190,8 @@ class ImprovedShoppingListPanel extends HTMLElement {
         .sr-only { position:absolute; width:1px; height:1px; padding:0; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
         @media(max-width:650px) { .product-grid { grid-template-columns:repeat(var(--isl-mobile-columns,1),minmax(0,1fr)); } }
         @media(max-width:650px) { header { flex-wrap:nowrap; gap:6px; padding:10px 12px; } .branding { flex:0 0 auto; } .brand-copy { display:none; } .brand-logo { width:36px; height:36px; } .section-nav { flex-wrap:nowrap; gap:0; } .section-nav button { flex:0 0 auto; gap:4px; padding:10px 8px; min-width:44px; justify-content:center; font-size:13px; white-space:nowrap; } .section-nav button[aria-pressed=false] .nav-label { display:none; } }
-        @media(max-width:360px) { header { gap:4px; padding:10px 8px; } .brand-logo { width:28px; height:28px; } .section-nav button { padding:10px 6px; font-size:12px; } }
+        @media(max-width:360px) { header { gap:4px; padding:10px 8px; } .brand-logo { width:28px; height:28px; } .menu { width:32px; padding:4px; flex:none; } .section-nav button { min-width:32px; padding:10px 6px; font-size:12px; } }
+        .section-nav ha-icon { --mdc-icon-size:20px; width:20px; height:20px; flex:none; }
         @media(max-width:540px) { main { padding:26px 14px 40px; } .card { padding:18px 16px; border-radius:14px; } .primary { padding:10px 14px; } }
       </style>
       <header>
@@ -199,6 +202,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
           <button id="nav-catalog" aria-label="Catálogo" aria-pressed="false"><ha-icon icon="mdi:view-grid" aria-hidden="true"></ha-icon><span class="nav-label">Catálogo</span></button>
           <button id="nav-readers" aria-label="Lectores" aria-pressed="false"><ha-icon icon="mdi:barcode-scan" aria-hidden="true"></ha-icon><span class="nav-label">Lectores</span></button>
           <button id="nav-settings" aria-label="Ajustes" aria-pressed="false"><ha-icon icon="mdi:cog" aria-hidden="true"></ha-icon><span class="nav-label">Ajustes</span></button>
+          <button id="nav-logs" aria-label="Logs" aria-pressed="false"><ha-icon icon="mdi:format-list-group" aria-hidden="true"></ha-icon><span class="nav-label">Logs</span></button>
         </nav>
       </header>
       <main>
@@ -227,6 +231,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
         <isl-catalog hidden></isl-catalog>
         <isl-settings hidden></isl-settings>
         <isl-readers hidden></isl-readers>
+        <isl-logs hidden></isl-logs>
         <div id="announcement" class="sr-only" role="status" aria-live="polite"></div>
       </main>`;
     this._built = true;
@@ -240,6 +245,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
     root.querySelector("#nav-catalog").addEventListener("click", () => this._switchView("catalog"));
     root.querySelector("#nav-settings").addEventListener("click", () => this._switchView("settings"));
     root.querySelector("#nav-readers").addEventListener("click", () => this._switchView("readers"));
+    root.querySelector("#nav-logs").addEventListener("click", () => this._switchView("logs"));
     root.querySelector("isl-readers").onSuggestions = () => { this._switchView("catalog"); root.querySelector("isl-catalog").showSuggestions(); };
     root.querySelector("isl-settings").onAction = (action, entity) => this._settings.update(action, entity);
     root.querySelector("isl-settings").onAppearance = appearance => this._settings.saveAppearance(appearance);
@@ -285,10 +291,13 @@ class ImprovedShoppingListPanel extends HTMLElement {
     root.querySelector("isl-catalog").hidden = view !== "catalog";
     root.querySelector("isl-settings").hidden = view !== "settings";
     root.querySelector("isl-readers").hidden = view !== "readers";
+    root.querySelector("isl-logs").hidden = view !== "logs";
+    root.querySelector("isl-logs").active = view === "logs";
     root.querySelector("#nav-shopping").setAttribute("aria-pressed", String(view === "shopping"));
     root.querySelector("#nav-catalog").setAttribute("aria-pressed", String(view === "catalog"));
     root.querySelector("#nav-settings").setAttribute("aria-pressed", String(view === "settings"));
     root.querySelector("#nav-readers").setAttribute("aria-pressed", String(view === "readers"));
+    root.querySelector("#nav-logs").setAttribute("aria-pressed", String(view === "logs"));
     this._renderData();
   }
 
@@ -344,6 +353,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
     this.style.setProperty("--isl-mobile-columns", appearance.mobile_columns);
     root.querySelector("isl-settings").data = { hass: this._hass, settings: this._settings };
     root.querySelector("isl-readers").data = { hass: this._hass, settings: this._settings, readers: this._readers };
+    root.querySelector("isl-logs").hass = this._hass;
     const state = this._hass.states[session.entityId];
     const available = isAvailable(state);
     const canCreate = available && supports(state, FEATURES.CREATE);

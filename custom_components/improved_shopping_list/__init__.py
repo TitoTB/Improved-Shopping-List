@@ -9,6 +9,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.typing import ConfigType
 
 from .catalog import Catalog
+from .activity import ActivityLog
 from .icons import ICONS_URL, IconLibrary
 from .list_settings import ListSettings
 from .readers import ReaderManager
@@ -32,13 +33,16 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         settings = ListSettings(hass)
         readers = ReaderManager(hass, catalog, settings)
         await readers.async_load()
+        activity = ActivityLog(hass, catalog, settings, readers)
+        await activity.async_load()
+        readers.activity = activity
         icons = IconLibrary(hass)
         await icons.async_load()
         await hass.http.async_register_static_paths(
             [StaticPathConfig(STATIC_URL, str(Path(__file__).parent / "frontend"), False),
              StaticPathConfig(ICONS_URL, str(icons.directory), True)]
         )
-        hass.data[DOMAIN] = {"catalog": catalog, "settings": settings, "readers": readers, "icons": icons, "active": False}
+        hass.data[DOMAIN] = {"catalog": catalog, "settings": settings, "readers": readers, "icons": icons, "activity": activity, "active": False}
         async_register_commands(hass)
     return True
 
@@ -48,6 +52,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.data[DOMAIN]["settings"].attach(entry)
     await _async_register_panel(hass, entry)
     hass.data[DOMAIN]["active"] = True
+    hass.data[DOMAIN]["activity"].start()
     hass.data[DOMAIN]["readers"].start()
     hass.data[DOMAIN]["settings"].notify()
     entry.async_on_unload(entry.add_update_listener(_async_options_updated))
@@ -77,6 +82,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     frontend.async_remove_panel(hass, PANEL_PATH)
     hass.data[DOMAIN]["active"] = False
     await hass.data[DOMAIN]["readers"].async_stop()
+    await hass.data[DOMAIN]["activity"].async_stop()
     return True
 
 

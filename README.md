@@ -100,6 +100,14 @@ Al añadir a una lista se comprueba si el producto ya está pendiente, comparand
 
 Eliminar la integración retira el panel y desactiva sus comandos de catálogo.
 
+## Historial de actividad
+
+El apartado **Logs** (`mdi:format-list-group`) conserva las últimas 1.000 entradas en Home Assistant, de más reciente a más antigua. Incluye altas y bajas de productos en las listas configuradas, compras, recuperación de productos como pendientes, cambios de nombre y otros datos de la lista, creación/edición/borrado de productos y categorías, cambios de lectores y ajustes, y el resultado de las lecturas (incluidos códigos desconocidos, errores y lecturas repetidas ignoradas). Muestra fecha y hora, producto, lista y lector cuando están disponibles. Los cambios del catálogo indican los campos modificados y el nombre anterior cuando corresponda.
+
+El registro funciona sin tener la interfaz abierta. Las listas se observan con las suscripciones de elementos de Home Assistant, por lo que también se detectan cambios que no alteran la cantidad de productos. Las llamadas a servicios se utilizan para identificar el origen, pero no se registran como éxito hasta que cambia el contenido real. Los orígenes pueden ser Usuario / API, Automático · Home Assistant, Lector, Integración, Home Assistant sin origen identificado o Proveedor externo con origen desconocido. Las llamadas con credenciales de usuario se muestran como Usuario / API, pues también pueden proceder de una aplicación o sistema externo. La identificación automática depende del contexto que conserve Home Assistant; los cambios realizados en la aplicación del proveedor no siempre permiten conocer quién los hizo ni si fueron automáticos.
+
+El historial permite buscar por producto, lista, categoría, lector o código y filtrar por actividad y origen. Se muestran inicialmente 100 entradas y **Ver más** carga las siguientes. Las entradas nuevas llegan en directo mientras la vista está abierta. Los datos se guardan en `.storage/improved_shopping_list.activity`, con escrituras agrupadas durante un segundo y guardado al descargar la integración. Se conservan después de reiniciar. No se reconstruye actividad anterior a la instalación ni ocurrida mientras Home Assistant estaba apagado. La carga inicial de una lista y su incorporación a Ajustes establecen una referencia y no generan altas ficticias de los productos que ya contenía. El historial es común a las listas de la integración.
+
 ## Desarrollo y comprobaciones
 
 La integración Python registra la configuración, el panel y los comandos WebSocket autenticados del catálogo. `catalog.py` valida y guarda el catálogo con `Store`; no depende de ningún proveedor de listas. La interfaz utiliza Web Components sin proceso de compilación. `todo-client.js` encapsula las llamadas nativas y la gestión de suscripciones; no duplica el almacenamiento del proveedor. `catalog-panel.js` y `catalog-client.js` implementan la vista y el acceso al catálogo.

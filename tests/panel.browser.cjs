@@ -30,6 +30,8 @@ const emitCatalog=()=>{
   for(const listener of listeners.keys())if(listener.catalog)listener.callback(snapshot());
 };
 window.calls=[];window.fail=false;window.failCatalog=false;
+window.logFixture={entries:[],limit:1000};window.failLogs=false;
+window.emitLogs=()=>{for(const listener of listeners.keys())if(listener.logs)listener.callback(structuredClone(window.logFixture));};
 window.listSettings=JSON.parse(localStorage.getItem('settings-fixture')??'{"entities":["todo.bring","todo.local","todo.readonly"],"primary_entity":"todo.bring"}');
 window.failSettings=false;
 window.readerFixture=JSON.parse(localStorage.getItem('reader-fixture')??'{"readers":[],"pending":[]}');
@@ -51,6 +53,10 @@ const hass={
     'todo.readonly':{entity_id:'todo.readonly',state:'1',attributes:{friendly_name:'Solo lectura',supported_features:0}}
   },
   connection:{subscribeMessage:async(callback,msg)=>{
+    if(msg.type==='improved_shopping_list/logs/subscribe'){
+      if(window.failLogs)throw new Error('Error al cargar logs');
+      const listener={callback,logs:true};listeners.set(listener,true);callback(structuredClone(window.logFixture));return()=>listeners.delete(listener);
+    }
     if(msg.type==='improved_shopping_list/readers/subscribe'){
       const listener={callback,readers:true};listeners.set(listener,true);callback(structuredClone(window.readerFixture));return()=>listeners.delete(listener);
     }
@@ -68,6 +74,7 @@ const hass={
     return ()=>listeners.delete(listener);
   }},
   callWS:async(msg)=>{
+    if(msg.type==='improved_shopping_list/logs/get'){if(window.failLogs)throw new Error('Error al cargar logs');return structuredClone(window.logFixture);}
     if(msg.type==='improved_shopping_list/icons/search'){
       (window.iconCalls??=[]).push(msg);
       if(window.failIconSearch)throw new Error('Iconify sin conexión');
@@ -164,6 +171,7 @@ window.listData=data;
 window.rename=()=>{data['todo.bring'][0].summary='Cacao puro';window.emit('todo.bring');};
 window.makeUnavailable=()=>{panel.hass={...hass,states:{...hass.states,'todo.bring':{...hass.states['todo.bring'],state:'unavailable'}}};};
 window.listenerCount=()=>listeners.size;
+window.logListenerCount=()=>[...listeners.keys()].filter(listener=>listener.logs).length;
 panel.hass=hass;panel.panel={config:{default_entity:'todo.bring'}};panel.narrow=innerWidth<600;
 document.body.append(panel);
 window.testPanel=panel;
@@ -192,7 +200,7 @@ async function main() {
       return;
     }
     if (pathname === "/") { res.setHeader("content-type", "text/html; charset=utf-8"); res.end(html); return; }
-    if (!["/panel.js", "/todo-client.js", "/catalog-panel.js", "/catalog-client.js", "/category-panel.js", "/icon-picker.js", "/list-settings-client.js", "/settings-panel.js", "/readers-client.js", "/readers-panel.js", "/product-matching.js", "/product-names.js", "/logo.png"].includes(pathname)) { res.writeHead(404).end(); return; }
+    if (!["/panel.js", "/todo-client.js", "/catalog-panel.js", "/catalog-client.js", "/category-panel.js", "/icon-picker.js", "/list-settings-client.js", "/settings-panel.js", "/readers-client.js", "/readers-panel.js", "/product-matching.js", "/product-names.js", "/logs-panel.js", "/logo.png"].includes(pathname)) { res.writeHead(404).end(); return; }
     res.setHeader("content-type", pathname.endsWith(".png") ? "image/png" : "text/javascript; charset=utf-8");
     res.end(await fs.readFile(path.join(root, pathname.slice(1))));
   });
@@ -549,7 +557,7 @@ async function main() {
       await page.setViewportSize({ width, height:844 });
       assert.equal(await page.locator(".brand-copy").isVisible(), false);
       assert.equal(await page.locator(".brand-logo").isVisible(), true);
-      for (const view of ["catalog", "readers", "settings", "shopping"]) {
+      for (const view of ["catalog", "readers", "settings", "logs", "shopping"]) {
         await page.locator(`#nav-${view}`).click();
         assert.equal(await page.locator(".section-nav .nav-label:visible").count(), 1);
         assert.equal(await page.locator(`#nav-${view} .nav-label`).isVisible(), true);
@@ -582,7 +590,7 @@ async function main() {
     }
     await page.setViewportSize({ width:1280, height:960 });
     assert.equal(await page.locator(".brand-copy").isVisible(), true);
-    assert.equal(await page.locator(".section-nav .nav-label:visible").count(), 4);
+    assert.equal(await page.locator(".section-nav .nav-label:visible").count(), 5);
     await page.getByRole("button",{name:"Catálogo",exact:true}).click();
     assert.equal(await catalog.locator(".catalog-tabs .tab-label:visible").count(),3);
     await page.getByRole("button",{name:"Lista",exact:true}).click();
@@ -1332,6 +1340,44 @@ async function main() {
     await renamePage.evaluate(()=>{window.listData['todo.bring'].push({uid:'tea-2',summary:'TE',status:'needs_action'});window.emit('todo.bring');});
     assert.equal(await renameSuggestions.locator("h2").count(),0);
     await renameContext.close();
+    // Logs display live changes as text, filter by origin/type and clean up on navigation.
+    await page.setViewportSize({width:1280,height:960});
+    await page.evaluate(()=>{
+      window.logFixture.entries=[
+        {id:'auto',time:'2026-10-20T10:00:00Z',kind:'list.added',source:'automatic',message:'Añadido a la lista: Seitán',product:'Seitán',list_name:'La compra'},
+        {id:'scan',time:'2026-10-20T09:00:00Z',kind:'reader.scan',source:'reader',message:'Código desconocido en Sugerencias',reader:'Cocina',code:'001234'},
+        {id:'category',time:'2026-10-20T08:00:00Z',kind:'catalog.categories.updated',source:'integration',message:'Categoría modificada: <img src=x onerror=alert(1)>',category:'Despensa',changed_fields:['color','icon']},
+      ];
+    });
+    await page.getByRole('button',{name:'Logs',exact:true}).click();
+    const logs=page.locator('isl-logs');
+    await logs.locator('#entries > li').nth(2).waitFor();
+    assert.equal(await page.locator('#nav-logs ha-icon').getAttribute('icon'),'mdi:format-list-group');
+    assert.equal(await logs.locator('#entries img').count(),0);
+    await logs.getByLabel('Buscar en el historial',{exact:true}).fill('SEITAN');
+    assert.equal(await logs.locator('#entries > li').count(),1);
+    await logs.getByLabel('Buscar en el historial',{exact:true}).fill('');
+    await logs.getByLabel('Origen',{exact:true}).selectOption('reader');
+    assert.equal(await logs.locator('#entries > li').count(),1);
+    await logs.getByText('Código: 001234',{exact:true}).waitFor();
+    await logs.getByLabel('Origen',{exact:true}).selectOption('');
+    await logs.getByLabel('Actividad',{exact:true}).selectOption('catalog');
+    await logs.getByText('Campos: color, icono',{exact:true}).waitFor();
+    await logs.getByLabel('Actividad',{exact:true}).selectOption('');
+    await page.evaluate(()=>{window.logFixture.entries.unshift({id:'new',time:new Date().toISOString(),kind:'list.removed',source:'manual',message:'Eliminado de la lista: Cacao'});window.emitLogs();});
+    await logs.getByText('Eliminado de la lista: Cacao',{exact:true}).waitFor();
+    await page.screenshot({path:'test-results/logs-desktop.png',fullPage:true});
+    await page.setViewportSize({width:320,height:844});
+    assert.equal(await logs.evaluate(node=>node.scrollWidth<=node.clientWidth),true);
+    await page.screenshot({path:'test-results/logs-mobile.png',fullPage:true});
+    await page.evaluate(()=>{window.failLogs=true;});
+    await logs.getByRole('button',{name:'Actualizar logs',exact:true}).click();
+    await logs.getByRole('status').filter({hasText:'Error al cargar logs'}).waitFor();
+    await page.evaluate(()=>{window.failLogs=false;});
+    await logs.getByRole('button',{name:'Actualizar logs',exact:true}).click();
+    await logs.getByRole('status').waitFor({state:'hidden'});
+    await page.getByRole('button',{name:'Lista',exact:true}).click();
+    assert.equal(await page.evaluate(()=>window.logListenerCount()),0);
     await page.evaluate(() => window.testPanel.remove());
     assert.equal(await page.evaluate(() => window.listenerCount()), 0);
     assert.deepEqual(errors, []);

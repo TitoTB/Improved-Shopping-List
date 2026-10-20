@@ -66,6 +66,7 @@ class ReaderManager:
         self._active = False
         self.lookup = ProductLookup(hass)
         self._lookup_pending = set()
+        self.activity = None
 
     async def async_load(self):
         await self.lookup.async_load()
@@ -123,6 +124,10 @@ class ReaderManager:
     @callback
     def _status(self, reader_id, code, message, product=None):
         self._last[reader_id] = {"code": code, "message": message, "product": product, "time": datetime.now(UTC).isoformat()}
+        if self.activity:
+            reader = self._data["readers"].get(reader_id, {})
+            self.activity.record("reader.scan", message, source="reader", reader=reader.get("name", reader_id),
+                                 product=product or "", code=code, list_entity=reader.get("list_entity") or self.settings.snapshot["primary_entity"])
         self._notify()
 
     async def async_save_reader(self, data):
@@ -336,10 +341,11 @@ class ReaderManager:
             raise CatalogError("La lista de destino no está disponible.")
         features = int(state.attributes.get("supported_features", 0))
         completed = next((item for item in matches if item.get("uid") and item.get("status") == "completed"), None)
+        context = self.activity.reader_context(reader["name"]) if self.activity else None
         if completed and features & 4:
-            await self.hass.services.async_call("todo", "update_item", {"entity_id": target, "item": completed["uid"], "status": "needs_action"}, blocking=True)
+            await self.hass.services.async_call("todo", "update_item", {"entity_id": target, "item": completed["uid"], "status": "needs_action"}, blocking=True, context=context)
         elif features & 1:
-            await self.hass.services.async_call("todo", "add_item", {"entity_id": target, "item": product["name"]}, blocking=True)
+            await self.hass.services.async_call("todo", "add_item", {"entity_id": target, "item": product["name"]}, blocking=True, context=context)
         else:
             raise CatalogError("La lista de destino no permite añadir o recuperar el producto.")
         self._status(reader["id"], code, f"Añadido a {state.attributes.get('friendly_name', target)}", product["name"])

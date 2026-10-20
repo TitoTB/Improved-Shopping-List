@@ -1,5 +1,15 @@
 # Historial de cambios
 
+## 0.13.0
+
+- Vinculaciones por enlace o ID con Mercadona, Carrefour y Alcampo en Información adicional del producto, sin exigir EAN. Los códigos de los lectores se conservan de forma independiente.
+- Actualización diaria desde Home Assistant a las 01:00 por defecto, con horario configurable y un mínimo de cinco minutos entre peticiones. Solo se consultan productos pendientes en las listas configuradas; las referencias compartidas se consultan una sola vez.
+- Cola y pausas persistentes tras reiniciar, comprobación de productos todavía pendientes y recuperación de listas temporalmente no disponibles. Se conserva el último precio conocido para todo el catálogo ante compras, retiradas de la lista o errores.
+- Retirados el feed de Carrefour en GitHub y su dependencia de Aguacatec. Las referencias anteriores y sus precios guardados se recuperan cuando están disponibles. Abrir las fichas o actualizar su vista solo consulta datos guardados.
+- Alcampo permite configurar una región opcional. Progreso de la revisión nocturna en directo y diagnóstico en Logs; los errores 403/429 pausan la tienda sin borrar precios. Los 403 observados en Alcampo y Carrefour durante las pruebas siguen siendo una limitación del acceso externo.
+- Logo de Carrefour y separación entre los bloques de tiendas. Botón de cierre en los popups y ajustes de textos, vistas y presentación de precios.
+- Pruebas ampliadas de vinculaciones, conservación de precios, horario, permisos, recuperación tras reinicio, respuestas tardías e interfaz móvil.
+
 ## 0.12.0
 
 - Carrefour en Ajustes → Tiendas, con activación independiente y selección de tienda favorita cuando hay varias habilitadas. Su popup muestra los productos del catálogo con coincidencia exacta de EAN, precio, moneda y enlace original de afiliado.

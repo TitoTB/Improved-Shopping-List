@@ -4,10 +4,10 @@
 
 Una interfaz propia para gestionar las listas de la compra que ya tienes integradas en Home Assistant.
 
-Versión actual: **0.12.0**. Interfaz en español, pensada para móvil y ordenador. Requiere **Home Assistant Core 2026.10 o posterior**. La referencia de desarrollo es Core 2026.10.2.
+Versión actual: **0.13.0**. Interfaz en español, pensada para móvil y ordenador. Requiere **Home Assistant Core 2026.10 o posterior**. La referencia de desarrollo es Core 2026.10.2.
 
-En desarrollo, todavía sin nueva versión: vinculaciones por enlace o ID con Mercadona,
-Carrefour y Alcampo, y consultas directas desde Home Assistant. Se ha retirado el feed
+Vinculaciones por enlace o ID con Mercadona, Carrefour y Alcampo, y consultas
+directas desde Home Assistant. Se ha retirado el feed
 de precios de GitHub y la dependencia de Aguacatec.
 
 En Información adicional se elige una tienda y se añade el enlace o referencia del

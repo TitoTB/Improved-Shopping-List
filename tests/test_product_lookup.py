@@ -1,0 +1,96 @@
+"""OFF requests, cache durability and failure isolation; no live network requests."""
+
+import asyncio
+from types import SimpleNamespace
+from unittest.mock import AsyncMock
+
+from aiohttp import ClientError
+import pytest
+
+from custom_components.improved_shopping_list import product_lookup as module
+from custom_components.improved_shopping_list.product_lookup import BASE_URL, ProductLookup, is_product_barcode, product_hint
+
+CODE = "3017620422003"
+PAYLOAD = {"product":{"code":CODE,"generic_name_es":" Crema de avellanas ","generic_name":"Hazelnut spread",
+                      "product_name_es":"Nutella","brands":"Ferrero","quantity":"400 g"}}
+
+
+@pytest.mark.parametrize(("code","expected"), [(CODE,True),("03017620422003",True),("8410109115543",True),
+                                               ("https://example.test/product",False),("AA:BB:CC:DD",False),
+                                               ("3017620422004",False),("３０１７６２０４２２００３",False),("",False)])
+def test_only_valid_numeric_product_codes(code, expected):
+    assert is_product_barcode(code) is expected
+
+
+def test_prefers_common_spanish_name_and_checks_returned_code():
+    hint = product_hint(PAYLOAD,CODE)
+    assert hint["name"] == "Crema de avellanas" and hint["brand"] == "Ferrero" and hint["quantity"] == "400 g"
+    assert hint["url"] == f"{BASE_URL}/product/{CODE}"
+    assert product_hint({"product":{"code":CODE,"product_name_es":"Nombre comercial"}},CODE)["name"] == "Nombre comercial"
+    assert product_hint({"product":{"code":CODE}},CODE) == {"status":"not_found"}
+    with pytest.raises(ValueError):
+        product_hint({"product":{"code":"8410109115543","generic_name":"Otro"}},CODE)
+
+
+async def test_cache_deduplicates_aliases_and_survives_reload(hass, monkeypatch):
+    lookup=ProductLookup(hass)
+    await lookup.async_load()
+    fetch=AsyncMock(return_value=product_hint(PAYLOAD,CODE))
+    monkeypatch.setattr(lookup,"_fetch",fetch)
+    first,second=await asyncio.gather(lookup.async_lookup(CODE),lookup.async_lookup("03017620422003"))
+    assert first == second and fetch.await_count == 1
+    first["name"]="Changed"
+    assert lookup.cached(CODE)["name"] == "Crema de avellanas"
+    restored=ProductLookup(hass)
+    await restored.async_load()
+    monkeypatch.setattr(restored,"_fetch",AsyncMock(side_effect=AssertionError("Cache must avoid requests")))
+    assert (await restored.async_lookup(CODE))["name"] == "Crema de avellanas"
+    assert (await restored.async_lookup("https://example.test/private"))["status"] == "unsupported"
+
+
+async def test_serialises_reads_and_spaces_requests(hass, monkeypatch):
+    clock=[1000.0]
+    waits=[]
+    monkeypatch.setattr(module,"time",SimpleNamespace(time=lambda:clock[0],monotonic=lambda:clock[0]))
+    async def advance(seconds):
+        waits.append(seconds)
+        clock[0]+=seconds
+    monkeypatch.setattr(module,"sleep",advance)
+    lookup=ProductLookup(hass)
+    monkeypatch.setattr(lookup,"_fetch",AsyncMock(return_value={"status":"not_found"}))
+    await asyncio.gather(lookup.async_lookup(CODE),lookup.async_lookup("8410109115543"))
+    assert waits == pytest.approx([4.1])
+
+
+async def test_errors_cached_briefly_and_retry_after_expiry(hass, monkeypatch):
+    lookup=ProductLookup(hass)
+    fetch=AsyncMock(side_effect=ClientError("Offline"))
+    monkeypatch.setattr(lookup,"_fetch",fetch)
+    assert (await lookup.async_lookup(CODE))["status"] == "error"
+    assert (await lookup.async_lookup(CODE))["status"] == "error"
+    assert fetch.await_count == 1
+    lookup._cache[CODE.zfill(14)]["expires"]=0
+    lookup._next_request=0
+    fetch.side_effect=None
+    fetch.return_value=product_hint(PAYLOAD,CODE)
+    assert (await lookup.async_lookup(CODE))["status"] == "found"
+    assert fetch.await_count == 2
+
+
+@pytest.mark.parametrize(("status","body","expected"), [(200,PAYLOAD,"found"),(404,{},"not_found"),
+                                                          (429,{},"error"),(500,{},"error"),(302,{},"error"),
+                                                          (200,{"unexpected":True},"error")])
+async def test_http_response_handling(hass, aioclient_mock, status, body, expected):
+    lookup=ProductLookup(hass)
+    aioclient_mock.get(f"{BASE_URL}/api/v3/product/{CODE}",json=body,status=status)
+    result=await lookup.async_lookup(CODE)
+    assert result["status"] == expected
+    assert aioclient_mock.call_count == 1
+
+
+async def test_memory_cache_still_works_when_disk_is_full(hass, monkeypatch):
+    lookup=ProductLookup(hass)
+    monkeypatch.setattr(lookup,"_fetch",AsyncMock(return_value=product_hint(PAYLOAD,CODE)))
+    monkeypatch.setattr(lookup._store,"async_save",AsyncMock(side_effect=OSError("Disk full")))
+    assert (await lookup.async_lookup(CODE))["status"] == "found"
+    assert lookup.is_fresh(CODE)

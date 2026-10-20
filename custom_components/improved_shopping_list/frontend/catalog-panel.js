@@ -1,4 +1,5 @@
 import { CatalogSession } from "./catalog-client.js?v=0.4.1";
+import { matchCatalogProducts } from "./product-matching.js?v=0.4.1";
 import "./category-panel.js?v=0.4.1";
 
 export const normalizedName = value => String(value ?? "").normalize("NFKC").trim().replace(/\s+/g, " ").toLocaleLowerCase("es");
@@ -359,11 +360,29 @@ class ImprovedShoppingCatalog extends HTMLElement {
     row.dataset.pendingId=item.id;
     const info = element("div");
     info.style.cssText = "flex:1;min-width:0;overflow-wrap:anywhere";
-    info.append(element("h2", "", item.kind === "nfc" ? "Etiqueta NFC sin identificar" : "Código sin identificar"), element("p", "subtitle", item.code), element("p", "subtitle", item.reader_name));
+    const hint = item.identification;
+    const found = hint?.status === "found";
+    const candidates = matchCatalogProducts(hint, this._catalog.products);
+    info.append(element("h2", "", found ? hint.name : item.kind === "nfc" ? "Etiqueta NFC sin identificar" : "Código sin identificar"), element("p", "subtitle", item.code), element("p", "subtitle", item.reader_name));
+    if (found) {
+      const detail = [hint.brand, hint.quantity].filter(Boolean).join(" · ");
+      if (detail) info.append(element("p", "subtitle", detail));
+      const source = element("a", "subtitle", "Fuente: Open Food Facts (ODbL)");
+      source.href = `https://world.openfoodfacts.org/product/${encodeURIComponent(item.code)}`;
+      source.target = "_blank"; source.rel = "noopener noreferrer";
+      info.append(source);
+      if (candidates.length) info.append(element("p", "subtitle", `Posible coincidencia: ${candidates[0].name}`));
+    } else if (hint && hint.status !== "unsupported") {
+      const message = hint.status === "pending" ? "Consultando Open Food Facts…" : hint.status === "not_found" ? "Sin nombre disponible en Open Food Facts." : "Consulta no disponible. Puedes identificarlo manualmente.";
+      info.append(element("p", "subtitle", message));
+    }
     const select = element("select");
     select.setAttribute("aria-label", `Producto para el código ${item.code}`);
-    select.append(new Option("Selecciona un producto del catálogo", ""), ...this._catalog.products.map(product => new Option([product.name,product.brand,product.format].filter(Boolean).join(" · "),product.id)));
+    const candidateIds = new Set(candidates.map(product => product.id));
+    const ordered = [...candidates, ...this._catalog.products.filter(product => !candidateIds.has(product.id))];
+    select.append(new Option("Selecciona un producto del catálogo", ""), ...ordered.map(product => new Option(`${candidateIds.has(product.id) ? "Sugerido: " : ""}${[product.name,product.brand,product.format].filter(Boolean).join(" · ")}`,product.id)));
     if(this._catalog.products.some(product=>product.id===selection?.product))select.value=selection.product;
+    else if (!selection?.linking && candidates.length) select.value = candidates[0].id;
     select.hidden = !selection?.linking;
     const openSelected = () => {
       const product = this._catalog.products.find(product => product.id === select.value);
@@ -378,8 +397,9 @@ class ImprovedShoppingCatalog extends HTMLElement {
     link.disabled = !this._catalog.products.length;
     if (link.disabled) link.title = "Añade primero un producto al catálogo";
     link.addEventListener("click", () => {
+      const wasHidden = select.hidden;
       select.hidden = false;
-      if (select.value) openSelected();
+      if (!wasHidden && select.value) openSelected();
       else select.focus();
     });
     const dismiss = iconButton("mdi:delete", `Descartar código ${item.code}`);
@@ -533,6 +553,13 @@ class ImprovedShoppingCatalog extends HTMLElement {
     const form = root.querySelector("form");
     form.reset();
     form.elements.name.value = suggestedName;
+    if (!product && reading?.identification?.status === "found") {
+      const hint = reading.identification;
+      form.elements.name.value = hint.name ?? "";
+      form.elements.brand.value = hint.brand ?? "";
+      form.elements.format.value = hint.quantity ?? "";
+      form.elements.notes.value = `Fuente: Open Food Facts (ODbL). https://world.openfoodfacts.org/product/${encodeURIComponent(reading.code)}`;
+    }
     this._renderReaderActions();
     this._editing = product ? structuredClone(product) : null;
     root.querySelector("#product-dialog-title").textContent = product ? "Editar producto" : "Nuevo producto";

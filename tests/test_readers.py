@@ -30,6 +30,7 @@ async def reader_env(hass, monkeypatch):
     catalog = Catalog(hass)
     await catalog.async_load()
     manager = ReaderManager(hass, catalog, settings)
+    monkeypatch.setattr(manager.lookup, "_fetch", AsyncMock(return_value={"status":"not_found"}))
     await manager.async_load()
     manager.start()
     calls = []
@@ -60,6 +61,46 @@ async def add_reader(env, **changes):
 
 async def add_product(env, reader, **changes):
     return await env.catalog.async_save_product({"name":"Cacao","barcode":"0012345","barcodes":["0012346"],"nfc_tags":["AA:BB:CC:DD"],"reader_actions":{reader["id"]:"add_list"},**changes})
+
+
+async def test_lookup_enriches_unknown_scan_without_associating_or_adding(hass, reader_env, monkeypatch):
+    env=reader_env
+    reader=await add_reader(env)
+    fetch=AsyncMock(return_value={"status":"found","name":"Cacao soluble","brand":"Marca","quantity":"500 g"})
+    monkeypatch.setattr(env.manager.lookup,"_fetch",fetch)
+    await env.manager.async_process(reader["id"],"3017620422003")
+    await asyncio.gather(*tuple(env.manager._tasks))
+    pending=env.manager.snapshot["pending"][0]
+    assert pending["identification"]["name"] == "Cacao soluble"
+    assert env.catalog.products == [] and env.calls == []
+    env.clock[0]+=61
+    await env.manager.async_process(reader["id"],"3017620422003")
+    assert fetch.await_count == 1 and len(env.manager.snapshot["pending"]) == 1
+    restored=ReaderManager(hass,env.catalog,env.settings)
+    await restored.async_load()
+    assert restored.snapshot["pending"][0]["identification"]["name"] == "Cacao soluble"
+
+
+async def test_pending_lookup_does_not_block_known_scans_or_restore_dismissed_items(hass, reader_env, monkeypatch):
+    env=reader_env
+    reader=await add_reader(env)
+    await add_product(env,reader)
+    started,release=asyncio.Event(),asyncio.Event()
+    async def slow_fetch(code):
+        started.set()
+        await release.wait()
+        return {"status":"not_found"}
+    monkeypatch.setattr(env.manager.lookup,"_fetch",slow_fetch)
+    await env.manager.async_process(reader["id"],"3017620422003")
+    await asyncio.wait_for(started.wait(),2)
+    pending=env.manager.snapshot["pending"][0]
+    assert pending["identification"]["status"] == "pending"
+    await env.manager.async_process(reader["id"],"0012345")
+    assert len(env.calls) == 1
+    await env.manager.async_dismiss(pending["id"])
+    release.set()
+    await asyncio.gather(*tuple(env.manager._tasks))
+    assert env.manager.snapshot["pending"] == []
 
 
 async def test_reader_entity_events_add_once_and_restore_completed(hass, reader_env):

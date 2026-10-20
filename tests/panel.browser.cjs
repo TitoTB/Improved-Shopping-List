@@ -162,7 +162,7 @@ async function main() {
       return;
     }
     if (pathname === "/") { res.setHeader("content-type", "text/html; charset=utf-8"); res.end(html); return; }
-    if (!["/panel.js", "/todo-client.js", "/catalog-panel.js", "/catalog-client.js", "/category-panel.js", "/list-settings-client.js", "/settings-panel.js", "/readers-client.js", "/readers-panel.js", "/logo.png"].includes(pathname)) { res.writeHead(404).end(); return; }
+    if (!["/panel.js", "/todo-client.js", "/catalog-panel.js", "/catalog-client.js", "/category-panel.js", "/list-settings-client.js", "/settings-panel.js", "/readers-client.js", "/readers-panel.js", "/product-matching.js", "/logo.png"].includes(pathname)) { res.writeHead(404).end(); return; }
     res.setHeader("content-type", pathname.endsWith(".png") ? "image/png" : "text/javascript; charset=utf-8");
     res.end(await fs.readFile(path.join(root, pathname.slice(1))));
   });
@@ -840,6 +840,43 @@ async function main() {
     await readerPage.evaluate(()=>{window.readerFixture.pending=[{id:'scan-discard',kind:'barcode',code:'999999',reader_name:'Cocina',time:new Date().toISOString()}];window.emitReaders();});
     await readerCatalog.getByRole("button",{name:"Descartar código 999999",exact:true}).click();
     assert.equal(await readerCatalog.locator('#scan-suggestions [data-pending-id="scan-discard"]').count(),0);
+    const localCacao = await readerPage.evaluate(async()=>{
+      const product=structuredClone(window.catalogProducts[0]);
+      delete product.id;delete product.revision;
+      const result=await window.testPanel._hass.callWS({type:'improved_shopping_list/catalog/save',product:{...product,name:'Cacao',brand:'Marca local',format:'250 g',barcode:'',barcodes:[],nfc_tags:[],reader_actions:{}}});
+      window.readerFixture.pending=[{id:'scan-off',kind:'barcode',code:'8410109115543',reader_name:'Cocina',identification:{status:'found',name:'Cacao soluble',product_name:'Cacao soluble comercial',brand:'Marca externa',quantity:'500 g'}}];
+      window.emitReaders();
+      return result.product.id;
+    });
+    const identified=readerCatalog.locator('#scan-suggestions [data-pending-id="scan-off"]');
+    await identified.getByRole("heading",{name:"Cacao soluble",exact:true}).waitFor();
+    await identified.getByText("Posible coincidencia: Cacao",{exact:true}).waitFor();
+    assert.equal(await identified.getByRole("link").getAttribute("href"),"https://world.openfoodfacts.org/product/8410109115543");
+    assert.equal(await readerPage.evaluate(()=>window.catalogProducts.length),2);
+    await identified.getByRole("button",{name:"Crear producto con el código 8410109115543",exact:true}).click();
+    assert.equal(await codeDialog.getByLabel("Nombre del producto",{exact:true}).inputValue(),"Cacao soluble");
+    assert.equal(await codeDialog.getByLabel("Marca",{exact:true}).inputValue(),"Marca externa");
+    assert.equal(await codeDialog.getByLabel("Formato",{exact:true}).inputValue(),"500 g");
+    await codeDialog.getByLabel("Nombre del producto",{exact:true}).fill("Nombre elegido por mí");
+    await readerPage.evaluate(()=>window.emitReaders());
+    assert.equal(await codeDialog.getByLabel("Nombre del producto",{exact:true}).inputValue(),"Nombre elegido por mí");
+    await codeDialog.getByRole("button",{name:"Cancelar",exact:true}).click();
+    await identified.getByRole("button",{name:"Asignar código 8410109115543 a un producto del catálogo",exact:true}).click();
+    assert.equal(await identified.getByLabel("Producto para el código 8410109115543",{exact:true}).inputValue(),localCacao);
+    await readerPage.screenshot({path:"test-results/open-food-facts-suggestion.png",fullPage:true});
+    await identified.getByRole("button",{name:"Asignar código 8410109115543 a un producto del catálogo",exact:true}).click();
+    assert.equal(await linkDialog.getByLabel("Nombre del producto",{exact:true}).inputValue(),"Cacao");
+    assert.equal(await linkDialog.getByLabel("Marca",{exact:true}).inputValue(),"Marca local");
+    assert.equal(await linkDialog.getByLabel("Formato",{exact:true}).inputValue(),"250 g");
+    await linkDialog.getByRole("button",{name:"Guardar producto",exact:true}).click();
+    assert.equal(await identified.count(),0);
+    assert.equal(await readerPage.evaluate(()=>window.catalogProducts.length),2);
+    await readerPage.evaluate(()=>{window.readerFixture.pending=[{id:'scan-off-error',kind:'barcode',code:'3017620422003',reader_name:'Cocina',identification:{status:'error'}}];window.emitReaders();});
+    await readerCatalog.getByText("Consulta no disponible. Puedes identificarlo manualmente.",{exact:true}).waitFor();
+    await readerCatalog.getByRole("button",{name:"Crear producto con el código 3017620422003",exact:true}).click();
+    assert.equal(await codeDialog.getByLabel("Nombre del producto",{exact:true}).inputValue(),"");
+    assert.equal(await codeDialog.getByLabel("Código de barras",{exact:true}).inputValue(),"3017620422003");
+    await codeDialog.getByRole("button",{name:"Cancelar",exact:true}).click();
     await readerPage.getByRole("button",{name:"Lectores",exact:true}).click();
     await readersView.getByRole("button",{name:"Editar lector Cocina",exact:true}).click();
     const editReader=readersView.getByRole("dialog",{name:"Editar lector",exact:true});

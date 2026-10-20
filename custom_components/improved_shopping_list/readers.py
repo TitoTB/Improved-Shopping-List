@@ -13,6 +13,7 @@ from homeassistant.helpers.storage import Store
 
 from .catalog import CatalogError, code_key, normalized_name
 from .const import DOMAIN
+from .product_lookup import ProductLookup, is_product_barcode
 
 _LOGGER = logging.getLogger(__name__)
 INVALID_STATES = {"", "unknown", "unavailable", "none"}
@@ -63,8 +64,11 @@ class ReaderManager:
         self._tasks = set()
         self._unsubscribers = []
         self._active = False
+        self.lookup = ProductLookup(hass)
+        self._lookup_pending = set()
 
     async def async_load(self):
+        await self.lookup.async_load()
         data = await self._store.async_load()
         if data is not None:
             if not isinstance(data, dict) or any(not isinstance(data.get(key), dict) for key in ("readers", "pending", "cooldowns")) or not isinstance(data.get("dismissed"), list):
@@ -75,8 +79,32 @@ class ReaderManager:
     def snapshot(self):
         return {
             "readers": [{**deepcopy(reader), "last": deepcopy(self._last.get(reader["id"]))} for reader in sorted(self._data["readers"].values(), key=lambda item: item["name"].casefold())],
-            "pending": [deepcopy(item) for item in self._data["pending"].values() if self.catalog.find_by_code(item["kind"], item["code"]) is None],
+            "pending": [{**deepcopy(item), "identification": self._identification(item)} for item in self._data["pending"].values() if self.catalog.find_by_code(item["kind"], item["code"]) is None],
         }
+
+    def _identification(self, item):
+        if item["kind"] != "barcode" or not is_product_barcode(item["code"]):
+            return {"status": "unsupported"}
+        return self.lookup.cached(item["code"]) or {"status": "pending"}
+
+    @callback
+    def _schedule_lookup(self, item):
+        if item["id"] in self._lookup_pending or item["kind"] != "barcode" or not is_product_barcode(item["code"]) or self.lookup.is_fresh(item["code"]):
+            return
+        self._lookup_pending.add(item["id"])
+        if self._spawn(self._identify(item), background=True) is None:
+            self._lookup_pending.discard(item["id"])
+
+    async def _identify(self, item):
+        try:
+            if item["id"] in self._data["pending"] and self.catalog.find_by_code(item["kind"], item["code"]) is None:
+                await self.lookup.async_lookup(item["code"])
+                if self._active:
+                    self._notify()
+        except Exception:
+            _LOGGER.exception("Could not identify a pending product")
+        finally:
+            self._lookup_pending.discard(item["id"])
 
     @callback
     def subscribe(self, listener):
@@ -118,6 +146,7 @@ class ReaderManager:
             updated["readers"][reader["id"]] = reader
             await self._persist(updated)
         self._listen_sources()
+
         self._notify()
         return deepcopy(reader)
 
@@ -151,6 +180,9 @@ class ReaderManager:
         self._active = True
         self._catalog_unsubscribe = self.catalog.subscribe(self._catalog_changed)
         self._listen_sources()
+        for item in self._data["pending"].values():
+            if self.catalog.find_by_code(item["kind"], item["code"]) is None:
+                self._schedule_lookup(item)
 
     async def async_stop(self):
         self._active = False
@@ -163,15 +195,18 @@ class ReaderManager:
         for task in tuple(self._tasks):
             task.cancel()
         await gather(*self._tasks, return_exceptions=True)
+        self._lookup_pending.clear()
 
     @callback
-    def _spawn(self, coroutine):
+    def _spawn(self, coroutine, *, background=False):
         if not self._active or len(self._tasks) >= 100:
             coroutine.close()
             return
-        task = self.hass.async_create_task(coroutine)
+        task = (self.hass.async_create_background_task(coroutine, "Improved Shopping List product lookup")
+                if background else self.hass.async_create_task(coroutine))
         self._tasks.add(task)
         task.add_done_callback(self._tasks.discard)
+        return task
 
     @callback
     def _catalog_changed(self):
@@ -229,6 +264,7 @@ class ReaderManager:
         if not isinstance(code, str) or not code.strip() or len(code) > 1024 or any(ord(char) < 32 and char not in "\r\n\t" for char in code):
             return
         code = code.strip()
+        pending_id = None
         if any(ord(char) < 32 for char in code):
             return
         if code.casefold() in INVALID_STATES:
@@ -257,6 +293,8 @@ class ReaderManager:
                 await self._persist(updated)  # Persist the guard before any provider mutation.
             if product is None:
                 self._status(reader_id, code, "Código desconocido en Sugerencias" if code_id not in self._data["dismissed"] else "Código desconocido descartado")
+                if pending_id and (pending := self._data["pending"].get(pending_id)):
+                    self._schedule_lookup(pending)
                 return
             action = product.get("reader_actions", {}).get(reader_id, "none")
             if action == "none":

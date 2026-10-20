@@ -100,6 +100,8 @@ Las lecturas se procesan en Home Assistant aunque el panel esté cerrado. El int
 
 Una lectura desconocida aparece en **Catálogo → Sugerencias**, donde puedes abrir la ficha de un producto nuevo o seleccionar uno existente para asociar el código. El formulario permite completar los datos y elegir las acciones de sus lectores antes de guardar. Asociar una lectura pasada no ejecuta su acción automáticamente. También puedes descartar un código desconocido de forma persistente.
 
+El botón azul de vincular abre un buscador predictivo de productos del catálogo. Filtra mientras escribes sin distinguir tildes ni mayúsculas y muestra primero las posibles coincidencias sugeridas por Open Food Facts. Puedes elegir con un clic o con las flechas y Enter; Escape cierra las propuestas. Elegir un producto abre su ficha para confirmar el código al guardar. El texto y el cursor se conservan si llegan nuevas lecturas mientras buscas.
+
 Al añadir a una lista se comprueba si el producto ya está pendiente, comparando el nombre sin diferencias de tildes, mayúsculas o espacios. En ese caso se mantiene una sola entrada. Si está comprado, se recupera el mismo elemento cuando el proveedor admite actualizarlo. Una lista explícita que se haya quitado de Ajustes o que esté indisponible produce un error en el registro de Home Assistant; no se sustituye silenciosamente por otra. El apartado Lectores muestra el icono del tipo, el nombre, la entidad o dispositivo y el tiempo desde el último uso registrado durante la ejecución. Cada tarjeta permite activar o desactivar el lector con un interruptor. Tras un error puedes efectuar una nueva lectura una vez transcurrido el intervalo.
 
 Eliminar la integración retira el panel y desactiva sus comandos de catálogo.

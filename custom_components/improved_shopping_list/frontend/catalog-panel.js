@@ -137,6 +137,11 @@ class ImprovedShoppingCatalog extends HTMLElement {
         .suggestion .actions { margin:0; flex-shrink:0; }
         .suggestion .actions button { flex:0 0 40px; width:40px; min-height:40px; padding:8px; }
         .suggestion .actions .danger { background:#b3261e; color:#fff; border:0; }
+        .suggestion .actions .link { background:#1976d2; color:#fff; border:0; }
+        .link-results { max-height:260px; overflow-y:auto; border:1px solid var(--divider-color,#dfe7e1); border-radius:9px; margin-top:6px; }
+        .link-results button { display:block; width:100%; text-align:left; border:0; border-radius:0; overflow-wrap:anywhere; }
+        .link-results button:hover,.link-results [aria-selected=true] { background:var(--secondary-background-color,#edf4ee); }
+        .link-empty { font-size:13px; margin:8px 0 0; }
         @media(max-width:650px) { .suggestion { flex-wrap:wrap; } .suggestion .actions { margin-left:auto; } }
         .catalog-tabs button[aria-pressed=true] { background:var(--secondary-background-color,#edf4ee); font-weight:650; }
         h1 { font-size:32px; letter-spacing:-.03em; margin:0; }
@@ -370,8 +375,10 @@ class ImprovedShoppingCatalog extends HTMLElement {
     if (!this._built) return;
     const root = this.shadowRoot;
     const selections = new Map([...root.querySelectorAll("[data-pending-id]")].map(row => {
-      const select = row.querySelector("select");
-      return [row.dataset.pendingId, {product:select.value, linking:!select.hidden}];
+      const input = row.querySelector(".link-search input");
+      return [row.dataset.pendingId, {query:input.value, linking:!input.parentElement.hidden,
+        focused:root.activeElement === input, start:input.selectionStart, end:input.selectionEnd,
+        expanded:input.getAttribute("aria-expanded") === "true"}];
     }));
     const error = root.querySelector("#suggestions-error");
     error.hidden = !this._suggestionError;
@@ -411,6 +418,18 @@ class ImprovedShoppingCatalog extends HTMLElement {
     }));
     root.querySelector("#list-suggestions").replaceChildren(...rows);
     root.querySelector("#scan-suggestions").replaceChildren(...pending.map(item => this._codeSuggestion(item,selections.get(item.id))));
+    for (const row of root.querySelectorAll("[data-pending-id]")) {
+      const selection = selections.get(row.dataset.pendingId);
+      if (!selection?.focused) continue;
+      const input = row.querySelector(".link-search input");
+      input.focus({preventScroll:true});
+      input.setSelectionRange(selection.start, selection.end);
+      if (!selection.expanded) {
+        row.querySelector(".link-results").hidden = true;
+        input.setAttribute("aria-expanded", "false");
+        input.removeAttribute("aria-activedescendant");
+      }
+    }
     root.querySelector("#list-suggestions-count").textContent = String(suggestions.length);
     root.querySelector("#scan-suggestions-count").textContent = String(pending.length);
     root.querySelector("#list-suggestions-empty").hidden = suggestions.length > 0 || this._catalog.loading || Boolean(this._catalog.error);
@@ -437,31 +456,19 @@ class ImprovedShoppingCatalog extends HTMLElement {
       const message = hint.status === "pending" ? "Consultando Open Food Facts…" : hint.status === "not_found" ? "Sin nombre disponible en Open Food Facts." : "Consulta no disponible. Puedes identificarlo manualmente.";
       info.append(element("p", "subtitle", message));
     }
-    const select = element("select");
-    select.setAttribute("aria-label", `Producto para el código ${item.code}`);
     const candidateIds = new Set(candidates.map(product => product.id));
     const ordered = [...candidates, ...this._catalog.products.filter(product => !candidateIds.has(product.id))];
-    select.append(new Option("Selecciona un producto del catálogo", ""), ...ordered.map(product => new Option(`${candidateIds.has(product.id) ? "Sugerido: " : ""}${product.name}`,product.id)));
-    if(this._catalog.products.some(product=>product.id===selection?.product))select.value=selection.product;
-    else if (!selection?.linking && candidates.length) select.value = candidates[0].id;
-    select.hidden = !selection?.linking;
-    const openSelected = () => {
-      const product = this._catalog.products.find(product => product.id === select.value);
-      if (product) this._openProduct(product, "", item);
-    };
-    select.addEventListener("change", openSelected);
-    info.append(select);
+    const search = this._productLinkSearch(item, ordered, candidateIds, selection);
+    info.append(search);
     const actions = element("div", "actions");
     const add = iconButton("mdi:plus-thick", `Crear producto con el código ${item.code}`, "primary");
     add.addEventListener("click", () => this._openProduct(undefined, "", item));
-    const link = iconButton("mdi:view-grid", `Asignar código ${item.code} a un producto del catálogo`);
+    const link = iconButton("mdi:view-grid", `Asignar código ${item.code} a un producto del catálogo`, "link");
     link.disabled = !this._catalog.products.length;
     if (link.disabled) link.title = "Añade primero un producto al catálogo";
     link.addEventListener("click", () => {
-      const wasHidden = select.hidden;
-      select.hidden = false;
-      if (!wasHidden && select.value) openSelected();
-      else select.focus();
+      search.hidden = false;
+      search.querySelector("input").focus();
     });
     const dismiss = iconButton("mdi:delete", `Descartar código ${item.code}`, "danger");
     dismiss.addEventListener("click", async () => {
@@ -471,6 +478,86 @@ class ImprovedShoppingCatalog extends HTMLElement {
       finally { this._renderSuggestions(); }
     });
     actions.append(add,link,dismiss);row.append(info,actions);return row;
+  }
+
+  _productLinkSearch(item, products, candidateIds, selection) {
+    const search = element("div", "link-search");
+    search.hidden = !selection?.linking;
+    const input = element("input");
+    input.type = "text";
+    input.placeholder = "Buscar un producto del catálogo…";
+    input.value = selection?.query ?? "";
+    input.autocomplete = "off";
+    input.setAttribute("aria-label", `Producto para el código ${item.code}`);
+    input.setAttribute("role", "combobox");
+    input.setAttribute("aria-autocomplete", "list");
+    const results = element("div", "link-results");
+    results.id = `link-results-${item.id}`;
+    results.setAttribute("role", "listbox");
+    results.setAttribute("aria-label", "Productos del catálogo");
+    input.setAttribute("aria-controls", results.id);
+    const empty = element("p", "link-empty", "No hay productos que coincidan con la búsqueda.");
+    empty.setAttribute("role", "status");
+    let matches = [], active = -1;
+    const close = () => {
+      results.hidden = true;
+      empty.hidden = true;
+      input.setAttribute("aria-expanded", "false");
+      input.removeAttribute("aria-activedescendant");
+    };
+    const choose = product => {
+      input.value = product.name;
+      close();
+      this._openProduct(product, "", item);
+    };
+    const highlight = () => {
+      [...results.children].forEach((option, index) => option.setAttribute("aria-selected", String(index === active)));
+      if (active < 0) input.removeAttribute("aria-activedescendant");
+      else {
+        input.setAttribute("aria-activedescendant", results.children[active].id);
+        results.children[active].scrollIntoView({block:"nearest"});
+      }
+    };
+    const predict = (expanded = true) => {
+      const query = productNameKey(input.value);
+      matches = products.filter(product => productNameKey(product.name).includes(query)).slice(0, 8);
+      active = -1;
+      results.replaceChildren(...matches.map((product, index) => {
+        const option = element("button", "", `${candidateIds.has(product.id) ? "Sugerido: " : ""}${product.name}`);
+        option.type = "button";
+        option.id = `${results.id}-${index}`;
+        option.tabIndex = -1;
+        option.setAttribute("role", "option");
+        option.setAttribute("aria-selected", "false");
+        option.addEventListener("pointerdown", event => event.preventDefault());
+        option.addEventListener("click", () => choose(product));
+        return option;
+      }));
+      results.hidden = !expanded || !matches.length;
+      empty.hidden = !expanded || Boolean(matches.length);
+      input.setAttribute("aria-expanded", String(!results.hidden));
+      input.removeAttribute("aria-activedescendant");
+    };
+    input.addEventListener("input", () => predict());
+    input.addEventListener("focus", () => predict());
+    input.addEventListener("blur", close);
+    input.addEventListener("keydown", event => {
+      if (event.key === "Escape") { event.preventDefault(); close(); }
+      else if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+        event.preventDefault();
+        if (results.hidden) predict();
+        if (!matches.length) return;
+        active = event.key === "ArrowDown" ? (active + 1) % matches.length : (active < 0 ? matches.length - 1 : (active + matches.length - 1) % matches.length);
+        highlight();
+      } else if (event.key === "Enter") {
+        event.preventDefault();
+        if (!results.hidden && active >= 0) choose(matches[active]);
+        else if (!results.hidden && matches.length === 1) choose(matches[0]);
+      }
+    });
+    search.append(input, results, empty);
+    predict(selection?.expanded ?? false);
+    return search;
   }
 
   _renderReaderActions() {

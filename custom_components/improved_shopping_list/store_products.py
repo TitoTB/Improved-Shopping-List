@@ -113,6 +113,11 @@ class StoreProducts:
         self._cycle = {}
         self._deadline = None
         self._context = None
+        self._run_processed = 0
+        self._run_total = None
+        self._run_started = None
+        self._run_candidates = 0
+        self._run_pending = None
         self._lock = asyncio.Lock()
         self._retry_after = 0
         self._last_error = ""
@@ -135,7 +140,8 @@ class StoreProducts:
         if self.progress.get("running"):
             elapsed = max(0, time.time() - self.progress["started_at"])
             remaining = self.progress["total"] - self.progress["processed"]
-            self.progress["estimated_seconds"] = round(max(0, min(35 - elapsed, remaining * (2 * REQUEST_INTERVAL + 1))))
+            processed = self.progress["processed"]
+            self.progress["estimated_seconds"] = round(remaining * max(REQUEST_INTERVAL, elapsed / processed)) if processed else None
         for listener in tuple(self._listeners):
             listener()
 
@@ -205,13 +211,26 @@ class StoreProducts:
 
     async def async_refresh(self, force=False):
         async with self._lock:
+            self._run_processed, self._run_total = 0, None
+            self._run_started, self._run_candidates = time.time(), 0
+            self._run_pending = None
             try:
-                return await self._async_refresh(force)
+                while True:
+                    self._check_context()
+                    result = await self._async_refresh(force)
+                    self._run_processed += result["processed"]
+                    result.update(processed=self._run_processed, total=self._run_total if self._run_total is not None else result["total"])
+                    if (not result["remaining"] or result.get("error") or result.get("automatic_refresh_blocked")
+                        or not result.get("enabled")):
+                        return result
+                    # The checkpoint has been saved. Continue while retaining the same
+                    # lock, progress totals and request pacing, with no extra user action.
             finally:
                 if self.progress.get("running"):
                     self._update_progress(running=False, estimated_seconds=0)
                 self._deadline = None
                 self._context = None
+                self._run_pending = None
 
     async def _async_refresh(self, force=False):
         result = self.snapshot()
@@ -230,6 +249,10 @@ class StoreProducts:
             if self._cycle.get("warehouse") != warehouse or self._cycle.get("queries") != queries or not self._cycle.get("pending"):
                 self._cycle = {"warehouse": warehouse, "queries": queries, "pending": list(codes)}
             pending = [(key, product) for key, product in pending if key in self._cycle["pending"]]
+        if self._run_pending is None:
+            self._run_pending = {key for key, product in pending}
+        else:
+            pending = [(key, product) for key, product in pending if key in self._run_pending]
         pending.sort(key=lambda item: self._cache.get(f"{warehouse}:{item[0]}", {}).get("checked_at", 0))
         error, changed, processed = "", False, 0
         if not force and result["automatic_refresh_blocked"]:
@@ -245,8 +268,10 @@ class StoreProducts:
         self._batch_id = uuid4().hex
         self._request_count = 0
         self._deadline = time.monotonic() + 35
+        self._run_total = max(self._run_total or 0, self._run_processed + len(pending))
         self._update_progress(running=True, batch_id=self._batch_id, warehouse=warehouse,
-                              started_at=now, total=len(pending), processed=0, candidates=0, phase="starting")
+                              started_at=self._run_started if self._run_started is not None else now,
+                              total=self._run_total, processed=self._run_processed, candidates=self._run_candidates, phase="starting")
         self._record("refresh", "Mercadona: inicio de actualización de precios", {
             "batch_id": self._batch_id, "warehouse": warehouse, "force": force,
             "valid_codes": len(codes), "pending_codes": len(pending), "request_interval_seconds": REQUEST_INTERVAL,
@@ -287,9 +312,10 @@ class StoreProducts:
             self._cache[f"{warehouse}:{key}"] = {"offer": offer, "checked_at": int(time.time())}
             changed = True
             processed += 1
+            self._run_pending.discard(key)
             if self._cycle.get("warehouse") == warehouse and key in self._cycle.get("pending", []):
                 self._cycle["pending"].remove(key)
-            self._update_progress(processed=processed, phase="processed")
+            self._update_progress(processed=self._run_processed + processed, phase="processed")
             self._last_error, self._last_diagnostics = "", {}
             self._retry_after, self._failures = 0, 0
         if changed:
@@ -300,7 +326,8 @@ class StoreProducts:
         result = self.snapshot()
         result.update(error=error or self._last_error, remaining=len(pending) - processed,
                       processed=processed, total=len(pending))
-        self._record("summary", "Mercadona: actualización detenida por un error" if error else "Mercadona: actualización finalizada", {
+        self._record("summary", "Mercadona: actualización detenida por un error" if error else
+            "Mercadona: avance guardado; la actualización continúa" if len(pending) > processed else "Mercadona: actualización finalizada", {
             "batch_id": self._batch_id, "warehouse": warehouse, "processed_codes": processed,
             "pending_codes": len(pending) - processed, "http_requests": self._request_count,
             "elapsed_ms": round((time.time() - now) * 1000), "failed": bool(error),
@@ -353,7 +380,8 @@ class StoreProducts:
                     identifier = state["ids"][state["cursor"]]
                     detail = await self._product(session, identifier, code, warehouse)
                     state["cursor"] += 1
-                    self._update_progress(candidates=self.progress.get("candidates", 0) + 1)
+                    self._run_candidates += 1
+                    self._update_progress(candidates=self._run_candidates)
                     if detail and (offer := exact_offer([detail], code)):
                         state["matches"].append(detail)
                 if state["page"] + 1 < state["pages"]:

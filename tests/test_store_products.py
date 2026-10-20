@@ -334,7 +334,7 @@ async def test_candidate_scan_resumes_after_restart_without_recording_a_false_mi
     for index, identifier in enumerate(ids):
         aioclient_mock.get(module.PRODUCT_URL.format(identifier=identifier, warehouse="mad3"),
             json={**HIT, "id": identifier, "ean": CODE if index == 0 else "3017620422003"})
-    partial = await service.async_refresh(True)
+    partial = await service._async_refresh(True)  # Inspect the persisted internal checkpoint.
     assert partial["remaining"] == 1 and partial["processed"] == 0
     assert not partial["error"] and partial["retry_at"] == 0 and partial["not_found"] == 0
     assert not partial["products"]  # Don't publish until ambiguity has also been checked.
@@ -349,7 +349,8 @@ async def test_candidate_scan_resumes_after_restart_without_recording_a_false_mi
     assert restored._lookups == {}
 
 
-async def test_completed_force_batch_is_not_restarted_when_continuing(hass, monkeypatch):
+@pytest.mark.parametrize("force", [False, True])
+async def test_all_codes_are_reviewed_in_one_call_with_continuous_progress(hass, monkeypatch, force):
     service = environment(hass)
     products = []
     for index in range(21):
@@ -360,11 +361,41 @@ async def test_completed_force_batch_is_not_restarted_when_continuing(hass, monk
     service.catalog.products = products
     fetch = AsyncMock(return_value=None)
     monkeypatch.setattr(service, "_fetch", fetch)
-    first = await service.async_refresh(True)
-    assert first["processed"] == 20 and first["remaining"] == 1
-    second = await service.async_refresh(True)
-    assert second["processed"] == 1 and second["remaining"] == 0
+    events = []
+    service.subscribe(lambda: events.append(dict(service.progress)))
+    result = await service.async_refresh(force)
+    assert result["processed"] == 21 and result["remaining"] == 0 and result["total"] == 21
     assert fetch.await_count == 21
+    running = [event for event in events if event["running"]]
+    assert all(event["total"] == 21 for event in running)
+    assert [event["processed"] for event in running] == sorted(event["processed"] for event in running)
+    assert events[-1]["processed"] == 21 and not events[-1]["running"]
+
+
+async def test_full_refresh_continues_past_time_checkpoints_without_extra_calls(hass, aioclient_mock, monkeypatch):
+    service = environment(hass)
+    clock = [100.0]
+    monkeypatch.setattr(module, "time", SimpleNamespace(time=lambda: 1800000000+clock[0], monotonic=lambda:clock[0]))
+
+    async def advance(seconds):
+        clock[0] += seconds
+
+    monkeypatch.setattr(module, "sleep", advance)
+    ids = [str(200+index) for index in range(16)]
+    aioclient_mock.post(SEARCH_URL, json={"hits":[{"id":identifier} for identifier in ids]})
+    for index, identifier in enumerate(ids):
+        aioclient_mock.get(module.PRODUCT_URL.format(identifier=identifier,warehouse="mad3"),
+            json={**HIT,"id":identifier,"ean":CODE if index==15 else "3017620422003"})
+    events = []
+    service.subscribe(lambda: events.append(dict(service.progress)))
+    result = await service.async_refresh(True)
+    assert result["remaining"] == 0 and result["processed"] == 1
+    assert result["products"][0]["ean"] == CODE
+    assert aioclient_mock.call_count == 17
+    assert clock[0] >= 175  # Multiple checkpoints, all requests still paced.
+    assert any(event.get("phase") == "continuation" for event in events)
+    assert [event["candidates"] for event in events] == sorted(event["candidates"] for event in events)
+    assert events[-1]["candidates"] == 16
 
 
 async def test_removed_candidate_is_not_a_network_failure(hass, aioclient_mock):

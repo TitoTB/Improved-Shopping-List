@@ -125,6 +125,7 @@ const hass={
     }
     if(msg.type==='improved_shopping_list/settings/store_products'){
       (window.storeProductCalls??=[]).push(msg);
+      if(!msg.force&&window.holdAutomaticStoreRefresh)await new Promise(resolve=>window.finishAutomaticStoreRefresh=resolve);
       if(msg.force&&window.holdStoreRefresh)await new Promise(resolve=>window.finishStoreRefresh=resolve);
       return {warehouse:'mad3',enabled:true,products:[{name:'Tomate',ean:'8430543025611',store_name:'Tomate rallado',store_product_id:'69938',price:msg.force?1.55:1.45,reference_price:5,reference_unit:'kg',checked_at:1800000000}],error:window.failStoreProducts?'Mercadona ha rechazado la consulta (HTTP 403)':'',automatic_refresh_blocked:!!window.failStoreProducts,remaining:window.failStoreProducts?20:0,processed:0,total:20,retry_at:window.failStoreProducts?Date.now()/1000+900:0};
     }
@@ -844,7 +845,16 @@ async function main() {
     await settingsPage.reload();
     await settingsPage.getByRole("button",{name:"Ajustes",exact:true}).click();
     await settingsView.getByRole("button",{name:"Tiendas",exact:true}).click();
+    await settingsPage.evaluate(()=>{window.holdAutomaticStoreRefresh=true;});
     await settingsView.getByRole("button",{name:"Ajustes de Mercadona",exact:true}).click();
+    await settingsPage.waitForFunction(()=>!!window.finishAutomaticStoreRefresh);
+    const automaticBar=storeDialog.getByRole('progressbar',{name:'Progreso de actualización de precios'});
+    await automaticBar.waitFor();
+    await settingsPage.evaluate(()=>{for(const callback of window.storeProgressListeners)callback({running:true,warehouse:'mad3',processed:2,total:20,estimated_seconds:120,phase:'details',candidates:4});});
+    assert.equal(await automaticBar.getAttribute('value'),'2');
+    assert.ok(await automaticBar.evaluate(bar=>bar.getBoundingClientRect().height>=26));
+    await storeDialog.locator('#store-progress-count').filter({hasText:'4 referencias comprobadas'}).waitFor();
+    await settingsPage.evaluate(()=>{window.holdAutomaticStoreRefresh=false;window.finishAutomaticStoreRefresh();});
     await storeDialog.getByText("Tomate",{exact:true}).waitFor();
     assert.match(await storeDialog.locator(".store-price strong").textContent(),/1,45/);
     await settingsPage.evaluate(()=>{window.holdStoreRefresh=true;});
@@ -856,7 +866,7 @@ async function main() {
     assert.equal(await progressBar.getAttribute('value'),'5');
     assert.equal(await progressBar.getAttribute('max'),'20');
     await storeDialog.locator('#store-progress-count').filter({hasText:'5 de 20 códigos revisados'}).waitFor();
-    await storeDialog.locator('#store-progress-time').filter({hasText:'Tiempo estimado restante de este lote:'}).waitFor();
+    await storeDialog.locator('#store-progress-time').filter({hasText:'Tiempo estimado restante:'}).waitFor();
     assert.equal(await storeDialog.getByRole('button',{name:'Forzar actualización',exact:true}).isDisabled(),true);
     await settingsPage.setViewportSize({width:390,height:844});
     await settingsPage.screenshot({path:'test-results/store-progress-mobile.png',fullPage:true});

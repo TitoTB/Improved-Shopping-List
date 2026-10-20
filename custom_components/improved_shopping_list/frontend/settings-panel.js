@@ -52,7 +52,10 @@ class ImprovedShoppingSettings extends HTMLElement {
         dialog { color:inherit; background:var(--card-background-color,#fff); width:min(680px,calc(100vw - 28px)); max-height:calc(100dvh - 28px); border:1px solid var(--divider-color,#dfe7e1); border-radius:18px; padding:24px; }
         dialog::backdrop { background:rgba(0,0,0,.4); }
         .store-products { display:grid; gap:12px; margin-top:16px; }.store-product { display:flex; justify-content:space-between; align-items:center; gap:12px; border:1px solid var(--divider-color,#dfe7e1); border-radius:10px; padding:14px; }
-        .store-progress progress { display:block; width:100%; height:14px; accent-color:var(--primary-color,#267052); }.store-progress p { margin:6px 0; }
+        .store-progress progress { display:block; width:100%; height:26px; appearance:none; border:0; border-radius:13px; overflow:hidden; background:var(--divider-color,#dfe7e1); accent-color:var(--primary-color,#267052); }
+        .store-progress progress::-webkit-progress-bar { background:var(--divider-color,#dfe7e1); border-radius:13px; }
+        .store-progress progress::-webkit-progress-value { background:var(--primary-color,#267052); border-radius:13px; }
+        .store-progress progress::-moz-progress-bar { background:var(--primary-color,#267052); border-radius:13px; }.store-progress p { margin:6px 0; }
         .store-product-info { min-width:0; overflow-wrap:anywhere; }.store-product-info p { margin:4px 0 0; }.store-price { flex:none; max-width:50%; text-align:right; }.store-price p { margin:4px 0; font-size:12px; }
         @media(max-width:540px) { dialog { padding:18px; }.store-row { padding:12px; gap:8px; }.store-logo { width:40px; height:40px; padding:6px; }.store-controls { gap:8px; } }
         .primary { color:#fff; background:#267052; border:0; }
@@ -121,7 +124,7 @@ class ImprovedShoppingSettings extends HTMLElement {
           <div class="appearance-actions"><button id="refresh-store-products" type="button"><ha-icon icon="mdi:refresh" aria-hidden="true"></ha-icon> Forzar actualización</button></div>
           <p id="store-products-status" role="status"></p><div id="store-products-error" class="notice error" role="alert" hidden></div>
           <p id="store-access-block" hidden>Mercadona ha rechazado una consulta. Abrir esta vista no repetirá la consulta. La hora indicada es la espera mínima para reintentar manualmente; no garantiza que el bloqueo desaparezca.</p>
-          <div id="store-progress" class="store-progress" hidden><progress aria-label="Progreso de actualización de precios"></progress><p id="store-progress-count" role="status"></p><p id="store-progress-time"></p><p>Se revisan hasta 20 códigos por lote, durante unos 35 segundos. La estimación puede variar según la respuesta de la tienda.</p></div>
+          <div id="store-progress" class="store-progress" hidden><progress aria-label="Progreso de actualización de precios"></progress><p id="store-progress-count" role="status"></p><p id="store-progress-time"></p><p>La revisión continúa automáticamente hasta terminar. La estimación puede variar según los candidatos y la respuesta de la tienda.</p></div>
           <div id="store-products" class="store-products"></div>
         </section>
         <section id="store-configuration-view" hidden>
@@ -171,6 +174,7 @@ class ImprovedShoppingSettings extends HTMLElement {
     root.querySelector("#store-dialog").addEventListener("close", () => {
       if (root.querySelector("#store-dialog").open) return;
       clearTimeout(this._storeRetryTimer);
+      clearInterval(this._storeProgressTimer); this._stopStoreProgress?.(); this._stopStoreProgress = null;
       this._storeEnableDraft = undefined; this._storeDirty = false;
       this._productsGeneration = (this._productsGeneration || 0) + 1; this._productsLoading = false;
       this._error = ""; this._render();
@@ -367,7 +371,7 @@ class ImprovedShoppingSettings extends HTMLElement {
     const root = this.shadowRoot;
     const state = this._storeProgress;
     const store = this._data.settings.stores?.mercadona ?? {};
-    const visible = this._productsLoading && this._productsForced && store.enabled && store.warehouse === this._productsWarehouse;
+    const visible = this._productsLoading && store.enabled && store.warehouse === this._productsWarehouse;
     root.querySelector("#store-progress").hidden = !visible;
     if (!visible) return;
     const bar = root.querySelector("#store-progress progress");
@@ -378,10 +382,11 @@ class ImprovedShoppingSettings extends HTMLElement {
     const phase = {starting:"Preparando consultas", waiting:"Esperando entre consultas", ean:"Buscando por EAN", name:"Buscando candidatos", details:"Comprobando EAN en la ficha", continuation:"Guardando avance para continuar", processed:"Código revisado"}[state?.phase] ?? "Preparando actualización";
     const candidates = state?.candidates ? ` · ${state.candidates} referencias comprobadas` : "";
     root.querySelector("#store-progress-count").textContent = total ? `${processed} de ${total} códigos revisados · ${phase}${candidates}` : "Preparando actualización…";
-    const seconds = Math.max(0, Math.ceil((state?.estimated_seconds ?? 0) - (Date.now() - (this._storeProgressReceived ?? Date.now())) / 1000));
-    root.querySelector("#store-progress-time").textContent = state?.running
-      ? seconds > 0 ? `Tiempo estimado restante de este lote: ${seconds} s` : "Finalizando lote…"
-      : "Esperando respuesta…";
+    const seconds = Number.isFinite(state?.estimated_seconds)
+      ? Math.max(0, Math.ceil(state.estimated_seconds - (Date.now() - (this._storeProgressReceived ?? Date.now())) / 1000)) : null;
+    const duration = seconds >= 60 ? `${Math.floor(seconds/60)} min ${seconds%60} s` : `${seconds} s`;
+    root.querySelector("#store-progress-time").textContent = seconds === null ? "Calculando tiempo restante…"
+      : seconds > 0 ? `Tiempo estimado restante: ${duration}` : "Actualización en curso…";
   }
 
   async _loadStoreProducts(force) {
@@ -393,7 +398,7 @@ class ImprovedShoppingSettings extends HTMLElement {
     this._productsLoading = true; this._productsForced = force; this._productsWarehouse = warehouse; this._storeProgress = null; this._productsError = ""; this._renderStoreProducts();
     let unsubscribe;
     try {
-      if (force) {
+      {
         const stop = await this._data.hass.connection.subscribeMessage(state => {
           if (generation !== this._productsGeneration || state.warehouse !== warehouse || this._data.settings.stores?.mercadona?.warehouse !== warehouse) return;
           this._storeProgress = state; this._storeProgressReceived = Date.now(); this._renderStoreProgress();

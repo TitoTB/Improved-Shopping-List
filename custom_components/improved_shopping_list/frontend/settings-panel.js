@@ -53,6 +53,10 @@ class ImprovedShoppingSettings extends HTMLElement {
         dialog { color:inherit; background:var(--card-background-color,#fff); width:min(680px,calc(100vw - 28px)); max-height:calc(100dvh - 28px); border:1px solid var(--divider-color,#dfe7e1); border-radius:18px; padding:24px; }
         dialog::backdrop { background:rgba(0,0,0,.4); }
         .store-products { display:grid; gap:12px; margin-top:16px; }.store-product { display:flex; justify-content:space-between; align-items:center; gap:12px; border:1px solid var(--divider-color,#dfe7e1); border-radius:10px; padding:14px; }
+        .store-progress { text-align:center; }
+        .store-progress-track { position:relative; }
+        .store-progress-percentage { position:absolute; inset:0; display:grid; place-items:center; pointer-events:none; color:#fff; font-size:13px; font-weight:700; line-height:26px; text-shadow:0 0 2px #000,0 1px 2px #000; }
+        #store-progress-count { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
         .store-progress progress { display:block; width:100%; height:26px; appearance:none; border:0; border-radius:13px; overflow:hidden; background:var(--divider-color,#dfe7e1); accent-color:var(--primary-color,#267052); }
         .store-progress progress::-webkit-progress-bar { background:var(--divider-color,#dfe7e1); border-radius:13px; }
         .store-progress progress::-webkit-progress-value { background:var(--primary-color,#267052); border-radius:13px; }
@@ -128,7 +132,7 @@ class ImprovedShoppingSettings extends HTMLElement {
           <div class="appearance-actions"><button id="refresh-store-products" type="button"><ha-icon icon="mdi:refresh" aria-hidden="true"></ha-icon> Forzar actualización</button></div>
           <p id="store-products-status" role="status"></p><div id="store-products-error" class="notice error" role="alert" hidden></div>
           <p id="store-access-block" hidden>Mercadona ha rechazado una consulta. Abrir esta vista no repetirá la consulta. La hora indicada es la espera mínima para reintentar manualmente; no garantiza que el bloqueo desaparezca.</p>
-          <div id="store-progress" class="store-progress" hidden><progress aria-label="Progreso de actualización de precios"></progress><p id="store-progress-count" role="status"></p><p id="store-progress-time"></p><p>La revisión continúa automáticamente hasta terminar. La estimación puede variar según los candidatos y la respuesta de la tienda.</p></div>
+          <div id="store-progress" class="store-progress" hidden><div class="store-progress-track"><progress aria-label="Progreso de actualización de precios"></progress><span id="store-progress-percentage" class="store-progress-percentage" aria-hidden="true">0 %</span></div><p id="store-progress-count" role="status"></p><p id="store-progress-time"></p><p>La revisión continúa automáticamente hasta terminar. La estimación puede variar según los candidatos y la respuesta de la tienda.</p></div>
           <div id="store-products" class="store-products"></div>
         </section>
         <section id="store-configuration-view" hidden>
@@ -432,6 +436,7 @@ class ImprovedShoppingSettings extends HTMLElement {
     const processed = Math.min(total, Math.max(0, Number(state?.processed) || 0));
     bar.max = total || 1;
     if (total) bar.value = processed; else bar.removeAttribute("value");
+    root.querySelector("#store-progress-percentage").textContent = `${total ? Math.round(processed / total * 100) : 0} %`;
     const phase = {starting:"Preparando consultas", waiting:"Esperando entre consultas", ean:"Buscando por EAN", name:"Buscando candidatos", details:"Comprobando EAN en la ficha", continuation:"Guardando avance para continuar", processed:"Código revisado"}[state?.phase] ?? "Preparando actualización";
     const candidates = state?.candidates ? ` · ${state.candidates} referencias comprobadas` : "";
     root.querySelector("#store-progress-count").textContent = total ? `${processed} de ${total} códigos revisados · ${phase}${candidates}` : "Preparando actualización…";

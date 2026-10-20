@@ -881,7 +881,8 @@ async function main() {
     await settingsPage.evaluate(()=>{for(const callback of window.storeProgressListeners)callback({running:true,warehouse:'mad3',processed:2,total:20,estimated_seconds:120,phase:'details',candidates:4});});
     assert.equal(await automaticBar.getAttribute('value'),'2');
     assert.ok(await automaticBar.evaluate(bar=>bar.getBoundingClientRect().height>=26));
-    await storeDialog.locator('#store-progress-count').filter({hasText:'4 referencias comprobadas'}).waitFor();
+    assert.match(await storeDialog.locator('#store-progress-count').textContent(),/4 referencias comprobadas/);
+    assert.equal(await storeDialog.locator('#store-progress-percentage').textContent(),'10 %');
     await settingsPage.evaluate(()=>{window.holdAutomaticStoreRefresh=false;window.finishAutomaticStoreRefresh();});
     await storeDialog.getByText("Tomate",{exact:true}).waitFor();
     assert.match(await storeDialog.locator(".store-price strong").textContent(),/1,45/);
@@ -893,14 +894,21 @@ async function main() {
     await progressBar.waitFor();
     assert.equal(await progressBar.getAttribute('value'),'5');
     assert.equal(await progressBar.getAttribute('max'),'20');
-    await storeDialog.locator('#store-progress-count').filter({hasText:'5 de 20 códigos revisados'}).waitFor();
+    assert.match(await storeDialog.locator('#store-progress-count').textContent(),/5 de 20 códigos revisados/);
+    assert.equal(await storeDialog.locator('#store-progress-percentage').textContent(),'25 %');
+    assert.ok(await storeDialog.locator('#store-progress-percentage').evaluate(label=>{
+      const bounds=label.getBoundingClientRect(),bar=label.parentElement.querySelector('progress').getBoundingClientRect();
+      return Math.abs(bounds.top-bar.top)<1 && Math.abs(bounds.width-bar.width)<1;
+    }));
+    assert.equal(await storeDialog.locator('#store-progress-time').evaluate(node=>getComputedStyle(node).textAlign),'center');
     await storeDialog.locator('#store-progress-time').filter({hasText:'Tiempo estimado restante:'}).waitFor();
     assert.equal(await storeDialog.getByRole('button',{name:'Forzar actualización',exact:true}).isDisabled(),true);
     await settingsPage.setViewportSize({width:390,height:844});
     await settingsPage.screenshot({path:'test-results/store-progress-mobile.png',fullPage:true});
     assert.ok(await storeDialog.evaluate(dialog=>dialog.scrollWidth<=dialog.clientWidth+1));
     await settingsPage.evaluate(()=>{for(const callback of window.storeProgressListeners)callback({running:true,warehouse:'mad3',processed:11,total:20,estimated_seconds:12,phase:'ean'});});
-    await storeDialog.locator('#store-progress-count').filter({hasText:'11 de 20 códigos revisados'}).waitFor();
+    assert.match(await storeDialog.locator('#store-progress-count').textContent(),/11 de 20 códigos revisados/);
+    assert.equal(await storeDialog.locator('#store-progress-percentage').textContent(),'55 %');
     assert.equal(await progressBar.getAttribute('value'),'11');
     await settingsPage.evaluate(()=>{window.holdStoreRefresh=false;window.finishStoreRefresh();});
     await storeDialog.locator(".store-price strong").filter({hasText:'1,55'}).waitFor();

@@ -123,6 +123,6 @@ async def test_real_http_uses_public_fixed_paths_and_integrity_checks(feed, aioc
     for method, url, body, headers in aioclient_mock.mock_calls:
         assert method == "GET"
         assert str(url).startswith(ROOT)
-        assert "Authorization" not in headers
+        assert "Authorization" not in (headers or {})
     with pytest.raises(ValueError):
         await feed._get("../../private")

@@ -184,6 +184,11 @@ class ImprovedShoppingListPanel extends HTMLElement {
         .empty strong { display:block; font-size:18px; color:var(--primary-text-color,#20352d); margin-bottom:5px; }
         details { margin-top:24px; }
         summary { cursor:pointer; color:var(--secondary-text-color,#63766b); font-size:14px; padding:10px 0; }
+        #completed-summary { display:flex; align-items:center; gap:8px; }
+        #completed-summary::before { content:"▸"; flex:none; }
+        #completed-details[open] #completed-summary::before { content:"▾"; }
+        #completed-label { flex:1; min-width:0; }
+        #clear-completed { flex:none; margin-left:auto; min-height:36px; font-size:12px; padding:8px 10px; white-space:nowrap; border:1px solid var(--divider-color,#dfe7e1); border-radius:10px; background:transparent; color:inherit; }
         .notice { line-height:1.6; padding:12px 16px; border-radius:12px; background:var(--secondary-background-color,#edf4ee); margin:0 0 18px; font-size:14px; }
         .error { border:1px solid var(--error-color,#bd3636); color:var(--error-color,#bd3636); }
         [hidden] { display:none !important; }
@@ -226,7 +231,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
           <div class="list-header"><h2 id="pending-title">Lista de la compra</h2><span id="pending-count" class="count">0 productos</span></div>
           <ul id="pending" class="product-grid" aria-label="Lista de la compra"></ul>
           <div id="empty" class="empty" hidden></div>
-          <details id="completed-details"><summary id="completed-summary">Compras recientes</summary><ul id="completed" class="product-grid" aria-label="Compras recientes"></ul></details>
+          <details id="completed-details"><summary id="completed-summary"><span id="completed-label">Compras recientes</span><button id="clear-completed" type="button">Limpiar productos</button></summary><ul id="completed" class="product-grid" aria-label="Compras recientes"></ul></details>
         </section>
         <isl-catalog hidden></isl-catalog>
         <isl-settings hidden></isl-settings>
@@ -242,6 +247,11 @@ class ImprovedShoppingListPanel extends HTMLElement {
       this._renderData();
     });
     root.querySelector("#nav-shopping").addEventListener("click", () => this._switchView("shopping"));
+    root.querySelector("#clear-completed").addEventListener("click", event => {
+      event.preventDefault();
+      event.stopPropagation();
+      void this._runAction(() => this._session.clearCompleted(), "Productos completados eliminados de la lista.");
+    });
     root.querySelector("#nav-catalog").addEventListener("click", () => this._switchView("catalog"));
     root.querySelector("#nav-settings").addEventListener("click", () => this._switchView("settings"));
     root.querySelector("#nav-readers").addEventListener("click", () => this._switchView("readers"));
@@ -402,7 +412,12 @@ class ImprovedShoppingListPanel extends HTMLElement {
     }
     const details = root.querySelector("#completed-details");
     details.hidden = !completed.length;
-    root.querySelector("#completed-summary").textContent = `Compras recientes (${completed.length})`;
+    root.querySelector("#completed-label").textContent = `Compras recientes (${completed.length})`;
+    const clearCompleted = root.querySelector("#clear-completed");
+    const canDelete = supports(state, FEATURES.DELETE);
+    clearCompleted.disabled = locked || !canDelete || !completed.length;
+    clearCompleted.title = canDelete ? "Eliminar todos los productos completados de esta lista" : "Esta lista no permite eliminar productos desde Home Assistant";
+    clearCompleted.setAttribute("aria-busy", String(this._busy));
     const empty = root.querySelector("#empty");
     empty.hidden = pending.length > 0 || session.loading || !available || Boolean(session.error);
     if (!empty.hidden) {

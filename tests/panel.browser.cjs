@@ -166,6 +166,7 @@ const hass={
   callService:async(domain,service,args)=>{
     if(window.fail)throw new Error('Proveedor sin conexión');
     window.calls.push({domain,service,...args});
+    if(service==='remove_completed_items'){if(window.delayClear)await new Promise(resolve=>{window.releaseClear=resolve;});data[args.entity_id]=data[args.entity_id].filter(item=>item.status!=='completed');}
     if(service==='add_item')data[args.entity_id].push({uid:crypto.randomUUID(),summary:args.item,status:'needs_action'});
     if(service==='update_item'){const item=data[args.entity_id].find(item=>item.uid===args.item);if(!item)throw new Error('Item missing');if('status' in args)item.status=args.status;if('rename' in args)item.summary=args.rename;}
     window.emit(args.entity_id);
@@ -1181,6 +1182,37 @@ async function main() {
     await readersView.getByRole("status").filter({hasText:"Lector quitado"}).waitFor();
     assert.equal(await readerPage.evaluate(()=>window.readerFixture.readers.length),1);
     await readerContext.close();
+    // Clearing completed items uses the native provider action, with no effect on pending items.
+    const clearContext = await browser.newContext({viewport:{width:320,height:844}});
+    const clearPage = await clearContext.newPage();
+    clearPage.on("pageerror", error => errors.push(error.message));
+    await clearPage.goto(url);
+    const clearButton = clearPage.getByRole("button",{name:"Limpiar productos",exact:true});
+    await clearButton.waitFor();
+    assert.equal(await clearButton.isDisabled(),true);
+    await clearPage.evaluate(()=>{
+      const panel=window.testPanel;
+      panel.hass={...panel._hass,states:{...panel._hass.states,'todo.bring':{...panel._hass.states['todo.bring'],attributes:{...panel._hass.states['todo.bring'].attributes,supported_features:7}}}};
+    });
+    assert.ok(await clearButton.evaluate(button=>{
+      const row=button.closest('summary').getBoundingClientRect();const rect=button.getBoundingClientRect();
+      return Math.abs(row.right-rect.right)<1 && rect.right<=innerWidth && rect.width>0;
+    }));
+    await clearPage.evaluate(()=>{window.fail=true;});
+    await clearButton.click();
+    await clearPage.getByRole('alert').filter({hasText:'Proveedor sin conexión'}).waitFor();
+    assert.equal(await clearPage.evaluate(()=>window.listData['todo.bring'].filter(item=>item.status==='completed').length),1);
+    assert.equal(await clearPage.locator('#completed-details').evaluate(node=>node.open),false);
+    await clearPage.evaluate(()=>{window.fail=false;window.delayClear=true;});
+    await clearButton.click();
+    await clearPage.waitForFunction(()=>typeof window.releaseClear==='function');
+    assert.equal(await clearButton.isDisabled(),true);
+    await clearPage.evaluate(()=>window.releaseClear());
+    await clearPage.locator('#completed-details').waitFor({state:'hidden'});
+    assert.equal(await clearPage.locator('#pending > li').count(),2);
+    assert.equal(await clearPage.evaluate(()=>window.listData['todo.local'].length),1);
+    assert.equal(await clearPage.evaluate(()=>window.calls.filter(call=>call.service==='remove_completed_items').length),1);
+    await clearContext.close();
     // Iconify picker: five color proposals and an in-place next-results button.
     const iconContext = await browser.newContext({viewport:{width:1280,height:960}});
     const iconPage = await iconContext.newPage();

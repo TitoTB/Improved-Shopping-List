@@ -218,3 +218,41 @@ test("provider errors propagate and do not report successful mutations", async (
   await assert.rejects(session.add("Cacao"), /Bring no responde/);
   session.dispose();
 });
+
+test("clearing completed delegates to the native action on the selected list only", async () => {
+  const {hass,session,calls}=fixture();
+  hass.states['todo.bring'].attributes.supported_features=7;
+  await session.select('todo.bring');
+  assert.equal(await session.clearCompleted(),true);
+  assert.deepEqual(calls,[["todo","remove_completed_items",{entity_id:"todo.bring"}]]);
+  session.dispose();
+});
+
+test("clearing completed respects availability, delete capability and provider errors", async () => {
+  const {hass,session,calls}=fixture();
+  await session.select('todo.bring');
+  await assert.rejects(session.clearCompleted(),/no admite/);
+  assert.equal(calls.length,0);
+  hass.states['todo.bring'].attributes.supported_features=7;
+  hass.states['todo.bring'].state='unavailable';
+  await assert.rejects(session.clearCompleted(),/no está disponible/);
+  hass.states['todo.bring'].state='1';
+  hass.callService=async()=>{throw new Error('Provider failed');};
+  await assert.rejects(session.clearCompleted(),/Provider failed/);
+  session.dispose();
+});
+
+test("a pending clear cannot refresh or change a newly selected list", async () => {
+  const {hass,session,calls}=fixture();
+  const mutation=deferred();
+  hass.states['todo.bring'].attributes.supported_features=7;
+  hass.callService=(...args)=>{calls.push(args);return mutation.promise;};
+  await session.select('todo.bring');
+  const clearing=session.clearCompleted();
+  await session.select('todo.local');
+  mutation.resolve();
+  await clearing;
+  assert.equal(session.entityId,'todo.local');
+  assert.equal(calls[0][2].entity_id,'todo.bring');
+  session.dispose();
+});

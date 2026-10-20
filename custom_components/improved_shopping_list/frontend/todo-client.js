@@ -1,6 +1,6 @@
 /** Native Home Assistant APIs; the selected provider owns all list data. */
 import { productNameKey } from "./product-names.js?v=0.8.1";
-export const FEATURES = Object.freeze({ CREATE: 1, UPDATE: 4 });
+export const FEATURES = Object.freeze({ CREATE: 1, DELETE: 2, UPDATE: 4 });
 
 export function todoEntities(hass) {
   return Object.values(hass?.states ?? {})
@@ -138,6 +138,10 @@ export class TodoSession {
     return this._mutate("update_item", {
       item: item.uid, status: completed ? "completed" : "needs_action",
     }, FEATURES.UPDATE);
+  }
+
+  async clearCompleted() {
+    return this._mutate("remove_completed_items", {}, FEATURES.DELETE);
   }
 
   async renameFromSuggestion(source, summary) {

@@ -20,7 +20,34 @@ STORAGE_KEY = f"{DOMAIN}.catalog"
 FIELDS = {
     "id", "revision", "name", "category", "tags", "brand", "barcode",
     "format", "price", "currency", "image_url", "icon", "notes",
+    "barcodes", "nfc_tags", "reader_actions",
 }
+READER_ACTIONS = {"none", "add_list", "stock_remove", "stock_add"}
+
+
+def code_key(kind: str, code: str) -> str:
+    code = code.strip()
+    if kind == "nfc":
+        if re.fullmatch(r"[0-9a-fA-F:-]+", code):
+            return code.replace(":", "").replace("-", "").lower()
+        return code.casefold()
+    return code
+
+
+def product_codes(product: dict, kind: str) -> list[str]:
+    return ([product.get("barcode", "")] + product.get("barcodes", [])) if kind == "barcode" else product.get("nfc_tags", [])
+
+
+def _codes(data: dict, field: str, kind: str) -> list[str]:
+    values = data.get(field, [])
+    if not isinstance(values, list) or len(values) > 50:
+        raise CatalogError("Puedes asignar hasta 50 códigos de cada tipo.")
+    result = {}
+    for value in values:
+        if not isinstance(value, str) or not value.strip() or len(value) > 1024 or any(ord(char) < 32 for char in value):
+            raise CatalogError("Cada código debe ser un texto de entre 1 y 1024 caracteres, sin saltos de línea.")
+        result.setdefault(code_key(kind, value), value.strip())
+    return list(result.values())
 CATEGORY_FIELDS = {"id", "revision", "name", "icon", "color"}
 DEFAULT_CATEGORY_ICON = "mdi:tag"
 DEFAULT_CATEGORY_COLOR = "#64748b"
@@ -76,12 +103,23 @@ def normalize_product(data: dict[str, Any]) -> dict[str, Any]:
         key: _text(data, key, limit)
         for key, limit in (
             ("name", 160), ("category", 80), ("brand", 100),
-            ("barcode", 64), ("format", 100), ("image_url", 2048), ("notes", 1000),
+            ("barcode", 1024), ("format", 100), ("image_url", 2048), ("notes", 1000),
         )
     }
     if not product["name"]:
         raise CatalogError("El nombre del producto es obligatorio.")
     product["icon"] = _mdi_icon(data.get("icon", ""), optional=True)
+    product["barcodes"] = _codes(data, "barcodes", "barcode")
+    if product["barcode"]:
+        _codes({"barcode": [product["barcode"]]}, "barcode", "barcode")
+    product["nfc_tags"] = _codes(data, "nfc_tags", "nfc")
+    actions = data.get("reader_actions", {})
+    if not isinstance(actions, dict) or len(actions) > 100 or any(
+        not isinstance(key, str) or not 1 <= len(key) <= 100 or not isinstance(value, str) or value not in READER_ACTIONS
+        for key, value in actions.items()
+    ):
+        raise CatalogError("Las acciones de los lectores no son válidas.")
+    product["reader_actions"] = dict(actions)
     tags = data.get("tags", [])
     if not isinstance(tags, list) or len(tags) > 20:
         raise CatalogError("Puedes asignar hasta 20 etiquetas.")
@@ -176,6 +214,13 @@ class Catalog:
         """Return a snapshot so callers cannot mutate stored products."""
         return deepcopy(sorted(self._products.values(), key=lambda item: item["name"].casefold()))
 
+    def find_by_code(self, kind: str, code: str) -> dict | None:
+        key = code_key(kind, code)
+        for product in self._products.values():
+            if key and any(value and code_key(kind, value) == key for value in product_codes(product, kind)):
+                return deepcopy(product)
+        return None
+
     @property
     def categories(self) -> list[dict[str, Any]]:
         """Include usage counts without persisting derived information."""
@@ -235,17 +280,22 @@ class Catalog:
                     "Otra sesión ha modificado este producto. Cierra y vuelve a abrir su ficha.",
                     "conflict",
                 )
+            # Older panel sessions must not erase newly introduced reader fields.
+            if current:
+                for field in ("barcodes", "nfc_tags", "reader_actions"):
+                    if field not in data:
+                        product[field] = deepcopy(current.get(field, {} if field == "reader_actions" else []))
             if product["category"]:
                 category = next((item for item in self._categories.values()
                                  if item["name"].casefold() == product["category"].casefold()), None)
                 if category is None:
                     raise CatalogError("La categoría ya no existe. Selecciona otra o créala en Categorías.")
                 product["category"] = category["name"]
-            if product["barcode"] and any(
-                item["barcode"] == product["barcode"] and item["id"] != product_id
-                for item in self._products.values()
-            ):
-                raise CatalogError("Ya existe un producto con ese código de barras.", "duplicate_barcode")
+            for kind in ("barcode", "nfc"):
+                keys = {code_key(kind, value) for value in product_codes(product, kind) if value}
+                if any(item["id"] != product_id and keys.intersection(code_key(kind, value) for value in product_codes(item, kind) if value)
+                       for item in self._products.values()):
+                    raise CatalogError("Ya existe un producto con uno de esos códigos.", "duplicate_barcode" if kind == "barcode" else "duplicate_nfc")
             now = datetime.now(UTC).isoformat()
             product.update({
                 "id": current["id"] if current else str(uuid4()),

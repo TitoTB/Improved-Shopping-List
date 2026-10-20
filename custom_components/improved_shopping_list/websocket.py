@@ -37,6 +37,68 @@ def async_register_commands(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_settings_subscribe)
     websocket_api.async_register_command(hass, ws_settings_update)
     websocket_api.async_register_command(hass, ws_personalization)
+    websocket_api.async_register_command(hass, ws_readers_get)
+    websocket_api.async_register_command(hass, ws_readers_subscribe)
+    websocket_api.async_register_command(hass, ws_readers_save)
+    websocket_api.async_register_command(hass, ws_readers_delete)
+    websocket_api.async_register_command(hass, ws_readers_dismiss)
+
+
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/readers/get"})
+@callback
+def ws_readers_get(hass, connection, msg):
+    if _catalog(hass, connection, msg):
+        connection.send_result(msg["id"], hass.data[DOMAIN]["readers"].snapshot)
+
+
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/readers/subscribe"})
+@callback
+def ws_readers_subscribe(hass, connection, msg):
+    if not _catalog(hass, connection, msg):
+        return
+    readers = hass.data[DOMAIN]["readers"]
+
+    @callback
+    def on_update():
+        connection.send_event(msg["id"], readers.snapshot)
+
+    connection.subscriptions[msg["id"]] = readers.subscribe(on_update)
+    connection.send_result(msg["id"])
+    on_update()
+
+
+async def _reader_write(hass, connection, msg, operation):
+    if not _catalog(hass, connection, msg):
+        return
+    try:
+        result = await operation(hass.data[DOMAIN]["readers"])
+    except CatalogError as err:
+        connection.send_error(msg["id"], err.code, str(err))
+    except (OSError, HomeAssistantError):
+        _LOGGER.exception("Could not persist reader changes")
+        connection.send_error(msg["id"], "storage_error", "No se han podido guardar los cambios de lectores.")
+    else:
+        connection.send_result(msg["id"], result)
+
+
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/readers/save", vol.Required("reader"): dict})
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_readers_save(hass, connection, msg):
+    await _reader_write(hass, connection, msg, lambda manager: manager.async_save_reader(msg["reader"]))
+
+
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/readers/delete", vol.Required("reader_id"): str, vol.Required("revision"): int})
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_readers_delete(hass, connection, msg):
+    await _reader_write(hass, connection, msg, lambda manager: manager.async_delete_reader(msg["reader_id"], msg["revision"]))
+
+
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/readers/dismiss", vol.Required("pending_id"): str})
+@websocket_api.async_response
+async def ws_readers_dismiss(hass, connection, msg):
+    await _reader_write(hass, connection, msg, lambda manager: manager.async_dismiss(msg["pending_id"]))
 
 
 @websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/settings/get"})

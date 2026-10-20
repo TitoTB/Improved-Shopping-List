@@ -14,7 +14,8 @@ export function gradientTextColor(start, end) {
 }
 
 export class ListSettingsSession {
-  constructor(getHass, onChange) {
+  constructor(getHass, onChange, prefix = PREFIX) {
+    this.prefix = prefix;
     this.getHass = getHass;
     this.onChange = onChange;
     this.entities = [];
@@ -49,7 +50,7 @@ export class ListSettingsSession {
         if (generation !== this._generation) return;
         this._revision += 1;
         this._receive(data);
-      }, { type: `${PREFIX}subscribe` });
+      }, { type: `${this.prefix}subscribe` });
       if (generation !== this._generation) this._unsubscribeSafely(unsubscribe);
       else this._unsubscribe = unsubscribe;
     } catch (error) {
@@ -65,7 +66,7 @@ export class ListSettingsSession {
     const generation = this._generation;
     const revision = ++this._revision;
     try {
-      const data = await this.getHass().callWS({ type: `${PREFIX}get` });
+      const data = await this.getHass().callWS({ type: `${this.prefix}get` });
       if (generation === this._generation && revision === this._revision) this._receive(data);
     } catch (error) {
       if (generation === this._generation && revision === this._revision) {

@@ -1,0 +1,233 @@
+"""Real HA events, durable scan protection, mappings and native todo actions."""
+
+import asyncio
+from copy import deepcopy
+from types import SimpleNamespace
+from unittest.mock import AsyncMock
+
+import pytest
+from homeassistant.core import SupportsResponse
+from pytest_homeassistant_custom_component.common import MockConfigEntry
+
+from custom_components.improved_shopping_list.catalog import Catalog, CatalogError, normalize_product
+from custom_components.improved_shopping_list.const import CONF_TODO_ENTITY, DOMAIN
+from custom_components.improved_shopping_list.list_settings import ListSettings
+from custom_components.improved_shopping_list.readers import ReaderManager
+from custom_components.improved_shopping_list import readers as readers_module
+
+
+@pytest.fixture
+async def reader_env(hass, monkeypatch):
+    clock = [1800000000.0]
+    monkeypatch.setattr(readers_module, "time", SimpleNamespace(time=lambda: clock[0]))
+    for entity in ("todo.bring", "todo.local"):
+        hass.states.async_set(entity, "0", {"supported_features": 5, "friendly_name": entity})
+    hass.states.async_set("sensor.scanner", "")
+    entry = MockConfigEntry(domain=DOMAIN, data={CONF_TODO_ENTITY:"todo.bring"})
+    entry.add_to_hass(hass)
+    settings = ListSettings(hass)
+    settings.attach(entry)
+    catalog = Catalog(hass)
+    await catalog.async_load()
+    manager = ReaderManager(hass, catalog, settings)
+    await manager.async_load()
+    manager.start()
+    calls = []
+    items = {"todo.bring": [], "todo.local": []}
+
+    async def get_items(call):
+        return {call.data["entity_id"]:{"items":deepcopy(items[call.data["entity_id"]])}}
+
+    async def add_item(call):
+        calls.append(("add",dict(call.data)))
+        items[call.data["entity_id"]].append({"uid":f"item-{len(calls)}","summary":call.data["item"],"status":"needs_action"})
+
+    async def update_item(call):
+        calls.append(("update",dict(call.data)))
+        next(item for item in items[call.data["entity_id"]] if item["uid"]==call.data["item"])["status"]=call.data["status"]
+
+    hass.services.async_register("todo","get_items",get_items,supports_response=SupportsResponse.ONLY)
+    hass.services.async_register("todo","add_item",add_item)
+    hass.services.async_register("todo","update_item",update_item)
+    env = SimpleNamespace(manager=manager,catalog=catalog,settings=settings,clock=clock,calls=calls,items=items)
+    yield env
+    await manager.async_stop()
+
+
+async def add_reader(env, **changes):
+    return await env.manager.async_save_reader({"name":"Cocina","entity_id":"sensor.scanner",**changes})
+
+
+async def add_product(env, reader, **changes):
+    return await env.catalog.async_save_product({"name":"Cacao","barcode":"0012345","barcodes":["0012346"],"nfc_tags":["AA:BB:CC:DD"],"reader_actions":{reader["id"]:"add_list"},**changes})
+
+
+async def test_reader_entity_events_add_once_and_restore_completed(hass, reader_env):
+    env=reader_env
+    reader=await add_reader(env)
+    await add_product(env,reader)
+    hass.states.async_set("sensor.scanner","0012345")
+    await hass.async_block_till_done()
+    assert len(env.calls)==1 and env.calls[0][1]["entity_id"]=="todo.bring"
+    assert env.items["todo.bring"][0]["summary"]=="Cacao"
+    # A second code for the same product is guarded by reader/product, not just raw code.
+    hass.states.async_set("sensor.scanner","0012346")
+    await hass.async_block_till_done()
+    assert len(env.calls)==1
+    assert "repetida" in env.manager.snapshot["readers"][0]["last"]["message"]
+    env.clock[0]+=61
+    hass.states.async_set("sensor.scanner","0012345")
+    await hass.async_block_till_done()
+    assert len(env.calls)==1  # Already pending: never insert a second entry.
+    env.items["todo.bring"][0]["status"]="completed"
+    env.clock[0]+=61
+    hass.states.async_set("sensor.scanner","0012345",force_update=True)
+    await hass.async_block_till_done()
+    assert env.calls[-1][0]=="update"
+    assert env.calls[-1][1]["item"]==env.items["todo.bring"][0]["uid"]
+    assert env.items["todo.bring"][0]["status"]=="needs_action"
+    assert len(env.items["todo.bring"])==1
+
+
+async def test_reader_per_reader_targets_and_cross_reader_no_duplicates(hass, reader_env):
+    env=reader_env
+    first=await add_reader(env,list_entity="todo.local")
+    hass.states.async_set("sensor.second", "")
+    second=await add_reader(env,name="Despensa",entity_id="sensor.second",list_entity="todo.local")
+    await add_product(env,first,reader_actions={first["id"]:"add_list",second["id"]:"add_list"})
+    await asyncio.gather(env.manager.async_process(first["id"],"0012345"),env.manager.async_process(second["id"],"0012345"))
+    assert len(env.calls)==1 and env.calls[0][1]["entity_id"]=="todo.local"
+    assert len(env.items["todo.local"])==1 and env.items["todo.bring"]==[]
+
+
+async def test_reader_rejects_duplicate_sources_and_invalid_config(reader_env):
+    env=reader_env
+    await add_reader(env)
+    with pytest.raises(CatalogError,match="Ya hay"):
+        await add_reader(env,name="Duplicado")
+    for changes in ({"cooldown":0},{"cooldown":True},{"entity_id":"sensor.missing"},{"kind":"other"},{"list_entity":"todo.missing"},{"source":"tag","kind":"nfc","device_id":""}):
+        with pytest.raises(CatalogError):
+            await add_reader(env,**changes)
+
+
+async def test_unknown_codes_suggestions_association_and_dismissal(hass, reader_env):
+    env=reader_env
+    reader=await add_reader(env)
+    await env.manager.async_process(reader["id"],"00009999")
+    pending=env.manager.snapshot["pending"]
+    assert len(pending)==1 and pending[0]["code"]=="00009999"
+    assert env.calls==[]
+    env.clock[0]+=61
+    await env.manager.async_process(reader["id"],"00009999")
+    assert len(env.manager.snapshot["pending"])==1
+    await add_product(env,reader,barcode="00009999")
+    await hass.async_block_till_done()
+    assert env.manager.snapshot["pending"]==[]
+    assert env.calls==[]  # Associating a past scan never replays an action.
+    env.clock[0]+=61
+    await env.manager.async_process(reader["id"],"new-unknown")
+    pending=env.manager.snapshot["pending"][0]
+    await env.manager.async_dismiss(pending["id"])
+    env.clock[0]+=61
+    await env.manager.async_process(reader["id"],"new-unknown")
+    assert env.manager.snapshot["pending"]==[]
+
+
+async def test_nfc_events_and_attribute_entities(hass, reader_env):
+    env=reader_env
+    nfc=await add_reader(env,name="NFC",kind="nfc",source="tag",device_id="device-1")
+    await add_product(env,nfc)
+    hass.bus.async_fire("tag_scanned",{"device_id":"other-device","tag_id":"aa-bb-cc-dd"})
+    await hass.async_block_till_done()
+    assert env.calls==[]
+    hass.bus.async_fire("tag_scanned",{"device_id":"device-1","tag_id":"aa-bb-cc-dd"})
+    await hass.async_block_till_done()
+    assert len(env.calls)==1
+    hass.states.async_set("event.scanner","first",{"code":""})
+    attribute=await add_reader(env,name="Atributo",entity_id="event.scanner",attribute="code")
+    hass.states.async_set("event.scanner","second",{"code":"https://example.test/qr/001"})
+    await hass.async_block_till_done()
+    assert env.manager.snapshot["pending"][0]["code"]=="https://example.test/qr/001"
+    assert env.manager.snapshot["pending"][0]["reader_id"]==attribute["id"]
+
+
+async def test_stock_disabled_and_durable_cooldown(hass, reader_env):
+    env=reader_env
+    reader=await add_reader(env)
+    await add_product(env,reader,reader_actions={reader["id"]:"stock_remove"})
+    await env.manager.async_process(reader["id"],"0012345")
+    assert env.calls==[]
+    assert "inventario pendiente" in env.manager.snapshot["readers"][0]["last"]["message"]
+    await env.manager.async_stop()
+    restored=ReaderManager(hass,env.catalog,env.settings)
+    await restored.async_load()
+    restored.start()
+    try:
+        await restored.async_process(reader["id"],"0012346")
+        assert "repetida" in restored.snapshot["readers"][0]["last"]["message"]
+        saved=await restored.async_save_reader({**reader,"enabled":False})
+        env.clock[0]+=61
+        await restored.async_process(reader["id"],"new")
+        assert restored.snapshot["pending"]==[]
+        with pytest.raises(CatalogError,match="cambiado"):
+            await restored.async_delete_reader(reader["id"],reader["revision"])
+        await restored.async_delete_reader(saved["id"],saved["revision"])
+        assert restored.snapshot["readers"]==[]
+    finally:
+        await restored.async_stop()
+
+
+async def test_reader_disk_failure_and_unavailable_target_are_not_silent(hass, reader_env, monkeypatch):
+    env=reader_env
+    reader=await add_reader(env)
+    await add_product(env,reader)
+    save=env.manager._store.async_save
+    monkeypatch.setattr(env.manager._store,"async_save",AsyncMock(side_effect=OSError("Disk full")))
+    await env.manager.async_process(reader["id"],"0012345")
+    assert env.calls==[]
+    assert "No se pudo" in env.manager.snapshot["readers"][0]["last"]["message"]
+    monkeypatch.setattr(env.manager._store,"async_save",save)
+    hass.states.async_set("todo.bring","unavailable",{"supported_features":5})
+    await env.manager.async_process(reader["id"],"0012345")
+    assert env.calls==[]
+    assert "No se pudo" in env.manager.snapshot["readers"][0]["last"]["message"]
+
+
+async def test_multiple_codes_uniqueness_and_legacy_edits(hass):
+    catalog=Catalog(hass)
+    await catalog.async_load()
+    product=await catalog.async_save_product({"name":"Cacao","barcode":"001","barcodes":["002","002"],"nfc_tags":["AA:BB:CC:DD"],"reader_actions":{"reader-1":"stock_add"}})
+    assert product["barcodes"]==["002"]
+    assert catalog.find_by_code("nfc","aa-bb-cc-dd")["id"]==product["id"]
+    with pytest.raises(CatalogError,match="Ya existe"):
+        await catalog.async_save_product({"name":"Otro","barcode":"002"})
+    with pytest.raises(CatalogError,match="Ya existe"):
+        await catalog.async_save_product({"name":"Otro","nfc_tags":["aabbccdd"]})
+    legacy={key:value for key,value in product.items() if key in {"id","revision","name","category","tags","brand","barcode","format","price","currency","image_url","icon","notes"}}
+    updated=await catalog.async_save_product({**legacy,"name":"Cacao puro"})
+    assert updated["barcodes"]==["002"] and updated["nfc_tags"]==["AA:BB:CC:DD"]
+    assert updated["reader_actions"]=={"reader-1":"stock_add"}
+
+
+@pytest.mark.parametrize("changes",[{"barcodes":"123"},{"nfc_tags":["x\ny"]},{"reader_actions":{"r":{}}},{"reader_actions":{"r":"execute_shell"}}])
+def test_code_fields_validation(changes):
+    with pytest.raises(CatalogError):
+        normalize_product({"name":"Cacao",**changes})
+
+
+async def test_reader_websocket_admin_and_reload(hass,hass_ws_client,hass_read_only_user):
+    hass.states.async_set("sensor.scanner","")
+    entry=MockConfigEntry(domain=DOMAIN,data={CONF_TODO_ENTITY:"todo.bring"})
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    client=await hass_ws_client(hass)
+    await client.send_json({"id":1,"type":f"{DOMAIN}/readers/save","reader":{"name":"Cocina","entity_id":"sensor.scanner"}})
+    saved=(await client.receive_json())["result"]
+    assert saved["cooldown"]==60
+    token=await hass.auth.async_create_refresh_token(hass_read_only_user,client_id="http://test.local")
+    readonly=await hass_ws_client(hass,hass.auth.async_create_access_token(token))
+    await readonly.send_json({"id":1,"type":f"{DOMAIN}/readers/delete","reader_id":saved["id"],"revision":saved["revision"]})
+    assert (await readonly.receive_json())["error"]["code"]=="unauthorized"
+    assert await hass.config_entries.async_unload(entry.entry_id)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    assert hass.data[DOMAIN]["readers"].snapshot["readers"][0]["id"]==saved["id"]

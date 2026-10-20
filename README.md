@@ -70,6 +70,20 @@ El apartado **Ajustes** (`mdi:cog`) permite añadir cualquier entidad `todo` de 
 
 La selección de listas y la principal se guardan en las opciones de la integración en Home Assistant, se comparten entre dispositivos y se sincronizan en los paneles abiertos. Las instalaciones anteriores conservan las listas que tenían disponibles al actualizar. Un administrador puede modificar estos ajustes; el resto de usuarios pueden consultar y utilizar las listas según los permisos de Home Assistant. **Configurar** en la integración también permite cambiar la principal sin perder las listas añadidas. Cambiar de lista desde el popup solo cambia la selección de esa sesión.
 
+## Lectores de códigos y NFC
+
+El apartado **Lectores** (`mdi:barcode-scan`) permite añadir, editar, desactivar o quitar lectores. Cada lector tiene un nombre, tipo (barras/QR o NFC), lista de destino y protección antirrepetición; la lista principal y 60 segundos son los valores predeterminados. Configurar lectores requiere una cuenta administradora. Quitar un lector no elimina su entidad ni los productos del catálogo.
+
+Puedes utilizar el estado de cualquier entidad existente, como `sensor.lector_cb_codigo_leido`, o indicar el atributo que contiene el código. Para lectores que generan eventos `tag_scanned`, elige NFC, esa fuente y el `device_id` del dispositivo. Los identificadores se tratan como texto, conservando ceros iniciales; los QR se usan como identificadores literales, sin abrir sus enlaces ni consultar APIs. Los identificadores NFC hexadecimales admiten diferencias de mayúsculas y separadores `:` o `-`.
+
+En la ficha del producto puedes añadir un código principal, hasta 50 códigos adicionales de barras/QR y hasta 50 identificadores NFC, uno por línea. Un mismo código no puede corresponder a dos productos del mismo tipo. Para cada lector puedes elegir **Sin acción**, **Añadir a la lista de la compra**, **Quitar una unidad al stock** o **Añadir una unidad al stock**. Las acciones de stock se guardan para una fase posterior y, por ahora, solo informan de que el inventario está pendiente de implementar.
+
+Las lecturas se procesan en Home Assistant aunque el panel esté cerrado. El intervalo antirrepetición se aplica a cada pareja lector/producto y también al código leído, se guarda para sobrevivir a recargas y no impide leer otros productos. No se ejecutan lecturas antiguas al arrancar ni cambios de atributos ajenos al código. Para repetir exactamente el mismo código tras el intervalo, la entidad debe generar una nueva lectura/evento; conservar su valor sin emitir nada no es una nueva lectura.
+
+Una lectura desconocida aparece en **Catálogo → Sugerencias**, donde puedes abrir la ficha de un producto nuevo o seleccionar uno existente para asociar el código. El formulario permite completar los datos y elegir las acciones de sus lectores antes de guardar. Asociar una lectura pasada no ejecuta su acción automáticamente. También puedes descartar un código desconocido de forma persistente.
+
+Al añadir a una lista se comprueba si el producto ya está pendiente, comparando el nombre sin diferencias de mayúsculas o espacios. En ese caso se mantiene una sola entrada. Si está comprado, se recupera el mismo elemento cuando el proveedor admite actualizarlo. Una lista explícita que se haya quitado de Ajustes o que esté indisponible produce un error visible en la última lectura; no se sustituye silenciosamente por otra. El apartado Lectores muestra la última lectura y su resultado, incluidas repeticiones ignoradas y errores. Tras un error puedes efectuar una nueva lectura una vez transcurrido el intervalo.
+
 Eliminar la integración retira el panel y desactiva sus comandos de catálogo.
 
 ## Desarrollo y comprobaciones

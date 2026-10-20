@@ -32,6 +32,12 @@ const emitCatalog=()=>{
 window.calls=[];window.fail=false;window.failCatalog=false;
 window.listSettings=JSON.parse(localStorage.getItem('settings-fixture')??'{"entities":["todo.bring","todo.local","todo.readonly"],"primary_entity":"todo.bring"}');
 window.failSettings=false;
+window.readerFixture=JSON.parse(localStorage.getItem('reader-fixture')??'{"readers":[],"pending":[]}');
+window.failReaders=false;
+window.emitReaders=()=>{
+  localStorage.setItem('reader-fixture',JSON.stringify(window.readerFixture));
+  for(const listener of listeners.keys())if(listener.readers)listener.callback(structuredClone(window.readerFixture));
+};
 window.emitSettings=()=>{
   localStorage.setItem('settings-fixture',JSON.stringify(window.listSettings));
   for(const listener of listeners.keys())if(listener.settings)listener.callback(structuredClone(window.listSettings));
@@ -45,6 +51,9 @@ const hass={
     'todo.readonly':{entity_id:'todo.readonly',state:'1',attributes:{friendly_name:'Solo lectura',supported_features:0}}
   },
   connection:{subscribeMessage:async(callback,msg)=>{
+    if(msg.type==='improved_shopping_list/readers/subscribe'){
+      const listener={callback,readers:true};listeners.set(listener,true);callback(structuredClone(window.readerFixture));return()=>listeners.delete(listener);
+    }
     if(msg.type==='improved_shopping_list/settings/subscribe'){
       const listener={callback,settings:true};listeners.set(listener,true);
       callback(structuredClone(window.listSettings));return ()=>listeners.delete(listener);
@@ -59,6 +68,15 @@ const hass={
     return ()=>listeners.delete(listener);
   }},
   callWS:async(msg)=>{
+    if(msg.type==='improved_shopping_list/readers/get')return structuredClone(window.readerFixture);
+    if(msg.type==='improved_shopping_list/readers/save'){
+      if(window.failReaders)throw new Error('No se ha podido guardar el lector');
+      const old=window.readerFixture.readers.find(reader=>reader.id===msg.reader.id);
+      const reader={entity_id:'',attribute:'',device_id:'',list_entity:'',...msg.reader,id:old?.id??crypto.randomUUID(),revision:(old?.revision??0)+1};
+      window.readerFixture.readers=window.readerFixture.readers.filter(item=>item.id!==reader.id);window.readerFixture.readers.push(reader);window.emitReaders();return reader;
+    }
+    if(msg.type==='improved_shopping_list/readers/delete'){window.readerFixture.readers=window.readerFixture.readers.filter(reader=>reader.id!==msg.reader_id);window.emitReaders();return null;}
+    if(msg.type==='improved_shopping_list/readers/dismiss'){window.readerFixture.pending=window.readerFixture.pending.filter(item=>item.id!==msg.pending_id);window.emitReaders();return null;}
     if(msg.type==='improved_shopping_list/settings/get')return structuredClone(window.listSettings);
     if(msg.type==='improved_shopping_list/settings/personalization'){
       if(window.failSettings)throw new Error('No se ha podido guardar la personalización');
@@ -138,7 +156,7 @@ async function main() {
   const server = http.createServer(async (req, res) => {
     const pathname = new URL(req.url, "http://localhost").pathname;
     if (pathname === "/") { res.setHeader("content-type", "text/html; charset=utf-8"); res.end(html); return; }
-    if (!["/panel.js", "/todo-client.js", "/catalog-panel.js", "/catalog-client.js", "/category-panel.js", "/list-settings-client.js", "/settings-panel.js", "/logo.png"].includes(pathname)) { res.writeHead(404).end(); return; }
+    if (!["/panel.js", "/todo-client.js", "/catalog-panel.js", "/catalog-client.js", "/category-panel.js", "/list-settings-client.js", "/settings-panel.js", "/readers-client.js", "/readers-panel.js", "/logo.png"].includes(pathname)) { res.writeHead(404).end(); return; }
     res.setHeader("content-type", pathname.endsWith(".png") ? "image/png" : "text/javascript; charset=utf-8");
     res.end(await fs.readFile(path.join(root, pathname.slice(1))));
   });
@@ -206,7 +224,7 @@ async function main() {
     assert.equal(await page.evaluate(() => window.injected), undefined);
     assert.equal(await page.getByLabel("Añadir producto", { exact: true }).inputValue(), "");
 
-    assert.equal(await page.locator(".purchase-control,input[type=checkbox]").count(), 0);
+    assert.equal(await page.locator("#items-card .purchase-control,#items-card input[type=checkbox]").count(), 0);
     assert.equal(await listCards.first().locator("button.item").evaluate(node => getComputedStyle(node).backgroundImage), "linear-gradient(rgb(238, 82, 79), rgb(181, 42, 39))");
     await page.getByRole("button", { name: "Marcar como comprado: Cacao", exact: true }).click();
     await page.getByText("Comprados (2)", { exact: true }).waitFor();
@@ -226,7 +244,7 @@ async function main() {
     await selectList(page, "todo.local");
     await page.locator("#pending").getByText("Detergente", { exact: true }).waitFor();
     assert.equal(await page.locator("#pending").getByText("Cacao puro", { exact: true }).count(), 0);
-    assert.equal(await page.evaluate(() => window.listenerCount()), 3);
+    assert.equal(await page.evaluate(() => window.listenerCount()), 4);
 
     await selectList(page, "todo.readonly");
     await page.locator("#pending").getByText("Lista compartida", { exact: true }).waitFor();
@@ -668,6 +686,82 @@ async function main() {
     assert.equal(await settingsView.getByRole("button", { name: "Añadir lista", exact: true }).isDisabled(), true);
     assert.equal(await settingsView.getByRole("button", { name: "Quitar: Compra · Bring!", exact: true }).isDisabled(), true);
     await settingsContext.close();
+    // Reader configuration and unknown-code association use the same product form.
+    const readerContext=await browser.newContext({viewport:{width:1280,height:960}});
+    const readerPage=await readerContext.newPage();readerPage.on("pageerror",error=>errors.push(error.message));
+    await readerPage.goto(url);
+    await readerPage.evaluate(()=>{const panel=window.testPanel;panel.hass={...panel._hass,states:{...panel._hass.states,'sensor.lector_cb_codigo_leido':{entity_id:'sensor.lector_cb_codigo_leido',state:'',attributes:{friendly_name:'Código leído'}}}};});
+    await readerPage.getByRole("button",{name:"Lectores",exact:true}).click();
+    assert.equal(await readerPage.locator("#nav-readers ha-icon").getAttribute("icon"),"mdi:barcode-scan");
+    const readersView=readerPage.locator("isl-readers");
+    await readersView.getByRole("button",{name:"Añadir lector",exact:true}).click();
+    const readerDialog=readersView.getByRole("dialog",{name:"Añadir lector",exact:true});
+    await readerDialog.getByLabel("Nombre del lector",{exact:true}).fill("Cocina");
+    await readerDialog.getByLabel("Entidad del lector",{exact:true}).fill("sensor.lector_cb_codigo_leido");
+    await readerDialog.getByLabel("Lista de destino",{exact:true}).selectOption("todo.local");
+    assert.equal(await readerDialog.getByLabel("Antirrepetición (segundos)",{exact:true}).inputValue(),"60");
+    await readerPage.evaluate(()=>{window.failReaders=true;});
+    await readerDialog.getByRole("button",{name:"Guardar lector",exact:true}).click();
+    await readerDialog.getByRole("alert").filter({hasText:"No se ha podido guardar el lector"}).waitFor();
+    assert.equal(await readerDialog.getByLabel("Nombre del lector",{exact:true}).inputValue(),"Cocina");
+    await readerPage.evaluate(()=>{window.failReaders=false;});
+    await readerDialog.getByRole("button",{name:"Guardar lector",exact:true}).click();
+    await readersView.getByRole("heading",{name:"Cocina",exact:true}).waitFor();
+    await readersView.getByRole("button",{name:"Añadir lector",exact:true}).click();
+    await readerDialog.getByLabel("Nombre del lector",{exact:true}).fill("NFC despensa");
+    await readerDialog.getByLabel("Tipo de lector",{exact:true}).selectOption("nfc");
+    await readerDialog.getByLabel("Fuente de lectura",{exact:true}).selectOption("tag");
+    await readerDialog.getByLabel("Device ID del lector NFC",{exact:true}).fill("nfc-device");
+    await readerDialog.getByRole("button",{name:"Guardar lector",exact:true}).click();
+    await readersView.getByRole("heading",{name:"NFC despensa",exact:true}).waitFor();
+    await readerPage.evaluate(()=>{const reader=window.readerFixture.readers[0];window.readerFixture.pending=[{id:'scan-1',kind:'barcode',code:'0012345678905',reader_id:reader.id,reader_name:reader.name,time:new Date().toISOString()}];window.emitReaders();});
+    await readerPage.screenshot({path:"test-results/readers-desktop.png",fullPage:true});
+    await readersView.getByRole("button",{name:"Ver códigos desconocidos en Sugerencias",exact:true}).click();
+    const readerCatalog=readerPage.locator("isl-catalog");
+    await readerCatalog.getByRole("button",{name:"Completar ficha del código 0012345678905",exact:true}).click();
+    const codeDialog=readerCatalog.getByRole("dialog",{name:"Nuevo producto",exact:true});
+    assert.equal(await codeDialog.getByLabel("Código de barras",{exact:true}).inputValue(),"0012345678905");
+    assert.equal(await codeDialog.getByLabel("Nombre del producto",{exact:true}).inputValue(),"");
+    await codeDialog.getByLabel("Nombre del producto",{exact:true}).fill("Cacao lector");
+    await codeDialog.getByLabel("Otros códigos de barras o QR",{exact:true}).fill("https://example.test/cacao\n0012345678906");
+    await codeDialog.getByLabel("Etiquetas NFC",{exact:true}).fill("AA:BB:CC:DD\ntag-despensa");
+    await codeDialog.getByLabel("Cocina",{exact:true}).selectOption("add_list");
+    await codeDialog.getByLabel("NFC despensa",{exact:true}).selectOption("stock_remove");
+    await codeDialog.getByRole("button",{name:"Guardar producto",exact:true}).click();
+    await readerCatalog.getByRole("status").filter({hasText:"Producto guardado"}).waitFor();
+    assert.equal(await readerCatalog.getByRole("button",{name:"Completar ficha del código 0012345678905",exact:true}).count(),0);
+    assert.deepEqual(await readerPage.evaluate(()=>window.catalogProducts[0].barcodes),["https://example.test/cacao","0012345678906"]);
+    assert.equal(await readerPage.evaluate(()=>Object.values(window.catalogProducts[0].reader_actions).includes("stock_remove")),true);
+    await readerPage.evaluate(()=>{const reader=window.readerFixture.readers[1];window.readerFixture.pending=[{id:'scan-2',kind:'nfc',code:'11223344',reader_id:reader.id,reader_name:reader.name,time:new Date().toISOString()}];window.emitReaders();});
+    const productId=await readerPage.evaluate(()=>window.catalogProducts[0].id);
+    await readerCatalog.getByLabel("Producto para el código 11223344",{exact:true}).selectOption(productId);
+    await readerPage.evaluate(()=>window.emitReaders());
+    assert.equal(await readerCatalog.getByLabel("Producto para el código 11223344",{exact:true}).inputValue(),productId);
+    await readerCatalog.getByRole("button",{name:"Completar ficha del código 11223344",exact:true}).click();
+    const linkDialog=readerCatalog.getByRole("dialog",{name:"Editar producto",exact:true});
+    assert.ok((await linkDialog.getByLabel("Etiquetas NFC",{exact:true}).inputValue()).includes("11223344"));
+    assert.equal(await linkDialog.getByLabel("Cocina",{exact:true}).inputValue(),"add_list");
+    await linkDialog.getByRole("button",{name:"Guardar producto",exact:true}).click();
+    await readerCatalog.getByRole("status").filter({hasText:"Producto guardado"}).waitFor();
+    assert.equal(await readerPage.evaluate(()=>window.catalogProducts.length),1);
+    await readerPage.getByRole("button",{name:"Lectores",exact:true}).click();
+    await readersView.getByRole("button",{name:"Editar lector Cocina",exact:true}).click();
+    const editReader=readersView.getByRole("dialog",{name:"Editar lector",exact:true});
+    await editReader.getByLabel("Antirrepetición (segundos)",{exact:true}).fill("90");
+    await editReader.getByRole("button",{name:"Guardar lector",exact:true}).click();
+    await readersView.getByRole("status").filter({hasText:"Lector guardado"}).waitFor();
+    assert.equal(await readerPage.evaluate(()=>window.readerFixture.readers.find(reader=>reader.name==='Cocina').cooldown),90);
+    await readerPage.setViewportSize({width:390,height:844});
+    await readerPage.screenshot({path:"test-results/readers-mobile.png",fullPage:true});
+    assert.equal(await readerPage.locator("main").evaluate(node=>node.scrollWidth>innerWidth),false);
+    await readerPage.reload();
+    await readerPage.getByRole("button",{name:"Lectores",exact:true}).click();
+    await readersView.getByRole("heading",{name:"NFC despensa",exact:true}).waitFor();
+    await readersView.getByRole("button",{name:"Quitar lector NFC despensa",exact:true}).click();
+    await readersView.getByRole("dialog",{name:"Quitar lector",exact:true}).getByRole("button",{name:"Quitar lector",exact:true}).click();
+    await readersView.getByRole("status").filter({hasText:"Lector quitado"}).waitFor();
+    assert.equal(await readerPage.evaluate(()=>window.readerFixture.readers.length),1);
+    await readerContext.close();
     await page.evaluate(() => window.testPanel.remove());
     assert.equal(await page.evaluate(() => window.listenerCount()), 0);
     assert.deepEqual(errors, []);

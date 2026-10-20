@@ -48,6 +48,14 @@ class ImprovedShoppingCatalog extends HTMLElement {
     this._renderSuggestions();
   }
 
+  set readerData(value) {
+    this._readers = value;
+    this._renderReaderActions();
+    this._renderSuggestions();
+  }
+
+  showSuggestions() { this._switchView("suggestions"); }
+
   set listItems(value) {
     const signature = JSON.stringify((value ?? []).map(item => item.summary));
     if (signature === this._listSignature) return;
@@ -177,7 +185,10 @@ class ImprovedShoppingCatalog extends HTMLElement {
             <label>Etiquetas<input name="tags" maxlength="850" placeholder="Desayuno, sin gluten"></label>
             <label>Marca<input name="brand" maxlength="100"></label>
             <label>Formato<input name="format" maxlength="100" placeholder="250 g, 1 l, 6 unidades…"></label>
-            <label class="wide">Código de barras<input name="barcode" type="text" inputmode="numeric" maxlength="64"></label>
+            <label class="wide">Código de barras<input name="barcode" type="text" maxlength="1024"></label>
+            <label class="wide">Otros códigos de barras o QR<textarea name="barcodes" maxlength="52000" placeholder="Un código por línea"></textarea></label>
+            <label class="wide">Etiquetas NFC<textarea name="nfc_tags" maxlength="52000" placeholder="Un identificador por línea"></textarea></label>
+            <div class="wide"><h3>Acciones de los lectores</h3><div id="product-reader-actions"></div><p class="helper">La acción se aplica solo al reconocer este producto. Las acciones de stock quedan guardadas para cuando esté disponible el inventario.</p></div>
             <label>Precio orientativo<input name="price" type="number" min="0" max="1000000" step="0.01" placeholder="Sin precio"></label>
             <label>Moneda<select name="currency"><option value="EUR">EUR · Euro</option><option value="USD">USD · Dólar</option><option value="GBP">GBP · Libra</option></select></label>
             <label class="wide">URL de la imagen<input name="image_url" maxlength="2048" placeholder="https://… o /local/producto.png"></label>
@@ -251,12 +262,13 @@ class ImprovedShoppingCatalog extends HTMLElement {
   _renderSuggestions() {
     if (!this._built) return;
     const root = this.shadowRoot;
+    const selections = new Map([...root.querySelectorAll("[data-pending-id]")].map(row => [row.dataset.pendingId,row.querySelector("select").value]));
     const error = root.querySelector("#suggestions-error");
     error.hidden = !this._suggestionError;
     error.textContent = this._suggestionError ?? "";
     root.querySelector("#suggestions-source").textContent = this._listName
-      ? `Productos de «${this._listName}» que todavía no están en tu catálogo. Puedes cambiar de lista en el apartado Lista.`
-      : "Selecciona una lista en el apartado Lista para ver sus sugerencias.";
+      ? `Productos de «${this._listName}» que todavía no están en tu catálogo y códigos desconocidos de tus lectores.`
+      : "Aquí aparecerán los códigos desconocidos de tus lectores. Selecciona una lista para ver también sus productos sugeridos.";
     const excluded = new Set([
       ...this._catalog.products.map(product => normalizedName(product.name)),
       ...this._catalog.dismissedSuggestions.map(normalizedName),
@@ -289,8 +301,56 @@ class ImprovedShoppingCatalog extends HTMLElement {
       row.append(actions);
       return row;
     });
-    root.querySelector("#suggestions-list").replaceChildren(...rows);
-    root.querySelector("#suggestions-empty").hidden = suggestions.length > 0 || this._catalog.loading || Boolean(this._catalog.error);
+    const pending = (this._readers?.pending ?? []).filter(item => !this._catalog.products.some(product => {
+      const values = item.kind === "nfc" ? product.nfc_tags ?? [] : [product.barcode, ...(product.barcodes ?? [])];
+      return values.includes(item.code);
+    }));
+    root.querySelector("#suggestions-list").replaceChildren(...rows, ...pending.map(item => this._codeSuggestion(item,selections.get(item.id))));
+    root.querySelector("#suggestions-empty").hidden = suggestions.length > 0 || pending.length > 0 || this._catalog.loading || Boolean(this._catalog.error);
+  }
+
+  _codeSuggestion(item, selectedProduct) {
+    const row = element("article", "suggestion");
+    row.dataset.pendingId=item.id;
+    const info = element("div");
+    info.style.cssText = "flex:1;min-width:0;overflow-wrap:anywhere";
+    info.append(element("h2", "", item.kind === "nfc" ? "Etiqueta NFC sin identificar" : "Código sin identificar"), element("p", "subtitle", item.code), element("p", "subtitle", item.reader_name));
+    const select = element("select");
+    select.setAttribute("aria-label", `Producto para el código ${item.code}`);
+    select.append(new Option("Crear un producto nuevo", ""), ...this._catalog.products.map(product => new Option([product.name,product.brand,product.format].filter(Boolean).join(" · "),product.id)));
+    if(this._catalog.products.some(product=>product.id===selectedProduct))select.value=selectedProduct;
+    info.append(select);
+    const actions = element("div", "actions");
+    const add = element("button", "primary", "Completar ficha");
+    add.setAttribute("aria-label", `Completar ficha del código ${item.code}`);
+    add.addEventListener("click", () => this._openProduct(this._catalog.products.find(product => product.id === select.value), "", item));
+    const dismiss = element("button", "", "Descartar");
+    dismiss.setAttribute("aria-label", `Descartar código ${item.code}`);
+    dismiss.addEventListener("click", async () => {
+      dismiss.disabled = true;
+      try { await this._readers.dismiss(item.id); }
+      catch(error) { this._suggestionError = error.message ?? "No se ha podido descartar el código."; }
+      finally { this._renderSuggestions(); }
+    });
+    actions.append(add,dismiss);row.append(info,actions);return row;
+  }
+
+  _renderReaderActions() {
+    if (!this._built) return;
+    const container = this.shadowRoot.querySelector("#product-reader-actions");
+    const signature = JSON.stringify((this._readers?.readers ?? []).map(reader => [reader.id, reader.name]));
+    if (signature === this._readerSignature) return;
+    this._readerSignature = signature;
+    const previous = new Map([...container.querySelectorAll("select")].map(select => [select.dataset.readerAction,select.value]));
+    const nodes = (this._readers?.readers ?? []).map(reader => {
+      const wrap = element("div");wrap.style.marginTop="12px";
+      const label = element("label", "", reader.name);
+      const select = element("select");
+      select.id = `action-${reader.id}`;label.htmlFor=select.id;select.dataset.readerAction=reader.id;
+      for (const [value,text] of [["none","Sin acción"],["add_list","Añadir a la lista de la compra"],["stock_remove","Quitar una unidad al stock (próximamente)"],["stock_add","Añadir una unidad al stock (próximamente)"]]) select.append(new Option(text,value));
+      select.value=previous.get(reader.id)??"none";wrap.append(label,select);return wrap;
+    });
+    container.replaceChildren(...(nodes.length ? nodes : [element("p","helper","Añade un lector en el apartado Lectores para configurar sus acciones.")]));
   }
 
   async _actOnSuggestion(name, action) {
@@ -328,7 +388,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
     const tag = root.querySelector("#tag-filter").value;
     const products = this._catalog.products.filter(product =>
       (!category || normalizedName(product.category) === normalizedName(category)) && (!tag || product.tags.includes(tag)) &&
-      [product.name, product.brand, product.barcode, product.category, ...product.tags].join(" ").toLocaleLowerCase("es").includes(query));
+      [product.name, product.brand, product.barcode, ...(product.barcodes??[]), ...(product.nfc_tags??[]), product.category, ...product.tags].join(" ").toLocaleLowerCase("es").includes(query));
     root.querySelector("#catalog-count").textContent = `${products.length} de ${this._catalog.products.length} productos`;
     root.querySelector("#catalog-grid").replaceChildren(...products.map(product => this._productCard(product)));
     const empty = root.querySelector("#catalog-empty");
@@ -400,12 +460,13 @@ class ImprovedShoppingCatalog extends HTMLElement {
     return card;
   }
 
-  _openProduct(product, suggestedName = "") {
+  _openProduct(product, suggestedName = "", reading = null) {
     if (this._saving) return;
     const root = this.shadowRoot;
     const form = root.querySelector("form");
     form.reset();
     form.elements.name.value = suggestedName;
+    this._renderReaderActions();
     this._editing = product ? structuredClone(product) : null;
     root.querySelector("#product-dialog-title").textContent = product ? "Editar producto" : "Nuevo producto";
     root.querySelector("#product-error").hidden = true;
@@ -414,6 +475,18 @@ class ImprovedShoppingCatalog extends HTMLElement {
       if (![...form.elements.currency.options].some(option => option.value === product.currency)) form.elements.currency.add(new Option(product.currency, product.currency));
       form.elements.currency.value = product.currency;
       form.elements.tags.value = product.tags.join(", ");
+      form.elements.barcodes.value = (product.barcodes ?? []).join("\n");
+      form.elements.nfc_tags.value = (product.nfc_tags ?? []).join("\n");
+    }
+    for (const select of root.querySelectorAll("[data-reader-action]")) select.value = product?.reader_actions?.[select.dataset.readerAction] ?? "none";
+    if (reading) {
+      if (reading.kind === "barcode" && !form.elements.barcode.value) form.elements.barcode.value = reading.code;
+      else {
+        const field = reading.kind === "nfc" ? "nfc_tags" : "barcodes";
+        const values = form.elements[field].value.split(/\r?\n/).filter(Boolean);
+        if (!values.includes(reading.code) && !(reading.kind === "barcode" && form.elements.barcode.value === reading.code)) values.push(reading.code);
+        form.elements[field].value = values.join("\n");
+      }
     }
     root.querySelector("dialog").showModal();
     form.elements.name.focus();
@@ -425,6 +498,8 @@ class ImprovedShoppingCatalog extends HTMLElement {
     const form = root.querySelector("form");
     const fields = Object.fromEntries(new FormData(form));
     const product = { ...fields, tags: fields.tags.split(",").map(tag => tag.trim()).filter(Boolean), price: fields.price || null };
+    for (const key of ["barcodes","nfc_tags"]) product[key] = fields[key].split(/\r?\n/).map(value => value.trim()).filter(Boolean);
+    product.reader_actions = Object.fromEntries([...root.querySelectorAll("[data-reader-action]")].map(select => [select.dataset.readerAction,select.value]));
     if (this._editing) Object.assign(product, { id: this._editing.id, revision: this._editing.revision });
     this._saving = true;
     root.querySelector("#save-product").disabled = true;

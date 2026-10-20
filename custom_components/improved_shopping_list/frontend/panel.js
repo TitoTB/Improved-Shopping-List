@@ -2,6 +2,8 @@ import { FEATURES, TodoSession, errorMessage, isAvailable, supports } from "./to
 import { imageSource, normalizedName } from "./catalog-panel.js?v=0.3.0";
 import { ListSettingsSession, gradientTextColor } from "./list-settings-client.js?v=0.3.0";
 import "./settings-panel.js?v=0.3.0";
+import { ReadersSession } from "./readers-client.js?v=0.3.0";
+import "./readers-panel.js?v=0.3.0";
 
 const LOGO_URL = new URL("logo.png", import.meta.url).href;
 const searchText = value => normalizedName(value).normalize("NFD").replace(/\p{M}/gu, "");
@@ -12,6 +14,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
     this.attachShadow({ mode: "open" });
     this._session = new TodoSession(() => this._hass, () => this._renderData());
     this._settings = new ListSettingsSession(() => this._hass, () => this._applySettings());
+    this._readers = new ReadersSession(() => this._hass, () => this._renderData());
     this._busy = false;
     this._rows = new Map();
     this._catalogProducts = new Map();
@@ -21,6 +24,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
       if (document.visibilityState === "visible") {
         void this._session.refresh();
         void this._settings.refresh();
+        void this._readers.refresh();
       }
     };
   }
@@ -38,8 +42,10 @@ class ImprovedShoppingListPanel extends HTMLElement {
     if (!this.isConnected) return;
     if (this._built) this.shadowRoot.querySelector("isl-catalog").hass = value;
     this._ensureStarted();
+    if (this._view === "readers") this.shadowRoot.querySelector("isl-readers").data = { hass:value, settings:this._settings, readers:this._readers };
     if (previousConnection && previousConnection !== value.connection) {
       void this._settings.start();
+      void this._readers.start();
       if (this._session.entityId) void this._session.select(this._session.entityId);
     }
     if (changed || previousConnection !== value.connection) this._renderData();
@@ -65,6 +71,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
     document.removeEventListener("visibilitychange", this._onVisibility);
     this._session.dispose();
     this._settings.stop();
+    this._readers.stop();
     this._settingsApplied = false;
     this._started = false;
     this.shadowRoot.querySelector("#list-dialog")?.close();
@@ -74,6 +81,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
     if (!this.isConnected || !this._built || !this._hass || !this._panel || this._started) return;
     this._started = true;
     void this._settings.start();
+    void this._readers.start();
   }
 
   _applySettings() {
@@ -108,7 +116,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
         .brand { font-size:16px; font-weight:650; }
         .brand-logo { width:44px; height:44px; object-fit:contain; flex-shrink:0; }
         .version { color:var(--secondary-text-color,#63766b); font-size:12px; margin-left:8px; white-space:nowrap; }
-        .section-nav { display:flex; gap:8px; margin-left:auto; }
+        .section-nav { display:flex; flex-wrap:wrap; gap:8px; margin-left:auto; }
         .section-nav button { display:inline-flex; align-items:center; gap:8px; padding:10px 12px; min-height:44px; border:0; border-radius:10px; color:var(--secondary-text-color,#63766b); background:transparent; }
         .section-nav button[aria-pressed=true] { background:var(--secondary-background-color,#edf4ee); color:var(--primary-text-color,#20352d); font-weight:650; }
         .section-nav ha-icon { --mdc-icon-size:20px; }
@@ -190,6 +198,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
         <nav class="section-nav" aria-label="Apartados">
           <button id="nav-shopping" aria-pressed="true"><ha-icon icon="mdi:shopping"></ha-icon>Lista</button>
           <button id="nav-catalog" aria-pressed="false"><ha-icon icon="mdi:view-grid"></ha-icon>Catálogo</button>
+          <button id="nav-readers" aria-pressed="false"><ha-icon icon="mdi:barcode-scan"></ha-icon>Lectores</button>
           <button id="nav-settings" aria-pressed="false"><ha-icon icon="mdi:cog"></ha-icon>Ajustes</button>
         </nav>
       </header>
@@ -221,6 +230,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
         </section>
         <isl-catalog hidden></isl-catalog>
         <isl-settings hidden></isl-settings>
+        <isl-readers hidden></isl-readers>
         <div id="announcement" class="sr-only" role="status" aria-live="polite"></div>
       </main>`;
     this._built = true;
@@ -233,6 +243,8 @@ class ImprovedShoppingListPanel extends HTMLElement {
     root.querySelector("#nav-shopping").addEventListener("click", () => this._switchView("shopping"));
     root.querySelector("#nav-catalog").addEventListener("click", () => this._switchView("catalog"));
     root.querySelector("#nav-settings").addEventListener("click", () => this._switchView("settings"));
+    root.querySelector("#nav-readers").addEventListener("click", () => this._switchView("readers"));
+    root.querySelector("isl-readers").onSuggestions = () => { this._switchView("catalog"); root.querySelector("isl-catalog").showSuggestions(); };
     root.querySelector("isl-settings").onAction = (action, entity) => this._settings.update(action, entity);
     root.querySelector("isl-settings").onAppearance = appearance => this._settings.saveAppearance(appearance);
     root.querySelector("isl-catalog").onAdd = (product) => this._runAction(
@@ -276,9 +288,11 @@ class ImprovedShoppingListPanel extends HTMLElement {
     root.querySelector("#add-form").hidden = view !== "shopping";
     root.querySelector("isl-catalog").hidden = view !== "catalog";
     root.querySelector("isl-settings").hidden = view !== "settings";
+    root.querySelector("isl-readers").hidden = view !== "readers";
     root.querySelector("#nav-shopping").setAttribute("aria-pressed", String(view === "shopping"));
     root.querySelector("#nav-catalog").setAttribute("aria-pressed", String(view === "catalog"));
     root.querySelector("#nav-settings").setAttribute("aria-pressed", String(view === "settings"));
+    root.querySelector("#nav-readers").setAttribute("aria-pressed", String(view === "readers"));
     this._renderData();
   }
 
@@ -333,12 +347,14 @@ class ImprovedShoppingListPanel extends HTMLElement {
     this.style.setProperty("--isl-columns", appearance.columns);
     this.style.setProperty("--isl-mobile-columns", appearance.mobile_columns);
     root.querySelector("isl-settings").data = { hass: this._hass, settings: this._settings };
+    root.querySelector("isl-readers").data = { hass: this._hass, settings: this._settings, readers: this._readers };
     const state = this._hass.states[session.entityId];
     const available = isAvailable(state);
     const canCreate = available && supports(state, FEATURES.CREATE);
     const canUpdate = available && supports(state, FEATURES.UPDATE);
     const catalog = root.querySelector("isl-catalog");
     catalog.hass = this._hass;
+    catalog.readerData = this._readers;
     catalog.canAdd = canCreate && !this._busy && !session.loading;
     catalog.listName = state?.attributes.friendly_name ?? session.entityId;
     catalog.listItems = available && !session.loading ? session.items : [];
@@ -399,7 +415,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
     const searching = Boolean(query) && this._view === "shopping" && !input.disabled &&
       !this._predictionClosed && root.activeElement === input;
     this._predictions = searching ? [...this._catalogProducts.values()]
-      .filter(product => [product.name, product.brand, product.barcode, ...(product.tags ?? [])].some(value => searchText(value).includes(query)))
+      .filter(product => [product.name, product.brand, product.barcode, ...(product.barcodes ?? []), ...(product.nfc_tags ?? []), ...(product.tags ?? [])].some(value => searchText(value).includes(query)))
       .sort((a, b) => Number(searchText(b.name).startsWith(query)) - Number(searchText(a.name).startsWith(query)) || a.name.localeCompare(b.name, "es"))
       .slice(0, 8) : [];
     if (!Number.isInteger(this._predictionIndex) || this._predictionIndex >= this._predictions.length) this._predictionIndex = -1;

@@ -10,6 +10,7 @@ from homeassistant.helpers.typing import ConfigType
 
 from .catalog import Catalog
 from .list_settings import ListSettings
+from .readers import ReaderManager
 from .const import (
     CONF_TODO_ENTITY,
     DOMAIN,
@@ -27,10 +28,13 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     if DOMAIN not in hass.data:
         catalog = Catalog(hass)
         await catalog.async_load()
+        settings = ListSettings(hass)
+        readers = ReaderManager(hass, catalog, settings)
+        await readers.async_load()
         await hass.http.async_register_static_paths(
             [StaticPathConfig(STATIC_URL, str(Path(__file__).parent / "frontend"), False)]
         )
-        hass.data[DOMAIN] = {"catalog": catalog, "settings": ListSettings(hass), "active": False}
+        hass.data[DOMAIN] = {"catalog": catalog, "settings": settings, "readers": readers, "active": False}
         async_register_commands(hass)
     return True
 
@@ -40,6 +44,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.data[DOMAIN]["settings"].attach(entry)
     await _async_register_panel(hass, entry)
     hass.data[DOMAIN]["active"] = True
+    hass.data[DOMAIN]["readers"].start()
     hass.data[DOMAIN]["settings"].notify()
     entry.async_on_unload(entry.add_update_listener(_async_options_updated))
     return True
@@ -67,6 +72,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Remove the panel without changing any shopping-list items."""
     frontend.async_remove_panel(hass, PANEL_PATH)
     hass.data[DOMAIN]["active"] = False
+    await hass.data[DOMAIN]["readers"].async_stop()
     return True
 
 

@@ -38,6 +38,48 @@ def editable(product, **changes):
     }
 
 
+async def test_translation_is_persisted_reused_and_updated_with_name(hass, product_translation):
+    product_translation.return_value = "Milk"
+    catalog = Catalog(hass)
+    await catalog.async_load()
+    product = await catalog.async_save_product({"name": "Leche"})
+    assert product["name_en"] == "Milk"
+    product_translation.assert_awaited_once_with(hass, "Leche")
+    restored = Catalog(hass)
+    await restored.async_load()
+    assert restored.products[0]["name_en"] == "Milk"
+    product = await restored.async_save_product(editable(product, notes="Una nota"))
+    assert product["name_en"] == "Milk"
+    assert product_translation.await_count == 1
+    product_translation.return_value = "Bread"
+    product = await restored.async_save_product(editable(product, name="Pan"))
+    assert product["name_en"] == "Bread"
+    assert product_translation.await_count == 2
+
+
+async def test_translation_failure_keeps_product_and_retries_on_save(hass, product_translation):
+    catalog = Catalog(hass)
+    await catalog.async_load()
+    product = await catalog.async_save_product({"name": "Leche"})
+    assert product["name"] == "Leche" and product["name_en"] == ""
+    product_translation.return_value = "Milk"
+    product = await catalog.async_save_product(editable(product))
+    assert product["name_en"] == "Milk"
+    product_translation.return_value = ""
+    product = await catalog.async_save_product(editable(product, name="Pan"))
+    assert product["name_en"] == ""  # Never search a renamed product with the old translation.
+
+
+async def test_old_product_gets_translation_on_save(hass, product_translation):
+    catalog = Catalog(hass)
+    await catalog.async_load()
+    product = await catalog.async_save_product({"name": "Leche"})
+    catalog._products[product["id"]].pop("name_en")
+    product_translation.return_value = "Milk"
+    product = await catalog.async_save_product(editable(product))
+    assert product["name_en"] == "Milk"
+
+
 async def test_catalog_persists_normalizes_and_returns_snapshots(hass):
     catalog = Catalog(hass)
     await catalog.async_load()

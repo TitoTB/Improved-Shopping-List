@@ -141,6 +141,7 @@ const hass={
       if(window.failCatalog)throw new Error('No se ha podido guardar el catálogo');
       const old=window.catalogProducts.find(product=>product.id===msg.product.id);
       const product={...msg.product,id:old?.id??crypto.randomUUID(),revision:(old?.revision??0)+1,price_updated_at:new Date().toISOString()};
+      product.name_en=product.name==='Leche'?'Milk':'';
       delete product.brand;delete product.format;
       window.catalogProducts=window.catalogProducts.filter(item=>item.id!==product.id);window.catalogProducts.push(product);
       emitCatalog();
@@ -1208,6 +1209,7 @@ async function main() {
     await iconCatalog.getByRole("heading",{name:"Leche",exact:true}).waitFor();
     const savedIconProduct = await iconPage.evaluate(()=>structuredClone(window.catalogProducts[0]));
     assert.equal(savedIconProduct.name,"Leche");
+    assert.equal(savedIconProduct.name_en,"Milk");
     assert.equal(savedIconProduct.image_url,"/improved_shopping_list_icons/fixture.svg");
     await iconCatalog.locator(".product img").evaluate(image=>image.decode());
     // The chosen file and its attribution survive a panel reload without accessing the provider.
@@ -1220,9 +1222,19 @@ async function main() {
     assert.equal(await iconPage.evaluate(()=>window.iconCalls?.length??0),0);
     // Cancel a download, open a different draft, then resolve the old request: it must not change the draft.
     await picker.getByRole("button",{name:"Buscar icono",exact:true}).click();
-    await pickerDialog.getByRole("button",{name:"Elegir Leche 1 (Tabler Icons)",exact:true}).waitFor();
+    await pickerDialog.getByRole("button",{name:"Elegir Milk 1 (Tabler Icons)",exact:true}).waitFor();
+    assert.equal(await pickerDialog.getByLabel("Buscar iconos",{exact:true}).inputValue(),"Milk");
+    // Editing the displayed name must not reuse an English term for a different product.
+    await pickerDialog.getByRole("button",{name:"Cerrar",exact:true}).click();
+    await editIconForm.getByLabel("Nombre del producto",{exact:true}).fill("Pan");
+    await picker.getByRole("button",{name:"Buscar icono",exact:true}).click();
+    await pickerDialog.getByRole("button",{name:"Elegir Pan 1 (Tabler Icons)",exact:true}).waitFor();
+    await pickerDialog.getByRole("button",{name:"Cerrar",exact:true}).click();
+    await editIconForm.getByLabel("Nombre del producto",{exact:true}).fill("Leche");
+    await picker.getByRole("button",{name:"Buscar icono",exact:true}).click();
+    await pickerDialog.getByRole("button",{name:"Elegir Milk 1 (Tabler Icons)",exact:true}).waitFor();
     await iconPage.evaluate(()=>{window.delayIconImport=true;});
-    await pickerDialog.getByRole("button",{name:"Elegir Leche 1 (Tabler Icons)",exact:true}).click();
+    await pickerDialog.getByRole("button",{name:"Elegir Milk 1 (Tabler Icons)",exact:true}).click();
     await iconPage.waitForFunction(()=>typeof window.releaseIconImport==='function');
     await pickerDialog.getByRole("button",{name:"Cerrar",exact:true}).click();
     await editIconForm.getByRole("button",{name:"Cancelar",exact:true}).click();

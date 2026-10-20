@@ -15,6 +15,7 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.storage import Store
 
 from .const import DOMAIN
+from .product_translation import async_translate_name
 
 STORAGE_KEY = f"{DOMAIN}.catalog"
 FIELDS = {
@@ -168,6 +169,7 @@ class Catalog:
     """Own durable catalog data and serialize writes from different clients."""
 
     def __init__(self, hass: HomeAssistant) -> None:
+        self.hass = hass
         self._store = Store(hass, 1, STORAGE_KEY)
         self._products: dict[str, dict[str, Any]] = {}
         self._categories: dict[str, dict[str, Any]] = {}
@@ -302,6 +304,12 @@ class Catalog:
                 if any(item["id"] != product_id and keys.intersection(code_key(kind, value) for value in product_codes(item, kind) if value)
                        for item in self._products.values()):
                     raise CatalogError("Ya existe un producto con uno de esos códigos.", "duplicate_barcode" if kind == "barcode" else "duplicate_nfc")
+            # Translation is server-owned metadata; old clients cannot erase it.
+            product["name_en"] = (
+                current["name_en"]
+                if current and current.get("name_en") and normalized_name(current["name"]) == normalized_name(product["name"])
+                else await async_translate_name(self.hass, product["name"])
+            )
             now = datetime.now(UTC).isoformat()
             product.update({
                 "id": current["id"] if current else str(uuid4()),

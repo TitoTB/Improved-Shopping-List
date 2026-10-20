@@ -259,7 +259,11 @@ class ImprovedShoppingCatalog extends HTMLElement {
     this._built = true;
     const root = this.shadowRoot;
     const iconPicker = root.querySelector("isl-icon-picker");
-    iconPicker.getQuery = () => root.querySelector("form").elements.name.value;
+    iconPicker.getQuery = () => {
+      const name = root.querySelector("form").elements.name.value;
+      return this._editing?.name_en && productNameKey(name) === productNameKey(this._editing.name)
+        ? this._editing.name_en : name;
+    };
     iconPicker.onSelect = asset => { root.querySelector("form").elements.image_url.value = asset.url; };
     root.querySelector('[name="image_url"]').addEventListener("input", event => { iconPicker.value = event.target.value; });
     root.querySelector("dialog").addEventListener("close", () => iconPicker.close());

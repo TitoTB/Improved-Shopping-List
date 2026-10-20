@@ -66,7 +66,7 @@ class ImprovedShoppingIconPicker extends HTMLElement {
       <dialog aria-labelledby="picker-title">
         <h2 id="picker-title">Buscar icono</h2>
         <div class="search"><label>Buscar iconos<input id="query" type="search" minlength="2" maxlength="100" placeholder="Por ejemplo, milk o bread"></label><button id="search" type="button">Buscar</button></div>
-        <p class="helper">Puedes cambiar el término. Prueba también en inglés si no encuentras resultados.</p>
+        <p class="helper">Usamos la traducción al inglés guardada con el producto cuando está disponible. Puedes cambiar el término de búsqueda.</p>
         <p id="status" role="status" hidden></p><div id="results" aria-label="Iconos sugeridos"></div>
         <p class="helper">Iconos de <a href="https://iconify.design/" target="_blank" rel="noopener noreferrer">Iconify</a>. Se conservarán el autor y la licencia del icono elegido.</p>
         <div class="footer"><button id="previous" type="button" hidden>Anteriores</button><button id="more" type="button" hidden>Ver más</button><button id="close" type="button">Cerrar</button></div>

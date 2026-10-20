@@ -71,8 +71,10 @@ const hass={
     if(msg.type==='improved_shopping_list/readers/get')return structuredClone(window.readerFixture);
     if(msg.type==='improved_shopping_list/readers/save'){
       if(window.failReaders)throw new Error('No se ha podido guardar el lector');
+      if('last' in msg.reader)throw new Error('Runtime state must not be sent as reader configuration');
       const old=window.readerFixture.readers.find(reader=>reader.id===msg.reader.id);
       const reader={entity_id:'',attribute:'',device_id:'',list_entity:'',...msg.reader,id:old?.id??crypto.randomUUID(),revision:(old?.revision??0)+1};
+      if(old?.last)reader.last=old.last;
       window.readerFixture.readers=window.readerFixture.readers.filter(item=>item.id!==reader.id);window.readerFixture.readers.push(reader);window.emitReaders();return reader;
     }
     if(msg.type==='improved_shopping_list/readers/delete'){window.readerFixture.readers=window.readerFixture.readers.filter(reader=>reader.id!==msg.reader_id);window.emitReaders();return null;}
@@ -795,11 +797,18 @@ async function main() {
     // Reader configuration and unknown-code association use the same product form.
     const readerContext=await browser.newContext({viewport:{width:1280,height:960}});
     const readerPage=await readerContext.newPage();readerPage.on("pageerror",error=>errors.push(error.message));
+    await readerPage.clock.install();
     await readerPage.goto(url);
     await readerPage.evaluate(()=>{const panel=window.testPanel;panel.hass={...panel._hass,states:{...panel._hass.states,'sensor.lector_cb_codigo_leido':{entity_id:'sensor.lector_cb_codigo_leido',state:'',attributes:{friendly_name:'Código leído'}}}};});
     await readerPage.getByRole("button",{name:"Lectores",exact:true}).click();
     assert.equal(await readerPage.locator("#nav-readers ha-icon").getAttribute("icon"),"mdi:barcode-scan");
     const readersView=readerPage.locator("isl-readers");
+    assert.equal(await readersView.getByText("Los lectores funcionan aunque esta interfaz esté cerrada. Configura los códigos y la acción de cada lector en la ficha del producto.",{exact:true}).count(),0);
+    assert.equal(await readersView.locator("#new-reader").textContent(),"");
+    assert.equal(await readersView.locator("#new-reader ha-icon").getAttribute("icon"),"mdi:plus-thick");
+    assert.equal(await readersView.locator("#reader-suggestions").textContent(),"");
+    assert.equal(await readersView.locator("#reader-suggestions ha-icon").getAttribute("icon"),"mdi:creation");
+    assert.equal(await readersView.getByRole("button",{name:"Ver sugerencias",exact:true}).isVisible(),true);
     await readersView.getByRole("button",{name:"Añadir lector",exact:true}).click();
     const readerDialog=readersView.getByRole("dialog",{name:"Añadir lector",exact:true});
     await readerDialog.getByLabel("Nombre del lector",{exact:true}).fill("Cocina");
@@ -820,9 +829,46 @@ async function main() {
     await readerDialog.getByLabel("Device ID del lector NFC",{exact:true}).fill("nfc-device");
     await readerDialog.getByRole("button",{name:"Guardar lector",exact:true}).click();
     await readersView.getByRole("heading",{name:"NFC despensa",exact:true}).waitFor();
+    const barcodeReader=readersView.locator("#readers-grid article").filter({hasText:"Cocina"});
+    const nfcReader=readersView.locator("#readers-grid article").filter({hasText:"NFC despensa"});
+    assert.equal(await barcodeReader.locator(".reader-type").getAttribute("icon"),"mdi:barcode-scan");
+    assert.equal(await nfcReader.locator(".reader-type").getAttribute("icon"),"mdi:nfc-variant");
+    assert.equal(await barcodeReader.locator(".source").textContent(),"sensor.lector_cb_codigo_leido");
+    assert.equal(await nfcReader.locator(".source").textContent(),"nfc-device");
+    assert.deepEqual(await barcodeReader.locator(".actions button").allTextContents(),["",""]);
+    assert.deepEqual(await barcodeReader.locator(".actions ha-icon").evaluateAll(icons=>icons.map(icon=>icon.getAttribute("icon"))),["mdi:note-edit","mdi:delete"]);
+    assert.equal((await barcodeReader.textContent()).includes("Lista:"),false);
+    assert.equal((await barcodeReader.textContent()).includes("Barras / QR"),false);
+    assert.equal(await barcodeReader.locator(".badge").count(),0);
+    assert.ok(await barcodeReader.evaluate(card=>{
+      const bounds=card.getBoundingClientRect();
+      return ['.reader-type','h2','.source','.actions'].every(selector=>{const rect=card.querySelector(selector).getBoundingClientRect();return Math.abs((rect.left+rect.right)/2-(bounds.left+bounds.right)/2)<1;});
+    }));
+    const readerToggle=barcodeReader.getByRole("switch",{name:"Activar lector Cocina",exact:true});
+    assert.equal(await readerToggle.isChecked(),true);
+    await readerPage.evaluate(()=>{window.failReaders=true;});
+    await readerToggle.click();
+    await readersView.locator("#readers-error").filter({hasText:"No se ha podido guardar el lector"}).waitFor();
+    assert.equal(await readerToggle.isChecked(),true);
+    await readerPage.evaluate(()=>{window.failReaders=false;});
+    await readerToggle.uncheck();
+    assert.equal(await readerToggle.isChecked(),false);
+    assert.equal(await readerPage.evaluate(()=>window.readerFixture.readers.find(reader=>reader.name==='Cocina').enabled),false);
+    await readerToggle.check();
+    assert.equal(await readerToggle.isChecked(),true);
+    await readerPage.evaluate(()=>{window.testPanel.hass={...window.testPanel._hass,user:{is_admin:false}};});
+    assert.equal(await readerToggle.isDisabled(),true);
+    await readerPage.evaluate(()=>{
+      window.testPanel.hass={...window.testPanel._hass,user:{is_admin:true}};
+      window.readerFixture.readers.find(reader=>reader.name==='Cocina').last={time:new Date(Date.now()-125000).toISOString(),code:'secret-code',message:'Añadido a la lista'};window.emitReaders();
+    });
+    assert.equal(await barcodeReader.locator(".last").textContent(),"Usado hace 2 min");
+    assert.equal((await barcodeReader.textContent()).includes("secret-code"),false);
+    await readerPage.clock.fastForward(60000);
+    assert.equal(await barcodeReader.locator(".last").textContent(),"Usado hace 3 min");
     await readerPage.evaluate(()=>{const reader=window.readerFixture.readers[0];window.readerFixture.pending=[{id:'scan-1',kind:'barcode',code:'0012345678905',reader_id:reader.id,reader_name:reader.name,time:new Date().toISOString()}];window.emitReaders();});
     await readerPage.screenshot({path:"test-results/readers-desktop.png",fullPage:true});
-    await readersView.getByRole("button",{name:"Ver códigos desconocidos en Sugerencias",exact:true}).click();
+    await readersView.getByRole("button",{name:"Ver sugerencias",exact:true}).click();
     const readerCatalog=readerPage.locator("isl-catalog");
     assert.equal(await readerCatalog.locator("#list-suggestions-group").evaluate(node => node.open),false);
     assert.equal(await readerCatalog.locator("#scan-suggestions-group").evaluate(node => node.open),false);

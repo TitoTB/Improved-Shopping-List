@@ -1,8 +1,13 @@
 class ImprovedShoppingReaders extends HTMLElement {
-  constructor() { super(); this.attachShadow({mode:"open"}); }
+  constructor() { super(); this.attachShadow({mode:"open"}); this._toggling = new Map(); }
   set data(value) { this._data = value; this._render(); }
-  connectedCallback() { if (!this._built) this._build(); this._render(); }
-  disconnectedCallback() { this.shadowRoot.querySelectorAll("dialog").forEach(dialog => dialog.close()); }
+  connectedCallback() {
+    if (!this._built) this._build();
+    this._render();
+    clearInterval(this._relativeTimer);
+    this._relativeTimer = setInterval(() => this._updateLastUsed(), 30000);
+  }
+  disconnectedCallback() { clearInterval(this._relativeTimer); this.shadowRoot.querySelectorAll("dialog").forEach(dialog => dialog.close()); }
 
   _build() {
     this.shadowRoot.innerHTML = `
@@ -13,18 +18,18 @@ class ImprovedShoppingReaders extends HTMLElement {
         button{cursor:pointer;padding:10px 14px;min-height:44px;border:1px solid var(--divider-color,#dfe7e1);border-radius:10px;background:transparent}
         button:disabled,input:disabled,select:disabled{opacity:.5;cursor:default}button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid var(--primary-color,#267052);outline-offset:3px}
         .primary{background:#267052;color:white;border:0}.heading{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
-        .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px;margin-top:24px}article{padding:22px;border:1px solid var(--divider-color,#dfe7e1);border-radius:16px;background:var(--card-background-color,#fff);min-width:0}
-        .source,.last{overflow-wrap:anywhere}.badge{display:inline-block;font-size:12px;background:var(--secondary-background-color,#edf4ee);padding:4px 8px;border-radius:20px;margin-top:10px}.actions{display:flex;gap:8px;margin-top:18px}
+        .heading-tools{display:flex;align-items:center;gap:8px;margin-left:auto}.icon-button{display:grid;place-items:center;width:44px;height:44px;padding:0}.icon-button ha-icon{--mdc-icon-size:24px}
+        .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px;margin-top:24px}article{position:relative;display:flex;flex-direction:column;align-items:center;text-align:center;padding:48px 22px 22px;border:1px solid var(--divider-color,#dfe7e1);border-radius:16px;background:var(--card-background-color,#fff);min-width:0}
+        .reader-type{display:block;width:64px;height:64px;--mdc-icon-size:64px;margin-bottom:16px}.source,.last{overflow-wrap:anywhere;max-width:100%}.source{margin:8px 0}.last{margin:4px 0 0}.actions{display:flex;justify-content:center;gap:8px;margin-top:18px}.actions button{display:grid;place-items:center;width:40px;height:40px;min-height:40px;padding:8px}.actions ha-icon{--mdc-icon-size:20px}
         .notice{padding:12px 14px;font-size:13px;line-height:1.6;border-radius:10px;background:var(--secondary-background-color,#edf4ee);margin:14px 0}.error{border:1px solid var(--error-color,#bd3636);color:var(--error-color,#bd3636)}
         dialog{color:inherit;background:var(--card-background-color,#fff);width:min(560px,calc(100vw - 28px));max-height:calc(100dvh - 28px);border:1px solid var(--divider-color,#dfe7e1);border-radius:18px;padding:24px}dialog::backdrop{background:rgba(0,0,0,.4)}
         .fields{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:22px 0}.wide{grid-column:1/-1}label{display:block;font-size:13px;font-weight:600}input:not([type=checkbox]),select{display:block;width:100%;min-height:46px;margin-top:7px;padding:10px 12px;border:1px solid var(--divider-color,#dfe7e1);border-radius:9px;background:var(--card-background-color,#fff)}input[type=checkbox]{width:20px;height:20px;vertical-align:middle;margin-right:8px;accent-color:#267052}.form-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:22px}
+        .reader-toggle[type=checkbox]{appearance:none;position:absolute;top:12px;right:12px;width:40px;height:24px;margin:0;padding:0;border:1px solid var(--divider-color,#a6b4ab);border-radius:20px;background:var(--disabled-text-color,#87988e);cursor:pointer}.reader-toggle::before{content:"";position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.2);transition:transform .15s}.reader-toggle:checked{background:#267052;border-color:#267052}.reader-toggle:checked::before{transform:translateX(16px)}.reader-toggle:disabled{cursor:default}
         @media(max-width:650px){.grid{grid-template-columns:1fr}.fields{grid-template-columns:1fr}dialog{padding:20px}}
       </style>
-      <div class="heading"><h1>Lectores</h1><button id="new-reader" class="primary">Añadir lector</button></div>
-      <p>Los lectores funcionan aunque esta interfaz esté cerrada. Configura los códigos y la acción de cada lector en la ficha del producto.</p>
+      <div class="heading"><h1>Lectores</h1><div class="heading-tools"><button id="new-reader" class="primary icon-button" type="button" aria-label="Añadir lector" title="Añadir lector"><ha-icon icon="mdi:plus-thick" aria-hidden="true"></ha-icon></button><button id="reader-suggestions" class="icon-button" type="button" aria-label="Ver sugerencias" title="Ver sugerencias"><ha-icon icon="mdi:creation" aria-hidden="true"></ha-icon></button></div></div>
       <div id="readers-error" class="notice error" role="alert" hidden></div><div id="readers-status" class="notice" role="status" hidden></div>
       <p id="readers-admin" hidden>Solo los administradores pueden configurar lectores.</p>
-      <button id="reader-suggestions" hidden>Ver códigos desconocidos en Sugerencias</button>
       <div id="readers-grid" class="grid"></div><p id="readers-empty" hidden>Añade tu primer lector de códigos de barras, QR o NFC.</p>
       <dialog id="reader-dialog" aria-labelledby="reader-dialog-title"><form id="reader-form">
         <h2 id="reader-dialog-title">Añadir lector</h2><div id="reader-form-error" class="notice error" role="alert" hidden></div>
@@ -62,10 +67,10 @@ class ImprovedShoppingReaders extends HTMLElement {
     const admin = hass.user?.is_admin === true;
     root.querySelector("#new-reader").disabled = !admin || readers.loading;
     root.querySelector("#readers-admin").hidden = admin;
-    const error = root.querySelector("#readers-error");error.textContent = readers.error;error.hidden = !readers.error;
+    const error = root.querySelector("#readers-error");error.textContent = this._toggleError || readers.error;error.hidden = !error.textContent;
     const status = root.querySelector("#readers-status");status.textContent = readers.loading ? "Cargando lectores…" : this._notice ?? "";status.hidden = !status.textContent;
     root.querySelector("#readers-empty").hidden = readers.readers.length > 0 || readers.loading;
-    root.querySelector("#reader-suggestions").hidden = !readers.pending.length;
+    root.querySelector("#reader-suggestions").title = `Ver sugerencias · ${readers.pending.length} códigos sin identificar`;
     const select = root.querySelector("[name=list_entity]");const value=select.value;
     const options = settings.entities.map(id => new Option(hass.states[id]?.attributes.friendly_name ?? id,id));
     if(value&&!settings.entities.includes(value))options.push(new Option(`${value} · Lista quitada`,value));
@@ -74,16 +79,44 @@ class ImprovedShoppingReaders extends HTMLElement {
     if(entitySignature!==this._entitySignature){this._entitySignature=entitySignature;root.querySelector("#reader-entities").replaceChildren(...Object.keys(hass.states).sort().map(id => new Option(hass.states[id].attributes.friendly_name ?? id,id)));}
     root.querySelector("#readers-grid").replaceChildren(...readers.readers.map(reader => {
       const card=document.createElement("article");card.dataset.readerId=reader.id;
+      const type=document.createElement("ha-icon");type.className="reader-type";type.setAttribute("icon",reader.kind==="nfc"?"mdi:nfc-variant":"mdi:barcode-scan");type.setAttribute("role","img");type.setAttribute("aria-label",reader.kind==="nfc"?"Lector NFC":"Lector de códigos de barras o QR");
+      const toggle=document.createElement("input");toggle.type="checkbox";toggle.className="reader-toggle";toggle.setAttribute("role","switch");toggle.setAttribute("aria-label",`Activar lector ${reader.name}`);
+      toggle.checked=this._toggling.get(reader.id)??reader.enabled;toggle.title=toggle.checked?"Desactivar lector":"Activar lector";toggle.disabled=!admin||readers.loading||this._busy||this._toggling.has(reader.id);
+      toggle.addEventListener("change",()=>void this._toggleReader(reader,toggle.checked));
       const name=document.createElement("h2");name.textContent=reader.name;
-      const source=document.createElement("p");source.className="source";source.textContent=reader.source==="tag"?`NFC · tag_scanned · ${reader.device_id}`:`${reader.kind==="nfc"?"NFC":"Barras / QR"} · ${reader.entity_id}${reader.attribute?` · ${reader.attribute}`:""}`;
-      const unavailable=reader.source==="entity"&&(!hass.states[reader.entity_id]||["unknown","unavailable"].includes(hass.states[reader.entity_id].state));
-      const badge=document.createElement("span");badge.className="badge";badge.textContent=`${reader.enabled?"Activo":"Desactivado"} · ${reader.cooldown} s${unavailable?" · Entidad no disponible":""}`;
-      const target=document.createElement("p");target.textContent=reader.list_entity?`Lista: ${hass.states[reader.list_entity]?.attributes.friendly_name??reader.list_entity}`:"Lista: principal";
-      const last=document.createElement("p");last.className="last";last.textContent=reader.last?`${new Date(reader.last.time).toLocaleTimeString("es")} · ${reader.last.product??reader.last.code} · ${reader.last.message}`:"Sin lecturas desde el inicio de Home Assistant.";
+      const source=document.createElement("p");source.className="source";source.textContent=reader.source==="tag"?reader.device_id:reader.entity_id;
+      const last=document.createElement("p");last.className="last";last.dataset.lastUsed=reader.id;last.textContent=this._lastUsed(reader);
       const actions=document.createElement("div");actions.className="actions";
-      for(const [text,fn] of [["Editar",()=>this._open(reader)],["Quitar",()=>this._confirmRemove(reader)]]){const button=document.createElement("button");button.textContent=text;button.setAttribute("aria-label",`${text} lector ${reader.name}`);button.disabled=!admin||this._busy;button.addEventListener("click",fn);actions.append(button);}
-      card.append(name,source,badge,target,last,actions);return card;
+      for(const [text,mdi,fn] of [["Editar","mdi:note-edit",()=>this._open(reader)],["Quitar","mdi:delete",()=>this._confirmRemove(reader)]]){const button=document.createElement("button");button.type="button";button.title=`${text} lector ${reader.name}`;button.setAttribute("aria-label",button.title);button.disabled=!admin||this._busy||this._toggling.has(reader.id);const icon=document.createElement("ha-icon");icon.setAttribute("icon",mdi);icon.setAttribute("aria-hidden","true");button.append(icon);button.addEventListener("click",fn);actions.append(button);}
+      card.append(type,toggle,name,source,last,actions);return card;
     }));
+  }
+
+  _lastUsed(reader) {
+    const timestamp=Date.parse(reader.last?.time??"");
+    if(!Number.isFinite(timestamp))return "Sin uso registrado";
+    const seconds=Math.max(0,Math.floor((Date.now()-timestamp)/1000));
+    if(seconds<60)return `Usado hace ${seconds} s`;
+    if(seconds<3600)return `Usado hace ${Math.floor(seconds/60)} min`;
+    if(seconds<86400)return `Usado hace ${Math.floor(seconds/3600)} h`;
+    const days=Math.floor(seconds/86400);return `Usado hace ${days} ${days===1?"día":"días"}`;
+  }
+
+  _updateLastUsed() {
+    const readers=this._data?.readers.readers??[];
+    this.shadowRoot.querySelectorAll("[data-last-used]").forEach(node=>{
+      const reader=readers.find(item=>item.id===node.dataset.lastUsed);
+      if(reader)node.textContent=this._lastUsed(reader);
+    });
+  }
+
+  async _toggleReader(reader,enabled) {
+    if(this._busy||this._toggling.has(reader.id))return;
+    this._toggleError="";this._toggling.set(reader.id,enabled);this._render();
+    const config={...reader,enabled};delete config.last;
+    try{await this._data.readers.save(config);}
+    catch(error){this._toggleError=error.message??"No se ha podido cambiar el estado del lector.";}
+    finally{this._toggling.delete(reader.id);if(this.isConnected)this._render();}
   }
 
   _sourceFields() {

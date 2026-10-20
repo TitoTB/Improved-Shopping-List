@@ -252,11 +252,11 @@ class ImprovedShoppingCatalog extends HTMLElement {
           <p class="helper">Solo necesitas un nombre para empezar. Puedes completar el resto más adelante.</p>
           <div id="product-error" class="notice error" role="alert" hidden></div>
           <nav class="product-views" aria-label="Vistas de la ficha del producto">
-            <button type="button" data-product-view="main" aria-pressed="true" aria-controls="product-main"><ha-icon icon="mdi:package-variant-closed" aria-hidden="true"></ha-icon>Características principales</button>
+            <button type="button" data-product-view="main" aria-pressed="true" aria-controls="product-main"><ha-icon icon="mdi:package-variant-closed" aria-hidden="true"></ha-icon>Características</button>
             <button type="button" data-product-view="additional" aria-pressed="false" aria-controls="product-additional"><ha-icon icon="mdi:information-outline" aria-hidden="true"></ha-icon>Información adicional</button>
             <button type="button" data-product-view="automation" aria-pressed="false" aria-controls="product-automation"><ha-icon icon="mdi:robot-outline" aria-hidden="true"></ha-icon>Automatización</button>
           </nav>
-          <section id="product-main" class="fields" aria-label="Características principales">
+          <section id="product-main" class="fields" aria-label="Características">
             <label class="wide">Nombre del producto<input name="name" required maxlength="160" placeholder="Por ejemplo, Cacao"></label>
             <isl-icon-picker class="wide"></isl-icon-picker>
             <label class="wide">URL Imagen/Icono<input name="image_url" maxlength="2048" placeholder="https://… o /local/producto.png"></label>

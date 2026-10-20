@@ -408,7 +408,7 @@ async function main() {
     await catalog.getByLabel("Código de barras", { exact: true }).fill("0012345678905");
     await catalog.getByRole("button",{name:"Información adicional",exact:true}).click();
     await catalog.getByLabel("Precio orientativo", { exact: true }).fill("2.59");
-    await catalog.getByRole("button",{name:"Características principales",exact:true}).click();
+    await catalog.getByRole("button",{name:"Características",exact:true}).click();
     assert.equal(await catalog.getByLabel("Nombre del producto",{exact:true}).inputValue(),"Yogur natural");
     assert.equal(await catalog.locator("#product-automation").isVisible(),false);
     await catalog.getByRole("button", { name: "Guardar producto", exact: true }).click();
@@ -1419,7 +1419,7 @@ async function main() {
     await nutriForm.getByText('Nutri-Score: D',{exact:true}).waitFor();
     assert.equal(await nutriForm.locator('.nutriscore-item').count(),2);
     assert.deepEqual(await nutriPage.evaluate(()=>window.nutriCalls),['8410109115543','3017620422003']);
-    await nutriForm.getByRole('button',{name:'Características principales',exact:true}).click();
+    await nutriForm.getByRole('button',{name:'Características',exact:true}).click();
     await nutriForm.getByRole('button',{name:'Información adicional',exact:true}).click();
     assert.equal(await nutriPage.evaluate(()=>window.nutriCalls.length),2);
     await nutriPage.evaluate(()=>{window.listSettings.stores={carrefour:{enabled:true}};window.emitSettings();});

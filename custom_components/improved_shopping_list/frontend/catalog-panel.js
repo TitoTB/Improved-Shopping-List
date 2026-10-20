@@ -133,6 +133,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
         .suggestion h2 { flex:1; font-size:17px; overflow-wrap:anywhere; min-width:0; }
         .suggestion .actions { margin:0; flex-shrink:0; }
         .suggestion .actions button { flex:0 0 40px; width:40px; min-height:40px; padding:8px; }
+        .suggestion .actions .danger { background:#b3261e; color:#fff; border:0; }
         @media(max-width:650px) { .suggestion { flex-wrap:wrap; } .suggestion .actions { margin-left:auto; } }
         .catalog-tabs button[aria-pressed=true] { background:var(--secondary-background-color,#edf4ee); font-weight:650; }
         h1 { font-size:32px; letter-spacing:-.03em; margin:0; }
@@ -348,7 +349,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
       row.append(element("h2", "", name));
       const actions = element("div", "actions");
       for (const [label, mdi, action] of [["Añadir al catálogo", "mdi:plus-thick", "add"], ["Descartar", "mdi:delete", "dismiss"]]) {
-        const button = iconButton(mdi, `${label}: ${name}`, action === "add" ? "primary" : "");
+        const button = iconButton(mdi, `${label}: ${name}`, action === "add" ? "primary" : "danger");
         button.disabled = Boolean(this._suggestionBusy) || this._catalog.loading || Boolean(this._catalog.error);
         button.addEventListener("click", () => void this._actOnSuggestion(name, action));
         actions.append(button);
@@ -414,7 +415,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
       if (!wasHidden && select.value) openSelected();
       else select.focus();
     });
-    const dismiss = iconButton("mdi:delete", `Descartar código ${item.code}`);
+    const dismiss = iconButton("mdi:delete", `Descartar código ${item.code}`, "danger");
     dismiss.addEventListener("click", async () => {
       dismiss.disabled = true;
       try { await this._readers.dismiss(item.id); }

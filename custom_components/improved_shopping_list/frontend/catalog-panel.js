@@ -195,7 +195,8 @@ class ImprovedShoppingCatalog extends HTMLElement {
         dialog::backdrop { background:rgba(0,0,0,.4); }
         .dialog-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; }
         .product-views { display:flex; flex-wrap:wrap; gap:8px; margin-top:18px; }
-        .product-views button { flex:1 1 130px; min-width:0; font-size:13px; padding:10px 8px; }
+        .product-views button { display:inline-flex; align-items:center; justify-content:center; gap:6px; flex:1 1 130px; min-width:0; font-size:13px; padding:10px 8px; }
+        .product-views ha-icon { display:flex; align-items:center; justify-content:center; flex:none; width:18px; height:18px; --mdc-icon-size:18px; line-height:0; }
         .product-views [aria-pressed=true] { background:var(--secondary-background-color,#edf4ee); font-weight:650; }
         .nutriscore-item { display:flex; align-items:center; flex-wrap:wrap; gap:12px; padding:12px 0; border-top:1px solid var(--divider-color,#dfe7e1); }
         .nutriscore-item img { width:130px; height:auto; flex:none; }
@@ -246,9 +247,9 @@ class ImprovedShoppingCatalog extends HTMLElement {
           <p class="helper">Solo necesitas un nombre para empezar. Puedes completar el resto más adelante.</p>
           <div id="product-error" class="notice error" role="alert" hidden></div>
           <nav class="product-views" aria-label="Vistas de la ficha del producto">
-            <button type="button" data-product-view="main" aria-pressed="true" aria-controls="product-main">Características principales</button>
-            <button type="button" data-product-view="additional" aria-pressed="false" aria-controls="product-additional">Información adicional</button>
-            <button type="button" data-product-view="automation" aria-pressed="false" aria-controls="product-automation">Automatización</button>
+            <button type="button" data-product-view="main" aria-pressed="true" aria-controls="product-main"><ha-icon icon="mdi:package-variant-closed" aria-hidden="true"></ha-icon>Características principales</button>
+            <button type="button" data-product-view="additional" aria-pressed="false" aria-controls="product-additional"><ha-icon icon="mdi:information-outline" aria-hidden="true"></ha-icon>Información adicional</button>
+            <button type="button" data-product-view="automation" aria-pressed="false" aria-controls="product-automation"><ha-icon icon="mdi:robot-outline" aria-hidden="true"></ha-icon>Automatización</button>
           </nav>
           <section id="product-main" class="fields" aria-label="Características principales">
             <label class="wide">Nombre del producto<input name="name" required maxlength="160" placeholder="Por ejemplo, Cacao"></label>

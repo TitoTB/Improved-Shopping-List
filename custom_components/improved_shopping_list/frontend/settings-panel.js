@@ -46,7 +46,7 @@ class ImprovedShoppingSettings extends HTMLElement {
         .store-logo { width:56px; height:56px; padding:8px; flex:none; object-fit:contain; border-radius:10px; background:#fff; }
         .store-row .store-logo { grid-column:1; grid-row:1 / 3; }
         .store-name { grid-column:2; grid-row:1 / 3; min-width:0; display:flex; flex-direction:column; justify-content:center; overflow-wrap:anywhere; }
-        .store-name .badge:empty { display:none; }
+        .store-favorite[aria-pressed=true] { color:#e53935; }
         .store-refresh { grid-column:3; grid-row:1; justify-self:end; min-height:32px; padding:6px 10px; font-size:12px; }
         .store-count { font-size:13px; white-space:nowrap; }
         .store-refresh-status { grid-column:1 / -1; margin:4px 0 0; }
@@ -123,12 +123,12 @@ class ImprovedShoppingSettings extends HTMLElement {
         <h2 id="settings-stores-title">Tiendas</h2>
         <article class="store-row" id="mercadona-row">
           <img class="store-logo" src="https://i.pinimg.com/736x/66/bc/4e/66bc4e8d1482e6ec4525987c1691c83e.jpg" alt="Logo de Mercadona" referrerpolicy="no-referrer" loading="lazy" width="56" height="56">
-          <div class="store-name"><h3>Mercadona</h3><span id="store-favorite" class="badge"></span></div>
+          <div class="store-name"><h3>Mercadona</h3></div>
           <div class="store-controls"><input id="mercadona-enabled" class="store-toggle" type="checkbox" role="switch" aria-label="Habilitar Mercadona"><button id="configure-mercadona" class="store-cog" type="button" aria-label="Ajustes de Mercadona" title="Ajustes de Mercadona"><ha-icon icon="mdi:cog" aria-hidden="true"></ha-icon></button></div>
         </article>
-        <article class="store-row" id="carrefour-row"><img class="store-logo" src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSDdTWD6223199se-ks2lxiIHkEb15SBB9CFnYBeaAe0g&amp;s=10" alt="Logo de Carrefour" referrerpolicy="no-referrer" loading="lazy" width="56" height="56"><div class="store-name"><h3>Carrefour</h3><span id="carrefour-favorite" class="badge"></span></div><div class="store-controls"><input id="carrefour-enabled" class="store-toggle" type="checkbox" role="switch" aria-label="Habilitar Carrefour"><button id="configure-carrefour" class="store-cog" type="button" aria-label="Ajustes de Carrefour"><ha-icon icon="mdi:cog" aria-hidden="true"></ha-icon></button></div></article>
-        <article class="store-row"><img class="store-logo" src="https://almeria.online/wp-content/uploads/2024/09/alcampo-logo.png" alt="Logo de Alcampo" referrerpolicy="no-referrer" loading="lazy" width="56" height="56"><div class="store-name"><h3>Alcampo</h3><span id="alcampo-favorite" class="badge"></span></div><div class="store-controls"><input id="alcampo-enabled" class="store-toggle" type="checkbox" role="switch" aria-label="Habilitar Alcampo"><button id="configure-alcampo" class="store-cog" type="button" aria-label="Ajustes de Alcampo"><ha-icon icon="mdi:cog" aria-hidden="true"></ha-icon></button></div></article>
-        <label id="favorite-store-field" hidden>Tienda favorita<select id="favorite-store"></select></label>
+        <article class="store-row" id="carrefour-row"><img class="store-logo" src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSDdTWD6223199se-ks2lxiIHkEb15SBB9CFnYBeaAe0g&amp;s=10" alt="Logo de Carrefour" referrerpolicy="no-referrer" loading="lazy" width="56" height="56"><div class="store-name"><h3>Carrefour</h3></div><div class="store-controls"><input id="carrefour-enabled" class="store-toggle" type="checkbox" role="switch" aria-label="Habilitar Carrefour"><button id="configure-carrefour" class="store-cog" type="button" aria-label="Ajustes de Carrefour"><ha-icon icon="mdi:cog" aria-hidden="true"></ha-icon></button></div></article>
+        <article class="store-row"><img class="store-logo" src="https://almeria.online/wp-content/uploads/2024/09/alcampo-logo.png" alt="Logo de Alcampo" referrerpolicy="no-referrer" loading="lazy" width="56" height="56"><div class="store-name"><h3>Alcampo</h3></div><div class="store-controls"><input id="alcampo-enabled" class="store-toggle" type="checkbox" role="switch" aria-label="Habilitar Alcampo"><button id="configure-alcampo" class="store-cog" type="button" aria-label="Ajustes de Alcampo"><ha-icon icon="mdi:cog" aria-hidden="true"></ha-icon></button></div></article>
+
         <label>Hora de revisión diaria<input id="price-update-time" type="time" value="01:00"></label><button id="save-price-update-time" type="button">Guardar horario</button>
       </section>
       <dialog id="carrefour-dialog" aria-labelledby="carrefour-dialog-title"><h2 id="carrefour-dialog-title">Carrefour</h2><p>Últimos precios conocidos de las referencias vinculadas. Se actualizan por la noche cuando el producto está pendiente de comprar.</p><div class="appearance-actions"><button id="refresh-carrefour" type="button"><ha-icon icon="mdi:refresh"></ha-icon>Actualizar vista</button></div><p id="carrefour-status" role="status"></p><div id="carrefour-error" class="notice error" role="alert" hidden></div><div id="carrefour-products" class="store-products"></div><div class="appearance-actions"><button id="close-carrefour" type="button">Cerrar</button></div></dialog>
@@ -172,6 +172,12 @@ class ImprovedShoppingSettings extends HTMLElement {
       const row = root.querySelector(`#${store}-enabled`).closest(".store-row");
       const count = document.createElement("span"); count.id = `${store}-linked-count`; count.className = "store-count";
       row.querySelector(".store-controls").prepend(count);
+      const heart = document.createElement("button"); heart.id = `favorite-${store}`; heart.type = "button"; heart.className = "store-cog store-favorite";
+      const label = `Marcar ${row.querySelector("h3").textContent} como favorita`;
+      heart.setAttribute("aria-label",label); heart.title = label; heart.setAttribute("aria-pressed","false");
+      heart.innerHTML = '<ha-icon icon="mdi:heart-outline" aria-hidden="true"></ha-icon>';
+      heart.addEventListener("click",()=>void this._saveRetailSettings(()=>this._data.settings.saveFavoriteStore(store)));
+      row.querySelector(".store-controls").append(heart);
       const button = document.createElement("button"); button.id = `update-${store}-now`; button.className = "store-refresh"; button.type = "button"; button.textContent = "Actualizar ahora";
       button.setAttribute("aria-label", `Actualizar ahora ${row.querySelector("h3").textContent}`);
       button.addEventListener("click", () => void this._refreshPricesNow(store));
@@ -200,7 +206,6 @@ class ImprovedShoppingSettings extends HTMLElement {
     }
     root.querySelector("#store-form").addEventListener("submit", event => { event.preventDefault(); void this._saveStore(this._storeEnableDraft ?? Boolean(this._data.settings.stores?.mercadona?.enabled), true); });
     root.querySelector("#carrefour-enabled").addEventListener("change", () => void this._saveRetailSettings(() => this._data.settings.saveCarrefour(root.querySelector("#carrefour-enabled").checked)));
-    root.querySelector("#favorite-store").addEventListener("change", () => void this._saveRetailSettings(() => this._data.settings.saveFavoriteStore(root.querySelector("#favorite-store").value)));
     root.querySelector("#configure-carrefour").addEventListener("click", () => { root.querySelector("#carrefour-dialog").showModal(); void this._loadCarrefour(false); });
     root.querySelector("#close-carrefour").addEventListener("click", () => root.querySelector("#carrefour-dialog").close());
     root.querySelector("#carrefour-dialog").addEventListener("close", () => { if (!root.querySelector("#carrefour-dialog").open) { this._carrefourGeneration = (this._carrefourGeneration || 0) + 1; this._carrefourLoading = false; } });
@@ -246,6 +251,11 @@ class ImprovedShoppingSettings extends HTMLElement {
       const label = `${count} ${count === 1 ? "producto vinculado" : "productos vinculados"}`;
       const badge = root.querySelector(`#${store}-linked-count`); badge.textContent = String(count); badge.title = label; badge.setAttribute("aria-label", label);
       root.querySelector(`#update-${store}-now`).disabled = locked || !settings.stores?.[store]?.enabled || this._refreshingStores.has(store);
+      const favorite = root.querySelector(`#favorite-${store}`);
+      favorite.disabled = locked || !settings.stores?.[store]?.enabled;
+      const selected = Boolean(settings.stores?.[store]?.enabled && settings.favoriteStore === store);
+      favorite.setAttribute("aria-pressed",String(selected));
+      favorite.querySelector("ha-icon").setAttribute("icon",selected ? "mdi:heart" : "mdi:heart-outline");
     }
     root.querySelector("#export-community").disabled = locked;
     const error = root.querySelector("#settings-error");
@@ -305,7 +315,6 @@ class ImprovedShoppingSettings extends HTMLElement {
     root.querySelector("#carrefour-enabled").disabled = locked;
     root.querySelector("#alcampo-enabled").checked = settings.stores?.alcampo?.enabled === true;
     root.querySelector("#alcampo-enabled").disabled = locked;
-    root.querySelector("#alcampo-favorite").textContent = settings.favoriteStore === "alcampo" ? "Favorita" : "";
     root.querySelector("#save-alcampo").disabled = locked;
     root.querySelector("#alcampo-region").disabled = locked;
     root.querySelector("#close-alcampo").disabled = Boolean(this._busy);
@@ -314,12 +323,6 @@ class ImprovedShoppingSettings extends HTMLElement {
     root.querySelector("#save-price-update-time").disabled = locked;
     root.querySelector("#price-update-time").disabled = locked;
     if(root.activeElement !== root.querySelector("#price-update-time"))root.querySelector("#price-update-time").value = settings.priceUpdateTime ?? "01:00";
-    root.querySelector("#carrefour-favorite").textContent = carrefour && settings.favoriteStore === "carrefour" ? "Favorita" : "";
-    const activeStores = Object.entries(settings.stores ?? {}).filter(([,store]) => store.enabled).map(([key]) => key);
-    root.querySelector("#favorite-store-field").hidden = activeStores.length < 2;
-    const favorite = root.querySelector("#favorite-store");
-    favorite.replaceChildren(...activeStores.map(key => new Option(({carrefour:"Carrefour",mercadona:"Mercadona",alcampo:"Alcampo"})[key] ?? key, key)));
-    favorite.value = settings.favoriteStore; favorite.disabled = locked;
     root.querySelector("#settings-empty").hidden = settings.entities.length > 0 || settings.loading;
     this._renderStore();
     const form = root.querySelector("#appearance-form");
@@ -351,8 +354,6 @@ class ImprovedShoppingSettings extends HTMLElement {
     root.querySelector("#mercadona-warehouse").textContent = store.warehouse
       ? `Configuración guardada: ${store.postal_code} · Almacén: ${store.warehouse}${store.enabled ? "" : " · Deshabilitada"}`
       : "Todavía no se ha configurado un almacén.";
-    root.querySelector("#store-favorite").textContent = store.enabled && settings.favoriteStore === "mercadona"
-      ? "Favorita" : "";
     this._renderStoreProducts();
   }
 

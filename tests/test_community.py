@@ -59,8 +59,9 @@ def test_invalid_reviewed_index_rejected(field, value):
         validate_index({"schema_version": 1, "icons": [item]})
 
 
-async def test_rank_cache_import_hash_and_offline(hass, monkeypatch):
+async def test_rank_cache_import_hash_and_offline(hass, monkeypatch, tmp_path):
     icons = IconLibrary(hass)
+    icons.directory = tmp_path / "community-icons"
     await icons.async_load()
     library = CommunityLibrary(hass, icons)
     fetch = AsyncMock(return_value=json.dumps({"schema_version": 1, "icons": [reviewed("a", 1), reviewed("b", 4)]}).encode())

@@ -265,6 +265,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
             <label>Precio orientativo<input name="price" type="number" min="0" max="1000000" step="0.01" placeholder="Sin precio"></label>
             <label>Moneda<select name="currency"><option value="EUR">EUR · Euro</option><option value="USD">USD · Dólar</option><option value="GBP">GBP · Libra</option></select></label>
             <div id="product-nutriscore" class="wide" hidden><h3>Nutri-Score</h3><div id="nutriscore-results"></div></div>
+            <div id="product-store-prices" class="wide" hidden><h3>Precios de tiendas</h3><div id="store-price-results"></div></div>
           </section>
           <section id="product-automation" class="fields" aria-label="Automatización" hidden>
             <label class="wide">Código de barras<input name="barcode" type="text" maxlength="1024"></label>
@@ -774,7 +775,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
       button.setAttribute("aria-pressed", String(selected));
       this.shadowRoot.querySelector(`#${button.getAttribute("aria-controls")}`).hidden = !selected;
     }
-    if (view === "additional") void this._loadNutriscores();
+    if (view === "additional") { void this._loadNutriscores(); void this._loadRetailPrices(); }
   }
 
   _resetNutriscores() {
@@ -782,6 +783,26 @@ class ImprovedShoppingCatalog extends HTMLElement {
     this._nutriCodesKey = "";
     this.shadowRoot.querySelector("#nutriscore-results").replaceChildren();
     this.shadowRoot.querySelector("#product-nutriscore").hidden = true;
+    this.shadowRoot.querySelector("#store-price-results").replaceChildren();
+    this.shadowRoot.querySelector("#product-store-prices").hidden = true;
+  }
+
+  async _loadRetailPrices() {
+    const root = this.shadowRoot, form = root.querySelector("#product-form"), generation = this._nutriGeneration;
+    const codes = new Set([form.elements.barcode.value,...form.elements.barcodes.value.split(/\r?\n/)].map(value => value.trim().padStart(14,"0")));
+    try {
+      const data = await this._hass.callWS({type:"improved_shopping_list/settings/carrefour_products"});
+      if (generation !== this._nutriGeneration || !root.querySelector("dialog").open || !this.isConnected || !data.enabled) return;
+      const rows = data.products.filter(product => codes.has(product.ean.padStart(14,"0"))).map(product => {
+        const row = document.createElement("div"); row.className = "nutriscore-item";
+        const link = document.createElement("a"); link.textContent = `Carrefour: ${new Intl.NumberFormat("es-ES",{style:"currency",currency:product.currency}).format(Number(product.price))} · ${product.name} · EAN ${product.ean} · Enlace de afiliado`;
+        link.href = product.affiliate_url; link.target = "_blank"; link.rel = "sponsored noopener noreferrer";
+        const date = document.createElement("p"); date.className = "helper"; date.textContent = `Precio del feed publicado el ${new Date(data.generated_at).toLocaleString("es-ES")}${data.error || data.stale ? " · Conservado de una descarga anterior" : ""}`;
+        row.append(link,date); return row;
+      });
+      root.querySelector("#store-price-results").replaceChildren(...rows);
+      root.querySelector("#product-store-prices").hidden = !rows.length;
+    } catch { /* Optional store data must never prevent editing. */ }
   }
 
   async _loadNutriscores() {

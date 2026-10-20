@@ -1,0 +1,11 @@
+[Unit]
+Description=Update Carrefour shopping data daily
+
+[Timer]
+OnCalendar=*-*-* 06:00:00
+RandomizedDelaySec=1800
+Persistent=true
+Unit=aguacatec-shopping-feed.service
+
+[Install]
+WantedBy=timers.target

@@ -12,6 +12,27 @@ from custom_components.improved_shopping_list.list_settings import ListSettings
 from custom_components.improved_shopping_list.stores import POSTAL_URL, StoreError, async_resolve_mercadona
 
 
+async def test_carrefour_migration_and_favorite_do_not_erase_mercadona(hass):
+    entry = MockConfigEntry(domain=DOMAIN, data={CONF_TODO_ENTITY: "todo.bring"}, options={
+        "stores": {"mercadona": {"enabled": True, "postal_code": "28001", "warehouse": "mad3"}},
+        "favorite_store": "mercadona", "unrelated": True})
+    entry.add_to_hass(hass)
+    settings = ListSettings(hass)
+    settings.attach(entry)
+    hass.data[DOMAIN] = {"active": True}
+    assert settings.snapshot["stores"]["carrefour"] == {"enabled": False}
+    await settings.async_update_carrefour(True)
+    assert settings.snapshot["favorite_store"] == "mercadona"
+    await settings.async_favorite_store("carrefour")
+    assert settings.snapshot["favorite_store"] == "carrefour"
+    await settings.async_update_carrefour(False)
+    assert settings.snapshot["favorite_store"] == "mercadona"
+    assert settings.snapshot["stores"]["mercadona"]["warehouse"] == "mad3"
+    assert entry.options["unrelated"] is True
+    with pytest.raises(StoreError):
+        await settings.async_favorite_store("carrefour")
+
+
 async def test_resolves_header_even_when_warehouse_changed_is_false(hass, aioclient_mock):
     aioclient_mock.put(POSTAL_URL, json={"warehouse_changed": False},
                       headers={"x-customer-wh": "mad3", "x-customer-pc": "28001"})
@@ -138,6 +159,15 @@ async def test_store_ws_requires_admin(hass, hass_ws_client, hass_read_only_user
     assert (await client.receive_json())["error"]["code"] == "unauthorized"
     await client.send_json({"id": 3, "type": f"{DOMAIN}/settings/store_products"})
     assert (await client.receive_json())["result"]["products"] == []
+    await client.send_json({"id": 4, "type": f"{DOMAIN}/settings/store", "store": "carrefour", "enabled": True})
+    assert (await client.receive_json())["error"]["code"] == "unauthorized"
+    await client.send_json({"id": 5, "type": f"{DOMAIN}/settings/favorite_store", "store": "carrefour"})
+    assert (await client.receive_json())["error"]["code"] == "unauthorized"
+    await client.send_json({"id": 6, "type": f"{DOMAIN}/settings/carrefour_products", "force": True})
+    assert (await client.receive_json())["error"]["code"] == "unauthorized"
+    await client.send_json({"id": 7, "type": f"{DOMAIN}/settings/carrefour_products"})
+    assert (await client.receive_json())["result"]["products"] == []
+    assert aioclient_mock.call_count == 0
 
 
 async def test_store_progress_subscription_and_cleanup(hass, hass_ws_client):

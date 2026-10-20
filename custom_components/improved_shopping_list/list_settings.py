@@ -17,7 +17,7 @@ DEFAULT_APPEARANCE = {
     "completed_gradient_start": "#4faba2", "completed_gradient_end": "#26857c",
     "columns": 3, "mobile_columns": 1,
 }
-DEFAULT_STORES = {"mercadona": {"enabled": False, "postal_code": "", "warehouse": "", "checked_at": None}}
+DEFAULT_STORES = {"mercadona": {"enabled": False, "postal_code": "", "warehouse": "", "checked_at": None}, "carrefour": {"enabled": False}}
 
 
 def normalize_appearance(data: dict, *, defaults: dict | None = None) -> dict:
@@ -47,7 +47,7 @@ def list_options(entry: ConfigEntry) -> dict:
     entities = list(entry.options.get(CONF_TODO_ENTITIES, [primary] if primary else []))
     return {"entities": entities, "primary_entity": primary if primary in entities else next(iter(entities), ""),
             "appearance": {**DEFAULT_APPEARANCE, **entry.options.get("appearance", {})},
-            "stores": deepcopy(entry.options.get("stores", DEFAULT_STORES)),
+            "stores": {**deepcopy(DEFAULT_STORES), **deepcopy(entry.options.get("stores", {}))},
             "favorite_store": entry.options.get("favorite_store", "")}
 
 
@@ -101,8 +101,33 @@ class ListSettings:
                 raise StoreError("La integración se ha detenido. Vuelve a abrirla para guardar los ajustes.")
             self.hass.config_entries.async_update_entry(entry, options={
                 **entry.options, "stores": {**self.snapshot["stores"], "mercadona": store},
-                "favorite_store": "mercadona" if enabled else "",
+                "favorite_store": self._favorite({**self.snapshot["stores"], "mercadona": store}),
             })
+            self.notify()
+            return self.snapshot
+
+    def _favorite(self, stores):
+        active = [key for key, value in stores.items() if value.get("enabled")]
+        current = self.snapshot["favorite_store"]
+        return current if current in active else next(iter(active), "")
+
+    async def async_update_carrefour(self, enabled):
+        generation = self._generation
+        async with self._stores_lock:
+            if generation != self._generation or not self.entry or not self.hass.data.get(DOMAIN, {}).get("active"):
+                raise StoreError("La integración no está activa.")
+            stores = {**self.snapshot["stores"], "carrefour": {"enabled": enabled}}
+            self.hass.config_entries.async_update_entry(self.entry, options={**self.entry.options,
+                "stores": stores, "favorite_store": self._favorite(stores)})
+            self.notify()
+            return self.snapshot
+
+    async def async_favorite_store(self, store):
+        generation = self._generation
+        async with self._stores_lock:
+            if generation != self._generation or not self.entry or not self.hass.data.get(DOMAIN, {}).get("active") or not self.snapshot["stores"].get(store, {}).get("enabled"):
+                raise StoreError("Selecciona una tienda habilitada.")
+            self.hass.config_entries.async_update_entry(self.entry, options={**self.entry.options, "favorite_store": store})
             self.notify()
             return self.snapshot
 

@@ -90,3 +90,20 @@ test("store settings receive pushes and a stale write cannot override them", asy
   assert.equal(session.stores.mercadona.enabled, false);
   assert.equal(session.favoriteStore, "");
 });
+
+test("Carrefour and favorite changes preserve a later pushed snapshot", async () => {
+  for (const [method,args,type] of [["saveCarrefour",[true],"store"],["saveFavoriteStore",["carrefour"],"favorite_store"]]) {
+    const response = deferred();
+    let message;
+    const session = new ListSettingsSession(() => ({callWS: msg => {message=msg;return response.promise;}}),()=>{});
+    const saving = session[method](...args);
+    assert.equal(message.type, `improved_shopping_list/settings/${type}`);
+    assert.equal(message.store, "carrefour");
+    session._revision++;
+    session._receive({stores:{carrefour:{enabled:false}},favorite_store:"mercadona"});
+    response.resolve({stores:{carrefour:{enabled:true}},favorite_store:"carrefour"});
+    await saving;
+    assert.equal(session.stores.carrefour.enabled,false);
+    assert.equal(session.favoriteStore,"mercadona");
+  }
+});

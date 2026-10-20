@@ -14,7 +14,7 @@ class ImprovedShoppingSettings extends HTMLElement {
     this._render();
   }
 
-  disconnectedCallback() { clearTimeout(this._storeRetryTimer); clearInterval(this._storeProgressTimer); this._stopStoreProgress?.(); this._stopStoreProgress = null; this._productsLoading = false; this._productsGeneration = (this._productsGeneration || 0) + 1; this.shadowRoot.querySelector("#store-dialog")?.close(); }
+  disconnectedCallback() { clearTimeout(this._storeRetryTimer); clearInterval(this._storeProgressTimer); this._stopStoreProgress?.(); this._stopStoreProgress = null; this._productsLoading = false; this._productsGeneration = (this._productsGeneration || 0) + 1; this._carrefourGeneration = (this._carrefourGeneration || 0) + 1; this._carrefourLoading = false; this.shadowRoot.querySelector("#carrefour-dialog")?.close(); this.shadowRoot.querySelector("#store-dialog")?.close(); }
 
   _build() {
     this.shadowRoot.innerHTML = `
@@ -115,7 +115,10 @@ class ImprovedShoppingSettings extends HTMLElement {
           <div class="store-name"><h3>Mercadona</h3><span id="store-favorite" class="badge"></span></div>
           <div class="store-controls"><input id="mercadona-enabled" class="store-toggle" type="checkbox" role="switch" aria-label="Habilitar Mercadona"><button id="configure-mercadona" class="store-cog" type="button" aria-label="Ajustes de Mercadona" title="Ajustes de Mercadona"><ha-icon icon="mdi:cog" aria-hidden="true"></ha-icon></button></div>
         </article>
+        <article class="store-row" id="carrefour-row"><ha-icon class="store-logo" icon="mdi:storefront" aria-hidden="true"></ha-icon><div class="store-name"><h3>Carrefour</h3><span id="carrefour-favorite" class="badge"></span></div><div class="store-controls"><input id="carrefour-enabled" class="store-toggle" type="checkbox" role="switch" aria-label="Habilitar Carrefour"><button id="configure-carrefour" class="store-cog" type="button" aria-label="Ajustes de Carrefour"><ha-icon icon="mdi:cog" aria-hidden="true"></ha-icon></button></div></article>
+        <label id="favorite-store-field" hidden>Tienda favorita<select id="favorite-store"></select></label>
       </section>
+      <dialog id="carrefour-dialog" aria-labelledby="carrefour-dialog-title"><h2 id="carrefour-dialog-title">Carrefour</h2><p>Precios del feed de Carrefour. No están vinculados a un código postal concreto.</p><div class="appearance-actions"><button id="refresh-carrefour" type="button"><ha-icon icon="mdi:refresh"></ha-icon>Forzar actualización</button></div><p id="carrefour-status" role="status"></p><div id="carrefour-error" class="notice error" role="alert" hidden></div><div id="carrefour-products" class="store-products"></div><div class="appearance-actions"><button id="close-carrefour" type="button">Cerrar</button></div></dialog>
       <dialog id="store-dialog" aria-labelledby="store-dialog-title">
         <h2 id="store-dialog-title">Mercadona</h2>
         <nav class="settings-tabs" aria-label="Vistas de Mercadona"><button id="store-view-products" aria-pressed="true" type="button"><ha-icon icon="mdi:view-grid" aria-hidden="true"></ha-icon>Productos</button><button id="store-view-configuration" aria-pressed="false" type="button"><ha-icon icon="mdi:cog" aria-hidden="true"></ha-icon>Configuración</button></nav>
@@ -162,6 +165,12 @@ class ImprovedShoppingSettings extends HTMLElement {
       });
     }
     root.querySelector("#store-form").addEventListener("submit", event => { event.preventDefault(); void this._saveStore(this._storeEnableDraft ?? Boolean(this._data.settings.stores?.mercadona?.enabled), true); });
+    root.querySelector("#carrefour-enabled").addEventListener("change", () => void this._saveRetailSettings(() => this._data.settings.saveCarrefour(root.querySelector("#carrefour-enabled").checked)));
+    root.querySelector("#favorite-store").addEventListener("change", () => void this._saveRetailSettings(() => this._data.settings.saveFavoriteStore(root.querySelector("#favorite-store").value)));
+    root.querySelector("#configure-carrefour").addEventListener("click", () => { root.querySelector("#carrefour-dialog").showModal(); void this._loadCarrefour(false); });
+    root.querySelector("#close-carrefour").addEventListener("click", () => root.querySelector("#carrefour-dialog").close());
+    root.querySelector("#carrefour-dialog").addEventListener("close", () => { if (!root.querySelector("#carrefour-dialog").open) { this._carrefourGeneration = (this._carrefourGeneration || 0) + 1; this._carrefourLoading = false; } });
+    root.querySelector("#refresh-carrefour").addEventListener("click", () => void this._loadCarrefour(true));
     root.querySelector("#mercadona-enabled").addEventListener("change", () => {
       const enabled = root.querySelector("#mercadona-enabled").checked;
       const store = this._data.settings.stores?.mercadona ?? {};
@@ -251,6 +260,15 @@ class ImprovedShoppingSettings extends HTMLElement {
       return row;
     });
     root.querySelector("#configured-lists").replaceChildren(...rows);
+    const carrefour = settings.stores?.carrefour?.enabled === true;
+    root.querySelector("#carrefour-enabled").checked = carrefour;
+    root.querySelector("#carrefour-enabled").disabled = locked;
+    root.querySelector("#carrefour-favorite").textContent = carrefour && settings.favoriteStore === "carrefour" ? "Favorita" : "";
+    const activeStores = Object.entries(settings.stores ?? {}).filter(([,store]) => store.enabled).map(([key]) => key);
+    root.querySelector("#favorite-store-field").hidden = activeStores.length < 2;
+    const favorite = root.querySelector("#favorite-store");
+    favorite.replaceChildren(...activeStores.map(key => new Option(key === "carrefour" ? "Carrefour" : "Mercadona", key)));
+    favorite.value = settings.favoriteStore; favorite.disabled = locked;
     root.querySelector("#settings-empty").hidden = settings.entities.length > 0 || settings.loading;
     this._renderStore();
     const form = root.querySelector("#appearance-form");
@@ -285,6 +303,40 @@ class ImprovedShoppingSettings extends HTMLElement {
     root.querySelector("#store-favorite").textContent = store.enabled && settings.favoriteStore === "mercadona"
       ? "Favorita" : "";
     this._renderStoreProducts();
+  }
+
+  async _saveRetailSettings(save) {
+    if (this._busy || this._data.hass?.user?.is_admin !== true) return;
+    this._busy = true; this._error = this._notice = "";
+    try { await save(); } catch (error) { this._error = error.message ?? "No se pudieron guardar las tiendas."; }
+    finally { this._busy = false; this._render(); }
+  }
+
+  async _loadCarrefour(force) {
+    if (this._carrefourLoading) return;
+    const root = this.shadowRoot;
+    const generation = this._carrefourGeneration = (this._carrefourGeneration || 0) + 1;
+    const current = () => this.isConnected && generation === this._carrefourGeneration && root.querySelector("#carrefour-dialog").open;
+    this._carrefourLoading = true;
+    root.querySelector("#refresh-carrefour").disabled = true;
+    root.querySelector("#carrefour-status").textContent = "Comprobando catálogo…";
+    root.querySelector("#carrefour-error").hidden = true;
+    try {
+      const data = await this._data.hass.callWS({type:"improved_shopping_list/settings/carrefour_products",force});
+      if (!current()) return;
+      const error = root.querySelector("#carrefour-error"); error.textContent = data.error ?? ""; error.hidden = !error.textContent;
+      root.querySelector("#carrefour-status").textContent = !data.enabled ? "Habilita Carrefour para consultar precios."
+        : data.version ? `${data.products.length} coincidencias de EAN · Publicado: ${new Date(data.generated_at).toLocaleString("es-ES")}${data.stale ? " · Datos antiguos" : ""}` : "Todavía no hay un catálogo publicado disponible.";
+      root.querySelector("#carrefour-products").replaceChildren(...(data.enabled ? data.products : []).map(product => {
+        const row = document.createElement("div"); row.className = "store-product";
+        const info = document.createElement("div"); const name = document.createElement("strong"); name.textContent = product.name;
+        const ean = document.createElement("p"); ean.textContent = `EAN: ${product.ean}`;
+        const link = document.createElement("a"); link.textContent = "Ver en Carrefour · Enlace de afiliado"; link.href = product.affiliate_url; link.target = "_blank"; link.rel = "sponsored noopener noreferrer";
+        const price = document.createElement("strong"); price.textContent = new Intl.NumberFormat("es-ES",{style:"currency",currency:product.currency}).format(Number(product.price));
+        info.append(name,ean,link); row.append(info,price); return row;
+      }));
+    } catch (error) { if (current()) root.querySelector("#carrefour-status").textContent = error.message ?? "No se pudo comprobar Carrefour."; }
+    finally { if (current()) { this._carrefourLoading = false; root.querySelector("#refresh-carrefour").disabled = this._data.hass?.user?.is_admin !== true || !this._data.settings.stores?.carrefour?.enabled; } }
   }
 
   async _saveStore(enabled, verify) {

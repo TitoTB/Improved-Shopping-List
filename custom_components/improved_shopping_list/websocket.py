@@ -48,6 +48,8 @@ def async_register_commands(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_store_update)
     websocket_api.async_register_command(hass, ws_store_products)
     websocket_api.async_register_command(hass, ws_store_progress)
+    websocket_api.async_register_command(hass, ws_carrefour_products)
+    websocket_api.async_register_command(hass, ws_favorite_store)
     websocket_api.async_register_command(hass, ws_readers_get)
     websocket_api.async_register_command(hass, ws_readers_subscribe)
     websocket_api.async_register_command(hass, ws_readers_save)
@@ -280,7 +282,7 @@ def ws_personalization(hass: HomeAssistant, connection, msg) -> None:
 
 @websocket_api.websocket_command({
     vol.Required("type"): f"{DOMAIN}/settings/store",
-    vol.Required("store"): vol.In(("mercadona",)),
+    vol.Required("store"): vol.In(("mercadona", "carrefour")),
     vol.Required("enabled"): bool,
     vol.Optional("postal_code", default=""): str,
     vol.Optional("verify", default=False): bool,
@@ -291,11 +293,39 @@ async def ws_store_update(hass, connection, msg):
     if not _catalog(hass, connection, msg):
         return
     try:
-        result = await hass.data[DOMAIN]["settings"].async_update_store(msg["enabled"], msg["postal_code"], msg["verify"])
+        settings = hass.data[DOMAIN]["settings"]
+        result = (await settings.async_update_carrefour(msg["enabled"]) if msg["store"] == "carrefour"
+            else await settings.async_update_store(msg["enabled"], msg["postal_code"], msg["verify"]))
     except StoreError as err:
         connection.send_error(msg["id"], "invalid_store", str(err))
     else:
         connection.send_result(msg["id"], result)
+
+
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/settings/favorite_store", vol.Required("store"): vol.In(("mercadona", "carrefour"))})
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_favorite_store(hass, connection, msg):
+    if not _catalog(hass, connection, msg):
+        return
+    try:
+        result = await hass.data[DOMAIN]["settings"].async_favorite_store(msg["store"])
+    except StoreError as err:
+        connection.send_error(msg["id"], "invalid_store", str(err))
+    else:
+        connection.send_result(msg["id"], result)
+
+
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/settings/carrefour_products", vol.Optional("force", default=False): bool})
+@websocket_api.async_response
+async def ws_carrefour_products(hass, connection, msg):
+    if not _catalog(hass, connection, msg):
+        return
+    if msg["force"] and not connection.user.is_admin:
+        connection.send_error(msg["id"], "unauthorized", "Solo los administradores pueden forzar la actualización.")
+        return
+    result = await hass.data[DOMAIN]["retail_feed"].async_refresh(msg["force"])
+    connection.send_result(msg["id"], result)
 
 
 @websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/settings/store_progress"})

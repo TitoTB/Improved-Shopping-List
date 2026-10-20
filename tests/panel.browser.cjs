@@ -131,11 +131,24 @@ const hass={
     }
     if(msg.type==='improved_shopping_list/settings/store'){
       if(window.failSettings)throw new Error('Mercadona no está disponible');
+      if(msg.store==='carrefour'){
+        window.listSettings.stores={...window.listSettings.stores,carrefour:{enabled:msg.enabled}};
+        const active=Object.keys(window.listSettings.stores).filter(key=>window.listSettings.stores[key].enabled);
+        if(!active.includes(window.listSettings.favorite_store))window.listSettings.favorite_store=active[0]??'';
+        window.emitSettings();return structuredClone(window.listSettings);
+      }
       const previous=window.listSettings.stores?.mercadona??{};
-      window.listSettings.stores={mercadona:msg.enabled||msg.verify?{enabled:msg.enabled,postal_code:msg.postal_code||'28001',warehouse:'mad3',checked_at:12345}:{...previous,enabled:false}};
+      window.listSettings.stores={...window.listSettings.stores,mercadona:msg.enabled||msg.verify?{enabled:msg.enabled,postal_code:msg.postal_code||'28001',warehouse:'mad3',checked_at:12345}:{...previous,enabled:false}};
       window.listSettings.favorite_store=msg.enabled?'mercadona':'';
       window.emitSettings();return structuredClone(window.listSettings);
     }
+    if(msg.type==='improved_shopping_list/settings/favorite_store'){
+      window.listSettings.favorite_store=msg.store;window.emitSettings();return structuredClone(window.listSettings);
+    }
+    if(msg.type==='improved_shopping_list/settings/carrefour_products')return {
+      enabled:!!window.listSettings.stores?.carrefour?.enabled,version:'published',generated_at:'2026-10-20T12:00:00+00:00',error:'',stale:false,
+      products:[{ean:'8431876279146',name:'Alcaparras Carrefour',price:'1.35',currency:'EUR',affiliate_url:'https://www.awin1.com/pclick.php?p=123&a=1535625&m=25399'}]
+    };
     if(msg.type==='improved_shopping_list/settings/update'){
       if(window.failSettings)throw new Error('No se han podido guardar los ajustes');
       if(msg.action==='add'&&!window.listSettings.entities.includes(msg.entity_id))window.listSettings.entities.push(msg.entity_id);
@@ -900,6 +913,17 @@ async function main() {
     assert.equal(await settingsView.getByLabel("Código postal",{exact:true}).inputValue(), "46001");
     await settingsPage.evaluate(()=>{window.failSettings=false;});
     await storeDialog.getByRole("button",{name:"Cerrar",exact:true}).click();
+    await settingsView.getByLabel("Habilitar Carrefour",{exact:true}).check();
+    await settingsView.locator("#favorite-store").selectOption("carrefour");
+    await settingsView.locator("#carrefour-favorite").filter({hasText:"Favorita"}).waitFor();
+    await settingsView.getByRole("button",{name:"Ajustes de Carrefour",exact:true}).click();
+    const carrefourDialog = settingsView.getByRole("dialog",{name:"Carrefour",exact:true});
+    await carrefourDialog.getByText("Alcaparras Carrefour",{exact:true}).waitFor();
+    assert.match(await carrefourDialog.locator(".store-product").textContent(),/1,35/);
+    assert.match(await carrefourDialog.getByRole("link").getAttribute("href"),/awin1.com\/pclick.php/);
+    await carrefourDialog.getByRole("button",{name:"Forzar actualización",exact:true}).click();
+    await carrefourDialog.getByText("Alcaparras Carrefour",{exact:true}).waitFor();
+    await carrefourDialog.getByRole("button",{name:"Cerrar",exact:true}).click();
     await settingsView.getByRole("switch",{name:"Habilitar Mercadona",exact:true}).uncheck();
     assert.equal(await settingsView.getByRole("switch",{name:"Habilitar Mercadona",exact:true}).isChecked(),false);
     assert.equal(await settingsPage.evaluate(()=>window.listSettings.stores.mercadona.postal_code),"28001");

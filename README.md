@@ -6,6 +6,12 @@ Una interfaz propia para gestionar las listas de la compra que ya tienes integra
 
 Versión actual: **0.11.1**. Interfaz en español, pensada para móvil y ordenador. Requiere **Home Assistant Core 2026.10 o posterior**. La referencia de desarrollo es Core 2026.10.2.
 
+En desarrollo, todavía sin publicar como versión: soporte de precios de Carrefour
+mediante un catálogo público de cinco campos alojado en GitHub. La preparación,
+actualización periódica y publicación se describen en
+[mantenimiento del feed](maintenance/aguacatec/README.md). El catálogo público aún
+no está habilitado; no hay que actualizar HACS para cada cambio futuro de precios.
+
 ## Qué puedes hacer
 
 - Seleccionar cualquier entidad `todo.*` disponible para tu usuario, incluida Bring!, Shopping List u otros proveedores.

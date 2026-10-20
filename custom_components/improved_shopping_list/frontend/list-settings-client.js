@@ -106,6 +106,18 @@ export class ListSettingsSession {
     if (generation === this._generation && revision === this._revision) this._receive(data);
   }
 
+  async saveCarrefour(enabled) {
+    const generation = this._generation, revision = ++this._revision;
+    const data = await this.getHass().callWS({type:`${PREFIX}store`,store:"carrefour",enabled});
+    if (generation === this._generation && revision === this._revision) this._receive(data);
+  }
+
+  async saveFavoriteStore(store) {
+    const generation = this._generation, revision = ++this._revision;
+    const data = await this.getHass().callWS({type:`${PREFIX}favorite_store`,store});
+    if (generation === this._generation && revision === this._revision) this._receive(data);
+  }
+
   stop() {
     this._generation += 1;
     this._revision += 1;

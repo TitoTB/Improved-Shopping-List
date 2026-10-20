@@ -912,6 +912,12 @@ async function main() {
           assert.equal(badge.color,"rgb(255, 255, 255)");
         }
         sizes.push(metrics[0]);
+        assert.ok(metrics[0].font>=12,"Product names remain readable in narrow cards");
+        await settingsPage.getByRole("button",{name:"Catálogo",exact:true}).click();
+        const catalogFont = await settingsCatalog.locator("#catalog-grid .title").first().evaluate(name=>parseFloat(getComputedStyle(name).fontSize));
+        assert.ok(Math.abs(catalogFont-metrics[0].font)<.05,`Matching List/Catalog names at ${width}px / ${columns} columns: ${metrics[0].font} vs ${catalogFont}`);
+        if (columns===(width>650?6:4)) await settingsPage.screenshot({path:`test-results/catalog-font-size-${width}.png`,fullPage:true});
+        await settingsPage.getByRole("button",{name:"Lista",exact:true}).click();
       }
       assert.ok(sizes[0].font>sizes.at(-1).font);
       assert.ok(sizes[0].mediaWidth>sizes.at(-1).mediaWidth);

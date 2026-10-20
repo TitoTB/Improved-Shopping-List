@@ -153,7 +153,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
         textarea { resize:vertical; min-height:76px; }
         .count { color:var(--secondary-text-color,#63766b); font-size:12px; margin:12px 0; }
         .grid { display:grid; grid-template-columns:repeat(var(--isl-columns,3),minmax(0,1fr)); gap:16px; }
-        .product { position:relative; display:flex; flex-direction:column; gap:12px; background:var(--card-background-color,#fff); border:1px solid var(--divider-color,#dfe7e1); border-radius:16px; padding:30px 18px 18px; min-width:0; text-align:center; container-type:inline-size; }
+        .product { --isl-product-padding-inline:18px; position:relative; display:flex; flex-direction:column; gap:12px; background:var(--card-background-color,#fff); border:1px solid var(--divider-color,#dfe7e1); border-radius:16px; padding:30px var(--isl-product-padding-inline) 18px; min-width:0; text-align:center; container-type:inline-size; }
         .product.in-list { background:linear-gradient(var(--isl-gradient-start,#ee524f),var(--isl-gradient-end,#b52a27)); border-color:var(--isl-gradient-end,#b52a27); }
         .product.in-list,.product.in-list .placeholder,.product.in-list .subtitle,.product.in-list button,.product.in-list ha-icon { color:#fff; }
         .product-top { display:flex; flex-direction:column; gap:14px; align-items:center; }
@@ -163,7 +163,8 @@ class ImprovedShoppingCatalog extends HTMLElement {
         .placeholder ha-icon { --mdc-icon-size:clamp(14px,30cqi,160px); width:var(--mdc-icon-size); height:var(--mdc-icon-size); }
         .product > button.category-badge { --isl-badge-size:32px; --isl-badge-icon-size:20px; position:absolute; top:12px; right:12px; display:flex; align-items:center; justify-content:center; appearance:none; -webkit-appearance:none; box-sizing:border-box; width:var(--isl-badge-size); min-width:var(--isl-badge-size); max-width:var(--isl-badge-size); height:var(--isl-badge-size); min-height:var(--isl-badge-size); max-height:var(--isl-badge-size); aspect-ratio:1 / 1; margin:0; padding:0; border:0 none; border-radius:50%; line-height:0; color:#fff; box-shadow:0 2px 6px rgba(0,0,0,.22); }
         .product > button.category-badge ha-icon { --mdc-icon-size:var(--isl-badge-icon-size); display:flex; align-items:center; justify-content:center; flex:none; width:var(--isl-badge-icon-size); height:var(--isl-badge-icon-size); margin:0; padding:0; }
-        .title { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:3; overflow:hidden; font-size:clamp(8px,7cqi,32px); line-height:1.4; font-weight:650; margin:0; overflow-wrap:anywhere; text-align:center; }
+        /* Include card padding/borders: List measures its outer li, Catalog its content box. */
+        .title { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:3; overflow:hidden; font-size:clamp(12px,calc((100cqi + 2 * var(--isl-product-padding-inline) + 2px) / 10),32px); line-height:1.2; font-weight:650; margin:0; overflow-wrap:anywhere; text-align:center; }
         .subtitle { color:var(--secondary-text-color,#63766b); font-size:12px; margin:4px 0 0; overflow-wrap:anywhere; }
         .tags { display:flex; flex-wrap:wrap; justify-content:center; gap:5px; }
         .tag { padding:4px 8px; border-radius:20px; font-size:11px; background:var(--secondary-background-color,#edf4ee); max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
@@ -185,7 +186,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
         .fields { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin:22px 0; }
         .wide { grid-column:1/-1; }
         .form-actions { display:flex; justify-content:flex-end; gap:10px; margin-top:22px; }
-        @media(max-width:650px) { .filters { grid-template-columns:1fr; } .grid { grid-template-columns:repeat(var(--isl-mobile-columns,1),minmax(0,1fr)); } .product { padding:30px 6px 12px; } .heading { gap:10px; flex-wrap:wrap; } h1 { font-size:28px; } dialog { padding:20px; } }
+        @media(max-width:650px) { .filters { grid-template-columns:1fr; } .grid { grid-template-columns:repeat(var(--isl-mobile-columns,1),minmax(0,1fr)); } .product { --isl-product-padding-inline:6px; padding:30px var(--isl-product-padding-inline) 12px; } .heading { gap:10px; flex-wrap:wrap; } h1 { font-size:28px; } dialog { padding:20px; } }
         @media(max-width:390px) { .fields { grid-template-columns:1fr; } .heading { align-items:flex-start; } }
       </style>
       <div class="heading"><h1>Catálogo</h1></div>

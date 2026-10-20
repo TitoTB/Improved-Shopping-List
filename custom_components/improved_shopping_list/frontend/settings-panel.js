@@ -41,7 +41,7 @@ class ImprovedShoppingSettings extends HTMLElement {
         .preview { display:grid; place-items:center; min-height:120px; border-radius:16px; margin-top:24px; padding:20px; font-weight:650; }
         @media(max-width:540px) { .appearance-fields { grid-template-columns:1fr; } }
         .store-row { flex-wrap:nowrap; gap:12px; }
-        .store-logo { width:56px; height:56px; flex:none; object-fit:contain; border-radius:10px; background:white; }
+        .store-logo { width:56px; height:56px; padding:8px; flex:none; object-fit:contain; border-radius:10px; background:#fff; }
         .store-name { flex:1; min-width:0; }
         .store-controls { display:flex; align-items:center; gap:12px; margin-left:auto; flex:none; }
         .store-toggle[type=checkbox] { appearance:none; position:relative; width:40px; height:24px; min-height:24px; margin:0; padding:0; border:0; border-radius:20px; background:#b3261e; cursor:pointer; }
@@ -54,7 +54,7 @@ class ImprovedShoppingSettings extends HTMLElement {
         .store-products { display:grid; gap:12px; margin-top:16px; }.store-product { display:flex; justify-content:space-between; align-items:center; gap:12px; border:1px solid var(--divider-color,#dfe7e1); border-radius:10px; padding:14px; }
         .store-progress progress { display:block; width:100%; height:14px; accent-color:var(--primary-color,#267052); }.store-progress p { margin:6px 0; }
         .store-product-info { min-width:0; overflow-wrap:anywhere; }.store-product-info p { margin:4px 0 0; }.store-price { flex:none; max-width:50%; text-align:right; }.store-price p { margin:4px 0; font-size:12px; }
-        @media(max-width:540px) { dialog { padding:18px; }.store-row { padding:12px; gap:8px; }.store-logo { width:40px; height:40px; }.store-controls { gap:8px; } }
+        @media(max-width:540px) { dialog { padding:18px; }.store-row { padding:12px; gap:8px; }.store-logo { width:40px; height:40px; padding:6px; }.store-controls { gap:8px; } }
         .primary { color:#fff; background:#267052; border:0; }
         .add-row { display:flex; align-items:end; gap:10px; }
         .select-wrap { flex:1; min-width:0; }

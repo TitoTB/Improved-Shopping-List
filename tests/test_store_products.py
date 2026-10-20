@@ -135,7 +135,7 @@ async def test_all_requests_are_paced_including_name_fallback(hass, aioclient_mo
     await service._fetch(CODE, "mad3", "Tomate")
     await service._fetch(CODE, "mad3", "Tomate")
     assert aioclient_mock.call_count == 4
-    assert waits == pytest.approx([2, 2, 2])
+    assert waits == pytest.approx([5, 5, 5])
 
 
 async def test_403_persists_cooldown_and_logs_safe_diagnostics(hass, aioclient_mock, monkeypatch, caplog):

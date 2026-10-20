@@ -21,7 +21,8 @@ from .stores import StoreError
 
 SEARCH_URL = "https://tornillos.mercadona.es/search"
 TTL = 6 * 3600
-REQUEST_INTERVAL = 2.0
+# Match the five-second Delay in the original Mercadona n8n workflow.
+REQUEST_INTERVAL = 5.0
 _LOGGER = logging.getLogger(__name__)
 
 

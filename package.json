@@ -1,0 +1,14 @@
+{
+  "name": "improved-shopping-list",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/todo-client.test.js",
+    "check": "node --check custom_components/improved_shopping_list/frontend/panel.js && node --check custom_components/improved_shopping_list/frontend/todo-client.js && node scripts/check-metadata.js",
+    "test:ui": "node tests/panel.browser.cjs"
+  },
+  "devDependencies": {
+    "playwright": "1.56.1"
+  }
+}

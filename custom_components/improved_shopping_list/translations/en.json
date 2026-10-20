@@ -1,0 +1,24 @@
+{
+  "title": "Improved Shopping List",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Improved Shopping List",
+        "description": "Choose an existing to-do list. You can switch lists in the panel. If none appear, first set up Shopping List, Bring! or another to-do integration.",
+        "data": {"todo_entity": "Default shopping list"}
+      }
+    },
+    "error": {"invalid_entity": "Select an existing to-do entity."},
+    "abort": {"already_configured": "Already configured. Use Configure to change the default list."}
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Default shopping list",
+        "description": "Choose the list that opens by default in the panel.",
+        "data": {"todo_entity": "To-do list"}
+      }
+    },
+    "error": {"invalid_entity": "Select an existing to-do entity."}
+  }
+}

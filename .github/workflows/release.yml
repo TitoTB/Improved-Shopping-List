@@ -1,0 +1,40 @@
+name: Publish release
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing validated version tag (for example v0.1.0)'
+        required: true
+permissions:
+  contents: write
+jobs:
+  validate:
+    uses: ./.github/workflows/validate.yml
+  release:
+    needs: validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref_name }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: npm run check
+        env:
+          GITHUB_REF_TYPE: tag
+          GITHUB_REF_NAME: ${{ inputs.tag || github.ref_name }}
+      - uses: actions/github-script@v7
+        env:
+          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+        with:
+          script: |
+            const tag = process.env.RELEASE_TAG;
+            if (!/^v\d+\.\d+\.\d+$/.test(tag)) throw new Error('Invalid version tag');
+            await github.rest.repos.createRelease({
+              ...context.repo, tag_name: tag, name: `Improved Shopping List ${tag}`,
+              body: 'Consulta CHANGELOG.md para conocer los cambios y README.md para instalar mediante HACS.',
+              draft: false, prerelease: false
+            });

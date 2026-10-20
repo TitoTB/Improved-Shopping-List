@@ -1,0 +1,24 @@
+{
+  "title": "Improved Shopping List",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Improved Shopping List",
+        "description": "Selecciona una lista de tareas existente. Podrás cambiar de lista desde el panel. Si no aparece ninguna, configura antes Shopping List, Bring! u otra integración de listas.",
+        "data": {"todo_entity": "Lista de la compra predeterminada"}
+      }
+    },
+    "error": {"invalid_entity": "Selecciona una entidad de tipo todo existente."},
+    "abort": {"already_configured": "Ya está configurada. Usa Configurar para cambiar la lista predeterminada."}
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Lista de la compra predeterminada",
+        "description": "Selecciona la lista que se abrirá por defecto en el panel.",
+        "data": {"todo_entity": "Lista de tareas"}
+      }
+    },
+    "error": {"invalid_entity": "Selecciona una entidad de tipo todo existente."}
+  }
+}

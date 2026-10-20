@@ -1,0 +1,13 @@
+{
+  "domain": "improved_shopping_list",
+  "name": "Improved Shopping List",
+  "codeowners": ["@TitoTB"],
+  "config_flow": true,
+  "dependencies": ["frontend", "http", "panel_custom", "todo"],
+  "documentation": "https://github.com/TitoTB/Improved-Shopping-List",
+  "integration_type": "service",
+  "iot_class": "local_push",
+  "issue_tracker": "https://github.com/TitoTB/Improved-Shopping-List/issues",
+  "requirements": [],
+  "version": "0.1.0"
+}

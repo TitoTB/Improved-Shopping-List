@@ -1,0 +1,9 @@
+"""Constants for Improved Shopping List."""
+
+DOMAIN = "improved_shopping_list"
+NAME = "Improved Shopping List"
+CONF_TODO_ENTITY = "todo_entity"
+PANEL_PATH = "improved-shopping-list"
+PANEL_ELEMENT = "improved-shopping-list-panel"
+STATIC_URL = "/improved_shopping_list_static"
+VERSION = "0.1.0"

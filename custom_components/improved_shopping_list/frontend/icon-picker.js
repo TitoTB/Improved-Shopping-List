@@ -74,7 +74,7 @@ class ImprovedShoppingIconPicker extends HTMLElement {
         <label>Buscar iconos<input id="query" type="search" minlength="2" maxlength="100" placeholder="Puedes escribir otro término"></label>
         <p class="helper">Las sugerencias se actualizan con el nombre del producto. Pulsa + para ver otras propuestas.</p>
         <div id="selected" hidden></div>
-        <p class="helper">Los iconos sugeridos proceden principalmente de <a href="https://iconify.design/" target="_blank" rel="noopener noreferrer">Iconify</a> y <a href="https://www.flaticon.es/" target="_blank" rel="noopener noreferrer">Flaticon</a>. Se conservarán el autor y la licencia del icono elegido.</p>
+        <p class="helper">Los iconos sugeridos proceden principalmente de <a href="https://iconify.design/" target="_blank" rel="noopener noreferrer">Iconify</a> y <a href="https://www.flaticon.es/" target="_blank" rel="noopener noreferrer">Flaticon</a>. Se conservarán el autor y la licencia.</p>
       </section>`;
     this._built = true;
     const root = this.shadowRoot;

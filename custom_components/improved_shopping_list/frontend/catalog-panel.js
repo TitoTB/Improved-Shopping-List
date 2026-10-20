@@ -96,7 +96,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
   disconnectedCallback() {
     this._catalog.stop();
     this._started = false;
-    this.shadowRoot.querySelector("dialog")?.close();
+    this.shadowRoot.querySelectorAll("dialog").forEach(dialog => dialog.close());
     this.shadowRoot.querySelector("isl-icon-picker")?.close();
   }
 
@@ -153,30 +153,32 @@ class ImprovedShoppingCatalog extends HTMLElement {
         textarea { resize:vertical; min-height:76px; }
         .count { color:var(--secondary-text-color,#63766b); font-size:12px; margin:12px 0; }
         .grid { display:grid; grid-template-columns:repeat(var(--isl-columns,3),minmax(0,1fr)); gap:16px; }
-        .product { --isl-product-padding-inline:18px; position:relative; display:flex; flex-direction:column; gap:12px; background:var(--card-background-color,#fff); border:1px solid var(--divider-color,#dfe7e1); border-radius:16px; padding:30px var(--isl-product-padding-inline) 18px; min-width:0; text-align:center; container-type:inline-size; }
+        .product { position:relative; align-self:start; width:100%; aspect-ratio:1 / 1; min-width:0; min-height:0; padding:0; overflow:hidden; background:var(--card-background-color,#fff); border:1px solid var(--divider-color,#dfe7e1); border-radius:16px; text-align:center; container-type:inline-size; }
         .product.in-list { background:linear-gradient(var(--isl-gradient-start,#ee524f),var(--isl-gradient-end,#b52a27)); border-color:var(--isl-gradient-end,#b52a27); }
         .product.in-list,.product.in-list .placeholder,.product.in-list .subtitle,.product.in-list button,.product.in-list ha-icon { color:#fff; }
-        .product-top { display:flex; flex-direction:column; gap:14px; align-items:center; }
-        .product-name { min-width:0; max-width:100%; }
-        .image { width:clamp(14px,36cqi,192px); max-width:100%; height:auto; aspect-ratio:1; object-fit:contain; border-radius:10px; flex-shrink:0; }
+        .product-top { position:absolute; inset:0; display:flex; flex-direction:column; gap:clamp(2px,2.5cqi,12px); align-items:center; justify-content:center; padding:clamp(4px,5cqi,24px); padding-top:calc(clamp(3px,4cqi,12px) + clamp(18px,13cqi,32px) + clamp(2px,2cqi,6px)); pointer-events:none; }
+        .product-media { display:grid; place-items:center; width:clamp(14px,36cqi,192px); max-width:100%; min-height:0; flex-shrink:1; aspect-ratio:1; }
+        .product-name { min-width:0; width:100%; max-width:100%; flex-shrink:0; }
+        .image { width:100%; max-width:100%; height:auto; max-height:100%; aspect-ratio:1; object-fit:contain; border-radius:10px; }
         .placeholder { display:grid; place-items:center; color:var(--secondary-text-color,#63766b); }
         .placeholder ha-icon { --mdc-icon-size:clamp(14px,30cqi,160px); width:var(--mdc-icon-size); height:var(--mdc-icon-size); }
-        .product > button.category-badge { --isl-badge-size:32px; --isl-badge-icon-size:20px; position:absolute; top:12px; right:12px; display:flex; align-items:center; justify-content:center; appearance:none; -webkit-appearance:none; box-sizing:border-box; width:var(--isl-badge-size); min-width:var(--isl-badge-size); max-width:var(--isl-badge-size); height:var(--isl-badge-size); min-height:var(--isl-badge-size); max-height:var(--isl-badge-size); aspect-ratio:1 / 1; margin:0; padding:0; border:0 none; border-radius:50%; line-height:0; color:#fff; box-shadow:0 2px 6px rgba(0,0,0,.22); }
-        .product > button.category-badge ha-icon { --mdc-icon-size:var(--isl-badge-icon-size); display:flex; align-items:center; justify-content:center; flex:none; width:var(--isl-badge-icon-size); height:var(--isl-badge-icon-size); margin:0; padding:0; }
-        /* Include card padding/borders: List measures its outer li, Catalog its content box. */
-        .title { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:3; overflow:hidden; font-size:clamp(12px,calc((100cqi + 2 * var(--isl-product-padding-inline) + 2px) / 10),32px); line-height:1.2; font-weight:650; margin:0; overflow-wrap:anywhere; text-align:center; }
+        .product .add-product { position:absolute; z-index:1; inset:0; width:100%; height:100%; min-height:0; margin:0; padding:0; border:0; border-radius:inherit; background:transparent; }
+        .product .add-product:focus-visible { outline-offset:-3px; }
+        .product-controls { position:absolute; z-index:2; top:clamp(3px,4cqi,12px); right:clamp(3px,4cqi,12px); display:flex; gap:clamp(2px,2cqi,6px); }
+        .product-controls button { --isl-control-size:clamp(18px,13cqi,32px); display:flex; align-items:center; justify-content:center; appearance:none; -webkit-appearance:none; flex:none; width:var(--isl-control-size); min-width:var(--isl-control-size); max-width:var(--isl-control-size); height:var(--isl-control-size); min-height:var(--isl-control-size); max-height:var(--isl-control-size); aspect-ratio:1; margin:0; padding:0; border:0; border-radius:50%; line-height:0; color:#fff; box-shadow:0 2px 6px rgba(0,0,0,.22); }
+        .product-controls .delete-product { background:#000; }
+        .product-controls button:focus-visible { outline-offset:1px; }
+        .product-controls ha-icon { --mdc-icon-size:clamp(12px,8cqi,20px); display:flex; align-items:center; justify-content:center; flex:none; width:var(--mdc-icon-size); height:var(--mdc-icon-size); margin:0; padding:0; }
+        /* Match List's outer li width, including the Catalog card's two border pixels. */
+        .title { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:3; overflow:hidden; font-size:clamp(12px,calc((100cqi + 2px) / 10),32px); line-height:1.2; font-weight:650; margin:0; overflow-wrap:anywhere; text-align:center; }
         .subtitle { color:var(--secondary-text-color,#63766b); font-size:12px; margin:4px 0 0; overflow-wrap:anywhere; }
-        .tags { display:flex; flex-wrap:wrap; justify-content:center; gap:5px; }
-        .tag { padding:4px 8px; border-radius:20px; font-size:11px; background:var(--secondary-background-color,#edf4ee); max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .tags { display:flex; flex-wrap:wrap; justify-content:center; gap:4px; max-width:100%; max-height:15cqi; overflow:hidden; flex-shrink:0; }
+        .tag { padding:2px 5px; border-radius:20px; font-size:clamp(7px,4cqi,11px); background:var(--secondary-background-color,#edf4ee); max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
         .actions { display:flex; gap:8px; margin-top:auto; }
         .actions button { display:inline-flex; align-items:center; justify-content:center; gap:7px; }
         .actions ha-icon { --mdc-icon-size:20px; }
         .actions .primary { flex:1; }
-        .product .actions { gap:clamp(2px,4cqi,8px); }
-        .product .actions button { flex:1 1 0; min-width:0; min-height:32px; font-size:12px; padding:clamp(2px,4cqi,6px); gap:4px; border-radius:8px; }
-        .product .actions .edit-product { background:#f9a825; border:0; }
-        .product .actions ha-icon { --mdc-icon-size:clamp(10px,24cqi,16px); }
-        @container(max-width:100px) { .product > button.category-badge { --isl-badge-size:20px; --isl-badge-icon-size:14px; top:6px; right:6px; } .tag { font-size:9px; padding:3px; } }
+        @container(max-width:140px) { .product .tags { display:none; } .product .title { -webkit-line-clamp:2; } }
         .notice { font-size:13px; line-height:1.6; padding:12px 14px; background:var(--secondary-background-color,#edf4ee); border-radius:10px; margin:14px 0; }
         .error { color:var(--error-color,#bd3636); border:1px solid var(--error-color,#bd3636); }
         .empty { text-align:center; padding:38px 16px; color:var(--secondary-text-color,#63766b); line-height:1.7; border:1px dashed var(--divider-color,#dfe7e1); border-radius:16px; }
@@ -186,7 +188,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
         .fields { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin:22px 0; }
         .wide { grid-column:1/-1; }
         .form-actions { display:flex; justify-content:flex-end; gap:10px; margin-top:22px; }
-        @media(max-width:650px) { .filters { grid-template-columns:1fr; } .grid { grid-template-columns:repeat(var(--isl-mobile-columns,1),minmax(0,1fr)); } .product { --isl-product-padding-inline:6px; padding:30px var(--isl-product-padding-inline) 12px; } .heading { gap:10px; flex-wrap:wrap; } h1 { font-size:28px; } dialog { padding:20px; } }
+        @media(max-width:650px) { .filters { grid-template-columns:1fr; } .grid { grid-template-columns:repeat(var(--isl-mobile-columns,1),minmax(0,1fr)); } .heading { gap:10px; flex-wrap:wrap; } h1 { font-size:28px; } dialog { padding:20px; } }
         @media(max-width:390px) { .fields { grid-template-columns:1fr; } .heading { align-items:flex-start; } }
       </style>
       <div class="heading"><h1>Catálogo</h1></div>
@@ -244,6 +246,11 @@ class ImprovedShoppingCatalog extends HTMLElement {
           <div class="form-actions"><button id="cancel-product" type="button">Cancelar</button><button id="save-product" class="primary" type="submit">Guardar producto</button></div>
         </form>
         <isl-categories id="product-category-editor" editor-only></isl-categories>
+      </dialog>
+      <dialog id="delete-product-dialog" aria-labelledby="delete-product-title">
+        <h2 id="delete-product-title">Eliminar producto</h2><p id="delete-product-description"></p>
+        <div id="delete-product-error" class="notice error" role="alert" hidden></div>
+        <div class="form-actions"><button id="cancel-delete-product" type="button">Cancelar</button><button id="confirm-delete-product" type="button" style="background:#000;color:#fff;border:0">Eliminar producto</button></div>
       </dialog>`;
     this._built = true;
     const root = this.shadowRoot;
@@ -252,6 +259,9 @@ class ImprovedShoppingCatalog extends HTMLElement {
     iconPicker.onSelect = asset => { root.querySelector("form").elements.image_url.value = asset.url; };
     root.querySelector('[name="image_url"]').addEventListener("input", event => { iconPicker.value = event.target.value; });
     root.querySelector("dialog").addEventListener("close", () => iconPicker.close());
+    root.querySelector("#cancel-delete-product").addEventListener("click", () => root.querySelector("#delete-product-dialog").close());
+    root.querySelector("#confirm-delete-product").addEventListener("click", () => void this._deleteProduct());
+    root.querySelector("#delete-product-dialog").addEventListener("cancel", event => { if (this._deletingProduct) event.preventDefault(); });
     root.querySelector("#new-product").addEventListener("click", () => this._openProduct());
     root.querySelector("#view-products").addEventListener("click", () => this._switchView("products"));
     root.querySelector("#view-categories").addEventListener("click", () => this._switchView("categories"));
@@ -494,24 +504,17 @@ class ImprovedShoppingCatalog extends HTMLElement {
     card.dataset.inList = String(inList);
     if (inList) card.setAttribute("aria-description", "Pendiente en la lista seleccionada");
     const category = this._catalog.categories.find(category => normalizedName(category.name) === normalizedName(product.category));
-    if (category) {
-      const badge = element("button", "category-badge");
-      badge.type = "button";
-      badge.style.backgroundColor = category.color;
-      badge.title = category.name;
-      badge.setAttribute("aria-label", `Filtrar por categoría: ${category.name}`);
-      badge.addEventListener("click", () => {
-        const filter = this.shadowRoot.querySelector("#category-filter");
-        filter.value = category.name;
-        this._renderProducts();
-        filter.focus();
-      });
-      const categoryIcon = element("ha-icon");
-      categoryIcon.setAttribute("icon", category.icon);
-      badge.append(categoryIcon);
-      card.append(badge);
-    }
+    // A native, transparent button makes the whole surface keyboard accessible.
+    // Edit/delete are sibling controls above it, so they never activate list writes.
+    const add = element("button", "add-product");
+    add.type = "button";
+    add.title = this._canAdd ? `Añadir ${product.name} a «${this._listName}»` : "Selecciona una lista disponible en el apartado Lista para añadir productos.";
+    add.setAttribute("aria-label", `Añadir ${product.name} a la lista`);
+    add.disabled = !this._canAdd || Boolean(this._adding);
+    add.addEventListener("click", () => void this._addToList(product));
+    card.append(add);
     const top = element("div", "product-top");
+    const media = element("div", "product-media");
     const placeholder = element("div", "image placeholder");
     const icon = element("ha-icon");
     icon.setAttribute("icon", product.icon || category?.icon || "mdi:shopping");
@@ -524,8 +527,9 @@ class ImprovedShoppingCatalog extends HTMLElement {
       image.loading = "lazy";
       image.referrerPolicy = "no-referrer";
       image.addEventListener("error", () => image.replaceWith(placeholder), { once: true });
-      top.append(image);
-    } else top.append(placeholder);
+      media.append(image);
+    } else media.append(placeholder);
+    top.append(media);
     const title = element("div", "product-name");
     title.title = product.name;
     title.append(element("h2", "title", product.name));
@@ -534,30 +538,48 @@ class ImprovedShoppingCatalog extends HTMLElement {
     if (product.tags.length) {
       const tags = element("div", "tags");
       tags.append(...product.tags.map(tag => element("span", "tag", tag)));
-      card.append(tags);
+      top.append(tags);
     }
-    const actions = element("div", "actions");
-    const add = element("button", "primary");
-    const addIcon = element("ha-icon");
-    addIcon.setAttribute("icon", "mdi:cart-plus");
-    addIcon.setAttribute("aria-hidden", "true");
-    add.append(addIcon);
-    add.title = "Añadir a la lista";
-    add.setAttribute("aria-label", `Añadir ${product.name} a la lista`);
-    add.title = this._canAdd ? `Añadir a «${this._listName}»` : "Selecciona una lista disponible en el apartado Lista para añadir productos.";
-    add.disabled = !this._canAdd || Boolean(this._adding);
-    add.addEventListener("click", () => void this._addToList(product));
-    const edit = element("button", "edit-product");
-    const editIcon = element("ha-icon");
-    editIcon.setAttribute("icon", "mdi:note-edit");
-    editIcon.setAttribute("aria-hidden", "true");
-    edit.append(editIcon);
-    edit.title = "Editar producto";
-    edit.setAttribute("aria-label", `Editar ${product.name}`);
-    edit.addEventListener("click", () => this._openProduct(product));
-    actions.append(add, edit);
-    card.append(actions);
+    const controls = element("div", "product-controls");
+    const edit = iconButton("mdi:note-edit", `Editar ${product.name}`, "edit-product");
+    edit.style.backgroundColor = category?.color || "#64748b";
+    edit.addEventListener("click", event => { event.stopPropagation(); this._openProduct(product); });
+    const remove = iconButton("mdi:delete", `Eliminar ${product.name}`, "delete-product");
+    remove.addEventListener("click", event => { event.stopPropagation(); this._confirmDeleteProduct(product); });
+    controls.append(edit, remove);
+    card.append(controls);
     return card;
+  }
+
+  _confirmDeleteProduct(product) {
+    if (this._saving || this._deletingProduct) return;
+    this._deleteTarget = structuredClone(product);
+    const root = this.shadowRoot;
+    root.querySelector("#delete-product-description").textContent = `Se eliminará «${product.name}» del catálogo y se quitarán sus códigos asociados. Los elementos que ya estén en tus listas se conservarán.`;
+    root.querySelector("#delete-product-error").hidden = true;
+    root.querySelector("#delete-product-dialog").showModal();
+  }
+
+  async _deleteProduct() {
+    if (!this._deleteTarget || this._deletingProduct) return;
+    const root = this.shadowRoot;
+    this._deletingProduct = true;
+    root.querySelectorAll("#delete-product-dialog button").forEach(button => { button.disabled = true; });
+    root.querySelector("#delete-product-error").hidden = true;
+    try {
+      await this._catalog.deleteProduct(this._deleteTarget);
+      root.querySelector("#delete-product-dialog").close();
+      this._notice = "Producto eliminado del catálogo.";
+      this._render();
+      root.querySelector("#new-product").focus();
+    } catch (error) {
+      const notice = root.querySelector("#delete-product-error");
+      notice.textContent = error.message ?? "No se ha podido eliminar el producto.";
+      notice.hidden = false;
+    } finally {
+      this._deletingProduct = false;
+      root.querySelectorAll("#delete-product-dialog button").forEach(button => { button.disabled = false; });
+    }
   }
 
   _openProduct(product, suggestedName = "", reading = null) {

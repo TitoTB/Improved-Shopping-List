@@ -47,6 +47,62 @@ async def test_catalog_persists_normalizes_and_returns_snapshots(hass):
     assert catalog.products == [product]
 
 
+async def test_product_delete_is_durable_releases_codes_and_checks_revision(hass):
+    catalog = Catalog(hass)
+    await catalog.async_load()
+    category = await catalog.async_save_category({"name": "Despensa"})
+    product = await catalog.async_save_product({"name": "Cacao", "category": category["name"], "barcode": "00123", "nfc_tags": ["AA:BB"]})
+    with pytest.raises(CatalogError, match="Otra sesión"):
+        await catalog.async_delete_product(product["id"], product["revision"] + 1)
+    assert catalog.products == [product]
+    notifications = []
+    unsubscribe = catalog.subscribe(lambda: notifications.append(catalog.snapshot))
+    await catalog.async_delete_product(product["id"], product["revision"])
+    assert catalog.products == [] and notifications[-1]["products"] == []
+    assert catalog.snapshot["categories"][0]["product_count"] == 0
+    restored = Catalog(hass)
+    await restored.async_load()
+    assert restored.products == []
+    await restored.async_save_product({"name": "Otro", "barcode": "00123", "nfc_tags": ["AA:BB"]})
+    with pytest.raises(CatalogError) as error:
+        await catalog.async_delete_product(product["id"], product["revision"])
+    assert error.value.code == "not_found"
+    unsubscribe()
+
+
+async def test_product_delete_storage_failure_preserves_entry(hass, monkeypatch):
+    catalog = Catalog(hass)
+    await catalog.async_load()
+    product = await catalog.async_save_product({"name": "Cacao"})
+    monkeypatch.setattr(catalog._store, "async_save", AsyncMock(side_effect=OSError("Disk full")))
+    with pytest.raises(OSError):
+        await catalog.async_delete_product(product["id"], product["revision"])
+    assert catalog.products == [product]
+
+
+async def test_delete_product_websocket_updates_other_sessions_without_changing_todo(hass, hass_ws_client):
+    hass.states.async_set("todo.bring", "1", {"friendly_name": "Compra"})
+    entry = MockConfigEntry(domain=DOMAIN, data={CONF_TODO_ENTITY: "todo.bring"})
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    catalog = hass.data[DOMAIN]["catalog"]
+    product = await catalog.async_save_product({"name": "Cacao"})
+    client = await hass_ws_client(hass)
+    await client.send_json({"id": 1, "type": f"{DOMAIN}/catalog/subscribe"})
+    await client.receive_json()
+    await client.receive_json()
+    await client.send_json({"id": 2, "type": f"{DOMAIN}/catalog/delete", "product_id": product["id"], "revision": 99})
+    assert (await client.receive_json())["error"]["code"] == "conflict"
+    await client.send_json({"id": 3, "type": f"{DOMAIN}/catalog/delete", "product_id": product["id"], "revision": product["revision"]})
+    messages = [await client.receive_json(), await client.receive_json()]
+    assert next(message for message in messages if message["id"] == 3)["success"]
+    assert next(message for message in messages if message["id"] == 1)["event"]["products"] == []
+    assert hass.states.get("todo.bring").state == "1"
+    await hass.config_entries.async_unload(entry.entry_id)
+    await client.send_json({"id": 4, "type": f"{DOMAIN}/catalog/delete", "product_id": product["id"], "revision": product["revision"]})
+    assert (await client.receive_json())["error"]["code"] == "not_loaded"
+
+
 async def test_removed_brand_and_format_migrate_without_losing_products(hass):
     catalog=Catalog(hass)
     await catalog.async_load()

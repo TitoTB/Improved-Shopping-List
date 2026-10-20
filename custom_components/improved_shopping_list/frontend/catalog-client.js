@@ -78,6 +78,12 @@ export class CatalogSession {
     return result.category;
   }
 
+  async deleteProduct(product) {
+    const generation = this._generation;
+    await this.getHass().callWS({ type: `${PREFIX}delete`, product_id: product.id, revision: product.revision });
+    if (generation === this._generation) await this.refresh();
+  }
+
   async deleteCategory(category) {
     const generation = this._generation;
     await this.getHass().callWS({ type: `${PREFIX}category/delete`, category_id: category.id, revision: category.revision });

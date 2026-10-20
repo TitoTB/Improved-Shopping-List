@@ -108,6 +108,12 @@ const hass={
       window.emitSettings();return structuredClone(window.listSettings);
     }
     if(msg.type==='improved_shopping_list/catalog/get')return snapshot();
+    if(msg.type==='improved_shopping_list/catalog/delete'){
+      if(window.failDeleteProduct)throw new Error('No se ha podido eliminar el producto');
+      const product=window.catalogProducts.find(item=>item.id===msg.product_id);
+      if(!product||product.revision!==msg.revision)throw new Error('El producto ha cambiado');
+      window.catalogProducts=window.catalogProducts.filter(item=>item.id!==msg.product_id);emitCatalog();return null;
+    }
     if(msg.type==='improved_shopping_list/catalog/suggestion'){
       if(window.failCatalog)throw new Error('No se ha podido guardar el cambio');
       if(msg.action==='dismiss'){
@@ -334,14 +340,15 @@ async function main() {
     await catalog.getByRole("heading", { name: "Yogur natural", exact: true }).waitFor();
     assert.equal(await page.evaluate(() => window.catalogProducts[0].barcode), "0012345678905");
     const productCard = catalog.locator("#catalog-grid article").first();
+    const callsBeforeProductControls = await page.evaluate(()=>window.calls.length);
     assert.equal(await productCard.locator(".placeholder ha-icon").getAttribute("icon"), "mdi:food");
     assert.equal(await page.evaluate(() => window.catalogProducts[0].icon), "");
     assert.equal(await productCard.getByText("Lácteos", { exact: true }).count(), 0);
     assert.equal((await productCard.textContent()).includes("2,59"), false);
-    assert.equal(await productCard.locator(".category-badge").evaluate(node => getComputedStyle(node).color), "rgb(255, 255, 255)");
-    assert.equal(await productCard.locator(".category-badge").evaluate(node => getComputedStyle(node).backgroundColor), "rgb(156, 39, 176)");
+    assert.equal(await productCard.locator(".edit-product").evaluate(node => getComputedStyle(node).color), "rgb(255, 255, 255)");
+    assert.equal(await productCard.locator(".edit-product").evaluate(node => getComputedStyle(node).backgroundColor), "rgb(156, 39, 176)");
     const assertCatalogBadge = async () => {
-      assert.ok(await productCard.locator(".category-badge").evaluate(badge => {
+      assert.ok(await productCard.locator(".edit-product").evaluate(badge => {
         const bounds = badge.getBoundingClientRect();
         const icon = badge.querySelector("ha-icon").getBoundingClientRect();
         const style = getComputedStyle(badge);
@@ -362,6 +369,11 @@ async function main() {
           node.style.setProperty("--isl-mobile-columns", columns);
         }, columns);
         await assertCatalogBadge();
+        assert.ok(await productCard.evaluate(card => {
+          const bounds=card.getBoundingClientRect(),name=card.querySelector(".title").getBoundingClientRect(),media=card.querySelector(".product-media").getBoundingClientRect();
+          return Math.abs(bounds.width-bounds.height)<1 && name.left>=bounds.left && name.right<=bounds.right && name.top>=bounds.top && name.bottom<=bounds.bottom &&
+            [...card.querySelectorAll(".product-controls button")].every(button=>{const rect=button.getBoundingClientRect();return Math.abs(rect.width-rect.height)<.1&&rect.left>=bounds.left&&rect.right<=bounds.right&&rect.bottom<=media.top+.5;});
+        }),`Square catalog card with content inside at ${width}px / ${columns} columns`);
         sizes.push(await productCard.evaluate(card => ({
           font:parseFloat(getComputedStyle(card.querySelector(".title")).fontSize),
           icon:card.querySelector(".placeholder ha-icon").getBoundingClientRect().width,
@@ -374,15 +386,17 @@ async function main() {
     }
     await catalog.evaluate(node => { node.style.removeProperty("--isl-columns"); node.style.removeProperty("--isl-mobile-columns"); });
     await page.setViewportSize({width:1280,height:960});
-    assert.equal(await productCard.locator(".actions button").first().textContent(), "");
-    assert.equal(await productCard.locator(".actions button").last().textContent(), "");
-    assert.equal(await productCard.locator(".actions button").first().locator("ha-icon").getAttribute("icon"), "mdi:cart-plus");
-    assert.equal(await productCard.locator(".actions button").last().locator("ha-icon").getAttribute("icon"), "mdi:note-edit");
+    assert.equal(await productCard.locator(".product-controls button").first().textContent(), "");
+    assert.equal(await productCard.locator(".product-controls button").last().textContent(), "");
+    assert.equal(await productCard.locator(".product-controls button").first().locator("ha-icon").getAttribute("icon"), "mdi:note-edit");
+    assert.equal(await productCard.locator(".product-controls button").last().locator("ha-icon").getAttribute("icon"), "mdi:delete");
     const assertEditButton = async () => {
-      assert.equal(await productCard.locator(".edit-product").evaluate(button => getComputedStyle(button).backgroundColor), "rgb(249, 168, 37)");
+      assert.equal(await productCard.locator(".edit-product").evaluate(button => getComputedStyle(button).backgroundColor), "rgb(156, 39, 176)");
       assert.equal(await productCard.locator(".edit-product").evaluate(button => getComputedStyle(button).borderWidth), "0px");
     };
     await assertEditButton();
+    assert.equal(await productCard.locator(".delete-product").evaluate(button=>getComputedStyle(button).backgroundColor),"rgb(0, 0, 0)");
+    assert.equal(await productCard.locator('ha-icon[icon="mdi:cart-plus"]').count(),0);
     assert.ok(await productCard.evaluate(card => {
       const image = card.querySelector(".image").getBoundingClientRect();
       const title = card.querySelector(".title").getBoundingClientRect();
@@ -425,20 +439,18 @@ async function main() {
     await page.setViewportSize({width:1280,height:960});
     await page.screenshot({ path: "test-results/categories-desktop.png", fullPage: true });
     await catalog.getByRole("button", { name: "Productos", exact: true }).click();
-    assert.equal(await productCard.locator(".category-badge").getAttribute("title"), "Lácteos y frescos");
+    assert.equal(await productCard.locator(".category-badge").count(), 0);
     await catalog.getByLabel("Buscar productos", { exact: true }).fill("inexistente");
     await catalog.getByText("No hay productos que coincidan con estos filtros.", { exact: true }).waitFor();
     await catalog.getByLabel("Buscar productos", { exact: true }).fill("");
-    await productCard.getByRole("button", { name: "Filtrar por categoría: Lácteos y frescos", exact: true }).click();
-    assert.equal(await catalog.locator("#category-filter").inputValue(), "Lácteos y frescos");
-    await catalog.locator("#category-filter").selectOption("");
-    await productCard.getByRole("button", { name: "Filtrar por categoría: Lácteos y frescos", exact: true }).focus();
-    await page.keyboard.press("Enter");
+    await catalog.locator("#category-filter").selectOption("Lácteos y frescos");
     assert.equal(await catalog.locator("#category-filter").inputValue(), "Lácteos y frescos");
     assert.equal(await catalog.locator("#tag-filter").count(), 0);
     assert.equal(await catalog.locator("#view-products ha-icon").getAttribute("icon"), "mdi:view-grid");
     assert.equal(await catalog.locator("#view-categories ha-icon").getAttribute("icon"), "mdi:label");
-    await catalog.getByRole("button", { name: "Añadir Yogur sin azúcar a la lista", exact: true }).click();
+    assert.equal(await page.evaluate(()=>window.calls.length),callsBeforeProductControls);
+    await catalog.getByRole("button", { name: "Añadir Yogur sin azúcar a la lista", exact: true }).focus();
+    await page.keyboard.press("Enter");
     await catalog.getByRole("status").filter({ hasText: "Yogur sin azúcar añadido" }).waitFor();
     assert.equal((await page.evaluate(() => window.calls)).at(-1).entity_id, "todo.bring");
     assert.equal((await page.evaluate(() => window.calls)).at(-1).item, "Yogur sin azúcar");
@@ -487,7 +499,7 @@ async function main() {
     assert.equal(await page.evaluate(() => window.catalogProducts.length), 1);
     assert.equal(await page.evaluate(() => window.catalogProducts[0].category), "");
     await catalog.getByRole("button", { name: "Productos", exact: true }).click();
-    assert.equal(await productCard.locator(".category-badge").count(), 0);
+    assert.equal(await productCard.locator(".edit-product").evaluate(button => getComputedStyle(button).backgroundColor), "rgb(100, 116, 139)");
     await catalog.getByRole("button", { name: "Editar Yogur sin azúcar", exact: true }).click();
     await catalog.getByLabel("Categoría", { exact: true }).last().selectOption("Lácteos y frescos");
     await catalog.getByLabel("URL de la imagen", { exact: true }).fill("/logo.png");
@@ -834,7 +846,7 @@ async function main() {
     assert.ok(await settingsCatalog.locator("#catalog-grid").evaluate(node => node.scrollWidth<=node.clientWidth+1));
     assert.ok(await settingsCatalog.locator("#catalog-grid .product").first().evaluate(card => {
       const bounds=card.getBoundingClientRect();
-      return [...card.querySelectorAll('.image,.tag,.actions')].every(child=>{const rect=child.getBoundingClientRect();return rect.left>=bounds.left&&rect.right<=bounds.right;});
+      return [...card.querySelectorAll('.image,.tag,.product-controls')].filter(child=>child.getClientRects().length>0).every(child=>{const rect=child.getBoundingClientRect();return rect.left>=bounds.left&&rect.right<=bounds.right;});
     }));
     await settingsPage.screenshot({path:"test-results/catalog-columns-mobile.png",fullPage:true});
     await settingsCatalog.getByRole("button", { name:"Categorías", exact:true }).click();
@@ -1187,6 +1199,28 @@ async function main() {
     assert.equal(await iconForm.getByLabel("URL de la imagen",{exact:true}).inputValue(),"");
     assert.equal(await iconForm.getByLabel("Nombre del producto",{exact:true}).inputValue(),"Pan");
     await iconForm.getByRole("button",{name:"Cancelar",exact:true}).click();
+    // Clicking the tile adds to the provider; edit/delete controls never do.
+    await iconCatalog.locator("#catalog-grid .product").click();
+    await iconCatalog.getByRole("status").filter({hasText:"Leche añadido"}).waitFor();
+    const providerCallsBeforeDelete = await iconPage.evaluate(()=>window.calls.length);
+    await iconCatalog.getByRole("button",{name:"Eliminar Leche",exact:true}).click();
+    const deleteProductDialog = iconCatalog.getByRole("dialog",{name:"Eliminar producto",exact:true});
+    await deleteProductDialog.getByRole("button",{name:"Cancelar",exact:true}).click();
+    assert.equal(await iconPage.evaluate(()=>window.catalogProducts.length),1);
+    await iconCatalog.getByRole("button",{name:"Eliminar Leche",exact:true}).click();
+    await iconPage.evaluate(()=>{window.failDeleteProduct=true;});
+    await deleteProductDialog.getByRole("button",{name:"Eliminar producto",exact:true}).click();
+    await deleteProductDialog.getByRole("alert").filter({hasText:"No se ha podido eliminar"}).waitFor();
+    assert.equal(await iconPage.evaluate(()=>window.catalogProducts.length),1);
+    await iconPage.evaluate(()=>{window.failDeleteProduct=false;});
+    await deleteProductDialog.getByRole("button",{name:"Eliminar producto",exact:true}).click();
+    await iconCatalog.getByRole("status").filter({hasText:"Producto eliminado"}).waitFor();
+    assert.equal(await iconPage.evaluate(()=>window.catalogProducts.length),0);
+    assert.equal(await iconPage.evaluate(()=>window.calls.length),providerCallsBeforeDelete);
+    assert.equal(await iconPage.evaluate(()=>window.listData['todo.bring'].some(item=>item.summary==='Leche')),true);
+    await iconPage.reload();
+    await iconPage.getByRole("button",{name:"Catálogo",exact:true}).click();
+    await iconCatalog.getByText("Tu catálogo empieza aquí.",{exact:false}).waitFor();
     await iconContext.close();
     await page.evaluate(() => window.testPanel.remove());
     assert.equal(await page.evaluate(() => window.listenerCount()), 0);

@@ -319,6 +319,17 @@ class Catalog:
         self._notify()
         return deepcopy(product)
 
+    async def async_delete_product(self, product_id: str, revision: int) -> None:
+        """Remove a catalog entry and its codes, leaving provider list items alone."""
+        async with self._lock:
+            current = self._products.get(product_id)
+            if current is None:
+                raise CatalogError("El producto ya no existe.", "not_found")
+            if current["revision"] != revision:
+                raise CatalogError("Otra sesión ha modificado este producto. Vuelve a abrir la confirmación.", "conflict")
+            await self._persist({key: value for key, value in self._products.items() if key != product_id}, self._categories)
+        self._notify()
+
     async def async_dismiss_suggestion(self, name: str) -> None:
         """Persist shared dismissals without modifying the native shopping list."""
         name = _text({"name": name}, "name", 160)

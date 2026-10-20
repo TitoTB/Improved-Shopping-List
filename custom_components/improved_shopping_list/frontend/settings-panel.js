@@ -1,6 +1,6 @@
-import { installDialogCloseButtons } from "./dialog-controls.js?v=0.13.0";
-import { todoEntities, isAvailable } from "./todo-client.js?v=0.13.0";
-import { DEFAULT_APPEARANCE, gradientTextColor } from "./list-settings-client.js?v=0.13.0";
+import { installDialogCloseButtons } from "./dialog-controls.js?v=0.14.0";
+import { todoEntities, isAvailable } from "./todo-client.js?v=0.14.0";
+import { DEFAULT_APPEARANCE, gradientTextColor } from "./list-settings-client.js?v=0.14.0";
 
 class ImprovedShoppingSettings extends HTMLElement {
   constructor() {

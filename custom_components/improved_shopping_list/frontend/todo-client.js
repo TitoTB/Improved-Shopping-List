@@ -1,5 +1,5 @@
 /** Native Home Assistant APIs; the selected provider owns all list data. */
-import { productNameKey } from "./product-names.js?v=0.13.0";
+import { productNameKey } from "./product-names.js?v=0.14.0";
 export const FEATURES = Object.freeze({ CREATE: 1, DELETE: 2, UPDATE: 4 });
 
 export function todoEntities(hass) {

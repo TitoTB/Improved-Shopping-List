@@ -1,5 +1,13 @@
 # Historial de cambios
 
+## 0.14.0
+
+- Botón Actualizar ahora en cada tienda para revisar los precios de sus referencias vinculadas pendientes en las listas, incluso si ya se consultaron hoy. Respeta los cinco minutos entre peticiones y las pausas indicadas por la tienda, evita duplicar una cola activa y conserva los precios anteriores ante errores.
+- Contador de productos del catálogo vinculados a cada tienda junto a su interruptor. Nombres centrados verticalmente y nuevo logo de Alcampo.
+- Selección de una única tienda favorita mediante corazones a la derecha del engranaje: corazón rojo relleno para la favorita y contorno para las demás. Retirados el desplegable y el texto Favorita.
+- Selector de tienda, enlace o ID y botón de añadir en una sola fila de la ficha del producto, con alturas iguales, icono centrado y flecha del desplegable separada del borde. Retirados los textos explicativos indicados de la ficha y de Ajustes → Tiendas.
+- Pruebas ampliadas de actualización manual, permisos, deduplicación, pausas, recuperación tras reinicio, conservación de precios, selección de favorita e interfaz móvil.
+
 ## 0.13.0
 
 - Vinculaciones por enlace o ID con Mercadona, Carrefour y Alcampo en Información adicional del producto, sin exigir EAN. Los códigos de los lectores se conservan de forma independiente.

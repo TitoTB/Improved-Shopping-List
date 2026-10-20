@@ -158,24 +158,25 @@ class ImprovedShoppingListPanel extends HTMLElement {
         ul { list-style:none; margin:0; padding:0; }
         #items-card { background:transparent; border:0; padding:0; }
         .product-grid { display:grid; grid-template-columns:repeat(var(--isl-columns,3),minmax(0,1fr)); gap:16px; }
-        .product-grid li { display:flex; min-width:0; }
-        .item { position:relative; display:flex; flex-direction:column; align-items:center; width:100%; gap:14px; padding:30px 18px 18px; border:1px solid var(--divider-color,#dfe7e1); border-radius:16px; background:var(--card-background-color,#fff); color:inherit; text-align:center; cursor:pointer; }
+        .product-grid li { min-width:0; container-type:inline-size; }
+        .item { position:relative; display:flex; flex-direction:column; align-items:center; justify-content:center; width:100%; aspect-ratio:1; min-width:0; min-height:0; overflow:hidden; gap:clamp(2px,2.5cqi,12px); padding:clamp(4px,5cqi,24px); border:1px solid var(--divider-color,#dfe7e1); border-radius:clamp(6px,6cqi,16px); background:var(--card-background-color,#fff); color:inherit; text-align:center; cursor:pointer; }
         .item.pending { background:linear-gradient(var(--isl-gradient-start,#ee524f),var(--isl-gradient-end,#b52a27)); border-color:var(--isl-gradient-end,#b52a27); color:var(--isl-gradient-text,#fff); }
         .item.completed { background:linear-gradient(var(--isl-completed-gradient-start,#4faba2),var(--isl-completed-gradient-end,#26857c)); border-color:var(--isl-completed-gradient-end,#26857c); color:var(--isl-completed-gradient-text,#000); }
-        .item .product-media { display:grid; place-items:center; width:96px; max-width:100%; }
-        .item .image { width:96px; max-width:100%; aspect-ratio:1; height:auto; object-fit:contain; border-radius:10px; }
+        .item .product-media { display:grid; place-items:center; width:clamp(14px,36cqi,192px); max-width:100%; min-height:0; flex-shrink:1; aspect-ratio:1; }
+        .item .image { width:100%; max-width:100%; aspect-ratio:1; height:auto; max-height:100%; object-fit:contain; border-radius:10px; }
         .item .placeholder { display:grid; place-items:center; color:var(--secondary-text-color,#63766b); }
-        .item .placeholder ha-icon { --mdc-icon-size:64px; }
+        .item .placeholder ha-icon { --mdc-icon-size:clamp(14px,30cqi,160px); }
         .item.pending .placeholder,.item.pending .subtitle,.item.pending .description,.item.completed .placeholder,.item.completed .subtitle,.item.completed .description { color:inherit; }
         .item.pending .tag,.item.completed .tag { background:rgba(255,255,255,.2); }
-        .category-badge { position:absolute; top:12px; right:12px; display:grid; place-items:center; width:32px; height:32px; border-radius:50%; color:#fff; }
-        .category-badge ha-icon { --mdc-icon-size:20px; }
-        .item-text { min-width:0; width:100%; overflow-wrap:anywhere; line-height:1.45; }
-        .item .summary { display:block; font-size:17px; font-weight:650; }
-        .subtitle { display:block; color:var(--secondary-text-color,#63766b); font-size:12px; margin-top:4px; }
-        .tags { display:flex; flex-wrap:wrap; justify-content:center; gap:5px; max-width:100%; min-width:0; }
-        .tag { padding:4px 8px; border-radius:20px; font-size:11px; background:var(--secondary-background-color,#edf4ee); max-width:100%; overflow-wrap:anywhere; }
-        .description { display:block; color:var(--secondary-text-color,#63766b); font-size:12px; white-space:pre-wrap; }
+        .category-badge { position:absolute; top:clamp(3px,4cqi,12px); right:clamp(3px,4cqi,12px); display:grid; place-items:center; width:clamp(14px,13cqi,32px); aspect-ratio:1; border-radius:50%; color:#fff; }
+        .category-badge ha-icon { --mdc-icon-size:clamp(10px,8cqi,20px); }
+        .item-text { min-width:0; width:100%; overflow:hidden; flex-shrink:0; overflow-wrap:anywhere; line-height:1.2; }
+        .item .summary { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:3; overflow:hidden; font-size:clamp(8px,7cqi,32px); font-weight:650; }
+        .subtitle { display:block; color:var(--secondary-text-color,#63766b); font-size:clamp(7px,4cqi,12px); margin-top:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .tags { display:flex; flex-wrap:wrap; justify-content:center; gap:4px; max-width:100%; min-width:0; max-height:15cqi; overflow:hidden; flex-shrink:0; }
+        .tag { padding:2px 5px; border-radius:20px; font-size:clamp(7px,4cqi,11px); background:var(--secondary-background-color,#edf4ee); max-width:100%; overflow-wrap:anywhere; }
+        .description { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; overflow:hidden; color:var(--secondary-text-color,#63766b); font-size:clamp(7px,4cqi,12px); white-space:pre-wrap; }
+        @container(max-width:140px) { .item .subtitle,.item .description,.item .tags { display:none; } .item .summary { -webkit-line-clamp:2; } }
         .completed .summary { text-decoration:line-through; color:inherit; }
         .empty { padding:28px 8px; text-align:center; color:var(--secondary-text-color,#63766b); line-height:1.6; }
         .empty strong { display:block; font-size:18px; color:var(--primary-text-color,#20352d); margin-bottom:5px; }
@@ -185,7 +186,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
         .error { border:1px solid var(--error-color,#bd3636); color:var(--error-color,#bd3636); }
         [hidden] { display:none !important; }
         .sr-only { position:absolute; width:1px; height:1px; padding:0; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
-        @media(max-width:650px) { .product-grid { grid-template-columns:repeat(var(--isl-mobile-columns,1),minmax(0,1fr)); } .item { padding:30px 8px 16px; } .item .placeholder ha-icon { --mdc-icon-size:clamp(24px,10vw,64px); } }
+        @media(max-width:650px) { .product-grid { grid-template-columns:repeat(var(--isl-mobile-columns,1),minmax(0,1fr)); } }
         @media(max-width:650px) { header { flex-wrap:wrap; padding:10px 12px; } .branding { flex:1; } .brand-logo { width:36px; height:36px; } .brand { font-size:14px; } .version { font-size:11px; margin-left:6px; } .section-nav { width:100%; justify-content:flex-end; } }
         @media(max-width:540px) { main { padding:26px 14px 40px; } .card { padding:18px 16px; border-radius:14px; } .primary { padding:10px 14px; } }
       </style>
@@ -531,6 +532,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
       card.className = `item ${completed ? "completed" : "pending"}`;
       card.disabled = disabled || !item.uid;
       card.dataset.uid = item.uid ?? "";
+      card.title = item.summary ?? "Producto sin nombre";
       card.setAttribute("aria-pressed", String(completed));
       card.setAttribute("aria-label", `${completed ? "Volver a poner por comprar" : "Marcar como comprado"}: ${item.summary ?? "Producto"}`);
       const summary = row.querySelector(".summary");

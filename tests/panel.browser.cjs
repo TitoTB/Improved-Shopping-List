@@ -697,6 +697,35 @@ async function main() {
     await settingsView.getByRole("button", { name:"Listas", exact:true }).click();
     assert.equal(await settingsView.getByRole("button", { name: "Añadir lista", exact: true }).isDisabled(), true);
     assert.equal(await settingsView.getByRole("button", { name: "Quitar: Compra · Bring!", exact: true }).isDisabled(), true);
+    await settingsPage.getByRole("button", { name:"Lista", exact:true }).click();
+    await settingsPage.evaluate(() => {
+      window.listData['todo.bring'].push({uid:'square-long',summary:'Producto con un nombre muy largo '.repeat(6),description:'Una descripción extensa '.repeat(20),status:'needs_action'});
+      window.listData['todo.bring'].push({uid:'square-completed',summary:'Producto comprado de nombre largo',status:'completed'});
+      window.emit('todo.bring');
+    });
+    await settingsPage.locator("#completed-summary").click();
+    for (const width of [1280,390,320]) {
+      await settingsPage.setViewportSize({width,height:960});
+      const sizes=[];
+      for (let columns=1;columns<=(width>650?6:4);columns++) {
+        await settingsPage.evaluate(({width,columns}) => {
+          window.listSettings.appearance[width>650?'columns':'mobile_columns']=columns;window.emitSettings();
+        },{width,columns});
+        const metrics=await settingsPage.locator("#items-card .item").evaluateAll(cards => cards.map(card => {
+          const bounds=card.getBoundingClientRect(),media=card.querySelector('.product-media').getBoundingClientRect(),name=card.querySelector('.summary').getBoundingClientRect();
+          return {width:bounds.width,height:bounds.height,font:parseFloat(getComputedStyle(card.querySelector('.summary')).fontSize),mediaWidth:media.width,
+            fits:media.top>=bounds.top&&media.bottom<=name.top+1&&name.bottom<=bounds.bottom&&name.left>=bounds.left&&name.right<=bounds.right};
+        }));
+        for (const card of metrics) {
+          assert.ok(Math.abs(card.width-card.height)<1,`Square card at ${width}px / ${columns} columns: ${JSON.stringify(card)}`);
+          assert.ok(card.fits,`Content fits at ${width}px / ${columns} columns: ${JSON.stringify(card)}`);
+        }
+        sizes.push(metrics[0]);
+      }
+      assert.ok(sizes[0].font>sizes.at(-1).font);
+      assert.ok(sizes[0].mediaWidth>sizes.at(-1).mediaWidth);
+      await settingsPage.screenshot({path:`test-results/list-square-${width}.png`,fullPage:true});
+    }
     await settingsContext.close();
     // Reader configuration and unknown-code association use the same product form.
     const readerContext=await browser.newContext({viewport:{width:1280,height:960}});

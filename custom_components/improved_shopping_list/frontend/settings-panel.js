@@ -1,3 +1,4 @@
+import { installDialogCloseButtons } from "./dialog-controls.js?v=0.12.0";
 import { todoEntities, isAvailable } from "./todo-client.js?v=0.12.0";
 import { DEFAULT_APPEARANCE, gradientTextColor } from "./list-settings-client.js?v=0.12.0";
 
@@ -153,6 +154,7 @@ class ImprovedShoppingSettings extends HTMLElement {
       if (entity) void this._act("add", entity);
     });
     const root = this.shadowRoot;
+    installDialogCloseButtons(root);
     for (const [id, view] of [["settings-view-lists", "lists"], ["settings-view-appearance", "appearance"], ["settings-view-community", "community"], ["settings-view-stores", "stores"]]) {
       root.querySelector(`#${id}`).addEventListener("click", () => {
         for (const section of ["lists", "appearance", "community", "stores"]) {

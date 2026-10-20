@@ -1,3 +1,5 @@
+import { installDialogCloseButtons } from "./dialog-controls.js?v=0.12.0";
+
 class ImprovedShoppingReaders extends HTMLElement {
   constructor() { super(); this.attachShadow({mode:"open"}); this._toggling = new Map(); }
   set data(value) { this._data = value; this._render(); }
@@ -52,6 +54,7 @@ class ImprovedShoppingReaders extends HTMLElement {
       <dialog id="reader-live-dialog" aria-labelledby="reader-live-title"><h2 id="reader-live-title">Lecturas en directo</h2><p id="reader-live-source"></p><div aria-live="polite" aria-atomic="true"><p id="reader-live-notice"></p><dl class="live-reading" id="reader-live-fields"><dt>Código</dt><dd id="reader-live-code"></dd><dt>Producto</dt><dd id="reader-live-product"></dd><dt>Resultado</dt><dd id="reader-live-result"></dd><dt>Última lectura</dt><dd id="reader-live-time"></dd></dl></div><div class="form-actions"><button id="close-reader-live" type="button">Cerrar</button></div></dialog>`;
     this._built = true;
     const root = this.shadowRoot;
+    installDialogCloseButtons(root);
     root.querySelector("#new-reader").addEventListener("click", () => this._open());
     root.querySelector("#cancel-reader").addEventListener("click", () => root.querySelector("#reader-dialog").close());
     root.querySelector("#cancel-remove-reader").addEventListener("click", () => root.querySelector("#remove-reader-dialog").close());

@@ -1,4 +1,6 @@
 /** Category management. Product membership stays in the shared catalog. */
+import { installDialogCloseButtons } from "./dialog-controls.js?v=0.12.0";
+
 class ImprovedShoppingCategories extends HTMLElement {
   constructor() {
     super();
@@ -90,6 +92,7 @@ class ImprovedShoppingCategories extends HTMLElement {
       </dialog>`;
     this._built = true;
     const root = this.shadowRoot;
+    installDialogCloseButtons(root);
     root.querySelector("#new-category").addEventListener("click", () => this._open());
     root.querySelector("#cancel-category").addEventListener("click", () => root.querySelector("#category-dialog").close());
     root.querySelector("#category-dialog").addEventListener("close", () => this.onClose?.());

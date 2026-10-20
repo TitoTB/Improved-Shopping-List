@@ -1,3 +1,4 @@
+import { installDialogCloseButtons } from "./dialog-controls.js?v=0.12.0";
 import { FEATURES, TodoSession, errorMessage, isAvailable, supports } from "./todo-client.js?v=0.12.0";
 import { imageSource, normalizedName, productNameKey } from "./catalog-panel.js?v=0.12.0";
 import { ListSettingsSession, gradientTextColor } from "./list-settings-client.js?v=0.12.0";
@@ -242,6 +243,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
       </main>`;
     this._built = true;
     const root = this.shadowRoot;
+    installDialogCloseButtons(root);
     root.querySelector("isl-catalog").addEventListener("catalog-change", event => {
       this._catalogProducts = new Map(event.detail.products.map(product => [productNameKey(product.name), product]));
       this._catalogCategories = new Map(event.detail.categories.map(category => [normalizedName(category.name), category]));

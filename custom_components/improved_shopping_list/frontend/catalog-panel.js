@@ -1,3 +1,4 @@
+import { installDialogCloseButtons } from "./dialog-controls.js?v=0.12.0";
 import { CatalogSession } from "./catalog-client.js?v=0.12.0";
 import { matchCatalogProducts } from "./product-matching.js?v=0.12.0";
 import "./category-panel.js?v=0.12.0";
@@ -291,6 +292,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
       </dialog>`;
     this._built = true;
     const root = this.shadowRoot;
+    installDialogCloseButtons(root);
     for (const button of root.querySelectorAll("[data-product-view]")) button.addEventListener("click", () => this._switchProductView(button.dataset.productView));
     root.querySelector("#product-form").addEventListener("invalid", event => {
       const panel = event.target.closest("section[id^=product-]");

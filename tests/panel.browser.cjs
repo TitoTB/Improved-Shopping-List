@@ -244,7 +244,7 @@ async function main() {
       return;
     }
     if (pathname === "/") { res.setHeader("content-type", "text/html; charset=utf-8"); res.end(html); return; }
-    if (!["/panel.js", "/todo-client.js", "/catalog-panel.js", "/catalog-client.js", "/category-panel.js", "/icon-picker.js", "/list-settings-client.js", "/settings-panel.js", "/readers-client.js", "/readers-panel.js", "/product-matching.js", "/product-names.js", "/logs-panel.js", "/logo.png"].includes(pathname)) { res.writeHead(404).end(); return; }
+    if (!["/panel.js", "/dialog-controls.js", "/todo-client.js", "/catalog-panel.js", "/catalog-client.js", "/category-panel.js", "/icon-picker.js", "/list-settings-client.js", "/settings-panel.js", "/readers-client.js", "/readers-panel.js", "/product-matching.js", "/product-names.js", "/logs-panel.js", "/logo.png"].includes(pathname)) { res.writeHead(404).end(); return; }
     res.setHeader("content-type", pathname.endsWith(".png") ? "image/png" : "text/javascript; charset=utf-8");
     res.end(await fs.readFile(path.join(root, pathname.slice(1))));
   });
@@ -286,12 +286,27 @@ async function main() {
       }));
     };
     await assertCompactBar(page);
+    assert.equal(await page.evaluate(() => {
+      const dialogs = [];
+      const visit = root => {
+        dialogs.push(...root.querySelectorAll("dialog"));
+        root.querySelectorAll("*").forEach(element => { if (element.shadowRoot) visit(element.shadowRoot); });
+      };
+      visit(document);
+      return dialogs.filter(dialog => dialog.querySelectorAll(".isl-dialog-close[aria-label='Cerrar ventana']").length === 1).length;
+    }), 13);
     await page.getByRole("button", { name: "Seleccionar lista", exact: true }).click();
     const listDialog = page.getByRole("dialog", { name: "Seleccionar lista", exact: true });
     assert.equal(await listDialog.getByRole("button", { name: "Compra · Bring!", exact: true }).getAttribute("aria-pressed"), "true");
     assert.equal(await listDialog.locator(".list-option").count(), 3);
     await page.screenshot({ path: "test-results/list-selector-desktop.png", fullPage: true });
-    await listDialog.getByRole("button", { name: "Cerrar", exact: true }).click();
+    const closeWindow = listDialog.getByRole("button", { name: "Cerrar ventana", exact: true });
+    assert.ok(await closeWindow.evaluate(button => {
+      const bounds = button.getBoundingClientRect(), popup = button.closest("dialog").getBoundingClientRect();
+      return bounds.top >= popup.top && bounds.top < popup.top + 16 && bounds.right <= popup.right && bounds.right > popup.right - 16;
+    }));
+    await closeWindow.click();
+    await listDialog.waitFor({ state: "hidden" });
     await page.getByRole("button", { name: "Seleccionar lista", exact: true }).press("Enter");
     await listDialog.waitFor();
     await page.keyboard.press("Escape");

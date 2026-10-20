@@ -1,5 +1,16 @@
 # Historial de cambios
 
+## 0.7.0
+
+- Traducción automática del nombre del producto del español al inglés mediante MyMemory al guardar la ficha. La traducción se conserva en Home Assistant y se reutiliza para buscar iconos; se actualiza al cambiar el nombre. Los fallos o límites del servicio no impiden guardar el producto.
+- Al corregir el nombre de un producto desde Sugerencias, se actualiza también en la lista original, conservando su estado y demás datos. Los errores del proveedor permiten reintentar sin duplicar la ficha del catálogo.
+- Coincidencias de productos y descartes sin distinguir tildes, mayúsculas, caracteres equivalentes ni espacios sobrantes.
+- Tarjetas cuadradas en Catálogo → Productos: pulsar el bloque añade a la lista; los controles circulares permiten editar con el color de la categoría o eliminar con fondo negro y confirmación.
+- Tarjetas y botones de categorías cuadrados, con un máximo de cinco columnas en ordenador y dos en móvil.
+- Nombres de productos más grandes y con el mismo tamaño en Lista y Catálogo. Distintivos de categoría de Lista circulares, sin borde, con sombra e icono centrado.
+- Pestañas del catálogo compactas en móvil: solo la vista activa muestra texto, conservando los iconos de las demás vistas.
+- Pruebas ampliadas de persistencia de traducciones, errores y cuotas, corrección de nombres, eliminación de productos y disposición de tarjetas y pestañas.
+
 ## 0.6.0
 
 - Buscador gratuito de iconos de Iconify desde la ficha del producto, sin clave API: cinco alternativas por página, búsqueda editable y navegación entre resultados. Los términos no se traducen automáticamente.

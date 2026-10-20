@@ -23,6 +23,8 @@ export class ListSettingsSession {
     this.onChange = onChange;
     this.entities = [];
     this.primary = "";
+    this.stores = {};
+    this.favoriteStore = "";
     this.appearance = { ...DEFAULT_APPEARANCE };
     this.loaded = false;
     this.loading = false;
@@ -34,6 +36,8 @@ export class ListSettingsSession {
   _receive(data) {
     this.entities = data.entities ?? [];
     this.primary = data.primary_entity ?? "";
+    this.stores = data.stores ?? {};
+    this.favoriteStore = data.favorite_store ?? "";
     this.appearance = { ...DEFAULT_APPEARANCE, ...data.appearance };
     this.loaded = true;
     this.loading = false;
@@ -92,6 +96,13 @@ export class ListSettingsSession {
     const generation = this._generation;
     const revision = ++this._revision;
     const data = await this.getHass().callWS({ type: `${PREFIX}personalization`, appearance });
+    if (generation === this._generation && revision === this._revision) this._receive(data);
+  }
+
+  async saveStore(enabled, postalCode) {
+    const generation = this._generation;
+    const revision = ++this._revision;
+    const data = await this.getHass().callWS({ type: `${PREFIX}store`, store: "mercadona", enabled, postal_code: postalCode });
     if (generation === this._generation && revision === this._revision) this._receive(data);
   }
 

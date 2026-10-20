@@ -74,3 +74,19 @@ test("a later push beats a mutation response and errors allow retry", async () =
   assert.equal(session.primary, "todo.b");
   session.stop();
 });
+
+
+test("store settings receive pushes and a stale write cannot override them", async () => {
+  const response = deferred();
+  let message;
+  const session = new ListSettingsSession(() => ({callWS: msg => {message = msg; return response.promise;}}), () => {});
+  const saving = session.saveStore(true, "28001");
+  assert.equal(message.type, "improved_shopping_list/settings/store");
+  assert.equal(message.postal_code, "28001");
+  session._revision++;
+  session._receive({stores:{mercadona:{enabled:false}},favorite_store:""});
+  response.resolve({stores:{mercadona:{enabled:true}},favorite_store:"mercadona"});
+  await saving;
+  assert.equal(session.stores.mercadona.enabled, false);
+  assert.equal(session.favoriteStore, "");
+});

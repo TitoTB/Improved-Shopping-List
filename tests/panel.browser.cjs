@@ -119,6 +119,12 @@ const hass={
       if(window.failSettings)throw new Error('No se ha podido guardar la personalización');
       window.listSettings.appearance=structuredClone(msg.appearance);window.emitSettings();return structuredClone(window.listSettings);
     }
+    if(msg.type==='improved_shopping_list/settings/store'){
+      if(window.failSettings)throw new Error('Mercadona no está disponible');
+      window.listSettings.stores={mercadona:{enabled:msg.enabled,postal_code:msg.postal_code||'28001',warehouse:'mad3',checked_at:12345}};
+      window.listSettings.favorite_store=msg.enabled?'mercadona':'';
+      window.emitSettings();return structuredClone(window.listSettings);
+    }
     if(msg.type==='improved_shopping_list/settings/update'){
       if(window.failSettings)throw new Error('No se han podido guardar los ajustes');
       if(msg.action==='add'&&!window.listSettings.entities.includes(msg.entity_id))window.listSettings.entities.push(msg.entity_id);
@@ -811,6 +817,28 @@ async function main() {
     assert.equal(await settingsPage.locator("#nav-settings ha-icon").getAttribute("icon"), "mdi:cog");
     const settingsView = settingsPage.locator("isl-settings");
     await settingsPage.getByRole("button", { name: "Ajustes", exact: true }).click();
+    await settingsView.getByRole("button",{name:"Tiendas",exact:true}).click();
+    assert.equal(await settingsView.locator("#settings-view-stores ha-icon").getAttribute("icon"), "mdi:store");
+    await settingsView.getByLabel("Habilitar Mercadona").check();
+    await settingsView.getByLabel("Código postal",{exact:true}).fill("28001");
+    await settingsView.getByRole("button",{name:"Comprobar y guardar",exact:true}).click();
+    await settingsView.locator("#mercadona-warehouse").filter({hasText:"Almacén: mad3"}).waitFor();
+    assert.equal(await settingsView.locator("#store-favorite").textContent(), "Tienda favorita: Mercadona");
+    await settingsPage.reload();
+    await settingsPage.getByRole("button",{name:"Ajustes",exact:true}).click();
+    await settingsView.getByRole("button",{name:"Tiendas",exact:true}).click();
+    assert.equal(await settingsView.getByLabel("Código postal",{exact:true}).inputValue(), "28001");
+    await settingsPage.evaluate(()=>{window.failSettings=true;});
+    await settingsView.getByLabel("Código postal",{exact:true}).fill("46001");
+    await settingsView.getByRole("button",{name:"Comprobar y guardar",exact:true}).click();
+    await settingsView.getByRole("alert").filter({hasText:"Mercadona no está disponible"}).waitFor();
+    assert.match(await settingsView.locator("#mercadona-warehouse").textContent(), /28001/);
+    assert.equal(await settingsView.getByLabel("Código postal",{exact:true}).inputValue(), "46001");
+    await settingsPage.evaluate(()=>{window.failSettings=false;});
+    await settingsView.getByLabel("Habilitar Mercadona").uncheck();
+    await settingsView.getByRole("button",{name:"Guardar",exact:true}).click();
+    await settingsView.locator("#mercadona-warehouse").filter({hasText:"Deshabilitada"}).waitFor();
+    await settingsPage.screenshot({path:"test-results/stores-mobile.png",fullPage:true});
     await settingsView.getByRole("button",{name:"Comunidad",exact:true}).click();
     await settingsView.getByRole("heading",{name:"Comunidad",exact:true}).waitFor();
     assert.equal(await settingsView.locator("#settings-lists").isVisible(),false);

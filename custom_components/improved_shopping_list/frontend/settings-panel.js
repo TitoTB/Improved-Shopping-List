@@ -1,5 +1,5 @@
-import { todoEntities, isAvailable } from "./todo-client.js?v=0.8.1";
-import { DEFAULT_APPEARANCE, gradientTextColor } from "./list-settings-client.js?v=0.8.1";
+import { todoEntities, isAvailable } from "./todo-client.js?v=0.9.0";
+import { DEFAULT_APPEARANCE, gradientTextColor } from "./list-settings-client.js?v=0.9.0";
 
 class ImprovedShoppingSettings extends HTMLElement {
   constructor() {
@@ -33,6 +33,7 @@ class ImprovedShoppingSettings extends HTMLElement {
         .settings-tabs ha-icon { --mdc-icon-size:20px; display:flex; align-items:center; justify-content:center; width:20px; height:20px; flex:none; line-height:0; }
         .settings-tabs [aria-pressed=true] { background:var(--secondary-background-color,#edf4ee); font-weight:650; }
         .appearance-fields { display:grid; grid-template-columns:1fr 1fr; gap:18px; }
+        input[type=checkbox] { min-height:20px; width:20px; vertical-align:middle; accent-color:#267052; }
         input[type=color] { display:block; width:100%; padding:5px; cursor:pointer; }
         .appearance-actions { display:flex; justify-content:flex-end; flex-wrap:wrap; gap:10px; margin-top:24px; }
         .preview { display:grid; place-items:center; min-height:120px; border-radius:16px; margin-top:24px; padding:20px; font-weight:650; }
@@ -55,7 +56,7 @@ class ImprovedShoppingSettings extends HTMLElement {
         @media(max-width:540px) { .card { padding:18px 14px; } .add-row { flex-wrap:wrap; } .select-wrap { flex-basis:100%; } .actions { width:100%; } }
       </style>
       <h1>Ajustes</h1>
-      <nav class="settings-tabs" aria-label="Vistas de ajustes"><button id="settings-view-lists" aria-pressed="true"><ha-icon icon="mdi:format-list-checks" aria-hidden="true"></ha-icon>Listas</button><button id="settings-view-appearance" aria-pressed="false"><ha-icon icon="mdi:palette" aria-hidden="true"></ha-icon>Personalización</button><button id="settings-view-community" aria-pressed="false"><ha-icon icon="mdi:account-group" aria-hidden="true"></ha-icon>Comunidad</button></nav>
+      <nav class="settings-tabs" aria-label="Vistas de ajustes"><button id="settings-view-lists" aria-pressed="true"><ha-icon icon="mdi:format-list-checks" aria-hidden="true"></ha-icon>Listas</button><button id="settings-view-appearance" aria-pressed="false"><ha-icon icon="mdi:palette" aria-hidden="true"></ha-icon>Personalización</button><button id="settings-view-stores" aria-pressed="false"><ha-icon icon="mdi:store" aria-hidden="true"></ha-icon>Tiendas</button><button id="settings-view-community" aria-pressed="false"><ha-icon icon="mdi:account-group" aria-hidden="true"></ha-icon>Comunidad</button></nav>
       <div id="settings-error" class="notice error" role="alert" hidden></div>
       <div id="settings-status" class="notice" role="status" hidden></div>
       <p id="admin-help" hidden>Necesitas una cuenta administradora de Home Assistant para modificar estos ajustes.</p>
@@ -83,6 +84,20 @@ class ImprovedShoppingSettings extends HTMLElement {
           <div class="appearance-actions"><button id="reset-appearance" type="button">Restablecer valores</button><button id="save-appearance" class="primary" type="submit">Guardar personalización</button></div>
         </form>
       </section>
+      <section id="settings-stores" class="card" aria-labelledby="settings-stores-title" hidden>
+        <h2 id="settings-stores-title">Tiendas</h2>
+        <form id="store-form">
+          <h3>Mercadona</h3>
+          <p>Introduce tu código postal para obtener el almacén asignado por Mercadona. No necesitas una cuenta.</p>
+          <label><input id="mercadona-enabled" type="checkbox"> Habilitar Mercadona</label>
+          <label for="mercadona-postal">Código postal</label>
+          <input id="mercadona-postal" type="text" inputmode="numeric" autocomplete="postal-code" maxlength="5" pattern="(?:0[1-9]|[1-4][0-9]|5[0-2])[0-9]{3}" placeholder="28001">
+          <p id="mercadona-warehouse" role="status"></p>
+          <p id="store-favorite"></p>
+          <div class="appearance-actions"><button id="save-store" class="primary" type="submit">Comprobar y guardar</button></div>
+          <p>La asociación de productos y la consulta de precios se incorporarán en un siguiente paso.</p>
+        </form>
+      </section>
       <section id="settings-community" class="card" aria-labelledby="settings-community-title" hidden>
         <h2 id="settings-community-title">Comunidad</h2>
         <p>Exporta un diccionario con los nombres de tus productos, sus traducciones disponibles y las imágenes locales asignadas. Puedes enviarlo al mantenedor para incorporar las imágenes revisadas al catálogo comunitario.</p>
@@ -96,9 +111,9 @@ class ImprovedShoppingSettings extends HTMLElement {
       if (entity) void this._act("add", entity);
     });
     const root = this.shadowRoot;
-    for (const [id, view] of [["settings-view-lists", "lists"], ["settings-view-appearance", "appearance"], ["settings-view-community", "community"]]) {
+    for (const [id, view] of [["settings-view-lists", "lists"], ["settings-view-appearance", "appearance"], ["settings-view-community", "community"], ["settings-view-stores", "stores"]]) {
       root.querySelector(`#${id}`).addEventListener("click", () => {
-        for (const section of ["lists", "appearance", "community"]) {
+        for (const section of ["lists", "appearance", "community", "stores"]) {
           root.querySelector(`#settings-${section}`).hidden = view !== section;
           root.querySelector(`#settings-view-${section}`).setAttribute("aria-pressed", String(view === section));
         }
@@ -107,6 +122,8 @@ class ImprovedShoppingSettings extends HTMLElement {
         this._render();
       });
     }
+    root.querySelector("#store-form").addEventListener("submit", event => { event.preventDefault(); void this._saveStore(); });
+    root.querySelector("#store-form").addEventListener("input", () => { this._storeDirty = true; this._renderStore(); });
     root.querySelector("#export-community").addEventListener("click", () => void this._exportCommunity());
     root.querySelector("#appearance-form").addEventListener("input", () => { this._appearanceDirty = true; this._preview(); });
     root.querySelector("#appearance-form").addEventListener("change", () => { this._appearanceDirty = true; this._preview(); });
@@ -177,10 +194,51 @@ class ImprovedShoppingSettings extends HTMLElement {
     });
     root.querySelector("#configured-lists").replaceChildren(...rows);
     root.querySelector("#settings-empty").hidden = settings.entities.length > 0 || settings.loading;
+    this._renderStore();
     const form = root.querySelector("#appearance-form");
     if (!this._appearanceDirty && !this._busy) this._fillAppearance(settings.appearance);
     // Home Assistant's scoped registry does not implement form.elements iteration.
     for (const control of form.querySelectorAll("input, select, textarea, button")) control.disabled = locked;
+  }
+
+  _renderStore() {
+    const { settings, hass } = this._data;
+    const root = this.shadowRoot;
+    const store = settings.stores?.mercadona ?? {};
+    const enabled = root.querySelector("#mercadona-enabled");
+    const postal = root.querySelector("#mercadona-postal");
+    if (!this._storeDirty && !this._busy) {
+      enabled.checked = store.enabled === true;
+      postal.value = store.postal_code ?? "";
+    }
+    const locked = hass?.user?.is_admin !== true || !settings.loaded || settings.loading || this._busy;
+    enabled.disabled = locked;
+    postal.disabled = locked || !enabled.checked;
+    postal.required = enabled.checked;
+    const save = root.querySelector("#save-store");
+    save.disabled = locked;
+    save.textContent = this._busy ? "Guardando…" : enabled.checked ? "Comprobar y guardar" : "Guardar";
+    root.querySelector("#mercadona-warehouse").textContent = store.warehouse
+      ? `Configuración guardada: ${store.postal_code} · Almacén: ${store.warehouse}${store.enabled ? "" : " · Deshabilitada"}`
+      : "Todavía no se ha configurado un almacén.";
+    root.querySelector("#store-favorite").textContent = store.enabled && settings.favoriteStore === "mercadona"
+      ? "Tienda favorita: Mercadona" : "";
+  }
+
+  async _saveStore() {
+    if (this._busy || this._data?.hass?.user?.is_admin !== true) return;
+    const root = this.shadowRoot;
+    const enabled = root.querySelector("#mercadona-enabled").checked;
+    const postal = root.querySelector("#mercadona-postal").value.trim();
+    this._busy = true;
+    this._error = this._notice = "";
+    this._render();
+    try {
+      await this._data.settings.saveStore(enabled, postal);
+      this._storeDirty = false;
+      this._notice = enabled ? "Mercadona configurada correctamente." : "Mercadona deshabilitada.";
+    } catch (error) { this._error = error.message ?? "No se ha podido configurar Mercadona."; }
+    finally { this._busy = false; this._render(); }
   }
 
   _fillAppearance(appearance) {

@@ -14,6 +14,7 @@ from homeassistant.exceptions import HomeAssistantError
 from .catalog import Catalog, CatalogError
 from .const import DOMAIN
 from .list_settings import ListSettingsError
+from .stores import StoreError
 from .icons import IconError
 from .community import build_export
 from .product_translation import async_translate_name
@@ -44,6 +45,7 @@ def async_register_commands(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_settings_subscribe)
     websocket_api.async_register_command(hass, ws_settings_update)
     websocket_api.async_register_command(hass, ws_personalization)
+    websocket_api.async_register_command(hass, ws_store_update)
     websocket_api.async_register_command(hass, ws_readers_get)
     websocket_api.async_register_command(hass, ws_readers_subscribe)
     websocket_api.async_register_command(hass, ws_readers_save)
@@ -270,6 +272,25 @@ def ws_personalization(hass: HomeAssistant, connection, msg) -> None:
         result = hass.data[DOMAIN]["settings"].update_appearance(msg["appearance"])
     except ListSettingsError as err:
         connection.send_error(msg["id"], "invalid_appearance", str(err))
+    else:
+        connection.send_result(msg["id"], result)
+
+
+@websocket_api.websocket_command({
+    vol.Required("type"): f"{DOMAIN}/settings/store",
+    vol.Required("store"): vol.In(("mercadona",)),
+    vol.Required("enabled"): bool,
+    vol.Optional("postal_code", default=""): str,
+})
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_store_update(hass, connection, msg):
+    if not _catalog(hass, connection, msg):
+        return
+    try:
+        result = await hass.data[DOMAIN]["settings"].async_update_store(msg["enabled"], msg["postal_code"])
+    except StoreError as err:
+        connection.send_error(msg["id"], "invalid_store", str(err))
     else:
         connection.send_result(msg["id"], result)
 

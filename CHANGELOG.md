@@ -1,5 +1,16 @@
 # Historial de cambios
 
+## 0.9.0
+
+- Nueva vista Ajustes → Tiendas con Mercadona. Permite habilitarla, consultar por código postal el almacén asignado y conservarlo tras reiniciar. La tienda habilitada queda como favorita. Los errores conservan la configuración anterior; no se asignan almacenes por defecto. Solo los administradores pueden cambiarla. Esta versión prepara la configuración; todavía no consulta precios ni vincula referencias de Mercadona con productos del catálogo.
+- Nutri-Score de Open Food Facts en Información adicional cuando existe para un código de barras válido, con caché, procedencia y resultados separados si hay varios códigos.
+- Ficha de producto dividida en Características principales, Información adicional y Automatización. Retirados los campos Etiquetas, Icono y Notas del formulario, conservando sus datos antiguos.
+- Ajustes → Comunidad permite exportar un ZIP con el diccionario de iconos local para revisión del mantenedor. Las sugerencias del diccionario comunitario de GitHub se muestran antes de Iconify, por aportaciones revisadas; no hay envíos automáticos ni recuento de usos globales.
+- Hasta cinco sugerencias automáticas de iconos a color y un botón + para recorrer alternativas, junto con búsqueda manual en Flaticon por nombre. Cuando no hay resultados se oculta + y se indica que puede escribirse otro término o una URL.
+- Botón Limpiar productos junto a Compras recientes para eliminar los completados de la lista seleccionada, si el proveedor lo permite.
+- Corregido el centrado de las acciones de categorías y unificado su estilo con las tarjetas de productos. Iconos representativos en las vistas de Ajustes. Ocultadas las confirmaciones de éxito en Catálogo → Productos.
+- Pruebas ampliadas de interfaz, permisos, persistencia, exportación, consultas externas y respuestas tardías.
+
 ## 0.8.1
 
 - Iconos y círculos de categoría más grandes en los productos de Lista, conservando el formato circular, la sombra y el escalado adaptable.

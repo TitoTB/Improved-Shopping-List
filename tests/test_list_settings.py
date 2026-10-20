@@ -4,7 +4,7 @@ import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.improved_shopping_list.const import CONF_TODO_ENTITIES, CONF_TODO_ENTITY, DOMAIN
-from custom_components.improved_shopping_list.list_settings import DEFAULT_APPEARANCE, ListSettings, ListSettingsError, normalize_appearance
+from custom_components.improved_shopping_list.list_settings import DEFAULT_APPEARANCE, DEFAULT_STORES, ListSettings, ListSettingsError, normalize_appearance
 
 
 async def test_settings_migrate_persist_remove_and_restore(hass):
@@ -14,21 +14,21 @@ async def test_settings_migrate_persist_remove_and_restore(hass):
     entry.add_to_hass(hass)
     settings = ListSettings(hass)
     settings.attach(entry)
-    assert settings.snapshot == {"entities": ["todo.bring", "todo.local"], "primary_entity": "todo.bring", "appearance": DEFAULT_APPEARANCE}
+    assert settings.snapshot == {"entities": ["todo.bring", "todo.local"], "primary_entity": "todo.bring", "appearance": DEFAULT_APPEARANCE, "stores": DEFAULT_STORES, "favorite_store": ""}
     settings.update("primary", "todo.local")
     settings.update("remove", "todo.bring")
     assert hass.states.get("todo.bring").state == "1"
     assert entry.options["unrelated"] is True
     restored = ListSettings(hass)
     restored.attach(entry)
-    assert restored.snapshot == {"entities": ["todo.local"], "primary_entity": "todo.local", "appearance": DEFAULT_APPEARANCE}
+    assert restored.snapshot == {"entities": ["todo.local"], "primary_entity": "todo.local", "appearance": DEFAULT_APPEARANCE, "stores": DEFAULT_STORES, "favorite_store": ""}
     restored.update("add", "todo.bring")
     restored.update("add", "todo.bring")
     assert len(restored.snapshot["entities"]) == 2
     restored.update("remove", "todo.local")
     assert restored.snapshot["primary_entity"] == "todo.bring"
     restored.update("remove", "todo.bring")
-    assert restored.snapshot == {"entities": [], "primary_entity": "", "appearance": DEFAULT_APPEARANCE}
+    assert restored.snapshot == {"entities": [], "primary_entity": "", "appearance": DEFAULT_APPEARANCE, "stores": DEFAULT_STORES, "favorite_store": ""}
     empty = ListSettings(hass)
     empty.attach(entry)
     assert empty.snapshot == restored.snapshot  # Do not re-add deliberately removed lists on reload.
@@ -92,7 +92,7 @@ async def test_settings_cannot_be_changed_by_non_admin(hass, hass_ws_client, has
     await client.send_json({"id": 2, "type": f"{DOMAIN}/settings/update", "action": "remove", "entity_id": "todo.bring"})
     assert (await client.receive_json())["error"]["code"] == "unauthorized"
     assert entry.options[CONF_TODO_ENTITY] == "todo.bring"
-    await client.send_json({"id": 3, "type": f"{DOMAIN}/settings/personalization", "appearance": DEFAULT_APPEARANCE})
+    await client.send_json({"id": 3, "type": f"{DOMAIN}/settings/personalization", "appearance": DEFAULT_APPEARANCE, "stores": DEFAULT_STORES, "favorite_store": ""})
     assert (await client.receive_json())["error"]["code"] == "unauthorized"
 
 

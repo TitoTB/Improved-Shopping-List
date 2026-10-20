@@ -1,17 +1,23 @@
 """Shared list and display settings stored in config-entry options."""
 
+import asyncio
+from copy import deepcopy
 import re
+import time
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 
 from .const import CONF_TODO_ENTITY, CONF_TODO_ENTITIES
+from .const import DOMAIN
+from .stores import StoreError, async_resolve_mercadona
 
 DEFAULT_APPEARANCE = {
     "gradient_start": "#ee524f", "gradient_end": "#b52a27",
     "completed_gradient_start": "#4faba2", "completed_gradient_end": "#26857c",
     "columns": 3, "mobile_columns": 1,
 }
+DEFAULT_STORES = {"mercadona": {"enabled": False, "postal_code": "", "warehouse": "", "checked_at": None}}
 
 
 def normalize_appearance(data: dict, *, defaults: dict | None = None) -> dict:
@@ -40,7 +46,9 @@ def list_options(entry: ConfigEntry) -> dict:
     primary = entry.options.get(CONF_TODO_ENTITY, entry.data[CONF_TODO_ENTITY])
     entities = list(entry.options.get(CONF_TODO_ENTITIES, [primary] if primary else []))
     return {"entities": entities, "primary_entity": primary if primary in entities else next(iter(entities), ""),
-            "appearance": {**DEFAULT_APPEARANCE, **entry.options.get("appearance", {})}}
+            "appearance": {**DEFAULT_APPEARANCE, **entry.options.get("appearance", {})},
+            "stores": deepcopy(entry.options.get("stores", DEFAULT_STORES)),
+            "favorite_store": entry.options.get("favorite_store", "")}
 
 
 class ListSettings:
@@ -50,9 +58,12 @@ class ListSettings:
         self.hass = hass
         self.entry: ConfigEntry | None = None
         self._listeners: set = set()
+        self._stores_lock = asyncio.Lock()
+        self._generation = 0
 
     @callback
     def attach(self, entry: ConfigEntry) -> None:
+        self._generation += 1
         self.entry = entry
         if CONF_TODO_ENTITIES not in entry.options:
             # Keep the lists exposed by previous installations, including a
@@ -64,9 +75,36 @@ class ListSettings:
                 **entry.options, CONF_TODO_ENTITIES: entities, CONF_TODO_ENTITY: primary,
             })
 
+    @callback
+    def detach(self) -> None:
+        self._generation += 1
+        self.entry = None
+
     @property
     def snapshot(self) -> dict:
-        return list_options(self.entry) if self.entry else {"entities": [], "primary_entity": "", "appearance": dict(DEFAULT_APPEARANCE)}
+        return list_options(self.entry) if self.entry else {"entities": [], "primary_entity": "", "appearance": dict(DEFAULT_APPEARANCE), "stores": deepcopy(DEFAULT_STORES), "favorite_store": ""}
+
+    async def async_update_store(self, enabled: bool, postal_code: str) -> dict:
+        """Verify before saving, serialize writes and preserve unrelated options."""
+        generation = self._generation
+        async with self._stores_lock:
+            entry = self.entry
+            if generation != self._generation or not entry or not self.hass.data.get(DOMAIN, {}).get("active"):
+                raise StoreError("La integración no está activa.")
+            current = self.snapshot["stores"]["mercadona"]
+            if enabled:
+                warehouse = await async_resolve_mercadona(self.hass, postal_code)
+                store = {"enabled": True, "postal_code": postal_code, "warehouse": warehouse, "checked_at": int(time.time())}
+            else:
+                store = {**current, "enabled": False}
+            if generation != self._generation or self.entry is not entry or not self.hass.data.get(DOMAIN, {}).get("active"):
+                raise StoreError("La integración se ha detenido. Vuelve a abrirla para guardar los ajustes.")
+            self.hass.config_entries.async_update_entry(entry, options={
+                **entry.options, "stores": {**self.snapshot["stores"], "mercadona": store},
+                "favorite_store": "mercadona" if enabled else "",
+            })
+            self.notify()
+            return self.snapshot
 
     @callback
     def subscribe(self, listener):

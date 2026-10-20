@@ -4,7 +4,7 @@
 
 Una interfaz propia para gestionar las listas de la compra que ya tienes integradas en Home Assistant.
 
-Versión actual: **0.8.1**. Interfaz en español, pensada para móvil y ordenador. Requiere **Home Assistant Core 2026.10 o posterior**. La referencia de desarrollo es Core 2026.10.2.
+Versión actual: **0.9.0**. Interfaz en español, pensada para móvil y ordenador. Requiere **Home Assistant Core 2026.10 o posterior**. La referencia de desarrollo es Core 2026.10.2.
 
 ## Qué puedes hacer
 
@@ -151,3 +151,12 @@ Las imágenes comunitarias revisadas se consultan desde este repositorio, se mue
 La vista **Información adicional** consulta Open Food Facts para los códigos de barras válidos de la ficha y muestra el Nutri-Score A–E cuando está disponible. Cada resultado indica el producto concreto, su código, la fecha de consulta y la fuente. Si una ficha genérica agrupa varios códigos, los resultados se presentan por separado. Las etiquetas NFC, los QR y los códigos con dígito de control incorrecto no se envían.
 
 Se reutiliza la caché persistente de identificación (30 días para productos encontrados); los resultados sin calificación y los fallos no impiden guardar la ficha. Las consultas se limitan y agrupan por código, incluidas las variantes UPC/EAN equivalentes. No se calcula una nota propia ni se asigna una calificación genérica a todos los códigos del producto. Los distintivos se cargan desde los recursos oficiales publicados por Open Food Facts; la letra también se muestra como texto.
+
+
+## Tiendas: Mercadona
+
+En **Ajustes → Tiendas**, habilita Mercadona, introduce un código postal español y pulsa **Comprobar y guardar**. Home Assistant consulta directamente a Mercadona sin iniciar sesión y guarda el almacén devuelto para ese código postal, con la fecha de comprobación. Al ser la única tienda disponible, se marca como favorita automáticamente. Puedes comprobar de nuevo el mismo código postal para renovar el almacén asignado o deshabilitar la tienda sin hacer consultas.
+
+La operación requiere una cuenta administradora de Home Assistant. Si Mercadona no confirma un almacén válido, el código postal no tiene cobertura o se produce un fallo de red, se muestra un error y se conserva la configuración guardada. No se utiliza un almacén de sustitución ni una tabla fija de almacenes. El código postal se guarda en las opciones de Home Assistant y solo se envía a Mercadona al comprobar; no se publican códigos postales ni capturas HAR en GitHub.
+
+Esta versión incorpora la configuración de tienda y almacén. La vinculación de cada producto con su referencia de Mercadona y la actualización de precios se incorporarán posteriormente; el campo de precio de la ficha sigue siendo manual.

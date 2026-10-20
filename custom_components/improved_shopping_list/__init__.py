@@ -84,6 +84,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Remove the panel without changing any shopping-list items."""
     frontend.async_remove_panel(hass, PANEL_PATH)
     hass.data[DOMAIN]["active"] = False
+    hass.data[DOMAIN]["settings"].detach()
     await hass.data[DOMAIN]["readers"].async_stop()
     await hass.data[DOMAIN]["activity"].async_stop()
     return True

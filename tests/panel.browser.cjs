@@ -280,6 +280,9 @@ async function main() {
     await categories.getByRole("button", { name: "Guardar categoría", exact: true }).click();
     await categories.getByRole("heading", { name: "Lácteos", exact: true }).waitFor();
     await catalog.getByRole("button", { name: "Productos", exact: true }).click();
+    assert.equal(await catalog.locator(".heading #new-product").count(), 0);
+    assert.equal(await catalog.locator(".category-controls #new-product ha-icon").getAttribute("icon"), "mdi:plus-thick");
+    assert.equal(await catalog.locator("#new-product").textContent(), "");
     await catalog.getByRole("button", { name: "Nuevo producto", exact: true }).click();
     await catalog.getByLabel("Nombre del producto", { exact: true }).fill("Yogur natural");
     await catalog.getByLabel("Categoría", { exact: true }).last().selectOption("Lácteos");

@@ -13,6 +13,7 @@ from .catalog import Catalog, CatalogError
 from .const import DOMAIN
 from .list_settings import ListSettingsError
 from .icons import IconError
+from .product_translation import async_translate_name
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -77,14 +78,20 @@ def ws_logs_subscribe(hass, connection, msg):
 @websocket_api.websocket_command({
     vol.Required("type"): f"{DOMAIN}/icons/search", vol.Required("query"): str,
     vol.Optional("start", default=0): vol.All(int, vol.Range(min=0, max=320)),
+    vol.Optional("translate", default=False): bool,
+    vol.Optional("product_id"): str,
 })
 @websocket_api.async_response
 async def ws_icons_search(hass, connection, msg):
-    if not _catalog(hass, connection, msg):
+    if not (catalog := _catalog(hass, connection, msg)):
         return
     try:
-        result = await hass.data[DOMAIN]["icons"].async_search(msg["query"], msg["start"])
-    except IconError as err:
+        query = msg["query"].strip()
+        if msg["translate"] and 2 <= len(query) <= 100:
+            query = (await catalog.async_icon_query(msg["product_id"], query) if msg.get("product_id")
+                     else await async_translate_name(hass, query)) or query
+        result = {**await hass.data[DOMAIN]["icons"].async_search(query[:100], msg["start"]), "query": query[:100]}
+    except (IconError, CatalogError, OSError, HomeAssistantError) as err:
         connection.send_error(msg["id"], "icon_search_error", str(err))
     else:
         connection.send_result(msg["id"], result)

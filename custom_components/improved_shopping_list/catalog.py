@@ -339,6 +339,26 @@ class Catalog:
             await self._persist({key: value for key, value in self._products.items() if key != product_id}, self._categories)
         self._notify()
 
+    async def async_icon_query(self, product_id: str, name: str) -> str:
+        """Backfill missing translations without invalidating the open edit form."""
+        current = self._products.get(product_id)
+        if not current or normalized_name(current["name"]) != normalized_name(name):
+            return name
+        if current.get("name_en"):
+            return current["name_en"]
+        translated = await async_translate_name(self.hass, current["name"])
+        if not translated:
+            return name
+        async with self._lock:
+            current = self._products.get(product_id)
+            if current and normalized_name(current["name"]) == normalized_name(name):
+                if current.get("name_en"):
+                    return current["name_en"]
+                # Server-owned metadata is disjoint from editable fields. Keep revision.
+                await self._persist({**self._products, product_id: {**current, "name_en": translated}}, self._categories)
+        self._notify()
+        return translated
+
     async def async_dismiss_suggestion(self, name: str) -> None:
         """Persist shared dismissals without modifying the native shopping list."""
         name = _text({"name": name}, "name", 160)

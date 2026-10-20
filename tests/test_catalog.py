@@ -80,6 +80,42 @@ async def test_old_product_gets_translation_on_save(hass, product_translation):
     assert product["name_en"] == "Milk"
 
 
+async def test_icon_query_backfills_old_rice_without_conflicting_with_open_form(hass, product_translation):
+    catalog = Catalog(hass)
+    await catalog.async_load()
+    product = await catalog.async_save_product({"name": "Arroz"})
+    product_translation.return_value = "Rice"
+    assert await catalog.async_icon_query(product["id"], "Arroz") == "Rice"
+    restored = Catalog(hass)
+    await restored.async_load()
+    assert restored.products[0]["name_en"] == "Rice"
+    assert restored.products[0]["revision"] == product["revision"]
+    product_translation.reset_mock()
+    assert await catalog.async_icon_query(product["id"], "Arroz") == "Rice"
+    product_translation.assert_not_awaited()
+    edited = await catalog.async_save_product(editable(product, notes="Guardar ficha abierta"))
+    assert edited["name_en"] == "Rice"
+
+
+async def test_late_icon_translation_does_not_overwrite_renamed_product(hass, product_translation):
+    catalog = Catalog(hass)
+    await catalog.async_load()
+    product = await catalog.async_save_product({"name": "Arroz"})
+    started, release = asyncio.Event(), asyncio.Event()
+    async def translate(*_):
+        started.set()
+        await release.wait()
+        return "Rice"
+    product_translation.side_effect = translate
+    pending = asyncio.create_task(catalog.async_icon_query(product["id"], "Arroz"))
+    await started.wait()
+    # Simulate an intervening committed edit without a second slow translation.
+    catalog._products[product["id"]] = {**catalog._products[product["id"]], "name": "Pan", "name_en": "Bread"}
+    release.set()
+    assert await pending == "Rice"
+    assert catalog.products[0]["name_en"] == "Bread"
+
+
 async def test_catalog_persists_normalizes_and_returns_snapshots(hass):
     catalog = Catalog(hass)
     await catalog.async_load()

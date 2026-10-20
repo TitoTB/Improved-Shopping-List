@@ -265,6 +265,11 @@ class ImprovedShoppingCatalog extends HTMLElement {
       return this._editing?.name_en && productNameKey(name) === productNameKey(this._editing.name)
         ? this._editing.name_en : name;
     };
+    iconPicker.getSearchOptions = () => {
+      const name = root.querySelector("form").elements.name.value;
+      const sameProduct = this._editing && productNameKey(name) === productNameKey(this._editing.name);
+      return {translate: !sameProduct || !this._editing.name_en, ...(sameProduct ? {product_id:this._editing.id} : {})};
+    };
     iconPicker.onSelect = asset => { root.querySelector("form").elements.image_url.value = asset.url; };
     root.querySelector('[name="image_url"]').addEventListener("input", event => { iconPicker.value = event.target.value; });
     root.querySelector("dialog").addEventListener("close", () => iconPicker.close());

@@ -23,8 +23,9 @@ from .const import DOMAIN, VERSION
 BASE_URL = "https://api.iconify.design"
 ICONS_URL = "/improved_shopping_list_icons"
 PREFIXES = ("mdi", "tabler", "openmoji", "noto", "fluent-emoji-flat")
+COLOR_PREFIXES = ("noto", "fluent-emoji-flat", "openmoji")
 MAX_BYTES = 262144
-BATCH_SIZE = 32  # Iconify's minimum search batch; the picker displays five at a time.
+BATCH_SIZE = 32  # Iconify's minimum search batch; the picker displays three color icons.
 MAX_START = 320
 _NAME = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")
 _TAGS = {"svg", "g", "path", "circle", "ellipse", "rect", "line", "polyline", "polygon",
@@ -163,13 +164,16 @@ class IconLibrary:
             cached = self._searches.get(key)
             if cached and cached[0] > monotonic():
                 return deepcopy(cached[1])
-            data = await self._request("/search", {"query": query, "limit": BATCH_SIZE, "start": start, "prefixes": ",".join(PREFIXES)})
+            data = await self._request("/search", {"query": query, "limit": BATCH_SIZE, "start": start, "prefixes": ",".join(COLOR_PREFIXES)})
             if not isinstance(data, dict) or not isinstance(data.get("icons"), list) or not isinstance(data.get("collections"), dict):
                 raise IconError("Iconify ha devuelto una respuesta no válida.")
             icons = []
             for identifier in dict.fromkeys(value for value in data["icons"][:BATCH_SIZE] if isinstance(value, str)):
                 try:
                     prefix, name = split_icon(identifier)
+                    metadata = data["collections"].get(prefix)
+                    if prefix not in COLOR_PREFIXES or not isinstance(metadata, dict) or metadata.get("palette") is not True:
+                        continue
                     info = collection_info(data["collections"].get(prefix))
                 except IconError:
                     continue

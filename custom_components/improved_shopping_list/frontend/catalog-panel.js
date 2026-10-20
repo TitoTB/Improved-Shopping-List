@@ -290,7 +290,6 @@ class ImprovedShoppingCatalog extends HTMLElement {
       if (panel) this._switchProductView(panel.id.slice("product-".length));
     }, true);
     const iconPicker = root.querySelector("isl-icon-picker");
-    iconPicker.getProductName = () => root.querySelector("form").elements.name.value;
     iconPicker.getQuery = () => {
       const name = root.querySelector("form").elements.name.value;
       return this._editing?.name_en && productNameKey(name) === productNameKey(this._editing.name)

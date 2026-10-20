@@ -398,6 +398,28 @@ async function main() {
     await categories.getByLabel("Nombre de la categoría", { exact: true }).fill("Lácteos y frescos");
     await categories.getByRole("button", { name: "Guardar categoría", exact: true }).click();
     await categories.getByRole("heading", { name: "Lácteos y frescos", exact: true }).waitFor();
+    for (const width of [1280,390,320]) {
+      await page.setViewportSize({width,height:960});
+      for (const columns of width > 650 ? [1,3,6] : [1,2,4]) {
+        await categories.evaluate((node,columns) => {
+          node.style.setProperty("--isl-columns",columns);
+          node.style.setProperty("--isl-mobile-columns",columns);
+        },columns);
+        assert.ok(await categories.locator("#category-grid article").first().evaluate(card => {
+          const buttons = [...card.querySelectorAll(".actions button")];
+          const [edit,remove] = buttons.map(button => button.getBoundingClientRect());
+          const bounds = card.getBoundingClientRect();
+          return buttons.every(button => getComputedStyle(button).borderWidth === "0px" && button.textContent === "") &&
+            getComputedStyle(buttons[0]).backgroundColor === "rgb(249, 168, 37)" &&
+            getComputedStyle(buttons[1]).backgroundColor === "rgb(179, 38, 30)" &&
+            Math.abs(edit.top-remove.top) < 1 && edit.right <= remove.left &&
+            edit.left >= bounds.left && remove.right <= bounds.right &&
+            edit.width > 0 && remove.width > 0;
+        }), `Category actions fit in one row at ${width}px / ${columns} columns`);
+      }
+    }
+    await categories.evaluate(node => { node.style.removeProperty("--isl-columns"); node.style.removeProperty("--isl-mobile-columns"); });
+    await page.setViewportSize({width:1280,height:960});
     await page.screenshot({ path: "test-results/categories-desktop.png", fullPage: true });
     await catalog.getByRole("button", { name: "Productos", exact: true }).click();
     assert.equal(await productCard.locator(".category-badge").getAttribute("title"), "Lácteos y frescos");

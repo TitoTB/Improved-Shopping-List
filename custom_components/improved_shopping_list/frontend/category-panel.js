@@ -44,11 +44,10 @@ class ImprovedShoppingCategories extends HTMLElement {
         h2 { font-size:clamp(9px,15cqi,18px); line-height:1.5; margin:0; overflow-wrap:anywhere; }
         p { color:var(--secondary-text-color,#63766b); line-height:1.6; font-size:13px; }
         article p { font-size:clamp(9px,12cqi,13px); }
-        .actions { display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin-top:18px; }
-        .actions button { display:inline-flex; align-items:center; justify-content:center; gap:4px; max-width:100%; padding:6px 4px; font-size:clamp(9px,12cqi,14px); }
-        .actions ha-icon { --mdc-icon-size:clamp(10px,18cqi,20px); }
-        @container(max-width:110px) { .actions { flex-direction:column; } }
-        @container(max-width:65px) { .actions button { flex-direction:column; } }
+        .actions { display:flex; flex-wrap:nowrap; gap:clamp(2px,4cqi,8px); justify-content:center; margin-top:18px; }
+        .actions button { display:inline-flex; align-items:center; justify-content:center; flex:0 1 auto; min-width:0; min-height:32px; max-width:100%; padding:clamp(2px,4cqi,8px); border:0; font-size:clamp(9px,12cqi,14px); }
+        .actions .edit { background:#f9a825; }
+        .actions ha-icon { --mdc-icon-size:clamp(10px,18cqi,20px); width:var(--mdc-icon-size); height:var(--mdc-icon-size); flex:none; }
         .notice { padding:12px 14px; border-radius:10px; background:var(--secondary-background-color,#edf4ee); font-size:13px; line-height:1.6; margin:14px 0; }
         .error { color:var(--error-color,#bd3636); border:1px solid var(--error-color,#bd3636); }
         .empty { text-align:center; border:1px dashed var(--divider-color,#dfe7e1); border-radius:16px; padding:32px 18px; }
@@ -121,6 +120,7 @@ class ImprovedShoppingCategories extends HTMLElement {
         ["Eliminar", "mdi:delete", () => this._confirmDelete(category)],
       ]) {
         const button = document.createElement("button");
+        button.className = label === "Editar" ? "edit" : "danger";
         button.type = "button";
         button.title = `${label} categoría ${category.name}`;
         button.setAttribute("aria-label", `${label} categoría ${category.name}`);

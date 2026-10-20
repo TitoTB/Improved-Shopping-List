@@ -1,2 +1,4 @@
 # Pins Home Assistant Core 2026.10.2 and its matching test fixtures.
 pytest-homeassistant-custom-component==0.13.373
+# The test fixtures skip automatic installation of integration requirements.
+home-assistant-frontend==20260930.4

@@ -11,8 +11,8 @@ from custom_components.improved_shopping_list.icons import (
 )
 
 SVG = b'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" d="M1 1h4v4z"/></svg>'
-INFO = {"palette": True, "name": "Fluent Emoji Flat", "author": {"name": "Microsoft", "url": "https://github.com/microsoft/fluentui-emoji-icons"},
-        "license": {"title": "MIT", "url": "https://github.com/microsoft/fluentui-emoji-icons/blob/main/LICENSE"}}
+INFO = {"palette": True, "name": "Fluent Emoji Flat", "author": {"name": "Microsoft", "url": "https://github.com/microsoft/fluentui-emoji"},
+        "license": {"title": "MIT", "url": "https://github.com/microsoft/fluentui-emoji/blob/main/LICENSE"}}
 SEARCH = {"icons": ["fluent-emoji-flat:milk", "fluent-emoji-flat:milk-filled"], "collections": {"fluent-emoji-flat": INFO}}
 
 

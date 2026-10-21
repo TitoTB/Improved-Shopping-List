@@ -35,7 +35,7 @@ async def test_stock_catalog_changes_and_failed_disk_do_not_lose_units(hass,monk
     product=await catalog.async_save_product({"name":"Arroz"})
     assert stock.snapshot["items"][0]["catalog_product_id"]==product["id"]
     await stock.async_add("arroz")
-    renamed=await catalog.async_save_product({**product,"name":"Arroz integral"})
+    renamed=await catalog.async_save_product({"id":product["id"],"revision":product["revision"],"name":"Arroz integral"})
     assert stock.snapshot["items"][0]["name"]=="Arroz integral"
     assert (await stock.async_add("ARROZ INTEGRAL"))["quantity"]==3
     before=deepcopy(stock.snapshot)

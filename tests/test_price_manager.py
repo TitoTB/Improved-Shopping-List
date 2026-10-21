@@ -273,10 +273,16 @@ async def test_public_alcampo_api_and_403_are_distinct_from_not_found(hass,aiocl
 @pytest.mark.parametrize("region",["", "ac90d761-9d58-4918-a37d-dd14e1ce384a"])
 async def test_alcampo_anonymous_headers_region_and_product_metadata(hass,aioclient_mock,monkeypatch,region):
     import aiohttp
+    from custom_components.improved_shopping_list import price_sources
+    create_session = price_sources.async_create_clientsession
+    def anonymous_session(hass,**kwargs):
+        # The HA test fixture replaces the returned session and its cookie jar.
+        assert isinstance(kwargs["cookie_jar"],aiohttp.DummyCookieJar)
+        return create_session(hass,**kwargs)
+    monkeypatch.setattr(price_sources,"async_create_clientsession",anonymous_session)
     captured = []
     original_get = aiohttp.ClientSession.get
     def get(session,url,**kwargs):
-        assert isinstance(session.cookie_jar,aiohttp.DummyCookieJar)
         captured.append(kwargs)
         return original_get(session,url,**kwargs)
     monkeypatch.setattr(aiohttp.ClientSession,"get",get)

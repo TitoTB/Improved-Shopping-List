@@ -204,10 +204,10 @@ const hass={
     if(msg.type==='improved_shopping_list/settings/price_schedule'){
       window.listSettings.price_update_time=msg.time;window.emitSettings();return structuredClone(window.listSettings);
     }
-    if(msg.type==='improved_shopping_list/settings/refresh_prices'){
+    if(msg.type==='improved_shopping_list/settings/refresh_all_prices'){
       window.calls.push(structuredClone(msg));
       if(window.failManualPriceRefresh)throw new Error('La tienda ha indicado una pausa.');
-      return {queued:2,products:[]};
+      return {queued:4,errors:window.manualPriceErrors??[]};
     }
     if(msg.type==='improved_shopping_list/catalog/store_prices'){
       const products=window.storePriceFixture??((msg.codes??[]).includes('8431876279146')?[{store:'carrefour',store_name:'Alcaparras Carrefour',ean:'8431876279146',price:'1.35',currency:'EUR',url:'https://www.awin1.com/pclick.php?p=123&a=1535625&m=25399',checked_at:1792490400}]:[]);
@@ -1235,7 +1235,7 @@ async function main() {
     const allPricesDialog=settingsView.getByRole('dialog',{name:'Actualización de precios',exact:true});
     await allPricesDialog.waitFor();
     await settingsView.locator('#refresh-all-prices:not([disabled])').waitFor();
-    assert.deepEqual(await settingsPage.evaluate(()=>window.calls.filter(call=>call.type==='improved_shopping_list/settings/refresh_prices').map(call=>call.store)),['mercadona','carrefour']);
+    assert.equal(await settingsPage.evaluate(()=>window.calls.filter(call=>call.type==='improved_shopping_list/settings/refresh_all_prices').length),1);
     assert.equal(await settingsView.locator('#stores-refresh-error').isVisible(),false);
     await settingsPage.evaluate(()=>{for(const callback of window.storeProgressListeners)callback({running:true,total:4,processed:1,estimated_seconds:900,errors:{},last_updated:window.lastPriceUpdateFixture});});
     assert.equal(await allPricesDialog.locator('#prices-progress-bar').evaluate(node=>node.value),1);
@@ -1251,6 +1251,11 @@ async function main() {
     await settingsView.locator('#stores-refresh-error').filter({hasText:'pausa'}).waitFor();
     await allPricesDialog.getByRole('button',{name:'Cerrar',exact:true}).click();
     await settingsPage.evaluate(()=>{window.failManualPriceRefresh=false;document.querySelector('improved-shopping-list-panel').shadowRoot.querySelector('isl-catalog').dispatchEvent(new CustomEvent('catalog-change',{detail:{products:window.catalogProducts,categories:window.catalogCategories}}));});
+    await settingsPage.evaluate(()=>{window.manualPriceErrors=[{store:'consum',error:'Consum: Consum: Consum no ofrece entrega para el código postal 28024.'}];});
+    await updateAll.click();
+    assert.equal(await settingsView.locator('#stores-refresh-error').textContent(),'Consum: no ofrece entrega para el código postal 28024.');
+    await allPricesDialog.getByRole('button',{name:'Cerrar',exact:true}).click();
+    await settingsPage.evaluate(()=>{window.manualPriceErrors=[];});
     for(const row of await settingsView.locator('.store-row').all()){
       const geometry=await row.evaluate(node=>{const name=node.querySelector('.store-name').getBoundingClientRect(),logo=node.querySelector('.store-logo').getBoundingClientRect();return {difference:Math.abs(name.y+name.height/2-logo.y-logo.height/2),overflow:node.scrollWidth-node.clientWidth};});
       assert.ok(geometry.difference<2,'Store name and logo are vertically centered');

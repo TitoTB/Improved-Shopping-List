@@ -14,6 +14,10 @@ POSTAL_URL = "https://tienda.mercadona.es/api/postal-codes/actions/change-pc/"
 class StoreError(ValueError):
     """A store configuration cannot be verified."""
 
+    def __init__(self, message, **diagnostics):
+        super().__init__(message)
+        self.diagnostics = diagnostics
+
 
 async def async_resolve_mercadona(hass, postal_code: str) -> str:
     """Resolve an actual warehouse from response headers, never a fallback."""

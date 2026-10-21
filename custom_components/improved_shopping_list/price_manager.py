@@ -4,6 +4,8 @@ import asyncio
 from copy import deepcopy
 from datetime import timedelta
 import logging
+import re
+from uuid import uuid4
 import time
 
 import aiohttp
@@ -29,12 +31,13 @@ class PriceManager:
         self._store = Store(hass, 1, f"{DOMAIN}.prices")
         self._data = {"offers":{}, "attempts":{}, "pending":[], "day":"", "next_request":0,
             "errors":{}, "blocked_day":{}, "blocked_until":{}, "legacy_ean":{}, "total":0, "processed":0,
-            "partial":False, "prepare_retry_at":0}
+            "partial":False, "prepare_retry_at":0, "batch":None}
         self._active = False
         self._lock = asyncio.Lock()
         self._task = None
         self._stops, self._listeners = [], set()
         self._configuration = None
+        self._preparing = 0
 
     async def async_load(self):
         data = await self._store.async_load()
@@ -82,8 +85,65 @@ class PriceManager:
                 "url":item.get("affiliate_url", ""), "checked_at":(feed or {}).get("checked_at", 0), "source":"legacy_feed"}
         await self._save()
 
+    def _begin_batch(self, source):
+        batch = self._data.get("batch")
+        if not batch or batch.get("finished_at") is not None:
+            batch = {"id":str(uuid4()), "source":source, "started_at":time.time(),
+                "finished_at":None, "events":[], "stores":{}}
+            self._data["batch"] = batch
+            self._data["errors"] = {}
+            if not self._data["pending"]:
+                self._data.update(total=0,processed=0,started_at=batch["started_at"])
+        elif source == "manual":
+            batch["source"] = "manual"
+        return batch
+
+    @staticmethod
+    def _error_message(store, message):
+        name = STORES[store]
+        return name+": "+re.sub(r"^(?:"+re.escape(name)+r"(?::\s*|\s+))+", "",str(message),flags=re.I)
+
+    def _record(self, kind, message, *, source="automatic", store=None, diagnostics=None):
+        batch = self._begin_batch(source)
+        diagnostics = deepcopy(diagnostics or {})
+        key = next((key for key,name in STORES.items() if store in (key,name)
+            or str(message).lower().startswith(name.lower()+":")),None)
+        if key is None and store is None:
+            key = next((key for key,name in STORES.items() if str(message).lower().startswith(name.lower())),None)
+        if key:
+            configuration = self.settings.snapshot["stores"].get(key,{})
+            batch["stores"][key] = {"name":STORES[key],"postal_code":configuration.get("postal_code",""),
+                "requested_postal_code":self.settings.snapshot.get("store_postal_code",""),"scope":self.scope(key)}
+        batch["events"].append({"kind":kind,"source":source,"time":time.time(),"store":key,"message":str(message),"diagnostics":diagnostics})
+
     async def _save(self):
-        await self._store.async_save(deepcopy(self._data))
+        batch = self._data.get("batch")
+        finished = bool(batch and batch.get("finished_at") is None and not self._data["pending"] and not self._preparing)
+        if finished:
+            batch["finished_at"] = time.time()
+        try:
+            await self._store.async_save(deepcopy(self._data))
+        except BaseException:
+            if finished:
+                batch["finished_at"] = None
+            raise
+        if finished:
+            counts = {"updated":0,"not_found":0,"errors":0,"skipped":0,"http_requests":0}
+            mapping = {"stores.price":"updated","stores.not_found":"not_found","stores.error":"errors",
+                "stores.skipped":"skipped","stores.request":"http_requests"}
+            for event in batch["events"]:
+                counter = mapping.get(event["kind"])
+                if counter:
+                    counts[counter] += 1
+            stores = deepcopy(batch["stores"])
+            for store in stores:
+                stores[store]["totals"] = {key:sum(1 for event in batch["events"] if event["store"] == store
+                    and mapping.get(event["kind"]) == key) for key in counts}
+            self.activity.record("stores.summary",
+                f'Actualización de precios finalizada: {counts["updated"]} actualizados · {counts["not_found"]} sin resultado · {counts["errors"]} incidencias',
+                source=batch["source"],diagnostics={"batch_id":batch["id"],"started_at":batch["started_at"],
+                    "finished_at":batch["finished_at"],"elapsed_seconds":round(batch["finished_at"]-batch["started_at"],2),
+                    "interval_seconds":INTERVAL, "totals":counts,"stores":stores,"events":deepcopy(batch["events"])})
 
     def scope(self, store):
         config = self.settings.snapshot["stores"].get(store, {})
@@ -213,8 +273,12 @@ class PriceManager:
     async def _prepare(self, day):
         if not any(self.settings.snapshot["stores"].get(store, {}).get("enabled") for store in STORES):
             return
+        self._begin_batch("automatic")
         names, failures = await self.pending_names()
         unavailable = set()
+        if failures:
+            self._record("stores.error","No se pudieron comprobar algunas listas",source="automatic",
+                diagnostics={"response_class":"list_unavailable","entities":failures})
         stores = {store for product in self.catalog.products if normalized_name(product["name"]) in names
             for store in self.links_for_product(product)
             if self.settings.snapshot["stores"].get(store, {}).get("enabled")}
@@ -223,9 +287,9 @@ class PriceManager:
                 await self._ensure_location(store)
             except ValueError as err:
                 unavailable.add(store)
-                self._data["errors"][store] = str(err)
-                self.activity.record("stores.error", f"{STORES[store]}: {err}", source="automatic",
-                    store=STORES[store], diagnostics={"response_class":"location_unavailable"})
+                self._data["errors"][store] = self._error_message(store,err)
+                self._record("stores.error", self._data["errors"][store], source="automatic",
+                    store=STORES[store], diagnostics={"response_class":"location_unavailable",**getattr(err,"diagnostics",{})})
         jobs = {}
         for job in self._data["pending"]:
             if (job.get("manual") or failures and self._data["day"] == day) and self._linked_job(job):
@@ -244,9 +308,9 @@ class PriceManager:
         self._data.update(day=day, pending=pending, total=processed+len(pending), processed=processed,
             started_at=self._data.get("started_at", time.time()) if processed else time.time(),
             partial=bool(failures), prepare_retry_at=time.time()+INTERVAL)
-        await self._save()
-        self.activity.record("stores.queue", "Revisión nocturna de precios preparada", source="automatic",
+        self._record("stores.queue", "Revisión nocturna de precios preparada", source="automatic",
             diagnostics={"references":len(pending), "interval_seconds":INTERVAL, "unavailable_lists":failures})
+        await self._save()
         self._notify()
 
     async def _ensure_location(self, store):
@@ -260,40 +324,79 @@ class PriceManager:
                 ready = ready and config.get("zone") == config["area_id"][:-1]
             elif store == "eroski":
                 ready = ready and bool(config.get("zone"))
-        if not ready:
+        if not ready or config.get("location_error"):
             config = await self.settings.async_ensure_store_location(store)
         if config.get("location_error"):
-            raise ValueError(f"{STORES[store]}: {config['location_error']}")
+            raise PriceError(self._error_message(store,config["location_error"]),
+                **{"response_class":"location_unavailable",**config.get("location_diagnostics",{})})
         if not self.scope(store):
             raise ValueError(f"No se ha podido resolver la ubicación de {STORES[store]}.")
 
     async def async_refresh_store(self, store):
+        try:
+            return await self._queue_store(store)
+        except (ValueError,OSError) as err:
+            async with self._lock:
+                if self._active and self.hass.data.get(DOMAIN,{}).get("active"):
+                    self._begin_batch("manual")
+                    message = self._error_message(store,err)
+                    self._data["errors"][store] = message
+                    self._record("stores.error",message,source="manual",store=STORES[store],
+                        diagnostics={**getattr(err,"diagnostics",{}),"stage":"preparation"})
+                    await self._save();self._notify()
+            raise
+
+    async def async_refresh_all(self):
+        """Prepare one manual batch, including stores whose preparation fails."""
+        if not self._active or not self.hass.data.get(DOMAIN,{}).get("active"):
+            raise ValueError("La integración no está disponible.")
+        stores = [store for store in STORES if self.settings.snapshot["stores"].get(store,{}).get("enabled")]
+        errors,queued = [],0
+        async with self._lock:
+            self._preparing += 1
+            self._begin_batch("manual")
+        try:
+            for store in stores:
+                try:
+                    result = await self.async_refresh_store(store)
+                    queued += result.get("queued",0)
+                except (ValueError,OSError) as err:
+                    errors.append({"store":store,"error":self._error_message(store,err)})
+        finally:
+            async with self._lock:
+                self._preparing -= 1
+                await self._save();self._notify()
+        self._queue()
+        return {"queued":queued,"errors":errors}
+
+    async def _queue_store(self, store):
         """Queue a deliberate manual run without bypassing durable HTTP pacing."""
         async with self._lock:
             if not self._active or not self.hass.data.get(DOMAIN, {}).get("active"):
                 raise ValueError("La integración no está disponible.")
             if not self.settings.snapshot["stores"].get(store, {}).get("enabled"):
                 raise ValueError("Habilita la tienda antes de actualizar sus precios.")
-            if time.time() < self._data["blocked_until"].get(store, 0):
-                raise ValueError("La tienda ha indicado una pausa. Espera antes de volver a actualizar.")
-            await self._ensure_location(store)
             active = [job for job in self._data["pending"] if job["store"] == store and not job.get("blocked")]
             if active:
                 return {**self.snapshot(store), "queued":len(active)}
+            names, failures = await self.pending_names()
+            if failures:
+                raise ValueError("No se pudieron leer todas las listas. Comprueba su disponibilidad y vuelve a intentarlo.")
+            candidates = [self.links_for_product(product)[store] for product in self.catalog.products
+                if normalized_name(product["name"]) in names and store in self.links_for_product(product)]
+            if not candidates:
+                return {**self.snapshot(store), "queued":0}
+            if time.time() < self._data["blocked_until"].get(store, 0):
+                raise ValueError("La tienda ha indicado una pausa. Espera antes de volver a actualizar.")
+            self._begin_batch("manual")
+            await self._ensure_location(store)
+            self._data["errors"].pop(store,None)
             blocked = [job for job in self._data["pending"] if job["store"] == store and job.get("blocked")]
             for job in blocked:
                 self._data["pending"].remove(job)
                 self._data["processed"] += 1
-            names, failures = await self.pending_names()
-            if failures:
-                raise ValueError("No se pudieron leer todas las listas. Comprueba su disponibilidad y vuelve a intentarlo.")
-            jobs = {}
-            for product in self.catalog.products:
-                link = self.links_for_product(product).get(store)
-                if link and normalized_name(product["name"]) in names:
-                    scope = self.scope(store)
-                    key = self.key(store, link, scope)
-                    jobs[key] = {"store":store, "link":link, "scope":scope, "manual":True}
+            scope = self.scope(store)
+            jobs = {self.key(store,link,scope):{"store":store,"link":link,"scope":scope,"manual":True} for link in candidates}
             existing = {self.key(job["store"],job["link"],job["scope"]):job for job in self._data["pending"]}
             added = 0
             for key, job in jobs.items():
@@ -307,9 +410,9 @@ class PriceManager:
                 self._data.update(total=added, processed=0, started_at=time.time())
             else:
                 self._data["total"] += added
-            await self._save()
-            self.activity.record("stores.queue", f"{STORES[store]}: actualización manual solicitada", source="manual",
+            self._record("stores.queue", f"{STORES[store]}: actualización manual solicitada", source="manual", store=STORES[store],
                 diagnostics={"references":len(jobs), "added":added, "interval_seconds":INTERVAL})
+            await self._save()
             self._notify()
         self._queue()
         return {**self.snapshot(store), "queued":len(jobs)}
@@ -342,16 +445,17 @@ class PriceManager:
         job["reserved"] = True
         job["request_count"] = job.get("request_count", 0) + 1
         self._data["next_request"] = time.time()+INTERVAL
-        await self._save()  # Persist request reservation before touching the retailer.
-        self._notify()
-        self.activity.record("stores.request", f"{STORES[job['store']]}: consulta de precio iniciada",
+        self._record("stores.request", f"{STORES[job['store']]}: consulta de precio iniciada",
             source="manual" if job.get("manual") else "automatic", store=STORES[job["store"]],
             diagnostics={"reference_id":job["link"]["id"], "scope":job["scope"],
                 "provider":"carrefour_json" if job["store"] == "carrefour" else job["store"]})
 
+        await self._save()  # Persist request reservation and diagnostics before the HTTP request.
+        self._notify()
+
     async def async_tick(self):
         async with self._lock:
-            if not self._active or not self.hass.data.get(DOMAIN, {}).get("active"):
+            if not self._active or not self.hass.data.get(DOMAIN, {}).get("active") or self._preparing:
                 return
             now = dt_util.now()
             day = now.date().isoformat()
@@ -359,7 +463,11 @@ class PriceManager:
             elapsed = now.hour*60+now.minute-hour*60-minute
             if (self._data["day"] != day or self._data["partial"] and time.time() >= self._data["prepare_retry_at"]) and 0 <= elapsed < 60:
                 await self._prepare(day)
-            if not self._data["pending"] or time.time() < self._data["next_request"]:
+            if not self._data["pending"]:
+                if self._data.get("batch") and self._data["batch"].get("finished_at") is None:
+                    await self._save()
+                return
+            if time.time() < self._data["next_request"]:
                 return
             names, failures = await self.pending_names()
             deferred = 0
@@ -374,6 +482,8 @@ class PriceManager:
                 if (not self._current_job(job, names) or job.get("reserved") or job.get("blocked")
                     or not job.get("manual") and (self._data["attempts"].get(key) == day or self._data["blocked_day"].get(store) == day)
                     or time.time() < self._data["blocked_until"].get(store, 0)):
+                    self._record("stores.skipped",f"{STORES[store]}: referencia omitida",source="manual" if job.get("manual") else "automatic",store=STORES[store],
+                        diagnostics={"reference_id":job["link"]["id"],"blocked":bool(job.get("blocked")),"reserved":bool(job.get("reserved"))})
                     self._data["pending"].pop(0)
                     self._data["processed"] += 1
                     await self._save()
@@ -392,10 +502,10 @@ class PriceManager:
                     if isinstance(result, dict):
                         self._data["offers"][key] = {**result, "checked_at":time.time(), "scope":job["scope"]}
                         self._data["errors"].pop(store, None)
-                        self.activity.record("stores.price", f"{STORES[store]}: precio actualizado", source=source,
+                        self._record("stores.price", f"{STORES[store]}: precio actualizado", source=source,
                             diagnostics={"reference_id":job["link"]["id"], "price":result["price"], "currency":result["currency"]})
                     elif result is None:
-                        self.activity.record("stores.not_found", f"{STORES[store]}: referencia no disponible; se conserva el último precio", source=source,
+                        self._record("stores.not_found", f"{STORES[store]}: referencia no disponible; se conserva el último precio", source=source,
                             diagnostics={"reference_id":job["link"]["id"], "response_class":"not_found"})
                 except (PriceError, aiohttp.ClientError, asyncio.TimeoutError, ValueError, KeyError, TypeError) as err:
                     diagnostics = getattr(err, "diagnostics", {"response_class":"invalid_response"})
@@ -403,6 +513,7 @@ class PriceManager:
                         await self._save()
                         return
                     if diagnostics.get("response_class") in ("configuration_changed", "no_longer_pending"):
+                        self._record("stores.skipped",str(err),source=source,store=STORES[store],diagnostics=diagnostics)
                         self._data["pending"].pop(0)
                         self._data["processed"] += 1
                         await self._save()
@@ -415,7 +526,7 @@ class PriceManager:
                         for queued in self._data["pending"]:
                             if queued["store"] == store:
                                 queued["blocked"] = True
-                    self.activity.record("stores.error", self._data["errors"][store], source=source, store=STORES[store],
+                    self._record("stores.error", self._data["errors"][store], source=source, store=STORES[store],
                         diagnostics={**diagnostics, "reference_id":job["link"]["id"], "next_attempt":"next_daily_run"})
                 finally:
                     self._configuration = None

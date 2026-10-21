@@ -230,6 +230,15 @@ con 28024; no se guardan cookies ni tokens. Un posible rechazo desde otra conexi
 se muestra como error de ubicación.
 Los errores no borran los precios anteriores. Cambiar la ubicación no inicia una
 actualización de precios. Puedes desactivar una tienda y consultar su caché.
+Solo se comprueba la cobertura al actualizar si hay referencias vinculadas pendientes
+en esa tienda. Un error de ubicación anterior se vuelve a verificar en un nuevo intento;
+la falta de cobertura para un código indicado no utiliza otra región en su lugar.
+
+Cada revisión genera una sola entrada final en **Ajustes → Logs → Tiendas**,
+con el resultado por tienda, precios actualizados, referencias sin resultado,
+incidencias y peticiones realizadas. Los detalles técnicos y la información de
+la revisión en curso se guardan entre reinicios; la barra sigue mostrando el
+avance mientras se procesan las referencias. No se crean entradas por cada petición.
 
 Consum consulta su ficha JSON con las cabeceras de zona seleccionadas. La Sirena
 resuelve la referencia a su variante y consulta el precio de entrega para el centro

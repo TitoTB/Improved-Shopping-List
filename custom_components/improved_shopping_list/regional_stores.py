@@ -69,7 +69,8 @@ async def async_resolve_areas(hass, store, postal_code):
                 raise StoreError("Eroski no ha devuelto centros de recogida disponibles.")
             return {"postal_code":postal_code, "areas":areas}
         except (EroskiError, aiohttp.ClientError, asyncio.TimeoutError, ValueError) as err:
-            raise StoreError(str(err) if isinstance(err,(EroskiError,StoreError)) else "No se ha podido consultar Eroski.") from err
+            raise StoreError(str(err) if isinstance(err,(EroskiError,StoreError)) else "No se ha podido consultar Eroski.",
+                **getattr(err,"diagnostics",{})) from err
         finally:
             client.close()
     url = ("https://tienda.consum.es/api/rest/V1.0/shipping/area?" + urlencode({"shippingMethod":"D", "zipCode":postal_code})
@@ -88,7 +89,8 @@ async def async_resolve_areas(hass, store, postal_code):
                     raise StoreError("La respuesta de cobertura es demasiado grande.")
         areas = coverage_areas(store, json.loads(raw))
         if not areas:
-            raise StoreError(f"{REGIONAL_STORES[store]} no ofrece entrega para este código postal.")
+            raise StoreError(f"{REGIONAL_STORES[store]} no ofrece entrega para el código postal {postal_code}.",
+                response_class="no_coverage",postal_code=postal_code)
         return {"postal_code":postal_code, "areas":areas}
     except (aiohttp.ClientError, asyncio.TimeoutError, ValueError) as err:
         if isinstance(err, StoreError):

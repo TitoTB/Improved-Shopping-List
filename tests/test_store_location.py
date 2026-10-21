@@ -120,11 +120,12 @@ async def test_location_repair_preserves_specific_postal_errors(hass, monkeypatc
     settings, entry = settings_for(hass)
     hass.config_entries.async_update_entry(entry, options={**entry.options,
         "store_postal_code":"28024", "stores":{"consum":{"enabled":True}}})
-    resolver = AsyncMock(side_effect=StoreError("Sin cobertura para el código postal"))
+    resolver = AsyncMock(side_effect=StoreError("Sin cobertura para el código postal",response_class="no_coverage",postal_code="28024"))
     monkeypatch.setattr("custom_components.improved_shopping_list.list_settings.resolve_location", resolver)
     result = await settings.async_ensure_store_location("consum")
     assert resolver.await_args.args[2] == "28024"
     assert result["location_error"] == "Sin cobertura para el código postal"
+    assert result["location_diagnostics"] == {"response_class":"no_coverage","postal_code":"28024","requested_postal_code":"28024"}
     assert resolver.await_count == 1
 
 

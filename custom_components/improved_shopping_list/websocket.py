@@ -64,6 +64,7 @@ def async_register_commands(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_store_enabled)
     websocket_api.async_register_command(hass, ws_cached_prices)
     websocket_api.async_register_command(hass, ws_refresh_prices)
+    websocket_api.async_register_command(hass, ws_refresh_all_prices)
     websocket_api.async_register_command(hass, ws_readers_get)
     websocket_api.async_register_command(hass, ws_readers_subscribe)
     websocket_api.async_register_command(hass, ws_reader_capture)
@@ -513,6 +514,20 @@ async def ws_refresh_prices(hass, connection, msg):
         connection.send_error(msg["id"], "price_refresh_error", str(err))
     else:
         connection.send_result(msg["id"], result)
+
+
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/settings/refresh_all_prices"})
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_refresh_all_prices(hass, connection, msg):
+    if not _catalog(hass, connection, msg):
+        return
+    try:
+        result = await hass.data[DOMAIN]["price_manager"].async_refresh_all()
+    except (ValueError,OSError) as err:
+        connection.send_error(msg["id"],"price_refresh_error",str(err))
+    else:
+        connection.send_result(msg["id"],result)
 
 
 @websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/catalog/store_prices",

@@ -166,3 +166,15 @@ async def test_logs_websocket_initial_live_updates_and_unloaded_guard(hass, hass
     assert (await client.receive_json())["error"]["code"] == "not_loaded"
 
 
+async def test_derived_store_location_updates_do_not_create_extra_activity_entries(activity_env):
+    env=activity_env
+    env.settings.snapshot["stores"]={"eroski":{"enabled":True,"postal_code":"28024","checked_at":1}}
+    env.settings.notify()
+    count=len(env.activity.snapshot["entries"])
+    env.settings.snapshot["stores"]["eroski"].update(checked_at=2,location_error="HTTP 403",location_diagnostics={"endpoint":"/es/"})
+    env.settings.notify()
+    assert len(env.activity.snapshot["entries"])==count
+    env.settings.snapshot["stores"]["eroski"]["enabled"]=False;env.settings.notify()
+    assert len(env.activity.snapshot["entries"])==count+1
+
+

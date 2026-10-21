@@ -101,11 +101,12 @@ class ListSettings:
         try:
             async with asyncio.timeout(75):
                 location = await resolve_location(self.hass, store, postal, current)
-            value.update(location, checked_at=int(time.time()), location_error="")
+            value.update(location, checked_at=int(time.time()), location_error="", location_diagnostics={})
         except (StoreError, TimeoutError) as err:
             # Keep the last price's scope readable, but block new price requests.
             value = {**deepcopy(current), "enabled":enabled,
-                "location_error":str(err) or "La comprobación de ubicación ha tardado demasiado."}
+                "location_error":str(err) or "La comprobación de ubicación ha tardado demasiado.",
+                "location_diagnostics":{**getattr(err,"diagnostics",{}),"requested_postal_code":postal}}
         return value
 
     async def async_store_postal(self, postal):

@@ -235,7 +235,10 @@ class ActivityLog:
     @callback
     def _settings_changed(self):
         current = self.settings.snapshot
-        if current != self._settings_state:
+        def preferences(snapshot):
+            return {**snapshot,"stores":{key:{"enabled":bool(value.get("enabled"))}
+                for key,value in snapshot.get("stores",{}).items()}}
+        if preferences(current) != preferences(self._settings_state):
             self.record("settings.updated", "Ajustes de listas o personalización modificados")
-            self._settings_state = deepcopy(current)
+        self._settings_state = deepcopy(current)
         self._sync_lists()

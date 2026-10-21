@@ -513,3 +513,93 @@ async def test_bindings_persist_and_old_clients_do_not_erase_them(hass):
     assert restored.products[0]["store_links"] == saved["store_links"]
     with pytest.raises(CatalogError):
         await catalog.async_save_product({"name":"Error","store_links":{"alcampo":"https://localhost/products/a/1"}})
+
+
+async def test_manual_update_does_not_resolve_unused_stores(env):
+    env.manager._queue=Mock()
+    env.settings.snapshot["stores"]["consum"]={"enabled":True,"location_error":"Sin cobertura"}
+    env.settings.async_ensure_store_location=AsyncMock(side_effect=AssertionError("No location lookup expected"))
+    result=await env.manager.async_refresh_store("consum")
+    assert result["queued"]==0
+    env.settings.async_ensure_store_location.assert_not_awaited()
+    env.manager.activity.record.assert_not_called()
+
+
+async def test_one_final_log_groups_all_stores_and_survives_restart(env,hass):
+    env.manager._queue=Mock();env.clock[0]+=12*3600
+    env.catalog.products=[product("Arroz","24097","alcampo"),product("Arroz","R-prod310215","carrefour")]
+    result=await env.manager.async_refresh_all()
+    assert result=={"queued":2,"errors":[]}
+    env.manager.activity.record.assert_not_called()
+    await env.manager.async_tick()
+    assert len(env.requests)==1
+    env.manager.activity.record.assert_not_called()
+    restored=PriceManager(hass,env.catalog,env.settings,env.manager.activity)
+    await restored.async_load();restored._active=True;restored.sources=env.manager.sources
+    env.clock[0]+=300
+    await restored.async_tick()
+    assert len(env.requests)==2
+    env.manager.activity.record.assert_called_once()
+    entry=env.manager.activity.record.call_args
+    assert entry.args[0]=="stores.summary" and entry.kwargs["source"]=="manual"
+    details=entry.kwargs["diagnostics"]
+    assert details["totals"]["updated"]==2 and details["totals"]["http_requests"]==2
+    assert set(details["stores"])=={"alcampo","carrefour"}
+    assert details["stores"]["carrefour"]["totals"]["updated"]==1
+    assert any(event["diagnostics"].get("reference_id")=="R-prod310215" for event in details["events"])
+    assert details["elapsed_seconds"]==300
+    await restored.async_tick();env.manager.activity.record.assert_called_once()
+    await restored.async_stop()
+
+
+async def test_preparation_errors_are_aggregated_with_other_stores_results(env):
+    env.manager._queue=Mock();env.clock[0]+=12*3600
+    env.settings.snapshot["store_postal_code"]="28024"
+    env.settings.snapshot["stores"]["consum"]={"enabled":True}
+    env.catalog.products=[product("Arroz","24097","alcampo"),product("Arroz","7394260","consum")]
+    async def resolve(store):
+        config={"enabled":True,"location_error":"Consum no ofrece entrega para el código postal 28024.",
+            "location_diagnostics":{"response_class":"no_coverage","postal_code":"28024"}}
+        env.settings.snapshot["stores"][store]=config
+        return config
+    env.settings.async_ensure_store_location=AsyncMock(side_effect=resolve)
+    result=await env.manager.async_refresh_all()
+    assert result["queued"]==1 and len(result["errors"])==1
+    assert result["errors"][0]["error"]=="Consum: no ofrece entrega para el código postal 28024."
+    env.manager.activity.record.assert_not_called()
+    await env.manager.async_tick()
+    env.manager.activity.record.assert_called_once()
+    details=env.manager.activity.record.call_args.kwargs["diagnostics"]
+    assert details["totals"]["errors"]==1 and details["totals"]["updated"]==1
+    assert any(event["diagnostics"].get("response_class")=="no_coverage" for event in details["events"])
+    assert details["stores"]["consum"]["requested_postal_code"]=="28024"
+
+
+async def test_manual_retry_revalidates_a_cached_location_error(env):
+    env.manager._queue=Mock()
+    config={"enabled":True,"postal_code":"28024","area_id":"f7e80707-fd7a-437c-b451-698301f2cf77", "zone":"244","location_error":"Eroski: consulta rechazada (HTTP 403)."}
+    env.settings.snapshot["stores"]["eroski"]=config
+    env.catalog.products=[product("Arroz","https://supermercado.eroski.es/es/productdetail/17528126-aceite/","eroski")]
+    async def resolve(store):
+        env.settings.snapshot["stores"][store]={**config,"location_error":""}
+        return env.settings.snapshot["stores"][store]
+    env.settings.async_ensure_store_location=AsyncMock(side_effect=resolve)
+    assert (await env.manager.async_refresh_store("eroski"))["queued"]==1
+    env.settings.async_ensure_store_location.assert_awaited_once_with("eroski")
+
+
+async def test_failed_all_store_preparation_produces_one_summary(env):
+    env.manager._queue=Mock();env.clock[0]+=12*3600
+    env.catalog.products=[product("Arroz","7394260","consum"),product("Arroz","84892","dia")]
+    env.settings.snapshot["stores"]={"consum":{"enabled":True},"dia":{"enabled":True}}
+    async def resolve(store):
+        value={"enabled":True,"location_error":"HTTP 403","location_diagnostics":{"http_status":403,"endpoint":"/coverage"}}
+        env.settings.snapshot["stores"][store]=value
+        return value
+    env.settings.async_ensure_store_location=AsyncMock(side_effect=resolve)
+    result=await env.manager.async_refresh_all()
+    assert result["queued"]==0 and len(result["errors"])==2
+    env.manager.activity.record.assert_called_once()
+    details=env.manager.activity.record.call_args.kwargs["diagnostics"]
+    assert details["totals"]["errors"]==2
+    assert all(event["diagnostics"]["http_status"]==403 for event in details["events"])

@@ -5,6 +5,13 @@ import { DEFAULT_APPEARANCE, gradientTextColor } from "./list-settings-client.js
 
 const MERCADONA_LOGO_URL = new URL("mercadona.png", import.meta.url).href;
 
+function storeError(name, message) {
+  let detail=String(message??"").trim();
+  const prefix=new RegExp(`^(?:${name}(?::\\s*|\\s+))+`,"i");
+  detail=detail.replace(prefix,"");
+  return `${name}: ${detail}`;
+}
+
 class ImprovedShoppingSettings extends HTMLElement {
   constructor() {
     super();
@@ -100,6 +107,7 @@ class ImprovedShoppingSettings extends HTMLElement {
         dialog::backdrop { background:rgba(0,0,0,.4); }
         .store-products { display:grid; gap:12px; margin-top:16px; }.store-product { display:flex; justify-content:space-between; align-items:center; gap:12px; border:1px solid var(--divider-color,#dfe7e1); border-radius:10px; padding:14px; }
         .store-cache-footer { text-align:left; margin:16px 0 0; font-size:12px; }
+        #stores-refresh-error { white-space:pre-line; }
         .store-progress { text-align:center; }
         .store-progress-track { position:relative; }
         .store-progress-percentage { position:absolute; inset:0; display:grid; place-items:center; pointer-events:none; color:#fff; font-size:13px; font-weight:700; line-height:26px; text-shadow:0 0 2px #000,0 1px 2px #000; }
@@ -472,8 +480,8 @@ class ImprovedShoppingSettings extends HTMLElement {
     if(preparing)bar.removeAttribute("value");else bar.value=empty?0:processed;
     root.querySelector("#prices-progress-percentage").textContent=preparing?"…":`${total&&!empty?Math.round(processed/total*100):0} %`;
     const names={mercadona:"Mercadona",carrefour:"Carrefour",alcampo:"Alcampo",consum:"Consum",lasirena:"La Sirena",eroski:"Eroski",dia:"DIA"};
-    const errors=[...(this._refreshStartErrors??[]),...Object.entries(state?.errors??{}).filter(([store])=>this._data.settings.stores?.[store]?.enabled).map(([store,error])=>`${names[store]??store}: ${error}`)];
-    const errorBox=root.querySelector("#stores-refresh-error");errorBox.textContent=[...new Set(errors)].join(" ");errorBox.hidden=!errors.length;
+    const errors=[...(this._refreshStartErrors??[]),...Object.entries(state?.errors??{}).filter(([store])=>this._data.settings.stores?.[store]?.enabled).map(([store,error])=>storeError(names[store]??store,error))];
+    const errorBox=root.querySelector("#stores-refresh-error");errorBox.textContent=[...new Set(errors)].join("\n");errorBox.hidden=!errors.length;
     root.querySelector("#prices-progress-status").textContent=preparing?"Preparando actualización…":empty?(errors.length?"No se ha podido iniciar la revisión.":"No hay productos vinculados pendientes en tus listas."):`${processed} de ${total} referencias procesadas${state?.running?"":" · Revisión finalizada"}`;
     const seconds=Number.isFinite(state?.estimated_seconds)?Math.max(0,Math.ceil(state.estimated_seconds-(Date.now()-(this._priceProgressReceivedAt??Date.now()))/1000)):null;
     root.querySelector("#prices-progress-time").textContent=preparing?"Calculando tiempo restante…":!state?.running?"":seconds===null?"Calculando tiempo restante…":seconds>0?`Tiempo estimado restante: ${Math.floor(seconds/60)} min ${seconds%60} s`:"Actualización en curso…";
@@ -500,12 +508,14 @@ class ImprovedShoppingSettings extends HTMLElement {
     this._pricesProgressTimer=setInterval(()=>this._renderGlobalPriceProgress(),1000);
     this._pricesRefreshing = true; this._render();
     try {
-      const results = await Promise.allSettled(stores.map(async store=>hass.callWS({type:"improved_shopping_list/settings/refresh_prices",store})));
+      const result = await hass.callWS({type:"improved_shopping_list/settings/refresh_all_prices"});
       if (!this.isConnected || this._data.hass.connection !== hass.connection) return;
       const names = {mercadona:"Mercadona",carrefour:"Carrefour",alcampo:"Alcampo",consum:"Consum",lasirena:"La Sirena",eroski:"Eroski",dia:"DIA"};
-      const errors = results.flatMap((result,index)=>result.status === "rejected" ? [`${names[stores[index]]}: ${result.reason?.message ?? "No se pudo iniciar la actualización."}`] : []);
+      const errors = (result.errors??[]).map(item=>storeError(names[item.store]??item.store,item.error));
       this._refreshStartErrors=errors;
-      this._manualQueued=results.reduce((count,result)=>count+(result.status==="fulfilled"?Math.max(0,Number(result.value.queued)||0):0),0);
+      this._manualQueued=Math.max(0,Number(result.queued)||0);
+    } catch(error) {
+      if(this.isConnected && this._data.hass.connection===hass.connection){this._refreshStartErrors=[error.message??"No se pudo iniciar la actualización."];this._manualQueued=0;}
     } finally {
       this._pricesRefreshing = false; this._render();
     }

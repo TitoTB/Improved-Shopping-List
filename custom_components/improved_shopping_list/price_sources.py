@@ -136,7 +136,7 @@ class PriceSources:
 
     async def fetch(self, store, link, configuration, before_request):
         if configuration.get("location_error"):
-            raise PriceError(configuration["location_error"], response_class="location_unavailable")
+            raise PriceError(configuration["location_error"], **{"response_class":"location_unavailable",**configuration.get("location_diagnostics",{})})
         link = normalize_link(store, link)
         if store == "dia":
             try:

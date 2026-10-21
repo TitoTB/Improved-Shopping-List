@@ -49,6 +49,24 @@ async def test_coverage_errors_are_not_saved_or_defaulted(hass, aioclient_mock, 
         await async_resolve_areas(hass,"consum","46409")
 
 
+async def test_no_consum_coverage_is_distinct_from_a_network_rejection(hass, aioclient_mock):
+    aioclient_mock.get("https://tienda.consum.es/api/rest/V1.0/shipping/area?shippingMethod=D&zipCode=28024",json=[])
+    with pytest.raises(StoreError) as error:
+        await async_resolve_areas(hass,"consum","28024")
+    assert error.value.diagnostics=={"response_class":"no_coverage","postal_code":"28024"}
+    assert "28024" in str(error.value)
+
+
+async def test_eroski_location_rejection_retains_endpoint_and_http_status(hass,monkeypatch):
+    from custom_components.improved_shopping_list.eroski import EroskiClient,EroskiError
+    monkeypatch.setattr(EroskiClient,"selection",AsyncMock(side_effect=EroskiError("Eroski: HTTP 403",
+        response_class="access_denied",http_status=403,endpoint="/es/login/delivery/")))
+    with pytest.raises(StoreError) as error:
+        await async_resolve_areas(hass,"eroski","28024")
+    assert error.value.diagnostics["http_status"]==403
+    assert error.value.diagnostics["endpoint"]=="/es/login/delivery/"
+
+
 def test_filters_disabled_or_inconsistent_coverage():
     data=deepcopy(CONSUM_AREA)
     data[0]["shippingAreas"][0]["zone"]["id"]=302

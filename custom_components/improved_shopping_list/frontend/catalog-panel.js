@@ -687,7 +687,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
   _renderReaderActions() {
     if (!this._built) return;
     const container = this.shadowRoot.querySelector("#product-reader-actions");
-    const signature = JSON.stringify((this._readers?.readers ?? []).map(reader => [reader.id, reader.name]));
+    const signature = JSON.stringify((this._readers?.readers ?? []).map(reader => [reader.id, reader.name, reader.default_action]));
     if (signature === this._readerSignature) return;
     this._readerSignature = signature;
     const previous = new Map([...container.querySelectorAll("select")].map(select => [select.dataset.readerAction,select.value]));
@@ -696,8 +696,9 @@ class ImprovedShoppingCatalog extends HTMLElement {
       const label = element("label", "", reader.name);
       const select = element("select");
       select.id = `action-${reader.id}`;label.htmlFor=select.id;select.dataset.readerAction=reader.id;
-      for (const [value,text] of [["none","Sin acción"],["add_list","Añadir a la lista de la compra"],["stock_remove","Quitar una unidad al stock (próximamente)"],["stock_add","Añadir una unidad al stock (próximamente)"]]) select.append(new Option(text,value));
-      select.value=previous.get(reader.id)??"none";wrap.append(label,select);return wrap;
+      const defaults={none:"Sin acción",add_list:"Añadir a la lista",stock_remove:"Quitar stock (próximamente)",stock_add:"Añadir stock (próximamente)"};
+      for (const [value,text] of [["default",`Usar acción por defecto del lector (${defaults[reader.default_action]??defaults.none})`],["none","Sin acción"],["add_list","Añadir a la lista de la compra"],["stock_remove","Quitar una unidad al stock (próximamente)"],["stock_add","Añadir una unidad al stock (próximamente)"]]) select.append(new Option(text,value));
+      select.value=previous.get(reader.id)??"default";wrap.append(label,select);return wrap;
     });
     container.replaceChildren(...(nodes.length ? nodes : [element("p","helper","Añade un lector en el apartado Lectores para configurar sus acciones.")]));
   }
@@ -1009,7 +1010,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
       form.elements.barcodes.value = (product.barcodes ?? []).join("\n");
       form.elements.nfc_tags.value = (product.nfc_tags ?? []).join("\n");
     }
-    for (const select of root.querySelectorAll("[data-reader-action]")) select.value = product?.reader_actions?.[select.dataset.readerAction] ?? "none";
+    for (const select of root.querySelectorAll("[data-reader-action]")) select.value = product?.reader_actions?.[select.dataset.readerAction] ?? "default";
     if (reading) {
       if (reading.kind === "barcode" && !form.elements.barcode.value) form.elements.barcode.value = reading.code;
       else {
@@ -1038,7 +1039,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
     product.recurrence = {enabled:form.elements.recurrence_enabled.checked, days:Number(form.elements.recurrence_days.value) || 7};
     delete product.recurrence_enabled;
     delete product.recurrence_days;
-    product.reader_actions = Object.fromEntries([...root.querySelectorAll("[data-reader-action]")].map(select => [select.dataset.readerAction,select.value]));
+    product.reader_actions = Object.fromEntries([...root.querySelectorAll("[data-reader-action]")].filter(select => select.value !== "default").map(select => [select.dataset.readerAction,select.value]));
     if (this._editing) Object.assign(product, { id: this._editing.id, revision: this._editing.revision });
     this._saving = true;
     root.querySelector("isl-icon-picker").disabled = true;

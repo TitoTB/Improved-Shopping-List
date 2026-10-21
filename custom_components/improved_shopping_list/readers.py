@@ -11,7 +11,7 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.event import async_track_state_change_event
 from homeassistant.helpers.storage import Store
 
-from .catalog import CatalogError, code_key, normalized_name
+from .catalog import READER_ACTIONS, CatalogError, code_key, normalized_name
 from .const import DOMAIN
 from .product_lookup import ProductLookup, is_product_barcode
 
@@ -20,7 +20,7 @@ INVALID_STATES = {"", "unknown", "unavailable", "none"}
 
 
 def normalize_reader(data: dict, hass: HomeAssistant, settings) -> dict:
-    fields = {"id", "revision", "name", "kind", "source", "entity_id", "attribute", "device_id", "list_entity", "cooldown", "enabled"}
+    fields = {"id", "revision", "name", "kind", "source", "entity_id", "attribute", "device_id", "list_entity", "cooldown", "enabled", "default_action"}
     if not isinstance(data, dict) or set(data) - fields:
         raise CatalogError("El lector contiene campos no admitidos.")
     result = {}
@@ -47,6 +47,9 @@ def normalize_reader(data: dict, hass: HomeAssistant, settings) -> dict:
         raise CatalogError("Añade la lista de destino en Ajustes o utiliza la principal.")
     result["cooldown"] = data.get("cooldown", 60)
     result["enabled"] = data.get("enabled", True)
+    result["default_action"] = data.get("default_action", "none")
+    if not isinstance(result["default_action"], str) or result["default_action"] not in READER_ACTIONS:
+        raise CatalogError("Selecciona una acción por defecto válida para el lector.")
     if type(result["cooldown"]) is not int or not 1 <= result["cooldown"] <= 3600 or not isinstance(result["enabled"], bool):
         raise CatalogError("La protección antirrepetición debe estar entre 1 y 3600 segundos.")
     return result
@@ -75,6 +78,8 @@ class ReaderManager:
             if not isinstance(data, dict) or any(not isinstance(data.get(key), dict) for key in ("readers", "pending", "cooldowns")) or not isinstance(data.get("dismissed"), list):
                 raise CatalogError("No se han podido leer los lectores guardados.", "storage_error")
             self._data = data
+            for reader in self._data["readers"].values():
+                reader.setdefault("default_action", "none")
 
     @property
     def snapshot(self):
@@ -141,6 +146,8 @@ class ReaderManager:
                 raise CatalogError("El lector ya no existe.", "not_found")
             if current and data.get("revision") != current["revision"]:
                 raise CatalogError("Otra sesión ha cambiado el lector. Vuelve a abrirlo.", "conflict")
+            if current and "default_action" not in data:
+                reader["default_action"] = current.get("default_action", "none")
             for other in self._data["readers"].values():
                 if other["id"] == reader_id:
                     continue
@@ -301,7 +308,7 @@ class ReaderManager:
                 if pending_id and (pending := self._data["pending"].get(pending_id)):
                     self._schedule_lookup(pending)
                 return
-            action = product.get("reader_actions", {}).get(reader_id, "none")
+            action = product.get("reader_actions", {}).get(reader_id, reader.get("default_action", "none"))
             if action == "none":
                 self._status(reader_id, code, "Sin acción configurada para este producto y lector", product["name"])
             elif action in ("stock_remove", "stock_add"):

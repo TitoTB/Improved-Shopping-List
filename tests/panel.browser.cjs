@@ -1457,6 +1457,8 @@ async function main() {
     assert.equal(await readersView.getByRole("button",{name:"Ver sugerencias",exact:true}).isVisible(),true);
     await readersView.getByRole("button",{name:"Añadir lector",exact:true}).click();
     const readerDialog=readersView.getByRole("dialog",{name:"Añadir lector",exact:true});
+    assert.equal(await readerDialog.getByLabel("Lector activo",{exact:true}).count(),0);
+    await readerDialog.getByLabel("Acción por defecto",{exact:true}).selectOption("add_list");
     await readerDialog.getByLabel("Nombre del lector",{exact:true}).fill("Cocina");
     await readerDialog.getByLabel("Entidad del lector",{exact:true}).fill("sensor.lector_cb_codigo_leido");
     await readerDialog.getByLabel("Lista de destino",{exact:true}).selectOption("todo.local");
@@ -1529,6 +1531,14 @@ async function main() {
     await readerToggle.uncheck();
     assert.equal(await readerToggle.isChecked(),false);
     assert.equal(await readerPage.evaluate(()=>window.readerFixture.readers.find(reader=>reader.name==='Cocina').enabled),false);
+    await barcodeReader.getByRole('button',{name:'Editar lector Cocina',exact:true}).click();
+    const disabledReaderDialog=readersView.getByRole('dialog',{name:'Editar lector',exact:true});
+    assert.equal(await disabledReaderDialog.getByLabel('Acción por defecto',{exact:true}).inputValue(),'add_list');
+    assert.equal(await disabledReaderDialog.getByLabel('Lector activo',{exact:true}).count(),0);
+    await disabledReaderDialog.getByRole('button',{name:'Guardar lector',exact:true}).click();
+    await disabledReaderDialog.waitFor({state:'hidden'});
+    assert.equal(await readerToggle.isChecked(),false);
+    assert.equal(await readerPage.evaluate(()=>window.readerFixture.readers.find(reader=>reader.name==='Cocina').default_action),'add_list');
     await readerToggle.check();
     assert.equal(await readerToggle.isChecked(),true);
     await readerPage.evaluate(()=>{window.testPanel.hass={...window.testPanel._hass,user:{is_admin:false}};});
@@ -1572,6 +1582,8 @@ async function main() {
     await recurrenceDays.fill("12");
     await codeDialog.getByLabel("Otros códigos de barras o QR",{exact:true}).fill("https://example.test/cacao\n0012345678906");
     await codeDialog.getByLabel("Etiquetas NFC",{exact:true}).fill("AA:BB:CC:DD\ntag-despensa");
+    assert.equal(await codeDialog.getByLabel('Cocina',{exact:true}).inputValue(),'default');
+    assert.match(await codeDialog.getByLabel('Cocina',{exact:true}).locator('option:checked').textContent(),/Usar acción por defecto del lector.*Añadir a la lista/);
     await codeDialog.getByLabel("Cocina",{exact:true}).selectOption("add_list");
     await codeDialog.getByLabel("NFC despensa",{exact:true}).selectOption("stock_remove");
     await codeDialog.getByRole("button",{name:"Guardar producto",exact:true}).click();
@@ -1623,6 +1635,19 @@ async function main() {
     assert.equal(await readerPage.evaluate(()=>window.catalogProducts[0].nfc_tags.includes('11223344')),true);
     assert.equal(await readerPage.evaluate(()=>Object.values(window.catalogProducts[0].reader_actions).includes('add_list')),true);
     assert.deepEqual(await readerPage.evaluate(()=>window.catalogProducts[0].recurrence),{enabled:true,days:12});
+    await readerCatalog.getByRole('button',{name:'Productos',exact:true}).click();
+    await editCatalogProduct(readerCatalog,'Editar Cacao lector');
+    const inheritDialog=readerCatalog.getByRole('dialog',{name:'Editar producto',exact:true});
+    await inheritDialog.getByRole('button',{name:'Automatización',exact:true}).click();
+    await inheritDialog.getByLabel('Cocina',{exact:true}).selectOption('default');
+    await inheritDialog.getByRole('button',{name:'Guardar producto',exact:true}).click();
+    await inheritDialog.waitFor({state:'hidden'});
+    assert.equal(await readerPage.evaluate(()=>{
+      const id=window.readerFixture.readers.find(reader=>reader.name==='Cocina').id;
+      return Object.hasOwn(window.catalogProducts[0].reader_actions,id);
+    }),false);
+    assert.equal(await readerPage.evaluate(()=>Object.values(window.catalogProducts[0].reader_actions).includes('stock_remove')),true);
+    await readerCatalog.getByRole('button',{name:'Nuevos',exact:true}).click();
     await readerPage.evaluate(()=>{window.readerFixture.pending=[{id:'scan-discard',kind:'barcode',code:'999999',reader_name:'Cocina',time:new Date().toISOString()}];window.emitReaders();});
     await readerCatalog.getByRole("button",{name:"Descartar código 999999",exact:true}).click();
     assert.equal(await readerCatalog.locator('#scan-suggestions [data-pending-id="scan-discard"]').count(),0);

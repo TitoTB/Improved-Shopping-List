@@ -81,6 +81,83 @@ async def add_product(env, reader, **changes):
     return await env.catalog.async_save_product({"name":"Cacao","barcode":"0012345","barcodes":["0012346"],"nfc_tags":["AA:BB:CC:DD"],"reader_actions":{reader["id"]:"add_list"},**changes})
 
 
+async def test_default_action_adds_known_product_and_keeps_existing_guards(hass, reader_env):
+    env = reader_env
+    reader = await add_reader(env, default_action="add_list", list_entity="todo.local")
+    await add_product(env, reader, reader_actions={})
+    await env.manager.async_process(reader["id"], "0012345")
+    assert env.calls == [("add", {"entity_id":"todo.local", "item":"Cacao"})]
+    await env.manager.async_process(reader["id"], "0012346")
+    assert len(env.calls) == 1
+    assert "repetida" in env.manager.snapshot["readers"][0]["last"]["message"]
+    env.clock[0] += 61
+    await env.manager.async_process(reader["id"], "0012346")
+    assert len(env.calls) == 1  # No duplicate pending list entry after the cooldown.
+    assert env.catalog.products[0]["reader_actions"] == {}  # Inheritance stays dynamic.
+    restored = ReaderManager(hass, env.catalog, env.settings)
+    await restored.async_load()
+    assert restored.snapshot["readers"][0]["default_action"] == "add_list"
+    await env.manager.async_save_reader({**reader,"default_action":"stock_remove"})
+    env.clock[0] += 61
+    await env.manager.async_process(reader["id"], "0012345")
+    assert "inventario pendiente" in env.manager.snapshot["readers"][0]["last"]["message"]
+    assert len(env.calls) == 1
+
+
+@pytest.mark.parametrize("override", ["none", "stock_remove", "stock_add"])
+async def test_explicit_product_action_overrides_reader_default(reader_env, override):
+    env = reader_env
+    reader = await add_reader(env, default_action="add_list")
+    await add_product(env, reader, reader_actions={reader["id"]:override})
+    await env.manager.async_process(reader["id"], "0012345")
+    assert env.calls == []
+    message = env.manager.snapshot["readers"][0]["last"]["message"]
+    assert ("Sin acción" if override == "none" else "inventario pendiente") in message
+
+
+@pytest.mark.parametrize("default_action", ["stock_remove", "stock_add"])
+async def test_default_stock_action_is_reserved_without_touching_lists(reader_env, default_action):
+    env = reader_env
+    reader = await add_reader(env, default_action=default_action)
+    await add_product(env, reader, reader_actions={})
+    await env.manager.async_process(reader["id"], "0012345")
+    assert env.calls == []
+    assert "inventario pendiente" in env.manager.snapshot["readers"][0]["last"]["message"]
+
+
+async def test_default_action_does_not_associate_unknown_codes(reader_env):
+    env = reader_env
+    reader = await add_reader(env, default_action="add_list")
+    await env.manager.async_process(reader["id"], "unknown-product-code")
+    assert env.calls == [] and env.catalog.products == []
+    assert env.manager.snapshot["pending"][0]["code"] == "unknown-product-code"
+
+
+async def test_old_reader_migration_and_old_client_toggle_preserve_default(hass, reader_env):
+    env = reader_env
+    reader = await add_reader(env)
+    del env.manager._data["readers"][reader["id"]]["default_action"]
+    await env.manager._store.async_save(env.manager._data)
+    restored = ReaderManager(hass, env.catalog, env.settings)
+    await restored.async_load()
+    legacy = restored.snapshot["readers"][0]
+    assert legacy["default_action"] == "none"
+    saved = await env.manager.async_save_reader({**reader, "default_action":"add_list"})
+    old_payload = {key:value for key,value in saved.items() if key != "default_action"}
+    saved = await env.manager.async_save_reader({**old_payload,"enabled":False})
+    assert saved["default_action"] == "add_list" and saved["enabled"] is False
+    await add_product(env, saved, reader_actions={})
+    await env.manager.async_process(saved["id"], "0012345")
+    assert env.calls == []
+
+
+@pytest.mark.parametrize("invalid", ["default", "delete", "", None, {}, []])
+async def test_invalid_default_action_is_rejected_without_saving(reader_env, invalid):
+    with pytest.raises(CatalogError, match="acción por defecto"):
+        await add_reader(reader_env, default_action=invalid)
+    assert reader_env.manager.snapshot["readers"] == []
+
+
 async def test_lookup_enriches_unknown_scan_without_associating_or_adding(hass, reader_env, monkeypatch):
     env=reader_env
     reader=await add_reader(env)
@@ -280,9 +357,10 @@ async def test_reader_websocket_admin_and_reload(hass,hass_ws_client,hass_read_o
     entry.add_to_hass(hass)
     assert await hass.config_entries.async_setup(entry.entry_id)
     client=await hass_ws_client(hass)
-    await client.send_json({"id":1,"type":f"{DOMAIN}/readers/save","reader":{"name":"Cocina","entity_id":"sensor.scanner"}})
+    await client.send_json({"id":1,"type":f"{DOMAIN}/readers/save","reader":{"name":"Cocina","entity_id":"sensor.scanner","default_action":"add_list"}})
     saved=(await client.receive_json())["result"]
     assert saved["cooldown"]==60
+    assert saved["default_action"]=="add_list"
     token=await hass.auth.async_create_refresh_token(hass_read_only_user,client_id="http://test.local")
     readonly=await hass_ws_client(hass,hass.auth.async_create_access_token(token))
     await readonly.send_json({"id":1,"type":f"{DOMAIN}/readers/delete","reader_id":saved["id"],"revision":saved["revision"]})
@@ -290,3 +368,4 @@ async def test_reader_websocket_admin_and_reload(hass,hass_ws_client,hass_read_o
     assert await hass.config_entries.async_unload(entry.entry_id)
     assert await hass.config_entries.async_setup(entry.entry_id)
     assert hass.data[DOMAIN]["readers"].snapshot["readers"][0]["id"]==saved["id"]
+    assert hass.data[DOMAIN]["readers"].snapshot["readers"][0]["default_action"]=="add_list"

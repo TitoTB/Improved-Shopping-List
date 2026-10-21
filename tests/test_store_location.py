@@ -109,7 +109,7 @@ async def test_alcampo_public_postal_chain_and_no_customer_session(hass, aioclie
     region = "deb03a69-3104-4451-9ffa-3a55dc156d9f"
     destination = "e836ff03-8f94-4f1c-86ff-f2478e7622b4"
     aioclient_mock.get(base+"/", text='<script>{"session":{"csrf":{"token":"fresh-public-token"}}}</script>',
-        headers={"Set-Cookie":"VISITORID=anonymous-test-visitor==; Path=/; Secure"})
+        cookies={"VISITORID":"anonymous-test-visitor=="})
     aioclient_mock.put(base+"/api/address/v1/addresses/areas", json=[{"id":"public-area"}])
     aioclient_mock.get(base+"/api/address/v1/addresses/areas/public-area", json={
         "postalCode":"28024","countryCode":"ES","latitude":40.38,"longitude":-3.79,"formattedAddress":"28024 Madrid"})
@@ -123,7 +123,7 @@ async def test_alcampo_public_postal_chain_and_no_customer_session(hass, aioclie
 
 async def test_alcampo_403_is_error_and_does_not_select_default(hass, aioclient_mock):
     aioclient_mock.get("https://www.compraonline.alcampo.es/", text='{"session":{"csrf":{"token":"test-token"}}}',
-        headers={"Set-Cookie":"VISITORID=anonymous-test; Path=/; Secure"})
+        cookies={"VISITORID":"anonymous-test"})
     aioclient_mock.put("https://www.compraonline.alcampo.es/api/address/v1/addresses/areas", status=403)
     with pytest.raises(StoreError, match="403"):
         await resolve_location(hass, "alcampo", "28024", {"region_id":"previous"})

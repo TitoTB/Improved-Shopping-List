@@ -20,7 +20,6 @@ class ImprovedShoppingSettings extends HTMLElement {
     this.shadowRoot.querySelector("#prices-progress-dialog")?.close();
     this.shadowRoot.querySelector("#price-schedule-dialog")?.close();
     this._priceStatusToken = null; this._priceStatusConnection = null; this._stopPriceStatus?.(); this._stopPriceStatus = null;
-    clearTimeout(this._storeRetryTimer); clearInterval(this._storeProgressTimer); this._stopStoreProgress?.(); this._stopStoreProgress = null;
     this._productsLoading = false; this._productsGeneration = (this._productsGeneration || 0) + 1;
     this._carrefourGeneration = (this._carrefourGeneration || 0) + 1; this._carrefourLoading = false; this._alcampoGeneration = (this._alcampoGeneration || 0) + 1;
     this.shadowRoot.querySelector("#alcampo-dialog")?.close(); this.shadowRoot.querySelector("#carrefour-dialog")?.close(); this.shadowRoot.querySelector("#store-dialog")?.close();
@@ -75,6 +74,7 @@ class ImprovedShoppingSettings extends HTMLElement {
         dialog { color:inherit; background:var(--card-background-color,#fff); width:min(680px,calc(100vw - 28px)); max-height:calc(100dvh - 28px); border:1px solid var(--divider-color,#dfe7e1); border-radius:18px; padding:24px; }
         dialog::backdrop { background:rgba(0,0,0,.4); }
         .store-products { display:grid; gap:12px; margin-top:16px; }.store-product { display:flex; justify-content:space-between; align-items:center; gap:12px; border:1px solid var(--divider-color,#dfe7e1); border-radius:10px; padding:14px; }
+        .store-cache-footer { text-align:left; margin:16px 0 0; font-size:12px; }
         .store-progress { text-align:center; }
         .store-progress-track { position:relative; }
         .store-progress-percentage { position:absolute; inset:0; display:grid; place-items:center; pointer-events:none; color:#fff; font-size:13px; font-weight:700; line-height:26px; text-shadow:0 0 2px #000,0 1px 2px #000; }
@@ -167,21 +167,18 @@ class ImprovedShoppingSettings extends HTMLElement {
       <dialog id="carrefour-dialog" aria-labelledby="carrefour-dialog-title">
         <h2 id="carrefour-dialog-title">Carrefour</h2>
         <nav class="settings-tabs" aria-label="Vistas de Carrefour"><button id="carrefour-products-tab" type="button" aria-pressed="true"><ha-icon icon="mdi:view-grid" aria-hidden="true"></ha-icon>Productos</button><button id="carrefour-config-tab" type="button" aria-pressed="false"><ha-icon icon="mdi:cog" aria-hidden="true"></ha-icon>Configuración</button></nav>
-        <section id="carrefour-products-view"><p>Últimos precios conocidos de las referencias vinculadas.</p><div class="appearance-actions"><button id="refresh-carrefour" type="button"><ha-icon icon="mdi:refresh"></ha-icon>Actualizar vista</button></div><p id="carrefour-status" role="status"></p><div id="carrefour-error" class="notice error" role="alert" hidden></div><div id="carrefour-products" class="store-products"></div></section>
+        <section id="carrefour-products-view"><p>Últimos precios conocidos de las referencias vinculadas.</p><div id="carrefour-error" class="notice error" role="alert" hidden></div><div id="carrefour-products" class="store-products"></div><p id="carrefour-status" class="store-cache-footer" role="status"></p></section>
         <section id="carrefour-config-view" hidden><label>Centro de Carrefour (sale_point)<input id="carrefour-sale-point" type="text" inputmode="numeric" minlength="6" maxlength="6" pattern="[0-9]{6}" placeholder="005290"></label><p>Identificador de seis dígitos del centro utilizado para consultar precios. Centro predeterminado: 005290. Los precios pueden variar entre centros.</p><div id="carrefour-config-error" class="notice error" role="alert" hidden></div><button id="save-carrefour" type="button">Guardar configuración</button></section>
-        <div class="appearance-actions"><button id="close-carrefour" type="button">Cerrar</button></div>
       </dialog>
-      <dialog id="alcampo-dialog" aria-labelledby="alcampo-title"><h2 id="alcampo-title">Alcampo</h2><nav class="appearance-actions"><button id="alcampo-products-tab" type="button">Productos</button><button id="alcampo-config-tab" type="button">Configuración</button></nav><section id="alcampo-products-view"><button id="refresh-alcampo" type="button">Actualizar vista</button><p id="alcampo-status" role="status"></p><div id="alcampo-products" class="store-products"></div></section><section id="alcampo-config-view" hidden><label>Región de Alcampo<input id="alcampo-region" maxlength="36" placeholder="regionId opcional"></label><p>Si tu consulta utiliza una región, introduce su regionId. Sin región solo se podrá mostrar el precio que devuelva la web sin ubicación seleccionada.</p><button id="save-alcampo" type="button">Guardar configuración</button></section><button id="close-alcampo" type="button">Cerrar</button></dialog>
+      <dialog id="alcampo-dialog" aria-labelledby="alcampo-title"><h2 id="alcampo-title">Alcampo</h2><nav class="appearance-actions"><button id="alcampo-products-tab" type="button">Productos</button><button id="alcampo-config-tab" type="button">Configuración</button></nav><section id="alcampo-products-view"><div id="alcampo-products-error" class="notice error" role="alert" hidden></div><div id="alcampo-products" class="store-products"></div><p id="alcampo-status" class="store-cache-footer" role="status"></p></section><section id="alcampo-config-view" hidden><label>Región de Alcampo<input id="alcampo-region" maxlength="36" placeholder="regionId opcional"></label><p>Si tu consulta utiliza una región, introduce su regionId. Sin región solo se podrá mostrar el precio que devuelva la web sin ubicación seleccionada.</p><button id="save-alcampo" type="button">Guardar configuración</button></section></dialog>
       <dialog id="store-dialog" aria-labelledby="store-dialog-title">
         <h2 id="store-dialog-title">Mercadona</h2>
         <nav class="settings-tabs" aria-label="Vistas de Mercadona"><button id="store-view-products" aria-pressed="true" type="button"><ha-icon icon="mdi:view-grid" aria-hidden="true"></ha-icon>Productos</button><button id="store-view-configuration" aria-pressed="false" type="button"><ha-icon icon="mdi:cog" aria-hidden="true"></ha-icon>Configuración</button></nav>
         <div id="store-dialog-error" class="notice error" role="alert" hidden></div>
         <section id="store-products-view">
-          <div class="appearance-actions"><button id="refresh-store-products" type="button"><ha-icon icon="mdi:refresh" aria-hidden="true"></ha-icon> Forzar actualización</button></div>
-          <p id="store-products-status" role="status"></p><div id="store-products-error" class="notice error" role="alert" hidden></div>
-          <p id="store-access-block" hidden>Mercadona ha rechazado una consulta. Abrir esta vista no repetirá la consulta. La hora indicada es la espera mínima para reintentar manualmente; no garantiza que el bloqueo desaparezca.</p>
-          <div id="store-progress" class="store-progress" hidden><div class="store-progress-track"><progress aria-label="Progreso de actualización de precios"></progress><span id="store-progress-percentage" class="store-progress-percentage" aria-hidden="true">0 %</span></div><p id="store-progress-count" role="status"></p><p id="store-progress-time"></p><p>La revisión continúa automáticamente hasta terminar. La estimación puede variar según los candidatos y la respuesta de la tienda.</p></div>
+          <div id="store-products-error" class="notice error" role="alert" hidden></div>
           <div id="store-products" class="store-products"></div>
+          <p id="store-products-status" class="store-cache-footer" role="status"></p>
         </section>
         <section id="store-configuration-view" hidden>
           <form id="store-form">
@@ -192,7 +189,6 @@ class ImprovedShoppingSettings extends HTMLElement {
             <div class="appearance-actions"><button id="save-store" class="primary" type="submit">Comprobar y guardar</button></div>
           </form>
         </section>
-        <div class="appearance-actions"><button id="close-store-dialog" type="button">Cerrar</button></div>
       </dialog>
       <section id="settings-community" class="card" aria-labelledby="settings-community-title" hidden>
         <h2 id="settings-community-title">Comunidad</h2>
@@ -229,8 +225,6 @@ class ImprovedShoppingSettings extends HTMLElement {
     root.querySelector("#prices-progress-dialog").addEventListener("close",()=>clearInterval(this._pricesProgressTimer));
     root.querySelector("#alcampo-enabled").addEventListener("change",()=>void this._saveRetailSettings(()=>this._data.settings.saveAlcampo(root.querySelector("#alcampo-enabled").checked,this._data.settings.stores?.alcampo?.region_id ?? "")));
     root.querySelector("#configure-alcampo").addEventListener("click",()=>{root.querySelector("#alcampo-region").value=this._data.settings.stores?.alcampo?.region_id ?? "";root.querySelector("#alcampo-dialog").showModal();void this._loadAlcampo();});
-    root.querySelector("#refresh-alcampo").addEventListener("click",()=>void this._loadAlcampo());
-    root.querySelector("#close-alcampo").addEventListener("click",()=>root.querySelector("#alcampo-dialog").close());
     root.querySelector("#alcampo-dialog").addEventListener("cancel",event=>{if(this._busy)event.preventDefault();});
     const alcampoError=document.createElement("div");alcampoError.id="alcampo-error";alcampoError.className="notice error";alcampoError.setAttribute("role","alert");alcampoError.hidden=true;root.querySelector("#alcampo-title").after(alcampoError);
     for(const view of ["products","config"])root.querySelector(`#alcampo-${view}-tab`).addEventListener("click",()=>{root.querySelector("#alcampo-products-view").hidden=view!=="products";root.querySelector("#alcampo-config-view").hidden=view!=="config";});
@@ -263,9 +257,7 @@ class ImprovedShoppingSettings extends HTMLElement {
       await this._loadCarrefour(false);
     }));
     root.querySelector("#carrefour-dialog").addEventListener("cancel",event=>{if(this._busy)event.preventDefault();});
-    root.querySelector("#close-carrefour").addEventListener("click", () => root.querySelector("#carrefour-dialog").close());
     root.querySelector("#carrefour-dialog").addEventListener("close", () => { if (!root.querySelector("#carrefour-dialog").open) { this._carrefourGeneration = (this._carrefourGeneration || 0) + 1; this._carrefourLoading = false; } });
-    root.querySelector("#refresh-carrefour").addEventListener("click", () => void this._loadCarrefour(false));
     root.querySelector("#mercadona-enabled").addEventListener("change", () => {
       const enabled = root.querySelector("#mercadona-enabled").checked;
       const store = this._data.settings.stores?.mercadona ?? {};
@@ -273,18 +265,14 @@ class ImprovedShoppingSettings extends HTMLElement {
       else void this._saveStore(enabled, false);
     });
     root.querySelector("#configure-mercadona").addEventListener("click", () => this._openStore("products"));
-    root.querySelector("#close-store-dialog").addEventListener("click", () => root.querySelector("#store-dialog").close());
     root.querySelector("#store-dialog").addEventListener("cancel", event => { if (this._busy) event.preventDefault(); });
     root.querySelector("#store-dialog").addEventListener("close", () => {
       if (root.querySelector("#store-dialog").open) return;
-      clearTimeout(this._storeRetryTimer);
-      clearInterval(this._storeProgressTimer); this._stopStoreProgress?.(); this._stopStoreProgress = null;
       this._storeEnableDraft = undefined; this._storeDirty = false;
       this._productsGeneration = (this._productsGeneration || 0) + 1; this._productsLoading = false;
       this._error = ""; this._render();
     });
     for (const view of ["products", "configuration"]) root.querySelector(`#store-view-${view}`).addEventListener("click", () => this._switchStoreView(view));
-    root.querySelector("#refresh-store-products").addEventListener("click", () => void this._loadStoreProducts(true));
     root.querySelector("#store-form").addEventListener("input", () => { this._storeDirty = true; this._renderStore(); });
     root.querySelector("#export-community").addEventListener("click", () => void this._exportCommunity());
     root.querySelector("#appearance-form").addEventListener("input", () => { this._appearanceDirty = true; this._preview(); });
@@ -377,14 +365,12 @@ class ImprovedShoppingSettings extends HTMLElement {
     root.querySelector("#carrefour-enabled").disabled = locked;
     root.querySelector("#carrefour-sale-point").disabled = locked;
     root.querySelector("#save-carrefour").disabled = locked;
-    root.querySelector("#close-carrefour").disabled = Boolean(this._busy);
     root.querySelector("#carrefour-config-error").textContent = this._error || "";
     root.querySelector("#carrefour-config-error").hidden = !this._error;
     root.querySelector("#alcampo-enabled").checked = settings.stores?.alcampo?.enabled === true;
     root.querySelector("#alcampo-enabled").disabled = locked;
     root.querySelector("#save-alcampo").disabled = locked;
     root.querySelector("#alcampo-region").disabled = locked;
-    root.querySelector("#close-alcampo").disabled = Boolean(this._busy);
     root.querySelector("#alcampo-error").textContent = this._error || "";
     root.querySelector("#alcampo-error").hidden = !this._error;
     root.querySelector("#save-price-update-time").disabled = locked;
@@ -415,7 +401,6 @@ class ImprovedShoppingSettings extends HTMLElement {
     enabled.disabled = locked;
     postal.disabled = locked;
     root.querySelector("#configure-mercadona").disabled = !settings.loaded || settings.loading || this._busy;
-    root.querySelector("#close-store-dialog").disabled = Boolean(this._busy);
     root.querySelector("#store-dialog-error").textContent = this._error || "";
     root.querySelector("#store-dialog-error").hidden = !this._error;
     const save = root.querySelector("#save-store");
@@ -519,23 +504,20 @@ class ImprovedShoppingSettings extends HTMLElement {
     finally { this._busy = false; this._render(); }
   }
 
-  async _loadCarrefour(force) {
+  async _loadCarrefour() {
     if (this._carrefourLoading) return;
     const root = this.shadowRoot;
     const generation = this._carrefourGeneration = (this._carrefourGeneration || 0) + 1;
     const current = () => this.isConnected && generation === this._carrefourGeneration && root.querySelector("#carrefour-dialog").open;
     this._carrefourLoading = true;
-    root.querySelector("#refresh-carrefour").disabled = true;
     root.querySelector("#carrefour-status").textContent = "Comprobando catálogo…";
     root.querySelector("#carrefour-error").hidden = true;
     try {
-      const data = await this._data.hass.callWS({type:"improved_shopping_list/settings/carrefour_products",force});
+      const data = await this._data.hass.callWS({type:"improved_shopping_list/catalog/store_prices",store:"carrefour"});
       if (!current()) return;
       const error = root.querySelector("#carrefour-error"); error.textContent = data.error ?? ""; error.hidden = !error.textContent;
-      root.querySelector("#carrefour-status").textContent = !data.enabled ? "Habilita Carrefour para consultar precios."
-        : data.nightly ? `${data.products.length} precios guardados · Centro: ${data.sale_point ?? this._data.settings.stores?.carrefour?.sale_point ?? "005290"} · Revisión diaria: ${data.update_time}. Solo productos pendientes.`
-        : data.version ? `${data.products.length} coincidencias de EAN · Publicado: ${new Date(data.generated_at).toLocaleString("es-ES")}${data.stale ? " · Datos antiguos" : ""}` : "Todavía no hay un catálogo publicado disponible.";
-      root.querySelector("#carrefour-products").replaceChildren(...(data.enabled ? data.products : []).map(product => {
+      root.querySelector("#carrefour-status").textContent = `${data.products.length} precios guardados`;
+      root.querySelector("#carrefour-products").replaceChildren(...data.products.map(product => {
         const row = document.createElement("div"); row.className = "store-product";
         const info = document.createElement("div"); const name = document.createElement("strong"); name.textContent = product.name;
         const ean = document.createElement("p"); ean.textContent = `${product.reference_id ? `ID: ${product.reference_id} · ` : ""}EAN: ${product.ean || "No disponible"}${product.checked_at ? ` · Último precio: ${new Date(product.checked_at*1000).toLocaleString("es-ES")}` : ""}`;
@@ -543,8 +525,10 @@ class ImprovedShoppingSettings extends HTMLElement {
         const price = document.createElement("strong"); price.textContent = new Intl.NumberFormat("es-ES",{style:"currency",currency:product.currency}).format(Number(product.price));
         info.append(name,ean,link); row.append(info,price); return row;
       }));
-    } catch (error) { if (current()) root.querySelector("#carrefour-status").textContent = error.message ?? "No se pudo comprobar Carrefour."; }
-    finally { if (current()) { this._carrefourLoading = false; root.querySelector("#refresh-carrefour").disabled = this._data.hass?.user?.is_admin !== true || !this._data.settings.stores?.carrefour?.enabled; } }
+    } catch (error) { if (current()) {
+      const alert=root.querySelector("#carrefour-error");alert.textContent=error.message??"No se pudieron leer los precios guardados.";alert.hidden=false;
+      root.querySelector("#carrefour-status").textContent=`${root.querySelector("#carrefour-products").childElementCount} precios guardados`;
+    } } finally { if (current()) this._carrefourLoading=false; }
   }
 
   async _loadAlcampo() {
@@ -553,14 +537,18 @@ class ImprovedShoppingSettings extends HTMLElement {
     try {
       const data=await this._data.hass.callWS({type:"improved_shopping_list/catalog/store_prices",store:"alcampo"});
       if(!this.isConnected||!dialog.open||generation!==this._alcampoGeneration)return;
-      root.querySelector("#alcampo-status").textContent=data.error||`${data.products.length} precios guardados · Revisión diaria: ${data.update_time}`;
+      root.querySelector("#alcampo-status").textContent=`${data.products.length} precios guardados`;
+      const error=root.querySelector("#alcampo-products-error");error.textContent=data.error??"";error.hidden=!error.textContent;
       root.querySelector("#alcampo-products").replaceChildren(...data.products.map(product=>{
         const row=document.createElement("div");row.className="store-product";
         const link=document.createElement("a");link.textContent=product.name||product.store_name;link.href=product.url;link.target="_blank";link.rel="noopener noreferrer";
         const text=document.createElement("p");text.textContent=`${new Intl.NumberFormat("es-ES",{style:"currency",currency:product.currency}).format(Number(product.price))} · Último precio: ${new Date(product.checked_at*1000).toLocaleString("es-ES")}`;
         row.append(link,text);return row;
       }));
-    } catch(error){if(this.isConnected&&dialog.open&&generation===this._alcampoGeneration)root.querySelector("#alcampo-status").textContent=error.message??"No se pudo leer la caché de precios.";}
+    } catch(error){if(this.isConnected&&dialog.open&&generation===this._alcampoGeneration){
+      const alert=root.querySelector("#alcampo-products-error");alert.textContent=error.message??"No se pudo leer la caché de precios.";alert.hidden=false;
+      root.querySelector("#alcampo-status").textContent=`${root.querySelector("#alcampo-products").childElementCount} precios guardados`;
+    }}
   }
 
   async _saveStore(enabled, verify) {
@@ -598,31 +586,12 @@ class ImprovedShoppingSettings extends HTMLElement {
   _renderStoreProducts() {
     const root = this.shadowRoot;
     const store = this._data.settings.stores?.mercadona ?? {};
-    this._renderStoreProgress();
-    const data = this._storeProducts?.warehouse === store.warehouse && store.enabled ? this._storeProducts : null;
-    const retryAt = Number.isFinite(data?.retry_at) ? data.retry_at : 0;
-    const paused = retryAt > Date.now()/1000;
-    clearTimeout(this._storeRetryTimer);
-    if (paused && root.querySelector("#store-dialog").open) {
-      this._storeRetryTimer = setTimeout(() => this._renderStoreProducts(), (retryAt-Date.now()/1000)*1000+100);
-    }
-    const refresh = root.querySelector("#refresh-store-products");
-    refresh.disabled = !store.enabled || !store.warehouse || paused || this._productsLoading || this._busy || this._data.hass?.user?.is_admin !== true;
-    refresh.title = paused ? "Espera al final de la pausa indicada antes de volver a consultar." : "Consultar de nuevo los precios de la tienda";
-    if(data?.nightly){refresh.textContent="Actualizar vista";refresh.title="Mostrar los últimos precios guardados";}
+    const data = this._storeProducts?.warehouse === (store.warehouse ?? "") ? this._storeProducts : null;
     const error = root.querySelector("#store-products-error");
-    error.textContent = store.enabled ? data?.error || this._productsError || "" : "";
-    error.hidden = !error.textContent || this._productsLoading;
-    root.querySelector("#store-access-block").hidden = !data?.automatic_refresh_blocked || this._productsLoading;
-    const progress = Number.isFinite(data?.total) && data.total > 0 ? ` ${data.processed ?? 0} de ${data.total} códigos revisados.` : "";
-    root.querySelector("#store-products-status").textContent = data?.nightly ? `${data.products.length} precios guardados · Revisión diaria: ${data.update_time}. Solo productos pendientes.` : this._productsLoading ? "Consultando productos y precios…"
-      : !store.enabled ? "Habilita la tienda para consultar sus productos."
-      : paused ? `Actualización pausada hasta las ${new Date(retryAt*1000).toLocaleTimeString("es-ES")}.${progress} Consulta el diagnóstico en Logs → Tiendas.`
-      : error.textContent ? `La última actualización no se pudo completar.${progress} Consulta el diagnóstico en Logs → Tiendas.`
-      : data?.remaining ? `Quedan ${data.remaining} códigos por revisar. Puedes continuar con Forzar actualización.`
-      : data?.not_found && !data?.products?.length ? `${data.not_found} códigos revisados sin coincidencia exacta de EAN entre los candidatos consultados. No es un error de conexión.`
-      : !data?.products?.length ? "No hay productos encontrados. Se buscan los EAN válidos de tu catálogo."
-      : `${data.products.length} productos encontrados · Almacén: ${store.warehouse}`;
+    error.textContent = this._productsError || data?.error || "";
+    error.hidden = !error.textContent;
+    root.querySelector("#store-products-status").textContent = this._productsLoading
+      ? "Cargando precios guardados…" : `${data?.products?.length ?? 0} precios guardados`;
     const money = value => new Intl.NumberFormat("es-ES",{style:"currency",currency:"EUR"}).format(value);
     root.querySelector("#store-products").replaceChildren(...(data?.products ?? []).map(product => {
       const row = document.createElement("div"); row.className = "store-product";
@@ -644,61 +613,21 @@ class ImprovedShoppingSettings extends HTMLElement {
     }));
   }
 
-  _renderStoreProgress() {
-    const root = this.shadowRoot;
-    const state = this._storeProgress;
-    const store = this._data.settings.stores?.mercadona ?? {};
-    const visible = (this._storeProducts?.nightly ? state?.running : this._productsLoading) && store.enabled && store.warehouse === this._productsWarehouse;
-    root.querySelector("#store-progress").hidden = !visible;
-    if (!visible) return;
-    const bar = root.querySelector("#store-progress progress");
-    const total = Math.max(0, Number(state?.total) || 0);
-    const processed = Math.min(total, Math.max(0, Number(state?.processed) || 0));
-    bar.max = total || 1;
-    if (total) bar.value = processed; else bar.removeAttribute("value");
-    root.querySelector("#store-progress-percentage").textContent = `${total ? Math.round(processed / total * 100) : 0} %`;
-    const phase = {starting:"Preparando consultas", waiting:"Esperando entre consultas", ean:"Buscando por EAN", name:"Buscando candidatos", details:"Comprobando EAN en la ficha", continuation:"Guardando avance para continuar", processed:"Código revisado"}[state?.phase] ?? "Preparando actualización";
-    const candidates = state?.candidates ? ` · ${state.candidates} referencias comprobadas` : "";
-    root.querySelector("#store-progress-count").textContent = total ? `${processed} de ${total} códigos revisados · ${phase}${candidates}` : "Preparando actualización…";
-    const seconds = Number.isFinite(state?.estimated_seconds)
-      ? Math.max(0, Math.ceil(state.estimated_seconds - (Date.now() - (this._storeProgressReceived ?? Date.now())) / 1000)) : null;
-    const duration = seconds >= 60 ? `${Math.floor(seconds/60)} min ${seconds%60} s` : `${seconds} s`;
-    root.querySelector("#store-progress-time").textContent = seconds === null ? "Calculando tiempo restante…"
-      : seconds > 0 ? `Tiempo estimado restante: ${duration}` : "Actualización en curso…";
-  }
-
-  async _loadStoreProducts(force) {
+  async _loadStoreProducts() {
     if (this._productsLoading) return;
-    this._stopStoreProgress?.();
-    clearInterval(this._storeProgressTimer);
-    const store = this._data.settings.stores?.mercadona ?? {};
-    if (!store.enabled || !store.warehouse) { this._renderStoreProducts(); return; }
     const generation = this._productsGeneration = (this._productsGeneration || 0) + 1;
-    const warehouse = store.warehouse;
-    this._productsLoading = true; this._productsForced = force; this._productsWarehouse = warehouse; this._storeProgress = null; this._productsError = ""; this._renderStoreProducts();
-    let unsubscribe;
+    const warehouse = this._data.settings.stores?.mercadona?.warehouse ?? "";
+    const connection = this._data.hass.connection;
+    this._productsLoading = true; this._productsError = ""; this._renderStoreProducts();
     try {
-      {
-        const stop = await this._data.hass.connection.subscribeMessage(state => {
-          if (generation !== this._productsGeneration || state.warehouse !== warehouse || this._data.settings.stores?.mercadona?.warehouse !== warehouse) return;
-          this._storeProgress = state; this._storeProgressReceived = Date.now(); this._renderStoreProgress();
-          if(this._storeProducts?.nightly)void this._data.hass.callWS({type:"improved_shopping_list/settings/store_products"}).then(data=>{if(generation===this._productsGeneration){this._storeProducts=data;this._renderStoreProducts();}}).catch(()=>{});
-        }, {type:"improved_shopping_list/settings/store_progress"});
-        let stopped = false;
-        unsubscribe = () => { if (!stopped) { stopped = true; stop(); } };
-        if (generation !== this._productsGeneration) return;
-        this._stopStoreProgress = unsubscribe;
-        this._storeProgressTimer = setInterval(() => this._renderStoreProgress(), 1000);
-      }
-      const data = await this._data.hass.callWS({type:"improved_shopping_list/settings/store_products",force});
-      if (generation === this._productsGeneration && this._data.settings.stores?.mercadona?.warehouse === warehouse) this._storeProducts = data;
-    } catch (error) { if (generation === this._productsGeneration) this._productsError = error.message ?? "No se han podido consultar los precios."; }
-    finally {
-      if(!this._storeProducts?.nightly)unsubscribe?.();
-      if (generation === this._productsGeneration) {
-        if(!this._storeProducts?.nightly){clearInterval(this._storeProgressTimer); this._stopStoreProgress = null;}
-        this._productsLoading = false; this._renderStoreProducts();
-      }
+      const data = await this._data.hass.callWS({type:"improved_shopping_list/catalog/store_prices",store:"mercadona"});
+      if (generation !== this._productsGeneration || !this.isConnected || connection !== this._data.hass.connection ||
+          warehouse !== (this._data.settings.stores?.mercadona?.warehouse ?? "")) return;
+      this._storeProducts = data;
+    } catch (error) {
+      if (generation === this._productsGeneration) this._productsError = error.message ?? "No se pudieron leer los precios guardados.";
+    } finally {
+      if (generation === this._productsGeneration) { this._productsLoading = false; this._renderStoreProducts(); }
     }
   }
 

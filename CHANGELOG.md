@@ -2,6 +2,7 @@
 
 ## Pendiente de publicación
 
+- Los cuatro colores de Personalización comparten una fila: los de pendientes a la izquierda y los de comprados a la derecha, encima de la vista previa correspondiente.
 - Retirado el mensaje final «No hay sugerencias nuevas en esta lista» de Catálogo → Nuevos.
 - Vistas Productos, Categorías y Nuevos alineadas a la derecha del título Catálogo en la misma fila, también en móvil.
 - Buscador del catálogo sin rótulo visible y controles compactos a su derecha en una sola fila también en móvil, conservando el nombre accesible del campo.

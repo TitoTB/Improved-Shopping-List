@@ -68,6 +68,10 @@ class ImprovedShoppingSettings extends HTMLElement {
         .settings-tabs ha-icon { --mdc-icon-size:20px; display:flex; align-items:center; justify-content:center; width:20px; height:20px; flex:none; line-height:0; }
         .settings-tabs [aria-pressed=true] { background:var(--secondary-background-color,#edf4ee); font-weight:650; }
         .appearance-fields { display:grid; grid-template-columns:1fr 1fr; gap:18px; }
+        .appearance-fields.appearance-colors { grid-template-columns:repeat(4,minmax(0,1fr)); align-items:stretch; }
+        .appearance-colors > div { min-width:0; display:flex; flex-direction:column; justify-content:flex-end; gap:6px; }
+        .appearance-colors label { overflow-wrap:anywhere; line-height:1.4; }
+        .appearance-colors input { min-width:0; flex-shrink:0; }
         input[type=checkbox] { min-height:20px; width:20px; vertical-align:middle; accent-color:#267052; }
         input[type=color] { display:block; width:100%; padding:5px; cursor:pointer; }
         .appearance-actions { display:flex; justify-content:flex-end; flex-wrap:wrap; gap:10px; margin-top:24px; }
@@ -163,7 +167,7 @@ class ImprovedShoppingSettings extends HTMLElement {
         <h2 id="settings-appearance-title">Personalización</h2>
         <p>Personaliza las tarjetas del apartado Lista. Pulsa una tarjeta para marcar o desmarcar su compra.</p>
         <form id="appearance-form">
-          <div class="appearance-fields">
+          <div class="appearance-fields appearance-colors">
             <div><label for="gradient-start">Color inicial del degradado</label><input id="gradient-start" name="gradient_start" type="color" value="#ee524f"></div>
             <div><label for="gradient-end">Color final del degradado</label><input id="gradient-end" name="gradient_end" type="color" value="#b52a27"></div>
             <div><label for="completed-gradient-start">Color inicial de Comprados</label><input id="completed-gradient-start" name="completed_gradient_start" type="color" value="#4faba2"></div>

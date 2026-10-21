@@ -765,7 +765,7 @@ async function main() {
       await page.setViewportSize({ width, height:844 });
       assert.equal(await page.locator(".brand-copy").isVisible(), false);
       assert.equal(await page.locator(".brand-logo").isVisible(), true);
-      for (const view of ["catalog", "readers", "settings", "logs", "shopping"]) {
+      for (const view of ["catalog", "readers", "settings", "shopping"]) {
         await page.locator(`#nav-${view}`).click();
         assert.equal(await page.locator(".section-nav .nav-label:visible").count(), 1);
         assert.equal(await page.locator(`#nav-${view} .nav-label`).isVisible(), true);
@@ -798,7 +798,7 @@ async function main() {
     }
     await page.setViewportSize({ width:1280, height:960 });
     assert.equal(await page.locator(".brand-copy").isVisible(), true);
-    assert.equal(await page.locator(".section-nav .nav-label:visible").count(), 5);
+    assert.equal(await page.locator(".section-nav .nav-label:visible").count(), 4);
     await page.getByRole("button",{name:"Catálogo",exact:true}).click();
     assert.equal(await catalog.locator(".catalog-tabs .tab-label:visible").count(),3);
     await page.getByRole("button",{name:"Lista",exact:true}).click();
@@ -2102,11 +2102,22 @@ async function main() {
         {id:'category',time:'2026-10-20T08:00:00Z',kind:'catalog.categories.updated',source:'integration',message:'Categoría modificada: <img src=x onerror=alert(1)>',category:'Despensa',changed_fields:['color','icon']},
       ];
     });
+    await page.getByRole('button',{name:'Ajustes',exact:true}).click();
+    assert.equal(await page.locator('#nav-logs').count(),0);
     await page.getByRole('button',{name:'Logs',exact:true}).click();
     const logs=page.locator('isl-logs');
     await logs.locator('#entries > li').nth(2).waitFor();
-    assert.equal(await page.locator('#nav-logs ha-icon').getAttribute('icon'),'mdi:format-list-group');
+    assert.equal(await page.locator('isl-settings #settings-view-logs ha-icon').getAttribute('icon'),'mdi:format-list-group');
     assert.equal(await logs.locator('#entries img').count(),0);
+    assert.equal(await page.locator('isl-settings #settings-view-logs').getAttribute('aria-pressed'),'true');
+    assert.equal(await page.evaluate(()=>window.logListenerCount()),1);
+    await page.locator('isl-settings').getByRole('button',{name:'Tiendas',exact:true}).click();
+    assert.equal(await logs.isVisible(),false);
+    assert.equal(await page.evaluate(()=>window.logListenerCount()),0);
+    await page.locator('isl-settings').getByRole('button',{name:'Logs',exact:true}).click();
+    await logs.locator('#entries > li').nth(2).waitFor();
+    assert.equal(await page.evaluate(()=>window.logListenerCount()),1);
+
     await logs.getByLabel('Buscar en el historial',{exact:true}).fill('SEITAN');
     assert.equal(await logs.locator('#entries > li').count(),1);
     await logs.getByLabel('Buscar en el historial',{exact:true}).fill('');

@@ -5,7 +5,6 @@ import { ListSettingsSession, gradientTextColor } from "./list-settings-client.j
 import "./settings-panel.js?v=0.17.0";
 import { ReadersSession } from "./readers-client.js?v=0.17.0";
 import "./readers-panel.js?v=0.17.0";
-import "./logs-panel.js?v=0.17.0";
 
 const LOGO_URL = new URL("logo.png", import.meta.url).href;
 const STORE_LOGOS = {
@@ -56,7 +55,6 @@ class ImprovedShoppingListPanel extends HTMLElement {
     if (previousConnection !== value.connection) { this._stopRowPrices(); this._stopListNutrition(); }
     if (!this.isConnected) return;
     if (this._built) this.shadowRoot.querySelector("isl-catalog").hass = value;
-    if (this._built) this.shadowRoot.querySelector("isl-logs").hass = value;
     this._ensureStarted();
     if (this._view === "readers") this.shadowRoot.querySelector("isl-readers").data = { hass:value, settings:this._settings, readers:this._readers };
     if (previousConnection && previousConnection !== value.connection) {
@@ -245,7 +243,6 @@ class ImprovedShoppingListPanel extends HTMLElement {
           <button id="nav-catalog" aria-label="Catálogo" aria-pressed="false"><ha-icon icon="mdi:view-grid" aria-hidden="true"></ha-icon><span class="nav-label">Catálogo</span></button>
           <button id="nav-readers" aria-label="Lectores" aria-pressed="false"><ha-icon icon="mdi:barcode-scan" aria-hidden="true"></ha-icon><span class="nav-label">Lectores</span></button>
           <button id="nav-settings" aria-label="Ajustes" aria-pressed="false"><ha-icon icon="mdi:cog" aria-hidden="true"></ha-icon><span class="nav-label">Ajustes</span></button>
-          <button id="nav-logs" aria-label="Logs" aria-pressed="false"><ha-icon icon="mdi:format-list-group" aria-hidden="true"></ha-icon><span class="nav-label">Logs</span></button>
         </nav>
       </header>
       <main>
@@ -275,7 +272,6 @@ class ImprovedShoppingListPanel extends HTMLElement {
         <isl-catalog hidden></isl-catalog>
         <isl-settings hidden></isl-settings>
         <isl-readers hidden></isl-readers>
-        <isl-logs hidden></isl-logs>
         <div id="announcement" class="sr-only" role="status" aria-live="polite"></div>
       </main>`;
     this._built = true;
@@ -310,7 +306,6 @@ class ImprovedShoppingListPanel extends HTMLElement {
     root.querySelector("#nav-catalog").addEventListener("click", () => this._switchView("catalog"));
     root.querySelector("#nav-settings").addEventListener("click", () => this._switchView("settings"));
     root.querySelector("#nav-readers").addEventListener("click", () => this._switchView("readers"));
-    root.querySelector("#nav-logs").addEventListener("click", () => this._switchView("logs"));
     root.querySelector("isl-readers").onSuggestions = () => { this._switchView("catalog"); root.querySelector("isl-catalog").showSuggestions(); };
     root.querySelector("isl-settings").onAction = (action, entity) => this._settings.update(action, entity);
     root.querySelector("isl-settings").onAppearance = appearance => this._settings.saveAppearance(appearance);
@@ -356,13 +351,10 @@ class ImprovedShoppingListPanel extends HTMLElement {
     root.querySelector("isl-catalog").hidden = view !== "catalog";
     root.querySelector("isl-settings").hidden = view !== "settings";
     root.querySelector("isl-readers").hidden = view !== "readers";
-    root.querySelector("isl-logs").hidden = view !== "logs";
-    root.querySelector("isl-logs").active = view === "logs";
     root.querySelector("#nav-shopping").setAttribute("aria-pressed", String(view === "shopping"));
     root.querySelector("#nav-catalog").setAttribute("aria-pressed", String(view === "catalog"));
     root.querySelector("#nav-settings").setAttribute("aria-pressed", String(view === "settings"));
     root.querySelector("#nav-readers").setAttribute("aria-pressed", String(view === "readers"));
-    root.querySelector("#nav-logs").setAttribute("aria-pressed", String(view === "logs"));
     this._renderData();
   }
 
@@ -424,8 +416,8 @@ class ImprovedShoppingListPanel extends HTMLElement {
     this.style.setProperty("--isl-columns", appearance.columns);
     this.style.setProperty("--isl-mobile-columns", appearance.mobile_columns);
     root.querySelector("isl-settings").data = { hass: this._hass, settings: this._settings, products:[...this._catalogProducts.values()] };
+    root.querySelector("isl-settings").active = this._view === "settings";
     root.querySelector("isl-readers").data = { hass: this._hass, settings: this._settings, readers: this._readers };
-    root.querySelector("isl-logs").hass = this._hass;
     const state = this._hass.states[session.entityId];
     const available = isAvailable(state);
     const canCreate = available && supports(state, FEATURES.CREATE);

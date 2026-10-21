@@ -26,7 +26,7 @@ Las fichas y los popups muestran exclusivamente precios guardados. Actualizar vi
 consulta las tiendas. El icono Actualizar ahora de Ajustes → Tiendas abre un popup con el progreso e inicia una revisión manual
 de las referencias vinculadas pendientes en las listas de todas las tiendas activas, incluso si ya se revisaron hoy.
 Respeta los cinco minutos entre peticiones y las pausas indicadas por el servidor, evita
-duplicar una revisión en curso y registra los resultados como manuales en Logs → Tiendas.
+duplicar una revisión en curso y registra los resultados como manuales en Ajustes → Logs → Tiendas.
 El contador junto al interruptor incluye todos los productos del catálogo vinculados a esa tienda.
 Se conserva el último precio conocido para todo el catálogo aunque
 el producto se compre, salga de la lista o falle una consulta posterior. Un HTTP 404 se
@@ -46,7 +46,7 @@ La consulta JSON de Carrefour ha devuelto HTTP 200 y 2,69 EUR para la referencia
 desde el entorno de desarrollo, tanto con enlace completo como con ID. Su ficha HTML
 sigue devolviendo 403 y ya no se utiliza para obtener precios. Alcampo sigue sujeto al
 403 observado. El acceso depende de cada tienda y debe comprobarse desde cada Home Assistant;
-los errores se muestran en Logs → Tiendas y no borran precios. Los logs distinguen una
+los errores se muestran en Ajustes → Logs → Tiendas y no borran precios. Los logs distinguen una
 actualización puesta en cola de una petición de precio que ya ha comenzado.
 
 ## Qué puedes hacer
@@ -151,7 +151,7 @@ Eliminar la integración retira el panel y desactiva sus comandos de catálogo.
 
 ## Historial de actividad
 
-El apartado **Logs** (`mdi:format-list-group`) conserva las últimas 1.000 entradas en Home Assistant, de más reciente a más antigua. Incluye altas y bajas de productos en las listas configuradas, compras, recuperación de productos como pendientes, cambios de nombre y otros datos de la lista, creación/edición/borrado de productos y categorías, cambios de lectores y ajustes, y el resultado de las lecturas (incluidos códigos desconocidos, errores y lecturas repetidas ignoradas). Muestra fecha y hora, producto, lista y lector cuando están disponibles. Los cambios del catálogo indican los campos modificados y el nombre anterior cuando corresponda.
+La vista **Logs** de **Ajustes** (`mdi:format-list-group`) conserva las últimas 1.000 entradas en Home Assistant, de más reciente a más antigua. Incluye altas y bajas de productos en las listas configuradas, compras, recuperación de productos como pendientes, cambios de nombre y otros datos de la lista, creación/edición/borrado de productos y categorías, cambios de lectores y ajustes, y el resultado de las lecturas (incluidos códigos desconocidos, errores y lecturas repetidas ignoradas). Muestra fecha y hora, producto, lista y lector cuando están disponibles. Los cambios del catálogo indican los campos modificados y el nombre anterior cuando corresponda.
 
 El registro funciona sin tener la interfaz abierta. Las listas se observan con las suscripciones de elementos de Home Assistant, por lo que también se detectan cambios que no alteran la cantidad de productos. Las llamadas a servicios se utilizan para identificar el origen, pero no se registran como éxito hasta que cambia el contenido real. Los orígenes pueden ser Usuario / API, Automático · Home Assistant, Lector, Integración, Home Assistant sin origen identificado o Proveedor externo con origen desconocido. Las llamadas con credenciales de usuario se muestran como Usuario / API, pues también pueden proceder de una aplicación o sistema externo. La identificación automática depende del contexto que conserve Home Assistant; los cambios realizados en la aplicación del proveedor no siempre permiten conocer quién los hizo ni si fueron automáticos.
 
@@ -234,7 +234,7 @@ Al final de **Automatización** en la ficha de un producto, activa **Comprar cad
 
 Home Assistant comprueba los vencimientos cada minuto aunque el panel esté cerrado. Al vencer, consulta el contenido actual de la lista sin distinguir tildes, mayúsculas ni espacios sobrantes. Si el producto ya está pendiente, no crea otra entrada. Si está comprado, recupera el mismo elemento por su identificador cuando el proveedor lo permite; si no existe, lo añade. Al terminar, incluso si ya estaba pendiente, reinicia el plazo desde ese momento. No se reinicia al marcar una compra como completada.
 
-La programación se guarda en Home Assistant y sobrevive a reinicios. Si un plazo ha vencido mientras estaba apagado, se procesa una sola vez al volver, sin acumular compras atrasadas. Si la lista no está disponible o el proveedor rechaza la operación, se conserva el vencimiento y se reintenta después de cinco minutos. No se crea un duplicado de una entrada comprada si el proveedor no permite recuperarla. Las acciones, los periodos reiniciados y los errores se registran en **Logs → Recurrencias**, con origen automático.
+La programación se guarda en Home Assistant y sobrevive a reinicios. Si un plazo ha vencido mientras estaba apagado, se procesa una sola vez al volver, sin acumular compras atrasadas. Si la lista no está disponible o el proveedor rechaza la operación, se conserva el vencimiento y se reintenta después de cinco minutos. No se crea un duplicado de una entrada comprada si el proveedor no permite recuperarla. Las acciones, los periodos reiniciados y los errores se registran en **Ajustes → Logs → Recurrencias**, con origen automático.
 
 
 ## Diagnóstico de precios
@@ -242,7 +242,7 @@ La programación se guarda en Home Assistant y sobrevive a reinicios. Si un plaz
 La barra de progreso muestra las referencias procesadas de la cola nocturna y una
 estimación basada en cinco minutos por petición. La cola puede durar varias horas;
 el porcentaje no representa la antigüedad del precio ni garantiza cobertura de una tienda.
-En **Logs → Tiendas** se registran la preparación de la cola, los precios obtenidos,
+En **Ajustes → Logs → Tiendas** se registran la preparación de la cola, los precios obtenidos,
 las referencias no disponibles y los errores HTTP. No se guardan cookies, claves
 de acceso ni cuerpos HTML de errores. Un bloqueo 403 no se interpreta como ausencia
 del producto ni provoca consultas repetidas al abrir la interfaz.

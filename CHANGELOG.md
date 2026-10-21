@@ -1,13 +1,14 @@
 # Historial de cambios
 
-## Pendiente de publicación
+## 0.18.0
 
-- DIA con configuración por código postal y vinculaciones por enlace o ID. Consulta su API pública mediante urllib estándar en el executor de Home Assistant, sin cuenta ni dependencias adicionales. Confirma ubicación y referencia, conserva precios ante errores y respeta las pausas de actualización. Probado desde desarrollo con la referencia 84892 y código postal 28024: 2,84 EUR.
-- Eroski con selección de centro de recogida por nombre y vinculaciones mediante enlace completo. Sesión anónima propia, verificación del centro efectivo y precio de la ficha, sin cuenta ni carrito del usuario; reutiliza la sesión y respeta cinco minutos entre todas las peticiones.
-- Consum y La Sirena en Ajustes → Tiendas, con los logos aportados, configuración por código postal y selección entre centros con cobertura.
-- Vinculaciones de productos por enlace o ID, precios guardados por centro, tienda favorita y revisión diaria o manual de productos pendientes. La Sirena verifica la variante y el precio de entrega con una pausa de cinco minutos entre peticiones.
-- Consultas anónimas sin cuenta ni carrito del usuario. Errores, productos no disponibles y cambios de centro no sustituyen los precios guardados de otras zonas ni modifican los códigos de los lectores.
-- Pruebas de cobertura, selección de centros, precios, permisos, cambios de configuración, caché e interfaz de ambas tiendas.
+- Nuevas tiendas Consum, La Sirena, Eroski y DIA, con configuración por código postal, logos y precios separados por ubicación. Se integran en la revisión diaria y manual de los productos pendientes, conservando el último precio conocido ante errores.
+- Consum y La Sirena admiten enlaces o ID; La Sirena comprueba la variante y el precio de entrega del centro elegido. Eroski utiliza una sesión anónima propia y selección de centro de recogida; necesita el enlace completo de la ficha. DIA admite enlaces o ID y utiliza urllib estándar en el executor de Home Assistant para realizar las consultas que recibían 403 con aiohttp. No requieren cuentas ni claves; todas las peticiones de precios respetan cinco minutos de separación.
+- Retirado Lidl de las tiendas y las consultas. La migración conserva los productos, códigos de lectores, listas y datos de las demás tiendas.
+- Catálogo con orden alfabético o agrupación por categoría o Nutri-Score. El selector de categorías se sustituye por los controles de agrupación.
+- Lectores con acción por defecto y posibilidad de sobrescribirla en cada producto. El estado activo se maneja desde el toggle de la tarjeta; retirado el acceso directo a sugerencias. Las acciones de stock siguen reservadas para un desarrollo posterior.
+- Logs pasa a ser una vista de Ajustes. Popups de tiendas con navegación uniforme de Productos y Configuración; retirados los contadores de las tarjetas. Se evita preparar una revisión nocturna cuando todas las tiendas están desactivadas.
+- Pruebas ampliadas de interfaz, permisos, selección regional, sesiones anónimas, ejecución sin bloquear Home Assistant, caché, migraciones y pausas de actualización.
 
 ## 0.17.0
 

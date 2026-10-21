@@ -1,7 +1,7 @@
-import "./logs-panel.js?v=0.17.0";
-import { installDialogCloseButtons } from "./dialog-controls.js?v=0.17.0";
-import { todoEntities, isAvailable } from "./todo-client.js?v=0.17.0";
-import { DEFAULT_APPEARANCE, gradientTextColor } from "./list-settings-client.js?v=0.17.0";
+import "./logs-panel.js?v=0.18.0";
+import { installDialogCloseButtons } from "./dialog-controls.js?v=0.18.0";
+import { todoEntities, isAvailable } from "./todo-client.js?v=0.18.0";
+import { DEFAULT_APPEARANCE, gradientTextColor } from "./list-settings-client.js?v=0.18.0";
 
 const MERCADONA_LOGO_URL = new URL("mercadona.png", import.meta.url).href;
 

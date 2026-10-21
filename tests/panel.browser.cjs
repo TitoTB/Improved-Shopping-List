@@ -395,7 +395,7 @@ async function main() {
     const catalog = page.locator("isl-catalog");
     const categories = catalog.locator("#catalog-categories");
     assert.equal(await catalog.locator(".heading #new-product").count(), 0);
-    assert.equal(await catalog.locator(".category-filter-controls #new-product ha-icon").getAttribute("icon"), "mdi:plus-thick");
+    assert.equal(await catalog.locator(".catalog-product-controls #new-product ha-icon").getAttribute("icon"), "mdi:plus-thick");
     assert.equal(await catalog.getByRole("button",{name:"Actualizar catálogo",exact:true}).count(),0);
     assert.equal(await catalog.locator("#new-product").textContent(), "");
     await catalog.getByRole("button", { name: "Nuevo producto", exact: true }).click();
@@ -563,8 +563,12 @@ async function main() {
     await catalog.getByLabel("Buscar productos", { exact: true }).fill("inexistente");
     await catalog.getByText("No hay productos que coincidan con estos filtros.", { exact: true }).waitFor();
     await catalog.getByLabel("Buscar productos", { exact: true }).fill("");
-    await catalog.locator("#category-filter").selectOption("Lácteos y frescos");
-    assert.equal(await catalog.locator("#category-filter").inputValue(), "Lácteos y frescos");
+    assert.equal(await catalog.locator("#category-filter").count(),0);
+    assert.equal(await catalog.locator("#toggle-catalog-order ha-icon").getAttribute("icon"),"mdi:label");
+    await catalog.getByRole("button",{name:"Agrupar por categorías",exact:true}).click();
+    assert.deepEqual(await catalog.locator(".category-group-title").allTextContents(),["Lácteos y frescos"]);
+    assert.equal(await catalog.locator("#toggle-catalog-order ha-icon").getAttribute("icon"),"mdi:sort-alphabetical-ascending");
+    await catalog.getByRole("button",{name:"Ordenar alfabéticamente",exact:true}).click();
     assert.equal(await catalog.locator("#tag-filter").count(), 0);
     assert.equal(await catalog.locator("#view-products ha-icon").getAttribute("icon"), "mdi:view-grid");
     assert.equal(await catalog.locator("#view-categories ha-icon").getAttribute("icon"), "mdi:label");
@@ -597,10 +601,10 @@ async function main() {
     assert.match(await productCard.locator(".row-price").textContent(),/2,59/);
     for(const width of [1280,390]){
       await page.setViewportSize({width,height:844});
-      assert.ok(await catalog.locator(".category-filter-controls").evaluate(node=>{
-        const select=node.querySelector("select").getBoundingClientRect(),add=node.querySelector("#new-product").getBoundingClientRect(),
+      assert.ok(await catalog.locator(".catalog-product-controls").evaluate(node=>{
+        const add=node.querySelector("#new-product").getBoundingClientRect(),order=node.querySelector("#toggle-catalog-order").getBoundingClientRect(),
           toggle=node.querySelector("#toggle-catalog-layout").getBoundingClientRect();
-        return select.right<=add.left&&add.right<=toggle.left&&Math.abs(select.top-add.top)<1&&Math.abs(add.top-toggle.top)<1&&select.height===add.height;
+        return add.right<=order.left&&order.right<=toggle.left&&Math.abs(add.top-order.top)<1&&Math.abs(order.top-toggle.top)<1&&order.height===add.height;
       }));
       assert.ok(await productCard.evaluate(node=>node.getBoundingClientRect().width>node.getBoundingClientRect().height&&node.scrollWidth<=node.clientWidth));
       assert.equal(await productCard.locator(".title").evaluate(node=>getComputedStyle(node).textAlign),"left");
@@ -704,7 +708,6 @@ async function main() {
     await page.locator("#pending").getByText("Detergente", { exact: true }).waitFor();
     await page.getByRole("button", { name: "Catálogo", exact: true }).click();
     assert.equal(await productCard.getAttribute("data-in-list"), "false");
-    await catalog.locator("#category-filter").selectOption("");
     await catalog.getByRole("button", { name: "Categorías", exact: true }).click();
     await catalog.getByRole("button", { name: "Nueva categoría", exact: true }).click();
     assert.equal(await categories.locator('#delete-category').isVisible(),false);
@@ -2093,6 +2096,59 @@ async function main() {
     await renamePage.evaluate(()=>{window.listData['todo.bring'].push({uid:'tea-2',summary:'TE',status:'needs_action'});window.emit('todo.bring');});
     assert.equal(await renameSuggestions.locator("h2").count(),0);
     await renameContext.close();
+    // Category grouping sorts headings and products, preserves searching, layouts and user preference.
+    const groupingContext=await browser.newContext({viewport:{width:1280,height:960}});
+    const groupingPage=await groupingContext.newPage();
+    groupingPage.on('pageerror',error=>errors.push(error.message));
+    await groupingPage.addInitScript(()=>{
+      if(localStorage.getItem('grouping-fixture'))return;
+      localStorage.setItem('grouping-fixture','1');
+      localStorage.setItem('category-fixture',JSON.stringify([
+        {id:'vegetables',name:'Verduras',icon:'mdi:carrot',color:'#008800'},
+        {id:'pantry',name:'Despensa',icon:'mdi:food',color:'#aa8800'}]));
+      localStorage.setItem('catalog-fixture',JSON.stringify([
+        ['z','Zanahoria','Verduras'],['a','Azúcar','Despensa'],['p','Patatas','Verduras'],['r','Arroz','Despensa'],['u','Agua','']
+      ].map(([id,name,category])=>({id,revision:1,name,category,tags:[],price:null,currency:'EUR',barcode:'',barcodes:[],nfc_tags:[],reader_actions:{},image_url:'',icon:'',notes:''}))));
+    });
+    await groupingPage.goto(url);
+    await groupingPage.getByRole('button',{name:'Catálogo',exact:true}).click();
+    const groupedCatalog=groupingPage.locator('isl-catalog');
+    const productNames=()=>groupedCatalog.locator('#catalog-grid .product .title').allTextContents();
+    await groupedCatalog.locator('#catalog-grid .product').nth(4).waitFor();
+    assert.deepEqual(await productNames(),['Agua','Arroz','Azúcar','Patatas','Zanahoria']);
+    await groupedCatalog.getByRole('button',{name:'Agrupar por categorías',exact:true}).click();
+    assert.deepEqual(await groupedCatalog.locator('.category-group-title').allTextContents(),['Despensa','Verduras','Sin categoría']);
+    assert.deepEqual(await productNames(),['Arroz','Azúcar','Patatas','Zanahoria','Agua']);
+    for (const group of await groupedCatalog.locator('.category-group').all()) {
+      assert.ok(await group.locator('.product').count()>0);
+    }
+    await groupedCatalog.getByLabel('Buscar productos',{exact:true}).fill('Patatas');
+    assert.deepEqual(await groupedCatalog.locator('.category-group-title').allTextContents(),['Verduras']);
+    assert.deepEqual(await productNames(),['Patatas']);
+    await groupedCatalog.getByLabel('Buscar productos',{exact:true}).fill('inexistente');
+    assert.equal(await groupedCatalog.locator('.category-group').count(),0);
+    assert.equal(await groupedCatalog.locator('#catalog-empty').isVisible(),true);
+    await groupedCatalog.getByLabel('Buscar productos',{exact:true}).fill('');
+    await groupedCatalog.getByRole('button',{name:'Cambiar a vista de filas',exact:true}).click();
+    assert.equal(await groupedCatalog.locator('.category-products.rows').count(),3);
+    assert.equal(await groupedCatalog.getByRole('button',{name:'Editar Patatas',exact:true}).isVisible(),true);
+    await groupingPage.reload();
+    await groupingPage.getByRole('button',{name:'Catálogo',exact:true}).click();
+    await groupedCatalog.locator('.category-group').nth(2).waitFor();
+    assert.equal(await groupedCatalog.locator('#toggle-catalog-order ha-icon').getAttribute('icon'),'mdi:sort-alphabetical-ascending');
+    assert.equal(await groupedCatalog.locator('.category-products.rows').count(),3);
+    await groupingPage.screenshot({path:'test-results/catalog-groups-desktop.png',fullPage:true});
+    await groupedCatalog.getByRole('button',{name:'Cambiar a vista de cuadrícula',exact:true}).click();
+    await groupingPage.setViewportSize({width:390,height:844});
+    assert.ok(await groupedCatalog.locator('.product').first().evaluate(card=>Math.abs(card.getBoundingClientRect().width-card.getBoundingClientRect().height)<1));
+    assert.ok(await groupedCatalog.evaluate(node=>node.scrollWidth<=node.clientWidth+1));
+    await groupingPage.screenshot({path:'test-results/catalog-groups-mobile.png',fullPage:true});
+    await groupedCatalog.getByRole('button',{name:'Ordenar alfabéticamente',exact:true}).click();
+    assert.equal(await groupedCatalog.locator('.category-group').count(),0);
+    assert.deepEqual(await productNames(),['Agua','Arroz','Azúcar','Patatas','Zanahoria']);
+    assert.equal(await groupedCatalog.locator('#toggle-catalog-order ha-icon').getAttribute('icon'),'mdi:label');
+    assert.equal(await groupingPage.evaluate(()=>window.calls.length),0);
+    await groupingContext.close();
     // Logs display live changes as text, filter by origin/type and clean up on navigation.
     await page.setViewportSize({width:1280,height:960});
     await page.evaluate(()=>{

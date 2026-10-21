@@ -54,6 +54,8 @@ class ImprovedShoppingCatalog extends HTMLElement {
     this._view = "products";
     this._productLayout = "grid";
     try { if (localStorage.getItem("isl-catalog-layout") === "rows") this._productLayout = "rows"; } catch { /* Storage may be disabled. */ }
+    this._productOrder = "alphabetical";
+    try { if (localStorage.getItem("isl-catalog-order") === "categories") this._productOrder = "categories"; } catch { /* Storage may be disabled. */ }
     this._pendingNames = new Set();
     this._listItems = [];
   }
@@ -168,12 +170,14 @@ class ImprovedShoppingCatalog extends HTMLElement {
         .helper { color:var(--secondary-text-color,#63766b); font-size:13px; line-height:1.6; margin:8px 0 18px; }
         button { min-height:44px; padding:10px 14px; border:1px solid var(--divider-color,#dfe7e1); border-radius:10px; background:transparent; color:inherit; }
         .primary { background:#267052; color:#fff; border:0; font-weight:650; }
-        .filters { display:grid; grid-template-columns:minmax(0,2fr) minmax(0,1fr); gap:12px; margin:24px 0 14px; align-items:end; }
-        .category-filter-controls { display:flex; align-items:end; gap:8px; min-width:0; }
-        .category-filter-controls label { flex:1; min-width:0; }
-        #new-product,#new-catalog-category,#toggle-catalog-layout { display:grid; place-items:center; flex:0 0 46px; width:46px; height:46px; padding:0; }
-        #new-product ha-icon,#new-catalog-category ha-icon,#toggle-catalog-layout ha-icon { --mdc-icon-size:24px; width:24px; height:24px; }
-        #toggle-catalog-layout { background:var(--card-background-color,#fff); }
+        .filters { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:12px; margin:24px 0 14px; align-items:end; }
+        .catalog-product-controls { display:flex; align-items:center; justify-content:flex-end; gap:8px; min-width:0; }
+        #new-product,#new-catalog-category,#toggle-catalog-order,#toggle-catalog-layout { display:grid; place-items:center; flex:0 0 46px; width:46px; height:46px; padding:0; }
+        #new-product ha-icon,#new-catalog-category ha-icon,#toggle-catalog-order ha-icon,#toggle-catalog-layout ha-icon { --mdc-icon-size:24px; width:24px; height:24px; }
+        #toggle-catalog-layout,#toggle-catalog-order { background:var(--card-background-color,#fff); }
+        #catalog-grid.grouped { grid-template-columns:minmax(0,1fr); gap:24px; }
+        .category-group { min-width:0; }
+        .category-group-title { margin:0 0 12px; font-size:18px; overflow-wrap:anywhere; }
         .product-category-controls { display:flex; align-items:end; gap:8px; }
         .product-category-controls select { flex:1; min-width:0; }
         #add-product-category { display:grid; place-items:center; flex:0 0 46px; width:46px; height:46px; padding:0; }
@@ -272,7 +276,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
       <section id="products-view">
       <div class="filters">
         <label class="search">Buscar productos<input id="catalog-search" type="search" placeholder="Nombre, código o etiqueta"></label>
-        <div class="category-filter-controls"><label>Categoría<select id="category-filter"><option value="">Todas</option></select></label><button id="new-product" class="primary" type="button" aria-label="Nuevo producto" title="Nuevo producto"><ha-icon icon="mdi:plus-thick" aria-hidden="true"></ha-icon></button><button id="toggle-catalog-layout" type="button" aria-label="Cambiar a vista de filas" title="Cambiar a vista de filas"><ha-icon icon="mdi:view-sequential" aria-hidden="true"></ha-icon></button></div>
+        <div class="catalog-product-controls"><button id="new-product" class="primary" type="button" aria-label="Nuevo producto" title="Nuevo producto"><ha-icon icon="mdi:plus-thick" aria-hidden="true"></ha-icon></button><button id="toggle-catalog-order" type="button" aria-label="Agrupar por categorías" title="Agrupar por categorías" aria-pressed="false"><ha-icon icon="mdi:label" aria-hidden="true"></ha-icon></button><button id="toggle-catalog-layout" type="button" aria-label="Cambiar a vista de filas" title="Cambiar a vista de filas"><ha-icon icon="mdi:view-sequential" aria-hidden="true"></ha-icon></button></div>
       </div>
       <p id="catalog-count" class="count" aria-live="polite"></p>
       <div id="catalog-grid" class="grid"></div>
@@ -403,7 +407,11 @@ class ImprovedShoppingCatalog extends HTMLElement {
       this.dispatchEvent(new CustomEvent("catalog-layout-change"));
     });
     root.querySelector("#catalog-search").addEventListener("input", () => this._renderProducts());
-    root.querySelector("#category-filter").addEventListener("change", () => this._renderProducts());
+    root.querySelector("#toggle-catalog-order").addEventListener("click", () => {
+      this._productOrder = this._productOrder === "alphabetical" ? "categories" : "alphabetical";
+      try { localStorage.setItem("isl-catalog-order", this._productOrder); } catch { /* Storage may be disabled. */ }
+      this._renderProducts();
+    });
     root.querySelector('[name="recurrence_enabled"]').addEventListener("change", () => {
       root.querySelector('[name="recurrence_days"]').disabled = !root.querySelector('[name="recurrence_enabled"]').checked;
     });
@@ -438,7 +446,6 @@ class ImprovedShoppingCatalog extends HTMLElement {
     status.hidden = !this._catalog.loading && (this._view === "products" || !this._notice);
     status.textContent = this._catalog.loading ? "Cargando catálogo…" : this._notice;
     const categories = this._catalog.categories.map(category => category.name).sort((a, b) => a.localeCompare(b, "es"));
-    this._fillFilter(root.querySelector("#category-filter"), categories);
     const categorySelect = root.querySelector("[name=category]");
     const selectedCategory = categorySelect.value;
     const options = categories.map(category => new Option(category, category));
@@ -726,27 +733,42 @@ class ImprovedShoppingCatalog extends HTMLElement {
     }
   }
 
-  _fillFilter(select, values) {
-    const previous = select.value;
-    select.replaceChildren(new Option("Todas", ""), ...values.map(value => new Option(value, value)));
-    select.value = values.includes(previous) ? previous : "";
-  }
-
   _renderProducts() {
     if (!this._built) return;
     const root = this.shadowRoot;
     const query = root.querySelector("#catalog-search").value.trim().toLocaleLowerCase("es");
-    const category = root.querySelector("#category-filter").value;
     const rows = this._productLayout === "rows";
-    root.querySelector("#catalog-grid").classList.toggle("rows", rows);
+    const grouped = this._productOrder === "categories", grid = root.querySelector("#catalog-grid");
+    grid.classList.toggle("rows", rows);
+    grid.classList.toggle("grouped", grouped);
+    const orderToggle = root.querySelector("#toggle-catalog-order"), orderLabel = grouped ? "Ordenar alfabéticamente" : "Agrupar por categorías";
+    orderToggle.setAttribute("aria-label", orderLabel); orderToggle.title = orderLabel;
+    orderToggle.setAttribute("aria-pressed", String(grouped));
+    orderToggle.querySelector("ha-icon").setAttribute("icon", grouped ? "mdi:sort-alphabetical-ascending" : "mdi:label");
     const toggle = root.querySelector("#toggle-catalog-layout"), label = rows ? "Cambiar a vista de cuadrícula" : "Cambiar a vista de filas";
     toggle.setAttribute("aria-label", label); toggle.title = label;
     toggle.querySelector("ha-icon").setAttribute("icon", rows ? "mdi:view-comfy" : "mdi:view-sequential");
     const products = this._catalog.products.filter(product =>
-      (!category || normalizedName(product.category) === normalizedName(category)) &&
-      [product.name, product.barcode, ...(product.barcodes??[]), ...(product.nfc_tags??[]), product.category, ...product.tags].join(" ").toLocaleLowerCase("es").includes(query));
+      [product.name, product.barcode, ...(product.barcodes??[]), ...(product.nfc_tags??[]), product.category, ...product.tags].join(" ").toLocaleLowerCase("es").includes(query))
+      .sort((a,b) => a.name.localeCompare(b.name,"es",{sensitivity:"base"}));
     root.querySelector("#catalog-count").textContent = `${products.length} de ${this._catalog.products.length} productos`;
-    root.querySelector("#catalog-grid").replaceChildren(...products.map(product => this._productCard(product)));
+    if (grouped) {
+      const categories = new Map(this._catalog.categories.map(category => [normalizedName(category.name),category.name]));
+      const groups = new Map();
+      for (const product of products) {
+        const key = normalizedName(product.category);
+        if (!groups.has(key)) groups.set(key,{key,name:categories.get(key) || product.category || "Sin categoría",products:[]});
+        groups.get(key).products.push(product);
+      }
+      grid.replaceChildren(...[...groups.values()].sort((a,b) => Number(!a.key)-Number(!b.key) || a.name.localeCompare(b.name,"es",{sensitivity:"base"})).map(group => {
+        const section = element("section","category-group");
+        section.setAttribute("aria-label",group.name);
+        const items = element("div",rows ? "grid rows category-products" : "grid category-products");
+        items.append(...group.products.map(product => this._productCard(product)));
+        section.append(element("h2","category-group-title",group.name),items);
+        return section;
+      }));
+    } else grid.replaceChildren(...products.map(product => this._productCard(product)));
     const empty = root.querySelector("#catalog-empty");
     empty.hidden = products.length > 0 || this._catalog.loading || Boolean(this._catalog.error);
     empty.textContent = this._catalog.products.length ? "No hay productos que coincidan con estos filtros." : "Tu catálogo empieza aquí. Añade el primer producto para tenerlo a mano en tu próxima compra.";

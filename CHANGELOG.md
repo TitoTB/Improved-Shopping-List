@@ -1,6 +1,6 @@
 # Historial de cambios
 
-## Pendiente de publicación
+## 0.22.0
 
 - Actualizar ahora vuelve a abrir la revisión activa sin reiniciar ni ampliar la cola, incluso después de una recarga, durante la preparación o mientras hay una petición en curso. La protección se aplica también en Home Assistant si el navegador todavía no ha recibido el estado inicial.
 - Guardado confirmado e idempotente del resumen final de precios en Logs, con recuperación tras fallo de almacenamiento o reinicio y protección frente a iniciar otro lote antes de guardarlo. Las referencias bloqueadas por una tienda se descartan sin esperar otros cinco minutos.

@@ -254,7 +254,10 @@ class ImprovedShoppingCatalog extends HTMLElement {
         .fields { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin:22px 0; }
         .wide { grid-column:1/-1; }
         .form-actions { display:flex; justify-content:flex-end; gap:10px; margin-top:22px; }
-        #delete-product { display:block; width:100%; margin-top:16px; background:#b3261e; color:#fff; border:0; }
+        .form-actions.product-actions { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); }
+        .product-actions button { min-width:0; padding:10px 8px; }
+        .product-actions #save-product { grid-column:2; }
+        #delete-product { background:#b3261e; color:#fff; border:0; }
         @media(max-width:650px) { .filters { grid-template-columns:1fr; } .grid { grid-template-columns:repeat(var(--isl-mobile-columns,1),minmax(0,1fr)); } .heading { gap:10px; flex-wrap:wrap; } h1 { font-size:28px; } dialog { padding:20px; } }
         @media(max-width:650px) { .catalog-toolbar { gap:6px; } .catalog-tabs { gap:4px; } .catalog-tabs button { gap:4px; min-width:36px; justify-content:center; padding:10px 6px; font-size:13px; } .catalog-tabs button[aria-pressed=false] .tab-label { display:none; } }
         @media(max-width:390px) { .fields { grid-template-columns:1fr; } .heading { align-items:flex-start; } .catalog-tabs { gap:3px; } .catalog-tabs button { min-width:32px; padding-inline:4px; } .catalog-tools { gap:4px; } }
@@ -321,8 +324,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
             <div class="wide"><h3>Acciones de los lectores</h3><div id="product-reader-actions"></div><p class="helper">La acción se aplica solo al reconocer este producto. Las acciones de stock quedan guardadas para cuando esté disponible el inventario.</p></div>
             <div class="wide" id="product-recurrence"><h3>Recurrencia</h3><div class="recurrence-controls"><label><input name="recurrence_enabled" type="checkbox">Comprar cada</label><input name="recurrence_days" type="number" min="1" max="3650" step="1" value="7" aria-label="Días de recurrencia" disabled required><span>días</span></div><p class="helper">Se añadirá a la lista principal sin duplicar productos pendientes.</p></div>
           </section>
-          <div class="form-actions"><button id="cancel-product" type="button">Cancelar</button><button id="save-product" class="primary" type="submit">Guardar producto</button></div>
-          <button id="delete-product" type="button" hidden>Eliminar producto</button>
+          <div class="form-actions product-actions"><button id="delete-product" type="button" hidden>Eliminar producto</button><button id="save-product" class="primary" type="submit">Guardar producto</button></div>
         </form>
         <isl-categories id="product-category-editor" editor-only></isl-categories>
       </dialog>
@@ -405,7 +407,6 @@ class ImprovedShoppingCatalog extends HTMLElement {
     root.querySelector('[name="recurrence_enabled"]').addEventListener("change", () => {
       root.querySelector('[name="recurrence_days"]').disabled = !root.querySelector('[name="recurrence_enabled"]').checked;
     });
-    root.querySelector("#cancel-product").addEventListener("click", () => root.querySelector("dialog").close());
     root.querySelector("dialog").addEventListener("cancel", (event) => { if (this._saving) event.preventDefault(); });
     root.querySelector("#product-form").addEventListener("submit", (event) => { event.preventDefault(); void this._saveProduct(); });
     this.listName = this._listName;
@@ -834,7 +835,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
     if (!this._deleteTarget || this._deletingProduct) return;
     const root = this.shadowRoot;
     this._deletingProduct = true;
-    root.querySelectorAll("#save-product,#cancel-product,#delete-product").forEach(button => { button.disabled = true; });
+    root.querySelectorAll("#save-product,#delete-product").forEach(button => { button.disabled = true; });
     root.querySelectorAll("#delete-product-dialog button").forEach(button => { button.disabled = true; });
     root.querySelector("#delete-product-error").hidden = true;
     try {
@@ -853,7 +854,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
       notice.hidden = false;
     } finally {
       this._deletingProduct = false;
-      root.querySelectorAll("#save-product,#cancel-product,#delete-product").forEach(button => { button.disabled = false; });
+      root.querySelectorAll("#save-product,#delete-product").forEach(button => { button.disabled = false; });
       root.querySelectorAll("#delete-product-dialog button").forEach(button => { button.disabled = false; });
     }
   }
@@ -1042,7 +1043,6 @@ class ImprovedShoppingCatalog extends HTMLElement {
     this._saving = true;
     root.querySelector("isl-icon-picker").disabled = true;
     root.querySelector("#save-product").disabled = true;
-    root.querySelector("#cancel-product").disabled = true;
     root.querySelector("#delete-product").disabled = true;
     root.querySelector("#product-error").hidden = true;
     try {
@@ -1071,7 +1071,6 @@ class ImprovedShoppingCatalog extends HTMLElement {
       this._saving = false;
       root.querySelector("isl-icon-picker").disabled = false;
       root.querySelector("#save-product").disabled = false;
-      root.querySelector("#cancel-product").disabled = false;
       root.querySelector("#delete-product").disabled = false;
       root.querySelector("#delete-product").hidden = !this._editing;
     }

@@ -615,7 +615,7 @@ async function main() {
     await productCard.getByRole("button",{name:"Editar Yogur sin azúcar",exact:true}).click();
     await catalog.getByRole("dialog",{name:"Editar producto",exact:true}).waitFor();
     assert.equal(await page.evaluate(()=>window.calls.length),rowEditCalls);
-    await catalog.getByRole("button",{name:"Cancelar",exact:true}).click();
+    await catalog.locator("#product-form").locator("..").getByRole("button",{name:"Cerrar ventana",exact:true}).click();
     await catalog.getByRole("button",{name:"Cambiar a vista de cuadrícula",exact:true}).click();
     assert.equal(await catalog.locator("#toggle-catalog-layout ha-icon").getAttribute("icon"),"mdi:view-sequential");
     assert.equal(await productCard.locator(".edit-product").isVisible(),false);
@@ -749,7 +749,7 @@ async function main() {
     await catalog.getByRole("button", { name: "Guardar producto", exact: true }).click();
     await catalog.locator("#product-error").filter({ hasText: "No se ha podido guardar" }).waitFor();
     assert.equal(await catalog.getByLabel("Nombre del producto", { exact: true }).inputValue(), "Conservar formulario");
-    await catalog.getByRole("button", { name: "Cancelar", exact: true }).click();
+    await catalog.locator("#product-form").locator("..").getByRole("button", { name: "Cerrar ventana", exact: true }).click();
 
     // Actual narrow layout, sidebar access and horizontal overflow.
     await page.setViewportSize({ width: 390, height: 844 });
@@ -869,7 +869,7 @@ async function main() {
     await suggestionDialog.waitFor();
     assert.equal(await suggestionDialog.getByLabel("Nombre del producto", { exact:true }).inputValue(), "Cacao");
     assert.equal(await suggestionPage.evaluate(() => window.catalogProducts.length), 0);
-    await suggestionDialog.getByRole("button", { name:"Cancelar", exact:true }).click();
+    await suggestionDialog.getByRole("button", { name:"Cerrar ventana", exact:true }).click();
     assert.deepEqual(await suggestions.locator("h2").allTextContents(), ["Arroz", "Cacao"]);
     await suggestions.getByRole("button", { name:"Añadir al catálogo: Cacao", exact:true }).click();
     await suggestionDialog.getByLabel("Categoría", { exact:true }).selectOption("Despensa");
@@ -1590,7 +1590,7 @@ async function main() {
     await codeDialog.getByLabel("Nombre del producto",{exact:true}).fill("Nombre elegido por mí");
     await readerPage.evaluate(()=>window.emitReaders());
     assert.equal(await codeDialog.getByLabel("Nombre del producto",{exact:true}).inputValue(),"Nombre elegido por mí");
-    await codeDialog.getByRole("button",{name:"Cancelar",exact:true}).click();
+    await codeDialog.getByRole("button",{name:"Cerrar ventana",exact:true}).click();
     await identified.getByRole("button",{name:"Asignar código 8410109115543 a un producto del catálogo",exact:true}).click();
     assert.equal(await assignDialog.getByRole("option").first().textContent(),"Sugerido: Cacao");
     await readerPage.screenshot({path:"test-results/open-food-facts-suggestion.png",fullPage:true});
@@ -1605,7 +1605,7 @@ async function main() {
     await readerCatalog.getByRole("button",{name:"Crear producto con el código 3017620422003",exact:true}).click();
     assert.equal(await codeDialog.getByLabel("Nombre del producto",{exact:true}).inputValue(),"");
     assert.equal(await codeDialog.getByLabel("Código de barras",{exact:true}).inputValue(),"3017620422003");
-    await codeDialog.getByRole("button",{name:"Cancelar",exact:true}).click();
+    await codeDialog.getByRole("button",{name:"Cerrar ventana",exact:true}).click();
     await readerPage.getByRole("button",{name:"Lectores",exact:true}).click();
     await readersView.getByRole("button",{name:"Editar lector Cocina",exact:true}).click();
     const editReader=readersView.getByRole("dialog",{name:"Editar lector",exact:true});
@@ -1654,14 +1654,14 @@ async function main() {
     await nutriForm.locator('#store-price-results').getByRole('link').waitFor();
     assert.match(await nutriForm.locator('#store-price-results').textContent(),/Carrefour: 1,35/);
     assert.match(await nutriForm.locator('#store-price-results').getByRole('link').getAttribute('href'),/awin1.com\/pclick.php/);
-    await nutriForm.getByRole('button',{name:'Cancelar',exact:true}).click();
+    await nutriForm.locator('..').getByRole('button',{name:'Cerrar ventana',exact:true}).click();
     await nutriCatalog.getByRole('button',{name:'Nuevo producto',exact:true}).click();
     await nutriForm.getByRole('button',{name:'Automatización',exact:true}).click();
     await nutriForm.getByLabel('Código de barras',{exact:true}).fill('3017620422003');
     await nutriPage.evaluate(()=>{window.delayNutriCode='3017620422003';});
     await nutriForm.getByRole('button',{name:'Información adicional',exact:true}).click();
     await nutriPage.waitForFunction(()=>typeof window.releaseNutri==='function');
-    await nutriForm.getByRole('button',{name:'Cancelar',exact:true}).click();
+    await nutriForm.locator('..').getByRole('button',{name:'Cerrar ventana',exact:true}).click();
     await nutriCatalog.getByRole('button',{name:'Nuevo producto',exact:true}).click();
     await nutriPage.evaluate(()=>window.releaseNutri());
     await nutriForm.getByRole('button',{name:'Información adicional',exact:true}).click();
@@ -1862,13 +1862,13 @@ async function main() {
     await pickerDialog.getByRole("button",{name:"Elegir Milk 1 (Fluent Emoji Flat)",exact:true}).click();
     await iconPage.waitForFunction(()=>typeof window.releaseIconImport==='function');
     assert.equal(await editIconForm.getByRole("button",{name:"Guardar producto",exact:true}).isDisabled(),true);
-    await editIconForm.getByRole("button",{name:"Cancelar",exact:true}).click();
+    await editIconForm.getByRole("button",{name:"Cerrar ventana",exact:true}).click();
     await iconCatalog.getByRole("button",{name:"Nuevo producto",exact:true}).click();
     await iconForm.getByLabel("Nombre del producto",{exact:true}).fill("Pan");
     await iconPage.evaluate(()=>window.releaseIconImport());
     assert.equal(await iconForm.getByLabel("URL Imagen/Icono",{exact:true}).inputValue(),"");
     assert.equal(await iconForm.getByLabel("Nombre del producto",{exact:true}).inputValue(),"Pan");
-    await iconForm.getByRole("button",{name:"Cancelar",exact:true}).click();
+    await iconForm.getByRole("button",{name:"Cerrar ventana",exact:true}).click();
     // Clicking the tile adds to the provider; deleting through the editor preserves the list.
     await iconCatalog.locator("#catalog-grid .product").click();
     await iconPage.waitForFunction(()=>window.listData['todo.bring'].some(item=>item.summary==='Leche'&&item.status==='needs_action'));
@@ -1876,6 +1876,11 @@ async function main() {
     assert.equal(await iconCatalog.getByRole("button",{name:"Eliminar Leche",exact:true}).count(),0);
     await editCatalogProduct(iconCatalog,"Editar Leche");
     const productEditor = iconCatalog.locator('#product-form');
+    assert.equal(await productEditor.getByRole("button",{name:"Cancelar",exact:true}).count(),0);
+    assert.ok(await productEditor.locator(".product-actions").evaluate(node=>{
+      const remove=node.querySelector("#delete-product").getBoundingClientRect(),save=node.querySelector("#save-product").getBoundingClientRect();
+      return remove.right<=save.left&&Math.abs(remove.top-save.top)<1;
+    }));
     await productEditor.getByRole("button",{name:"Eliminar producto",exact:true}).click();
     const deleteProductDialog = iconCatalog.getByRole("dialog",{name:"Eliminar producto",exact:true});
     await deleteProductDialog.getByRole("button",{name:"Cancelar",exact:true}).click();
@@ -1917,7 +1922,7 @@ async function main() {
     assert.equal(await oldPicker.getByLabel('Buscar iconos',{exact:true}).inputValue(),'Rice');
     assert.equal(await oldIconPage.evaluate(()=>window.catalogProducts[0].name_en),'Rice');
     assert.equal(await oldIconPage.evaluate(()=>window.iconCalls.at(-1).translate),true);
-    await oldCatalog.locator('#product-form').getByRole('button',{name:'Cancelar',exact:true}).click();
+    await oldCatalog.locator('#product-form').locator('..').getByRole('button',{name:'Cerrar ventana',exact:true}).click();
     await oldIconPage.reload();
     await oldIconPage.getByRole('button',{name:'Catálogo',exact:true}).click();
     await editCatalogProduct(oldCatalog,'Editar Arroz');

@@ -1098,7 +1098,7 @@ async function main() {
         {catalog_product_id:'ticket-cacao',store:'alcampo',price:'2.10',currency:'EUR',checked_at:1},
         {catalog_product_id:'ticket-cacao',store:'alcampo',price:'1.10',currency:'EUR',checked_at:2},
         {catalog_product_id:'ticket-milk',store:'alcampo',price:'0.20',currency:'EUR',checked_at:2},
-        {catalog_product_id:'ticket-cacao',store:'carrefour',price:'2.00',currency:'EUR',checked_at:2},
+        {catalog_product_id:'ticket-cacao',store:'carrefour',price:'0.50',currency:'EUR',checked_at:2},
         {catalog_product_id:'ticket-milk',store:'mercadona',price:'0.01',currency:'EUR',checked_at:2},
         {catalog_product_id:'ticket-rice',store:'dia',price:'0.01',currency:'EUR',checked_at:2}
       ];
@@ -1107,17 +1107,26 @@ async function main() {
     receiptPage.on('pageerror',error=>errors.push(error.message));
     await receiptPage.goto(url);
     await receiptPage.locator('#pending-total').filter({hasText:'1,30'}).waitFor();
+    assert.deepEqual(await receiptPage.locator('#pending-total').evaluate(node=>[getComputedStyle(node).backgroundColor,getComputedStyle(node).color]),['rgb(255, 255, 255)','rgb(0, 0, 0)']);
     assert.equal(await receiptPage.locator('#pending-total img').getAttribute('alt'),'Alcampo');
     await receiptPage.locator('#pending-total').press('Enter');
     const receipt=receiptPage.locator('#receipt');
     await receipt.waitFor();
+    assert.equal(await receiptPage.locator('#pending-count').evaluate(node=>getComputedStyle(node).backgroundColor),'rgb(238, 82, 79)');
     assert.deepEqual(await receipt.locator('.receipt-stores button').evaluateAll(nodes=>nodes.map(node=>node.dataset.receiptStore)),['alcampo','carrefour']);
+    assert.match(await receipt.locator('[data-receipt-store="alcampo"]').textContent(),/1,30\s*€ \(2\/2\)/);
+    assert.equal(await receipt.locator('.receipt-hint').count(),0);
     assert.deepEqual(await receipt.locator('.receipt-known .receipt-name').allTextContents(),['Cacao','Leche entera']);
     assert.match(await receipt.locator('.receipt-total').textContent(),/1,30/);
     assert.equal(await receiptPage.locator('#completed-details').isVisible(),false);
     await receipt.locator('[data-receipt-store="carrefour"]').click();
-    assert.match(await receipt.locator('.receipt-total').textContent(),/2,00/);
+    assert.match(await receipt.locator('.receipt-total').textContent(),/0,50/);
     assert.deepEqual(await receipt.locator('.receipt-missing .receipt-name').allTextContents(),['Leche entera']);
+    assert.equal(await receipt.locator('.receipt-missing').isVisible(),false);
+    await receipt.locator('.receipt-unknown summary').click();
+    assert.equal(await receipt.locator('.receipt-missing').isVisible(),true);
+    await receiptPage.evaluate(()=>window.testPanel._renderData());
+    assert.equal(await receipt.locator('.receipt-missing').isVisible(),true);
     assert.equal(await receiptPage.locator('#pending-total img').getAttribute('alt'),'Carrefour');
     for(const width of [1280,390,320]){
       await receiptPage.setViewportSize({width,height:844});
@@ -1135,8 +1144,30 @@ async function main() {
     await receiptPage.evaluate(()=>{window.listSettings.stores.alcampo.enabled=false;window.emitSettings();});
     await receipt.locator('.receipt-stores button').waitFor({state:'detached'});
     await selectList(receiptPage,'todo.local');
+    await receipt.locator('.receipt-unknown summary').click();
     await receipt.locator('.receipt-missing').getByText('Detergente',{exact:true}).waitFor();
     assert.match(await receipt.locator('.receipt-total').textContent(),/0,00/);
+    // Five eligible shops: coverage wins over a lower subtotal, and only four fit the selector.
+    await receiptPage.evaluate(()=>{
+      const panel=window.testPanel;
+      const stores=['carrefour','alcampo','consum','eroski','lasirena'];
+      panel._settings.stores=Object.fromEntries(stores.map(store=>[store,{enabled:true}]));
+      panel._rowPrices=stores.flatMap((store,index)=>[
+        {catalog_product_id:'ticket-cacao',store,price:10-index,currency:'EUR',checked_at:2},
+        ...(index===0?[{catalog_product_id:'ticket-milk',store,price:20,currency:'EUR',checked_at:2}]:[])
+      ]);
+      const items=[{summary:'Leche entera'},{summary:'Cacao'}];
+      const receipts=panel._storeReceipts(items);
+      panel._renderReceipt(items,receipts,receipts[0]);
+    });
+    assert.deepEqual(await receipt.locator('.receipt-stores button').evaluateAll(nodes=>nodes.map(node=>node.dataset.receiptStore)),['carrefour','lasirena','eroski','consum']);
+    for(const width of [1280,390,320]){
+      await receiptPage.setViewportSize({width,height:844});
+      assert.ok(await receipt.evaluate(node=>node.scrollWidth<=node.clientWidth));
+      assert.equal(await receipt.locator('.receipt-stores button').evaluateAll(nodes=>new Set(nodes.map(node=>node.getBoundingClientRect().top)).size),1);
+      assert.ok(await receipt.locator('.receipt-stores button').evaluateAll(nodes=>nodes.every(node=>node.scrollWidth<=node.clientWidth)));
+      await receiptPage.screenshot({path:`test-results/list-receipt-four-stores-${width}.png`,fullPage:true});
+    }
     assert.equal(await receiptPage.evaluate(()=>window.calls.some(call=>/refresh_prices|refresh_all_prices|settings\/store_products/.test(call.type??''))),false);
     await receiptContext.close();
     const resumeContext=await browser.newContext({viewport:{width:390,height:844}});

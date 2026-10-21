@@ -53,7 +53,6 @@ class ImprovedShoppingCategories extends HTMLElement {
         .actions { position:absolute; z-index:2; top:clamp(3px,4cqi,12px); right:clamp(3px,4cqi,12px); display:flex; flex-wrap:nowrap; gap:clamp(2px,2cqi,6px); margin:0; }
         .actions button { --isl-category-action-size:clamp(18px,13cqi,32px); display:inline-flex; align-items:center; justify-content:center; appearance:none; -webkit-appearance:none; flex:none; width:var(--isl-category-action-size); min-width:var(--isl-category-action-size); max-width:var(--isl-category-action-size); height:var(--isl-category-action-size); min-height:var(--isl-category-action-size); max-height:var(--isl-category-action-size); aspect-ratio:1 / 1; margin:0; padding:0; border:0; border-radius:50%; line-height:0; color:#fff; box-shadow:0 2px 6px rgba(0,0,0,.22); }
         .actions .edit { background:#f9a825; }
-        .actions .danger { background:#000; }
         .actions button:focus-visible { outline-offset:1px; }
         .actions ha-icon { --mdc-icon-size:clamp(12px,8cqi,20px); display:flex; align-items:center; justify-content:center; width:var(--mdc-icon-size); height:var(--mdc-icon-size); flex:none; line-height:0; }
         .notice { padding:12px 14px; border-radius:10px; background:var(--secondary-background-color,#edf4ee); font-size:13px; line-height:1.6; margin:14px 0; }
@@ -68,6 +67,7 @@ class ImprovedShoppingCategories extends HTMLElement {
         .preview label { flex:1; margin:0; }
         .preview .category-icon { margin:0; }
         .form-actions { display:flex; justify-content:flex-end; gap:10px; margin-top:24px; }
+        #delete-category { display:block; width:100%; margin-top:16px; }
         @media(max-width:650px) { .grid { grid-template-columns:repeat(min(var(--isl-mobile-columns,1),2),minmax(0,1fr)); } }
       </style>
       <div class="toolbar"><button id="new-category" class="primary">Nueva categoría</button></div>
@@ -82,6 +82,7 @@ class ImprovedShoppingCategories extends HTMLElement {
           <label>Icono MDI<input name="icon" required maxlength="100" pattern="mdi:[a-z0-9]+(-[a-z0-9]+)*" value="mdi:tag" placeholder="mdi:shopping"></label>
           <div class="preview"><label>Color<input name="color" type="color" value="#64748b"></label><span id="category-preview" class="category-icon"><ha-icon icon="mdi:tag"></ha-icon></span></div>
           <div class="form-actions"><button id="cancel-category" type="button">Cancelar</button><button id="save-category" class="primary" type="submit">Guardar categoría</button></div>
+          <button id="delete-category" class="danger" type="button" hidden>Eliminar categoría</button>
         </form>
       </dialog>
       <dialog id="delete-category-dialog" aria-labelledby="delete-category-title">
@@ -98,6 +99,7 @@ class ImprovedShoppingCategories extends HTMLElement {
     root.querySelector("#category-dialog").addEventListener("close", () => this.onClose?.());
     root.querySelector("#cancel-delete-category").addEventListener("click", () => root.querySelector("#delete-category-dialog").close());
     root.querySelector("#confirm-delete-category").addEventListener("click", () => void this._delete());
+    root.querySelector("#delete-category").addEventListener("click", () => { if (this._editing) this._confirmDelete(this._editing); });
     root.querySelector("#category-form").addEventListener("submit", event => { event.preventDefault(); void this._save(); });
     root.querySelector("[name=icon]").addEventListener("input", () => this._preview());
     root.querySelector("[name=color]").addEventListener("input", () => this._preview());
@@ -127,7 +129,6 @@ class ImprovedShoppingCategories extends HTMLElement {
       actions.className = "actions";
       for (const [label, mdi, action] of [
         ["Editar", "mdi:note-edit", () => this._open(category)],
-        ["Eliminar", "mdi:delete", () => this._confirmDelete(category)],
       ]) {
         const button = document.createElement("button");
         button.className = label === "Editar" ? "edit" : "danger";
@@ -156,6 +157,7 @@ class ImprovedShoppingCategories extends HTMLElement {
     const form = root.querySelector("form");
     form.reset();
     this._editing = category ? structuredClone(category) : null;
+    root.querySelector("#delete-category").hidden = !this._editing;
     root.querySelector("#category-dialog-title").textContent = category ? "Editar categoría" : "Nueva categoría";
     root.querySelector("#category-error").hidden = true;
     if (category) for (const key of ["name", "icon", "color"]) form.elements[key].value = category[key];
@@ -218,6 +220,10 @@ class ImprovedShoppingCategories extends HTMLElement {
     try {
       await this.onDelete(this._deleting);
       root.querySelector("#delete-category-dialog").close();
+      if (this._editing?.id === this._deleting.id) {
+        root.querySelector("#category-dialog").close();
+        this._editing = null;
+      }
       this._notice("Categoría eliminada. Sus productos se han conservado.");
     } catch (error) {
       const notice = root.querySelector("#delete-category-error");

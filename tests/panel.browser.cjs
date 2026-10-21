@@ -475,15 +475,14 @@ async function main() {
     await catalog.evaluate(node => { node.style.removeProperty("--isl-columns"); node.style.removeProperty("--isl-mobile-columns"); });
     await page.setViewportSize({width:1280,height:960});
     assert.equal(await productCard.locator(".product-controls button").first().textContent(), "");
-    assert.equal(await productCard.locator(".product-controls button").last().textContent(), "");
+    assert.equal(await productCard.locator(".product-controls button").count(), 1);
     assert.equal(await productCard.locator(".product-controls button").first().locator("ha-icon").getAttribute("icon"), "mdi:note-edit");
-    assert.equal(await productCard.locator(".product-controls button").last().locator("ha-icon").getAttribute("icon"), "mdi:delete");
     const assertEditButton = async () => {
       assert.equal(await productCard.locator(".edit-product").evaluate(button => getComputedStyle(button).backgroundColor), "rgb(249, 168, 37)");
       assert.equal(await productCard.locator(".edit-product").evaluate(button => getComputedStyle(button).borderWidth), "0px");
     };
     await assertEditButton();
-    assert.equal(await productCard.locator(".delete-product").evaluate(button=>getComputedStyle(button).backgroundColor),"rgb(0, 0, 0)");
+    assert.equal(await productCard.locator(".delete-product").count(),0);
     assert.equal(await productCard.locator('ha-icon[icon="mdi:cart-plus"]').count(),0);
     assert.ok(await productCard.evaluate(card => {
       const image = card.querySelector(".image").getBoundingClientRect();
@@ -530,16 +529,14 @@ async function main() {
         })),`Square category cards/buttons with content inside at ${width}px / ${columns} requested columns`);
         assert.ok(await categories.locator("#category-grid article").first().evaluate(card => {
           const buttons = [...card.querySelectorAll(".actions button")];
-          const [edit,remove] = buttons.map(button => button.getBoundingClientRect());
+          const [edit] = buttons.map(button => button.getBoundingClientRect());
           const bounds = card.getBoundingClientRect();
           return buttons.every(button => getComputedStyle(button).borderWidth === "0px" && button.textContent === "") &&
             getComputedStyle(buttons[0]).backgroundColor === "rgb(249, 168, 37)" &&
-            getComputedStyle(buttons[1]).backgroundColor === "rgb(0, 0, 0)" &&
+            buttons.length === 1 &&
             buttons.every(button => getComputedStyle(button).borderRadius === "50%" && getComputedStyle(button).color === "rgb(255, 255, 255)") &&
-            Math.abs(edit.top-remove.top) < 1 && edit.right <= remove.left &&
-            edit.left >= bounds.left && remove.right <= bounds.right &&
-            remove.top-bounds.top <= 14 && bounds.right-remove.right <= 14 &&
-            edit.width > 0 && remove.width > 0;
+            edit.left >= bounds.left && edit.right <= bounds.right &&
+            edit.top-bounds.top <= 14 && bounds.right-edit.right <= 14 && edit.width > 0;
         }), `Category actions fit in one row at ${width}px / ${columns} columns`);
       }
       await page.screenshot({path:`test-results/categories-square-${width}.png`,fullPage:true});
@@ -599,6 +596,7 @@ async function main() {
     await catalog.locator("#category-filter").selectOption("");
     await catalog.getByRole("button", { name: "Categorías", exact: true }).click();
     await catalog.getByRole("button", { name: "Nueva categoría", exact: true }).click();
+    assert.equal(await categories.locator('#delete-category').isVisible(),false);
     await categories.getByLabel("Nombre de la categoría", { exact: true }).fill("Temporal");
     await categories.getByRole("button", { name: "Guardar categoría", exact: true }).click();
     await categories.getByRole("heading", { name: "Temporal", exact: true }).waitFor();
@@ -607,8 +605,15 @@ async function main() {
     await catalog.getByLabel("Categoría", { exact: true }).last().selectOption("Temporal");
     await catalog.getByRole("button", { name: "Guardar producto", exact: true }).click();
     await catalog.getByRole("button", { name: "Categorías", exact: true }).click();
-    await categories.getByRole("button", { name: "Eliminar categoría Temporal", exact: true }).click();
-    await categories.getByRole("button", { name: "Eliminar categoría", exact: true }).click();
+    assert.equal(await categories.getByRole("button", { name: "Eliminar categoría Temporal", exact: true }).count(),0);
+    await categories.getByRole("button", { name: "Editar categoría Temporal", exact: true }).click();
+    const categoryDeleteEditor = categories.locator('#category-dialog');
+    await categoryDeleteEditor.getByRole("button", { name: "Eliminar categoría", exact: true }).click();
+    await categories.locator('#delete-category-dialog').getByRole('button',{name:'Cancelar',exact:true}).click();
+    assert.equal(await categoryDeleteEditor.isVisible(),true);
+    await categoryDeleteEditor.getByRole("button", { name: "Eliminar categoría", exact: true }).click();
+    await categories.locator('#delete-category-dialog').getByRole("button", { name: "Eliminar categoría", exact: true }).click();
+    await categoryDeleteEditor.waitFor({state:'hidden'});
     await categories.getByRole("status").filter({ hasText: "Categoría eliminada" }).waitFor();
     assert.equal(await page.evaluate(() => window.catalogProducts.length), 1);
     assert.equal(await page.evaluate(() => window.catalogProducts[0].category), "");
@@ -1708,15 +1713,19 @@ async function main() {
     assert.equal(await iconForm.getByLabel("URL Imagen/Icono",{exact:true}).inputValue(),"");
     assert.equal(await iconForm.getByLabel("Nombre del producto",{exact:true}).inputValue(),"Pan");
     await iconForm.getByRole("button",{name:"Cancelar",exact:true}).click();
-    // Clicking the tile adds to the provider; edit/delete controls never do.
+    // Clicking the tile adds to the provider; deleting through the editor preserves the list.
     await iconCatalog.locator("#catalog-grid .product").click();
     await iconPage.waitForFunction(()=>window.listData['todo.bring'].some(item=>item.summary==='Leche'&&item.status==='needs_action'));
     const providerCallsBeforeDelete = await iconPage.evaluate(()=>window.calls.length);
-    await iconCatalog.getByRole("button",{name:"Eliminar Leche",exact:true}).click();
+    assert.equal(await iconCatalog.getByRole("button",{name:"Eliminar Leche",exact:true}).count(),0);
+    await iconCatalog.getByRole("button",{name:"Editar Leche",exact:true}).click();
+    const productEditor = iconCatalog.locator('#product-form');
+    await productEditor.getByRole("button",{name:"Eliminar producto",exact:true}).click();
     const deleteProductDialog = iconCatalog.getByRole("dialog",{name:"Eliminar producto",exact:true});
     await deleteProductDialog.getByRole("button",{name:"Cancelar",exact:true}).click();
+    assert.equal(await productEditor.isVisible(),true);
     assert.equal(await iconPage.evaluate(()=>window.catalogProducts.length),1);
-    await iconCatalog.getByRole("button",{name:"Eliminar Leche",exact:true}).click();
+    await productEditor.getByRole("button",{name:"Eliminar producto",exact:true}).click();
     await iconPage.evaluate(()=>{window.failDeleteProduct=true;});
     await deleteProductDialog.getByRole("button",{name:"Eliminar producto",exact:true}).click();
     await deleteProductDialog.getByRole("alert").filter({hasText:"No se ha podido eliminar"}).waitFor();
@@ -1724,6 +1733,7 @@ async function main() {
     await iconPage.evaluate(()=>{window.failDeleteProduct=false;});
     await deleteProductDialog.getByRole("button",{name:"Eliminar producto",exact:true}).click();
     await deleteProductDialog.waitFor({state:"hidden"});
+    await productEditor.waitFor({state:'hidden'});
     assert.equal(await iconCatalog.locator("#catalog-status").isVisible(),false);
     assert.equal(await iconPage.evaluate(()=>window.catalogProducts.length),0);
     assert.equal(await iconPage.evaluate(()=>window.calls.length),providerCallsBeforeDelete);

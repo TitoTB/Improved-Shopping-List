@@ -67,7 +67,9 @@ class ImprovedShoppingCategories extends HTMLElement {
         .preview label { flex:1; margin:0; }
         .preview .category-icon { margin:0; }
         .form-actions { display:flex; justify-content:flex-end; gap:10px; margin-top:24px; }
-        #delete-category { display:block; width:100%; margin-top:16px; }
+        .form-actions.category-form-actions { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); }
+        .category-form-actions button { min-width:0; padding:10px 8px; }
+        .category-form-actions #save-category { grid-column:2; }
         @media(max-width:650px) { .grid { grid-template-columns:repeat(min(var(--isl-mobile-columns,1),2),minmax(0,1fr)); } }
       </style>
       <div class="toolbar"><button id="new-category" class="primary">Nueva categoría</button></div>
@@ -81,8 +83,7 @@ class ImprovedShoppingCategories extends HTMLElement {
           <label>Nombre de la categoría<input name="name" required maxlength="80"></label>
           <label>Icono MDI<input name="icon" required maxlength="100" pattern="mdi:[a-z0-9]+(-[a-z0-9]+)*" value="mdi:tag" placeholder="mdi:shopping"></label>
           <div class="preview"><label>Color<input name="color" type="color" value="#64748b"></label><span id="category-preview" class="category-icon"><ha-icon icon="mdi:tag"></ha-icon></span></div>
-          <div class="form-actions"><button id="cancel-category" type="button">Cancelar</button><button id="save-category" class="primary" type="submit">Guardar categoría</button></div>
-          <button id="delete-category" class="danger" type="button" hidden>Eliminar categoría</button>
+          <div class="form-actions category-form-actions"><button id="delete-category" class="danger" type="button" hidden>Eliminar categoría</button><button id="save-category" class="primary" type="submit">Guardar categoría</button></div>
         </form>
       </dialog>
       <dialog id="delete-category-dialog" aria-labelledby="delete-category-title">
@@ -95,7 +96,6 @@ class ImprovedShoppingCategories extends HTMLElement {
     const root = this.shadowRoot;
     installDialogCloseButtons(root);
     root.querySelector("#new-category").addEventListener("click", () => this._open());
-    root.querySelector("#cancel-category").addEventListener("click", () => root.querySelector("#category-dialog").close());
     root.querySelector("#category-dialog").addEventListener("close", () => this.onClose?.());
     root.querySelector("#cancel-delete-category").addEventListener("click", () => root.querySelector("#delete-category-dialog").close());
     root.querySelector("#confirm-delete-category").addEventListener("click", () => void this._delete());

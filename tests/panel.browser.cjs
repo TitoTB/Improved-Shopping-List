@@ -402,7 +402,7 @@ async function main() {
     const categoryEditor = catalog.locator("#product-category-editor");
     await catalog.getByRole("button", { name:"Nueva categoría", exact:true }).click();
     await categoryEditor.getByLabel("Nombre de la categoría", { exact:true }).fill("Cancelar categoría");
-    await categoryEditor.getByRole("button", { name:"Cancelar", exact:true }).click();
+    await categoryEditor.getByRole("button", { name:"Cerrar ventana", exact:true }).click();
     assert.equal(await catalog.getByLabel("Nombre del producto", { exact:true }).inputValue(), "Yogur natural");
     assert.equal(await catalog.locator("#product-category").inputValue(), "");
     assert.equal(await page.evaluate(() => window.catalogCategories.length), 0);
@@ -718,6 +718,11 @@ async function main() {
     assert.equal(await categories.getByRole("button", { name: "Eliminar categoría Temporal", exact: true }).count(),0);
     await categories.getByRole("button", { name: "Editar categoría Temporal", exact: true }).click();
     const categoryDeleteEditor = categories.locator('#category-dialog');
+    assert.equal(await categoryDeleteEditor.getByRole("button",{name:"Cancelar",exact:true}).count(),0);
+    assert.ok(await categoryDeleteEditor.locator(".category-form-actions").evaluate(node=>{
+      const remove=node.querySelector("#delete-category").getBoundingClientRect(),save=node.querySelector("#save-category").getBoundingClientRect();
+      return remove.right<=save.left&&Math.abs(remove.top-save.top)<1;
+    }));
     await categoryDeleteEditor.getByRole("button", { name: "Eliminar categoría", exact: true }).click();
     await categories.locator('#delete-category-dialog').getByRole('button',{name:'Cancelar',exact:true}).click();
     assert.equal(await categoryDeleteEditor.isVisible(),true);

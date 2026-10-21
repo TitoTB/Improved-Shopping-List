@@ -945,6 +945,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
         if (generation !== this._nutriGeneration || !root.querySelector("dialog").open || !this.isConnected) return;
         const data = result.nutriscore;
         if (!data || !/^[a-e]$/.test(data.grade)) continue;
+        this.dispatchEvent(new CustomEvent("product-nutriscore",{detail:{code,nutriscore:data}}));
         const row = document.createElement("div"); row.className = "nutriscore-item";
         row.dataset.code = code;
         const image = document.createElement("img");

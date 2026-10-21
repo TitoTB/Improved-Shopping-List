@@ -8,6 +8,12 @@ import "./readers-panel.js?v=0.16.0";
 import "./logs-panel.js?v=0.16.0";
 
 const LOGO_URL = new URL("logo.png", import.meta.url).href;
+const STORE_LOGOS = {
+  mercadona:"https://logos-world.net/wp-content/uploads/2022/04/Mercadona-Symbol.png",
+  carrefour:"https://images.seeklogo.com/logo-png/31/2/carrefour-logo-png_seeklogo-318190.png",
+  alcampo:"https://almeria.online/wp-content/uploads/2024/09/alcampo-logo.png",
+};
+const STORE_NAMES = {mercadona:"Mercadona",carrefour:"Carrefour",alcampo:"Alcampo"};
 const searchText = value => normalizedName(value).normalize("NFD").replace(/\p{M}/gu, "");
 
 class ImprovedShoppingListPanel extends HTMLElement {
@@ -25,6 +31,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
     this._listLayout = "grid";
     try { if (localStorage.getItem("isl-list-layout") === "rows") this._listLayout = "rows"; } catch { /* Storage may be disabled. */ }
     this._rowPrices = [];
+    this._nutrition = new Map();
     this._onVisibility = () => {
       if (document.visibilityState === "visible") {
         void this._session.refresh();
@@ -45,7 +52,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
       previousHass?.states[this._session.entityId] !== value.states[this._session.entityId];
     this._todoStatesSignature = signature;
     this._hass = value;
-    if (previousConnection !== value.connection) this._stopRowPrices();
+    if (previousConnection !== value.connection) { this._stopRowPrices(); this._stopListNutrition(); }
     if (!this.isConnected) return;
     if (this._built) this.shadowRoot.querySelector("isl-catalog").hass = value;
     if (this._built) this.shadowRoot.querySelector("isl-logs").hass = value;
@@ -81,6 +88,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
     this._settings.stop();
     this._readers.stop();
     this._stopRowPrices();
+    this._stopListNutrition();
     this._settingsApplied = false;
     this._started = false;
     this.shadowRoot.querySelector("#list-dialog")?.close();
@@ -195,7 +203,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
         .rows .item { display:grid; grid-template-columns:48px minmax(0,1fr) auto; gap:12px; aspect-ratio:auto; min-height:80px; padding:12px 16px; border-radius:12px; }
         .rows .item .product-media { grid-column:1; grid-row:1; width:48px; height:48px; }
         .rows .item .placeholder ha-icon { --mdc-icon-size:40px; }
-        .rows .item-text { grid-column:2; grid-row:1; }
+        .rows .item-text { grid-column:2; grid-row:1; text-align:left; }
         .rows .item .summary { font-size:clamp(14px,2.5cqi,18px); -webkit-line-clamp:3; }
         .rows .item .category-badge,.rows .item .tags,.rows .item .description { display:none; }
         .rows .row-meta { grid-column:3; grid-row:1; display:flex; align-items:center; justify-content:flex-end; flex-wrap:wrap; gap:6px; max-width:min(40cqi,260px); }
@@ -203,8 +211,11 @@ class ImprovedShoppingListPanel extends HTMLElement {
         .row-category { color:#fff; box-shadow:0 2px 6px rgba(0,0,0,.18); }
         .row-category span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
         .row-price { background:rgba(255,255,255,.2); white-space:nowrap; }
+        .row-price .store-logo { display:block; width:22px; height:22px; flex:none; padding:2px; object-fit:contain; background:#fff; border-radius:50%; }
+        .row-nutriscore { display:inline-flex; align-items:center; justify-content:center; height:28px; min-width:28px; padding:4px 7px; border-radius:8px; font-size:14px; line-height:1; font-weight:750; color:#fff; }
+        .row-nutriscore[data-grade=a] { background:#038141; }.row-nutriscore[data-grade=b] { background:#85bb2f; color:#182b22; }.row-nutriscore[data-grade=c] { background:#fecb02; color:#182b22; }.row-nutriscore[data-grade=d] { background:#ee8100; color:#182b22; }.row-nutriscore[data-grade=e] { background:#e63e11; }
         .row-meta ha-icon { display:flex; align-items:center; justify-content:center; width:18px; height:18px; --mdc-icon-size:18px; flex:none; }
-        @media(max-width:540px) { .rows .item { grid-template-columns:36px minmax(0,1fr) auto; gap:8px; padding:10px; }.rows .item .product-media { width:36px; height:36px; }.rows .item .placeholder ha-icon { --mdc-icon-size:32px; }.row-category,.row-price { font-size:11px; padding:5px 7px; } }
+        @media(max-width:540px) { .rows .item { grid-template-columns:36px minmax(0,1fr) auto; gap:8px; padding:10px; }.rows .item .product-media { width:36px; height:36px; }.rows .item .placeholder ha-icon { --mdc-icon-size:32px; }.row-category,.row-price { font-size:11px; padding:5px 7px; }.rows .row-category { width:28px; height:28px; padding:5px; }.rows .row-category span { display:none; }.row-price .store-logo { width:18px; height:18px; }.row-nutriscore { height:26px; min-width:26px; font-size:13px; } }
         .empty { padding:28px 8px; text-align:center; color:var(--secondary-text-color,#63766b); line-height:1.6; }
         .empty strong { display:block; font-size:18px; color:var(--primary-text-color,#20352d); margin-bottom:5px; }
         details { margin-top:24px; }
@@ -269,6 +280,12 @@ class ImprovedShoppingListPanel extends HTMLElement {
     this._built = true;
     const root = this.shadowRoot;
     installDialogCloseButtons(root);
+    root.querySelector("isl-catalog").addEventListener("product-nutriscore", event => {
+      const {code,nutriscore} = event.detail;
+      if (typeof code !== "string" || !/^[a-e]$/.test(nutriscore?.grade ?? "")) return;
+      this._nutrition.set(code.padStart(14,"0"),{code,grade:nutriscore.grade});
+      this._renderData();
+    });
     root.querySelector("isl-catalog").addEventListener("catalog-change", event => {
       this._catalogProducts = new Map(event.detail.products.map(product => [productNameKey(product.name), product]));
       this._catalogCategories = new Map(event.detail.categories.map(category => [normalizedName(category.name), category]));
@@ -455,6 +472,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
     root.querySelector("#items-card").setAttribute("aria-busy", String(session.loading));
     this._renderItems(root.querySelector("#pending"), pending, locked || !canUpdate);
     this._renderItems(root.querySelector("#completed"), completed, locked || !canUpdate);
+    if (rows && this._view === "shopping") void this._loadListNutrition();
     for (const key of this._rows.keys()) {
       if (!this._usedRows.has(key)) this._rows.delete(key);
     }
@@ -611,6 +629,48 @@ class ImprovedShoppingListPanel extends HTMLElement {
     return cachedProductPrice(product,this._rowPrices,this._settings.favoriteStore);
   }
 
+  _nutritionCodes(product) {
+    const seen = new Set();
+    return [this._listPrice(product)?.ean,product?.barcode,...(product?.barcodes ?? [])].filter(code => {
+      if (typeof code !== "string" || !/^(?:\d{8}|\d{12,14})$/.test(code)) return false;
+      const total = [...code.slice(0,-1)].reverse().reduce((sum,digit,index) => sum + Number(digit)*(index%2 ? 1 : 3),0);
+      const key=code.padStart(14,"0");
+      if ((10-total%10)%10 !== Number(code.at(-1)) || seen.has(key)) return false;
+      seen.add(key); return true;
+    });
+  }
+
+  _stopListNutrition() {
+    this._nutritionToken = null; this._nutritionLoading = false; this._nutrition.clear();
+  }
+
+  async _loadListNutrition() {
+    if (this._nutritionLoading || !this.isConnected || !this._hass) return;
+    const codes = new Map();
+    for (const item of this._session.items) {
+      for (const code of this._nutritionCodes(this._catalogProducts.get(productNameKey(item.summary)))) {
+        if (!this._nutrition.has(code.padStart(14,"0"))) codes.set(code.padStart(14,"0"),code);
+      }
+    }
+    if (!codes.size) return;
+    const token = this._nutritionToken = {};
+    this._nutritionLoading = true;
+    try {
+      for (const [key,code] of codes) {
+        if (token !== this._nutritionToken || !this.isConnected || this._listLayout !== "rows" || this._view !== "shopping") break;
+        this._nutrition.set(key,null);
+        try {
+          const result = await this._hass.callWS({type:"improved_shopping_list/catalog/nutriscore",code});
+          if (token !== this._nutritionToken || !this.isConnected) return;
+          if (/^[a-e]$/.test(result.nutriscore?.grade ?? "")) this._nutrition.set(key,{code,grade:result.nutriscore.grade});
+        } catch { /* Missing optional nutrition never blocks the shopping list. */ }
+        if (token === this._nutritionToken) this._renderData();
+      }
+    } finally {
+      if (token === this._nutritionToken) { this._nutritionLoading = false; if (this.isConnected) this._renderData(); }
+    }
+  }
+
   _pendingTotal(items) {
     const totals = new Map();
     for (const item of items) {
@@ -673,18 +733,29 @@ class ImprovedShoppingListPanel extends HTMLElement {
         const categoryTag = document.createElement("span");
         categoryTag.className = "row-category"; categoryTag.style.backgroundColor = category.color;
         categoryTag.title = category.name;
+        categoryTag.setAttribute("aria-label",`Categoría: ${category.name}`);
         const icon = document.createElement("ha-icon"); icon.setAttribute("icon",category.icon); icon.setAttribute("aria-hidden","true");
         const label = document.createElement("span"); label.textContent = category.name;
         categoryTag.append(icon,label); metadata.append(categoryTag);
       }
       const offer = this._listLayout === "rows" ? this._listPrice(product) : null;
+      const nutrition = this._listLayout === "rows" ? this._nutritionCodes(product).map(code=>this._nutrition.get(code.padStart(14,"0"))).find(value=>value?.grade) : null;
+      if (nutrition) {
+        const badge=document.createElement("span");badge.className="row-nutriscore";badge.dataset.grade=nutrition.grade;
+        badge.textContent=nutrition.grade.toUpperCase();badge.title=`Nutri-Score ${badge.textContent} · ${nutrition.code}`;
+        badge.setAttribute("aria-label",`Nutri-Score ${badge.textContent}`);metadata.append(badge);
+      }
       if (offer) {
         const price = document.createElement("span"); price.className = "row-price";
-        const icon = document.createElement("ha-icon"); icon.setAttribute("icon","mdi:cash-multiple"); icon.setAttribute("aria-hidden","true");
+        if (STORE_LOGOS[offer.store]) {
+          const logo=document.createElement("img");logo.className="store-logo";logo.src=STORE_LOGOS[offer.store];
+          logo.alt=STORE_NAMES[offer.store];logo.referrerPolicy="no-referrer";
+          logo.addEventListener("error",()=>logo.remove(),{once:true});price.append(logo);
+        }
         const label = document.createElement("span");
         label.textContent = new Intl.NumberFormat("es-ES",{style:"currency",currency:offer.currency}).format(Number(offer.price));
-        price.title = offer.store ? `Último precio guardado · ${({mercadona:"Mercadona",carrefour:"Carrefour",alcampo:"Alcampo"})[offer.store] ?? offer.store}` : "Precio manual";
-        price.append(icon,label); metadata.append(price);
+        price.title = offer.store ? `Último precio guardado · ${STORE_NAMES[offer.store] ?? offer.store}` : "Precio manual";
+        price.append(label); metadata.append(price);
       }
       const badge = row.querySelector(".category-badge");
       badge.hidden = !category;

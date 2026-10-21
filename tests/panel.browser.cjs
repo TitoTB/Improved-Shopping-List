@@ -606,7 +606,13 @@ async function main() {
     assert.match(await page.locator("#pending-total").textContent(),/≈ 2,59/);
     await page.screenshot({ path: "test-results/list-grid-desktop.png", fullPage: true });
     assert.equal(await page.locator("#toggle-list-layout ha-icon").getAttribute("icon"),"mdi:view-sequential");
+    await page.route("https://almeria.online/**",route=>route.fulfill({contentType:"image/svg+xml",body:'<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32"><rect width="32" height="32" fill="red"/></svg>'}));
+    await page.evaluate(()=>{window.nutriFixture={"0012345678905":{grade:"b"}};});
     await page.getByRole("button",{name:"Cambiar a vista de filas",exact:true}).click();
+    await yogurtListCard.locator(".row-nutriscore").filter({hasText:"B"}).waitFor();
+    assert.equal(await yogurtListCard.locator(".row-nutriscore").getAttribute("aria-label"),"Nutri-Score B");
+    assert.equal(await yogurtListCard.locator(".row-nutriscore").evaluate(node=>getComputedStyle(node).backgroundColor),"rgb(133, 187, 47)");
+    assert.equal(await page.locator("#pending > li").filter({hasText:"Cacao"}).locator(".row-nutriscore").count(),0);
     assert.equal(await page.locator("#toggle-list-layout ha-icon").getAttribute("icon"),"mdi:view-comfy");
     assert.equal(await page.locator("#pending").evaluate(node=>getComputedStyle(node).gridTemplateColumns.split(" ").length),1);
     assert.equal(await yogurtListCard.locator(".row-category").textContent(),"Lácteos y frescos");
@@ -619,6 +625,12 @@ async function main() {
       for(const callback of window.storeProgressListeners)callback({running:false});
     });
     await yogurtListCard.locator(".row-price").filter({hasText:"2,15"}).waitFor();
+    assert.equal(await yogurtListCard.locator(".row-price img").getAttribute("alt"),"Alcampo");
+    assert.equal(await yogurtListCard.locator(".row-price ha-icon").count(),0);
+    assert.ok(await yogurtListCard.locator(".row-price img").evaluate(node=>{
+      const style=getComputedStyle(node);return style.backgroundColor==="rgb(255, 255, 255)"&&style.borderRadius==="50%"&&style.width===style.height;
+    }));
+    const nutritionCallsAfterLoad=await page.evaluate(()=>window.nutriCalls.length);
     assert.match(await page.locator("#pending-total").textContent(),/≈ 2,15/);
     for(const width of [1280,390]){
       await page.setViewportSize({width,height:844});
@@ -628,6 +640,12 @@ async function main() {
         return {wide:card.width>card.height,ordered:media.right<=text.left&&text.right<=meta.left,overflow:node.scrollWidth>node.clientWidth};
       });
       assert.deepEqual(bounds,{wide:true,ordered:true,overflow:false});
+      assert.equal(await yogurtListCard.locator(".item-text").evaluate(node=>getComputedStyle(node).textAlign),"left");
+      assert.ok(await page.locator("#pending .item-text").evaluateAll(nodes=>{
+        const left=nodes[0].getBoundingClientRect().left;return nodes.every(node=>Math.abs(node.getBoundingClientRect().left-left)<1);
+      }));
+      assert.equal(await yogurtListCard.locator(".row-category span").isVisible(),width>540);
+      assert.equal(await yogurtListCard.locator(".row-category").getAttribute("aria-label"),"Categoría: Lácteos y frescos");
       assert.ok(await page.locator(".list-totals").evaluate(node=>{
         const count=node.querySelector("#pending-count").getBoundingClientRect(),total=node.querySelector("#pending-total").getBoundingClientRect();
         return count.right<=total.left&&Math.abs(count.top-total.top)<1&&node.scrollWidth<=node.clientWidth;
@@ -637,6 +655,8 @@ async function main() {
     await page.getByRole("button",{name:"Marcar como comprado: Yogur sin azúcar",exact:true}).click();
     await page.locator("#completed-summary").click();
     await page.locator("#completed .row-price").filter({hasText:"2,15"}).waitFor();
+    assert.equal(await page.locator("#completed .row-nutriscore").textContent(),"B");
+    assert.equal(await page.evaluate(()=>window.nutriCalls.length),nutritionCallsAfterLoad);
     assert.match(await page.locator("#pending-total").textContent(),/≈ 0,00/);
     await page.getByRole("button",{name:"Volver a poner por comprar: Yogur sin azúcar",exact:true}).click();
     await page.getByRole("button",{name:"Cambiar a vista de cuadrícula",exact:true}).click();

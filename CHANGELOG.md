@@ -2,6 +2,7 @@
 
 ## Pendiente de publicación
 
+- DIA con configuración por código postal y vinculaciones por enlace o ID. Consulta su API pública mediante urllib estándar en el executor de Home Assistant, sin cuenta ni dependencias adicionales. Confirma ubicación y referencia, conserva precios ante errores y respeta las pausas de actualización. Probado desde desarrollo con la referencia 84892 y código postal 28024: 2,84 EUR.
 - Eroski con selección de centro de recogida por nombre y vinculaciones mediante enlace completo. Sesión anónima propia, verificación del centro efectivo y precio de la ficha, sin cuenta ni carrito del usuario; reutiliza la sesión y respeta cinco minutos entre todas las peticiones.
 - Consum y La Sirena en Ajustes → Tiendas, con los logos aportados, configuración por código postal y selección entre centros con cobertura.
 - Vinculaciones de productos por enlace o ID, precios guardados por centro, tienda favorita y revisión diaria o manual de productos pendientes. La Sirena verifica la variante y el precio de entrega con una pausa de cinco minutos entre peticiones.

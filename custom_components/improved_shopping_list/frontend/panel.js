@@ -8,6 +8,7 @@ import "./readers-panel.js?v=0.17.0";
 
 const LOGO_URL = new URL("logo.png", import.meta.url).href;
 const STORE_LOGOS = {
+  dia:new URL("dia.png", import.meta.url).href,
   eroski:new URL("eroski.svg", import.meta.url).href,
   consum:new URL("consum.jpg", import.meta.url).href,
   lasirena:new URL("lasirena.jpg", import.meta.url).href,
@@ -15,7 +16,7 @@ const STORE_LOGOS = {
   carrefour:"https://images.seeklogo.com/logo-png/31/2/carrefour-logo-png_seeklogo-318190.png",
   alcampo:"https://almeria.online/wp-content/uploads/2024/09/alcampo-logo.png",
 };
-const STORE_NAMES = {mercadona:"Mercadona",carrefour:"Carrefour",alcampo:"Alcampo",consum:"Consum",lasirena:"La Sirena",eroski:"Eroski"};
+const STORE_NAMES = {mercadona:"Mercadona",carrefour:"Carrefour",alcampo:"Alcampo",consum:"Consum",lasirena:"La Sirena",eroski:"Eroski",dia:"DIA"};
 const searchText = value => normalizedName(value).normalize("NFD").replace(/\p{M}/gu, "");
 
 class ImprovedShoppingListPanel extends HTMLElement {
@@ -604,10 +605,10 @@ class ImprovedShoppingListPanel extends HTMLElement {
     if (!this.isConnected || !this._hass) return;
     if (this._rowPricesLoading) { this._rowPricesAgain = true; return this._rowPricesLoading; }
     const token = this._rowPricesToken;
-    const pending = Promise.allSettled(["mercadona","carrefour","alcampo","consum","lasirena","eroski"].map(store =>
+    const pending = Promise.allSettled(["mercadona","carrefour","alcampo","consum","lasirena","eroski","dia"].map(store =>
       this._hass.callWS({type:"improved_shopping_list/catalog/store_prices",store}))).then(results => {
         if (token !== this._rowPricesToken || !this.isConnected) return;
-        const stores = ["mercadona","carrefour","alcampo","consum","lasirena","eroski"];
+        const stores = ["mercadona","carrefour","alcampo","consum","lasirena","eroski","dia"];
         this._rowPrices = results.flatMap((result,index) => result.status === "fulfilled" ?
           result.value.products ?? [] : this._rowPrices.filter(offer => offer.store === stores[index]));
         this._renderData();

@@ -36,7 +36,7 @@ class ImprovedShoppingSettings extends HTMLElement {
 
   disconnectedCallback() {
     this.active = false;
-    for (const store of ["consum", "lasirena", "eroski"]) this.shadowRoot.querySelector(`#${store}-dialog`)?.close();
+    for (const store of ["consum", "lasirena", "eroski", "dia"]) this.shadowRoot.querySelector(`#${store}-dialog`)?.close();
     clearInterval(this._pricesProgressTimer);
     this.shadowRoot.querySelector("#prices-progress-dialog")?.close();
     this.shadowRoot.querySelector("#price-schedule-dialog")?.close();
@@ -234,7 +234,7 @@ class ImprovedShoppingSettings extends HTMLElement {
     const storesGrid=root.querySelector(".stores-grid");
     storesGrid.append(...[...storesGrid.querySelectorAll(".store-row")].sort((a,b)=>
       a.querySelector("h3").textContent.localeCompare(b.querySelector("h3").textContent,"es")));
-    for (const store of ["mercadona", "carrefour", "alcampo", "consum", "lasirena", "eroski"]) {
+    for (const store of ["mercadona", "carrefour", "alcampo", "consum", "lasirena", "eroski", "dia"]) {
       const row = root.querySelector(`#${store}-enabled`).closest(".store-row");
       const heart = document.createElement("button"); heart.id = `favorite-${store}`; heart.type = "button"; heart.className = "store-cog store-favorite";
       const label = `Marcar ${row.querySelector("h3").textContent} como favorita`;
@@ -332,7 +332,7 @@ class ImprovedShoppingSettings extends HTMLElement {
     this._watchPriceStatus();
     this._renderPriceTimestamp();
     this._renderGlobalPriceProgress();
-    for (const store of ["mercadona", "carrefour", "alcampo", "consum", "lasirena", "eroski"]) {
+    for (const store of ["mercadona", "carrefour", "alcampo", "consum", "lasirena", "eroski", "dia"]) {
       root.querySelector(`#${store}-enabled`).closest(".store-row").dataset.enabled = String(Boolean(settings.stores?.[store]?.enabled));
       const favorite = root.querySelector(`#favorite-${store}`);
       favorite.disabled = locked || !settings.stores?.[store]?.enabled;
@@ -490,7 +490,7 @@ class ImprovedShoppingSettings extends HTMLElement {
     bar.max=total||1;
     if(preparing)bar.removeAttribute("value");else bar.value=empty?0:processed;
     root.querySelector("#prices-progress-percentage").textContent=preparing?"…":`${total&&!empty?Math.round(processed/total*100):0} %`;
-    const names={mercadona:"Mercadona",carrefour:"Carrefour",alcampo:"Alcampo",consum:"Consum",lasirena:"La Sirena",eroski:"Eroski"};
+    const names={mercadona:"Mercadona",carrefour:"Carrefour",alcampo:"Alcampo",consum:"Consum",lasirena:"La Sirena",eroski:"Eroski",dia:"DIA"};
     const errors=[...(this._refreshStartErrors??[]),...Object.entries(state?.errors??{}).filter(([store])=>this._data.settings.stores?.[store]?.enabled).map(([store,error])=>`${names[store]??store}: ${error}`)];
     const errorBox=root.querySelector("#stores-refresh-error");errorBox.textContent=[...new Set(errors)].join(" ");errorBox.hidden=!errors.length;
     root.querySelector("#prices-progress-status").textContent=preparing?"Preparando actualización…":empty?(errors.length?"No se ha podido iniciar la revisión.":"No hay productos vinculados pendientes en tus listas."):`${processed} de ${total} referencias procesadas${state?.running?"":" · Revisión finalizada"}`;
@@ -508,7 +508,7 @@ class ImprovedShoppingSettings extends HTMLElement {
   async _refreshPricesNow() {
     if (this._pricesRefreshing || this._data.hass?.user?.is_admin !== true) return;
     const hass = this._data.hass;
-    const stores = ["mercadona","carrefour","alcampo","consum","lasirena","eroski"].filter(store=>this._data.settings.stores?.[store]?.enabled);
+    const stores = ["mercadona","carrefour","alcampo","consum","lasirena","eroski","dia"].filter(store=>this._data.settings.stores?.[store]?.enabled);
     if (!stores.length) return;
     const errorBox = this.shadowRoot.querySelector("#stores-refresh-error");
     errorBox.textContent = ""; errorBox.hidden = true;
@@ -521,7 +521,7 @@ class ImprovedShoppingSettings extends HTMLElement {
     try {
       const results = await Promise.allSettled(stores.map(async store=>hass.callWS({type:"improved_shopping_list/settings/refresh_prices",store})));
       if (!this.isConnected || this._data.hass.connection !== hass.connection) return;
-      const names = {mercadona:"Mercadona",carrefour:"Carrefour",alcampo:"Alcampo",consum:"Consum",lasirena:"La Sirena",eroski:"Eroski"};
+      const names = {mercadona:"Mercadona",carrefour:"Carrefour",alcampo:"Alcampo",consum:"Consum",lasirena:"La Sirena",eroski:"Eroski",dia:"DIA"};
       const errors = results.flatMap((result,index)=>result.status === "rejected" ? [`${names[stores[index]]}: ${result.reason?.message ?? "No se pudo iniciar la actualización."}`] : []);
       this._refreshStartErrors=errors;
       this._manualQueued=results.reduce((count,result)=>count+(result.status==="fulfilled"?Math.max(0,Number(result.value.queued)||0):0),0);
@@ -566,10 +566,10 @@ class ImprovedShoppingSettings extends HTMLElement {
 
   _buildRegionalStores(root) {
     this._regionalDrafts = {};
-    for (const [store,name] of [["consum","Consum"],["lasirena","La Sirena"],["eroski","Eroski"]]) {
-      root.querySelector(".stores-grid").insertAdjacentHTML("beforeend", `<article class="store-row"><img class="store-logo" src="${new URL(`${store}.${store === "eroski" ? "svg" : "jpg"}`,import.meta.url).href}" alt="Logo de ${name}" loading="lazy" width="56" height="56"><div class="store-name"><h3>${name}</h3></div><div class="store-controls"><input id="${store}-enabled" class="store-toggle" type="checkbox" role="switch" aria-label="Habilitar ${name}"><button id="configure-${store}" class="store-cog" type="button" aria-label="Ajustes de ${name}" title="Ajustes de ${name}"><ha-icon icon="mdi:cog" aria-hidden="true"></ha-icon></button></div></article>`);
+    for (const [store,name] of [["consum","Consum"],["lasirena","La Sirena"],["eroski","Eroski"],["dia","DIA"]]) {
+      root.querySelector(".stores-grid").insertAdjacentHTML("beforeend", `<article class="store-row"><img class="store-logo" src="${new URL(`${store}.${store === "dia" ? "png" : store === "eroski" ? "svg" : "jpg"}`,import.meta.url).href}" alt="Logo de ${name}" loading="lazy" width="56" height="56"><div class="store-name"><h3>${name}</h3></div><div class="store-controls"><input id="${store}-enabled" class="store-toggle" type="checkbox" role="switch" aria-label="Habilitar ${name}"><button id="configure-${store}" class="store-cog" type="button" aria-label="Ajustes de ${name}" title="Ajustes de ${name}"><ha-icon icon="mdi:cog" aria-hidden="true"></ha-icon></button></div></article>`);
       const container = document.createElement("div");
-      container.innerHTML = `<dialog id="${store}-dialog" aria-labelledby="${store}-title"><h2 id="${store}-title">${name}</h2>${storeViewTabs(name,`${store}-products-tab`,`${store}-config-tab`)}<div id="${store}-error" class="notice error" role="alert" hidden></div><section id="${store}-products-view"><div id="${store}-products" class="store-products"></div><p id="${store}-status" class="store-cache-footer" role="status"></p></section><section id="${store}-config-view" class="store-configuration" hidden><form id="${store}-form"><label for="${store}-postal">Código postal</label><input id="${store}-postal" inputmode="numeric" autocomplete="postal-code" maxlength="5" pattern="(?:0[1-9]|[1-4][0-9]|5[0-2])[0-9]{3}" required><div class="appearance-actions"><button id="${store}-resolve" type="button">Comprobar código postal</button></div><label for="${store}-area">Centro de ${name}</label><select id="${store}-area" required aria-label="Centro de ${name}"></select><p>${store === "eroski" ? "Selecciona un centro de recogida. Se consultará el precio de ese centro. Las vinculaciones necesitan el enlace completo del producto." : "Selecciona un centro con entrega para tu código postal."}</p><div class="appearance-actions"><button id="save-${store}" class="primary" type="submit">Guardar configuración</button></div></form></section></dialog>`;
+      container.innerHTML = `<dialog id="${store}-dialog" aria-labelledby="${store}-title"><h2 id="${store}-title">${name}</h2>${storeViewTabs(name,`${store}-products-tab`,`${store}-config-tab`)}<div id="${store}-error" class="notice error" role="alert" hidden></div><section id="${store}-products-view"><div id="${store}-products" class="store-products"></div><p id="${store}-status" class="store-cache-footer" role="status"></p></section><section id="${store}-config-view" class="store-configuration" hidden><form id="${store}-form"><label for="${store}-postal">Código postal</label><input id="${store}-postal" inputmode="numeric" autocomplete="postal-code" maxlength="5" pattern="(?:0[1-9]|[1-4][0-9]|5[0-2])[0-9]{3}" required><div class="appearance-actions"><button id="${store}-resolve" type="button">Comprobar código postal</button></div><label for="${store}-area">${store === "dia" ? "Zona de DIA" : `Centro de ${name}`}</label><select id="${store}-area" required aria-label="${store === "dia" ? "Zona de DIA" : `Centro de ${name}`}"></select><p>${store === "dia" ? "DIA asigna el centro a partir del código postal. No necesitas una cuenta." : store === "eroski" ? "Selecciona un centro de recogida. Se consultará el precio de ese centro. Las vinculaciones necesitan el enlace completo del producto." : "Selecciona un centro con entrega para tu código postal."}</p><div class="appearance-actions"><button id="save-${store}" class="primary" type="submit">Guardar configuración</button></div></form></section></dialog>`;
       root.append(...container.children);
       const dialog = root.querySelector(`#${store}-dialog`);
       const showView = view => {
@@ -613,7 +613,7 @@ class ImprovedShoppingSettings extends HTMLElement {
 
   _renderRegionalStores(locked) {
     const root = this.shadowRoot;
-    for (const store of ["consum","lasirena","eroski"]) {
+    for (const store of ["consum","lasirena","eroski","dia"]) {
       root.querySelector(`#${store}-enabled`).checked = Boolean(this._data.settings.stores?.[store]?.enabled);
       for (const id of [`${store}-enabled`,`${store}-postal`,`${store}-resolve`,`${store}-area`]) root.querySelector(`#${id}`).disabled = locked;
       root.querySelector(`#configure-${store}`).disabled = !this._data.settings.loaded || this._data.settings.loading || this._busy;

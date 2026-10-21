@@ -10,13 +10,14 @@ from homeassistant.helpers.aiohttp_client import async_create_clientsession
 
 from .stores import StoreError
 from .eroski import EroskiClient, EroskiError, AREA_PATTERN, pickup_areas
+from .dia import resolve_postal as resolve_dia_postal, DiaError
 
-REGIONAL_STORES = {"consum": "Consum", "lasirena": "La Sirena", "eroski":"Eroski"}
+REGIONAL_STORES = {"consum": "Consum", "lasirena": "La Sirena", "eroski":"Eroski", "dia":"DIA"}
 POSTAL_PATTERN = r"(?:0[1-9]|[1-4][0-9]|5[0-2])[0-9]{3}"
 
 
 def valid_area(store, area):
-    pattern = AREA_PATTERN if store == "eroski" else r"[0-9]{1,8}D" if store == "consum" else r"lasirena[0-9]{1,8}"
+    pattern = POSTAL_PATTERN if store == "dia" else AREA_PATTERN if store == "eroski" else r"[0-9]{1,8}D" if store == "consum" else r"lasirena[0-9]{1,8}"
     return isinstance(area, str) and re.fullmatch(pattern, area) is not None
 
 
@@ -55,6 +56,11 @@ def coverage_areas(store, data):
 async def async_resolve_areas(hass, store, postal_code):
     if store not in REGIONAL_STORES or not isinstance(postal_code, str) or not re.fullmatch(POSTAL_PATTERN, postal_code):
         raise StoreError("Introduce un código postal español válido de cinco cifras.")
+    if store == "dia":
+        try:
+            return await hass.async_add_executor_job(resolve_dia_postal,postal_code)
+        except DiaError as err:
+            raise StoreError(str(err)) from err
     if store == "eroski":
         client = EroskiClient(hass)
         try:

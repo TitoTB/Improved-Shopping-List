@@ -131,13 +131,13 @@ const hass={
     }
     if(msg.type==='improved_shopping_list/settings/resolve_store'){
       if(msg.postal_code==='28024'&&msg.store==='consum')throw new Error('Consum no ofrece entrega para este código postal.');
-      return {postal_code:msg.postal_code,areas:msg.store==='eroski'?[{id:'f7e80707-fd7a-437c-b451-698301f2cf77',zone:'244',name:'BIZKAIA - Eroski Deusto'}]:msg.store==='consum'?[{id:'301D',name:'Centro 301 · Cullera',zone:'301'}]:[{id:'lasirena102',name:'Centro 102'},{id:'lasirena259',name:'Centro 259'}]};
+      return {postal_code:msg.postal_code,areas:msg.store==='dia'?[{id:msg.postal_code,zone:msg.postal_code,name:'Código postal '+msg.postal_code}]:msg.store==='eroski'?[{id:'f7e80707-fd7a-437c-b451-698301f2cf77',zone:'244',name:'BIZKAIA - Eroski Deusto'}]:msg.store==='consum'?[{id:'301D',name:'Centro 301 · Cullera',zone:'301'}]:[{id:'lasirena102',name:'Centro 102'},{id:'lasirena259',name:'Centro 259'}]};
     }
     if(msg.type==='improved_shopping_list/settings/store'){
       if(window.failSettings)throw new Error('Mercadona no está disponible');
-      if(['consum','lasirena','eroski'].includes(msg.store)){
+      if(['consum','lasirena','eroski','dia'].includes(msg.store)){
         const previous=window.listSettings.stores?.[msg.store]??{};
-        window.listSettings.stores={...window.listSettings.stores,[msg.store]:{...previous,enabled:msg.enabled,...(msg.verify?{postal_code:msg.postal_code,area_id:msg.area_id,area_name:msg.area_id,zone:msg.store==='consum'?'301':msg.store==='eroski'?'244':'',checked_at:12345}:{})}};
+        window.listSettings.stores={...window.listSettings.stores,[msg.store]:{...previous,enabled:msg.enabled,...(msg.verify?{postal_code:msg.postal_code,area_id:msg.area_id,area_name:msg.area_id,zone:msg.store==='dia'?msg.postal_code:msg.store==='consum'?'301':msg.store==='eroski'?'244':'',checked_at:12345}:{})}};
         const active=Object.keys(window.listSettings.stores).filter(key=>window.listSettings.stores[key].enabled);
         if(!active.includes(window.listSettings.favorite_store))window.listSettings.favorite_store=active[0]??'';
         window.emitSettings();return structuredClone(window.listSettings);
@@ -275,7 +275,7 @@ async function main() {
       return;
     }
     if (pathname === "/") { res.setHeader("content-type", "text/html; charset=utf-8"); res.end(html); return; }
-    if (!["/panel.js", "/dialog-controls.js", "/todo-client.js", "/catalog-panel.js", "/catalog-client.js", "/category-panel.js", "/icon-picker.js", "/list-settings-client.js", "/settings-panel.js", "/readers-client.js", "/readers-panel.js", "/product-matching.js", "/product-names.js", "/logs-panel.js", "/logo.png", "/mercadona.png", "/consum.jpg", "/lasirena.jpg", "/eroski.svg"].includes(pathname)) { res.writeHead(404).end(); return; }
+    if (!["/panel.js", "/dialog-controls.js", "/todo-client.js", "/catalog-panel.js", "/catalog-client.js", "/category-panel.js", "/icon-picker.js", "/list-settings-client.js", "/settings-panel.js", "/readers-client.js", "/readers-panel.js", "/product-matching.js", "/product-names.js", "/logs-panel.js", "/logo.png", "/mercadona.png", "/consum.jpg", "/lasirena.jpg", "/eroski.svg", "/dia.png"].includes(pathname)) { res.writeHead(404).end(); return; }
     res.setHeader("content-type", pathname.endsWith(".svg") ? "image/svg+xml" : pathname.endsWith(".png") ? "image/png" : pathname.endsWith(".jpg") ? "image/jpeg" : "text/javascript; charset=utf-8");
     res.end(await fs.readFile(path.join(root, pathname.slice(1))));
   });
@@ -325,7 +325,7 @@ async function main() {
       };
       visit(document);
       return dialogs.filter(dialog => dialog.querySelectorAll(".isl-dialog-close[aria-label='Cerrar ventana']").length === 1).length;
-    }), 20);
+    }), 21);
     await page.getByRole("button", { name: "Seleccionar lista", exact: true }).click();
     const listDialog = page.getByRole("dialog", { name: "Seleccionar lista", exact: true });
     assert.equal(await listDialog.getByRole("button", { name: "Compra · Bring!", exact: true }).getAttribute("aria-pressed"), "true");
@@ -1025,9 +1025,9 @@ async function main() {
     await settingsPage.getByRole("button", { name: "Ajustes", exact: true }).click();
     await settingsView.getByRole("button",{name:"Tiendas",exact:true}).click();
     assert.equal(await settingsView.locator("#settings-view-stores ha-icon").getAttribute("icon"), "mdi:store");
-    assert.deepEqual(await settingsView.locator(".stores-grid .store-name h3").allTextContents(),["Alcampo","Carrefour","Consum","Eroski","La Sirena","Mercadona"]);
+    assert.deepEqual(await settingsView.locator(".stores-grid .store-name h3").allTextContents(),["Alcampo","Carrefour","Consum","DIA","Eroski","La Sirena","Mercadona"]);
     // Every store uses Mercadona's default tabs, active styling and configuration actions.
-    for (const store of ['Mercadona','Carrefour','Alcampo','Consum','La Sirena','Eroski']) {
+    for (const store of ['Mercadona','Carrefour','Alcampo','Consum','La Sirena','Eroski','DIA']) {
       await settingsView.getByRole('button',{name:`Ajustes de ${store}`,exact:true}).click();
       const dialog=settingsView.getByRole('dialog',{name:store,exact:true});
       const products=dialog.getByRole('button',{name:'Productos',exact:true});
@@ -1049,7 +1049,7 @@ async function main() {
       await dialog.getByRole('button',{name:'Cerrar ventana',exact:true}).click();
     }
     // Configure new postal stores, require an explicit center when several exist.
-    for (const [store,name,postal,area] of [['consum','Consum','46409','301D'],['lasirena','La Sirena','28024','lasirena259'],['eroski','Eroski','48001','f7e80707-fd7a-437c-b451-698301f2cf77']]) {
+    for (const [store,name,postal,area] of [['consum','Consum','46409','301D'],['lasirena','La Sirena','28024','lasirena259'],['eroski','Eroski','48001','f7e80707-fd7a-437c-b451-698301f2cf77'],['dia','DIA','28024','28024']]) {
       await settingsView.getByLabel(`Habilitar ${name}`,{exact:true}).click();
       const dialog=settingsView.getByRole('dialog',{name,exact:true});
       await dialog.getByLabel('Código postal',{exact:true}).fill(postal);
@@ -1057,18 +1057,18 @@ async function main() {
       await dialog.getByRole('button',{name:'Comprobar código postal',exact:true}).click();
       await dialog.locator(`#${store}-area option[value="${area}"]`).waitFor({state:'attached'});
       if(store==='lasirena')assert.equal(await dialog.getByRole('button',{name:'Guardar configuración',exact:true}).isDisabled(),true);
-      await dialog.getByLabel(`Centro de ${name}`,{exact:true}).selectOption(area);
+      await dialog.getByLabel(store==='dia'?'Zona de DIA':`Centro de ${name}`,{exact:true}).selectOption(area);
       await dialog.getByRole('button',{name:'Guardar configuración',exact:true}).click();
       await settingsPage.waitForFunction(store=>window.listSettings.stores?.[store]?.enabled,store);
       await dialog.getByRole('button',{name:'Cerrar ventana',exact:true}).click();
-      assert.match(await settingsView.locator(`img[alt="Logo de ${name}"]`).getAttribute('src'),new RegExp('/'+store+'\\.'+(store==='eroski'?'svg':'jpg')+'$'));
+      assert.match(await settingsView.locator(`img[alt="Logo de ${name}"]`).getAttribute('src'),new RegExp('/'+store+'\\.'+(store==='dia'?'png':store==='eroski'?'svg':'jpg')+'$'));
       await settingsView.getByLabel(`Habilitar ${name}`,{exact:true}).uncheck();
       await settingsPage.waitForFunction(store=>!window.listSettings.stores?.[store]?.enabled,store);
       await settingsView.getByRole('button',{name:`Ajustes de ${name}`,exact:true}).click();
       await dialog.getByText('0 precios guardados',{exact:true}).waitFor();
       await dialog.getByRole('button',{name:'Configuración',exact:true}).click();
       assert.equal(await dialog.getByLabel('Código postal',{exact:true}).inputValue(),postal);
-      assert.equal(await dialog.getByLabel(`Centro de ${name}`,{exact:true}).inputValue(),area);
+      assert.equal(await dialog.getByLabel(store==='dia'?'Zona de DIA':`Centro de ${name}`,{exact:true}).inputValue(),area);
       await dialog.getByRole('button',{name:'Cerrar ventana',exact:true}).click();
     }
     await settingsView.getByLabel("Habilitar Mercadona").check();

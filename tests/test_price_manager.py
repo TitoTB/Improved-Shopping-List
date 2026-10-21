@@ -52,6 +52,7 @@ async def env(hass, monkeypatch):
 @pytest.mark.parametrize(("store","config","identifier"),[
     ("consum",{"enabled":True,"postal_code":"46409","area_id":"301D","zone":"301"},"7394260"),
     ("lasirena",{"enabled":True,"postal_code":"28024","area_id":"lasirena259"},"655"),
+    ("dia",{"enabled":True,"postal_code":"28024","area_id":"28024","zone":"28024"},"84892"),
     ("eroski",{"enabled":True,"postal_code":"48001","area_id":"f7e80707-fd7a-437c-b451-698301f2cf77","zone":"244"},
      "https://supermercado.eroski.es/es/productdetail/17528126-aceite/")])
 async def test_regional_stores_only_queue_pending_and_keep_disabled_cache(env,store,config,identifier):

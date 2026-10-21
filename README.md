@@ -6,7 +6,7 @@ Una interfaz propia para gestionar las listas de la compra que ya tienes integra
 
 Versión actual: **0.17.0**. Interfaz en español, pensada para móvil y ordenador. Requiere **Home Assistant Core 2026.10 o posterior**. La referencia de desarrollo es Core 2026.10.2.
 
-Vinculaciones con Mercadona, Carrefour, Alcampo, Consum, La Sirena y Eroski, y consultas
+Vinculaciones con Mercadona, Carrefour, Alcampo, Consum, La Sirena, Eroski y DIA, y consultas
 directas desde Home Assistant. Se ha retirado el feed
 de precios de GitHub y la dependencia de Aguacatec.
 
@@ -204,7 +204,7 @@ Se reutiliza la caché persistente de identificación (30 días para productos e
 
 ## Tiendas y vinculaciones
 
-En **Ajustes → Tiendas** se habilitan Mercadona, Carrefour, Alcampo, Consum, La Sirena y Eroski, se elige la
+En **Ajustes → Tiendas** se habilitan Mercadona, Carrefour, Alcampo, Consum, La Sirena, Eroski y DIA, se elige la
 favorita y se configura la hora de revisión. Mercadona resuelve su almacén desde
 el código postal; Alcampo permite indicar la región de su consulta pública.
 En Consum y La Sirena, abre **Configuración**, introduce el código postal y pulsa
@@ -232,6 +232,18 @@ La primera consulta necesita preparar la sesión (cuatro peticiones, separadas p
 cinco minutos); las siguientes reutilizan esa sesión mientras conserve el centro.
 Al cambiar de centro se prepara otra sesión y los precios de cada centro permanecen
 separados. Los errores conservan el último precio conocido.
+
+DIA admite enlace o ID. En Configuración, comprueba y guarda el código postal;
+la tienda asigna su centro automáticamente. La integración utiliza el cliente
+estándar `urllib` de Python, con su identidad predeterminada, en el executor de
+Home Assistant para evitar bloquear el bucle de eventos. En las pruebas, ese
+cliente permite consultar la API pública donde `aiohttp` recibía HTTP 403. No usa
+un navegador, cuenta, claves, cookies del usuario ni dependencias externas.
+La primera revisión configura una sesión anónima para el código postal y después
+consulta la referencia exacta; ambas peticiones respetan los cinco minutos de
+pausa. Cada respuesta debe confirmar el mismo código postal. Las siguientes
+consultas reutilizan esa sesión; los rechazos, respuestas ambiguas y productos
+sin resultado conservan el precio anterior. No se aplican precios exclusivos del club.
 
 En **Catálogo → Información adicional**, selecciona una tienda, pega su enlace
 o ID y pulsa Añadir vinculación. Puedes editar o quitar cada vínculo antes de

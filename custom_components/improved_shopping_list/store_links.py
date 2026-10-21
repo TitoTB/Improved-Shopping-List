@@ -3,10 +3,10 @@
 import re
 from urllib.parse import urlsplit
 
-STORES = {"mercadona": "Mercadona", "carrefour": "Carrefour", "alcampo": "Alcampo", "consum": "Consum", "lasirena": "La Sirena", "eroski":"Eroski"}
+STORES = {"mercadona": "Mercadona", "carrefour": "Carrefour", "alcampo": "Alcampo", "consum": "Consum", "lasirena": "La Sirena", "eroski":"Eroski", "dia":"DIA"}
 HOSTS = {"mercadona": {"tienda.mercadona.es"}, "carrefour": {"www.carrefour.es", "carrefour.es"},
          "alcampo": {"www.compraonline.alcampo.es", "compraonline.alcampo.es"},
-         "consum": {"tienda.consum.es"}, "lasirena": {"www.lasirena.es"}, "eroski":{"supermercado.eroski.es"}}
+         "consum": {"tienda.consum.es"}, "lasirena": {"www.lasirena.es"}, "eroski":{"supermercado.eroski.es"}, "dia":{"www.dia.es","dia.es"}}
 
 
 def normalize_link(store, value):
@@ -38,7 +38,8 @@ def normalize_link(store, value):
             "carrefour": r"/supermercado/(?:[^/]+/)?(R-[A-Za-z0-9-]{1,80})/p/?",
             "consum": r"/(?:es/)?p/[^/]+/([0-9]{1,12})/?",
             "lasirena": r"/(?:es/)?[^/]+-([0-9]{1,12})/p/?",
-            "eroski": r"/es/productdetail/([0-9]{1,12})-[^/]+/?"}
+            "eroski": r"/es/productdetail/([0-9]{1,12})-[^/]+/?",
+            "dia": r"/(?:[^/]+/)*p/([0-9]{1,12})/?"}
         match = re.fullmatch(patterns[store], parts.path)
         if not match:
             raise ValueError(f"El enlace no es una ficha de producto de {STORES[store]}.")
@@ -59,7 +60,7 @@ def normalize_link(store, value):
         "carrefour": f"https://www.carrefour.es/supermercado/{identifier}/p",
         "consum": f"https://tienda.consum.es/es/p/producto/{identifier}",
         "lasirena": f"https://www.lasirena.es/es/producto-{identifier}/p",
-        "eroski":url}
+        "eroski":url, "dia":f"https://www.dia.es/p/{identifier}"}
     return {"id": identifier, "url": url or defaults[store]}
 
 

@@ -11,6 +11,7 @@ from homeassistant.helpers.aiohttp_client import async_create_clientsession
 from .store_links import normalize_link
 from .regional_stores import POSTAL_PATTERN, valid_area
 from .eroski import EroskiClient, EroskiError
+from .dia import DiaClient, DiaError
 
 
 class PriceError(ValueError):
@@ -110,11 +111,15 @@ class PriceSources:
     def __init__(self, hass):
         self.hass = hass
         self.eroski = EroskiClient(hass)
+        self.dia = DiaClient(hass)
 
     def close(self):
         self.eroski.close()
+        self.dia.close()
 
     def expected_requests(self, store, configuration):
+        if store == "dia":
+            return 1 if self.dia.opener is not None and self.dia.postal == configuration.get("postal_code") else 2
         if store == "eroski":
             key = (configuration.get("postal_code"), configuration.get("area_id"), configuration.get("zone"))
             return 1 if self.eroski.context == key else 4
@@ -122,6 +127,11 @@ class PriceSources:
 
     async def fetch(self, store, link, configuration, before_request):
         link = normalize_link(store, link)
+        if store == "dia":
+            try:
+                return await self.dia.fetch(link,configuration,before_request)
+            except DiaError as err:
+                raise PriceError(str(err), **err.diagnostics) from err
         if store == "eroski":
             if (not re.fullmatch(POSTAL_PATTERN, configuration.get("postal_code", ""))
                 or not valid_area(store, configuration.get("area_id"))

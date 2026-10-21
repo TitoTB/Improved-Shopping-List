@@ -86,7 +86,7 @@ class PriceManager:
 
     def scope(self, store):
         config = self.settings.snapshot["stores"].get(store, {})
-        if store in ("consum", "lasirena", "eroski"):
+        if store in ("consum", "lasirena", "eroski", "dia"):
             return f"{config['postal_code']}:{config['area_id']}" if config.get("postal_code") and config.get("area_id") else ""
         return config.get("warehouse", "") if store == "mercadona" else config.get("region_id", "") if store == "alcampo" else config.get("sale_point", "005290")
 
@@ -243,7 +243,7 @@ class PriceManager:
                 raise ValueError("La integración no está disponible.")
             if not self.settings.snapshot["stores"].get(store, {}).get("enabled"):
                 raise ValueError("Habilita la tienda antes de actualizar sus precios.")
-            if store in ("mercadona", "consum", "lasirena", "eroski") and not self.scope(store):
+            if store in ("mercadona", "consum", "lasirena", "eroski", "dia") and not self.scope(store):
                 raise ValueError(f"Configura el código postal de {STORES[store]} antes de actualizar.")
             if time.time() < self._data["blocked_until"].get(store, 0):
                 raise ValueError("La tienda ha indicado una pausa. Espera antes de volver a actualizar.")

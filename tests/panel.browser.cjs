@@ -112,6 +112,11 @@ const hass={
       if(window.failNutri||window.failNutriCode===msg.code)throw new Error('OFF sin conexión');
       return {code:msg.code,product_name:'Producto '+msg.code,nutriscore:window.nutriFixture?.[msg.code]??null};
     }
+    if(msg.type==='improved_shopping_list/community/status')return structuredClone(window.communityFixture??{sharing:false,connected:false,account:'',authorization:null});
+    if(msg.type==='improved_shopping_list/community/sharing'){
+      window.communityFixture={sharing:msg.enabled,connected:false,account:'',authorization:msg.enabled?{user_code:'ABCD-EFGH',verification_uri:'https://github.com/login/device'}:null};
+      return structuredClone(window.communityFixture);
+    }
     if(msg.type==='improved_shopping_list/community/export'){
       if(window.failCommunityExport)throw new Error('No se ha podido exportar el diccionario');
       return {data:'UEsFBgAAAAAAAAAAAAAAAAAAAAAAAA==',entries:2,images:1,skipped:0};
@@ -1376,6 +1381,16 @@ async function main() {
       assert.ok(actions.every(action=>action.width===actions[0].width && action.iconWidth===16 && action.iconHeight===16));
       await settingsPage.screenshot({path:`test-results/community-${width}.png`,fullPage:true});
     }
+    const sharing=settingsView.getByLabel('Compartir mis datos de productos',{exact:true});
+    assert.equal(await sharing.isChecked(),false);
+    await sharing.check();
+    await settingsView.getByText('ABCD-EFGH',{exact:true}).waitFor();
+    const authorize=settingsView.getByRole('link',{name:'Autorizar en GitHub',exact:true});
+    assert.equal(await authorize.getAttribute('href'),'https://github.com/login/device');
+    assert.equal(await authorize.getAttribute('target'),'_blank');
+    await sharing.uncheck();
+    await settingsView.locator('#community-authorization').waitFor({state:'hidden'});
+    assert.equal(await settingsPage.evaluate(()=>window.communityFixture.sharing),false);
     const exportDownload = settingsPage.waitForEvent("download");
     await settingsView.getByRole("button",{name:"Exportar mis iconos",exact:true}).click();
     const zipDownload = await exportDownload;

@@ -2,6 +2,10 @@
 
 ## Pendiente de publicación
 
+- Sincronización comunitaria con la GitHub App Improved Shopping List Community: consentimiento explícito en Ajustes → Comunidad, autorización mediante código, renovación de tokens y almacenamiento privado sin reutilizar credenciales de HACS.
+- Diccionario único de productos en la rama `data`, con consulta diaria anónima, envío diario del catálogo permitido y recuperación de lotes fragmentados sin duplicarlos. Se excluyen listas, stock, NFC, lectores, categorías personales, notas y automatizaciones.
+- Validación automática en GitHub Actions con identidad del autor comprobada, límite de un lote por cuenta cada 24 horas, consenso de tres cuentas, exclusión de datos copiados del diccionario, licencias de Iconify contrastadas y lista de bloqueo administrada desde el repositorio.
+- Los precios comunitarios se utilizan por referencia exacta durante 24 horas, conservan su fecha original y evitan consultar de nuevo la tienda. El primer precio válido permanece hasta caducar. Se completan traducciones y vinculaciones confirmadas que falten sin sobrescribir elecciones locales; los iconos comunitarios aparecen primero.
 - Centros fijos de referencia para todas las tiendas. Retirado el botón y popup del código postal; las instalaciones anteriores migran conservando tiendas activas, favorita, listas y preferencias, sin reutilizar los errores de cobertura de la ubicación anterior.
 - Habilitar tiendas ya no consulta la cobertura. Consum utiliza el centro 301 de 46409; las consultas de productos siguen respetando las pausas y los bloqueos del servidor. Los precios de otros centros permanecen guardados con su ámbito original y no se mezclan con los de referencia.
 

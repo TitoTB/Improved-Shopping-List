@@ -18,6 +18,7 @@ from .stores import StoreError
 from .store_location import reference_location
 from .icons import IconError
 from .community import build_export
+from .community_sync import CommunityError
 from .product_translation import async_translate_name
 from .product_lookup import is_product_barcode
 from .store_links import normalize_links, STORES
@@ -74,6 +75,8 @@ def async_register_commands(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_icons_import)
     websocket_api.async_register_command(hass, ws_icons_info)
     websocket_api.async_register_command(hass, ws_community_export)
+    websocket_api.async_register_command(hass, ws_community_status)
+    websocket_api.async_register_command(hass, ws_community_sharing)
     websocket_api.async_register_command(hass, ws_nutriscore)
     websocket_api.async_register_command(hass, ws_logs_get)
     websocket_api.async_register_command(hass, ws_logs_subscribe)
@@ -180,7 +183,8 @@ async def ws_icons_search(hass, connection, msg):
         if msg["translate"] and 2 <= len(query) <= 100:
             query = (await catalog.async_icon_query(msg["product_id"], query) if msg.get("product_id")
                      else await async_translate_name(hass, query)) or query
-        community = await hass.data[DOMAIN]["community"].async_search(query[:100]) if msg["start"] == 0 else []
+        shared = hass.data[DOMAIN]["community_sync"].suggestions(query[:100]) if msg["start"] == 0 else []
+        community = shared + (await hass.data[DOMAIN]["community"].async_search(query[:100]) if msg["start"] == 0 else [])
         try:
             result = await hass.data[DOMAIN]["icons"].async_search(query[:100], msg["start"])
         except IconError:
@@ -200,9 +204,10 @@ async def ws_icons_import(hass, connection, msg):
     if not _catalog(hass, connection, msg):
         return
     try:
-        library = hass.data[DOMAIN]["community"] if msg["icon_id"].startswith("community:") else hass.data[DOMAIN]["icons"]
+        library = (hass.data[DOMAIN]["community_sync"] if msg["icon_id"].startswith("shared:") else
+            hass.data[DOMAIN]["community"] if msg["icon_id"].startswith("community:") else hass.data[DOMAIN]["icons"])
         result = await library.async_import(msg["icon_id"])
-    except IconError as err:
+    except (IconError, CommunityError) as err:
         connection.send_error(msg["id"], "icon_import_error", str(err))
     else:
         connection.send_result(msg["id"], result)
@@ -683,5 +688,27 @@ async def ws_suggestion(hass: HomeAssistant, connection, msg: dict[str, Any]) ->
     except (OSError, HomeAssistantError):
         _LOGGER.exception("Could not persist catalog suggestion")
         connection.send_error(msg["id"], "storage_error", "No se ha podido guardar el cambio. Inténtalo de nuevo.")
+    else:
+        connection.send_result(msg["id"], result)
+
+
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/community/status"})
+@websocket_api.require_admin
+@callback
+def ws_community_status(hass, connection, msg):
+    if _catalog(hass, connection, msg):
+        connection.send_result(msg["id"], hass.data[DOMAIN]["community_sync"].snapshot)
+
+
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/community/sharing", vol.Required("enabled"): bool})
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_community_sharing(hass, connection, msg):
+    if not _catalog(hass, connection, msg):
+        return
+    try:
+        result = await hass.data[DOMAIN]["community_sync"].async_sharing(msg["enabled"])
+    except (CommunityError, OSError, ValueError, TimeoutError):
+        connection.send_error(msg["id"], "community_error", "No se ha podido guardar o iniciar la autorización comunitaria.")
     else:
         connection.send_result(msg["id"], result)

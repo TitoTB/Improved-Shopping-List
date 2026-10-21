@@ -11,6 +11,7 @@ from homeassistant.helpers.typing import ConfigType
 from .catalog import Catalog
 from .activity import ActivityLog
 from .community import CommunityLibrary
+from .community_sync import CommunitySync
 from .icons import ICONS_URL, IconLibrary
 from .list_settings import ListSettings
 from .readers import ReaderManager
@@ -56,11 +57,16 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         await icons.async_load()
         community = CommunityLibrary(hass, icons)
         await community.async_load()
+        community_sync = CommunitySync(hass, catalog, icons, prices, readers.lookup)
+        await community_sync.async_load()
+        prices.community = community_sync
+        readers.lookup.community = community_sync
+        catalog.community = community_sync
         await hass.http.async_register_static_paths(
             [StaticPathConfig(STATIC_URL, str(Path(__file__).parent / "frontend"), False),
              StaticPathConfig(ICONS_URL, str(icons.directory), True)]
         )
-        hass.data[DOMAIN] = {"catalog": catalog, "stock":stock, "stock_automation":stock_automation, "settings": settings, "price_manager":prices, "store_products": store_products, "recurrence": recurrence, "readers": readers, "icons": icons, "community": community, "activity": activity, "active": False}
+        hass.data[DOMAIN] = {"catalog": catalog, "stock":stock, "stock_automation":stock_automation, "settings": settings, "price_manager":prices, "store_products": store_products, "recurrence": recurrence, "readers": readers, "icons": icons, "community": community, "community_sync": community_sync, "activity": activity, "active": False}
         async_register_commands(hass)
     return True
 
@@ -75,6 +81,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.data[DOMAIN]["stock_automation"].start()
     hass.data[DOMAIN]["readers"].start()
     hass.data[DOMAIN]["recurrence"].start()
+    hass.data[DOMAIN]["community_sync"].start()
     hass.data[DOMAIN]["price_manager"].start()
     hass.data[DOMAIN]["settings"].notify()
     entry.async_on_unload(entry.add_update_listener(_async_options_updated))
@@ -103,6 +110,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Remove the panel without changing any shopping-list items."""
     frontend.async_remove_panel(hass, PANEL_PATH)
     hass.data[DOMAIN]["active"] = False
+    await hass.data[DOMAIN]["community_sync"].async_stop()
     hass.data[DOMAIN]["stock"].stop()
     await hass.data[DOMAIN]["stock_automation"].async_stop()
     await hass.data[DOMAIN]["price_manager"].async_stop()

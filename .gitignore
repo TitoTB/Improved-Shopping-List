@@ -7,3 +7,5 @@ node_modules/
 test-results/
 dist/
 .local/
+.community-output/
+.community-publish/

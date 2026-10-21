@@ -76,16 +76,25 @@ class ProductLookup:
             _LOGGER.warning("Could not load the optional product lookup cache")
 
     def cached(self, code):
+        community = getattr(self, "community", None)
+        if community and (hint := community.product_hint(code)):
+            return hint
         entry = self._cache.get(code.zfill(14))
         return deepcopy(entry["result"]) if entry else None
 
     def is_fresh(self, code):
+        community = getattr(self, "community", None)
+        if community and community.product_hint(code):
+            return True
         entry = self._cache.get(code.zfill(14))
         return bool(entry and entry.get("fields") == FIELDS and entry["expires"] > time.time())
 
     async def async_lookup(self, code):
         if not is_product_barcode(code):
             return {"status": "unsupported"}
+        community = getattr(self, "community", None)
+        if community and (hint := community.product_hint(code)):
+            return hint
         # Serialise requests, deduplicate UPC/EAN aliases and stay below 15 reads/minute.
         async with self._lock:
             if self.is_fresh(code):

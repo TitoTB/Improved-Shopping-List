@@ -180,6 +180,9 @@ class PriceManager:
         links = self.links_for_product(product)
         for store, link in links.items():
             price = self._data["offers"].get(self.key(store, link, self.scope(store)))
+            community = getattr(self, "community", None)
+            if community and (not price or price.get("checked_at", 0) < time.time()-86400):
+                price = community.price(store, link) or price
             if price:
                 prices.append({**deepcopy(price), "catalog_product_id":product.get("id"), "name":product.get("name", ""),
                     "error":self._data["errors"].get(store, "")})
@@ -366,6 +369,9 @@ class PriceManager:
             raise ValueError("La integración no está disponible.")
         if self._data["pending"] or self._preparing:
             return self._resume_result()
+        community = getattr(self, "community", None)
+        if community:
+            await community.async_prepare_prices()
         stores = [store for store in STORES if self.settings.snapshot["stores"].get(store,{}).get("enabled")]
         errors,queued = [],0
         async with self._lock:
@@ -481,6 +487,12 @@ class PriceManager:
         self._notify()
 
     async def async_tick(self):
+        community = getattr(self, "community", None)
+        if community and self._active:
+            current = dt_util.now()
+            hour, minute = map(int, self.settings.snapshot.get("price_update_time", "01:00").split(":"))
+            if 0 <= current.hour*60+current.minute-hour*60-minute < 60:
+                await community.async_prepare_prices()
         async with self._lock:
             if not self._active or not self.hass.data.get(DOMAIN, {}).get("active") or self._preparing:
                 return
@@ -499,7 +511,10 @@ class PriceManager:
                     self._notify()
                 return
             if time.time() < self._data["next_request"]:
-                return
+                first = self._data["pending"][0]
+                community = getattr(self, "community", None)
+                if not community or not community.price(first["store"], first["link"]):
+                    return
             names, failures = await self.pending_names()
             deferred = 0
             while self._data["pending"] and deferred < len(self._data["pending"]):
@@ -526,12 +541,18 @@ class PriceManager:
                 source = "manual" if job.get("manual") else "automatic"
                 self._configuration = (entry, generation, configuration, job)
                 try:
-                    result = await self.sources.fetch(store, job["link"], configuration, self._reserve_request)
+                    community = getattr(self, "community", None)
+                    shared_price = community.price(store, job["link"]) if community else None
+                    local_price = self._data["offers"].get(key)
+                    fresh_local = local_price if community and local_price and local_price.get("checked_at", 0) >= time.time()-86400 else None
+                    result = shared_price or fresh_local
+                    if result is None:
+                        result = await self.sources.fetch(store, job["link"], configuration, self._reserve_request)
                     if (self.settings.entry is not entry or self.settings._generation != generation
                         or self.settings.snapshot["stores"].get(store) != configuration or not self._linked_job(job)):
                         result = "discarded"
                     if isinstance(result, dict):
-                        self._data["offers"][key] = {**result, "checked_at":time.time(), "scope":job["scope"]}
+                        self._data["offers"][key] = {**result, "checked_at":result.get("checked_at", time.time()), "scope":job["scope"]}
                         self._data["errors"].pop(store, None)
                         self._record("stores.price", f"{STORES[store]}: precio actualizado", source=source,
                             diagnostics={"reference_id":job["link"]["id"], "price":result["price"], "currency":result["currency"]})

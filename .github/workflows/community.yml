@@ -1,0 +1,67 @@
+name: Community dictionary
+on:
+  issues:
+    types: [opened]
+  issue_comment:
+    types: [created]
+  schedule:
+    - cron: '17 * * * *'
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['community/policy.json', 'scripts/community-process.py', 'custom_components/improved_shopping_list/community_data.py', '.github/workflows/community.yml']
+permissions:
+  contents: write
+  issues: write
+concurrency:
+  group: community-dictionary
+  cancel-in-progress: false
+jobs:
+  compile:
+    if: >-
+      github.event_name != 'issues' && github.event_name != 'issue_comment' ||
+      startsWith(github.event.issue.body, 'ISL-COMMUNITY-2')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+      - name: Validate authenticated contributions
+        run: python scripts/community-process.py
+        env:
+          GH_TOKEN: ${{ github.token }}
+      - name: Publish data only
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          mkdir .community-publish
+          cd .community-publish
+          git init
+          git remote add origin "https://github.com/${GH_REPO}.git"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          AUTH=$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)
+          if git -c http.extraheader="AUTHORIZATION: basic $AUTH" ls-remote --exit-code origin refs/heads/data >/dev/null; then
+            git -c http.extraheader="AUTHORIZATION: basic $AUTH" fetch --depth=1 origin data
+            git checkout -B data FETCH_HEAD
+          else
+            git checkout --orphan data
+          fi
+          mkdir -p community
+          cp ../.community-output/products.json community/products.json
+          cp ../.community-output/registry.json community/registry.json
+          git add community/products.json community/registry.json
+          if ! git diff --cached --quiet; then
+            git commit -m 'Update validated community product dictionary'
+            git -c http.extraheader="AUTHORIZATION: basic $AUTH" push origin data
+          fi
+      - name: Acknowledge persisted submissions
+        run: python scripts/community-process.py --close
+        env:
+          GH_TOKEN: ${{ github.token }}

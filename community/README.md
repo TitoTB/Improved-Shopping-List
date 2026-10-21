@@ -1,40 +1,78 @@
-# Diccionario de imágenes comunitarias
+# Diccionario comunitario
 
-## Aportar
+La integración consulta `community/products.json` de la rama `data` como máximo
+una vez cada 24 horas por instalación. La consulta no requiere cuenta GitHub.
+Solo se rellenan datos confirmados que falten; nunca se crea automáticamente un
+producto ni se sobrescriben nombres, imágenes o vinculaciones elegidos localmente.
+Las vinculaciones automáticas requieren coincidencia por EAN o referencia exacta;
+el nombre por sí solo no vincula variantes de tiendas.
 
-En Ajustes → Comunidad → Exportar mis iconos se descarga un ZIP voluntario. El usuario decide si lo envía al mantenedor. No hay envíos automáticos, cuentas adicionales ni servidores externos de recepción.
+En **Ajustes → Comunidad → Compartir mis datos de productos**, un administrador
+puede autorizar la app mediante un código de GitHub. La casilla está desactivada
+inicialmente. Las aportaciones son públicas y se atribuyen a esa cuenta. Incluyen
+los campos admitidos del catálogo completo: nombres, traducciones, EAN válidos,
+referencias y enlaces de tiendas, Nutri-Score, iconos identificables de Iconify y
+precios recientes. No incluyen categorías, notas, NFC, listas, stock, lectores,
+automatizaciones, IDs locales de entidades ni ubicación del usuario.
 
-El ZIP contiene `dictionary.json`, las imágenes locales admitidas y datos de procedencia/licencia disponibles. Solo se incluyen nombres de productos, traducciones almacenadas, referencias a imágenes/iconos y su presencia en el catálogo local. No incluye códigos, notas, etiquetas, categorías, entidades, listas ni credenciales. Las URL con parámetros o credenciales se omiten. No se descargan URL externas durante la exportación. Se admiten SVG estáticos, PNG, JPEG y WebP locales; archivos inexistentes, no compatibles o fuera de los directorios de imágenes permitidos se omiten.
+La app pública es https://github.com/apps/improved-shopping-list-community;
+su Client ID no es un secreto. Solo solicita Issues de escritura y Metadata de
+lectura. No se usan tokens de HACS ni una clave del mantenedor. Los tokens de
+usuario y renovación se guardan en almacenamiento privado de Home Assistant,
+nunca en el frontend, logs o exportaciones. Los administradores del servidor y
+quienes dispongan de sus copias de seguridad deben proteger ese almacenamiento.
+Desactivar la casilla borra las credenciales locales y detiene futuros envíos;
+no elimina aportaciones ya públicas. También puede revocarse la autorización
+desde los ajustes de aplicaciones de GitHub.
 
-Si falta `name_en`, el mantenedor debe completar la traducción antes de publicar. Todos los registros exportados llevan `requires_review: true`; una exportación no concede derechos de redistribución.
+## Intercambio y validación
 
-## Incorporar una aportación
+Un lote diario es un Issue con manifiesto y comentarios que contienen fragmentos
+comprimidos del JSON permitido. No hay archivos ejecutables ni imágenes arbitrarias
+en las aportaciones. Los reintentos recuperan el mismo Issue y los fragmentos ya
+aceptados. El servidor aplica el límite por ID numérico de GitHub, incluso con
+varias instalaciones. Las peticiones OAuth y los fragmentos no son lotes adicionales.
+La descarga pública no permite imponer un límite por cuenta en el servidor.
 
-1. Revisar el JSON y las imágenes sin ejecutar contenido; no extraer rutas arbitrarias de ZIP recibidos. Verificar procedencia y licencia, incluidos los avisos y atribuciones exigidos. No publicar imágenes con permisos desconocidos.
-2. Asignar un identificador estable al término inglés; agrupar sinónimos y variantes sin confundir productos distintos.
-3. Eliminar imágenes idénticas mediante SHA-256. Guardar el archivo revisado en `images/<sha256>.<extensión>` y añadir su registro a `index.json`.
-4. Registrar cada aportación revisada una sola vez. Un reenvío del mismo ZIP no debe incrementar el contador. `catalog_uses` del ZIP no equivale a usuarios ni a descargas globales.
-5. Ejecutar `npm run check` antes de publicar. La integración vuelve a consultar el índice cada 24 horas y conserva una copia si no hay conexión. No necesita una nueva versión para recibir nuevas imágenes.
+`community.yml` ejecuta exclusivamente código de `main`. Comprueba el autor real
+y que el Issue y sus comentarios procedan de la app esperada. Valida tamaños,
+huellas, EAN, dominios y rutas de tienda, importes y fechas. Publica solo datos
+en `data` y cierra la aportación después de confirmar el guardado.
 
-## Formato público
+Cada cuenta aporta como máximo un voto por campo de cada producto. Los datos
+copiados de la comunidad no generan nuevas confirmaciones. Para confirmar un
+nombre, traducción, EAN, Nutri-Score o vinculación se requieren tres cuentas con
+antigüedad suficiente y un candidato ganador sin empate. Hasta entonces el dato
+es provisional y no rellena automáticamente las fichas. Los precios se aceptan
+con una aportación válida para la referencia exacta; el primero permanece hasta
+que transcurran 24 horas desde su consulta, no desde su descarga o publicación.
+Son observaciones comunitarias: la autorización identifica a la cuenta, no
+demuestra que una instalación modificada consultase realmente la tienda.
 
-```json
-{
-  "schema_version": 1,
-  "icons": [{
-    "id": "rice-bowl",
-    "name_en": "Rice",
-    "terms": ["rice", "arroz"],
-    "file": "images/<sha256>.svg",
-    "sha256": "<sha256>",
-    "author": "Autor revisado",
-    "license": "CC0-1.0",
-    "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
-    "contributions": 1
-  }]
-}
-```
+Los iconos requieren tres confirmaciones y metadatos contrastados contra Iconify.
+Se conservan autor, licencia y procedencia. No se infiere una licencia por el
+dominio o por popularidad. Las URL manuales y archivos de origen desconocido
+permanecen locales. El ZIP de exportación anterior sigue disponible por separado.
 
-`contributions` cuenta aportaciones independientes revisadas que usan esa imagen para ese término, no todos los usuarios de la integración. El orden es decreciente por ese contador y estable por identificador en los empates. El índice comienza vacío; no hay estadísticas inventadas.
+## Administración sin revisar aportaciones
 
-La integración antepone estas sugerencias a Iconify. Solo descarga una imagen cuando el usuario la elige, verifica su hash y la guarda localmente con su atribución. Las búsquedas usan la traducción almacenada y los términos alternativos publicados. No se envían eventos de selección ni datos del catálogo al repositorio.
+El mantenedor configura `community/policy.json` en `main`:
+
+- `blocked_github_ids`: IDs numéricos de cuentas excluidas. Se ignoran nuevos
+  envíos y sus votos/precios dejan de publicarse al regenerar el diccionario.
+- `minimum_account_age_days`: antigüedad mínima para contar confirmaciones.
+- `allowed_licenses`: licencias admisibles para iconos.
+- `allowed_image_hosts`: fuentes permitidas; actualmente solo `api.iconify.design`.
+- `excluded_icon_prefixes`: colecciones excluidas.
+
+Cambiar la política regenera el diccionario automáticamente. No concede a los
+usuarios permisos para editarla. Bloquear una cuenta no impide descargar datos
+públicos; GitHub permite además bloquearla para impedir nuevos Issues.
+
+`registry.json` de `data` conserva observaciones e identificadores públicos para
+deduplicar votos y recalcular bloqueos; no contiene credenciales. Al empezar el
+diccionario está vacío. Los datos se actualizan sin una nueva versión de HACS.
+
+Nutri-Score obtenido de Open Food Facts se debe a esa base de datos:
+https://world.openfoodfacts.org/ — licencia ODbL:
+https://opendatacommons.org/licenses/odbl/1-0/.

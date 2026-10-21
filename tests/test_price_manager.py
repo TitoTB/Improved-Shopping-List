@@ -262,6 +262,7 @@ async def test_manual_rejects_disabled_unavailable_lists_and_server_wait(env,has
     hass.states.async_set("todo.one","unavailable")
     with pytest.raises(ValueError,match="listas"):
         await env.manager.async_refresh_store("alcampo")
+    hass.states.async_set("todo.one","0")
     env.manager._data["blocked_until"]["alcampo"] = env.clock[0]+600
     with pytest.raises(ValueError,match="pausa"):
         await env.manager.async_refresh_store("alcampo")

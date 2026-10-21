@@ -507,6 +507,9 @@ class PriceManager:
                     elif result is None:
                         self._record("stores.not_found", f"{STORES[store]}: referencia no disponible; se conserva el último precio", source=source,
                             diagnostics={"reference_id":job["link"]["id"], "response_class":"not_found"})
+                    elif result == "discarded":
+                        self._record("stores.skipped",f"{STORES[store]}: respuesta descartada por cambio de configuración",source=source,
+                            store=STORES[store],diagnostics={"reference_id":job["link"]["id"],"response_class":"configuration_changed"})
                 except (PriceError, aiohttp.ClientError, asyncio.TimeoutError, ValueError, KeyError, TypeError) as err:
                     diagnostics = getattr(err, "diagnostics", {"response_class":"invalid_response"})
                     if diagnostics.get("response_class") == "list_unavailable":

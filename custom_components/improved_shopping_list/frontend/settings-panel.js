@@ -2,6 +2,8 @@ import { installDialogCloseButtons } from "./dialog-controls.js?v=0.16.0";
 import { todoEntities, isAvailable } from "./todo-client.js?v=0.16.0";
 import { DEFAULT_APPEARANCE, gradientTextColor } from "./list-settings-client.js?v=0.16.0";
 
+const MERCADONA_LOGO_URL = new URL("mercadona.png", import.meta.url).href;
+
 class ImprovedShoppingSettings extends HTMLElement {
   constructor() {
     super();
@@ -148,7 +150,7 @@ class ImprovedShoppingSettings extends HTMLElement {
         <div class="stores-heading"><h2 id="settings-stores-title">Tiendas</h2><div class="stores-heading-actions"><button id="refresh-all-prices" class="store-refresh" type="button" aria-label="Actualizar ahora" title="Actualizar ahora"><ha-icon icon="mdi:refresh" aria-hidden="true"></ha-icon></button><button id="configure-price-schedule" class="store-refresh" type="button" aria-label="Hora de revisión diaria" title="Hora de revisión diaria"><ha-icon icon="mdi:clock-outline" aria-hidden="true"></ha-icon></button></div></div>
         <div class="stores-grid">
         <article class="store-row" id="mercadona-row">
-          <img class="store-logo" src="https://logos-world.net/wp-content/uploads/2022/04/Mercadona-Symbol.png" alt="Logo de Mercadona" referrerpolicy="no-referrer" loading="lazy" width="56" height="56">
+          <img class="store-logo" src="${MERCADONA_LOGO_URL}" alt="Logo de Mercadona" referrerpolicy="no-referrer" loading="lazy" width="56" height="56">
           <div class="store-name"><h3>Mercadona</h3></div>
           <div class="store-controls"><input id="mercadona-enabled" class="store-toggle" type="checkbox" role="switch" aria-label="Habilitar Mercadona"><button id="configure-mercadona" class="store-cog" type="button" aria-label="Ajustes de Mercadona" title="Ajustes de Mercadona"><ha-icon icon="mdi:cog" aria-hidden="true"></ha-icon></button></div>
         </article>

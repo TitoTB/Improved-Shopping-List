@@ -264,7 +264,7 @@ async function main() {
       return;
     }
     if (pathname === "/") { res.setHeader("content-type", "text/html; charset=utf-8"); res.end(html); return; }
-    if (!["/panel.js", "/dialog-controls.js", "/todo-client.js", "/catalog-panel.js", "/catalog-client.js", "/category-panel.js", "/icon-picker.js", "/list-settings-client.js", "/settings-panel.js", "/readers-client.js", "/readers-panel.js", "/product-matching.js", "/product-names.js", "/logs-panel.js", "/logo.png"].includes(pathname)) { res.writeHead(404).end(); return; }
+    if (!["/panel.js", "/dialog-controls.js", "/todo-client.js", "/catalog-panel.js", "/catalog-client.js", "/category-panel.js", "/icon-picker.js", "/list-settings-client.js", "/settings-panel.js", "/readers-client.js", "/readers-panel.js", "/product-matching.js", "/product-names.js", "/logs-panel.js", "/logo.png", "/mercadona.png"].includes(pathname)) { res.writeHead(404).end(); return; }
     res.setHeader("content-type", pathname.endsWith(".png") ? "image/png" : "text/javascript; charset=utf-8");
     res.end(await fs.readFile(path.join(root, pathname.slice(1))));
   });
@@ -1023,7 +1023,7 @@ async function main() {
     assert.equal(await storeRow.evaluate(node=>getComputedStyle(node).opacity),"1");
     assert.equal(await storeRow.evaluate(node=>getComputedStyle(node).backgroundColor),"rgba(38, 112, 82, 0.1)");
     assert.equal(await settingsView.locator("#carrefour-row").evaluate(node=>getComputedStyle(node).opacity),"0.55");
-    assert.equal(await storeRow.locator("img").getAttribute("src"),"https://logos-world.net/wp-content/uploads/2022/04/Mercadona-Symbol.png");
+    assert.match(await storeRow.locator("img").getAttribute("src"),/\/mercadona\.png$/);
     assert.equal(await settingsView.locator('#carrefour-row img').getAttribute('src'),'https://images.seeklogo.com/logo-png/31/2/carrefour-logo-png_seeklogo-318190.png');
     assert.equal(await settingsView.locator('.stores-grid').evaluate(node=>getComputedStyle(node).gridTemplateColumns.split(' ').length),2);
     assert.equal(await storeRow.locator("#configure-mercadona ha-icon").getAttribute("icon"),"mdi:cog");

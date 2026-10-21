@@ -6,7 +6,7 @@ Una interfaz propia para gestionar las listas de la compra que ya tienes integra
 
 Versión actual: **0.16.0**. Interfaz en español, pensada para móvil y ordenador. Requiere **Home Assistant Core 2026.10 o posterior**. La referencia de desarrollo es Core 2026.10.2.
 
-Vinculaciones por enlace o ID con Mercadona, Carrefour y Alcampo, y consultas
+Vinculaciones por enlace o ID con Mercadona, Carrefour, Alcampo y Lidl, y consultas
 directas desde Home Assistant. Se ha retirado el feed
 de precios de GitHub y la dependencia de Aguacatec.
 
@@ -202,9 +202,18 @@ Se reutiliza la caché persistente de identificación (30 días para productos e
 
 ## Tiendas y vinculaciones
 
-En **Ajustes → Tiendas** se habilitan Mercadona, Carrefour y Alcampo, se elige la
+En **Ajustes → Tiendas** se habilitan Mercadona, Carrefour, Alcampo y Lidl, se elige la
 favorita y se configura la hora de revisión. Mercadona resuelve su almacén desde
 el código postal; Alcampo permite indicar la región de su consulta pública.
+Lidl requiere seleccionar una región antes de activarlo. Sus productos se vinculan
+con el enlace de la ficha o la referencia numérica del final (`p11107037` → `11107037`).
+La API pública de Lidl se consulta sin cuenta, cookies ni claves. Se guarda el precio
+general vigente para la región elegida, sin usar ofertas futuras ni precios de Lidl Plus.
+Una referencia sin precio vigente conserva el último conocido; si su vigencia ha terminado,
+aparece «Oferta finalizada» en la ficha y en Productos de la tienda. Esto no garantiza stock.
+Los identificadores internos IAN de Lidl no se convierten en EAN ni modifican los lectores.
+La revisión diaria y **Actualizar ahora** usan la misma cola de productos pendientes y
+el intervalo compartido mínimo de cinco minutos. Los precios de regiones distintas se guardan por separado.
 
 En **Catálogo → Información adicional**, selecciona una tienda, pega su enlace
 o ID y pulsa Añadir vinculación. Puedes editar o quitar cada vínculo antes de

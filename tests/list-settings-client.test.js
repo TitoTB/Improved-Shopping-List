@@ -91,14 +91,15 @@ test("store settings receive pushes and a stale write cannot override them", asy
   assert.equal(session.favoriteStore, "");
 });
 
-test("Carrefour and favorite changes preserve a later pushed snapshot", async () => {
-  for (const [method,args,type] of [["saveCarrefour",[true],"store"],["saveFavoriteStore",["carrefour"],"favorite_store"]]) {
+test("store and favorite changes preserve a later pushed snapshot", async () => {
+  for (const [method,args,type] of [["saveCarrefour",[true],"store"],["saveLidl",[true,"28"],"store"],["saveFavoriteStore",["carrefour"],"favorite_store"]]) {
     const response = deferred();
     let message;
     const session = new ListSettingsSession(() => ({callWS: msg => {message=msg;return response.promise;}}),()=>{});
     const saving = session[method](...args);
     assert.equal(message.type, `improved_shopping_list/settings/${type}`);
-    assert.equal(message.store, "carrefour");
+    assert.equal(message.store, method === "saveLidl" ? "lidl" : "carrefour");
+    if (method === "saveLidl") assert.equal(message.region_id,"28");
     session._revision++;
     session._receive({stores:{carrefour:{enabled:false}},favorite_store:"mercadona"});
     response.resolve({stores:{carrefour:{enabled:true}},favorite_store:"carrefour"});

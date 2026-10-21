@@ -131,9 +131,9 @@ const hass={
     }
     if(msg.type==='improved_shopping_list/settings/store'){
       if(window.failSettings)throw new Error('Mercadona no está disponible');
-      if(msg.store==='carrefour'||msg.store==='alcampo'){
+      if(msg.store==='carrefour'||msg.store==='alcampo'||msg.store==='lidl'){
         if(msg.store==='carrefour'&&msg.sale_point!==undefined&&!/^[0-9]{6}$/.test(msg.sale_point))throw new Error('El centro de Carrefour debe contener seis dígitos.');
-        window.listSettings.stores={...window.listSettings.stores,[msg.store]:{...window.listSettings.stores?.[msg.store],enabled:msg.enabled,...(msg.store==='alcampo'?{region_id:msg.region_id}: {sale_point:msg.sale_point??window.listSettings.stores?.carrefour?.sale_point??'005290'})}};
+        window.listSettings.stores={...window.listSettings.stores,[msg.store]:{...window.listSettings.stores?.[msg.store],enabled:msg.enabled,...(msg.store!=='carrefour'?{region_id:msg.region_id}: {sale_point:msg.sale_point??window.listSettings.stores?.carrefour?.sale_point??'005290'})}};
         const active=Object.keys(window.listSettings.stores).filter(key=>window.listSettings.stores[key].enabled);
         if(!active.includes(window.listSettings.favorite_store))window.listSettings.favorite_store=active[0]??'';
         window.emitSettings();return structuredClone(window.listSettings);
@@ -143,6 +143,7 @@ const hass={
       window.listSettings.favorite_store=msg.enabled?'mercadona':'';
       window.emitSettings();return structuredClone(window.listSettings);
     }
+    if(msg.type==='improved_shopping_list/settings/lidl_regions')return {regions:[{id:'28',name:'Madrid'},{id:'26',name:'Barcelona'}]};
     if(msg.type==='improved_shopping_list/settings/favorite_store'){
       window.listSettings.favorite_store=msg.store;window.emitSettings();return structuredClone(window.listSettings);
     }
@@ -264,8 +265,8 @@ async function main() {
       return;
     }
     if (pathname === "/") { res.setHeader("content-type", "text/html; charset=utf-8"); res.end(html); return; }
-    if (!["/panel.js", "/dialog-controls.js", "/todo-client.js", "/catalog-panel.js", "/catalog-client.js", "/category-panel.js", "/icon-picker.js", "/list-settings-client.js", "/settings-panel.js", "/readers-client.js", "/readers-panel.js", "/product-matching.js", "/product-names.js", "/logs-panel.js", "/logo.png", "/mercadona.png"].includes(pathname)) { res.writeHead(404).end(); return; }
-    res.setHeader("content-type", pathname.endsWith(".png") ? "image/png" : "text/javascript; charset=utf-8");
+    if (!["/panel.js", "/dialog-controls.js", "/todo-client.js", "/catalog-panel.js", "/catalog-client.js", "/category-panel.js", "/icon-picker.js", "/list-settings-client.js", "/settings-panel.js", "/readers-client.js", "/readers-panel.js", "/product-matching.js", "/product-names.js", "/logs-panel.js", "/logo.png", "/mercadona.png", "/lidl.svg"].includes(pathname)) { res.writeHead(404).end(); return; }
+    res.setHeader("content-type", pathname.endsWith(".svg") ? "image/svg+xml" : pathname.endsWith(".png") ? "image/png" : "text/javascript; charset=utf-8");
     res.end(await fs.readFile(path.join(root, pathname.slice(1))));
   });
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -314,7 +315,7 @@ async function main() {
       };
       visit(document);
       return dialogs.filter(dialog => dialog.querySelectorAll(".isl-dialog-close[aria-label='Cerrar ventana']").length === 1).length;
-    }), 16);
+    }), 17);
     await page.getByRole("button", { name: "Seleccionar lista", exact: true }).click();
     const listDialog = page.getByRole("dialog", { name: "Seleccionar lista", exact: true });
     assert.equal(await listDialog.getByRole("button", { name: "Compra · Bring!", exact: true }).getAttribute("aria-pressed"), "true");
@@ -1011,7 +1012,33 @@ async function main() {
     await settingsPage.getByRole("button", { name: "Ajustes", exact: true }).click();
     await settingsView.getByRole("button",{name:"Tiendas",exact:true}).click();
     assert.equal(await settingsView.locator("#settings-view-stores ha-icon").getAttribute("icon"), "mdi:store");
-    assert.deepEqual(await settingsView.locator(".stores-grid .store-name h3").allTextContents(),["Alcampo","Carrefour","Mercadona"]);
+    assert.deepEqual(await settingsView.locator(".stores-grid .store-name h3").allTextContents(),["Alcampo","Carrefour","Lidl","Mercadona"]);
+    assert.match(await settingsView.locator('#lidl-row img').getAttribute('src'),/\/lidl\.svg$/);
+    await settingsView.getByLabel('Habilitar Lidl',{exact:true}).check();
+    const lidlDialog=settingsView.getByRole('dialog',{name:'Lidl',exact:true});
+    await lidlDialog.locator('#lidl-region option[value="28"]').waitFor({state:'attached'});
+    assert.equal(await lidlDialog.locator('#lidl-region').inputValue(),'');
+    await lidlDialog.getByLabel('Región de Lidl',{exact:true}).selectOption('28');
+    await lidlDialog.getByRole('button',{name:'Guardar configuración',exact:true}).click();
+    await settingsPage.waitForFunction(()=>window.listSettings.stores?.lidl?.region_id==='28');
+    await lidlDialog.getByRole('button',{name:'Cerrar ventana',exact:true}).click();
+    await settingsView.getByLabel('Habilitar Lidl',{exact:true}).uncheck();
+    await settingsPage.evaluate(()=>{window.storePriceFixture=[{store:'lidl',name:'Queso',reference_id:'11107037',price:'2.89',currency:'EUR',region_name:'Madrid',packaging:'250 g',expired:true,checked_at:1792490400,url:'https://www.lidl.es/p/queso/p11107037'}];});
+    await settingsView.getByRole('button',{name:'Ajustes de Lidl',exact:true}).click();
+    await lidlDialog.getByText('Queso',{exact:true}).waitFor();
+    assert.match(await lidlDialog.locator('.store-product').textContent(),/2,89/);
+    assert.match(await lidlDialog.locator('.store-product').textContent(),/Oferta finalizada/);
+    assert.equal(await lidlDialog.locator('#lidl-status').textContent(),'1 precios guardados');
+    assert.equal(await lidlDialog.getByRole('button',{name:'Cerrar',exact:true}).count(),0);
+    await lidlDialog.getByRole('button',{name:'Configuración',exact:true}).click();
+    assert.equal(await lidlDialog.locator('#lidl-region').inputValue(),'28');
+    await settingsPage.evaluate(()=>{window.failSettings=true;});
+    await lidlDialog.getByLabel('Región de Lidl',{exact:true}).selectOption('26');
+    await lidlDialog.getByRole('button',{name:'Guardar configuración',exact:true}).click();
+    await lidlDialog.locator('#lidl-config-error:not([hidden])').waitFor();
+    assert.equal(await settingsPage.evaluate(()=>window.listSettings.stores.lidl.region_id),'28');
+    await settingsPage.evaluate(()=>{window.failSettings=false;window.storePriceFixture=[];});
+    await lidlDialog.getByRole('button',{name:'Cerrar ventana',exact:true}).click();
     await settingsView.getByLabel("Habilitar Mercadona").check();
     await settingsView.getByLabel("Código postal",{exact:true}).fill("28001");
     await settingsView.getByRole("button",{name:"Comprobar y guardar",exact:true}).click();

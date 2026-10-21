@@ -68,7 +68,7 @@ class PriceManager:
 
     def scope(self, store):
         config = self.settings.snapshot["stores"].get(store, {})
-        return config.get("warehouse", "") if store == "mercadona" else config.get("region_id", "") if store == "alcampo" else config.get("sale_point", "005290")
+        return config.get("warehouse", "") if store == "mercadona" else config.get("region_id", "") if store in ("alcampo", "lidl") else config.get("sale_point", "005290")
 
     @staticmethod
     def key(store, link, scope):
@@ -92,6 +92,7 @@ class PriceManager:
             price = self._data["offers"].get(self.key(store, link, self.scope(store)))
             if price:
                 prices.append({**deepcopy(price), "catalog_product_id":product.get("id"), "name":product.get("name", ""),
+                    "expired":store == "lidl" and isinstance(price.get("valid_until"), (int,float)) and time.time() >= price["valid_until"],
                     "error":self._data["errors"].get(store, "")})
         for store in STORES:
             if store in links:

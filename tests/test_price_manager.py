@@ -19,6 +19,39 @@ def product(name="Arroz", identifier="24097", store="alcampo"):
     return {"id":name, "name":name,"barcode":"", "barcodes":[], "store_links":{store:normalize_link(store, identifier)}}
 
 
+async def test_lidl_uses_pending_items_shared_pacing_and_region_scoped_cache(env):
+    env.manager._queue = Mock()
+    env.settings.snapshot["stores"]["lidl"] = {"enabled":True,"region_id":"28"}
+    env.catalog.products = [product("Arroz","11107037","lidl"),product("Café","11107038","lidl")]
+    await env.manager.async_refresh_store("lidl")
+    assert len(env.manager._data["pending"]) == 1
+    await env.manager.async_tick()
+    assert env.requests == [("lidl","11107037",env.clock[0])]
+    cached = env.manager.prices_for(env.catalog.products[0])[0]
+    assert cached["scope"] == "28" and not cached["expired"]
+    env.settings.snapshot["stores"]["lidl"]["enabled"] = False
+    assert env.manager.prices_for(env.catalog.products[0])  # Reads still use the cache.
+    env.settings.snapshot["stores"]["lidl"].update(enabled=True,region_id="26")
+    assert env.manager.prices_for(env.catalog.products[0]) == []
+    await env.manager.async_refresh_store("lidl")
+    env.clock[0] += 299
+    await env.manager.async_tick()
+    assert len(env.requests) == 1
+    env.clock[0] += 1
+    await env.manager.async_tick()
+    assert len(env.requests) == 2
+    assert len(env.manager._data["offers"]) == 2
+    price = next(value for value in env.manager._data["offers"].values() if value["scope"] == "26")
+    price["valid_until"] = env.clock[0]-1
+    assert env.manager.prices_for(env.catalog.products[0])[0]["expired"]
+    previous = deepcopy(env.manager._data["offers"])
+    env.manager.sources.fetch = AsyncMock(return_value=None)
+    env.clock[0] += 300
+    await env.manager.async_refresh_store("lidl")
+    await env.manager.async_tick()
+    assert env.manager._data["offers"] == previous  # An unavailable offer preserves last known prices.
+
+
 @pytest.fixture
 async def env(hass, monkeypatch):
     clock = [datetime(2026, 10, 20, 1, 0, tzinfo=timezone.utc).timestamp()]

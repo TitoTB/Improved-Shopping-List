@@ -10,10 +10,11 @@ import "./logs-panel.js?v=0.16.0";
 const LOGO_URL = new URL("logo.png", import.meta.url).href;
 const STORE_LOGOS = {
   mercadona:new URL("mercadona.png", import.meta.url).href,
+  lidl:new URL("lidl.svg", import.meta.url).href,
   carrefour:"https://images.seeklogo.com/logo-png/31/2/carrefour-logo-png_seeklogo-318190.png",
   alcampo:"https://almeria.online/wp-content/uploads/2024/09/alcampo-logo.png",
 };
-const STORE_NAMES = {mercadona:"Mercadona",carrefour:"Carrefour",alcampo:"Alcampo"};
+const STORE_NAMES = {mercadona:"Mercadona",carrefour:"Carrefour",alcampo:"Alcampo",lidl:"Lidl"};
 const searchText = value => normalizedName(value).normalize("NFD").replace(/\p{M}/gu, "");
 
 class ImprovedShoppingListPanel extends HTMLElement {
@@ -609,10 +610,10 @@ class ImprovedShoppingListPanel extends HTMLElement {
     if (!this.isConnected || !this._hass) return;
     if (this._rowPricesLoading) { this._rowPricesAgain = true; return this._rowPricesLoading; }
     const token = this._rowPricesToken;
-    const pending = Promise.allSettled(["mercadona","carrefour","alcampo"].map(store =>
+    const pending = Promise.allSettled(["mercadona","carrefour","alcampo","lidl"].map(store =>
       this._hass.callWS({type:"improved_shopping_list/catalog/store_prices",store}))).then(results => {
         if (token !== this._rowPricesToken || !this.isConnected) return;
-        const stores = ["mercadona","carrefour","alcampo"];
+        const stores = ["mercadona","carrefour","alcampo","lidl"];
         this._rowPrices = results.flatMap((result,index) => result.status === "fulfilled" ?
           result.value.products ?? [] : this._rowPrices.filter(offer => offer.store === stores[index]));
         this._renderData();

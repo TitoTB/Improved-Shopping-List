@@ -3,9 +3,9 @@
 import re
 from urllib.parse import urlsplit
 
-STORES = {"mercadona": "Mercadona", "carrefour": "Carrefour", "alcampo": "Alcampo"}
+STORES = {"mercadona": "Mercadona", "carrefour": "Carrefour", "alcampo": "Alcampo", "lidl":"Lidl"}
 HOSTS = {"mercadona": {"tienda.mercadona.es"}, "carrefour": {"www.carrefour.es", "carrefour.es"},
-         "alcampo": {"www.compraonline.alcampo.es", "compraonline.alcampo.es"}}
+         "alcampo": {"www.compraonline.alcampo.es", "compraonline.alcampo.es"}, "lidl":{"www.lidl.es","lidl.es"}}
 
 
 def normalize_link(store, value):
@@ -34,7 +34,8 @@ def normalize_link(store, value):
             raise ValueError(f"Utiliza un enlace HTTPS de {STORES[store]}.")
         patterns = {"mercadona": r"/product/([0-9]{1,12})(?:/[^/]*)?/?",
             "alcampo": r"/products/[^/]+/([0-9]{1,12})/?",
-            "carrefour": r"/supermercado/(?:[^/]+/)?(R-[A-Za-z0-9-]{1,80})/p/?"}
+            "carrefour": r"/supermercado/(?:[^/]+/)?(R-[A-Za-z0-9-]{1,80})/p/?",
+            "lidl": r"/p/(?:[^/]+/)?p([0-9]{1,12})/?"}
         match = re.fullmatch(patterns[store], parts.path)
         if not match:
             raise ValueError(f"El enlace no es una ficha de producto de {STORES[store]}.")
@@ -48,7 +49,8 @@ def normalize_link(store, value):
         raise ValueError(f"La ID de {STORES[store]} no es válida.")
     defaults = {"mercadona": f"https://tienda.mercadona.es/product/{identifier}",
         "alcampo": f"https://www.compraonline.alcampo.es/products/producto/{identifier}",
-        "carrefour": f"https://www.carrefour.es/supermercado/{identifier}/p"}
+        "carrefour": f"https://www.carrefour.es/supermercado/{identifier}/p",
+        "lidl": f"https://www.lidl.es/p/p{identifier}"}
     return {"id": identifier, "url": url or defaults[store]}
 
 

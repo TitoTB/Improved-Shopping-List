@@ -11,13 +11,14 @@ from homeassistant.core import HomeAssistant, callback
 from .const import CONF_TODO_ENTITY, CONF_TODO_ENTITIES
 from .const import DOMAIN
 from .stores import StoreError, async_resolve_mercadona
+from .lidl import LIDL_REGIONS
 
 DEFAULT_APPEARANCE = {
     "gradient_start": "#ee524f", "gradient_end": "#b52a27",
     "completed_gradient_start": "#4faba2", "completed_gradient_end": "#26857c",
     "columns": 3, "mobile_columns": 1,
 }
-DEFAULT_STORES = {"mercadona": {"enabled": False, "postal_code": "", "warehouse": "", "checked_at": None}, "carrefour": {"enabled": False, "sale_point":"005290"}, "alcampo":{"enabled":False,"region_id":""}}
+DEFAULT_STORES = {"mercadona": {"enabled": False, "postal_code": "", "warehouse": "", "checked_at": None}, "carrefour": {"enabled": False, "sale_point":"005290"}, "alcampo":{"enabled":False,"region_id":""}, "lidl":{"enabled":False,"region_id":""}}
 
 
 def normalize_appearance(data: dict, *, defaults: dict | None = None) -> dict:
@@ -142,6 +143,20 @@ class ListSettings:
             if generation != self._generation or not self.entry or not self.hass.data.get(DOMAIN, {}).get("active"):
                 raise StoreError("La integración no está activa.")
             stores = {**self.snapshot["stores"], "alcampo":{"enabled":enabled,"region_id":region_id.lower()}}
+            self.hass.config_entries.async_update_entry(self.entry, options={**self.entry.options,
+                "stores":stores,"favorite_store":self._favorite(stores)})
+            self.notify()
+            return self.snapshot
+
+    async def async_update_lidl(self, enabled, region_id):
+        if region_id not in LIDL_REGIONS and (enabled or region_id):
+            raise StoreError("Selecciona una región de Lidl válida.")
+        generation = self._generation
+        async with self._stores_lock:
+            if generation != self._generation or not self.entry or not self.hass.data.get(DOMAIN, {}).get("active"):
+                raise StoreError("La integración no está activa.")
+            current = self.snapshot["stores"]["lidl"]
+            stores = {**self.snapshot["stores"], "lidl":{"enabled":enabled,"region_id":region_id or current["region_id"]}}
             self.hass.config_entries.async_update_entry(self.entry, options={**self.entry.options,
                 "stores":stores,"favorite_store":self._favorite(stores)})
             self.notify()

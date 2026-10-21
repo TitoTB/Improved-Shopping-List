@@ -19,7 +19,8 @@ from .icons import IconError
 from .community import build_export
 from .product_translation import async_translate_name
 from .product_lookup import is_product_barcode
-from .store_links import normalize_links
+from .store_links import normalize_links, STORES
+from .lidl import LIDL_REGIONS
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -54,6 +55,7 @@ def async_register_commands(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_price_schedule)
     websocket_api.async_register_command(hass, ws_cached_prices)
     websocket_api.async_register_command(hass, ws_refresh_prices)
+    websocket_api.async_register_command(hass, ws_lidl_regions)
     websocket_api.async_register_command(hass, ws_readers_get)
     websocket_api.async_register_command(hass, ws_readers_subscribe)
     websocket_api.async_register_command(hass, ws_readers_save)
@@ -286,7 +288,7 @@ def ws_personalization(hass: HomeAssistant, connection, msg) -> None:
 
 @websocket_api.websocket_command({
     vol.Required("type"): f"{DOMAIN}/settings/store",
-    vol.Required("store"): vol.In(("mercadona", "carrefour", "alcampo")),
+    vol.Required("store"): vol.In(tuple(STORES)),
     vol.Required("enabled"): bool,
     vol.Optional("postal_code", default=""): str,
     vol.Optional("verify", default=False): bool,
@@ -300,7 +302,8 @@ async def ws_store_update(hass, connection, msg):
         return
     try:
         settings = hass.data[DOMAIN]["settings"]
-        result = (await settings.async_update_alcampo(msg["enabled"], msg["region_id"]) if msg["store"] == "alcampo"
+        result = (await settings.async_update_lidl(msg["enabled"], msg["region_id"]) if msg["store"] == "lidl"
+                  else await settings.async_update_alcampo(msg["enabled"], msg["region_id"]) if msg["store"] == "alcampo"
                   else await settings.async_update_carrefour(msg["enabled"], msg.get("sale_point")) if msg["store"] == "carrefour"
             else await settings.async_update_store(msg["enabled"], msg["postal_code"], msg["verify"]))
     except StoreError as err:
@@ -309,7 +312,7 @@ async def ws_store_update(hass, connection, msg):
         connection.send_result(msg["id"], result)
 
 
-@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/settings/favorite_store", vol.Required("store"): vol.In(("mercadona", "carrefour", "alcampo"))})
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/settings/favorite_store", vol.Required("store"): vol.In(tuple(STORES))})
 @websocket_api.require_admin
 @websocket_api.async_response
 async def ws_favorite_store(hass, connection, msg):
@@ -366,7 +369,7 @@ async def ws_price_schedule(hass, connection, msg):
 
 
 @websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/settings/refresh_prices",
-    vol.Required("store"):vol.In(("mercadona", "carrefour", "alcampo"))})
+    vol.Required("store"):vol.In(tuple(STORES))})
 @websocket_api.require_admin
 @websocket_api.async_response
 async def ws_refresh_prices(hass, connection, msg):
@@ -382,7 +385,7 @@ async def ws_refresh_prices(hass, connection, msg):
 
 @websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/catalog/store_prices",
     vol.Optional("links", default={}):dict, vol.Optional("codes", default=[]):[str],
-    vol.Optional("store", default=""):vol.In(("", "mercadona", "carrefour", "alcampo"))})
+    vol.Optional("store", default=""):vol.In(("", *STORES))})
 @websocket_api.async_response
 async def ws_cached_prices(hass, connection, msg):
     if not _catalog(hass, connection, msg):
@@ -400,6 +403,13 @@ async def ws_cached_prices(hass, connection, msg):
     else:
         result = {"products":manager.prices_for({"store_links":links,"barcodes":msg["codes"]}), "nightly":True}
     connection.send_result(msg["id"], result)
+
+
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/settings/lidl_regions"})
+@callback
+def ws_lidl_regions(hass, connection, msg):
+    if _catalog(hass, connection, msg):
+        connection.send_result(msg["id"], {"regions":[{"id":key,"name":name} for key,name in LIDL_REGIONS.items()]})
 
 
 @websocket_api.websocket_command({

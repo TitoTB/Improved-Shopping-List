@@ -168,7 +168,8 @@ class ImprovedShoppingCatalog extends HTMLElement {
         button:disabled { opacity:.5; cursor:default; }
         button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible { outline:3px solid var(--primary-color,#267052); outline-offset:3px; }
         .heading { display:flex; align-items:center; justify-content:space-between; gap:16px; margin:28px 0 12px; }
-        .catalog-toolbar { display:flex; align-items:center; gap:12px; margin:18px 0; }
+        .heading h1 { flex-shrink:0; }
+        .catalog-toolbar { display:flex; align-items:center; gap:12px; min-width:0; margin-left:auto; }
         .catalog-tools { display:flex; align-items:center; gap:8px; flex-shrink:0; margin-left:auto; }
         .catalog-tabs { display:flex; flex:1; min-width:0; gap:8px; overflow-x:auto; scrollbar-width:thin; }
         .catalog-tabs button { display:inline-flex; align-items:center; gap:6px; flex-shrink:0; white-space:nowrap; }
@@ -299,9 +300,9 @@ class ImprovedShoppingCatalog extends HTMLElement {
         .product-actions button { min-width:0; padding:10px 8px; }
         .product-actions #save-product { grid-column:2; }
         #delete-product { background:#d32f2f; color:#fff; border:0; }
-        @media(max-width:650px) { .filters { gap:8px; } .catalog-product-controls { gap:6px; } #products-view .catalog-product-controls button { flex-basis:40px; width:40px; height:44px; min-height:44px; } #catalog-search { height:44px; min-height:44px; } .grid { grid-template-columns:repeat(var(--isl-mobile-columns,1),minmax(0,1fr)); } .heading { gap:10px; flex-wrap:wrap; } h1 { font-size:28px; } dialog { padding:20px; } }
+        @media(max-width:650px) { .filters { gap:8px; } .catalog-product-controls { gap:6px; } #products-view .catalog-product-controls button { flex-basis:40px; width:40px; height:44px; min-height:44px; } #catalog-search { height:44px; min-height:44px; } .grid { grid-template-columns:repeat(var(--isl-mobile-columns,1),minmax(0,1fr)); } .heading { gap:10px; } h1 { font-size:28px; } dialog { padding:20px; } }
         @media(max-width:650px) { .catalog-toolbar { gap:6px; } .catalog-tabs { gap:4px; } .catalog-tabs button { gap:4px; min-width:36px; justify-content:center; padding:10px 6px; font-size:13px; } .catalog-tabs button[aria-pressed=false] .tab-label { display:none; } }
-        @media(max-width:390px) { .fields { grid-template-columns:1fr; } .heading { align-items:flex-start; } .catalog-tabs { gap:3px; } .catalog-tabs button { min-width:32px; padding-inline:4px; } .catalog-tools { gap:4px; } }
+        @media(max-width:390px) { .fields { grid-template-columns:1fr; } .heading { gap:6px; } .heading h1 { font-size:22px; } .catalog-toolbar { gap:4px; } .catalog-tabs { gap:3px; } .catalog-tabs button { min-width:28px; padding-inline:3px; font-size:12px; } .catalog-tabs ha-icon { --mdc-icon-size:18px; width:18px; height:18px; } .catalog-tools { gap:4px; } #new-catalog-category { width:32px; flex-basis:32px; height:44px; } }
         .code-list { display:grid; gap:8px; margin:12px 0; }
         .code-row { display:flex; align-items:center; gap:12px; border:1px solid var(--divider-color,#dfe7e1); border-radius:10px; padding:8px 12px; min-width:0; }
         .code-value { flex:1; min-width:0; overflow-wrap:anywhere; user-select:text; }
@@ -312,10 +313,11 @@ class ImprovedShoppingCatalog extends HTMLElement {
         .code-capture-controls button { display:flex; align-items:center; justify-content:center; gap:6px; min-height:44px; }
         .code-capture-controls ha-icon { width:20px; height:20px; --mdc-icon-size:20px; }
       </style>
-      <div class="heading"><h1>Catálogo</h1></div>
+      <div class="heading"><h1>Catálogo</h1>
       <div class="catalog-toolbar">
         <nav class="catalog-tabs" aria-label="Vistas del catálogo"><button id="view-products" aria-label="Productos" aria-pressed="true"><ha-icon icon="mdi:view-grid" aria-hidden="true"></ha-icon><span class="tab-label">Productos</span></button><button id="view-categories" aria-label="Categorías" aria-pressed="false"><ha-icon icon="mdi:label" aria-hidden="true"></ha-icon><span class="tab-label">Categorías</span></button><button id="view-suggestions" aria-label="Nuevos" aria-pressed="false"><ha-icon icon="mdi:creation" aria-hidden="true"></ha-icon><span class="tab-label">Nuevos</span></button></nav>
         <div class="catalog-tools"><button id="new-catalog-category" class="primary" type="button" aria-label="Nueva categoría" title="Nueva categoría" hidden><ha-icon icon="mdi:plus-thick"></ha-icon></button></div>
+      </div>
       </div>
       <div id="catalog-error" class="notice error" role="alert" hidden></div>
       <div id="catalog-status" class="notice" role="status" hidden></div>

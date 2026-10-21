@@ -8,7 +8,7 @@ import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.improved_shopping_list.const import CONF_TODO_ENTITY, DOMAIN
-from custom_components.improved_shopping_list.list_settings import ListSettings
+from custom_components.improved_shopping_list.list_settings import ListSettings, DEFAULT_STORES
 from custom_components.improved_shopping_list.stores import POSTAL_URL, StoreError, async_resolve_mercadona
 
 
@@ -20,32 +20,17 @@ async def test_carrefour_migration_and_favorite_do_not_erase_mercadona(hass):
     settings = ListSettings(hass)
     settings.attach(entry)
     hass.data[DOMAIN] = {"active": True}
-    assert settings.snapshot["stores"]["carrefour"] == {"enabled": False,"sale_point":"005290"}
+    assert settings.snapshot["stores"]["carrefour"] == DEFAULT_STORES["carrefour"]
     await settings.async_update_carrefour(True)
     assert settings.snapshot["favorite_store"] == "mercadona"
     await settings.async_favorite_store("carrefour")
     assert settings.snapshot["favorite_store"] == "carrefour"
     await settings.async_update_carrefour(False)
     assert settings.snapshot["favorite_store"] == "mercadona"
-    assert settings.snapshot["stores"]["mercadona"]["warehouse"] == "mad3"
+    assert settings.snapshot["stores"]["mercadona"]["warehouse"] == "mad1"
     assert entry.options["unrelated"] is True
     with pytest.raises(StoreError):
         await settings.async_favorite_store("carrefour")
-
-
-async def test_carrefour_center_persists_across_toggles_and_legacy_entries(hass):
-    entry = MockConfigEntry(domain=DOMAIN,data={CONF_TODO_ENTITY:"todo.bring"},options={"stores":{"carrefour":{"enabled":True}}})
-    entry.add_to_hass(hass)
-    settings = ListSettings(hass); settings.attach(entry)
-    hass.data[DOMAIN] = {"active":True}
-    assert settings.snapshot["stores"]["carrefour"]["sale_point"] == "005290"
-    await settings.async_update_carrefour(True,"012345")
-    await settings.async_update_carrefour(False)
-    assert settings.snapshot["stores"]["carrefour"] == {"enabled":False,"sale_point":"012345"}
-    for value in ("12345","1234567","abcdef","１２３４５６","005290\r\nHost:bad"):
-        with pytest.raises(StoreError):
-            await settings.async_update_carrefour(True,value)
-    assert entry.options["stores"]["carrefour"]["sale_point"] == "012345"
 
 
 async def test_resolves_header_even_when_warehouse_changed_is_false(hass, aioclient_mock):
@@ -90,60 +75,6 @@ async def test_malformed_or_oversized_body(hass, aioclient_mock, body):
         await async_resolve_mercadona(hass, "28001")
 
 
-async def test_store_persists_preserves_other_settings_and_failed_reconfiguration(hass, monkeypatch):
-    entry = MockConfigEntry(domain=DOMAIN, data={CONF_TODO_ENTITY: "todo.bring"}, options={"unrelated": True})
-    entry.add_to_hass(hass)
-    settings = ListSettings(hass)
-    settings.attach(entry)
-    hass.data[DOMAIN] = {"active": True}
-    resolver = AsyncMock(return_value="mad3")
-    monkeypatch.setattr("custom_components.improved_shopping_list.list_settings.async_resolve_mercadona", resolver)
-    result = await settings.async_update_store(True, "28001")
-    assert result["stores"]["mercadona"]["warehouse"] == "mad3"
-    assert result["stores"]["mercadona"]["checked_at"] > 0
-    assert result["favorite_store"] == "mercadona"
-    result["stores"]["mercadona"]["warehouse"] = "tampered"
-    assert settings.snapshot["stores"]["mercadona"]["warehouse"] == "mad3"
-    resolver.side_effect = StoreError("Unavailable")
-    with pytest.raises(StoreError):
-        await settings.async_update_store(True, "46001")
-    assert settings.snapshot["stores"]["mercadona"]["postal_code"] == "28001"
-    settings.update("remove", "todo.bring")
-    restored = ListSettings(hass)
-    restored.attach(entry)
-    assert restored.snapshot["stores"] == settings.snapshot["stores"]
-    disabled = await restored.async_update_store(False, "")
-    assert disabled["favorite_store"] == ""
-    assert disabled["stores"]["mercadona"]["enabled"] is False
-    assert disabled["stores"]["mercadona"]["warehouse"] == "mad3"
-    assert resolver.await_count == 2  # Disabling is entirely local.
-    assert entry.options["unrelated"] is True
-
-
-async def test_late_response_after_reload_is_not_saved(hass, monkeypatch):
-    entry = MockConfigEntry(domain=DOMAIN, data={CONF_TODO_ENTITY: "todo.bring"})
-    entry.add_to_hass(hass)
-    settings = ListSettings(hass)
-    settings.attach(entry)
-    hass.data[DOMAIN] = {"active": True}
-    entered, resume = asyncio.Event(), asyncio.Event()
-
-    async def resolve(*args):
-        entered.set()
-        await resume.wait()
-        return "mad3"
-
-    monkeypatch.setattr("custom_components.improved_shopping_list.list_settings.async_resolve_mercadona", resolve)
-    task = asyncio.create_task(settings.async_update_store(True, "28001"))
-    await entered.wait()
-    settings.detach()
-    settings.attach(entry)
-    resume.set()
-    with pytest.raises(StoreError):
-        await task
-    assert settings.snapshot["stores"]["mercadona"]["enabled"] is False
-
-
 async def test_store_ws_admin_push_unload(hass, hass_ws_client, aioclient_mock):
     entry = MockConfigEntry(domain=DOMAIN, data={CONF_TODO_ENTITY: "todo.bring"})
     entry.add_to_hass(hass)
@@ -155,7 +86,7 @@ async def test_store_ws_admin_push_unload(hass, hass_ws_client, aioclient_mock):
     await reader.receive_json()
     await writer.send_json({"id": 1, "type": f"{DOMAIN}/settings/store", "store": "mercadona", "enabled": True, "postal_code": "28001"})
     assert (await writer.receive_json())["result"]["favorite_store"] == "mercadona"
-    assert (await reader.receive_json())["event"]["stores"]["mercadona"]["warehouse"] == "mad3"
+    assert (await reader.receive_json())["event"]["stores"]["mercadona"]["warehouse"] == "mad1"
     assert await hass.config_entries.async_unload(entry.entry_id)
     await writer.send_json({"id": 2, "type": f"{DOMAIN}/settings/store", "store": "mercadona", "enabled": False})
     assert (await writer.receive_json())["error"]["code"] == "not_loaded"
@@ -207,16 +138,3 @@ async def test_store_progress_subscription_and_cleanup(hass, hass_ws_client):
     await client.send_json({"id": 2, "type": "unsubscribe_events", "subscription": 1})
     assert (await client.receive_json())["success"]
     assert not service.manager._listeners
-
-
-async def test_can_configure_region_while_store_stays_disabled(hass, monkeypatch):
-    entry = MockConfigEntry(domain=DOMAIN, data={CONF_TODO_ENTITY: "todo.bring"})
-    entry.add_to_hass(hass)
-    settings = ListSettings(hass)
-    settings.attach(entry)
-    hass.data[DOMAIN] = {"active": True}
-    monkeypatch.setattr("custom_components.improved_shopping_list.list_settings.async_resolve_mercadona", AsyncMock(return_value="mad3"))
-    result = await settings.async_update_store(False, "28001", True)
-    assert result["stores"]["mercadona"]["warehouse"] == "mad3"
-    assert result["stores"]["mercadona"]["enabled"] is False
-    assert result["favorite_store"] == ""

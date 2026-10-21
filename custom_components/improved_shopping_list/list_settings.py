@@ -3,24 +3,22 @@
 import asyncio
 from copy import deepcopy
 import re
-import time
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 
 from .const import CONF_TODO_ENTITY, CONF_TODO_ENTITIES
 from .const import DOMAIN
-from .stores import StoreError, async_resolve_mercadona
-from .regional_stores import REGIONAL_STORES, async_resolve_areas, valid_area
-from .store_location import resolve_location, POSTAL_PATTERN
+from .stores import StoreError
+from .regional_stores import REGIONAL_STORES
+from .store_location import REFERENCE_LOCATIONS, reference_location
 
 DEFAULT_APPEARANCE = {
     "gradient_start": "#ee524f", "gradient_end": "#b52a27",
     "completed_gradient_start": "#4faba2", "completed_gradient_end": "#26857c",
     "columns": 3, "mobile_columns": 1,
 }
-DEFAULT_STORES = {"mercadona": {"enabled": False, "postal_code": "", "warehouse": "", "checked_at": None}, "carrefour": {"enabled": False, "sale_point":"005290"}, "alcampo":{"enabled":False,"region_id":""}}
-DEFAULT_STORES.update({store:{"enabled":False, "postal_code":"", "area_id":"", "area_name":"", "zone":"", "checked_at":None} for store in REGIONAL_STORES})
+DEFAULT_STORES = {store: {"enabled": False, **reference_location(store)} for store in REFERENCE_LOCATIONS}
 
 
 def normalize_appearance(data: dict, *, defaults: dict | None = None) -> dict:
@@ -50,9 +48,8 @@ def list_options(entry: ConfigEntry) -> dict:
     entities = list(entry.options.get(CONF_TODO_ENTITIES, [primary] if primary else []))
     return {"entities": entities, "primary_entity": primary if primary in entities else next(iter(entities), ""),
             "appearance": {**DEFAULT_APPEARANCE, **entry.options.get("appearance", {})},
-            "stores": {key:{**deepcopy(defaults), **deepcopy(entry.options.get("stores", {}).get(key, {}))} for key,defaults in DEFAULT_STORES.items()},
-            "favorite_store": entry.options.get("favorite_store", ""), "price_update_time":entry.options.get("price_update_time", "01:00"),
-            "store_postal_code":entry.options.get("store_postal_code", entry.options.get("stores", {}).get("mercadona", {}).get("postal_code", ""))}
+            "stores": {key: {**deepcopy(defaults), "enabled": bool(entry.options.get("stores", {}).get(key, {}).get("enabled", False))} for key, defaults in DEFAULT_STORES.items()},
+            "favorite_store": entry.options.get("favorite_store", ""), "price_update_time":entry.options.get("price_update_time", "01:00")}
 
 
 class ListSettings:
@@ -69,14 +66,16 @@ class ListSettings:
     def attach(self, entry: ConfigEntry) -> None:
         self._generation += 1
         self.entry = entry
-        if "lidl" in entry.options.get("stores", {}) or entry.options.get("favorite_store") == "lidl":
-            stores = self.snapshot["stores"]
-            favorite = entry.options.get("favorite_store", "")
-            if favorite == "lidl":
-                favorite = next((key for key,value in stores.items() if value.get("enabled")), "")
-            self.hass.config_entries.async_update_entry(entry, options={
-                **entry.options, "stores":stores, "favorite_store":favorite,
-            })
+        # Drop all historical user locations and coverage errors atomically.
+        # Keep store activation, lists, favorite and unrelated preferences.
+        stores = self.snapshot["stores"]
+        favorite = entry.options.get("favorite_store", "")
+        if favorite not in stores or not stores[favorite].get("enabled"):
+            favorite = next((key for key, value in stores.items() if value.get("enabled")), "")
+        options = {key: value for key, value in entry.options.items() if key != "store_postal_code"}
+        options.update(stores=stores, favorite_store=favorite)
+        if options != dict(entry.options):
+            self.hass.config_entries.async_update_entry(entry, options=options)
         if CONF_TODO_ENTITIES not in entry.options:
             # Keep the lists exposed by previous installations, including a
             # configured entity that has not finished starting yet.
@@ -94,45 +93,10 @@ class ListSettings:
 
     @property
     def snapshot(self) -> dict:
-        return list_options(self.entry) if self.entry else {"entities": [], "primary_entity": "", "appearance": dict(DEFAULT_APPEARANCE), "stores": deepcopy(DEFAULT_STORES), "favorite_store": "", "price_update_time":"01:00", "store_postal_code":""}
-
-    async def _located_store(self, store, enabled, postal, current):
-        value = {**deepcopy(DEFAULT_STORES[store]), "enabled":enabled}
-        try:
-            async with asyncio.timeout(75):
-                location = await resolve_location(self.hass, store, postal, current)
-            value.update(location, checked_at=int(time.time()), location_error="", location_diagnostics={})
-        except (StoreError, TimeoutError) as err:
-            # Keep the last price's scope readable, but block new price requests.
-            value = {**deepcopy(current), "enabled":enabled,
-                "location_error":str(err) or "La comprobación de ubicación ha tardado demasiado.",
-                "location_diagnostics":{**getattr(err,"diagnostics",{}),"requested_postal_code":postal}}
-        return value
-
-    async def async_store_postal(self, postal):
-        """Save a single location, resolving active stores independently."""
-        if not isinstance(postal, str) or postal and not re.fullmatch(POSTAL_PATTERN, postal):
-            raise StoreError("Introduce un código postal español válido de cinco cifras o deja el campo vacío.")
-        generation = self._generation
-        async with self._stores_lock:
-            entry = self.entry
-            if not entry or generation != self._generation or not self.hass.data.get(DOMAIN, {}).get("active"):
-                raise StoreError("La integración no está activa.")
-            current = self.snapshot["stores"]
-            active = [key for key,value in current.items() if value.get("enabled")]
-            resolved = await asyncio.gather(*(self._located_store(key, True, postal, current[key]) for key in active))
-            if self.entry is not entry or generation != self._generation or not self.hass.data.get(DOMAIN, {}).get("active"):
-                raise StoreError("La integración se ha detenido. Vuelve a abrirla para guardar los ajustes.")
-            # Inactive stores will resolve the common postcode when enabled.
-            stores = deepcopy(current)
-            stores.update(zip(active, resolved))
-            self.hass.config_entries.async_update_entry(entry, options={**entry.options,
-                "store_postal_code":postal, "stores":stores})
-            self.notify()
-            return self.snapshot
+        return list_options(self.entry) if self.entry else {"entities": [], "primary_entity": "", "appearance": dict(DEFAULT_APPEARANCE), "stores": deepcopy(DEFAULT_STORES), "favorite_store": "", "price_update_time":"01:00"}
 
     async def async_toggle_located_store(self, store, enabled):
-        """Configure the store from the shared location on first activation."""
+        """Enable a fixed reference without postal discovery or HTTP requests."""
         if store not in DEFAULT_STORES:
             raise StoreError("Tienda no compatible.")
         generation = self._generation
@@ -140,58 +104,24 @@ class ListSettings:
             entry = self.entry
             if not entry or generation != self._generation or not self.hass.data.get(DOMAIN, {}).get("active"):
                 raise StoreError("La integración no está activa.")
-            current = self.snapshot["stores"][store]
-            value = ({**current,"enabled":False} if not enabled else
-                await self._located_store(store, True, self.snapshot["store_postal_code"], current))
-            if self.entry is not entry or generation != self._generation or not self.hass.data.get(DOMAIN, {}).get("active"):
-                raise StoreError("La integración se ha detenido.")
-            stores = {**self.snapshot["stores"], store:value}
+            stores = {**self.snapshot["stores"], store: {"enabled": enabled, **reference_location(store)}}
             self.hass.config_entries.async_update_entry(entry, options={**entry.options,
-                "stores":stores,"favorite_store":self._favorite(stores)})
+                "stores": stores, "favorite_store": self._favorite(stores)})
             self.notify()
             return self.snapshot
 
     async def async_ensure_store_location(self, store):
-        """Repair an enabled store's missing location using the shared/default postcode."""
-        generation = self._generation
-        async with self._stores_lock:
-            entry = self.entry
-            if (not entry or generation != self._generation
-                or not self.hass.data.get(DOMAIN, {}).get("active")):
-                raise StoreError("La integración no está activa.")
-            current = self.snapshot["stores"][store]
-            if not current.get("enabled"):
-                raise StoreError("Habilita la tienda antes de actualizar sus precios.")
-            value = await self._located_store(store, True, self.snapshot["store_postal_code"], current)
-            if (self.entry is not entry or generation != self._generation
-                or not self.hass.data.get(DOMAIN, {}).get("active")):
-                raise StoreError("La integración se ha detenido.")
-            self.hass.config_entries.async_update_entry(entry, options={**entry.options,
-                "stores":{**self.snapshot["stores"], store:value}})
-            self.notify()
-            return value
+        """Return the canonical reference; obsolete saved locations cannot leak in."""
+        if not self.entry or not self.hass.data.get(DOMAIN, {}).get("active"):
+            raise StoreError("La integración no está activa.")
+        current = self.snapshot["stores"].get(store, {})
+        if not current.get("enabled"):
+            raise StoreError("Habilita la tienda antes de actualizar sus precios.")
+        return current
 
-    async def async_update_store(self, enabled: bool, postal_code: str, verify: bool = False) -> dict:
-        """Verify before saving, serialize writes and preserve unrelated options."""
-        generation = self._generation
-        async with self._stores_lock:
-            entry = self.entry
-            if generation != self._generation or not entry or not self.hass.data.get(DOMAIN, {}).get("active"):
-                raise StoreError("La integración no está activa.")
-            current = self.snapshot["stores"]["mercadona"]
-            if enabled or verify:
-                warehouse = await async_resolve_mercadona(self.hass, postal_code)
-                store = {"enabled": enabled, "postal_code": postal_code, "warehouse": warehouse, "checked_at": int(time.time())}
-            else:
-                store = {**current, "enabled": False}
-            if generation != self._generation or self.entry is not entry or not self.hass.data.get(DOMAIN, {}).get("active"):
-                raise StoreError("La integración se ha detenido. Vuelve a abrirla para guardar los ajustes.")
-            self.hass.config_entries.async_update_entry(entry, options={
-                **entry.options, "stores": {**self.snapshot["stores"], "mercadona": store},
-                "favorite_store": self._favorite({**self.snapshot["stores"], "mercadona": store}),
-            })
-            self.notify()
-            return self.snapshot
+    async def async_update_store(self, enabled: bool, postal_code: str = "", verify: bool = False) -> dict:
+        """Compatibility for older clients: location parameters no longer apply."""
+        return await self.async_toggle_located_store("mercadona", enabled)
 
     def _favorite(self, stores):
         active = [key for key, value in stores.items() if value.get("enabled")]
@@ -199,18 +129,7 @@ class ListSettings:
         return current if current in active else next(iter(active), "")
 
     async def async_update_carrefour(self, enabled, sale_point=None):
-        if sale_point is not None and not re.fullmatch(r"[0-9]{6}", sale_point):
-            raise StoreError("El centro de Carrefour debe contener seis dígitos, conservando los ceros iniciales.")
-        generation = self._generation
-        async with self._stores_lock:
-            if generation != self._generation or not self.entry or not self.hass.data.get(DOMAIN, {}).get("active"):
-                raise StoreError("La integración no está activa.")
-            current = self.snapshot["stores"]["carrefour"]
-            stores = {**self.snapshot["stores"], "carrefour": {**current,"enabled": enabled,"sale_point":sale_point if sale_point is not None else current["sale_point"]}}
-            self.hass.config_entries.async_update_entry(self.entry, options={**self.entry.options,
-                "stores": stores, "favorite_store": self._favorite(stores)})
-            self.notify()
-            return self.snapshot
+        return await self.async_toggle_located_store("carrefour", enabled)
 
     async def async_favorite_store(self, store):
         generation = self._generation
@@ -221,51 +140,13 @@ class ListSettings:
             self.notify()
             return self.snapshot
 
-    async def async_update_alcampo(self, enabled, region_id):
-        if region_id and not re.fullmatch(r"[a-fA-F0-9]{8}(?:-[a-fA-F0-9]{4}){3}-[a-fA-F0-9]{12}", region_id):
-            raise StoreError("La región de Alcampo debe ser un identificador UUID válido.")
-        generation = self._generation
-        async with self._stores_lock:
-            if generation != self._generation or not self.entry or not self.hass.data.get(DOMAIN, {}).get("active"):
-                raise StoreError("La integración no está activa.")
-            stores = {**self.snapshot["stores"], "alcampo":{"enabled":enabled,"region_id":region_id.lower()}}
-            self.hass.config_entries.async_update_entry(self.entry, options={**self.entry.options,
-                "stores":stores,"favorite_store":self._favorite(stores)})
-            self.notify()
-            return self.snapshot
+    async def async_update_alcampo(self, enabled, region_id=""):
+        return await self.async_toggle_located_store("alcampo", enabled)
 
     async def async_update_regional(self, store, enabled, postal_code="", area_id="", verify=False):
-        """Verify a postal/center pair before committing, preserving data on failure."""
         if store not in REGIONAL_STORES:
             raise StoreError("Tienda no compatible.")
-        generation = self._generation
-        async with self._stores_lock:
-            entry = self.entry
-            if generation != self._generation or not entry or not self.hass.data.get(DOMAIN, {}).get("active"):
-                raise StoreError("La integración no está activa.")
-            current = self.snapshot["stores"][store]
-            if not enabled and not verify:
-                value = {**current, "enabled":False}
-            elif (not verify and current.get("checked_at") and valid_area(store, current.get("area_id"))
-                  and postal_code in ("", current["postal_code"]) and area_id in ("", current["area_id"])):
-                value = {**current, "enabled":enabled}
-            else:
-                coverage = await async_resolve_areas(self.hass, store, postal_code)
-                areas = coverage["areas"]
-                selected = next((area for area in areas if area["id"] == area_id), None)
-                if not area_id and len(areas) == 1:
-                    selected = areas[0]
-                if not selected:
-                    raise StoreError("Selecciona uno de los centros disponibles para este código postal.")
-                value = {"enabled":enabled, "postal_code":postal_code, "area_id":selected["id"],
-                    "area_name":selected["name"], "zone":selected.get("zone", ""), "checked_at":int(time.time())}
-            if generation != self._generation or self.entry is not entry or not self.hass.data.get(DOMAIN, {}).get("active"):
-                raise StoreError("La integración se ha detenido. Vuelve a abrirla para guardar los ajustes.")
-            stores = {**self.snapshot["stores"], store:value}
-            self.hass.config_entries.async_update_entry(entry, options={**entry.options,
-                "stores":stores, "favorite_store":self._favorite(stores)})
-            self.notify()
-            return self.snapshot
+        return await self.async_toggle_located_store(store, enabled)
 
     def update_price_schedule(self, value):
         if not self.entry or not re.fullmatch(r"(?:[01][0-9]|2[0-3]):[0-5][0-9]", value):

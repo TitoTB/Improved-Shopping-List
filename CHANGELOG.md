@@ -1,5 +1,10 @@
 # Historial de cambios
 
+## Pendiente de publicación
+
+- Centros fijos de referencia para todas las tiendas. Retirado el botón y popup del código postal; las instalaciones anteriores migran conservando tiendas activas, favorita, listas y preferencias, sin reutilizar los errores de cobertura de la ubicación anterior.
+- Habilitar tiendas ya no consulta la cobertura. Consum utiliza el centro 301 de 46409; las consultas de productos siguen respetando las pausas y los bloqueos del servidor. Los precios de otros centros permanecen guardados con su ámbito original y no se mezclan con los de referencia.
+
 ## 0.22.0
 
 - Actualizar ahora vuelve a abrir la revisión activa sin reiniciar ni ampliar la cola, incluso después de una recarga, durante la preparación o mientras hay una petición en curso. La protección se aplica también en Home Assistant si el navegador todavía no ha recibido el estado inicial.

@@ -76,27 +76,6 @@ def test_filters_disabled_or_inconsistent_coverage():
     assert coverage_areas("lasirena",[{"sellers":[{"id":"../bad"}]}])==[]
 
 
-async def test_selected_area_must_belong_to_postal_and_toggle_is_local(hass,monkeypatch):
-    entry=MockConfigEntry(domain=DOMAIN,data={CONF_TODO_ENTITY:"todo.bring"},options={"unrelated":True})
-    entry.add_to_hass(hass);settings=ListSettings(hass);settings.attach(entry);hass.data[DOMAIN]={"active":True}
-    resolver=AsyncMock(return_value={"areas":coverage_areas("consum",CONSUM_AREA)})
-    monkeypatch.setattr("custom_components.improved_shopping_list.list_settings.async_resolve_areas",resolver)
-    with pytest.raises(StoreError):await settings.async_update_regional("consum",True,"46409","999D",True)
-    assert not settings.snapshot["stores"]["consum"]["enabled"]
-    await settings.async_update_regional("consum",True,"46409","301D",True)
-    assert settings.snapshot["stores"]["consum"]["zone"]=="301"
-    assert settings.snapshot["favorite_store"]=="consum"
-    resolver.reset_mock()
-    await settings.async_update_regional("consum",False)
-    await settings.async_update_regional("consum",True)
-    resolver.assert_not_awaited()
-    assert entry.options["unrelated"] is True
-    previous=deepcopy(settings.snapshot)
-    resolver.side_effect=StoreError("Sin cobertura")
-    with pytest.raises(StoreError):await settings.async_update_regional("consum",True,"28024","301D",True)
-    assert settings.snapshot==previous
-
-
 @pytest.mark.parametrize(("store","url","identifier"),[
     ("consum","https://tienda.consum.es/es/p/patatas-fritas/7394260?tracking=1","7394260"),
     ("lasirena","https://www.lasirena.es/es/lomos-de-salmon-655/p","655")])
@@ -165,20 +144,6 @@ async def test_regional_ws_resolve_save_and_cached_read(hass,hass_ws_client,aioc
     await client.send_json({"id":3,"type":f"{DOMAIN}/catalog/store_prices","store":"consum"})
     assert (await client.receive_json())["result"]["products"]==[]
     assert aioclient_mock.call_count==count
-
-
-async def test_late_postal_configuration_after_reload_is_discarded(hass,monkeypatch):
-    entry=MockConfigEntry(domain=DOMAIN,data={CONF_TODO_ENTITY:"todo.bring"});entry.add_to_hass(hass)
-    settings=ListSettings(hass);settings.attach(entry);hass.data[DOMAIN]={"active":True}
-    entered,resume=asyncio.Event(),asyncio.Event()
-    async def resolve(*args):
-        entered.set();await resume.wait()
-        return {"areas":coverage_areas("consum",CONSUM_AREA)}
-    monkeypatch.setattr("custom_components.improved_shopping_list.list_settings.async_resolve_areas",resolve)
-    task=asyncio.create_task(settings.async_update_regional("consum",True,"46409","301D",True))
-    await entered.wait();settings.detach();settings.attach(entry);resume.set()
-    with pytest.raises(StoreError):await task
-    assert not settings.snapshot["stores"]["consum"]["enabled"]
 
 
 async def test_sirena_403_stops_before_simulation(hass,aioclient_mock):

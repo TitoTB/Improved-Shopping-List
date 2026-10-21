@@ -152,4 +152,4 @@ async def test_dia_ws_postal_save_and_read_only_cannot_trigger_network(hass,hass
     reader=await hass_ws_client(hass,hass.auth.async_create_access_token(token))
     await reader.send_json({"id":1,"type":f"{DOMAIN}/settings/resolve_store","store":"dia","postal_code":"28024"})
     assert (await reader.receive_json())["error"]["code"]=="unauthorized"
-    assert calls==["28024"]
+    assert calls==[]  # Reference activation no longer discovers coverage.

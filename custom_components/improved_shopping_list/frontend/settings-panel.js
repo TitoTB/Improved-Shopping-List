@@ -42,7 +42,6 @@ class ImprovedShoppingSettings extends HTMLElement {
     clearInterval(this._pricesProgressTimer);
     this.shadowRoot.querySelector("#prices-progress-dialog")?.close();
     this.shadowRoot.querySelector("#price-schedule-dialog")?.close();
-    this.shadowRoot.querySelector("#store-postal-dialog")?.close();
     this._priceStatusToken = null; this._priceStatusConnection = null; this._stopPriceStatus?.(); this._stopPriceStatus = null;
     this._productsLoading = false; this._productsGeneration = (this._productsGeneration || 0) + 1;
     this._carrefourGeneration = (this._carrefourGeneration || 0) + 1; this._carrefourLoading = false; this._alcampoGeneration = (this._alcampoGeneration || 0) + 1;
@@ -84,7 +83,6 @@ class ImprovedShoppingSettings extends HTMLElement {
         .store-row[data-enabled=true] { background:rgba(38,112,82,.10); }
         #price-schedule-form > label { margin-bottom:12px; }
         #price-update-time { display:block; width:100%; }
-        #store-postal-code { display:block; width:100%; }
         #settings-stores { container-type:inline-size; }
         .stores-grid { display:grid; grid-template-columns:minmax(0,1fr); gap:12px; }
         @container(min-width:800px) { .stores-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
@@ -185,7 +183,7 @@ class ImprovedShoppingSettings extends HTMLElement {
         </form>
       </section>
       <section id="settings-stores" class="card" aria-labelledby="settings-stores-title" hidden>
-        <div class="stores-heading"><h2 id="settings-stores-title">Tiendas</h2><div class="stores-heading-actions"><button id="refresh-all-prices" class="store-refresh" type="button" aria-label="Actualizar ahora" title="Actualizar ahora"><ha-icon icon="mdi:refresh" aria-hidden="true"></ha-icon></button><button id="configure-price-schedule" class="store-refresh" type="button" aria-label="Hora de revisión diaria" title="Hora de revisión diaria"><ha-icon icon="mdi:clock-outline" aria-hidden="true"></ha-icon></button><button id="configure-store-postal" class="store-refresh" type="button" aria-label="Código postal de las tiendas" title="Código postal de las tiendas"><ha-icon icon="mdi:map-marker" aria-hidden="true"></ha-icon></button></div></div>
+        <div class="stores-heading"><h2 id="settings-stores-title">Tiendas</h2><div class="stores-heading-actions"><button id="refresh-all-prices" class="store-refresh" type="button" aria-label="Actualizar ahora" title="Actualizar ahora"><ha-icon icon="mdi:refresh" aria-hidden="true"></ha-icon></button><button id="configure-price-schedule" class="store-refresh" type="button" aria-label="Hora de revisión diaria" title="Hora de revisión diaria"><ha-icon icon="mdi:clock-outline" aria-hidden="true"></ha-icon></button></div></div>
         <div class="stores-grid">
         <article class="store-row" id="mercadona-row">
           <img class="store-logo" src="${MERCADONA_LOGO_URL}" alt="Logo de Mercadona" referrerpolicy="no-referrer" loading="lazy" width="56" height="56">
@@ -207,13 +205,6 @@ class ImprovedShoppingSettings extends HTMLElement {
       <dialog id="price-schedule-dialog" aria-labelledby="price-schedule-title">
         <h2 id="price-schedule-title">Hora de revisión diaria</h2>
         <form id="price-schedule-form"><label for="price-update-time">Hora de revisión diaria</label><input id="price-update-time" type="time" value="01:00" required><div id="price-schedule-error" class="notice error" role="alert" hidden></div><div class="appearance-actions"><button id="save-price-update-time" class="primary" type="submit">Guardar horario</button></div></form>
-      </dialog>
-      <dialog id="store-postal-dialog" aria-labelledby="store-postal-title">
-        <h2 id="store-postal-title">Código postal de las tiendas</h2>
-        <form id="store-postal-form"><label for="store-postal-code">Código postal</label><input id="store-postal-code" inputmode="numeric" autocomplete="postal-code" maxlength="5" pattern="(?:0[1-9]|[1-4][0-9]|5[0-2])[0-9]{3}" placeholder="Código postal opcional">
-        <p>Se usará para todas las tiendas, y si lo dejas vacío, se utilizará uno genérico.</p>
-        <div id="store-postal-error" class="notice error" role="alert" hidden></div>
-        <div class="appearance-actions"><button id="save-store-postal" class="primary" type="submit">Guardar código postal</button></div></form>
       </dialog>
       <dialog id="carrefour-dialog" aria-labelledby="carrefour-dialog-title">
         <h2 id="carrefour-dialog-title">Carrefour</h2>
@@ -265,12 +256,6 @@ class ImprovedShoppingSettings extends HTMLElement {
       root.querySelector("#price-update-time").value=this._data.settings.priceUpdateTime ?? "01:00";
       this._error=""; this._render(); root.querySelector("#price-schedule-dialog").showModal();
     });
-    root.querySelector("#configure-store-postal").addEventListener("click",()=>{
-      root.querySelector("#store-postal-code").value=this._data.settings.storePostalCode ?? "";
-      this._error=""; this._render(); root.querySelector("#store-postal-dialog").showModal();
-    });
-    root.querySelector("#store-postal-form").addEventListener("submit",event=>{event.preventDefault();void this._saveStorePostal();});
-    root.querySelector("#store-postal-dialog").addEventListener("cancel",event=>{if(this._busy)event.preventDefault();});
     root.querySelector("#price-schedule-form").addEventListener("submit",event=>{event.preventDefault();void this._savePriceSchedule();});
     root.querySelector("#close-prices-progress").addEventListener("click",()=>root.querySelector("#prices-progress-dialog").close());
     root.querySelector("#prices-progress-dialog").addEventListener("close",()=>clearInterval(this._pricesProgressTimer));
@@ -420,22 +405,7 @@ class ImprovedShoppingSettings extends HTMLElement {
     root.querySelector("#configure-mercadona").disabled=!settings.loaded || settings.loading || this._busy;
     root.querySelector("#store-dialog-error").textContent=this._error || "";
     root.querySelector("#store-dialog-error").hidden=!this._error;
-    root.querySelector("#configure-store-postal").disabled=!settings.loaded || settings.loading || this._busy;
-    root.querySelector("#store-postal-code").disabled=locked;
-    root.querySelector("#save-store-postal").disabled=locked;
-    root.querySelector("#save-store-postal").textContent=this._busy ? "Comprobando tiendas…" : "Guardar código postal";
-    root.querySelector("#store-postal-error").textContent=this._error || "";
-    root.querySelector("#store-postal-error").hidden=!this._error;
     this._renderStoreProducts();
-  }
-
-  async _saveStorePostal() {
-    const root=this.shadowRoot, input=root.querySelector("#store-postal-code");
-    if(this._busy || this._data.hass?.user?.is_admin !== true || !input.reportValidity())return;
-    const postal=input.value.trim();
-    await this._saveRetailSettings(()=>this._data.settings.saveStorePostal(postal));
-    if(this._error)return;
-    root.querySelector("#store-postal-dialog").close();
   }
 
   _watchPriceStatus() {

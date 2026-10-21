@@ -15,7 +15,7 @@ from .catalog import Catalog, CatalogError
 from .const import DOMAIN
 from .list_settings import ListSettingsError
 from .stores import StoreError
-from .regional_stores import async_resolve_areas
+from .store_location import reference_location
 from .icons import IconError
 from .community import build_export
 from .product_translation import async_translate_name
@@ -60,7 +60,6 @@ def async_register_commands(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_carrefour_products)
     websocket_api.async_register_command(hass, ws_favorite_store)
     websocket_api.async_register_command(hass, ws_price_schedule)
-    websocket_api.async_register_command(hass, ws_store_postal)
     websocket_api.async_register_command(hass, ws_store_enabled)
     websocket_api.async_register_command(hass, ws_cached_prices)
     websocket_api.async_register_command(hass, ws_refresh_prices)
@@ -411,7 +410,8 @@ async def ws_resolve_store(hass, connection, msg):
     settings = hass.data[DOMAIN]["settings"]
     generation = settings._generation
     try:
-        result = await async_resolve_areas(hass, msg["store"], msg["postal_code"])
+        location = reference_location(msg["store"])
+        result = {"postal_code": location["postal_code"], "areas": [{"id": location["area_id"], "name": location["area_name"], "zone": location["zone"]}]}
         if generation != settings._generation or not hass.data.get(DOMAIN, {}).get("active"):
             raise StoreError("La integración se ha detenido.")
         connection.send_result(msg["id"], result)
@@ -459,20 +459,6 @@ def ws_store_progress(hass, connection, msg):
     connection.subscriptions[msg["id"]] = products.subscribe(on_update)
     connection.send_result(msg["id"])
     on_update()
-
-
-@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/settings/store_postal", vol.Required("postal_code"):str})
-@websocket_api.require_admin
-@websocket_api.async_response
-async def ws_store_postal(hass, connection, msg):
-    if not _catalog(hass, connection, msg):
-        return
-    try:
-        result = await hass.data[DOMAIN]["settings"].async_store_postal(msg["postal_code"])
-    except StoreError as err:
-        connection.send_error(msg["id"], "invalid_location", str(err))
-    else:
-        connection.send_result(msg["id"], result)
 
 
 @websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/settings/store_enabled",

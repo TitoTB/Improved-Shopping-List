@@ -157,21 +157,14 @@ const hass={
       if(msg.force&&window.holdStoreRefresh)await new Promise(resolve=>window.finishStoreRefresh=resolve);
       return {warehouse:'mad3',enabled:true,products:[{name:'Tomate',ean:'8430543025611',store_name:'Tomate rallado',store_product_id:'69938',price:msg.force?1.55:1.45,reference_price:5,reference_unit:'kg',checked_at:1800000000}],error:window.failStoreProducts?'Mercadona ha rechazado la consulta (HTTP 403)':'',automatic_refresh_blocked:!!window.failStoreProducts,remaining:window.failStoreProducts?20:0,processed:0,total:20,retry_at:window.failStoreProducts?Date.now()/1000+900:0};
     }
-    if(msg.type==='improved_shopping_list/settings/store_postal'||msg.type==='improved_shopping_list/settings/store_enabled'){
-      if(window.failSettings)throw new Error('No se ha podido guardar la ubicación');
+    if(msg.type==='improved_shopping_list/settings/store_enabled'){
+      if(window.failSettings)throw new Error('No se ha podido guardar la tienda');
       (window.storePostalCalls??=[]).push(structuredClone(msg));
-      if(msg.type.endsWith('store_postal'))window.listSettings.store_postal_code=msg.postal_code;
-      const shared=window.listSettings.store_postal_code??'';
-      const defaults={mercadona:'28001',consum:'46409',lasirena:'28024',eroski:'48001',dia:'28024'};
-      for(const store of msg.type.endsWith('store_postal')?Object.keys(window.listSettings.stores??{}):[msg.store]){
-        const previous=window.listSettings.stores?.[store]??{};
-        const enabled=msg.type.endsWith('store_postal')?Boolean(previous.enabled):msg.enabled;
-        const postal=shared||defaults[store]||'';
-        window.listSettings.stores={...window.listSettings.stores,[store]:{...previous,enabled,...(enabled?{postal_code:postal,location_error:store==='alcampo'&&window.failAlcampoLocation?'No se pudo comprobar la ubicación (HTTP 403).':'',warehouse:'mad3',sale_point:shared?'005704':'005290',region_id:shared?'deb03a69-3104-4451-9ffa-3a55dc156d9f':'',area_id:store==='consum'?'301D':store==='dia'?postal:'public-center',area_name:'Centro público',checked_at:12345}:{})}};
-      }
-      const active=Object.keys(window.listSettings.stores??{}).filter(key=>window.listSettings.stores[key].enabled);
-      if(!active.includes(window.listSettings.favorite_store))window.listSettings.favorite_store=active[0]??'';
-      window.emitSettings();return structuredClone(window.listSettings);
+      const defaults={mercadona:{postal_code:'28024',warehouse:'mad1'},carrefour:{postal_code:'28024',sale_point:'005704'},alcampo:{postal_code:'28024',region_id:'deb03a69-3104-4451-9ffa-3a55dc156d9f'},consum:{postal_code:'46409',area_id:'301D',zone:'301'},lasirena:{postal_code:'28024',area_id:'lasirena259'},eroski:{postal_code:'48001',area_id:'f7e80707-fd7a-437c-b451-698301f2cf77',zone:'244'},dia:{postal_code:'28024',area_id:'28024',zone:'28024'}};
+      window.listSettings.stores={...window.listSettings.stores,[msg.store]:{enabled:msg.enabled,...defaults[msg.store]}};
+      if(!window.listSettings.stores?.[window.listSettings.favorite_store]?.enabled)window.listSettings.favorite_store=Object.keys(window.listSettings.stores).find(key=>window.listSettings.stores[key].enabled)||'';
+      window.listSettingsPush?.(structuredClone(window.listSettings));
+      return structuredClone(window.listSettings);
     }
     if(msg.type==='improved_shopping_list/settings/resolve_store'){
       if(msg.postal_code==='28024'&&msg.store==='consum')throw new Error('Consum no ofrece entrega para este código postal.');
@@ -392,7 +385,7 @@ async function main() {
       };
       visit(document);
       return dialogs.filter(dialog => dialog.querySelectorAll(".isl-dialog-close[aria-label='Cerrar ventana']").length === 1).length;
-    }), 24);
+    }), 23);
     await page.getByRole("button", { name: "Seleccionar lista", exact: true }).click();
     const listDialog = page.getByRole("dialog", { name: "Seleccionar lista", exact: true });
     assert.equal(await listDialog.getByRole("button", { name: "Compra · Bring!", exact: true }).getAttribute("aria-pressed"), "true");
@@ -1207,20 +1200,12 @@ async function main() {
       assert.ok(await dialog.locator('section').isVisible());
       await dialog.getByRole('button',{name:'Cerrar ventana',exact:true}).click();
     }
-    // All stores share a single optional postal code, including stores enabled later.
-    const locationButton=settingsView.getByRole('button',{name:'Código postal de las tiendas',exact:true});
-    assert.equal(await locationButton.locator('ha-icon').getAttribute('icon'),'mdi:map-marker');
-    assert.ok(await locationButton.evaluate(node=>node.previousElementSibling.id==='configure-price-schedule'));
-    await locationButton.click();
-    const locationDialog=settingsView.getByRole('dialog',{name:'Código postal de las tiendas',exact:true});
-    await locationDialog.getByLabel('Código postal',{exact:true}).fill('28001');
-    await locationDialog.getByRole('button',{name:'Guardar código postal',exact:true}).click();
-    await locationDialog.waitFor({state:'hidden'});
-    assert.equal(await settingsPage.evaluate(()=>window.listSettings.store_postal_code),'28001');
+    // Store references are fixed; no user postcode is requested.
+    assert.equal(await settingsView.getByRole('button',{name:'Código postal de las tiendas',exact:true}).count(),0);
     for(const [store,name] of [['consum','Consum'],['lasirena','La Sirena'],['eroski','Eroski'],['dia','DIA']]){
       await settingsView.getByLabel(`Habilitar ${name}`,{exact:true}).check();
       await settingsPage.waitForFunction(store=>window.listSettings.stores?.[store]?.enabled,store);
-      assert.equal(await settingsPage.evaluate(store=>window.listSettings.stores[store].postal_code,store),'28001');
+      assert.equal(await settingsPage.evaluate(store=>window.listSettings.stores[store].postal_code,store),{consum:'46409',lasirena:'28024',eroski:'48001',dia:'28024'}[store]);
       assert.equal(await settingsView.locator('dialog[open]').count(),0);
       await settingsView.getByLabel(`Habilitar ${name}`,{exact:true}).uncheck();
       await settingsView.getByRole('button',{name:`Productos de ${name}`,exact:true}).click();
@@ -1278,16 +1263,6 @@ async function main() {
     await settingsView.getByLabel("Habilitar Mercadona",{exact:true}).check();
     await settingsView.getByRole("button",{name:"Productos de Mercadona",exact:true}).click();
     await storeDialog.getByRole('button',{name:'Cerrar ventana',exact:true}).click();
-    await locationButton.click();
-    assert.equal(await locationDialog.getByLabel('Código postal',{exact:true}).inputValue(),'28001');
-    await settingsPage.evaluate(()=>{window.failSettings=true;});
-    await locationDialog.getByLabel('Código postal',{exact:true}).fill('46001');
-    await locationDialog.getByRole('button',{name:'Guardar código postal',exact:true}).click();
-    await locationDialog.getByRole('alert').filter({hasText:'No se ha podido guardar la ubicación'}).waitFor();
-    assert.equal(await settingsPage.evaluate(()=>window.listSettings.store_postal_code),'28001');
-    assert.equal(await locationDialog.getByLabel('Código postal',{exact:true}).inputValue(),'46001');
-    await settingsPage.evaluate(()=>{window.failSettings=false;});
-    await locationDialog.getByRole('button',{name:'Cerrar ventana',exact:true}).click();
     await settingsView.getByLabel("Habilitar Carrefour",{exact:true}).check();
     await settingsView.getByRole("button",{name:"Marcar Carrefour como favorita",exact:true}).click();
     await settingsView.locator('#favorite-carrefour[aria-pressed="true"]').waitFor();
@@ -1380,7 +1355,7 @@ async function main() {
     assert.equal(await settingsView.locator('#settings-stores #price-update-time').count(),0);
     await settingsView.getByRole("switch",{name:"Habilitar Mercadona",exact:true}).uncheck();
     assert.equal(await settingsView.getByRole("switch",{name:"Habilitar Mercadona",exact:true}).isChecked(),false);
-    assert.equal(await settingsPage.evaluate(()=>window.listSettings.stores.mercadona.postal_code),"28001");
+    assert.equal(await settingsPage.evaluate(()=>window.listSettings.stores.mercadona.postal_code),"28024");
     await settingsPage.screenshot({path:"test-results/stores-mobile.png",fullPage:true});
     await settingsView.getByRole("button",{name:"Comunidad",exact:true}).click();
     await settingsView.getByRole("heading",{name:"Comunidad",exact:true}).waitFor();
@@ -2119,19 +2094,7 @@ async function main() {
     const alcampoDialog=linkedSettings.getByRole('dialog',{name:'Alcampo',exact:true});
     assert.equal(await alcampoDialog.locator('input,select').count(),0);
     await alcampoDialog.getByRole('button',{name:'Cerrar ventana',exact:true}).click();
-    await linkedSettings.getByRole('button',{name:'Código postal de las tiendas',exact:true}).click();
-    const sharedLocation=linkedSettings.getByRole('dialog',{name:'Código postal de las tiendas',exact:true});
-    await sharedLocation.getByLabel('Código postal',{exact:true}).fill('28024');
-    await linksPage.evaluate(()=>{window.failAlcampoLocation=true;});
-    await sharedLocation.getByRole('button',{name:'Guardar código postal',exact:true}).click();
-    await sharedLocation.waitFor({state:'hidden'});
-    assert.match(await linksPage.evaluate(()=>window.listSettings.stores.alcampo.location_error),/HTTP 403/);
-    await linksPage.evaluate(()=>{window.failAlcampoLocation=false;});
-    await linkedSettings.getByRole('button',{name:'Código postal de las tiendas',exact:true}).click();
-    await sharedLocation.getByLabel('Código postal',{exact:true}).fill('');
-    await sharedLocation.getByRole('button',{name:'Guardar código postal',exact:true}).click();
-    await linksPage.waitForFunction(()=>window.listSettings.store_postal_code==='');
-    assert.equal(await linksPage.evaluate(()=>window.listSettings.stores.alcampo.region_id),'');
+    assert.equal(await linkedSettings.getByRole('button',{name:'Código postal de las tiendas',exact:true}).count(),0);
     await linksContext.close();
     // Clearing completed items uses the native provider action, with no effect on pending items.
     const clearContext = await browser.newContext({viewport:{width:320,height:844}});

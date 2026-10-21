@@ -115,7 +115,7 @@ class PriceManager:
         if key:
             configuration = self.settings.snapshot["stores"].get(key,{})
             batch["stores"][key] = {"name":STORES[key],"postal_code":configuration.get("postal_code",""),
-                "requested_postal_code":self.settings.snapshot.get("store_postal_code",""),"scope":self.scope(key)}
+                "reference_postal_code":configuration.get("postal_code",""),"scope":self.scope(key)}
         batch["events"].append({"kind":kind,"source":source,"time":time.time(),"store":key,"message":str(message),"diagnostics":diagnostics})
 
     async def _save(self):

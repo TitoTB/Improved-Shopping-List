@@ -1,183 +1,113 @@
-"""Shared postcode persistence, public discovery and failure isolation."""
+"""Fixed reference migration, isolation and authenticated activation."""
 
 import asyncio
-from copy import deepcopy
-from unittest.mock import AsyncMock
 
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.improved_shopping_list.const import CONF_TODO_ENTITY, DOMAIN
-from custom_components.improved_shopping_list.list_settings import ListSettings
-from custom_components.improved_shopping_list.price_sources import PriceError, PriceSources
-from custom_components.improved_shopping_list.store_location import _public_location, resolve_location
+from custom_components.improved_shopping_list.list_settings import ListSettings, DEFAULT_STORES
+from custom_components.improved_shopping_list.store_location import REFERENCE_LOCATIONS, reference_location
 from custom_components.improved_shopping_list.stores import StoreError
 
 
-def settings_for(hass):
-    entry = MockConfigEntry(domain=DOMAIN, data={CONF_TODO_ENTITY:"todo.bring"}, options={
-        "unrelated":True, "stores":{"mercadona":{"enabled":True,"postal_code":"28001","warehouse":"mad3"},
-            "alcampo":{"enabled":True,"region_id":"aa07ac50-43a9-4870-873b-17881ec9a51a"}}, "favorite_store":"mercadona"})
+def configured(hass, options=None):
+    entry = MockConfigEntry(domain=DOMAIN, data={CONF_TODO_ENTITY: "todo.bring"}, options=options or {})
     entry.add_to_hass(hass)
     settings = ListSettings(hass)
     settings.attach(entry)
-    hass.data[DOMAIN] = {"active":True,"settings":settings}
+    hass.data[DOMAIN] = {"active": True}
     return settings, entry
 
 
-async def test_common_postal_saves_partial_errors_without_querying_old_region(hass, monkeypatch):
-    settings, entry = settings_for(hass)
-    async def resolve(_hass, store, postal, current):
-        assert postal == "28024"
-        if store == "alcampo":
-            raise StoreError("HTTP 403")
-        return {"postal_code":postal,"warehouse":"mad1"}
-    resolver = AsyncMock(side_effect=resolve)
-    monkeypatch.setattr("custom_components.improved_shopping_list.list_settings.resolve_location", resolver)
-    result = await settings.async_store_postal("28024")
-    assert result["store_postal_code"] == "28024"
-    assert result["stores"]["mercadona"]["warehouse"] == "mad1"
-    # Keep the cache scope readable; the location_error prevents requests to it.
-    assert result["stores"]["alcampo"]["region_id"] == "aa07ac50-43a9-4870-873b-17881ec9a51a"
-    assert result["stores"]["alcampo"]["location_error"] == "HTTP 403"
-    assert resolver.await_count == 2
-    assert result["favorite_store"] == "mercadona" and entry.options["unrelated"] is True
-    restored = ListSettings(hass); restored.attach(entry)
-    assert restored.snapshot == result
-    gate = AsyncMock()
-    sources = PriceSources(hass)
-    with pytest.raises(PriceError, match="403"):
-        await sources.fetch("alcampo", "123", result["stores"]["alcampo"], gate)
-    gate.assert_not_awaited()
-    sources.close()
+async def test_migration_replaces_user_locations_and_errors_without_losing_preferences(hass, aioclient_mock):
+    settings, entry = configured(hass, {
+        "store_postal_code": "28024", "favorite_store": "consum", "unrelated": {"keep": True},
+        "price_update_time": "03:15", "todo_entities": ["todo.bring"],
+        "stores": {"consum": {"enabled": True, "postal_code": "28024", "area_id": "999D",
+            "location_error": "Sin cobertura", "location_diagnostics": {"http_status": 403}},
+            "mercadona": {"enabled": True, "warehouse": "mad3"}, "lidl": {"enabled": True}},
+    })
+    assert "store_postal_code" not in entry.options and "store_postal_code" not in settings.snapshot
+    assert entry.options["unrelated"] == {"keep": True}
+    assert settings.snapshot["favorite_store"] == "consum"
+    assert settings.snapshot["price_update_time"] == "03:15"
+    assert settings.snapshot["stores"]["consum"] == {"enabled": True, **reference_location("consum")}
+    assert settings.snapshot["stores"]["mercadona"]["warehouse"] == "mad1"
+    assert "lidl" not in settings.snapshot["stores"]
+    assert aioclient_mock.call_count == 0
+    before = dict(entry.options)
+    settings.attach(entry)
+    assert dict(entry.options) == before
 
 
-async def test_shared_postal_blank_invalid_and_later_activation(hass, monkeypatch):
-    settings, _ = settings_for(hass)
-    before = deepcopy(settings.snapshot)
-    for bad in ("123", "00000", "28024?", " 28024", "99999"):
-        with pytest.raises(StoreError):
-            await settings.async_store_postal(bad)
-        assert settings.snapshot == before
-    resolver = AsyncMock(return_value={"postal_code":"", "sale_point":"005290"})
-    monkeypatch.setattr("custom_components.improved_shopping_list.list_settings.resolve_location", resolver)
-    await settings.async_store_postal("")
-    assert settings.snapshot["store_postal_code"] == ""
-    resolver.reset_mock()
-    await settings.async_toggle_located_store("carrefour", True)
-    assert resolver.await_args.args[2] == ""
-    resolver.reset_mock()
-    await settings.async_toggle_located_store("carrefour", False)
-    resolver.assert_not_awaited()
+@pytest.mark.parametrize("store", tuple(REFERENCE_LOCATIONS))
+async def test_activation_repair_reload_and_disable_are_local(hass, aioclient_mock, store):
+    settings, entry = configured(hass)
+    await settings.async_toggle_located_store(store, True)
+    assert await settings.async_ensure_store_location(store) == {"enabled": True, **reference_location(store)}
+    assert settings.snapshot["favorite_store"] == store
+    restored = ListSettings(hass)
+    restored.attach(entry)
+    assert restored.snapshot["stores"] == settings.snapshot["stores"]
+    await restored.async_toggle_located_store(store, False)
+    assert restored.snapshot["stores"][store] == DEFAULT_STORES[store]
+    assert restored.snapshot["favorite_store"] == ""
+    with pytest.raises(StoreError):
+        await restored.async_ensure_store_location(store)
+    assert aioclient_mock.call_count == 0
 
 
-async def test_location_resolution_cannot_commit_after_detach(hass, monkeypatch):
-    settings, entry = settings_for(hass)
-    before = deepcopy(dict(entry.options))
-    entered, finish = asyncio.Event(), asyncio.Event()
-    async def delayed(*args):
-        entered.set(); await finish.wait()
-        return {"postal_code":"28024","warehouse":"mad1"}
-    monkeypatch.setattr("custom_components.improved_shopping_list.list_settings.resolve_location", delayed)
-    task = asyncio.create_task(settings.async_store_postal("28024"))
-    await entered.wait(); settings.detach(); finish.set()
-    with pytest.raises(StoreError): await task
-    assert entry.options == before
+async def test_legacy_configuration_cannot_override_reference_locations(hass, aioclient_mock):
+    settings, entry = configured(hass)
+    await settings.async_update_store(True, "46001", True)
+    await settings.async_update_carrefour(True, "012345")
+    await settings.async_update_alcampo(True, "invalid")
+    await settings.async_update_regional("consum", True, "28024", "999D", True)
+    for store in ("mercadona", "carrefour", "alcampo", "consum"):
+        assert entry.options["stores"][store] == {"enabled": True, **reference_location(store)}
+    assert aioclient_mock.call_count == 0
 
 
-async def test_defaults_and_specific_postal_are_distinct(hass, monkeypatch):
-    resolver = AsyncMock(return_value="mad1")
-    monkeypatch.setattr("custom_components.improved_shopping_list.store_location.async_resolve_mercadona", resolver)
-    await resolve_location(hass, "mercadona", "", {})
-    assert resolver.await_args.args[1] == "28001"
-    await resolve_location(hass, "mercadona", "28024", {})
-    assert resolver.await_args.args[1] == "28024"
-    assert await resolve_location(hass, "alcampo", "", {}) == {"postal_code":"","region_id":""}
-    assert await resolve_location(hass, "carrefour", "", {}) == {"postal_code":"","sale_point":"005290"}
+async def test_queued_activation_after_detach_cannot_write(hass):
+    settings, entry = configured(hass)
+    async with settings._stores_lock:
+        task = asyncio.create_task(settings.async_toggle_located_store("consum", True))
+        await asyncio.sleep(0)
+        settings.detach()
+        settings.attach(entry)
+    with pytest.raises(StoreError):
+        await task
+    assert not settings.snapshot["stores"]["consum"]["enabled"]
 
 
-@pytest.mark.parametrize(("store", "postal", "area", "zone"), [
-    ("consum", "46409", "301D", "301"),
-    ("eroski", "48001", "f7e80707-fd7a-437c-b451-698301f2cf77", "244"),
-])
-async def test_missing_store_location_is_persisted_from_default(hass, monkeypatch, store, postal, area, zone):
-    settings, entry = settings_for(hass)
-    hass.config_entries.async_update_entry(entry, options={**entry.options,
-        "store_postal_code":"", "stores":{store:{"enabled":True}}})
-    resolver = AsyncMock(return_value={"areas":[{"id":area,"name":"Centro de referencia","zone":zone}]})
-    monkeypatch.setattr("custom_components.improved_shopping_list.store_location.async_resolve_areas", resolver)
-    result = await settings.async_ensure_store_location(store)
-    assert resolver.await_args.args[2] == postal
-    assert result["postal_code"] == postal and result["area_id"] == area
-    assert result["zone"] == zone and not result["location_error"]
-    assert settings.snapshot["store_postal_code"] == ""
-    assert entry.options["stores"][store] == result
-    restored = ListSettings(hass); restored.attach(entry)
-    assert restored.snapshot["stores"][store] == result
+def test_reference_configuration_is_not_shared_with_callers():
+    location = reference_location("consum")
+    location["area_id"] = "999D"
+    assert reference_location("consum")["area_id"] == "301D"
+    assert REFERENCE_LOCATIONS["carrefour"]["sale_point"] == "005704"
 
 
-async def test_location_repair_preserves_specific_postal_errors(hass, monkeypatch):
-    settings, entry = settings_for(hass)
-    hass.config_entries.async_update_entry(entry, options={**entry.options,
-        "store_postal_code":"28024", "stores":{"consum":{"enabled":True}}})
-    resolver = AsyncMock(side_effect=StoreError("Sin cobertura para el código postal",response_class="no_coverage",postal_code="28024"))
-    monkeypatch.setattr("custom_components.improved_shopping_list.list_settings.resolve_location", resolver)
-    result = await settings.async_ensure_store_location("consum")
-    assert resolver.await_args.args[2] == "28024"
-    assert result["location_error"] == "Sin cobertura para el código postal"
-    assert result["location_diagnostics"] == {"response_class":"no_coverage","postal_code":"28024","requested_postal_code":"28024"}
-    assert resolver.await_count == 1
+async def test_user_can_activate_fixed_store_but_cannot_set_a_shared_postcode(hass, hass_ws_client, aioclient_mock):
+    entry = MockConfigEntry(domain=DOMAIN, data={CONF_TODO_ENTITY: "todo.bring"})
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    client = await hass_ws_client(hass)
+    await client.send_json({"id": 1, "type": f"{DOMAIN}/settings/store_enabled", "store": "consum", "enabled": True})
+    response = await client.receive_json()
+    assert response["success"]
+    assert response["result"]["stores"]["consum"]["postal_code"] == "46409"
+    await client.send_json({"id": 2, "type": f"{DOMAIN}/settings/store_postal", "postal_code": "28024"})
+    assert not (await client.receive_json())["success"]
+    assert aioclient_mock.call_count == 0
 
 
-async def test_carrefour_public_postal_and_bad_center(hass, aioclient_mock):
-    url = "https://www.carrefour.es/cloud-api/salepoints/v1/salepoint?id=28024&type=postal_code"
-    aioclient_mock.get(url, json={"salepoint":"005704"})
-    assert await _public_location(hass, "carrefour", "28024") == {"sale_point":"005704"}
-    aioclient_mock.get(url.replace("28024", "28001"), json={"salepoint":"invalid"})
-    with pytest.raises(StoreError): await _public_location(hass, "carrefour", "28001")
-
-
-async def test_alcampo_public_postal_chain_and_no_customer_session(hass, aioclient_mock):
-    base = "https://www.compraonline.alcampo.es"
-    region = "deb03a69-3104-4451-9ffa-3a55dc156d9f"
-    destination = "e836ff03-8f94-4f1c-86ff-f2478e7622b4"
-    aioclient_mock.get(base+"/", text='<script>{"session":{"csrf":{"token":"fresh-public-token"}}}</script>',
-        cookies={"VISITORID":"anonymous-test-visitor=="})
-    aioclient_mock.put(base+"/api/address/v1/addresses/areas", json=[{"id":"public-area"}])
-    aioclient_mock.get(base+"/api/address/v1/addresses/areas/public-area", json={
-        "postalCode":"28024","countryCode":"ES","latitude":40.38,"longitude":-3.79,"formattedAddress":"28024 Madrid"})
-    aioclient_mock.post(base+"/api/ecomdeliverydestinations/v2/temporary-delivery-destinations", json=destination)
-    aioclient_mock.get(base+"/api/ecomdeliverydestinations/v4/delivery-addresses/"+destination,
-        json={"postalCode":"28024","resolvedRegionId":region,"deliverability":"DELIVERABLE"})
-    assert await _public_location(hass, "alcampo", "28024") == {"region_id":region}
-    assert aioclient_mock.call_count == 5
-    assert not any("customersessions" in str(call[1]) for call in aioclient_mock.mock_calls)
-
-
-async def test_alcampo_403_is_error_and_does_not_select_default(hass, aioclient_mock):
-    aioclient_mock.get("https://www.compraonline.alcampo.es/", text='{"session":{"csrf":{"token":"test-token"}}}',
-        cookies={"VISITORID":"anonymous-test"})
-    aioclient_mock.put("https://www.compraonline.alcampo.es/api/address/v1/addresses/areas", status=403)
-    with pytest.raises(StoreError, match="403"):
-        await resolve_location(hass, "alcampo", "28024", {"region_id":"previous"})
-    assert aioclient_mock.call_count == 2
-
-
-async def test_alcampo_missing_csrf_does_not_send_location(hass, aioclient_mock):
-    aioclient_mock.get("https://www.compraonline.alcampo.es/", text="<html>Sin sesión</html>")
-    with pytest.raises(StoreError, match="sesión anónima"):
-        await resolve_location(hass, "alcampo", "28024", {})
-    assert aioclient_mock.call_count == 1
-
-
-async def test_postal_ws_readonly_cannot_change_location(hass, hass_ws_client, hass_read_only_user, aioclient_mock):
-    entry = MockConfigEntry(domain=DOMAIN, data={CONF_TODO_ENTITY:"todo.bring"})
+async def test_read_only_user_cannot_toggle_reference_store(hass, hass_ws_client, hass_read_only_user, aioclient_mock):
+    entry = MockConfigEntry(domain=DOMAIN, data={CONF_TODO_ENTITY: "todo.bring"})
     entry.add_to_hass(hass)
     assert await hass.config_entries.async_setup(entry.entry_id)
     token = await hass.auth.async_create_refresh_token(hass_read_only_user, client_id="http://test.local")
     client = await hass_ws_client(hass, hass.auth.async_create_access_token(token))
-    await client.send_json({"id":1,"type":f"{DOMAIN}/settings/store_postal","postal_code":"28024"})
-    assert (await client.receive_json())["error"]["code"] == "unauthorized"
-    await client.send_json({"id":2,"type":f"{DOMAIN}/settings/store_enabled","store":"alcampo","enabled":True})
+    await client.send_json({"id": 1, "type": f"{DOMAIN}/settings/store_enabled", "store": "consum", "enabled": True})
     assert (await client.receive_json())["error"]["code"] == "unauthorized"
     assert aioclient_mock.call_count == 0

@@ -8,8 +8,11 @@ from unittest.mock import AsyncMock, Mock
 
 import pytest
 from homeassistant.core import SupportsResponse
+from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.improved_shopping_list.const import DOMAIN
+from custom_components.improved_shopping_list.const import DOMAIN, CONF_TODO_ENTITY, CONF_TODO_ENTITIES
+from custom_components.improved_shopping_list.list_settings import ListSettings
+from custom_components.improved_shopping_list.store_location import reference_location
 from custom_components.improved_shopping_list.price_manager import PriceManager, StorePriceView
 from custom_components.improved_shopping_list.price_sources import PriceError, PriceSources, carrefour_offer
 from custom_components.improved_shopping_list.store_links import normalize_link, normalize_links
@@ -73,6 +76,32 @@ async def test_regional_stores_only_queue_pending_and_keep_disabled_cache(env,st
     assert env.manager.prices_for(env.catalog.products[0])==saved
     config["area_id"]="302D" if store=="consum" else "lasirena102"
     assert env.manager.prices_for(env.catalog.products[0])==[]
+
+
+async def test_fixed_reference_migration_retains_old_scope_and_fetches_only_pending_links(env, hass):
+    # Save an offer with the old Alcampo scope before migrating user locations.
+    await env.manager.async_tick()
+    previous = deepcopy(env.manager._data["offers"])
+    entry = MockConfigEntry(domain=DOMAIN, data={CONF_TODO_ENTITY: "todo.one"}, options={
+        CONF_TODO_ENTITIES: ["todo.one", "todo.two"], "store_postal_code": "46001",
+        "stores": {"alcampo": {"enabled": True, "region_id": ""}},
+    })
+    entry.add_to_hass(hass)
+    settings = ListSettings(hass)
+    settings.attach(entry)
+    env.manager.settings = settings
+    assert env.manager._data["offers"] == previous
+    assert env.manager.prices_for(env.catalog.products[0]) == []
+    env.clock[0] += 300
+    env.manager._queue = Mock()
+    await env.manager.async_refresh_all()
+    await env.manager.async_tick()
+    config = env.manager.sources.fetch.await_args.args[2]
+    assert config == {"enabled": True, **reference_location("alcampo")}
+    assert [reference for _, reference, _ in env.requests] == ["24097", "24097"]
+    assert all(env.manager._data["offers"][key] == offer for key, offer in previous.items())
+    saved = env.manager.prices_for(env.catalog.products[0])
+    assert len(saved) == 1 and saved[0]["scope"] == reference_location("alcampo")["region_id"]
 
 
 @pytest.mark.parametrize("manual", [True, False])
@@ -561,11 +590,10 @@ async def test_one_final_log_groups_all_stores_and_survives_restart(env,hass):
 
 async def test_preparation_errors_are_aggregated_with_other_stores_results(env):
     env.manager._queue=Mock();env.clock[0]+=12*3600
-    env.settings.snapshot["store_postal_code"]="28024"
     env.settings.snapshot["stores"]["consum"]={"enabled":True}
     env.catalog.products=[product("Arroz","24097","alcampo"),product("Arroz","7394260","consum")]
     async def resolve(store):
-        config={"enabled":True,"location_error":"Consum no ofrece entrega para el código postal 28024.",
+        config={"enabled":True,"postal_code":"28024","location_error":"Consum no ofrece entrega para el código postal 28024.",
             "location_diagnostics":{"response_class":"no_coverage","postal_code":"28024"}}
         env.settings.snapshot["stores"][store]=config
         return config
@@ -579,7 +607,7 @@ async def test_preparation_errors_are_aggregated_with_other_stores_results(env):
     details=env.manager.activity.record.call_args.kwargs["diagnostics"]
     assert details["totals"]["errors"]==1 and details["totals"]["updated"]==1
     assert any(event["diagnostics"].get("response_class")=="no_coverage" for event in details["events"])
-    assert details["stores"]["consum"]["requested_postal_code"]=="28024"
+    assert details["stores"]["consum"]["reference_postal_code"]=="28024"
 
 
 async def test_manual_retry_revalidates_a_cached_location_error(env):

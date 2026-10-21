@@ -85,7 +85,6 @@ class ImprovedShoppingCatalog extends HTMLElement {
     this._renderSuggestions();
   }
 
-  showSuggestions() { this._switchView("suggestions"); }
   get productLayout() { return this._productLayout; }
   set priceData(value) {
     const key = JSON.stringify(value);

@@ -1455,9 +1455,7 @@ async function main() {
     assert.equal(await readersView.getByText("Los lectores funcionan aunque esta interfaz esté cerrada. Configura los códigos y la acción de cada lector en la ficha del producto.",{exact:true}).count(),0);
     assert.equal(await readersView.locator("#new-reader").textContent(),"");
     assert.equal(await readersView.locator("#new-reader ha-icon").getAttribute("icon"),"mdi:plus-thick");
-    assert.equal(await readersView.locator("#reader-suggestions").textContent(),"");
-    assert.equal(await readersView.locator("#reader-suggestions ha-icon").getAttribute("icon"),"mdi:creation");
-    assert.equal(await readersView.getByRole("button",{name:"Ver sugerencias",exact:true}).isVisible(),true);
+    assert.equal(await readersView.locator("#reader-suggestions").count(),0);
     await readersView.getByRole("button",{name:"Añadir lector",exact:true}).click();
     const readerDialog=readersView.getByRole("dialog",{name:"Añadir lector",exact:true});
     assert.equal(await readerDialog.getByLabel("Lector activo",{exact:true}).count(),0);
@@ -1559,8 +1557,9 @@ async function main() {
     assert.equal(await barcodeReader.locator(".last").textContent(),"Usado hace 3 min");
     await readerPage.evaluate(()=>{const reader=window.readerFixture.readers[0];window.readerFixture.pending=[{id:'scan-1',kind:'barcode',code:'0012345678905',reader_id:reader.id,reader_name:reader.name,time:new Date().toISOString()}];window.emitReaders();});
     await readerPage.screenshot({path:"test-results/readers-desktop.png",fullPage:true});
-    await readersView.getByRole("button",{name:"Ver sugerencias",exact:true}).click();
+    await readerPage.getByRole("button",{name:"Catálogo",exact:true}).click();
     const readerCatalog=readerPage.locator("isl-catalog");
+    await readerCatalog.getByRole("button",{name:"Nuevos",exact:true}).click();
     assert.equal(await readerCatalog.locator("#list-suggestions-group").evaluate(node => node.open),false);
     assert.equal(await readerCatalog.locator("#scan-suggestions-group").evaluate(node => node.open),false);
     assert.equal(await readerCatalog.locator("#scan-suggestions [data-pending-id]").count(),1);

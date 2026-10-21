@@ -31,7 +31,7 @@ class ImprovedShoppingReaders extends HTMLElement {
         .live-reading{display:grid;grid-template-columns:auto minmax(0,1fr);gap:12px 18px;font-size:14px}.live-reading dt{font-weight:600}.live-reading dd{margin:0;white-space:pre-wrap;overflow-wrap:anywhere}
         @media(max-width:650px){.grid{grid-template-columns:1fr}.fields{grid-template-columns:1fr}dialog{padding:20px}}
       </style>
-      <div class="heading"><h1>Lectores</h1><div class="heading-tools"><button id="new-reader" class="primary icon-button" type="button" aria-label="Añadir lector" title="Añadir lector"><ha-icon icon="mdi:plus-thick" aria-hidden="true"></ha-icon></button><button id="reader-suggestions" class="icon-button" type="button" aria-label="Ver sugerencias" title="Ver sugerencias"><ha-icon icon="mdi:creation" aria-hidden="true"></ha-icon></button></div></div>
+      <div class="heading"><h1>Lectores</h1><div class="heading-tools"><button id="new-reader" class="primary icon-button" type="button" aria-label="Añadir lector" title="Añadir lector"><ha-icon icon="mdi:plus-thick" aria-hidden="true"></ha-icon></button></div></div>
       <div id="readers-error" class="notice error" role="alert" hidden></div><div id="readers-status" class="notice" role="status" hidden></div>
       <p id="readers-admin" hidden>Solo los administradores pueden configurar lectores.</p>
       <div id="readers-grid" class="grid"></div><p id="readers-empty" hidden>Añade tu primer lector de códigos de barras, QR o NFC.</p>
@@ -64,7 +64,6 @@ class ImprovedShoppingReaders extends HTMLElement {
     root.querySelector("#reader-form").addEventListener("submit", event => { event.preventDefault(); void this._save(); });
     root.querySelector("#reader-kind").addEventListener("change", () => this._sourceFields());
     root.querySelector("#reader-source").addEventListener("change", () => this._sourceFields());
-    root.querySelector("#reader-suggestions").addEventListener("click", () => this.onSuggestions?.());
     root.querySelectorAll("dialog").forEach(dialog => dialog.addEventListener("cancel", event => { if(this._busy)event.preventDefault(); }));
   }
 
@@ -78,7 +77,6 @@ class ImprovedShoppingReaders extends HTMLElement {
     const error = root.querySelector("#readers-error");error.textContent = this._toggleError || readers.error;error.hidden = !error.textContent;
     const status = root.querySelector("#readers-status");status.textContent = readers.loading ? "Cargando lectores…" : this._notice ?? "";status.hidden = !status.textContent;
     root.querySelector("#readers-empty").hidden = readers.readers.length > 0 || readers.loading;
-    root.querySelector("#reader-suggestions").title = `Ver sugerencias · ${readers.pending.length} códigos sin identificar`;
     const select = root.querySelector("[name=list_entity]");const value=select.value;
     const options = settings.entities.map(id => new Option(hass.states[id]?.attributes.friendly_name ?? id,id));
     if(value&&!settings.entities.includes(value))options.push(new Option(`${value} · Lista quitada`,value));

@@ -87,6 +87,8 @@ class PriceManager:
 
     def _begin_batch(self, source):
         batch = self._data.get("batch")
+        if batch and batch.get("finished_at") is not None and not batch.get("logged"):
+            raise OSError("El resumen de la revisión anterior está pendiente de guardar en Logs.")
         if not batch or batch.get("finished_at") is not None:
             batch = {"id":str(uuid4()), "source":source, "started_at":time.time(),
                 "finished_at":None, "events":[], "stores":{}}
@@ -127,7 +129,7 @@ class PriceManager:
             if finished:
                 batch["finished_at"] = None
             raise
-        if finished:
+        if batch and batch.get("finished_at") is not None and not batch.get("logged"):
             counts = {"updated":0,"not_found":0,"errors":0,"skipped":0,"http_requests":0}
             mapping = {"stores.price":"updated","stores.not_found":"not_found","stores.error":"errors",
                 "stores.skipped":"skipped","stores.request":"http_requests"}
@@ -139,11 +141,18 @@ class PriceManager:
             for store in stores:
                 stores[store]["totals"] = {key:sum(1 for event in batch["events"] if event["store"] == store
                     and mapping.get(event["kind"]) == key) for key in counts}
-            self.activity.record("stores.summary",
+            logged = await self.activity.async_record_durable("stores.summary",
                 f'Actualización de precios finalizada: {counts["updated"]} actualizados · {counts["not_found"]} sin resultado · {counts["errors"]} incidencias',
-                source=batch["source"],diagnostics={"batch_id":batch["id"],"started_at":batch["started_at"],
+                entry_id=f'price-batch:{batch["id"]}',source=batch["source"],diagnostics={"batch_id":batch["id"],"started_at":batch["started_at"],
                     "finished_at":batch["finished_at"],"elapsed_seconds":round(batch["finished_at"]-batch["started_at"],2),
                     "interval_seconds":INTERVAL, "totals":counts,"stores":stores,"events":deepcopy(batch["events"])})
+            if logged:
+                batch["logged"] = True
+                try:
+                    await self._store.async_save(deepcopy(self._data))
+                except BaseException:
+                    batch["logged"] = False
+                    raise
 
     def scope(self, store):
         config = self.settings.snapshot["stores"].get(store, {})
@@ -200,14 +209,17 @@ class PriceManager:
 
     @property
     def progress(self):
-        running = bool(self._data["pending"])
+        running = bool(self._data["pending"] or self._preparing)
+        batch = self._data.get("batch") or {}
         remaining = sum(max(0, job.get("expected_requests", self.sources.expected_requests(job.get("store"),
             self.settings.snapshot["stores"].get(job.get("store"), {})))
-            - job.get("request_count", 0)) for job in self._data["pending"])
+            - job.get("request_count", 0)) for job in self._data["pending"] if not job.get("blocked"))
         return {"running":running, "total":self._data["total"], "processed":self._data["processed"],
             "errors":deepcopy(self._data["errors"]),
+            "batch_id":batch.get("id"),"finished_at":batch.get("finished_at"),
+            "log_pending":batch.get("finished_at") is not None and not batch.get("logged",False),
             "last_updated":max((offer.get("checked_at", 0) for offer in self._data["offers"].values()), default=0),
-            "started_at":self._data.get("started_at", time.time()), "phase":"waiting" if running else "processed",
+            "started_at":self._data.get("started_at", time.time()), "phase":"preparing" if self._preparing else "waiting" if running else "processed",
             "estimated_seconds":max(0, self._data["next_request"]-time.time())+max(0, remaining-1)*INTERVAL if running else 0}
 
     def subscribe(self, listener):
@@ -338,6 +350,8 @@ class PriceManager:
         except (ValueError,OSError) as err:
             async with self._lock:
                 if self._active and self.hass.data.get(DOMAIN,{}).get("active"):
+                    if (self._data.get("batch") or {}).get("finished_at") is not None and not self._data["batch"].get("logged"):
+                        raise
                     self._begin_batch("manual")
                     message = self._error_message(store,err)
                     self._data["errors"][store] = message
@@ -353,8 +367,9 @@ class PriceManager:
         stores = [store for store in STORES if self.settings.snapshot["stores"].get(store,{}).get("enabled")]
         errors,queued = [],0
         async with self._lock:
-            self._preparing += 1
+            await self._save()
             self._begin_batch("manual")
+            self._preparing += 1
         try:
             for store in stores:
                 try:
@@ -374,6 +389,8 @@ class PriceManager:
         async with self._lock:
             if not self._active or not self.hass.data.get(DOMAIN, {}).get("active"):
                 raise ValueError("La integración no está disponible.")
+            if (self._data.get("batch") or {}).get("finished_at") is not None and not self._data["batch"].get("logged"):
+                await self._save()
             if not self.settings.snapshot["stores"].get(store, {}).get("enabled"):
                 raise ValueError("Habilita la tienda antes de actualizar sus precios.")
             active = [job for job in self._data["pending"] if job["store"] == store and not job.get("blocked")]
@@ -457,6 +474,9 @@ class PriceManager:
         async with self._lock:
             if not self._active or not self.hass.data.get(DOMAIN, {}).get("active") or self._preparing:
                 return
+            if (self._data.get("batch") or {}).get("finished_at") is not None and not self._data["batch"].get("logged"):
+                await self._save()
+                self._notify()
             now = dt_util.now()
             day = now.date().isoformat()
             hour, minute = map(int, self.settings.snapshot.get("price_update_time", "01:00").split(":"))
@@ -464,8 +484,9 @@ class PriceManager:
             if (self._data["day"] != day or self._data["partial"] and time.time() >= self._data["prepare_retry_at"]) and 0 <= elapsed < 60:
                 await self._prepare(day)
             if not self._data["pending"]:
-                if self._data.get("batch") and self._data["batch"].get("finished_at") is None:
+                if self._data.get("batch") and not self._data["batch"].get("logged"):
                     await self._save()
+                    self._notify()
                 return
             if time.time() < self._data["next_request"]:
                 return
@@ -535,6 +556,13 @@ class PriceManager:
                     self._configuration = None
                 self._data["pending"].pop(0)
                 self._data["processed"] += 1
+                for blocked in list(self._data["pending"]):
+                    if blocked.get("blocked"):
+                        self._record("stores.skipped",f"{STORES[blocked['store']]}: referencia omitida por rechazo de la tienda",
+                            source="manual" if blocked.get("manual") else "automatic",store=STORES[blocked["store"]],
+                            diagnostics={"reference_id":blocked["link"]["id"],"response_class":"store_blocked","blocked":True})
+                        self._data["pending"].remove(blocked)
+                        self._data["processed"] += 1
                 await self._save()
                 self._notify()
                 return  # At most one product per tick; redirects share the same 5-minute reservation.

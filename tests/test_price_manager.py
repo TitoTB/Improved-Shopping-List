@@ -29,7 +29,12 @@ async def env(hass, monkeypatch):
         "mercadona":{"enabled":True,"warehouse":"mad3"}, "carrefour":{"enabled":True}, "alcampo":{"enabled":True,"region_id":""}}}
     settings = SimpleNamespace(snapshot=config, entry=object(), _generation=1)
     catalog = SimpleNamespace(products=[product(),product("Café","1234"),product("Otro","5678")])
-    manager = PriceManager(hass,catalog,settings,SimpleNamespace(record=Mock()))
+    activity = SimpleNamespace(record=Mock())
+    async def durable(kind,message,*,entry_id,**fields):
+        activity.record(kind,message,**fields)
+        return True
+    activity.async_record_durable = AsyncMock(side_effect=durable)
+    manager = PriceManager(hass,catalog,settings,activity)
     await manager.async_load()
     manager._active = True
     state = SimpleNamespace(manager=manager, clock=clock, settings=settings, catalog=catalog,
@@ -604,3 +609,57 @@ async def test_failed_all_store_preparation_produces_one_summary(env):
     details=env.manager.activity.record.call_args.kwargs["diagnostics"]
     assert details["totals"]["errors"]==2
     assert all(event["diagnostics"]["http_status"]==403 for event in details["events"])
+
+
+async def test_final_log_retries_after_storage_failure_and_restart(env,hass):
+    env.manager._queue=Mock();env.clock[0]+=12*3600
+    await env.manager.async_refresh_all()
+    env.manager.activity.async_record_durable.side_effect=OSError("log disk")
+    with pytest.raises(OSError):await env.manager.async_tick()
+    assert not env.manager._data["pending"] and env.manager.progress["log_pending"]
+    assert env.manager.progress["finished_at"] is not None
+    sent=len(env.requests)
+    restored=PriceManager(hass,env.catalog,env.settings,env.manager.activity)
+    await restored.async_load();restored._active=True;restored.sources=env.manager.sources
+    env.manager.activity.async_record_durable.side_effect=None
+    env.manager.activity.async_record_durable.return_value=True
+    await restored.async_tick()
+    assert len(env.requests)==sent and not restored.progress["log_pending"]
+    assert restored._data["batch"]["logged"] is True
+    await restored.async_stop()
+
+
+async def test_final_log_is_replayed_if_price_acknowledgement_fails(env,monkeypatch):
+    env.manager._queue=Mock();env.clock[0]+=12*3600
+    await env.manager.async_refresh_all()
+    persist=env.manager._store.async_save
+    published=[]
+    async def durable(kind,message,*,entry_id,**fields):
+        published.append(entry_id)
+        monkeypatch.setattr(env.manager._store,"async_save",AsyncMock(side_effect=OSError("ack disk")))
+        return True
+    env.manager.activity.async_record_durable.side_effect=durable
+    with pytest.raises(OSError):await env.manager.async_tick()
+    assert len(published)==1 and env.manager.progress["log_pending"]
+    monkeypatch.setattr(env.manager._store,"async_save",persist)
+    async def retry(kind,message,*,entry_id,**fields):
+        assert entry_id==published[0]
+        return True
+    env.manager.activity.async_record_durable.side_effect=retry
+    await env.manager.async_tick()
+    assert len(env.requests)==1 and not env.manager.progress["log_pending"]
+
+
+async def test_blocked_remaining_references_finish_immediately_without_waiting_interval(env):
+    env.manager._queue=Mock();env.clock[0]+=12*3600
+    env.catalog.products=[product("Arroz"),product("Segundo","1234")]
+    env.items["todo.one"]=[{"summary":p["name"],"status":"needs_action"} for p in env.catalog.products]
+    async def rejected(store,link,config,before_request):
+        await before_request()
+        raise PriceError("Alcampo: consulta rechazada (HTTP 403).",http_status=403,response_class="access_denied")
+    env.manager.sources.fetch.side_effect=rejected
+    await env.manager.async_refresh_all();await env.manager.async_tick()
+    assert env.manager.progress["processed"]==2 and not env.manager.progress["running"]
+    assert env.manager._data["next_request"]>env.clock[0]
+    env.manager.activity.record.assert_called_once()
+    assert env.manager.activity.record.call_args.kwargs["diagnostics"]["totals"]["skipped"]==1

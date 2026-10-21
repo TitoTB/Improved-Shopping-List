@@ -2,6 +2,7 @@
 
 from copy import deepcopy
 from types import SimpleNamespace
+from unittest.mock import AsyncMock
 
 import pytest
 from homeassistant.components.todo import DATA_COMPONENT, TodoItem
@@ -176,5 +177,25 @@ async def test_derived_store_location_updates_do_not_create_extra_activity_entri
     assert len(env.activity.snapshot["entries"])==count
     env.settings.snapshot["stores"]["eroski"]["enabled"]=False;env.settings.notify()
     assert len(env.activity.snapshot["entries"])==count+1
+
+
+async def test_durable_summary_is_idempotent_after_failed_save_and_restart(activity_env,hass,monkeypatch):
+    activity=activity_env.activity
+    persist=activity._store.async_save
+    monkeypatch.setattr(activity._store,"async_save",AsyncMock(side_effect=OSError("disk")))
+    fields={"entry_id":"price-batch:test", "source":"manual", "diagnostics":{"batch_id":"test"}}
+    with pytest.raises(OSError):await activity.async_record_durable("stores.summary","Resumen",**fields)
+    assert len(activity.snapshot["entries"])==1
+    monkeypatch.setattr(activity._store,"async_save",persist)
+    assert await activity.async_record_durable("stores.summary","Resumen",**fields)
+    restored=ActivityLog(hass,activity_env.catalog,activity_env.settings,activity_env.readers)
+    await restored.async_load();restored._active=True
+    assert await restored.async_record_durable("stores.summary","Resumen",**fields)
+    assert len(restored.snapshot["entries"])==1
+    # Older versions used a random event ID. Batch identity also prevents duplication.
+    restored._entries[0]["id"]="old-random-id"
+    assert await restored.async_record_durable("stores.summary","Resumen",**fields)
+    assert len(restored.snapshot["entries"])==1
+    await restored.async_stop()
 
 

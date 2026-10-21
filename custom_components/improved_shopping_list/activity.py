@@ -60,6 +60,17 @@ class ActivityLog:
         for listener in tuple(self._listeners):
             listener()
 
+    async def async_record_durable(self, kind, message, *, entry_id, source="integration", **fields):
+        """Persist a replayable event before its caller acknowledges delivery."""
+        if not self._active:
+            return False
+        batch_id = fields.get("diagnostics",{}).get("batch_id")
+        if not any(entry.get("id") == entry_id or batch_id and entry.get("kind") == kind
+            and entry.get("diagnostics",{}).get("batch_id") == batch_id for entry in self._entries):
+            self.record(kind,message,source=source,id=entry_id,**fields)
+        await self._store.async_save({"entries":list(self._entries)})
+        return True
+
     @callback
     def reader_context(self, name):
         context = Context()

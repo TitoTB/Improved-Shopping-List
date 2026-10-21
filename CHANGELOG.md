@@ -2,6 +2,8 @@
 
 ## Pendiente de publicación
 
+- Guardado confirmado e idempotente del resumen final de precios en Logs, con recuperación tras fallo de almacenamiento o reinicio y protección frente a iniciar otro lote antes de guardarlo. Las referencias bloqueadas por una tienda se descartan sin esperar otros cinco minutos.
+- El progreso conserva el estado de revisión finalizada después de recargar, diferencia el resumen pendiente del ya guardado y permite volver a abrir una revisión en curso sin solicitar otra.
 - Recurrencia del catálogo y modo Perecedero de Stock coordinados en ambos sentidos, con los mismos días y un único temporizador. Al vencer se pone el stock a cero y se solicita compra sin duplicados; al comprar se suma la reposición configurada y se reinicia el plazo. Se conservan cantidades, preferencias y vencimientos anteriores, y las ediciones pendientes se recuperan tras fallos de almacenamiento o reinicios.
 - Los cuatro colores de Personalización comparten una fila: los de pendientes a la izquierda y los de comprados a la derecha, encima de la vista previa correspondiente.
 - Retirado el mensaje final «No hay sugerencias nuevas en esta lista» de Catálogo → Nuevos.

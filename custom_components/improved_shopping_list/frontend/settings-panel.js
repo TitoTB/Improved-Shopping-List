@@ -478,17 +478,20 @@ class ImprovedShoppingSettings extends HTMLElement {
     const state=this._latestPriceProgress;
     const bar=root.querySelector("#prices-progress-bar");
     const total=Math.max(0,Number(state?.total)||0), processed=Math.min(total,Math.max(0,Number(state?.processed)||0));
-    const preparing=this._pricesRefreshing || this._manualQueued > 0 && !total;
-    const empty=!preparing && !state?.running && !this._manualQueued;
+    const preparing=this._pricesRefreshing || state?.phase === "preparing" || this._manualQueued > 0 && !total && !state?.finished_at;
+    const hasRun=Boolean(state?.batch_id) || total > 0 || this._manualQueued > 0;
+    const empty=!preparing && !state?.running && !hasRun;
+    const finished=!preparing && !state?.running && hasRun;
     bar.max=total||1;
     if(preparing)bar.removeAttribute("value");else bar.value=empty?0:processed;
-    root.querySelector("#prices-progress-percentage").textContent=preparing?"…":`${total&&!empty?Math.round(processed/total*100):0} %`;
+    root.querySelector("#prices-progress-percentage").textContent=preparing?"…":`${finished?100:total&&!empty?Math.round(processed/total*100):0} %`;
+    if(finished)bar.value=total||1;
     const names={mercadona:"Mercadona",carrefour:"Carrefour",alcampo:"Alcampo",consum:"Consum",lasirena:"La Sirena",eroski:"Eroski",dia:"DIA"};
     const errors=[...(this._refreshStartErrors??[]),...Object.entries(state?.errors??{}).filter(([store])=>this._data.settings.stores?.[store]?.enabled).map(([store,error])=>storeError(names[store]??store,error))];
     const errorBox=root.querySelector("#stores-refresh-error");errorBox.textContent=[...new Set(errors)].join("\n");errorBox.hidden=!errors.length;
-    root.querySelector("#prices-progress-status").textContent=preparing?"Preparando actualización…":empty?(errors.length?"No se ha podido iniciar la revisión.":"No hay productos vinculados pendientes en tus listas."):`${processed} de ${total} referencias procesadas${state?.running?"":" · Revisión finalizada"}`;
+    root.querySelector("#prices-progress-status").textContent=preparing?"Preparando actualización…":empty?(errors.length?"No se ha podido iniciar la revisión.":"No hay productos vinculados pendientes en tus listas."):`${processed} de ${total} referencias procesadas${state?.running?" · La revisión continúa en Home Assistant aunque cierres esta ventana.":" · Revisión finalizada"}`;
     const seconds=Number.isFinite(state?.estimated_seconds)?Math.max(0,Math.ceil(state.estimated_seconds-(Date.now()-(this._priceProgressReceivedAt??Date.now()))/1000)):null;
-    root.querySelector("#prices-progress-time").textContent=preparing?"Calculando tiempo restante…":!state?.running?"":seconds===null?"Calculando tiempo restante…":seconds>0?`Tiempo estimado restante: ${Math.floor(seconds/60)} min ${seconds%60} s`:"Actualización en curso…";
+    root.querySelector("#prices-progress-time").textContent=preparing?"Calculando tiempo restante…":finished?(state?.log_pending?"Resumen pendiente de guardar en Ajustes → Logs → Tiendas.":state?.batch_id?"Resumen disponible en Ajustes → Logs → Tiendas.":""):!state?.running?"":seconds===null?"Calculando tiempo restante…":seconds>0?`Tiempo estimado restante: ${Math.floor(seconds/60)} min ${seconds%60} s`:"Actualización en curso…";
   }
 
   async _savePriceSchedule() {
@@ -510,6 +513,7 @@ class ImprovedShoppingSettings extends HTMLElement {
     if(!dialog.open)dialog.showModal();
     clearInterval(this._pricesProgressTimer);
     this._pricesProgressTimer=setInterval(()=>this._renderGlobalPriceProgress(),1000);
+    if(this._latestPriceProgress?.running){this._renderGlobalPriceProgress();return;}
     this._pricesRefreshing = true; this._render();
     try {
       const result = await hass.callWS({type:"improved_shopping_list/settings/refresh_all_prices"});

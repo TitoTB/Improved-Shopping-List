@@ -299,6 +299,8 @@ La programación y las ediciones pendientes de sincronizar se guardan en Home As
 
 ## Diagnóstico de precios
 
+Recargar la página o cerrar el popup no termina la revisión: la cola sigue en Home Assistant. Si hay una revisión en curso, el botón de actualizar vuelve a abrir su progreso sin iniciar otra. Al acabar, el popup indica «Revisión finalizada» y si el resumen está pendiente de guardarse o disponible en Ajustes → Logs → Tiendas. El resumen se guarda antes de darlo por entregado y se recupera sin duplicados tras errores de almacenamiento o reinicios. Los rechazos y la falta de cobertura se incluyen en esa única entrada final, aunque no se haya podido actualizar ningún precio.
+
 La barra de progreso muestra las referencias procesadas de la cola nocturna y una
 estimación basada en cinco minutos por petición. La cola puede durar varias horas;
 el porcentaje no representa la antigüedad del precio ni garantiza cobertura de una tienda.

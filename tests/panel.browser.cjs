@@ -1296,9 +1296,23 @@ async function main() {
     await settingsPage.evaluate(()=>{for(const callback of window.storeProgressListeners)callback({running:true,total:4,processed:1,estimated_seconds:900,errors:{},last_updated:window.lastPriceUpdateFixture});});
     assert.equal(await allPricesDialog.locator('#prices-progress-bar').evaluate(node=>node.value),1);
     assert.equal(await allPricesDialog.locator('#prices-progress-percentage').textContent(),'25 %');
+    await allPricesDialog.getByRole('button',{name:'Cerrar',exact:true}).click();
+    await updateAll.click();
+    assert.equal(await settingsPage.evaluate(()=>window.calls.filter(call=>call.type==='improved_shopping_list/settings/refresh_all_prices').length),1);
+    assert.equal(await allPricesDialog.locator('#prices-progress-percentage').textContent(),'25 %');
     await settingsPage.screenshot({path:'test-results/all-prices-progress-mobile.png',fullPage:true});
     await settingsPage.evaluate(()=>{for(const callback of window.storeProgressListeners)callback({running:false,total:4,processed:4,estimated_seconds:0,errors:{},last_updated:window.lastPriceUpdateFixture});});
     assert.equal(await allPricesDialog.locator('#prices-progress-percentage').textContent(),'100 %');
+    await settingsPage.evaluate(()=>{
+      const view=window.testPanel.shadowRoot.querySelector('isl-settings');
+      view._manualQueued=null;view._refreshStartErrors=[];
+      for(const callback of window.storeProgressListeners)callback({running:false,total:4,processed:4,batch_id:'finished-batch',finished_at:1792520000,log_pending:true,errors:{},last_updated:window.lastPriceUpdateFixture});
+    });
+    assert.equal(await allPricesDialog.locator('#prices-progress-percentage').textContent(),'100 %');
+    assert.match(await allPricesDialog.locator('#prices-progress-status').textContent(),/Revisión finalizada/);
+    assert.match(await allPricesDialog.locator('#prices-progress-time').textContent(),/pendiente de guardar/);
+    await settingsPage.evaluate(()=>{for(const callback of window.storeProgressListeners)callback({running:false,total:4,processed:4,batch_id:'finished-batch',finished_at:1792520000,log_pending:false,errors:{},last_updated:window.lastPriceUpdateFixture});});
+    assert.match(await allPricesDialog.locator('#prices-progress-time').textContent(),/Resumen disponible/);
     await allPricesDialog.getByRole('button',{name:'Cerrar',exact:true}).click();
     assert.equal(await settingsView.locator('#stores-last-updated').textContent(),'20/10 20:35'); // Queueing alone must not change a price's timestamp.
     assert.doesNotMatch(await settingsView.locator('#settings-stores').textContent(),/referencias pendientes en cola/);

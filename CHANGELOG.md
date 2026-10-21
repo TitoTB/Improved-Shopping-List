@@ -1,6 +1,6 @@
 # Historial de cambios
 
-## Pendiente de publicación
+## 0.23.0
 
 - Comunidad explica el diccionario automático y sustituye el botón de exportación por la casilla de compartir datos, integrada en el mismo espacio e iniciando la autorización de GitHub al activarla.
 - Stock perecedero con fondo de progreso descendente del tiempo restante y color de naranja a rojizo. Mínimo de reposición en porcentaje para perecederos y en unidades para el resto; orden alternativo por menor stock, controles de cantidad y unidad centrados y retirados los contadores generales y la ayuda de recurrencia.

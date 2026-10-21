@@ -4,7 +4,7 @@
 
 Una interfaz propia para gestionar las listas de la compra que ya tienes integradas en Home Assistant.
 
-Versión actual: **0.22.0**. Interfaz en español, pensada para móvil y ordenador. Requiere **Home Assistant Core 2026.10 o posterior**. La referencia de desarrollo es Core 2026.10.2.
+Versión actual: **0.23.0**. Interfaz en español, pensada para móvil y ordenador. Requiere **Home Assistant Core 2026.10 o posterior**. La referencia de desarrollo es Core 2026.10.2.
 
 Vinculaciones con Mercadona, Carrefour, Alcampo, Consum, La Sirena, Eroski y DIA, y consultas
 directas desde Home Assistant. Se ha retirado el feed
@@ -52,7 +52,7 @@ actualización puesta en cola de una petición de precio que ya ha comenzado.
 
 - Seleccionar cualquier entidad `todo.*` disponible para tu usuario, incluida Bring!, Shopping List u otros proveedores.
 - Consultar productos pendientes y comprados.
-- Pulsar el importe estimado para abrir un ticket por tienda con los precios guardados. Las tiendas activas con algún precio de la lista se ordenan por total conocido; cada una indica cuántos productos tienen precio. Los desconocidos se separan y cuentan como 0, por lo que los totales no siempre comparan la misma cesta completa. El badge del número de productos devuelve a la vista habitual.
+- Pulsar el importe estimado para abrir un ticket por tienda con los precios guardados. Se muestran hasta cuatro tiendas activas, priorizando las que tienen más productos con precio y, en caso de empate, el menor importe conocido. Cada una muestra logo, importe y cobertura. Los productos sin precio se agrupan en un bloque plegado y cuentan como 0; los totales pueden incluir distintas cestas parciales. El badge del número de productos devuelve a la vista habitual.
 - Añadir productos, marcarlos como comprados y volver a ponerlos por comprar.
 - Recibir cambios del proveedor mediante la API nativa de listas de Home Assistant.
 - Añadir o quitar entidades `todo` desde Ajustes y marcar una lista como principal.
@@ -63,7 +63,7 @@ actualización puesta en cola de una petición de precio que ya ha comenzado.
 
 Cada lista conserva sus datos en su integración original. Las operaciones disponibles dependen de lo que admita ese proveedor. Por ejemplo, una lista de solo lectura se puede consultar, pero sus controles de edición aparecen desactivados. La frecuencia con la que Bring! u otro proveedor recibe cambios de su nube depende de su propia integración.
 
-El panel se comunica con Home Assistant usando la sesión del usuario y las APIs nativas. No necesita tokens adicionales ni cuentas nuevas. Las funciones de consulta de productos e iconos utilizan Open Food Facts e Iconify respectivamente; la gestión de listas y del catálogo funciona sin esos servicios. El JavaScript se sirve localmente y no utiliza un CDN.
+El panel se comunica con Home Assistant usando la sesión del usuario y las APIs nativas. La gestión local no necesita tokens adicionales ni cuentas nuevas; compartir datos con la comunidad requiere autorizar voluntariamente una cuenta de GitHub. Las funciones de consulta de productos e iconos utilizan Open Food Facts e Iconify respectivamente; la gestión de listas y del catálogo funciona sin esos servicios. El JavaScript se sirve localmente y no utiliza un CDN.
 
 ## Instalación con HACS
 
@@ -194,11 +194,15 @@ La instalación real en Home Assistant debe comprobarse con el recorrido siguien
 
 MIT. Consulta [LICENSE](LICENSE).
 
-### Comunidad: exportación voluntaria de iconos
+### Diccionario comunitario y aportaciones automáticas
 
-En **Ajustes → Comunidad → Exportar mis iconos** se descarga un ZIP con un diccionario JSON e imágenes locales. No hay envíos automáticos: puedes facilitarlo al mantenedor para revisar traducciones, permisos y duplicados antes de incorporarlo al [catálogo comunitario](community/README.md). Las URL externas y licencias desconocidas requieren revisión. El archivo no contiene listas, códigos ni notas.
+En **Ajustes → Comunidad**, activa **Compartir mis datos de productos** para iniciar la autorización con la GitHub App. Abre el enlace de GitHub e introduce el código mostrado. La integración guarda sus credenciales de forma privada y no utiliza las de HACS. Desmarcar la casilla detiene las aportaciones.
 
-Las imágenes comunitarias revisadas se consultan desde este repositorio, se muestran antes que Iconify y se ordenan por presencia en aportaciones revisadas, sin estadísticas globales de usuarios. El índice empieza vacío y puede actualizarse sin publicar otra versión de la integración. Las traducciones que falten se completan al revisar la aportación.
+El diccionario público se consulta una vez al día, sin cuenta y sin actualizar la integración. Permite completar traducciones y vinculaciones confirmadas que falten, sugerir nombres e iconos y reutilizar precios por referencia exacta durante 24 horas, conservando la fecha original. No sobrescribe elecciones locales ni crea automáticamente productos del catálogo.
+
+Con el consentimiento activado se aportan los datos permitidos de todo el catálogo: nombres, traducciones, EAN, vinculaciones con tiendas, Nutri-Score, precios e iconos admitidos. Las aportaciones son públicas y están asociadas a la cuenta de GitHub, con un lote por cuenta cada 24 horas. Se excluyen listas, stock, NFC, lectores, categorías personales, notas y automatizaciones.
+
+GitHub Actions valida los datos automáticamente: consenso de tres cuentas independientes para los campos confirmados, comprobación de licencias de Iconify y control de variaciones de precios superiores al 50 %. Las preferencias de iconos se cuentan por separado. El mantenedor puede bloquear cuentas y recuperar una versión anterior del diccionario. Consulta [el funcionamiento y la política del catálogo comunitario](community/README.md).
 
 ### Nutri-Score en la ficha
 
@@ -319,7 +323,7 @@ una coincidencia del catálogo y sumar una unidad con **+**. Repetir un producto
 suma unidades; las cantidades no bajan de cero. Cada tarjeta utiliza la imagen o
 icono del catálogo cuando existe y un degradado naranja. Los controles rápidos
 para sumar o restar aparecen solo en filas. Se puede alternar entre cuadrícula y filas; la cuadrícula utiliza
-el número de columnas configurado en Personalización.
+el número de columnas configurado en Personalización. El botón de orden permite alternar entre orden alfabético y menor stock, usando el porcentaje restante para los perecederos y la cantidad para los demás.
 
 Al pulsar una tarjeta se abre su ficha: cantidad, unidades (uds, kg, g, l, ml o
 personalizadas, como Latas), cantidad que se suma por compra y umbral opcional
@@ -332,7 +336,7 @@ pide confirmación y conserva catálogo y listas. Los productos con cero permane
 
 Hay tres tipos de control: **Manual / lectores**, **Perecedero** y **Consumo
 registrado en Home Assistant**. Los perecederos pasan a cero cuando se cumplen
-los días desde la última compra y se añaden a la lista aunque quedase stock.
+los días desde la última compra y se añaden a la lista aunque quedase stock. Su fondo muestra el porcentaje de tiempo restante, desde el 100 % hasta el 0 %, cambiando de naranja a rojizo. El umbral opcional de reposición se configura como porcentaje restante; en los otros modos se expresa en unidades. El indicador también muestra 0 % cuando no quedan unidades.
 El consumo registrado descuenta la cantidad indicada cada vez que una entidad
 entra en el estado configurado, por ejemplo al pasar una lavadora a `on`.
 Las actualizaciones de atributos, el arranque y la recuperación desde

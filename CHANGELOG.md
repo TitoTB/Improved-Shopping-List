@@ -1,5 +1,9 @@
 # Historial de cambios
 
+## Pendiente de publicación
+
+- En el ticket, cada tienda muestra el importe en negrita y el contador de productos entre paréntesis con un 60 % de opacidad.
+
 ## 0.23.0
 
 - Comunidad explica el diccionario automático y sustituye el botón de exportación por la casilla de compartir datos, integrada en el mismo espacio e iniciando la autorización de GitHub al activarla.

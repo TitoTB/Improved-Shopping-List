@@ -209,6 +209,8 @@ class ImprovedShoppingListPanel extends HTMLElement {
         .receipt-stores button[aria-pressed=true] { border-color:var(--primary-color,#267052); box-shadow:inset 0 0 0 1px var(--primary-color,#267052); }
         .receipt-store-copy { min-width:0; text-align:left; font-variant-numeric:tabular-nums; }
         .receipt-store-copy span { display:inline-block; white-space:nowrap; }
+        .receipt-store-amount { font-weight:700; }
+        .receipt-store-coverage { opacity:.6; }
         .receipt-paper { background:var(--card-background-color,#fff); border:1px solid var(--divider-color,#dfe7e1); border-radius:12px; padding:20px; }
         .receipt-row { display:flex; justify-content:space-between; gap:16px; padding:12px 0; border-bottom:1px dashed var(--divider-color,#dfe7e1); }
         .receipt-name { min-width:0; overflow-wrap:anywhere; }
@@ -996,8 +998,8 @@ class ImprovedShoppingListPanel extends HTMLElement {
       button.setAttribute("aria-pressed",String(receipt.store === selected?.store));
       button.setAttribute("aria-label",`${STORE_NAMES[receipt.store]} · ${this._receiptTotal(receipt)} (${receipt.coverage}/${items.length})`);
       const copy = make("span","receipt-store-copy");
-      copy.append(make("span","",this._receiptTotal(receipt)),document.createTextNode(" "),
-        make("span","",`(${receipt.coverage}/${items.length})`));
+      copy.append(make("span","receipt-store-amount",this._receiptTotal(receipt)),document.createTextNode(" "),
+        make("span","receipt-store-coverage",`(${receipt.coverage}/${items.length})`));
       button.append(this._storeLogo(receipt.store),copy);
       button.addEventListener("click",()=>{this._ticketStore=receipt.store;this._renderData();});
       stores.append(button);

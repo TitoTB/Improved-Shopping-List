@@ -2,6 +2,7 @@
 
 ## Pendiente de publicación
 
+- Unificado el fondo rojo de los botones de eliminar en toda la interfaz, incluidos códigos, vinculaciones, listas, lectores, sugerencias, limpieza de compras recientes y confirmaciones.
 - Stock pasa a situarse entre Catálogo y Lectores. Cada tarjeta abre una ficha con cantidades decimales, unidades estándar o personalizadas y eliminación con confirmación; retirados los botones de carrito y eliminar de las tarjetas. Los controles rápidos de cantidad solo aparecen en filas.
 - Control manual/con lectores, caducidad de perecederos y consumo registrado mediante entidad y estado de Home Assistant. La caducidad pone el stock a cero y solicita reposición; cada uso descuenta la cantidad configurada sin contar arranques ni recuperaciones de disponibilidad.
 - Cantidad de reposición configurable al marcar la compra, umbral de stock y lista de destino por producto. Se conservan las cantidades y preferencias existentes, se evitan duplicados en las listas y se registran los movimientos automáticos en Logs.

@@ -236,7 +236,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
         #completed-summary::before { content:"▸"; flex:none; }
         #completed-details[open] #completed-summary::before { content:"▾"; }
         #completed-label { flex:1; min-width:0; }
-        #clear-completed { display:inline-flex; align-items:center; justify-content:center; gap:6px; flex:none; margin-left:auto; min-height:36px; font-size:12px; padding:8px 10px; white-space:nowrap; border:1px solid var(--divider-color,#dfe7e1); border-radius:10px; background:transparent; color:inherit; }
+        #clear-completed { display:inline-flex; align-items:center; justify-content:center; gap:6px; flex:none; margin-left:auto; min-height:36px; font-size:12px; padding:8px 10px; white-space:nowrap; border:0; border-radius:10px; background:#d32f2f; color:#fff; }
         #clear-completed ha-icon { display:flex; align-items:center; justify-content:center; flex:none; width:18px; height:18px; --mdc-icon-size:18px; }
         .notice { line-height:1.6; padding:12px 16px; border-radius:12px; background:var(--secondary-background-color,#edf4ee); margin:0 0 18px; font-size:14px; }
         .error { border:1px solid var(--error-color,#bd3636); color:var(--error-color,#bd3636); }
@@ -269,7 +269,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
         .stock-form-fields [hidden] { display:none; } #delete-stock-from-editor { margin-right:auto; background:#d32f2f; color:white; border:0; }
         #save-stock-config { background:var(--isl-green); color:white; border:0; }
         @media(max-width:420px) { .stock-form-fields { grid-template-columns:minmax(0,1fr); } }
-        #confirm-stock-remove { background:#000; color:#fff; border:0; }
+        #confirm-stock-remove { background:#d32f2f; color:#fff; border:0; }
         @media(max-width:380px) { header { gap:4px; padding:10px 8px; }.brand-logo { width:32px; height:32px; }.menu { width:36px; padding:6px; }.section-nav button { min-width:28px; padding:10px 4px; gap:3px; font-size:12px; }.section-nav ha-icon { --mdc-icon-size:18px; } }
       </style>
       <header>

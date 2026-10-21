@@ -1302,7 +1302,7 @@ async function main() {
     const listActions=configured.filter({hasText:"todo.bring"}).locator('.actions button');
     assert.deepEqual(await listActions.locator('ha-icon').evaluateAll(nodes=>nodes.map(node=>node.getAttribute('icon'))),['mdi:delete','mdi:star']);
     assert.deepEqual(await listActions.allTextContents(),['','']);
-    assert.equal(await listActions.first().evaluate(node=>getComputedStyle(node).backgroundColor),'rgb(229, 57, 53)');
+    assert.equal(await listActions.first().evaluate(node=>getComputedStyle(node).backgroundColor),'rgb(211, 47, 47)');
     assert.equal(await listActions.last().evaluate(node=>getComputedStyle(node).backgroundColor),'rgb(255, 202, 40)');
     await settingsView.getByRole("button", { name: "Quitar: Casa", exact: true }).click();
     await settingsView.getByRole("status").filter({ hasText: "Ajustes guardados" }).waitFor();

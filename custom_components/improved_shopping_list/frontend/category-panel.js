@@ -37,7 +37,7 @@ class ImprovedShoppingCategories extends HTMLElement {
         button:disabled { opacity:.5; cursor:default; }
         button:focus-visible,input:focus-visible { outline:3px solid var(--primary-color,#267052); outline-offset:3px; }
         .primary { color:#fff; background:#267052; border:0; font-weight:650; }
-        .danger { color:#fff; background:#b3261e; border:0; }
+        .danger { color:#fff; background:#d32f2f; border:0; }
         .toolbar { display:flex; justify-content:flex-end; margin:18px 0; }
         .grid { display:grid; grid-template-columns:repeat(min(var(--isl-columns,3),5),minmax(0,1fr)); gap:16px; }
         article { position:relative; align-self:start; width:100%; aspect-ratio:1 / 1; padding:0; border:1px solid var(--divider-color,#dfe7e1); border-radius:16px; background:var(--card-background-color,#fff); text-align:center; min-width:0; min-height:0; container-type:inline-size; overflow:hidden; overflow-wrap:anywhere; }

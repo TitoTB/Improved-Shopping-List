@@ -183,7 +183,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
         .suggestion h2 { flex:1; font-size:17px; overflow-wrap:anywhere; min-width:0; }
         .suggestion .actions { margin:0; flex-shrink:0; }
         .suggestion .actions button { flex:0 0 40px; width:40px; min-height:40px; padding:8px; }
-        .suggestion .actions .danger { background:#b3261e; color:#fff; border:0; }
+        .suggestion .actions .danger { background:#d32f2f; color:#fff; border:0; }
         .suggestion .actions .link { background:#1976d2; color:#fff; border:0; }
         .link-results { max-height:260px; overflow-y:auto; border:1px solid var(--divider-color,#dfe7e1); border-radius:9px; margin-top:6px; }
         .link-results button { display:block; width:100%; text-align:left; border:0; border-radius:0; overflow-wrap:anywhere; }
@@ -295,14 +295,14 @@ class ImprovedShoppingCatalog extends HTMLElement {
         .form-actions.product-actions { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); }
         .product-actions button { min-width:0; padding:10px 8px; }
         .product-actions #save-product { grid-column:2; }
-        #delete-product { background:#b3261e; color:#fff; border:0; }
+        #delete-product { background:#d32f2f; color:#fff; border:0; }
         @media(max-width:650px) { .filters { grid-template-columns:1fr; } .grid { grid-template-columns:repeat(var(--isl-mobile-columns,1),minmax(0,1fr)); } .heading { gap:10px; flex-wrap:wrap; } h1 { font-size:28px; } dialog { padding:20px; } }
         @media(max-width:650px) { .catalog-toolbar { gap:6px; } .catalog-tabs { gap:4px; } .catalog-tabs button { gap:4px; min-width:36px; justify-content:center; padding:10px 6px; font-size:13px; } .catalog-tabs button[aria-pressed=false] .tab-label { display:none; } }
         @media(max-width:390px) { .fields { grid-template-columns:1fr; } .heading { align-items:flex-start; } .catalog-tabs { gap:3px; } .catalog-tabs button { min-width:32px; padding-inline:4px; } .catalog-tools { gap:4px; } }
         .code-list { display:grid; gap:8px; margin:12px 0; }
         .code-row { display:flex; align-items:center; gap:12px; border:1px solid var(--divider-color,#dfe7e1); border-radius:10px; padding:8px 12px; min-width:0; }
         .code-value { flex:1; min-width:0; overflow-wrap:anywhere; user-select:text; }
-        .code-remove { display:grid; place-items:center; width:36px; height:36px; min-height:36px; padding:0; border:0; background:#e53935; color:white; flex:none; }
+        .code-remove { display:grid; place-items:center; width:36px; height:36px; min-height:36px; padding:0; border:0; background:#d32f2f; color:white; flex:none; }
         .code-remove ha-icon { width:20px; height:20px; --mdc-icon-size:20px; }
         .code-capture-controls { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
         .code-capture-controls select { flex:1; min-width:140px; }
@@ -374,7 +374,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
       <dialog id="delete-product-dialog" aria-labelledby="delete-product-title">
         <h2 id="delete-product-title">Eliminar producto</h2><p id="delete-product-description"></p>
         <div id="delete-product-error" class="notice error" role="alert" hidden></div>
-        <div class="form-actions"><button id="cancel-delete-product" type="button">Cancelar</button><button id="confirm-delete-product" type="button" style="background:#000;color:#fff;border:0">Eliminar producto</button></div>
+        <div class="form-actions"><button id="cancel-delete-product" type="button">Cancelar</button><button id="confirm-delete-product" type="button" style="background:#d32f2f;color:#fff;border:0">Eliminar producto</button></div>
       </dialog>
       <dialog id="link-code-dialog" aria-labelledby="link-code-title">
         <h2 id="link-code-title">Asignar código a un producto</h2><p id="link-code-description" class="helper"></p>

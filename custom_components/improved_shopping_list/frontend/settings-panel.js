@@ -129,7 +129,7 @@ class ImprovedShoppingSettings extends HTMLElement {
         .list-info { flex:1; min-width:150px; overflow-wrap:anywhere; }
         .list-action { display:grid; place-items:center; width:44px; height:44px; min-height:44px; padding:0; border:0; flex:none; }
         .list-action ha-icon { display:block; width:22px; height:22px; --mdc-icon-size:22px; }
-        .list-remove { background:#e53935; color:#fff; }
+        .list-remove { background:#d32f2f; color:#fff; }
         .list-primary[aria-pressed=true] { background:#ffca28; color:#352800; }
         h3 { margin:0; font-size:16px; }
         .entity { margin:5px 0 0; font-size:12px; }

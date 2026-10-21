@@ -59,6 +59,7 @@ actualización puesta en cola de una petición de precio que ya ha comenzado.
 - Crear y editar productos en un catálogo local compartido entre los usuarios de Home Assistant, con vistas Productos y Categorías.
 - Asignar categorías, códigos de barras, etiquetas NFC, precios orientativos e imágenes.
 - Buscar, filtrar y añadir productos del catálogo a la lista seleccionada.
+- Agrupar el catálogo por categoría, Nutri-Score o «Vinculados»: un bloque por tienda, con el mismo producto en varias si corresponde, y «No vinculados» al final. Las vinculaciones se muestran aunque la tienda esté desactivada.
 
 Cada lista conserva sus datos en su integración original. Las operaciones disponibles dependen de lo que admita ese proveedor. Por ejemplo, una lista de solo lectura se puede consultar, pero sus controles de edición aparecen desactivados. La frecuencia con la que Bring! u otro proveedor recibe cambios de su nube depende de su propia integración.
 

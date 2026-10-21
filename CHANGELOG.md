@@ -2,6 +2,7 @@
 
 ## Pendiente de publicación
 
+- Nuevo criterio «Vinculados» para agrupar el catálogo por tienda. Los productos con varias vinculaciones aparecen en cada tienda correspondiente; los que no tienen ninguna se reúnen en «No vinculados». Compatible con búsqueda, cuadrícula, filas y preferencia guardada, incluso con tiendas desactivadas.
 - Vista de ticket al pulsar el importe estimado de la lista: tiendas activas con precios guardados, ordenadas por total conocido, selección de tienda, productos en orden alfabético y separación de productos sin precio. El badge muestra el logo de la tienda seleccionada; el número de productos permite volver a la vista habitual sin cambiar su formato.
 - Totales calculados con los últimos precios guardados, sin actualizar tiendas, indicando la cobertura de precios de cada tienda y conservando el importe 0 para los productos sin precio.
 

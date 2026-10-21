@@ -7,6 +7,7 @@ import { productNameKey } from "./product-names.js?v=0.21.0";
 export { productNameKey };
 
 export const normalizedName = value => String(value ?? "").normalize("NFKC").trim().replace(/\s+/g, " ").toLocaleLowerCase("es");
+const STORE_NAMES = {mercadona:"Mercadona",carrefour:"Carrefour",alcampo:"Alcampo",consum:"Consum",lasirena:"La Sirena",eroski:"Eroski",dia:"DIA"};
 
 function nutritionCodes(values) {
   const seen = new Set();
@@ -68,7 +69,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
     this._productOrder = "alphabetical";
     try { if (localStorage.getItem("isl-catalog-order") === "categories") this._productOrder = "categories"; } catch { /* Storage may be disabled. */ }
     this._groupBy = "category";
-    try { if (localStorage.getItem("isl-catalog-grouping") === "nutriscore") this._groupBy = "nutriscore"; } catch { /* Storage may be disabled. */ }
+    try { const grouping = localStorage.getItem("isl-catalog-grouping"); if (["nutriscore","linked"].includes(grouping)) this._groupBy = grouping; } catch { /* Storage may be disabled. */ }
     this._groupNutrition = new Map();
     this._pendingNames = new Set();
     this._listItems = [];
@@ -384,7 +385,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
       </dialog>
       <dialog id="catalog-grouping-dialog" aria-labelledby="catalog-grouping-title">
         <h2 id="catalog-grouping-title">Agrupar productos por</h2>
-        <div class="grouping-options"><button type="button" data-group-by="category" aria-pressed="true"><ha-icon icon="mdi:label" aria-hidden="true"></ha-icon>Categoría</button><button type="button" data-group-by="nutriscore" aria-pressed="false"><ha-icon icon="mdi:nutrition" aria-hidden="true"></ha-icon>Nutri-Score</button></div>
+        <div class="grouping-options"><button type="button" data-group-by="category" aria-pressed="true"><ha-icon icon="mdi:label" aria-hidden="true"></ha-icon>Categoría</button><button type="button" data-group-by="nutriscore" aria-pressed="false"><ha-icon icon="mdi:nutrition" aria-hidden="true"></ha-icon>Nutri-Score</button><button type="button" data-group-by="linked" aria-pressed="false"><ha-icon icon="mdi:store" aria-hidden="true"></ha-icon>Vinculados</button></div>
       </dialog>`;
     this._built = true;
     const root = this.shadowRoot;
@@ -882,7 +883,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
     const grouped = this._productOrder === "categories", grid = root.querySelector("#catalog-grid");
     grid.classList.toggle("rows", rows);
     grid.classList.toggle("grouped", grouped);
-    const orderToggle = root.querySelector("#toggle-catalog-order"), orderLabel = grouped ? "Ordenar alfabéticamente" : this._groupBy === "nutriscore" ? "Agrupar por Nutri-Score" : "Agrupar por categorías";
+    const orderToggle = root.querySelector("#toggle-catalog-order"), orderLabel = grouped ? "Ordenar alfabéticamente" : this._groupBy === "linked" ? "Agrupar por vinculaciones" : this._groupBy === "nutriscore" ? "Agrupar por Nutri-Score" : "Agrupar por categorías";
     root.querySelector("#configure-catalog-grouping").hidden = !grouped;
     for (const button of root.querySelectorAll("[data-group-by]")) button.setAttribute("aria-pressed",String(button.dataset.groupBy === this._groupBy));
     orderToggle.setAttribute("aria-label", orderLabel); orderToggle.title = orderLabel;
@@ -898,6 +899,15 @@ class ImprovedShoppingCatalog extends HTMLElement {
       const categories = new Map(this._catalog.categories.map(category => [normalizedName(category.name),category.name]));
       const groups = new Map();
       for (const product of products) {
+        if (this._groupBy === "linked") {
+          const stores = Object.entries(product.store_links ?? {}).filter(([store,reference]) =>
+            STORE_NAMES[store] && (typeof reference === "string" ? reference.trim() : reference?.url || reference?.id)).map(([store])=>store);
+          for (const key of stores.length ? stores : [""]) {
+            if (!groups.has(key)) groups.set(key,{key,name:STORE_NAMES[key] ?? "No vinculados",products:[]});
+            groups.get(key).products.push(product);
+          }
+          continue;
+        }
         const grade = nutritionCodes([product.barcode,...(product.barcodes??[])]).map(code => this._groupNutrition.get(code.padStart(14,"0"))).find(value => value);
         const key = this._groupBy === "nutriscore" ? grade || "" : normalizedName(product.category);
         const name = this._groupBy === "nutriscore" ? (grade ? `Nutri-Score ${grade.toUpperCase()}` : "Sin Nutri-Score") : categories.get(key) || product.category || "Sin categoría";
@@ -1101,7 +1111,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
   }
 
   _renderStoreLinks() {
-    const root = this.shadowRoot, names = {mercadona:"Mercadona",carrefour:"Carrefour",alcampo:"Alcampo",consum:"Consum",lasirena:"La Sirena",eroski:"Eroski",dia:"DIA"};
+    const root = this.shadowRoot, names = STORE_NAMES;
     root.querySelector("#product-store-links").replaceChildren(...Object.entries(this._storeLinks).map(([store,value])=>{
       const row = document.createElement("div"); row.className = "product-store-link";
       const reference = document.createElement("span"); reference.className = "store-reference";

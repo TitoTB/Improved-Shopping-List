@@ -69,6 +69,45 @@ async def test_regional_stores_only_queue_pending_and_keep_disabled_cache(env,st
     assert env.manager.prices_for(env.catalog.products[0])==[]
 
 
+@pytest.mark.parametrize("manual", [True, False])
+@pytest.mark.parametrize(("store","postal","area","zone","identifier"), [
+    ("consum","46409","301D","301","7394260"),
+    ("eroski","48001","f7e80707-fd7a-437c-b451-698301f2cf77","244",
+        "https://supermercado.eroski.es/es/productdetail/17528126-aceite/"),
+])
+async def test_refresh_repairs_missing_default_location(env, manual, store, postal, area, zone, identifier):
+    env.settings.snapshot["stores"][store] = {"enabled":True}
+    env.catalog.products = [product("Arroz",identifier,store)]
+    async def resolve(key):
+        assert key == store
+        config = {"enabled":True,"postal_code":postal,"area_id":area,"zone":zone,"location_error":""}
+        env.settings.snapshot["stores"][store] = config
+        return config
+    env.settings.async_ensure_store_location = AsyncMock(side_effect=resolve)
+    if manual:
+        result = await env.manager.async_refresh_store(store)
+        assert result["queued"] == 1
+    await env.manager.async_tick()
+    env.settings.async_ensure_store_location.assert_awaited_once_with(store)
+    assert [(key,code) for key,code,_ in env.requests] == [(store,normalize_link(store,identifier)["id"])]
+    assert env.manager.prices_for(env.catalog.products[0])[0]["scope"] == f"{postal}:{area}"
+
+
+async def test_default_location_discovery_failure_does_not_request_prices(env):
+    env.settings.snapshot["stores"]["consum"] = {"enabled":True}
+    env.catalog.products = [product("Arroz","7394260","consum")]
+    async def resolve(store):
+        config = {"enabled":True,"location_error":"HTTP 503 al consultar centros"}
+        env.settings.snapshot["stores"][store] = config
+        return config
+    env.settings.async_ensure_store_location = AsyncMock(side_effect=resolve)
+    with pytest.raises(ValueError, match="HTTP 503"):
+        await env.manager.async_refresh_store("consum")
+    await env.manager.async_tick()
+    assert env.requests == []
+    assert "HTTP 503" in env.manager._data["errors"]["consum"]
+
+
 async def test_retired_provider_cache_and_queue_migrate_without_touching_other_prices(env,hass):
     await env.manager.async_tick()
     kept = deepcopy(env.manager._data["offers"])

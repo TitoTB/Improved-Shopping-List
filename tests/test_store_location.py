@@ -96,6 +96,38 @@ async def test_defaults_and_specific_postal_are_distinct(hass, monkeypatch):
     assert await resolve_location(hass, "carrefour", "", {}) == {"postal_code":"","sale_point":"005290"}
 
 
+@pytest.mark.parametrize(("store", "postal", "area", "zone"), [
+    ("consum", "46409", "301D", "301"),
+    ("eroski", "48001", "f7e80707-fd7a-437c-b451-698301f2cf77", "244"),
+])
+async def test_missing_store_location_is_persisted_from_default(hass, monkeypatch, store, postal, area, zone):
+    settings, entry = settings_for(hass)
+    hass.config_entries.async_update_entry(entry, options={**entry.options,
+        "store_postal_code":"", "stores":{store:{"enabled":True}}})
+    resolver = AsyncMock(return_value={"areas":[{"id":area,"name":"Centro de referencia","zone":zone}]})
+    monkeypatch.setattr("custom_components.improved_shopping_list.store_location.async_resolve_areas", resolver)
+    result = await settings.async_ensure_store_location(store)
+    assert resolver.await_args.args[2] == postal
+    assert result["postal_code"] == postal and result["area_id"] == area
+    assert result["zone"] == zone and not result["location_error"]
+    assert settings.snapshot["store_postal_code"] == ""
+    assert entry.options["stores"][store] == result
+    restored = ListSettings(hass); restored.attach(entry)
+    assert restored.snapshot["stores"][store] == result
+
+
+async def test_location_repair_preserves_specific_postal_errors(hass, monkeypatch):
+    settings, entry = settings_for(hass)
+    hass.config_entries.async_update_entry(entry, options={**entry.options,
+        "store_postal_code":"28024", "stores":{"consum":{"enabled":True}}})
+    resolver = AsyncMock(side_effect=StoreError("Sin cobertura para el código postal"))
+    monkeypatch.setattr("custom_components.improved_shopping_list.list_settings.resolve_location", resolver)
+    result = await settings.async_ensure_store_location("consum")
+    assert resolver.await_args.args[2] == "28024"
+    assert result["location_error"] == "Sin cobertura para el código postal"
+    assert resolver.await_count == 1
+
+
 async def test_carrefour_public_postal_and_bad_center(hass, aioclient_mock):
     url = "https://www.carrefour.es/cloud-api/salepoints/v1/salepoint?id=28024&type=postal_code"
     aioclient_mock.get(url, json={"salepoint":"005704"})

@@ -16,6 +16,7 @@ from .catalog import normalized_name
 from .const import DOMAIN
 from .price_sources import PriceError, PriceSources
 from .store_links import STORES, normalize_link
+from .regional_stores import valid_area
 
 INTERVAL = 300
 _LOGGER = logging.getLogger(__name__)
@@ -213,6 +214,18 @@ class PriceManager:
         if not any(self.settings.snapshot["stores"].get(store, {}).get("enabled") for store in STORES):
             return
         names, failures = await self.pending_names()
+        unavailable = set()
+        stores = {store for product in self.catalog.products if normalized_name(product["name"]) in names
+            for store in self.links_for_product(product)
+            if self.settings.snapshot["stores"].get(store, {}).get("enabled")}
+        for store in sorted(stores):
+            try:
+                await self._ensure_location(store)
+            except ValueError as err:
+                unavailable.add(store)
+                self._data["errors"][store] = str(err)
+                self.activity.record("stores.error", f"{STORES[store]}: {err}", source="automatic",
+                    store=STORES[store], diagnostics={"response_class":"location_unavailable"})
         jobs = {}
         for job in self._data["pending"]:
             if (job.get("manual") or failures and self._data["day"] == day) and self._linked_job(job):
@@ -221,7 +234,7 @@ class PriceManager:
             if normalized_name(product["name"]) not in names:
                 continue
             for store, link in self.links_for_product(product).items():
-                if self.settings.snapshot["stores"].get(store, {}).get("enabled"):
+                if store not in unavailable and self.settings.snapshot["stores"].get(store, {}).get("enabled"):
                     scope = self.scope(store)
                     key = self.key(store, link, scope)
                     if self._data["attempts"].get(key) != day:
@@ -236,6 +249,24 @@ class PriceManager:
             diagnostics={"references":len(pending), "interval_seconds":INTERVAL, "unavailable_lists":failures})
         self._notify()
 
+    async def _ensure_location(self, store):
+        if store not in ("mercadona", "consum", "lasirena", "eroski", "dia"):
+            return
+        config = self.settings.snapshot["stores"].get(store, {})
+        ready = bool(self.scope(store))
+        if store != "mercadona":
+            ready = ready and valid_area(store, config.get("area_id"))
+            if store == "consum":
+                ready = ready and config.get("zone") == config["area_id"][:-1]
+            elif store == "eroski":
+                ready = ready and bool(config.get("zone"))
+        if not ready:
+            config = await self.settings.async_ensure_store_location(store)
+        if config.get("location_error"):
+            raise ValueError(f"{STORES[store]}: {config['location_error']}")
+        if not self.scope(store):
+            raise ValueError(f"No se ha podido resolver la ubicación de {STORES[store]}.")
+
     async def async_refresh_store(self, store):
         """Queue a deliberate manual run without bypassing durable HTTP pacing."""
         async with self._lock:
@@ -243,10 +274,9 @@ class PriceManager:
                 raise ValueError("La integración no está disponible.")
             if not self.settings.snapshot["stores"].get(store, {}).get("enabled"):
                 raise ValueError("Habilita la tienda antes de actualizar sus precios.")
-            if store in ("mercadona", "consum", "lasirena", "eroski", "dia") and not self.scope(store):
-                raise ValueError(f"Configura el código postal de {STORES[store]} antes de actualizar.")
             if time.time() < self._data["blocked_until"].get(store, 0):
                 raise ValueError("La tienda ha indicado una pausa. Espera antes de volver a actualizar.")
+            await self._ensure_location(store)
             active = [job for job in self._data["pending"] if job["store"] == store and not job.get("blocked")]
             if active:
                 return {**self.snapshot(store), "queued":len(active)}

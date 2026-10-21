@@ -150,6 +150,26 @@ class ListSettings:
             self.notify()
             return self.snapshot
 
+    async def async_ensure_store_location(self, store):
+        """Repair an enabled store's missing location using the shared/default postcode."""
+        generation = self._generation
+        async with self._stores_lock:
+            entry = self.entry
+            if (not entry or generation != self._generation
+                or not self.hass.data.get(DOMAIN, {}).get("active")):
+                raise StoreError("La integración no está activa.")
+            current = self.snapshot["stores"][store]
+            if not current.get("enabled"):
+                raise StoreError("Habilita la tienda antes de actualizar sus precios.")
+            value = await self._located_store(store, True, self.snapshot["store_postal_code"], current)
+            if (self.entry is not entry or generation != self._generation
+                or not self.hass.data.get(DOMAIN, {}).get("active")):
+                raise StoreError("La integración se ha detenido.")
+            self.hass.config_entries.async_update_entry(entry, options={**entry.options,
+                "stores":{**self.snapshot["stores"], store:value}})
+            self.notify()
+            return value
+
     async def async_update_store(self, enabled: bool, postal_code: str, verify: bool = False) -> dict:
         """Verify before saving, serialize writes and preserve unrelated options."""
         generation = self._generation

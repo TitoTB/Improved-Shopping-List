@@ -2,6 +2,7 @@
 
 ## Pendiente de publicación
 
+- Eroski con selección de centro de recogida por nombre y vinculaciones mediante enlace completo. Sesión anónima propia, verificación del centro efectivo y precio de la ficha, sin cuenta ni carrito del usuario; reutiliza la sesión y respeta cinco minutos entre todas las peticiones.
 - Consum y La Sirena en Ajustes → Tiendas, con los logos aportados, configuración por código postal y selección entre centros con cobertura.
 - Vinculaciones de productos por enlace o ID, precios guardados por centro, tienda favorita y revisión diaria o manual de productos pendientes. La Sirena verifica la variante y el precio de entrega con una pausa de cinco minutos entre peticiones.
 - Consultas anónimas sin cuenta ni carrito del usuario. Errores, productos no disponibles y cambios de centro no sustituyen los precios guardados de otras zonas ni modifican los códigos de los lectores.

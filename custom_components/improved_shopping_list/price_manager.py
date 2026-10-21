@@ -86,7 +86,7 @@ class PriceManager:
 
     def scope(self, store):
         config = self.settings.snapshot["stores"].get(store, {})
-        if store in ("consum", "lasirena"):
+        if store in ("consum", "lasirena", "eroski"):
             return f"{config['postal_code']}:{config['area_id']}" if config.get("postal_code") and config.get("area_id") else ""
         return config.get("warehouse", "") if store == "mercadona" else config.get("region_id", "") if store == "alcampo" else config.get("sale_point", "005290")
 
@@ -140,8 +140,9 @@ class PriceManager:
     @property
     def progress(self):
         running = bool(self._data["pending"])
-        remaining = len(self._data["pending"]) + sum(1 for job in self._data["pending"]
-            if job.get("store") == "lasirena" and not job.get("reserved"))
+        remaining = sum(max(0, job.get("expected_requests", self.sources.expected_requests(job.get("store"),
+            self.settings.snapshot["stores"].get(job.get("store"), {})))
+            - job.get("request_count", 0)) for job in self._data["pending"])
         return {"running":running, "total":self._data["total"], "processed":self._data["processed"],
             "errors":deepcopy(self._data["errors"]),
             "last_updated":max((offer.get("checked_at", 0) for offer in self._data["offers"].values()), default=0),
@@ -186,6 +187,7 @@ class PriceManager:
             self._task.cancel()
             await asyncio.gather(self._task, return_exceptions=True)
         self._task = None
+        self.sources.close()
 
     async def pending_names(self):
         names = set()
@@ -241,7 +243,7 @@ class PriceManager:
                 raise ValueError("La integración no está disponible.")
             if not self.settings.snapshot["stores"].get(store, {}).get("enabled"):
                 raise ValueError("Habilita la tienda antes de actualizar sus precios.")
-            if store in ("mercadona", "consum", "lasirena") and not self.scope(store):
+            if store in ("mercadona", "consum", "lasirena", "eroski") and not self.scope(store):
                 raise ValueError(f"Configura el código postal de {STORES[store]} antes de actualizar.")
             if time.time() < self._data["blocked_until"].get(store, 0):
                 raise ValueError("La tienda ha indicado una pausa. Espera antes de volver a actualizar.")
@@ -308,6 +310,7 @@ class PriceManager:
                 response_class="list_unavailable" if failures else "no_longer_pending")
         self._data["attempts"][self.key(job["store"],job["link"],job["scope"])] = dt_util.now().date().isoformat()
         job["reserved"] = True
+        job["request_count"] = job.get("request_count", 0) + 1
         self._data["next_request"] = time.time()+INTERVAL
         await self._save()  # Persist request reservation before touching the retailer.
         self._notify()
@@ -348,6 +351,7 @@ class PriceManager:
                     continue
                 entry, generation = self.settings.entry, self.settings._generation
                 configuration = deepcopy(self.settings.snapshot["stores"][store])
+                job["expected_requests"] = self.sources.expected_requests(store, configuration)
                 source = "manual" if job.get("manual") else "automatic"
                 self._configuration = (entry, generation, configuration, job)
                 try:

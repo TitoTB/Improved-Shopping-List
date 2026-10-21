@@ -9,13 +9,15 @@ import aiohttp
 from homeassistant.helpers.aiohttp_client import async_create_clientsession
 
 from .stores import StoreError
+from .eroski import EroskiClient, EroskiError, AREA_PATTERN, pickup_areas
 
-REGIONAL_STORES = {"consum": "Consum", "lasirena": "La Sirena"}
+REGIONAL_STORES = {"consum": "Consum", "lasirena": "La Sirena", "eroski":"Eroski"}
 POSTAL_PATTERN = r"(?:0[1-9]|[1-4][0-9]|5[0-2])[0-9]{3}"
 
 
 def valid_area(store, area):
-    return isinstance(area, str) and re.fullmatch(r"[0-9]{1,8}D" if store == "consum" else r"lasirena[0-9]{1,8}", area) is not None
+    pattern = AREA_PATTERN if store == "eroski" else r"[0-9]{1,8}D" if store == "consum" else r"lasirena[0-9]{1,8}"
+    return isinstance(area, str) and re.fullmatch(pattern, area) is not None
 
 
 def coverage_areas(store, data):
@@ -53,6 +55,17 @@ def coverage_areas(store, data):
 async def async_resolve_areas(hass, store, postal_code):
     if store not in REGIONAL_STORES or not isinstance(postal_code, str) or not re.fullmatch(POSTAL_PATTERN, postal_code):
         raise StoreError("Introduce un código postal español válido de cinco cifras.")
+    if store == "eroski":
+        client = EroskiClient(hass)
+        try:
+            areas = pickup_areas(await client.selection(postal_code))
+            if not areas:
+                raise StoreError("Eroski no ha devuelto centros de recogida disponibles.")
+            return {"postal_code":postal_code, "areas":areas}
+        except (EroskiError, aiohttp.ClientError, asyncio.TimeoutError, ValueError) as err:
+            raise StoreError(str(err) if isinstance(err,(EroskiError,StoreError)) else "No se ha podido consultar Eroski.") from err
+        finally:
+            client.close()
     url = ("https://tienda.consum.es/api/rest/V1.0/shipping/area?" + urlencode({"shippingMethod":"D", "zipCode":postal_code})
         if store == "consum" else "https://www.lasirena.es/es/api/checkout/pub/regions?" + urlencode({"country":"ESP", "postalCode":postal_code, "sc":"1"}))
     session = async_create_clientsession(hass, auto_cleanup=False, cookie_jar=aiohttp.DummyCookieJar())

@@ -303,7 +303,7 @@ async def ws_store_update(hass, connection, msg):
         return
     try:
         settings = hass.data[DOMAIN]["settings"]
-        result = (await settings.async_update_regional(msg["store"], msg["enabled"], msg["postal_code"], msg["area_id"], msg["verify"]) if msg["store"] in ("consum", "lasirena")
+        result = (await settings.async_update_regional(msg["store"], msg["enabled"], msg["postal_code"], msg["area_id"], msg["verify"]) if msg["store"] in ("consum", "lasirena", "eroski")
                   else await settings.async_update_alcampo(msg["enabled"], msg["region_id"]) if msg["store"] == "alcampo"
                   else await settings.async_update_carrefour(msg["enabled"], msg.get("sale_point")) if msg["store"] == "carrefour"
             else await settings.async_update_store(msg["enabled"], msg["postal_code"], msg["verify"]))
@@ -314,7 +314,7 @@ async def ws_store_update(hass, connection, msg):
 
 
 @websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/settings/resolve_store",
-    vol.Required("store"):vol.In(("consum", "lasirena")), vol.Required("postal_code"):str})
+    vol.Required("store"):vol.In(("consum", "lasirena", "eroski")), vol.Required("postal_code"):str})
 @websocket_api.require_admin
 @websocket_api.async_response
 async def ws_resolve_store(hass, connection, msg):

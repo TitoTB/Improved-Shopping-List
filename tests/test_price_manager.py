@@ -51,12 +51,15 @@ async def env(hass, monkeypatch):
 
 @pytest.mark.parametrize(("store","config","identifier"),[
     ("consum",{"enabled":True,"postal_code":"46409","area_id":"301D","zone":"301"},"7394260"),
-    ("lasirena",{"enabled":True,"postal_code":"28024","area_id":"lasirena259"},"655")])
+    ("lasirena",{"enabled":True,"postal_code":"28024","area_id":"lasirena259"},"655"),
+    ("eroski",{"enabled":True,"postal_code":"48001","area_id":"f7e80707-fd7a-437c-b451-698301f2cf77","zone":"244"},
+     "https://supermercado.eroski.es/es/productdetail/17528126-aceite/")])
 async def test_regional_stores_only_queue_pending_and_keep_disabled_cache(env,store,config,identifier):
     env.settings.snapshot["stores"][store]=config
-    env.catalog.products=[product("Arroz",identifier,store),product("Café","1234",store)]
+    other = identifier.replace("17528126", "24791428") if store == "eroski" else "1234"
+    env.catalog.products=[product("Arroz",identifier,store),product("Café",other,store)]
     await env.manager.async_tick()
-    assert [(s,i) for s,i,_ in env.requests]==[(store,identifier)]
+    assert [(s,i) for s,i,_ in env.requests]==[(store,normalize_link(store,identifier)["id"])]
     saved=env.manager.prices_for(env.catalog.products[0])
     assert len(saved)==1 and saved[0]["scope"]==f"{config['postal_code']}:{config['area_id']}"
     config["enabled"]=False

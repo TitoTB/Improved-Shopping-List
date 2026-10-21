@@ -10,6 +10,7 @@ from homeassistant.helpers.aiohttp_client import async_create_clientsession
 
 from .store_links import normalize_link
 from .regional_stores import POSTAL_PATTERN, valid_area
+from .eroski import EroskiClient, EroskiError
 
 
 class PriceError(ValueError):
@@ -108,9 +109,28 @@ def sirena_offer(data, product, sku, configuration):
 class PriceSources:
     def __init__(self, hass):
         self.hass = hass
+        self.eroski = EroskiClient(hass)
+
+    def close(self):
+        self.eroski.close()
+
+    def expected_requests(self, store, configuration):
+        if store == "eroski":
+            key = (configuration.get("postal_code"), configuration.get("area_id"), configuration.get("zone"))
+            return 1 if self.eroski.context == key else 4
+        return 2 if store == "lasirena" else 1
 
     async def fetch(self, store, link, configuration, before_request):
         link = normalize_link(store, link)
+        if store == "eroski":
+            if (not re.fullmatch(POSTAL_PATTERN, configuration.get("postal_code", ""))
+                or not valid_area(store, configuration.get("area_id"))
+                or not re.fullmatch(r"[A-Za-z0-9_-]{1,32}", configuration.get("zone", ""))):
+                raise PriceError("Configura el código postal y centro de Eroski.", response_class="missing_region")
+            try:
+                return await self.eroski.fetch(link,configuration,before_request)
+            except EroskiError as err:
+                raise PriceError(str(err), **err.diagnostics) from err
         if store in ("consum", "lasirena"):
             return await self._fetch_regional(store, link, configuration, before_request)
         if store == "mercadona":

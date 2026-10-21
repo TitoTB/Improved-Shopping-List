@@ -6,7 +6,7 @@ Una interfaz propia para gestionar las listas de la compra que ya tienes integra
 
 Versión actual: **0.17.0**. Interfaz en español, pensada para móvil y ordenador. Requiere **Home Assistant Core 2026.10 o posterior**. La referencia de desarrollo es Core 2026.10.2.
 
-Vinculaciones por enlace o ID con Mercadona, Carrefour, Alcampo, Consum y La Sirena, y consultas
+Vinculaciones con Mercadona, Carrefour, Alcampo, Consum, La Sirena y Eroski, y consultas
 directas desde Home Assistant. Se ha retirado el feed
 de precios de GitHub y la dependencia de Aguacatec.
 
@@ -204,7 +204,7 @@ Se reutiliza la caché persistente de identificación (30 días para productos e
 
 ## Tiendas y vinculaciones
 
-En **Ajustes → Tiendas** se habilitan Mercadona, Carrefour, Alcampo, Consum y La Sirena, se elige la
+En **Ajustes → Tiendas** se habilitan Mercadona, Carrefour, Alcampo, Consum, La Sirena y Eroski, se elige la
 favorita y se configura la hora de revisión. Mercadona resuelve su almacén desde
 el código postal; Alcampo permite indicar la región de su consulta pública.
 En Consum y La Sirena, abre **Configuración**, introduce el código postal y pulsa
@@ -220,6 +220,18 @@ entre peticiones; un producto puede necesitar dos peticiones. No se usa una cuen
 cookies de usuario ni su carrito. Las respuestas ambiguas, sin disponibilidad o con
 errores conservan el precio anterior. Los EAN recibidos son metadatos del precio:
 no modifican automáticamente las asociaciones de los lectores.
+
+Eroski utiliza el centro de recogida que elijas en Configuración. Introduce un código
+postal, consulta los centros y selecciona uno por su nombre. El selector público
+puede mostrar centros de otras poblaciones: elige el que corresponda a tu compra.
+La integración inicia su propia sesión anónima, aplica el centro y verifica que la
+sesión conserva ese centro antes de aceptar un precio. No reserva una franja de
+recogida ni utiliza tu cuenta o carrito. Las vinculaciones de Eroski requieren el
+**enlace completo de la ficha**, ya que no se ha verificado una ruta por ID sola.
+La primera consulta necesita preparar la sesión (cuatro peticiones, separadas por
+cinco minutos); las siguientes reutilizan esa sesión mientras conserve el centro.
+Al cambiar de centro se prepara otra sesión y los precios de cada centro permanecen
+separados. Los errores conservan el último precio conocido.
 
 En **Catálogo → Información adicional**, selecciona una tienda, pega su enlace
 o ID y pulsa Añadir vinculación. Puedes editar o quitar cada vínculo antes de

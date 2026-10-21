@@ -20,7 +20,7 @@ async def test_carrefour_migration_and_favorite_do_not_erase_mercadona(hass):
     settings = ListSettings(hass)
     settings.attach(entry)
     hass.data[DOMAIN] = {"active": True}
-    assert settings.snapshot["stores"]["carrefour"] == {"enabled": False}
+    assert settings.snapshot["stores"]["carrefour"] == {"enabled": False,"sale_point":"005290"}
     await settings.async_update_carrefour(True)
     assert settings.snapshot["favorite_store"] == "mercadona"
     await settings.async_favorite_store("carrefour")
@@ -31,6 +31,21 @@ async def test_carrefour_migration_and_favorite_do_not_erase_mercadona(hass):
     assert entry.options["unrelated"] is True
     with pytest.raises(StoreError):
         await settings.async_favorite_store("carrefour")
+
+
+async def test_carrefour_center_persists_across_toggles_and_legacy_entries(hass):
+    entry = MockConfigEntry(domain=DOMAIN,data={CONF_TODO_ENTITY:"todo.bring"},options={"stores":{"carrefour":{"enabled":True}}})
+    entry.add_to_hass(hass)
+    settings = ListSettings(hass); settings.attach(entry)
+    hass.data[DOMAIN] = {"active":True}
+    assert settings.snapshot["stores"]["carrefour"]["sale_point"] == "005290"
+    await settings.async_update_carrefour(True,"012345")
+    await settings.async_update_carrefour(False)
+    assert settings.snapshot["stores"]["carrefour"] == {"enabled":False,"sale_point":"012345"}
+    for value in ("12345","1234567","abcdef","１２３４５６","005290\r\nHost:bad"):
+        with pytest.raises(StoreError):
+            await settings.async_update_carrefour(True,value)
+    assert entry.options["stores"]["carrefour"]["sale_point"] == "012345"
 
 
 async def test_resolves_header_even_when_warehouse_changed_is_false(hass, aioclient_mock):

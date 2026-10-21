@@ -68,7 +68,7 @@ class PriceManager:
 
     def scope(self, store):
         config = self.settings.snapshot["stores"].get(store, {})
-        return config.get("warehouse", "") if store == "mercadona" else config.get("region_id", "") if store == "alcampo" else "web"
+        return config.get("warehouse", "") if store == "mercadona" else config.get("region_id", "") if store == "alcampo" else config.get("sale_point", "005290")
 
     @staticmethod
     def key(store, link, scope):
@@ -110,6 +110,7 @@ class PriceManager:
                     if (store is None or price["store"] == store)]
         pending = self._data["pending"]
         return {"products":products, "nightly":True, "update_time":settings.get("price_update_time", "01:00"),
+            "sale_point":self.scope(store) if store == "carrefour" else None,
             "enabled":bool(settings["stores"].get(store, {}).get("enabled")) if store else True,
             "warehouse":self.scope(store) if store else "", "error":self._data["errors"].get(store, "") if store else "",
             "remaining":len(pending), "processed":self._data["processed"], "total":self._data["total"],
@@ -285,6 +286,10 @@ class PriceManager:
         job["reserved"] = True
         self._data["next_request"] = time.time()+INTERVAL
         await self._save()  # Persist request reservation before touching the retailer.
+        self.activity.record("stores.request", f"{STORES[job['store']]}: consulta de precio iniciada",
+            source="manual" if job.get("manual") else "automatic", store=STORES[job["store"]],
+            diagnostics={"reference_id":job["link"]["id"], "scope":job["scope"],
+                "provider":"carrefour_json" if job["store"] == "carrefour" else job["store"]})
 
     async def async_tick(self):
         async with self._lock:
@@ -332,7 +337,7 @@ class PriceManager:
                             diagnostics={"reference_id":job["link"]["id"], "price":result["price"], "currency":result["currency"]})
                     elif result is None:
                         self.activity.record("stores.not_found", f"{STORES[store]}: referencia no disponible; se conserva el último precio", source=source,
-                            diagnostics={"reference_id":job["link"]["id"], "http_status":404})
+                            diagnostics={"reference_id":job["link"]["id"], "response_class":"not_found"})
                 except (PriceError, aiohttp.ClientError, asyncio.TimeoutError, ValueError, KeyError, TypeError) as err:
                     diagnostics = getattr(err, "diagnostics", {"response_class":"invalid_response"})
                     if diagnostics.get("response_class") == "list_unavailable":

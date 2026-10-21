@@ -107,9 +107,9 @@ export class ListSettingsSession {
     if (generation === this._generation && revision === this._revision) this._receive(data);
   }
 
-  async saveCarrefour(enabled) {
+  async saveCarrefour(enabled, salePoint) {
     const generation = this._generation, revision = ++this._revision;
-    const data = await this.getHass().callWS({type:`${PREFIX}store`,store:"carrefour",enabled});
+    const data = await this.getHass().callWS({type:`${PREFIX}store`,store:"carrefour",enabled,...(salePoint === undefined ? {} : {sale_point:salePoint})});
     if (generation === this._generation && revision === this._revision) this._receive(data);
   }
 

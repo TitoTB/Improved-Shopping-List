@@ -17,7 +17,7 @@ DEFAULT_APPEARANCE = {
     "completed_gradient_start": "#4faba2", "completed_gradient_end": "#26857c",
     "columns": 3, "mobile_columns": 1,
 }
-DEFAULT_STORES = {"mercadona": {"enabled": False, "postal_code": "", "warehouse": "", "checked_at": None}, "carrefour": {"enabled": False}, "alcampo":{"enabled":False,"region_id":""}}
+DEFAULT_STORES = {"mercadona": {"enabled": False, "postal_code": "", "warehouse": "", "checked_at": None}, "carrefour": {"enabled": False, "sale_point":"005290"}, "alcampo":{"enabled":False,"region_id":""}}
 
 
 def normalize_appearance(data: dict, *, defaults: dict | None = None) -> dict:
@@ -47,7 +47,7 @@ def list_options(entry: ConfigEntry) -> dict:
     entities = list(entry.options.get(CONF_TODO_ENTITIES, [primary] if primary else []))
     return {"entities": entities, "primary_entity": primary if primary in entities else next(iter(entities), ""),
             "appearance": {**DEFAULT_APPEARANCE, **entry.options.get("appearance", {})},
-            "stores": {**deepcopy(DEFAULT_STORES), **deepcopy(entry.options.get("stores", {}))},
+            "stores": {**deepcopy(entry.options.get("stores", {})), **{key:{**deepcopy(defaults), **deepcopy(entry.options.get("stores", {}).get(key, {}))} for key,defaults in DEFAULT_STORES.items()}},
             "favorite_store": entry.options.get("favorite_store", ""), "price_update_time":entry.options.get("price_update_time", "01:00")}
 
 
@@ -111,12 +111,15 @@ class ListSettings:
         current = self.snapshot["favorite_store"]
         return current if current in active else next(iter(active), "")
 
-    async def async_update_carrefour(self, enabled):
+    async def async_update_carrefour(self, enabled, sale_point=None):
+        if sale_point is not None and not re.fullmatch(r"[0-9]{6}", sale_point):
+            raise StoreError("El centro de Carrefour debe contener seis dígitos, conservando los ceros iniciales.")
         generation = self._generation
         async with self._stores_lock:
             if generation != self._generation or not self.entry or not self.hass.data.get(DOMAIN, {}).get("active"):
                 raise StoreError("La integración no está activa.")
-            stores = {**self.snapshot["stores"], "carrefour": {"enabled": enabled}}
+            current = self.snapshot["stores"]["carrefour"]
+            stores = {**self.snapshot["stores"], "carrefour": {**current,"enabled": enabled,"sale_point":sale_point if sale_point is not None else current["sale_point"]}}
             self.hass.config_entries.async_update_entry(self.entry, options={**self.entry.options,
                 "stores": stores, "favorite_store": self._favorite(stores)})
             self.notify()

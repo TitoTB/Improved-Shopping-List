@@ -132,7 +132,8 @@ const hass={
     if(msg.type==='improved_shopping_list/settings/store'){
       if(window.failSettings)throw new Error('Mercadona no está disponible');
       if(msg.store==='carrefour'||msg.store==='alcampo'){
-        window.listSettings.stores={...window.listSettings.stores,[msg.store]:{enabled:msg.enabled,...(msg.store==='alcampo'?{region_id:msg.region_id}: {})}};
+        if(msg.store==='carrefour'&&msg.sale_point!==undefined&&!/^[0-9]{6}$/.test(msg.sale_point))throw new Error('El centro de Carrefour debe contener seis dígitos.');
+        window.listSettings.stores={...window.listSettings.stores,[msg.store]:{...window.listSettings.stores?.[msg.store],enabled:msg.enabled,...(msg.store==='alcampo'?{region_id:msg.region_id}: {sale_point:msg.sale_point??window.listSettings.stores?.carrefour?.sale_point??'005290'})}};
         const active=Object.keys(window.listSettings.stores).filter(key=>window.listSettings.stores[key].enabled);
         if(!active.includes(window.listSettings.favorite_store))window.listSettings.favorite_store=active[0]??'';
         window.emitSettings();return structuredClone(window.listSettings);
@@ -964,7 +965,21 @@ async function main() {
     assert.match(await carrefourDialog.getByRole("link").getAttribute("href"),/awin1.com\/pclick.php/);
     await carrefourDialog.getByRole("button",{name:"Actualizar vista",exact:true}).click();
     await carrefourDialog.getByText("Alcaparras Carrefour",{exact:true}).waitFor();
+    await carrefourDialog.getByRole("button",{name:"Configuración",exact:true}).click();
+    const center = carrefourDialog.getByLabel('Centro de Carrefour (sale_point)',{exact:true});
+    assert.equal(await center.inputValue(),'005290');
+    await center.fill('123');
+    await carrefourDialog.getByRole('button',{name:'Guardar configuración',exact:true}).click();
+    await carrefourDialog.locator('#carrefour-config-error').filter({hasText:'seis dígitos'}).waitFor();
+    await center.fill('012345');
+    await carrefourDialog.getByRole('button',{name:'Guardar configuración',exact:true}).click();
+    await settingsPage.waitForFunction(()=>window.listSettings.stores.carrefour.sale_point==='012345');
+    await carrefourDialog.getByRole('button',{name:'Productos',exact:true}).click();
     await carrefourDialog.getByRole("button",{name:"Cerrar",exact:true}).click();
+    await settingsView.getByRole('button',{name:'Ajustes de Carrefour',exact:true}).click();
+    await carrefourDialog.getByRole('button',{name:'Configuración',exact:true}).click();
+    assert.equal(await center.inputValue(),'012345');
+    await carrefourDialog.getByRole('button',{name:'Cerrar',exact:true}).click();
     await settingsPage.evaluate(()=>document.querySelector('improved-shopping-list-panel').shadowRoot.querySelector('isl-catalog').dispatchEvent(new CustomEvent('catalog-change',{detail:{products:[{id:'linked-1',name:'Vinculado',store_links:{carrefour:{id:'R-123'}}},{id:'unlinked-1',name:'Sin vincular'}],categories:[]}})));
     assert.equal(await settingsView.locator('#carrefour-linked-count').textContent(),'1');
     assert.equal(await settingsView.locator('#mercadona-linked-count').textContent(),'0');

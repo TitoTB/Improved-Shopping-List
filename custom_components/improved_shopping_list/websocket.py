@@ -291,6 +291,7 @@ def ws_personalization(hass: HomeAssistant, connection, msg) -> None:
     vol.Optional("postal_code", default=""): str,
     vol.Optional("verify", default=False): bool,
     vol.Optional("region_id", default=""): str,
+    vol.Optional("sale_point"): str,
 })
 @websocket_api.require_admin
 @websocket_api.async_response
@@ -300,7 +301,7 @@ async def ws_store_update(hass, connection, msg):
     try:
         settings = hass.data[DOMAIN]["settings"]
         result = (await settings.async_update_alcampo(msg["enabled"], msg["region_id"]) if msg["store"] == "alcampo"
-            else await settings.async_update_carrefour(msg["enabled"]) if msg["store"] == "carrefour"
+                  else await settings.async_update_carrefour(msg["enabled"], msg.get("sale_point")) if msg["store"] == "carrefour"
             else await settings.async_update_store(msg["enabled"], msg["postal_code"], msg["verify"]))
     except StoreError as err:
         connection.send_error(msg["id"], "invalid_store", str(err))

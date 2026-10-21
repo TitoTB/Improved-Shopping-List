@@ -10,7 +10,7 @@ from homeassistant.core import SupportsResponse
 
 from custom_components.improved_shopping_list.const import DOMAIN
 from custom_components.improved_shopping_list.price_manager import PriceManager, StorePriceView
-from custom_components.improved_shopping_list.price_sources import PriceError, PriceSources, structured_offer
+from custom_components.improved_shopping_list.price_sources import PriceError, PriceSources, carrefour_offer
 from custom_components.improved_shopping_list.store_links import normalize_link, normalize_links
 from custom_components.improved_shopping_list import price_manager as module
 
@@ -267,12 +267,62 @@ async def test_public_alcampo_api_and_403_are_distinct_from_not_found(hass,aiocl
     assert error.value.diagnostics["http_status"] == 403
 
 
-def test_carrefour_structured_price_must_match_reference():
-    body = '<script type="application/ld+json">{"@type":"Product","sku":"724474","name":"Arroz","offers":{"price":"2.09","priceCurrency":"EUR"}}</script>'
-    link = normalize_link("carrefour","R-VC4AECOMM-724474")
-    assert structured_offer(body,link)["price"] == "2.09"
+def carrefour_response(**changes):
+    return {"impressions":[{"item_id":"491998", "item_internal_id":"VC4AECOMM-491998",
+        "item_name":"anacardo-crudo-original-carrefour-200-g", "price":2.69, "currency":"EUR",
+        "item_ean":["3560071237950"], **changes}]}
+
+
+@pytest.mark.parametrize("changes",[
+    {"item_id":"9999"}, {"item_internal_id":"VC4AECOMM-9999"},
+    {"currency":"USD"}, {"price":None}, {"price":"NaN"}, {"price":-1}])
+def test_carrefour_json_rejects_wrong_reference_or_price(changes):
     with pytest.raises(PriceError):
-        structured_offer(body.replace('"724474"','"99999"'),link)
+        carrefour_offer(carrefour_response(**changes),normalize_link("carrefour","R-VC4AECOMM-491998"))
+
+
+def test_carrefour_empty_and_ambiguous_responses():
+    link = normalize_link("carrefour","R-VC4AECOMM-491998")
+    assert carrefour_offer({"impressions":[]},link) is None
+    for data in ({}, {"impressions":{}}, {"impressions":carrefour_response()["impressions"]*2}):
+        with pytest.raises(PriceError):
+            carrefour_offer(data,link)
+
+
+async def test_carrefour_api_uses_center_without_session_and_validates_result(hass,aioclient_mock,monkeypatch):
+    import aiohttp
+    captured = []
+    original_get = aiohttp.ClientSession.get
+    def get(session,url,**kwargs):
+        captured.append(kwargs["headers"])
+        return original_get(session,url,**kwargs)
+    monkeypatch.setattr(aiohttp.ClientSession,"get",get)
+    url = "https://www.carrefour.es/cloud-api/pdp-food-analytics/v1/impressions?product_id=R-VC4AECOMM-491998"
+    aioclient_mock.get(url,json=carrefour_response())
+    link = normalize_link("carrefour","https://www.carrefour.es/supermercado/anacardo-crudo-original-carrefour-200-g/R-VC4AECOMM-491998/p")
+    before = AsyncMock()
+    result = await PriceSources(hass).fetch("carrefour",link,{"sale_point":"005290"},before)
+    assert result["price"] == "2.69" and result["ean"] == "3560071237950" and result["sale_point"] == "005290"
+    assert result["available"] is None
+    assert captured[0]["sale_point"] == "005290" and captured[0]["Referer"] == link["url"]
+    assert not any(key.lower() in ("cookie","authorization","jsessionid","profile_id","session_id") for key in captured[0])
+    before.assert_awaited_once()
+
+
+async def test_carrefour_centers_keep_independent_cached_prices(env):
+    env.manager._queue = Mock()
+    env.catalog.products = [product("Arroz","R-VC4AECOMM-491998","carrefour")]
+    env.settings.snapshot["stores"]["carrefour"]["sale_point"] = "005290"
+    await env.manager.async_tick()
+    assert env.manager.prices_for(env.catalog.products[0])
+    env.settings.snapshot["stores"]["carrefour"]["sale_point"] = "123456"
+    assert not env.manager.prices_for(env.catalog.products[0])
+    assert env.manager._data["offers"]  # The former center's prices remain stored.
+    await env.manager.async_refresh_store("carrefour")
+    env.clock[0] += 300
+    await env.manager.async_tick()
+    assert env.manager.prices_for(env.catalog.products[0])[0]["scope"] == "123456"
+    assert len(env.manager._data["offers"]) == 2
 
 
 async def test_mercadona_reference_does_not_require_ean(hass,aioclient_mock):

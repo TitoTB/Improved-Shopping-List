@@ -34,11 +34,20 @@ registra como referencia no disponible y un 403/429 pausa esa tienda el resto de
 las demás pueden continuar. Los precios indican fecha y región cuando corresponde.
 
 Alcampo utiliza la consulta JSON del flujo n8n y admite su `regionId` en Configuración.
-Sin región se solicita el precio que ofrezca la web sin ubicación. Carrefour lee datos
-estructurados de la ficha pública y Mercadona consulta su API por referencia y almacén.
-El acceso depende de cada tienda: durante las pruebas HTTP de desarrollo Alcampo y
-Carrefour han devuelto 403, aunque Alcampo responde en el navegador. Los intervalos no
-garantizan resolver esos bloqueos; los errores se muestran en Logs → Tiendas y no borran precios.
+Sin región se solicita el precio que ofrezca la web sin ubicación. Mercadona consulta
+su API por referencia y almacén. Carrefour utiliza la respuesta JSON del endpoint interno
+`/cloud-api/pdp-food-analytics/v1/impressions`, con la referencia y la cabecera `sale_point`,
+sin cookies ni identificadores de sesión. En su engranaje → Configuración se puede cambiar
+el centro de seis dígitos; el inicial es `005290`. Los precios quedan separados por centro.
+La respuesta confirma la referencia antes de guardar el precio; el EAN, cuando existe,
+se conserva como metadato y no modifica los códigos del lector.
+
+La consulta JSON de Carrefour ha devuelto HTTP 200 y 2,69 EUR para la referencia 491998
+desde el entorno de desarrollo, tanto con enlace completo como con ID. Su ficha HTML
+sigue devolviendo 403 y ya no se utiliza para obtener precios. Alcampo sigue sujeto al
+403 observado. El acceso depende de cada tienda y debe comprobarse desde cada Home Assistant;
+los errores se muestran en Logs → Tiendas y no borran precios. Los logs distinguen una
+actualización puesta en cola de una petición de precio que ya ha comenzado.
 
 ## Qué puedes hacer
 

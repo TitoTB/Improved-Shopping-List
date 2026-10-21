@@ -197,7 +197,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
         #new-product,#new-catalog-category,#toggle-catalog-order,#configure-catalog-grouping,#toggle-catalog-layout { display:grid; place-items:center; flex:0 0 46px; width:46px; height:46px; padding:0; }
         #new-product ha-icon,#new-catalog-category ha-icon,#toggle-catalog-order ha-icon,#configure-catalog-grouping ha-icon,#toggle-catalog-layout ha-icon { --mdc-icon-size:24px; width:24px; height:24px; }
         #toggle-catalog-layout,#toggle-catalog-order,#configure-catalog-grouping { background:var(--card-background-color,#fff); }
-        .grouping-options { display:grid; gap:12px; }
+        .grouping-options { display:grid; gap:12px; margin-block-start:16px; }
         .grouping-options button { display:flex; align-items:center; gap:10px; text-align:left; }
         .grouping-options button[aria-pressed=true] { background:var(--secondary-background-color,#edf4ee); font-weight:650; }
         .grouping-options ha-icon { width:24px; height:24px; --mdc-icon-size:24px; flex:none; }

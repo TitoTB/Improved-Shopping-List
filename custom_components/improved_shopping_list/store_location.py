@@ -5,7 +5,6 @@ import json
 import math
 import re
 from urllib.parse import quote
-from uuid import uuid4
 
 import aiohttp
 from homeassistant.helpers.aiohttp_client import async_create_clientsession
@@ -32,7 +31,8 @@ async def _json(session, method, url, **kwargs):
 
 async def _public_location(hass, store, postal):
     headers = {"Accept":"application/json", "User-Agent":"Mozilla/5.0 (compatible; Improved-Shopping-List)"}
-    session = async_create_clientsession(hass, auto_cleanup=False, cookie_jar=aiohttp.DummyCookieJar())
+    session = async_create_clientsession(hass, auto_cleanup=False,
+        cookie_jar=aiohttp.CookieJar() if store == "alcampo" else aiohttp.DummyCookieJar())
     try:
         if store == "carrefour":
             data = await _json(session, "GET", "https://www.carrefour.es/cloud-api/salepoints/v1/salepoint",
@@ -42,7 +42,22 @@ async def _public_location(hass, store, postal):
                 raise StoreError("Carrefour no ha devuelto un centro válido para el código postal.")
             return {"sale_point":point}
         base = "https://www.compraonline.alcampo.es"
-        headers.update({"Referer":base+"/", "ecom-request-source":"web"})
+        headers.update({"Referer":base+"/", "Origin":base, "ecom-request-source":"web"})
+        # Alcampo requires its own fresh anonymous session and CSRF token for PUT/POST.
+        # No browser cookie, user account or persisted credential is involved.
+        async with session.get(base+"/", headers=headers, timeout=aiohttp.ClientTimeout(total=20), allow_redirects=False) as response:
+            if response.status != 200:
+                raise StoreError(f"Alcampo no pudo iniciar la consulta de ubicación (HTTP {response.status}).")
+            raw = bytearray()
+            async for chunk in response.content.iter_chunked(8192):
+                raw.extend(chunk)
+                if len(raw) > 2097152:
+                    raise StoreError("La respuesta inicial de Alcampo es demasiado grande.")
+            visitor = response.cookies.get("VISITORID")
+        csrf = re.search(r'"session"\s*:\s*\{\s*"csrf"\s*:\s*\{\s*"token"\s*:\s*"([A-Za-z0-9._~+/=-]{1,1024})"', raw.decode("utf-8", errors="replace"))
+        if not csrf or not visitor or not re.fullmatch(r"[A-Za-z0-9._~+/=-]{1,256}", visitor.value):
+            raise StoreError("Alcampo no ha devuelto una sesión anónima válida.")
+        headers.update({"x-csrf-token":csrf[1], "visitor-id":visitor.value, "visitorid":visitor.value})
         areas = await _json(session, "PUT", base+"/api/address/v1/addresses/areas", data={"query":postal}, headers=headers)
         if not isinstance(areas, list) or not areas or not isinstance(areas[0], dict):
             raise StoreError("Alcampo no ha encontrado el código postal.")
@@ -58,7 +73,7 @@ async def _public_location(hass, store, postal):
             raise StoreError("Alcampo no ha devuelto coordenadas válidas.")
         # Only the public postal area's centroid is sent, never a user's street/address.
         destination = await _json(session, "POST", base+"/api/ecomdeliverydestinations/v2/temporary-delivery-destinations",
-            json={"visitorId":str(uuid4()), "latitude":lat, "longitude":lon, "postalCode":postal,
+            json={"visitorId":visitor.value, "latitude":lat, "longitude":lon, "postalCode":postal,
                   "formattedAddress":area["formattedAddress"][:500]}, headers=headers)
         if not isinstance(destination, str) or not re.fullmatch(UUID_PATTERN, destination):
             raise StoreError("Alcampo no ha devuelto un destino válido.")
@@ -73,6 +88,7 @@ async def _public_location(hass, store, postal):
             raise
         raise StoreError("No se ha podido consultar la ubicación de la tienda.") from err
     finally:
+        session.cookie_jar.clear()
         session.detach()
 
 

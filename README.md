@@ -218,8 +218,10 @@ web. Las tiendas que requieren una zona usan estos códigos de referencia:
 Mercadona 28001, Consum 46409, La Sirena y DIA 28024, Eroski 48001.
 Estos precios pueden diferir de los de tu zona. Si se introduce un código postal
 y una tienda rechaza la consulta o no tiene cobertura, se muestra el error sin
-sustituirlo por otra ubicación. La comprobación de Alcampo puede recibir HTTP 403;
-el HAR documenta la cadena de consultas, pero no garantiza su aceptación desde HA.
+sustituirlo por otra ubicación. Alcampo inicia una sesión anónima temporal y usa
+el token CSRF que devuelve su web para resolver el código postal. Se ha comprobado
+con 28024; no se guardan cookies ni tokens. Un posible rechazo desde otra conexión
+se muestra como error de ubicación.
 Los errores no borran los precios anteriores. Cambiar la ubicación no inicia una
 actualización de precios. Puedes desactivar una tienda y consultar su caché.
 

@@ -73,7 +73,7 @@ async def test_shared_postal_blank_invalid_and_later_activation(hass, monkeypatc
 
 async def test_location_resolution_cannot_commit_after_detach(hass, monkeypatch):
     settings, entry = settings_for(hass)
-    before = deepcopy(entry.options)
+    before = deepcopy(dict(entry.options))
     entered, finish = asyncio.Event(), asyncio.Event()
     async def delayed(*args):
         entered.set(); await finish.wait()
@@ -108,6 +108,8 @@ async def test_alcampo_public_postal_chain_and_no_customer_session(hass, aioclie
     base = "https://www.compraonline.alcampo.es"
     region = "deb03a69-3104-4451-9ffa-3a55dc156d9f"
     destination = "e836ff03-8f94-4f1c-86ff-f2478e7622b4"
+    aioclient_mock.get(base+"/", text='<script>{"session":{"csrf":{"token":"fresh-public-token"}}}</script>',
+        headers={"Set-Cookie":"VISITORID=anonymous-test-visitor==; Path=/; Secure"})
     aioclient_mock.put(base+"/api/address/v1/addresses/areas", json=[{"id":"public-area"}])
     aioclient_mock.get(base+"/api/address/v1/addresses/areas/public-area", json={
         "postalCode":"28024","countryCode":"ES","latitude":40.38,"longitude":-3.79,"formattedAddress":"28024 Madrid"})
@@ -115,14 +117,23 @@ async def test_alcampo_public_postal_chain_and_no_customer_session(hass, aioclie
     aioclient_mock.get(base+"/api/ecomdeliverydestinations/v4/delivery-addresses/"+destination,
         json={"postalCode":"28024","resolvedRegionId":region,"deliverability":"DELIVERABLE"})
     assert await _public_location(hass, "alcampo", "28024") == {"region_id":region}
-    assert aioclient_mock.call_count == 4
+    assert aioclient_mock.call_count == 5
     assert not any("customersessions" in str(call[1]) for call in aioclient_mock.mock_calls)
 
 
 async def test_alcampo_403_is_error_and_does_not_select_default(hass, aioclient_mock):
+    aioclient_mock.get("https://www.compraonline.alcampo.es/", text='{"session":{"csrf":{"token":"test-token"}}}',
+        headers={"Set-Cookie":"VISITORID=anonymous-test; Path=/; Secure"})
     aioclient_mock.put("https://www.compraonline.alcampo.es/api/address/v1/addresses/areas", status=403)
     with pytest.raises(StoreError, match="403"):
         await resolve_location(hass, "alcampo", "28024", {"region_id":"previous"})
+    assert aioclient_mock.call_count == 2
+
+
+async def test_alcampo_missing_csrf_does_not_send_location(hass, aioclient_mock):
+    aioclient_mock.get("https://www.compraonline.alcampo.es/", text="<html>Sin sesión</html>")
+    with pytest.raises(StoreError, match="sesión anónima"):
+        await resolve_location(hass, "alcampo", "28024", {})
     assert aioclient_mock.call_count == 1
 
 

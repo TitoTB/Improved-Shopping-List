@@ -198,6 +198,8 @@ class ImprovedShoppingCatalog extends HTMLElement {
         button { min-height:44px; padding:10px 14px; border:1px solid var(--divider-color,#dfe7e1); border-radius:10px; background:transparent; color:inherit; }
         .primary { background:#267052; color:#fff; border:0; font-weight:650; }
         .filters { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:12px; margin:24px 0 14px; align-items:end; }
+        .filters .search { min-width:0; }
+        #catalog-search { margin-top:0; height:46px; }
         .catalog-product-controls { display:flex; align-items:center; justify-content:flex-end; gap:8px; min-width:0; }
         #new-product,#new-catalog-category,#toggle-catalog-order,#configure-catalog-grouping,#toggle-catalog-layout { display:grid; place-items:center; flex:0 0 46px; width:46px; height:46px; padding:0; }
         #new-product ha-icon,#new-catalog-category ha-icon,#toggle-catalog-order ha-icon,#configure-catalog-grouping ha-icon,#toggle-catalog-layout ha-icon { --mdc-icon-size:24px; width:24px; height:24px; }
@@ -261,7 +263,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
         .row-price { display:inline-flex; align-items:center; justify-content:center; gap:5px; min-width:0; max-width:100%; padding:6px 9px; border-radius:16px; font-size:12px; line-height:1.2; }
         .row-price { background:var(--secondary-background-color,#edf4ee); white-space:nowrap; }.in-list .row-price { background:rgba(255,255,255,.2); }
         .row-meta ha-icon { --mdc-icon-size:18px; display:flex; align-items:center; justify-content:center; width:18px; height:18px; flex:none; }
-        @media(max-width:650px) { .filters { grid-template-columns:minmax(0,1fr); }.rows .product-top { grid-template-columns:36px minmax(0,1fr) auto; gap:8px; padding:10px 48px 10px 10px; }.rows .product-media { width:36px; height:36px; }.rows .placeholder ha-icon { --mdc-icon-size:32px; }.rows .product-controls { right:8px; }.rows .row-meta { max-width:30cqi; }.row-price { font-size:11px; padding:5px 7px; } }
+        @media(max-width:650px) { .rows .product-top { grid-template-columns:36px minmax(0,1fr) auto; gap:8px; padding:10px 48px 10px 10px; }.rows .product-media { width:36px; height:36px; }.rows .placeholder ha-icon { --mdc-icon-size:32px; }.rows .product-controls { right:8px; }.rows .row-meta { max-width:30cqi; }.row-price { font-size:11px; padding:5px 7px; } }
         /* Match List's outer li width, including the Catalog card's two border pixels. */
         .title { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:3; overflow:hidden; font-size:clamp(12px,calc((100cqi + 2px) / 10),32px); line-height:1.2; font-weight:650; margin:0; overflow-wrap:anywhere; text-align:center; }
         .subtitle { color:var(--secondary-text-color,#63766b); font-size:12px; margin:4px 0 0; overflow-wrap:anywhere; }
@@ -297,7 +299,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
         .product-actions button { min-width:0; padding:10px 8px; }
         .product-actions #save-product { grid-column:2; }
         #delete-product { background:#d32f2f; color:#fff; border:0; }
-        @media(max-width:650px) { .filters { grid-template-columns:1fr; } .grid { grid-template-columns:repeat(var(--isl-mobile-columns,1),minmax(0,1fr)); } .heading { gap:10px; flex-wrap:wrap; } h1 { font-size:28px; } dialog { padding:20px; } }
+        @media(max-width:650px) { .filters { gap:8px; } .catalog-product-controls { gap:6px; } #products-view .catalog-product-controls button { flex-basis:40px; width:40px; height:44px; min-height:44px; } #catalog-search { height:44px; min-height:44px; } .grid { grid-template-columns:repeat(var(--isl-mobile-columns,1),minmax(0,1fr)); } .heading { gap:10px; flex-wrap:wrap; } h1 { font-size:28px; } dialog { padding:20px; } }
         @media(max-width:650px) { .catalog-toolbar { gap:6px; } .catalog-tabs { gap:4px; } .catalog-tabs button { gap:4px; min-width:36px; justify-content:center; padding:10px 6px; font-size:13px; } .catalog-tabs button[aria-pressed=false] .tab-label { display:none; } }
         @media(max-width:390px) { .fields { grid-template-columns:1fr; } .heading { align-items:flex-start; } .catalog-tabs { gap:3px; } .catalog-tabs button { min-width:32px; padding-inline:4px; } .catalog-tools { gap:4px; } }
         .code-list { display:grid; gap:8px; margin:12px 0; }
@@ -319,7 +321,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
       <div id="catalog-status" class="notice" role="status" hidden></div>
       <section id="products-view">
       <div class="filters">
-        <label class="search">Buscar productos<input id="catalog-search" type="search" placeholder="Nombre, código o etiqueta"></label>
+        <div class="search"><input id="catalog-search" type="search" aria-label="Buscar productos" placeholder="Nombre, código o etiqueta"></div>
         <div class="catalog-product-controls"><button id="new-product" class="primary" type="button" aria-label="Nuevo producto" title="Nuevo producto"><ha-icon icon="mdi:plus-thick" aria-hidden="true"></ha-icon></button><button id="toggle-catalog-order" type="button" aria-label="Agrupar por categorías" title="Agrupar por categorías" aria-pressed="false"><ha-icon icon="mdi:label" aria-hidden="true"></ha-icon></button><button id="configure-catalog-grouping" type="button" aria-label="Cambiar criterio de agrupación" title="Cambiar criterio de agrupación" hidden><ha-icon icon="mdi:tune" aria-hidden="true"></ha-icon></button><button id="toggle-catalog-layout" type="button" aria-label="Cambiar a vista de filas" title="Cambiar a vista de filas"><ha-icon icon="mdi:view-sequential" aria-hidden="true"></ha-icon></button></div>
       </div>
       <p id="grouping-status" class="count" role="status" hidden>Cargando Nutri-Score…</p>

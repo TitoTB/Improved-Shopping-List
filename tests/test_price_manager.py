@@ -266,6 +266,38 @@ async def test_public_alcampo_api_and_403_are_distinct_from_not_found(hass,aiocl
     with pytest.raises(PriceError) as error:
         await source.fetch("alcampo",normalize_link("alcampo","9999"),{},before)
     assert error.value.diagnostics["http_status"] == 403
+    assert error.value.diagnostics["endpoint"] == "/api/webproductpagews/v5/products/bop"
+    assert error.value.diagnostics["region_id"] == ""
+
+
+@pytest.mark.parametrize("region",["", "ac90d761-9d58-4918-a37d-dd14e1ce384a"])
+async def test_alcampo_anonymous_headers_region_and_product_metadata(hass,aioclient_mock,monkeypatch,region):
+    import aiohttp
+    captured = []
+    original_get = aiohttp.ClientSession.get
+    def get(session,url,**kwargs):
+        assert isinstance(session.cookie_jar,aiohttp.DummyCookieJar)
+        captured.append(kwargs)
+        return original_get(session,url,**kwargs)
+    monkeypatch.setattr(aiohttp.ClientSession,"get",get)
+    url = "https://www.compraonline.alcampo.es/api/webproductpagews/v5/products/bop?retailerProductId=10739"
+    if region:
+        url += "&regionId=" + region
+    aioclient_mock.get(url,json={"product":{"retailerProductId":"10739","name":"Patatas",
+        "price":{"amount":"2.65","currency":"EUR"},"available":True,
+        "unitPrice":{"price":{"amount":"15.59","currency":"EUR"},"unitName":"PER_1KG"}},
+        "bopData":{"fields":[{"title":"features","content":"<table><tr><td>EAN</td><td>8410199023094</td></tr></table>"}]}})
+    link = normalize_link("alcampo","https://www.compraonline.alcampo.es/products/patatas/10739")
+    before = AsyncMock()
+    result = await PriceSources(hass).fetch("alcampo",link,{"region_id":region},before)
+    assert result["price"] == "2.65" and result["ean"] == "8410199023094"
+    assert result["reference_price"] == "15.59" and result["reference_unit"] == "PER_1KG"
+    assert result["available"] is True and result["reference_id"] == "10739"
+    assert captured[0]["headers"] == {"Accept":"application/json",
+        "User-Agent":"Mozilla/5.0 (compatible; Improved-Shopping-List)",
+        "Referer":link["url"],"ecom-request-source":"web"}
+    assert captured[0]["allow_redirects"] is False
+    before.assert_awaited_once()
 
 
 def carrefour_response(**changes):

@@ -78,7 +78,10 @@ class PriceSources:
         try:
             await before_request()
             async with session.get(url, headers={"Accept":"application/json",
-                "User-Agent":"Improved-Shopping-List", "Referer":link["url"],
+                # Alcampo rejects the bare application name, even for its public API.
+                "User-Agent":"Mozilla/5.0 (compatible; Improved-Shopping-List)" if store == "alcampo" else "Improved-Shopping-List",
+                "Referer":link["url"],
+                **({"ecom-request-source":"web"} if store == "alcampo" else {}),
                 **({"sale_point":sale_point} if store == "carrefour" else {})},
                 timeout=aiohttp.ClientTimeout(total=25), allow_redirects=False) as response:
                 status = response.status
@@ -90,7 +93,8 @@ class PriceSources:
                         http_status=status, response_class="access_denied" if status == 403 else "rate_limited" if status == 429 else "http_error",
                         retry_seconds=min(86400, int(wait)) if wait.isdigit() else 0,
                         server=str(response.headers.get("Server", ""))[:80], reference_id=link["id"],
-                        **({"endpoint":"/cloud-api/pdp-food-analytics/v1/impressions", "sale_point":sale_point} if store == "carrefour" else {}))
+                        **({"endpoint":"/cloud-api/pdp-food-analytics/v1/impressions", "sale_point":sale_point} if store == "carrefour" else {}),
+                        **({"endpoint":"/api/webproductpagews/v5/products/bop", "region_id":configuration.get("region_id", "")} if store == "alcampo" else {}))
                 raw = bytearray()
                 async for chunk in response.content.iter_chunked(65536):
                     raw.extend(chunk)

@@ -19,6 +19,11 @@ const STORE_LOGOS = {
 };
 const STORE_NAMES = {mercadona:"Mercadona",carrefour:"Carrefour",alcampo:"Alcampo",consum:"Consum",lasirena:"La Sirena",eroski:"Eroski",dia:"DIA"};
 const searchText = value => normalizedName(value).normalize("NFD").replace(/\p{M}/gu, "");
+const stockRemaining = (item, now=Date.now()/1000) => {
+  if (item.quantity <= 0 || item.expired) return 0;
+  if (!item.expires_at) return 100;
+  return Math.max(0,Math.min(100,(item.expires_at-now)/((item.days??7)*86400)*100));
+};
 
 class ImprovedShoppingListPanel extends HTMLElement {
   constructor() {
@@ -29,7 +34,9 @@ class ImprovedShoppingListPanel extends HTMLElement {
     this._readers = new ReadersSession(() => this._hass, () => this._renderData());
     this._stock = new StockSession(() => this._hass, () => this._renderData());
     this._stockLayout = "grid";
+    this._stockSort = "alphabetical";
     try { if (localStorage.getItem("isl-stock-layout") === "rows") this._stockLayout = "rows"; } catch { /* Storage disabled. */ }
+    try { if (localStorage.getItem("isl-stock-sort") === "lowest") this._stockSort = "lowest"; } catch { /* Storage disabled. */ }
     this._busy = false;
     this._rows = new Map();
     this._catalogProducts = new Map();
@@ -90,9 +97,12 @@ class ImprovedShoppingListPanel extends HTMLElement {
     document.addEventListener("visibilitychange", this._onVisibility);
     this._started = false;
     this._ensureStarted();
+    clearInterval(this._stockClock);
+    this._stockClock = setInterval(()=>{if(this._view === "stock" && document.visibilityState === "visible")this._renderData();},60000);
   }
 
   disconnectedCallback() {
+    clearInterval(this._stockClock);
     document.removeEventListener("visibilitychange", this._onVisibility);
     this._session.dispose();
     this._settings.stop();
@@ -269,6 +279,9 @@ class ImprovedShoppingListPanel extends HTMLElement {
         .section-nav ha-icon { --mdc-icon-size:20px; width:20px; height:20px; flex:none; }
         @media(max-width:540px) { main { padding:26px 14px 40px; } .card { padding:18px 16px; border-radius:14px; } .primary { padding:10px 14px; } }
         .stock-item { min-height:132px; background:linear-gradient(#f59a23,#c65b0c); color:#fff; border:0; padding:clamp(4px,4cqi,20px); }
+        .stock-item.perishable { isolation:isolate; background:linear-gradient(hsl(var(--stock-hue) 70% 35%),hsl(var(--stock-hue) 80% 25%)); }
+        .stock-item.perishable::before { content:""; position:absolute; inset:0; width:var(--stock-remaining); background:linear-gradient(hsl(var(--stock-hue) 92% 55%),hsl(var(--stock-hue) 88% 42%)); pointer-events:none; z-index:-1; }
+        .stock-life { display:block; font-size:12px; font-weight:500; margin-top:4px; }
         .stock-item .placeholder { color:inherit; }.stock-item .product-media { width:clamp(18px,26cqi,144px); }
         .stock-item .summary { -webkit-line-clamp:2; }
         .stock-open { display:flex; flex-direction:column; align-items:center; justify-content:center; flex:1; gap:8px; min-width:0; width:100%; padding:0; border:0; background:transparent; color:inherit; cursor:pointer; }
@@ -287,6 +300,9 @@ class ImprovedShoppingListPanel extends HTMLElement {
         .stock-form-fields .check input { width:20px; height:20px; }
         .stock-quantity-editor { display:grid; grid-template-columns:40px minmax(0,1fr) 40px; gap:8px; align-items:end; }
         .stock-quantity-editor button { width:40px; height:44px; padding:0; display:grid; place-items:center; border:0; border-radius:10px; }
+        .stock-quantity-editor input,.stock-form-fields select[name=unit] { text-align:center; text-align-last:center; padding-left:24px; padding-right:24px; }
+        .stock-quantity-editor input { appearance:textfield; }
+        .stock-quantity-editor input::-webkit-inner-spin-button,.stock-quantity-editor input::-webkit-outer-spin-button { -webkit-appearance:none; margin:0; }
         .stock-form-fields [hidden] { display:none; } #delete-stock-from-editor { margin-right:auto; background:#d32f2f; color:white; border:0; }
         #save-stock-config { background:var(--isl-green); color:white; border:0; }
         @media(max-width:420px) { .stock-form-fields { grid-template-columns:minmax(0,1fr); } }
@@ -311,6 +327,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
           <form id="add-form">
             <div class="input-wrap"><label class="sr-only" for="product-input">Añadir producto</label><input id="product-input" type="text" maxlength="255" placeholder="Busca o añade un producto" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="product-suggestions" aria-describedby="predictive-count" required><ul id="product-suggestions" class="predictive-results" role="listbox" aria-label="Productos del catálogo" hidden></ul><span id="predictive-count" class="sr-only" role="status" aria-live="polite"></span></div>
             <button id="add-button" class="icon-button" type="submit" aria-label="Añadir" title="Añadir producto"><ha-icon icon="mdi:plus-thick"></ha-icon></button>
+            <button id="toggle-stock-sort" class="icon-button" type="button" aria-label="Ordenar por menor stock" title="Ordenar por menor stock" hidden><ha-icon icon="mdi:sort-numeric-ascending" aria-hidden="true"></ha-icon></button>
             <button id="choose-list" class="icon-button" type="button" aria-label="Seleccionar lista" title="Seleccionar lista" aria-haspopup="dialog" aria-controls="list-dialog"><ha-icon icon="mdi:format-list-checks"></ha-icon></button>
             <button id="toggle-list-layout" class="icon-button" type="button" aria-label="Cambiar a vista de filas" title="Cambiar a vista de filas"><ha-icon icon="mdi:view-sequential" aria-hidden="true"></ha-icon></button>
           </form>
@@ -329,7 +346,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
           <div id="empty" class="empty" hidden></div>
           <details id="completed-details"><summary id="completed-summary"><span id="completed-label">Compras recientes</span><button id="clear-completed" type="button"><ha-icon icon="mdi:delete" aria-hidden="true"></ha-icon>Limpiar productos</button></summary><ul id="completed" class="product-grid" aria-label="Compras recientes"></ul></details>
         </section>
-        <section id="stock-card" aria-labelledby="stock-title" hidden><div class="list-header"><h2 id="stock-title">Stock</h2><div class="list-totals"><span id="stock-count" class="count"></span><span id="stock-units" class="count"></span></div></div><ul id="stock-items" class="product-grid" aria-label="Productos en stock"></ul><p id="stock-empty" class="empty" hidden>Añade productos para empezar a controlar tu despensa.</p></section>
+        <section id="stock-card" aria-labelledby="stock-title" hidden><div class="list-header"><h2 id="stock-title">Stock</h2></div><ul id="stock-items" class="product-grid" aria-label="Productos en stock"></ul><p id="stock-empty" class="empty" hidden>Añade productos para empezar a controlar tu despensa.</p></section>
         <dialog id="stock-editor-dialog" aria-labelledby="stock-editor-title">
           <form id="stock-editor-form"><h2 id="stock-editor-title">Configurar Stock</h2><p id="stock-editor-error" class="notice error" role="alert" hidden></p>
           <div class="stock-form-fields">
@@ -337,7 +354,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
             <label>Unidades<select name="unit" aria-label="Unidades"><option value="uds">uds</option><option value="kg">kg</option><option value="g">g</option><option value="l">l</option><option value="ml">ml</option><option value="custom">Personalizadas</option></select></label>
             <label class="wide" id="stock-custom-unit-label" hidden>Unidad personalizada<input name="custom_unit" maxlength="32" placeholder="Por ejemplo, Latas"></label>
             <label class="wide">Control del stock<select name="mode" aria-label="Control del stock"><option value="manual">Manual / lectores</option><option value="perishable">Perecedero</option><option value="usage">Consumo registrado en Home Assistant</option></select></label>
-            <label id="stock-days-label" class="wide" hidden>Caduca cada cuántos días desde la compra<input name="days" type="number" min="1" max="3650" step="1" required></label><p id="stock-recurrence-help" class="helper" hidden>Esta recurrencia también aparece en la ficha del catálogo. Al cumplirse el plazo, el stock pasa a cero y se solicita la compra.</p>
+            <label id="stock-days-label" class="wide" hidden>Caduca cada cuántos días desde la compra<input name="days" type="number" min="1" max="3650" step="1" required></label>
             <div id="stock-usage-fields" class="wide" hidden><div class="stock-form-fields">
               <label class="wide">Entidad de consumo<input name="usage_entity" list="stock-usage-entities" placeholder="Por ejemplo, binary_sensor.lavadora"><datalist id="stock-usage-entities"></datalist></label>
               <label>Estado que representa un uso<input name="usage_state" maxlength="255" placeholder="Por ejemplo, on"></label>
@@ -345,7 +362,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
             </div></div>
             <label class="wide">Cantidad que se suma al marcarlo como comprado<input name="refill_quantity" type="number" min="0.001" max="1000000" step="0.001" required></label>
             <label class="wide check"><input name="reorder_enabled" type="checkbox">Añadir a la lista cuando el stock llegue al mínimo</label>
-            <label id="stock-threshold-label" hidden>Stock mínimo<input name="reorder_at" type="number" min="0" max="1000000" step="0.001" required></label>
+            <label id="stock-threshold-label" hidden><span id="stock-threshold-title">Stock mínimo</span><input name="reorder_at" type="number" min="0" max="1000000" step="0.001" required></label>
             <label id="stock-target-label" class="wide">Lista para reponer<select name="list_entity" aria-label="Lista para reponer"></select></label>
           </div><div class="dialog-actions"><button id="delete-stock-from-editor" type="button">Eliminar producto del stock</button><button id="save-stock-config" type="submit">Guardar</button></div></form>
         </dialog>
@@ -393,8 +410,22 @@ class ImprovedShoppingListPanel extends HTMLElement {
       this._renderData();
     });
     root.querySelector("#nav-stock").addEventListener("click",()=>this._switchView("stock"));
+    root.querySelector("#toggle-stock-sort").addEventListener("click",()=>{
+      this._stockSort=this._stockSort === "alphabetical" ? "lowest" : "alphabetical";
+      try { localStorage.setItem("isl-stock-sort",this._stockSort); } catch { /* Storage disabled. */ }
+      this._renderData();
+    });
     root.querySelector("#stock-editor-form").addEventListener("submit",event=>{event.preventDefault();void this._saveStockConfig();});
-    root.querySelector("#stock-editor-form").addEventListener("change",()=>this._updateStockForm());
+    root.querySelector("#stock-editor-form").addEventListener("change",event=>{
+      if(event.target.name === "mode") {
+        const form=event.currentTarget,perishable=form.elements.mode.value === "perishable";
+        if(this._stockDraftMode === "perishable")this._stockDraftPercent=Number(form.elements.reorder_at.value);
+        else this._stockDraftMinimum=Number(form.elements.reorder_at.value);
+        form.elements.reorder_at.value=perishable ? this._stockDraftPercent : this._stockDraftMinimum;
+        this._stockDraftMode=form.elements.mode.value;
+      }
+      this._updateStockForm();
+    });
     root.querySelector("#stock-editor-dialog").addEventListener("cancel",event=>{if(this._busy)event.preventDefault();});
     for(const [id,delta] of [["stock-draft-minus",-1],["stock-draft-plus",1]])root.querySelector('#'+id).addEventListener("click",()=>{
       const input=root.querySelector('#stock-editor-form').elements.quantity;
@@ -517,6 +548,11 @@ class ImprovedShoppingListPanel extends HTMLElement {
     const root = this.shadowRoot;
     const session = this._session;
     const stockView=this._view === "stock";
+    const sortButton=root.querySelector("#toggle-stock-sort");
+    sortButton.hidden=!stockView;
+    const sortLabel=this._stockSort === "alphabetical" ? "Ordenar por menor stock" : "Ordenar alfabéticamente";
+    sortButton.title=sortLabel;sortButton.setAttribute("aria-label",sortLabel);
+    sortButton.querySelector("ha-icon").setAttribute("icon",this._stockSort === "alphabetical" ? "mdi:sort-numeric-ascending" : "mdi:sort-alphabetical-ascending");
     const rows = (stockView ? this._stockLayout : this._listLayout) === "rows";
     const layoutLabel = rows ? "Cambiar a vista de cuadrícula" : "Cambiar a vista de filas";
     const layoutButton = root.querySelector("#toggle-list-layout");
@@ -620,11 +656,10 @@ class ImprovedShoppingListPanel extends HTMLElement {
   }
 
   _renderStock(locked) {
-    const root=this.shadowRoot, items=this._stock.items, grid=root.querySelector("#stock-items");
+    const root=this.shadowRoot, now=Date.now()/1000, items=[...this._stock.items], grid=root.querySelector("#stock-items");
+    const remaining=item=>item.mode === 'perishable' ? stockRemaining(item,now) : item.quantity;
+    items.sort((a,b)=>(this._stockSort === 'lowest' ? remaining(a)-remaining(b) : 0)||a.name.localeCompare(b.name,'es',{sensitivity:'base'}));
     grid.classList.toggle("rows",this._stockLayout === "rows");
-    root.querySelector("#stock-count").textContent=`${items.length} ${items.length===1?"producto":"productos"}`;
-    const totals=new Map();for(const item of items)totals.set(item.unit??'uds',(totals.get(item.unit??'uds')??0)+item.quantity);
-    root.querySelector('#stock-units').textContent=[...totals].map(([unit,total])=>new Intl.NumberFormat('es-ES',{maximumFractionDigits:3}).format(total)+' '+unit).join(' · ');
     root.querySelector("#stock-empty").hidden=items.length>0||this._stock.loading||!this._stock.loaded||Boolean(this._stock.error);
     root.querySelector("#stock-card").setAttribute("aria-busy",String(this._stock.loading||this._busy));
     const focus=root.activeElement, focusedId=focus?.closest?.("[data-stock-id]")?.dataset.stockId, focusedAction=focus?.dataset.stockAction;
@@ -635,6 +670,12 @@ class ImprovedShoppingListPanel extends HTMLElement {
       const category=this._catalogCategories.get(normalizedName(product?.category));
       const li=node("li");li.dataset.stockId=item.id;
       const card=node("div","item stock-item"), open=node("button","stock-open");
+      const percent=stockRemaining(item,now);
+      if(item.mode === 'perishable') {
+        card.classList.add('perishable');
+        card.style.setProperty('--stock-remaining',percent+'%');
+        card.style.setProperty('--stock-hue',String(10+percent*.25));
+      }
       open.type="button";open.setAttribute("aria-label",`Configurar stock de ${item.name}`);open.addEventListener("click",()=>this._openStockEditor(item));
       const media=node("span","product-media"), placeholder=node("span","image placeholder"), icon=node("ha-icon");
       icon.setAttribute("icon",product?.icon||category?.icon||"mdi:package-variant");placeholder.append(icon);
@@ -647,6 +688,12 @@ class ImprovedShoppingListPanel extends HTMLElement {
       };
       const quantity=node("span","stock-quantity",new Intl.NumberFormat('es-ES',{maximumFractionDigits:3}).format(item.quantity)+' '+(item.unit??'uds'));
       quantity.setAttribute('aria-label',`Stock de ${item.name}: ${item.quantity} ${item.unit??'uds'}`);
+      if(item.mode === 'perishable'){
+        const life=node('span','stock-life',`${Math.round(percent)} %`);
+        life.setAttribute('role','progressbar');life.setAttribute('aria-label','Periodo restante');
+        life.setAttribute('aria-valuemin','0');life.setAttribute('aria-valuemax','100');life.setAttribute('aria-valuenow',String(Math.round(percent)));
+        quantity.append(life);
+      }
       open.append(media,text,quantity);card.append(open);
       if(this._stockLayout==='rows'){
         const controls=node('div','stock-controls');
@@ -656,7 +703,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
       }
       li.append(card);return li;
     }));
-    if(focusedId&&focusedAction){const li=[...grid.children].find(item=>item.dataset.stockId===focusedId);const button=li?.querySelector(`[data-stock-action="${focusedAction}"]:not([disabled])`)??li?.querySelector("button:not([disabled])");button?.focus({preventScroll:true});}
+    if(focusedId){const li=[...grid.children].find(item=>item.dataset.stockId===focusedId);const button=(focusedAction ? li?.querySelector(`[data-stock-action="${focusedAction}"]:not([disabled])`) : null)??li?.querySelector("button:not([disabled])");button?.focus({preventScroll:true});}
     root.querySelector("#confirm-stock-remove").disabled=this._busy;
     root.querySelector("#cancel-stock-remove").disabled=this._busy;
     if(root.querySelector("#stock-editor-dialog").open)this._updateStockForm();
@@ -667,7 +714,9 @@ class ImprovedShoppingListPanel extends HTMLElement {
     this._stockEditing={...item};
     const defaults={unit:'uds',mode:'manual',days:7,refill_quantity:1,reorder_enabled:false,reorder_at:0,usage_entity:'',usage_state:'',usage_amount:1};
     const config={...defaults,...item};
+    this._stockDraftMinimum=config.reorder_at;this._stockDraftPercent=config.reorder_percent??0;this._stockDraftMode=config.mode;
     for(const key of ['quantity','mode','days','refill_quantity','reorder_at','usage_entity','usage_state','usage_amount'])form.elements[key].value=config[key];
+    if(config.mode === 'perishable')form.elements.reorder_at.value=this._stockDraftPercent;
     const standard=['uds','kg','g','l','ml'].includes(config.unit);
     form.elements.unit.value=standard?config.unit:'custom';form.elements.custom_unit.value=standard?'':config.unit;
     form.elements.reorder_enabled.checked=config.reorder_enabled;
@@ -686,7 +735,8 @@ class ImprovedShoppingListPanel extends HTMLElement {
     const custom=form.elements.unit.value==='custom',usage=form.elements.mode.value==='usage',perishable=form.elements.mode.value==='perishable';
     root.querySelector('#stock-custom-unit-label').hidden=!custom;
     root.querySelector('#stock-days-label').hidden=!perishable;root.querySelector('#stock-usage-fields').hidden=!usage;
-    root.querySelector('#stock-recurrence-help').hidden=!perishable;
+    root.querySelector('#stock-threshold-title').textContent=perishable ? 'Porcentaje mínimo restante (%)' : 'Stock mínimo';
+    form.elements.reorder_at.max=perishable ? '100' : '1000000';
     root.querySelector('#stock-threshold-label').hidden=!form.elements.reorder_enabled.checked;
     for(const input of form.querySelectorAll('input,select,button'))input.disabled=locked;
     form.elements.custom_unit.required=custom;form.elements.days.disabled=locked||!perishable;
@@ -702,7 +752,9 @@ class ImprovedShoppingListPanel extends HTMLElement {
     const value=key=>form.elements[key].value;
     const config={quantity:Number(value('quantity')),unit:value('unit')==='custom'?value('custom_unit').trim():value('unit'),
       mode:value('mode'),days:Number(value('days')),refill_quantity:Number(value('refill_quantity')),
-      reorder_enabled:form.elements.reorder_enabled.checked,reorder_at:Number(value('reorder_at')),
+      reorder_enabled:form.elements.reorder_enabled.checked,
+      reorder_at:value('mode') === 'perishable' ? this._stockDraftMinimum : Number(value('reorder_at')),
+      reorder_percent:value('mode') === 'perishable' ? Number(value('reorder_at')) : this._stockDraftPercent,
       list_entity:value('list_entity'),usage_entity:value('usage_entity').trim(),usage_state:value('usage_state'),usage_amount:Number(value('usage_amount'))};
     const success=await this._runAction(()=>this._stock.save(this._stockEditing,config),'Stock guardado.');
     if(success){root.querySelector('#stock-editor-dialog').close();this._stockEditing=null;}

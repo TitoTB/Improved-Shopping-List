@@ -11,6 +11,7 @@ from homeassistant.core import Context, callback
 from homeassistant.helpers.event import async_track_time_interval
 
 from .catalog import normalized_name
+from .stock import remaining_percentage
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -167,7 +168,9 @@ class StockAutomation:
     @staticmethod
     def _needs_reorder(item):
         return item.get("configured") and (item.get("expired") or
-            item.get("reorder_enabled") and item["quantity"]<=item["reorder_at"])
+            item.get("reorder_enabled") and (
+                remaining_percentage(item,time.time()) <= item.get("reorder_percent",0)
+                if item.get("mode") == "perishable" else item["quantity"] <= item["reorder_at"]))
 
     def _validate(self, item, target):
         current = next((i for i in self.stock.snapshot["items"] if i["id"] == item["id"]),None)

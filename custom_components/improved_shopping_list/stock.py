@@ -16,7 +16,7 @@ from .const import DOMAIN
 MAX_QUANTITY = 1000000
 DAY = 86400
 DEFAULT_CONFIG = {"unit":"uds", "mode":"manual", "days":7, "refill_quantity":1,
-    "reorder_enabled":False, "reorder_at":0, "list_entity":"", "usage_entity":"",
+    "reorder_enabled":False, "reorder_at":0, "reorder_percent":0, "list_entity":"", "usage_entity":"",
     "usage_state":"", "usage_amount":1, "configured":False, "config_revision":0,
     "expires_at":0, "expired":False}
 
@@ -37,9 +37,12 @@ def quantity_value(value, *, positive=False):
 def stock_config(data):
     fields = {"quantity","unit","mode","days","refill_quantity","reorder_enabled","reorder_at",
         "list_entity","usage_entity","usage_state","usage_amount"}
-    if not isinstance(data, dict) or set(data) != fields:
+    if not isinstance(data, dict) or set(data) - {"reorder_percent"} != fields:
         raise CatalogError("La configuración de Stock no es válida.")
     result = deepcopy(data)
+    result["reorder_percent"] = quantity_value(data.get("reorder_percent",0))
+    if result["reorder_percent"] > 100:
+        raise CatalogError("El porcentaje mínimo debe estar entre 0 y 100.")
     for field in ("quantity","refill_quantity","reorder_at","usage_amount"):
         result[field] = quantity_value(data[field],positive=field in ("refill_quantity","usage_amount"))
     if (not isinstance(data["unit"],str) or not data["unit"].strip() or len(data["unit"].strip()) > 32
@@ -61,6 +64,16 @@ def stock_config(data):
         or data["usage_state"] in ("unknown","unavailable")):
         raise CatalogError("Selecciona la entidad y el estado que representa cada uso.")
     return result
+
+
+def remaining_percentage(item, now=None):
+    """Remaining shelf life; an empty or expired product always has zero stock."""
+    if item.get("quantity",0) <= 0 or item.get("expired"):
+        return 0
+    if not item.get("expires_at"):
+        return 100
+    remaining = item["expires_at"] - (time.time() if now is None else now)
+    return max(0,min(100,remaining / (item["days"]*DAY) * 100))
 
 
 class StockManager:
@@ -110,7 +123,7 @@ class StockManager:
             for item in items.values():
                 merged = {**DEFAULT_CONFIG, **item}
                 stock_config({field:merged[field] for field in ("quantity","unit","mode","days","refill_quantity",
-                    "reorder_enabled","reorder_at","list_entity","usage_entity","usage_state","usage_amount")})
+                    "reorder_enabled","reorder_at","reorder_percent","list_entity","usage_entity","usage_state","usage_amount")})
         except CatalogError as err:
             raise CatalogError("No se ha podido leer el stock guardado.", "storage_error") from err
         self._items = {key:{**deepcopy(DEFAULT_CONFIG),**deepcopy(item)} for key,item in items.items()}

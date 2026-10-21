@@ -2004,11 +2004,14 @@ async function main() {
     await stockInput.fill('cac');await stockInput.press('ArrowDown');await stockInput.press('Enter');
     const stockCard=stockPage.locator('#stock-items li').filter({hasText:'Cacao'});
     await stockCard.getByLabel('Stock de Cacao: 1 uds',{exact:true}).waitFor();
+    assert.equal(await stockPage.locator('#stock-count, #stock-units').count(),0);
+    assert.equal(await stockPage.getByRole('button',{name:'Ordenar por menor stock',exact:true}).isVisible(),true);
     assert.equal(await stockCard.locator('.stock-controls, .stock-tools').count(),0);
     assert.equal(await stockCard.locator('.item').evaluate(node=>getComputedStyle(node).backgroundImage),'linear-gradient(rgb(245, 154, 35), rgb(198, 91, 12))');
     await selectList(stockPage,'todo.local');
     await stockCard.getByRole('button',{name:'Configurar stock de Cacao',exact:true}).click();
     const stockEditor=stockPage.getByRole('dialog',{name:'Cacao · Stock',exact:true}),stockForm=stockEditor.locator('form');
+    for(const control of [stockForm.getByLabel('Stock actual',{exact:true}),stockForm.getByLabel('Unidades',{exact:true})])assert.equal(await control.evaluate(node=>getComputedStyle(node).textAlign),'center');
     await stockForm.getByRole('button',{name:'Incrementar stock',exact:true}).click();
     assert.equal(await stockForm.getByLabel('Stock actual',{exact:true}).inputValue(),'2');
     await stockForm.getByRole('button',{name:'Disminuir stock',exact:true}).click();
@@ -2029,6 +2032,9 @@ async function main() {
     await stockCard.getByRole('button',{name:'Configurar stock de Cacao',exact:true}).click();
     await stockForm.getByLabel('Control del stock',{exact:true}).selectOption('perishable');
     await stockForm.getByLabel('Caduca cada cuántos días desde la compra',{exact:true}).fill('3');
+    await stockForm.getByLabel('Porcentaje mínimo restante (%)',{exact:true}).fill('25');
+    assert.equal(await stockForm.getByLabel('Porcentaje mínimo restante (%)',{exact:true}).getAttribute('max'),'100');
+    assert.equal(await stockForm.locator('#stock-recurrence-help').count(),0);
     assert.equal(await stockForm.locator('#stock-usage-fields').isVisible(),false);
     for(const width of [390,320]){
       await stockPage.setViewportSize({width,height:844});
@@ -2036,6 +2042,15 @@ async function main() {
       await stockPage.screenshot({path:'test-results/stock-editor-'+width+'.png',fullPage:true});
     }
     await stockForm.getByRole('button',{name:'Guardar',exact:true}).click();await stockEditor.waitFor({state:'hidden'});
+    assert.equal(await stockPage.evaluate(()=>window.stockItems[0].reorder_percent),25);
+    await stockPage.evaluate(()=>{
+      const item=window.stockItems[0];item.expires_at=Date.now()/1000+item.days*86400*.75;window.emitStock();
+    });
+    assert.equal(await stockCard.getByRole('progressbar',{name:'Periodo restante'}).getAttribute('aria-valuenow'),'75');
+    const highHue=await stockCard.locator('.item').evaluate(node=>Number(node.style.getPropertyValue('--stock-hue')));
+    await stockPage.evaluate(()=>{const item=window.stockItems[0];item.expires_at=Date.now()/1000+item.days*86400*.25;window.emitStock();});
+    assert.equal(await stockCard.getByRole('progressbar',{name:'Periodo restante'}).getAttribute('aria-valuenow'),'25');
+    assert.ok(await stockCard.locator('.item').evaluate(node=>Number(node.style.getPropertyValue('--stock-hue')))<highHue);
     await stockPage.getByRole('button',{name:'Cambiar a vista de filas',exact:true}).click();
     assert.ok(await stockCard.evaluate(card=>{
       const open=card.querySelector('.stock-open').getBoundingClientRect(),controls=card.querySelector('.stock-controls').getBoundingClientRect();
@@ -2063,6 +2078,17 @@ async function main() {
     await stockPage.getByRole('button',{name:'Cambiar a vista de cuadrícula',exact:true}).click();
     assert.equal(await stockCard.locator('.stock-controls, .stock-tools').count(),0);
     await stockPage.screenshot({path:'test-results/stock-grid-mobile.png',fullPage:true});
+    await stockPage.getByRole('button',{name:'Ordenar por menor stock',exact:true}).click();
+    assert.deepEqual(await stockPage.locator('#stock-items .summary').allTextContents(),['Cacao','Producto sin catálogo']);
+    await stockPage.getByRole('button',{name:'Ordenar alfabéticamente',exact:true}).click();
+    // A second item sorts before Cacao alphabetically but after it by remaining stock.
+    await stockPage.evaluate(()=>{window.stockItems[1].name='Arroz';window.emitStock();});
+    assert.deepEqual(await stockPage.locator('#stock-items .summary').allTextContents(),['Arroz','Cacao']);
+    await stockPage.getByRole('button',{name:'Ordenar por menor stock',exact:true}).click();
+    assert.deepEqual(await stockPage.locator('#stock-items .summary').allTextContents(),['Cacao','Arroz']);
+    await stockPage.reload();await stockPage.getByRole('button',{name:'Stock',exact:true}).click();
+    assert.equal(await stockPage.getByRole('button',{name:'Ordenar alfabéticamente',exact:true}).isVisible(),true);
+    assert.equal(await stockCard.getByRole('progressbar',{name:'Periodo restante'}).getAttribute('aria-valuenow'),'0');
     await stockCard.getByRole('button',{name:'Configurar stock de Cacao',exact:true}).click();
     await stockForm.getByRole('button',{name:'Eliminar producto del stock',exact:true}).click();
     const stockDelete=stockPage.getByRole('dialog',{name:'Eliminar de Stock',exact:true});

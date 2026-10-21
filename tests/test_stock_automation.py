@@ -101,6 +101,41 @@ async def test_perishable_expires_reorders_and_purchase_refills_once(env):
     assert len(env.todo.todo_items)==1 and env.calls[-1][0]=="update"
 
 
+async def test_perishable_percentage_reorders_before_expiry_and_survives_restart(env):
+    item = await env.stock.async_save(env.item["id"],env.item["revision"],config(env.item,
+        mode="perishable",days=4,quantity=3,reorder_enabled=True,reorder_at=900,
+        reorder_percent=25,list_entity="todo.main",refill_quantity=4))
+    assert stock_module.remaining_percentage(item,env.clock[0]) == 100
+    env.clock[0] += 2*DAY
+    assert stock_module.remaining_percentage(item,env.clock[0]) == 50
+    await env.manager.async_check()
+    assert env.calls == []  # The manual quantity threshold is irrelevant for perishables.
+    restored=StockManager(env.stock.hass,env.stock.catalog);await restored.async_load()
+    assert restored.snapshot["items"][0]["reorder_percent"] == 25
+    env.clock[0] += DAY
+    await env.manager.async_check()
+    assert len(env.calls) == 1 and env.stock.snapshot["items"][0]["quantity"] == 3
+    await env.manager.async_check()
+    assert len(env.calls) == 1
+    env.todo.todo_items[0].status=TodoItemStatus.COMPLETED;env.todo.publish()
+    await env.manager.async_check()
+    bought=env.stock.snapshot["items"][0]
+    assert bought["quantity"] == 7 and stock_module.remaining_percentage(bought,env.clock[0]) == 100
+    env.clock[0] += 4*DAY
+    await env.manager.async_check()
+    expired=env.stock.snapshot["items"][0]
+    assert expired["quantity"] == 0 and stock_module.remaining_percentage(expired,env.clock[0]) == 0
+    assert len(env.calls) == 2
+
+
+async def test_stock_percentage_bounds_and_legacy_configuration(env):
+    for percentage in (-1,101,True,float("nan")):
+        with pytest.raises(CatalogError):
+            stock_module.stock_config(config(env.item,reorder_percent=percentage))
+    assert stock_module.stock_config(config(env.item))["reorder_percent"] == 0
+    assert stock_module.remaining_percentage({"quantity":0,"days":4,"expires_at":env.clock[0]+4*DAY},env.clock[0]) == 0
+
+
 async def test_usage_counts_state_entries_not_attributes_startup_or_reconnect(env):
     await env.stock.async_save(env.item["id"],env.item["revision"],config(env.item,quantity=2,
         mode="usage",unit="kg",usage_entity="sensor.washer",usage_state="running",usage_amount=0.25,

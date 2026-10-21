@@ -2,6 +2,7 @@
 
 ## Pendiente de publicación
 
+- Stock perecedero con fondo de progreso descendente del tiempo restante y color de naranja a rojizo. Mínimo de reposición en porcentaje para perecederos y en unidades para el resto; orden alternativo por menor stock, controles de cantidad y unidad centrados y retirados los contadores generales y la ayuda de recurrencia.
 - Ticket de compra con las cuatro tiendas de mayor cobertura en una fila, selección inicial por número de productos con precio y productos sin precio plegados. Badges de importe blanco y contador rojo al seleccionar el ticket; retirado el texto explicativo final.
 - Protección de precios comunitarios: variaciones superiores al 50 % respecto al último precio aceptado quedan pendientes hasta recibir tres coincidencias independientes. Recuperación de un commit de datos mediante GitHub Actions, con revocación de precios sustituidos y restauración de la observación local anterior cuando exista.
 - Votos compactados por elección y registro comunitario dividido en 16 archivos; límites de 8 MiB por archivo de registro y 16 MiB para el diccionario publicado. Las instalaciones no descargan el registro de votos ni el historial Git.

@@ -335,9 +335,15 @@ class CommunitySync:
         async with self._lock:
             if not self._active:
                 return
+            download_due = time.time() >= max(self._data["last_download"]+DAY, self._data["next_attempt"])
+            upload_due = (upload and self._data["sharing"] and self._data["credentials"]
+                and not self.prices._data["pending"] and not self.prices._preparing
+                and time.time() >= max(self._data["last_upload"]+DAY, self._data["next_upload_attempt"]))
+            if not download_due and not upload_due:
+                return
             self._error = ""
             try:
-                if time.time() >= max(self._data["last_download"]+DAY, self._data["next_attempt"]):
+                if download_due:
                     self._data["next_attempt"] = time.time()+DAY
                     await self._store.async_save(self._data)
                     data = validate_dictionary(await self._request("GET", DATA_URL, limit=16*1024*1024), time.time())
@@ -347,9 +353,7 @@ class CommunitySync:
                     await self._store.async_save(self._data)
                     await self.catalog.async_apply_community(self)
                 self.prices._notify()
-                if (upload and self._data["sharing"] and self._data["credentials"]
-                    and not self.prices._data["pending"] and not self.prices._preparing
-                    and time.time() >= max(self._data["last_upload"]+DAY, self._data["next_upload_attempt"])):
+                if upload_due:
                     # Multipart retries resume the same issue; they never create a second daily batch.
                     self._data["next_upload_attempt"] = time.time()+(900 if self._data["outbox"] else DAY)
                     await self._store.async_save(self._data)

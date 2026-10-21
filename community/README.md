@@ -63,6 +63,7 @@ El mantenedor configura `community/policy.json` en `main`:
 - `minimum_account_age_days`: antigüedad mínima para contar confirmaciones.
 - `allowed_licenses`: licencias admisibles para iconos.
 - `allowed_image_hosts`: fuentes permitidas; actualmente solo `api.iconify.design`.
+- `allowed_icon_prefixes`: colecciones de color admitidas por la integración.
 - `excluded_icon_prefixes`: colecciones excluidas.
 
 Cambiar la política regenera el diccionario automáticamente. No concede a los

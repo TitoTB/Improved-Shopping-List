@@ -3,6 +3,7 @@
   "blocked_github_ids": [],
   "minimum_account_age_days": 30,
   "allowed_image_hosts": ["api.iconify.design"],
+  "allowed_icon_prefixes": ["noto", "openmoji", "fluent-emoji-flat"],
   "allowed_licenses": ["CC0-1.0", "MIT", "Apache-2.0", "CC-BY-4.0", "ISC"],
   "excluded_icon_prefixes": []
 }

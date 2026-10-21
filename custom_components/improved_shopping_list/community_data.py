@@ -131,12 +131,18 @@ def unpack(manifest, parts):
         raise ValueError("Fragmentos comunitarios no válidos.")
     compressed = base64.b64decode("".join(parts), validate=True)
     decoder = zlib.decompressobj()
-    raw = decoder.decompress(compressed, MAX_BYTES+1)
+    try:
+        raw = decoder.decompress(compressed, MAX_BYTES+1)
+    except zlib.error as err:
+        raise ValueError("Compresión comunitaria no válida.") from err
     if len(raw) > MAX_BYTES or not decoder.eof or decoder.unused_data or decoder.unconsumed_tail:
         raise ValueError("Lote comunitario demasiado grande o incompleto.")
     if hashlib.sha256(raw).hexdigest() != manifest["digest"]:
         raise ValueError("El lote comunitario no coincide con su huella.")
-    return json.loads(raw)
+    try:
+        return json.loads(raw)
+    except RecursionError as err:
+        raise ValueError("Estructura comunitaria demasiado profunda.") from err
 
 
 def identities(item):

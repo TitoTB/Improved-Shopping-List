@@ -58,7 +58,10 @@ def authored(item, user):
 def parse_body(body):
     if not isinstance(body, str) or not body.startswith(protocol.MARKER) or len(body) > 60000:
         raise ValueError("Invalid contribution envelope")
-    return json.loads(body[len(protocol.MARKER):])
+    try:
+        return json.loads(body[len(protocol.MARKER):])
+    except RecursionError as err:
+        raise ValueError("Envelope nesting too deep") from err
 
 
 def load_data(filename, default):
@@ -73,7 +76,7 @@ def load_data(filename, default):
 def icon_metadata(registry, policy):
     identifiers = {icon for record in registry["records"].values() for vote in record["votes"].values()
                    for icon in vote["item"]["icons"]}
-    prefixes = {icon.split(":")[0] for icon in identifiers} - set(policy["excluded_icon_prefixes"])
+    prefixes = ({icon.split(":")[0] for icon in identifiers} & set(policy["allowed_icon_prefixes"])) - set(policy["excluded_icon_prefixes"])
     cache = {}
     for prefix in sorted(prefixes)[:100]:
         try:

@@ -713,7 +713,7 @@ class ImprovedShoppingSettings extends HTMLElement {
       root.querySelector("#community-user-code").textContent=state.authorization?.user_code ?? "";
       root.querySelector("#community-connect").hidden=!state.sharing || state.connected || Boolean(state.authorization);
       root.querySelector("#community-connect").disabled=!admin || Boolean(this._communityBusy);
-      root.querySelector("#community-connection").textContent=state.error || (state.authorization ? "Esperando autorización de GitHub…" : state.connected ? `Conectado como ${state.account}. Sincronización automática cada 24 horas.` : "Compartir está desactivado. La consulta del diccionario no requiere una cuenta.");
+      root.querySelector("#community-connection").textContent=this._communityError || state.error || (state.authorization ? "Esperando autorización de GitHub…" : state.connected ? `Conectado como ${state.account}. Sincronización automática cada 24 horas.` : state.sharing ? "Conecta con GitHub para completar la activación." : "Compartir está desactivado. La consulta del diccionario no requiere una cuenta.");
     }
     if(this.isConnected && this._view === "community" && admin && !this._communityTimer && !this._communityLoading){
       this._communityTimer=setTimeout(()=>{this._communityTimer=null;void this._loadCommunity();},state?.authorization ? 3000 : state ? 30000 : 0);
@@ -734,10 +734,11 @@ class ImprovedShoppingSettings extends HTMLElement {
   async _setCommunity(enabled) {
     if(this._communityBusy || this._data?.hass?.user?.is_admin !== true)return;
     this._communityGeneration=(this._communityGeneration || 0)+1;
+    this._communityError="";
     this._communityBusy=true; this._renderCommunity();
     try {
       this._communityState=await this._data.hass.callWS({type:"improved_shopping_list/community/sharing",enabled});
-    } catch {this.shadowRoot.querySelector("#community-connection").textContent="No se ha podido guardar la autorización comunitaria.";}
+    } catch {this._communityError="No se ha podido guardar la autorización comunitaria.";}
     finally {this._communityBusy=false;clearTimeout(this._communityTimer);this._communityTimer=null;this._renderCommunity();}
   }
 

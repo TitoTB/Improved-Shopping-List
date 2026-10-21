@@ -110,6 +110,7 @@ class CommunityProtocolTests(unittest.TestCase):
         bad = deepcopy(manifest); bad["digest"] = "0"*64
         with self.assertRaises(ValueError): p.unpack(bad, parts)
         with self.assertRaises(ValueError): p.unpack(manifest, [])
+        with self.assertRaises(ValueError): p.unpack({"schema":2, "parts":1, "digest":"0"*64}, ["bm90LXpsaWI="])
         bomb = base64.b64encode(zlib.compress(b"x"*(p.MAX_BYTES+1))).decode()
         with self.assertRaises(ValueError): p.unpack({"schema":2, "parts":1, "digest":"0"*64}, [bomb])
 

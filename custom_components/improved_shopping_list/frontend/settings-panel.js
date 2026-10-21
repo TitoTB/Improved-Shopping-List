@@ -94,8 +94,8 @@ class ImprovedShoppingSettings extends HTMLElement {
         .select-wrap { flex:1; min-width:0; }
         .community-export { display:flex; align-items:center; gap:24px; }
         .community-export p { flex:1; min-width:0; }
-        .community-action { display:inline-flex; align-items:center; justify-content:center; gap:8px; flex:0 0 240px; width:240px; max-width:100%; min-height:46px; padding:10px 14px; border:0; border-radius:10px; text-decoration:none; text-align:center; font:inherit; }
-        .community-action svg { width:22px; height:22px; flex:none; fill:currentColor; }
+        .community-action { display:inline-flex; align-items:center; justify-content:flex-start; gap:8px; flex:0 0 240px; width:240px; max-width:100%; min-height:46px; padding:10px 14px; border:0; border-radius:10px; text-decoration:none; text-align:left; font:inherit; }
+        .community-action svg { width:16px; height:16px; flex:none; fill:currentColor; }
         #settings-community a { color:var(--primary-color,#267052); }
         #settings-community .community-join { background:#0088cc; color:#fff; }
         #settings-community .community-patreon { background:#000; color:#fff; }

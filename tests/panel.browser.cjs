@@ -1177,7 +1177,7 @@ async function main() {
         return {width:rect.width,iconWidth:icon.width,iconHeight:icon.height};
       }));
       assert.equal(actions.length,3);
-      assert.ok(actions.every(action=>action.width===actions[0].width && action.iconWidth===22 && action.iconHeight===22));
+      assert.ok(actions.every(action=>action.width===actions[0].width && action.iconWidth===16 && action.iconHeight===16));
       await settingsPage.screenshot({path:`test-results/community-${width}.png`,fullPage:true});
     }
     const exportDownload = settingsPage.waitForEvent("download");

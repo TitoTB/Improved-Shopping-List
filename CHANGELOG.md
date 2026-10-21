@@ -1,6 +1,6 @@
 # Historial de cambios
 
-## Pendiente de publicación
+## 0.21.0
 
 - Actualizaciones de precios agrupadas en una única entrada final de Logs, con totales, resultados por tienda, referencias, incidencias y diagnóstico técnico. La información del proceso se conserva entre reinicios; la barra de progreso sigue actualizándose en directo.
 - Las tiendas sin referencias pendientes no comprueban cobertura. Los nuevos intentos revisan los errores de ubicación guardados en lugar de quedar bloqueados; se conserva el diagnóstico HTTP y se distingue falta de cobertura de un rechazo de red. Avisos sin nombres de tienda repetidos.

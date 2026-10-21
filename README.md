@@ -4,7 +4,7 @@
 
 Una interfaz propia para gestionar las listas de la compra que ya tienes integradas en Home Assistant.
 
-Versión actual: **0.20.0**. Interfaz en español, pensada para móvil y ordenador. Requiere **Home Assistant Core 2026.10 o posterior**. La referencia de desarrollo es Core 2026.10.2.
+Versión actual: **0.21.0**. Interfaz en español, pensada para móvil y ordenador. Requiere **Home Assistant Core 2026.10 o posterior**. La referencia de desarrollo es Core 2026.10.2.
 
 Vinculaciones con Mercadona, Carrefour, Alcampo, Consum, La Sirena, Eroski y DIA, y consultas
 directas desde Home Assistant. Se ha retirado el feed

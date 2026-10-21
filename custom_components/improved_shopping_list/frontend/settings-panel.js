@@ -68,7 +68,8 @@ class ImprovedShoppingSettings extends HTMLElement {
         input[type=checkbox] { min-height:20px; width:20px; vertical-align:middle; accent-color:#267052; }
         input[type=color] { display:block; width:100%; padding:5px; cursor:pointer; }
         .appearance-actions { display:flex; justify-content:flex-end; flex-wrap:wrap; gap:10px; margin-top:24px; }
-        .preview { display:grid; place-items:center; min-height:120px; border-radius:16px; margin-top:24px; padding:20px; font-weight:650; }
+        .appearance-previews { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:18px; margin-top:24px; }
+        .preview { display:grid; place-items:center; min-width:0; min-height:120px; border-radius:16px; padding:20px; font-weight:650; text-align:center; overflow-wrap:anywhere; }
         @media(max-width:540px) { .appearance-fields { grid-template-columns:1fr; } }
         .store-row { display:grid; grid-template-columns:56px minmax(0,1fr) auto; gap:8px 12px; align-items:center; }
         .store-row[data-enabled=false] { opacity:.55; }
@@ -164,8 +165,10 @@ class ImprovedShoppingSettings extends HTMLElement {
             <div><label for="desktop-columns">Productos por fila (ordenador)</label><select id="desktop-columns" name="columns">${[1,2,3,4,5,6].map(value => `<option value="${value}">${value}</option>`).join("")}</select></div>
             <div><label for="mobile-columns">Productos por fila (móvil)</label><select id="mobile-columns" name="mobile_columns">${[1,2,3,4].map(value => `<option value="${value}">${value}</option>`).join("")}</select></div>
           </div>
-          <div id="appearance-preview" class="preview">Vista previa de producto pendiente</div>
-          <div id="completed-appearance-preview" class="preview">Vista previa de producto comprado</div>
+          <div class="appearance-previews">
+            <div id="appearance-preview" class="preview">Vista previa de producto pendiente</div>
+            <div id="completed-appearance-preview" class="preview">Vista previa de producto comprado</div>
+          </div>
           <div class="appearance-actions"><button id="reset-appearance" type="button">Restablecer valores</button><button id="save-appearance" class="primary" type="submit">Guardar personalización</button></div>
         </form>
       </section>

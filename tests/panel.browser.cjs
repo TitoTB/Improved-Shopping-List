@@ -1817,7 +1817,7 @@ async function main() {
     assert.equal(await nutriPage.evaluate(()=>window.captureListeners.size),0);
     await captureGroup.getByRole('button',{name:'Escanear',exact:true}).click();
     await nutriForm.locator('..').getByRole('button',{name:'Cerrar ventana',exact:true}).click();
-    assert.equal(await nutriPage.evaluate(()=>window.captureListeners.size),0);
+    await nutriPage.waitForFunction(()=>window.captureListeners.size===0);
     await nutriContext.close();
     // Store bindings persist without barcodes; all product-price UI reads use cache.
     const linksContext=await browser.newContext({viewport:{width:390,height:844}});

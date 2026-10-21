@@ -623,7 +623,7 @@ async function main() {
     assert.equal(await productCard.locator(".edit-product").isVisible(),true);
     await assertCatalogBadge();
     assert.equal(await catalog.locator("#catalog-grid").evaluate(node=>getComputedStyle(node).gridTemplateColumns.split(" ").length),1);
-    assert.equal(await productCard.locator(".row-category").textContent(),"Lácteos y frescos");
+    assert.equal(await productCard.locator(".row-category").count(),0);
     assert.match(await productCard.locator(".row-price").textContent(),/2,59/);
     for(const width of [1280,390]){
       await page.setViewportSize({width,height:844});
@@ -638,8 +638,7 @@ async function main() {
         const media=node.querySelector(".product-media").getBoundingClientRect(),title=node.querySelector(".title").getBoundingClientRect();
         return title.left>media.right&&title.left-media.right<=13;
       }));
-      assert.equal(await productCard.locator(".row-category span").isVisible(),width>540);
-      assert.equal(await productCard.locator(".row-category").getAttribute("aria-label"),"Categoría: Lácteos y frescos");
+      assert.equal(await productCard.locator(".row-category").count(),0);
       await page.screenshot({path:`test-results/catalog-rows-${width}.png`,fullPage:true});
     }
     const rowEditCalls=await page.evaluate(()=>window.calls.length);

@@ -247,12 +247,10 @@ class ImprovedShoppingCatalog extends HTMLElement {
         .rows .product-controls button { --isl-control-size:32px; }
         .rows .product-controls ha-icon { --mdc-icon-size:20px; }
         .rows .row-meta { display:flex; align-items:center; justify-content:flex-end; flex-wrap:wrap; gap:6px; max-width:min(36cqi,260px); }
-        .row-category,.row-price { display:inline-flex; align-items:center; justify-content:center; gap:5px; min-width:0; max-width:100%; padding:6px 9px; border-radius:16px; font-size:12px; line-height:1.2; }
-        .row-category { color:#fff; box-shadow:0 2px 6px rgba(0,0,0,.18); }.row-category span { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .row-price { display:inline-flex; align-items:center; justify-content:center; gap:5px; min-width:0; max-width:100%; padding:6px 9px; border-radius:16px; font-size:12px; line-height:1.2; }
         .row-price { background:var(--secondary-background-color,#edf4ee); white-space:nowrap; }.in-list .row-price { background:rgba(255,255,255,.2); }
         .row-meta ha-icon { --mdc-icon-size:18px; display:flex; align-items:center; justify-content:center; width:18px; height:18px; flex:none; }
-        @media(max-width:650px) { .filters { grid-template-columns:minmax(0,1fr); }.rows .product-top { grid-template-columns:36px minmax(0,1fr) auto; gap:8px; padding:10px 48px 10px 10px; }.rows .product-media { width:36px; height:36px; }.rows .placeholder ha-icon { --mdc-icon-size:32px; }.rows .product-controls { right:8px; }.rows .row-meta { max-width:30cqi; }.row-category,.row-price { font-size:11px; padding:5px 7px; } }
-        @media(max-width:540px) { .rows .row-category { width:28px; height:28px; padding:5px; }.rows .row-category span { display:none; } }
+        @media(max-width:650px) { .filters { grid-template-columns:minmax(0,1fr); }.rows .product-top { grid-template-columns:36px minmax(0,1fr) auto; gap:8px; padding:10px 48px 10px 10px; }.rows .product-media { width:36px; height:36px; }.rows .placeholder ha-icon { --mdc-icon-size:32px; }.rows .product-controls { right:8px; }.rows .row-meta { max-width:30cqi; }.row-price { font-size:11px; padding:5px 7px; } }
         /* Match List's outer li width, including the Catalog card's two border pixels. */
         .title { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:3; overflow:hidden; font-size:clamp(12px,calc((100cqi + 2px) / 10),32px); line-height:1.2; font-weight:650; margin:0; overflow-wrap:anywhere; text-align:center; }
         .subtitle { color:var(--secondary-text-color,#63766b); font-size:12px; margin:4px 0 0; overflow-wrap:anywhere; }
@@ -893,13 +891,6 @@ class ImprovedShoppingCatalog extends HTMLElement {
     top.append(title);
     if (this._productLayout === "rows") {
       const metadata = element("div","row-meta");
-      if (category) {
-        const badge = element("span","row-category");
-        badge.style.backgroundColor = category.color; badge.title = category.name;
-        badge.setAttribute("aria-label",`Categoría: ${category.name}`);
-        const icon = element("ha-icon"); icon.setAttribute("icon",category.icon); icon.setAttribute("aria-hidden","true");
-        badge.append(icon,element("span","",category.name)); metadata.append(badge);
-      }
       const offer = cachedProductPrice(product,this._priceData?.offers,this._priceData?.favorite);
       if (offer) {
         const badge = element("span","row-price");

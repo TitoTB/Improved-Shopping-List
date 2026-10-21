@@ -103,6 +103,9 @@ async def _stock_write(hass, connection, msg, operation):
         return
     try:
         result = await operation(hass.data[DOMAIN]["stock"])
+        await hass.data[DOMAIN]["recurrence"].async_sync_stock()
+        if isinstance(result,dict) and result.get("id"):
+            result = next((item for item in hass.data[DOMAIN]["stock"].snapshot["items"] if item["id"] == result["id"]),result)
     except CatalogError as err:
         connection.send_error(msg["id"], err.code, str(err))
     except OSError:
@@ -603,6 +606,8 @@ async def ws_catalog_save(hass: HomeAssistant, connection, msg: dict[str, Any]) 
         return
     try:
         product = await catalog.async_save_product(msg["product"])
+        await hass.data[DOMAIN]["recurrence"].async_sync_stock()
+        product = next(item for item in catalog.products if item["id"] == product["id"])
     except CatalogError as err:
         connection.send_error(msg["id"], err.code, str(err))
     except (OSError, HomeAssistantError):

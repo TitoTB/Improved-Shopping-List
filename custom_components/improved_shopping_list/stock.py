@@ -72,6 +72,28 @@ class StockManager:
         self._listeners = set()
         self.activity = None
         self._stop_catalog = None
+        self.recurrence_coordinated = False
+        catalog.recurrence_peer = lambda product: self.recurrence_stamp(self.item_for(product))
+
+    def item_for(self, product):
+        return next((item for item in self.snapshot["items"] if item["catalog_product_id"] == product.get("id")
+            or normalized_name(item["name"]) == normalized_name(product["name"])), None)
+
+    @staticmethod
+    def recurrence_stamp(item):
+        if not item:
+            return 0
+        if "recurrence_updated_at" in item:
+            return item["recurrence_updated_at"]
+        return max(1,item.get("expires_at",0)-item.get("days",7)*DAY) if item.get("mode") == "perishable" else 0
+
+    def recurrence_ready(self, item):
+        if not self.recurrence_coordinated or not (product := self._product(item)):
+            return True
+        recurrence = product.get("recurrence", {"enabled":False,"days":7})
+        return (recurrence["enabled"] == (item.get("mode") == "perishable")
+            and (not recurrence["enabled"] or recurrence["days"] == item["days"])
+            and self.recurrence_stamp(item) == product.get("recurrence_updated_at",0))
 
     async def async_load(self):
         data = await self._store.async_load()
@@ -180,16 +202,44 @@ class StockManager:
             elif (current.get("mode") != "perishable" or current.get("days") != config["days"]
                 or current["quantity"] != config["quantity"]):
                 item.update(expires_at=time.time()+config["days"]*DAY,expired=False)
+            if ((current.get("mode") == "perishable") != (config["mode"] == "perishable")
+                or config["mode"] == "perishable" and current.get("days") != config["days"]):
+                product = self._product(current) or {}
+                item["recurrence_updated_at"] = max(time.time(), self.recurrence_stamp(current), product.get("recurrence_updated_at",0))+0.000001
             await self._persist({**deepcopy(self._items), item_id:item})
             if self.activity:
                 self.activity.record("stock.configured",f'{item["name"]}: configuración de Stock guardada',source="manual",product=item["name"])
             return deepcopy(item)
 
+    async def async_sync_recurrence(self, product, stamp, due):
+        """Keep one perishable timer, retaining quantities, units and refill preferences."""
+        async with self._lock:
+            current = self.item_for(product)
+            latest = next((entry for entry in self.catalog.products if entry["id"] == product["id"]),None)
+            if latest is None or latest["revision"] != product["revision"] or self.recurrence_stamp(current) > stamp:
+                return  # A newer edit will be reconciled on the next notification.
+            recurrence = product.get("recurrence", {"enabled":False,"days":7})
+            if not current and not recurrence["enabled"]:
+                return
+            if (current and current.get("recurrence_updated_at",0) == stamp
+                and (current.get("mode") == "perishable") == recurrence["enabled"]
+                and (not recurrence["enabled"] or current.get("days") == recurrence["days"])):
+                return
+            item = {**deepcopy(current or DEFAULT_CONFIG), "id":current["id"] if current else str(uuid4()),
+                "name":product["name"], "catalog_product_id":product["id"], "quantity":current["quantity"] if current else 0,
+                "revision":current["revision"]+1 if current else 1, "recurrence_updated_at":stamp,
+                "config_revision":(current or {}).get("config_revision",0)+1, "days":recurrence["days"]}
+            if recurrence["enabled"]:
+                item.update(mode="perishable",configured=True,expires_at=due,expired=bool(current and current.get("expired") and not due))
+            elif item["mode"] == "perishable":
+                item.update(mode="manual",expires_at=0,expired=False)
+            await self._persist({**deepcopy(self._items),item["id"]:item})
+
     async def async_automatic(self, item_id, config_revision, action):
         """Apply observed usage, a purchase, or expiry atomically against current settings."""
         async with self._lock:
             current = self._items.get(item_id)
-            if not current or not current.get("configured") or current.get("config_revision") != config_revision:
+            if not current or not current.get("configured") or current.get("config_revision") != config_revision or not self.recurrence_ready(current):
                 return None
             item = deepcopy(current)
             before = item["quantity"]
@@ -229,6 +279,11 @@ class StockManager:
             current = self._items.get(item_id)
             if current is None or current["revision"] != revision:
                 raise CatalogError("El stock del producto ha cambiado. Revisa la cantidad antes de eliminarlo.", "conflict")
+            product = self._product(current)
+            if self.recurrence_coordinated and product and product.get("recurrence",{}).get("enabled"):
+                stamp = max(time.time(),self.recurrence_stamp(current),product.get("recurrence_updated_at",0))+0.000001
+                await self.catalog.async_sync_recurrence(product["id"],product["revision"],
+                    {"enabled":False,"days":product["recurrence"]["days"]},stamp,0)
             items = deepcopy(self._items); del items[item_id]
             await self._persist(items)
             if self.activity:

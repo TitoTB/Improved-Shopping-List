@@ -187,6 +187,7 @@ class Catalog:
         self._dismissed_suggestions: set[str] = set()
         self._lock = Lock()
         self._listeners: set = set()
+        self.recurrence_peer = lambda _product: 0
 
     async def async_load(self) -> None:
         """Load existing products without overwriting an unreadable catalog."""
@@ -330,6 +331,11 @@ class Catalog:
                 else await async_translate_name(self.hass, product["name"])
             )
             now = datetime.now(UTC).isoformat()
+            recurrence_changed = (current or {}).get("recurrence", {"enabled": False, "days": 7}) != product["recurrence"]
+            product["recurrence_updated_at"] = (
+                max(datetime.now(UTC).timestamp(), (current or {}).get("recurrence_updated_at", 0), self.recurrence_peer(current or product)) + 0.000001
+                if recurrence_changed else (current or {}).get("recurrence_updated_at", 0)
+            )
             product["recurrence_started_at"] = (
                 current.get("recurrence_started_at")
                 if current and current.get("recurrence_started_at") and current.get("recurrence") == product["recurrence"]
@@ -349,6 +355,21 @@ class Catalog:
             })
             updated = {**self._products, product["id"]: product}
             await self._persist(updated, self._categories)
+        self._notify()
+        return deepcopy(product)
+
+    async def async_sync_recurrence(self, product_id, revision, recurrence, stamp, anchor):
+        """Reconcile a durable pantry edit without translating or changing other fields."""
+        async with self._lock:
+            current = self._products.get(product_id)
+            if not current or current["revision"] != revision:
+                raise CatalogError("El producto ha cambiado durante la sincronización de Stock.", "conflict")
+            if current.get("recurrence") == recurrence and current.get("recurrence_updated_at") == stamp:
+                return deepcopy(current)
+            product = {**deepcopy(current), "recurrence":deepcopy(recurrence), "recurrence_updated_at":stamp,
+                "recurrence_started_at":datetime.fromtimestamp(anchor,UTC).isoformat() if recurrence["enabled"] else None,
+                "revision":revision+1, "updated_at":datetime.now(UTC).isoformat()}
+            await self._persist({**self._products, product_id:product}, self._categories)
         self._notify()
         return deepcopy(product)
 

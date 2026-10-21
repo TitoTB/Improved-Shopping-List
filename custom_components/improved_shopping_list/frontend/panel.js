@@ -333,7 +333,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
             <label>Unidades<select name="unit" aria-label="Unidades"><option value="uds">uds</option><option value="kg">kg</option><option value="g">g</option><option value="l">l</option><option value="ml">ml</option><option value="custom">Personalizadas</option></select></label>
             <label class="wide" id="stock-custom-unit-label" hidden>Unidad personalizada<input name="custom_unit" maxlength="32" placeholder="Por ejemplo, Latas"></label>
             <label class="wide">Control del stock<select name="mode" aria-label="Control del stock"><option value="manual">Manual / lectores</option><option value="perishable">Perecedero</option><option value="usage">Consumo registrado en Home Assistant</option></select></label>
-            <label id="stock-days-label" class="wide" hidden>Caduca cada cuántos días desde la compra<input name="days" type="number" min="1" max="3650" step="1" required></label>
+            <label id="stock-days-label" class="wide" hidden>Caduca cada cuántos días desde la compra<input name="days" type="number" min="1" max="3650" step="1" required></label><p id="stock-recurrence-help" class="helper" hidden>Esta recurrencia también aparece en la ficha del catálogo. Al cumplirse el plazo, el stock pasa a cero y se solicita la compra.</p>
             <div id="stock-usage-fields" class="wide" hidden><div class="stock-form-fields">
               <label class="wide">Entidad de consumo<input name="usage_entity" list="stock-usage-entities" placeholder="Por ejemplo, binary_sensor.lavadora"><datalist id="stock-usage-entities"></datalist></label>
               <label>Estado que representa un uso<input name="usage_state" maxlength="255" placeholder="Por ejemplo, on"></label>
@@ -682,6 +682,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
     const custom=form.elements.unit.value==='custom',usage=form.elements.mode.value==='usage',perishable=form.elements.mode.value==='perishable';
     root.querySelector('#stock-custom-unit-label').hidden=!custom;
     root.querySelector('#stock-days-label').hidden=!perishable;root.querySelector('#stock-usage-fields').hidden=!usage;
+    root.querySelector('#stock-recurrence-help').hidden=!perishable;
     root.querySelector('#stock-threshold-label').hidden=!form.elements.reorder_enabled.checked;
     for(const input of form.querySelectorAll('input,select,button'))input.disabled=locked;
     form.elements.custom_unit.required=custom;form.elements.days.disabled=locked||!perishable;

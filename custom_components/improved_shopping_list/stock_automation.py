@@ -149,7 +149,7 @@ class StockAutomation:
             for item in self.stock.snapshot["items"]:
                 if not self._active:
                     return
-                if not item.get("configured"):
+                if not item.get("configured") or not self.stock.recurrence_ready(item):
                     continue
                 key = ("reorder",item["id"])
                 if self._retry_after.get(key,0)>time.time():
@@ -171,7 +171,7 @@ class StockAutomation:
 
     def _validate(self, item, target):
         current = next((i for i in self.stock.snapshot["items"] if i["id"] == item["id"]),None)
-        if (not self._active or not current or current["revision"] != item["revision"]
+        if (not self._active or not current or current["revision"] != item["revision"] or not self.stock.recurrence_ready(current)
             or not self._needs_reorder(current) or current["name"] != item["name"]
             or target != (current.get("list_entity") or self.settings.snapshot["primary_entity"])
             or target not in self.settings.snapshot["entities"]):

@@ -2,6 +2,7 @@
 
 ## Pendiente de publicación
 
+- Recurrencia del catálogo y modo Perecedero de Stock coordinados en ambos sentidos, con los mismos días y un único temporizador. Al vencer se pone el stock a cero y se solicita compra sin duplicados; al comprar se suma la reposición configurada y se reinicia el plazo. Se conservan cantidades, preferencias y vencimientos anteriores, y las ediciones pendientes se recuperan tras fallos de almacenamiento o reinicios.
 - Los cuatro colores de Personalización comparten una fila: los de pendientes a la izquierda y los de comprados a la derecha, encima de la vista previa correspondiente.
 - Retirado el mensaje final «No hay sugerencias nuevas en esta lista» de Catálogo → Nuevos.
 - Vistas Productos, Categorías y Nuevos alineadas a la derecha del título Catálogo en la misma fila, también en móvil.

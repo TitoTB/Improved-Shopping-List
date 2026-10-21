@@ -18,7 +18,7 @@ DAY = 86400
 
 
 class RecurrenceManager:
-    def __init__(self, hass, catalog, settings, activity, operation_lock):
+    def __init__(self, hass, catalog, settings, activity, operation_lock, stock=None):
         self.hass, self.catalog, self.settings, self.activity = hass, catalog, settings, activity
         self._operation_lock = operation_lock
         self._store = Store(hass, 1, f"{DOMAIN}.recurrence")
@@ -29,6 +29,9 @@ class RecurrenceManager:
         self._task = None
         self._lock = asyncio.Lock()
         self._needs_save = False
+        self.stock = stock
+        if stock is not None:
+            stock.recurrence_coordinated = True
 
     async def async_load(self):
         data = await self._store.async_load()
@@ -44,6 +47,8 @@ class RecurrenceManager:
         self._active = True
         self._unsubscribers = [self.catalog.subscribe(self._queue), self.settings.subscribe(self._queue),
                                async_track_time_interval(self.hass, self._queue, timedelta(minutes=1))]
+        if self.stock is not None:
+            self._unsubscribers.append(self.stock.subscribe(self._queue))
         self._queue()
 
     @callback
@@ -88,6 +93,9 @@ class RecurrenceManager:
         async with self._lock:
             if not self._active:
                 return
+            if self.stock is not None:
+                await self._sync_stock()
+                return  # Pantry expiration is the single scheduler for linked recurrence.
             products = {product["id"]: product for product in self.catalog.products
                         if product.get("recurrence", {}).get("enabled")}
             self._retry_after = {key: value for key, value in self._retry_after.items() if key in products}
@@ -129,6 +137,36 @@ class RecurrenceManager:
                 message = "Periodo reiniciado; ya estaba en la lista" if result == "pending" else "Recuperado por recurrencia" if result == "restored" else "Añadido por recurrencia"
                 self.activity.record(f"recurrence.{result}", f"{message}: {product['name']}", source="automatic",
                                      product=product["name"], list_entity=target)
+
+    async def async_sync_stock(self):
+        """Reconcile durable user edits before returning an editor's new revision."""
+        if self.stock is not None:
+            async with self._lock:
+                await self._sync_stock()
+
+    async def _sync_stock(self):
+        for product in self.catalog.products:
+            item = self.stock.item_for(product)
+            recurrence = product.get("recurrence", {"enabled":False,"days":7})
+            anchor = product.get("recurrence_started_at")
+            started = datetime.fromisoformat(anchor).timestamp() if anchor else 0
+            product_stamp = product.get("recurrence_updated_at") or started
+            stock_stamp = self.stock.recurrence_stamp(item)
+            if stock_stamp > product_stamp:
+                recurrence = {"enabled":item["mode"] == "perishable", "days":item["days"]}
+                started = (item.get("expires_at",0)-item["days"]*DAY) if item.get("expires_at") else time.time()
+                product = await self.catalog.async_sync_recurrence(product["id"],product["revision"],recurrence,stock_stamp,started)
+                product_stamp = stock_stamp
+                due = item.get("expires_at",0)
+            else:
+                if product_stamp and product.get("recurrence_updated_at") != product_stamp:
+                    product = await self.catalog.async_sync_recurrence(product["id"],product["revision"],recurrence,product_stamp,started)
+                due = started+recurrence["days"]*DAY if recurrence["enabled"] else 0
+                previous = self._schedules.get(product["id"],{})
+                if ((not item or item.get("mode") != "perishable") and previous.get("anchor") == anchor and previous.get("days") == recurrence["days"]
+                    and isinstance(previous.get("next_due"),(int,float))):
+                    due = previous["next_due"]
+            await self.stock.async_sync_recurrence(product,product_stamp,due)
 
     def _validate(self, product, target):
         current = next((item for item in self.catalog.products if item["id"] == product["id"]), None)

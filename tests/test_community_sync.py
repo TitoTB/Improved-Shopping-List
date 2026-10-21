@@ -40,11 +40,15 @@ async def test_device_authorization_keeps_credentials_on_server_and_honors_poll_
     device = {"device_code": "PRIVATE_DEVICE", "user_code": "ABCD-EFGH", "interval": 5, "expires_in": 900}
     service._request = AsyncMock(side_effect=[device, {"error":"authorization_pending"}, {"error":"slow_down"}, credentials(), {"login":"tester", "id":123}])
     service._queue = Mock()
-    sleep = AsyncMock()
+    gate = asyncio.Event()
+    async def pause(_interval):
+        await gate.wait()
+    sleep = AsyncMock(side_effect=pause)
     monkeypatch.setattr(module.asyncio, "sleep", sleep)
     status = await service.async_sharing(True)
     assert status["authorization"]["user_code"] == "ABCD-EFGH"
     assert "PRIVATE_DEVICE" not in json.dumps(status)
+    gate.set()
     await service._auth
     assert [call.args[0] for call in sleep.await_args_list] == [5, 5, 10]
     assert service.snapshot["connected"] and service.snapshot["account"] == "tester"

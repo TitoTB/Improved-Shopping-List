@@ -182,6 +182,19 @@ async def test_pending_union_deduplicates_and_reads_do_not_fetch(env):
     assert len(env.requests) == 1
 
 
+async def test_fresh_community_price_avoids_store_http_and_keeps_original_age(env):
+    original = env.clock[0]-3600
+    shared = {"store":"alcampo", "reference_id":"24097", "url":normalize_link("alcampo","24097")["url"],
+        "price":"1.99", "currency":"EUR", "checked_at":original, "source":"community"}
+    env.manager.community = SimpleNamespace(price=lambda store,link:deepcopy(shared) if store=="alcampo" and link["id"]=="24097" else None,
+        async_prepare_prices=AsyncMock())
+    env.manager.sources.fetch = AsyncMock(side_effect=AssertionError("No store request for a fresh shared price"))
+    await env.manager.async_tick()
+    env.manager.sources.fetch.assert_not_awaited()
+    saved = env.manager.prices_for(env.catalog.products[0])[0]
+    assert saved["price"]=="1.99" and saved["checked_at"]==original and saved["source"]=="community"
+
+
 async def test_daily_run_with_no_enabled_stores_does_not_read_lists_or_log_a_queue(env):
     for configuration in env.settings.snapshot["stores"].values():
         configuration["enabled"] = False

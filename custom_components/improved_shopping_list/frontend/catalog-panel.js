@@ -584,8 +584,9 @@ class ImprovedShoppingCatalog extends HTMLElement {
     const candidates = matchCatalogProducts(hint, this._catalog.products);
     info.append(element("h2", "", found ? hint.name : item.kind === "nfc" ? "Etiqueta NFC sin identificar" : "Código sin identificar"), element("p", "subtitle", item.code), element("p", "subtitle", item.reader_name));
     if (found) {
-      const source = element("a", "subtitle", "Fuente: Open Food Facts (ODbL)");
-      source.href = `https://world.openfoodfacts.org/product/${encodeURIComponent(item.code)}`;
+      const shared = hint.source === "community";
+      const source = element("a", "subtitle", shared ? "Fuente: Diccionario comunitario" : "Fuente: Open Food Facts (ODbL)");
+      source.href = shared ? "https://github.com/TitoTB/Improved-Shopping-List/tree/data/community" : `https://world.openfoodfacts.org/product/${encodeURIComponent(item.code)}`;
       source.target = "_blank"; source.rel = "noopener noreferrer";
       info.append(source);
       if (candidates.length) info.append(element("p", "subtitle", `Posible coincidencia: ${candidates[0].name}`));

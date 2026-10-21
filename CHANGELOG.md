@@ -1,5 +1,14 @@
 # Historial de cambios
 
+## 0.19.0
+
+- Código postal común para todas las tiendas desde un nuevo botón de ubicación junto al reloj de Ajustes → Tiendas. Se comprueban las tiendas activas al guardar; las desactivadas lo usan al habilitarlas. Eliminados los campos de ubicación independientes de los popups.
+- Resolución automática del almacén de Mercadona, centro de Carrefour y región de Alcampo. Alcampo utiliza una sesión anónima temporal y el token CSRF que proporciona su web; verificado con el código postal 28024, sin guardar cookies ni tokens ni usar cuentas de usuario.
+- Sin código postal se usan ubicaciones de referencia indicadas en el popup. Si se indica uno y falla una tienda, se muestra el error, se conservan los precios anteriores y no se consulta una ubicación diferente. Cambiar la ubicación no actualiza los precios.
+- Ajustes → Listas con botón rojo de eliminar y estrella para seleccionar una única lista principal, resaltada en amarillo. Vistas previas de productos pendientes y comprados en la misma fila en Personalización.
+- Más espacio bajo el título del popup de agrupación del catálogo.
+- Pruebas de ubicación común, sesiones anónimas, persistencia, permisos, errores de cobertura, conservación de caché e interfaz móvil y de escritorio.
+
 ## 0.18.0
 
 - Nuevas tiendas Consum, La Sirena, Eroski y DIA, con configuración por código postal, logos y precios separados por ubicación. Se integran en la revisión diaria y manual de los productos pendientes, conservando el último precio conocido ante errores.

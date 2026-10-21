@@ -4,7 +4,7 @@
 
 Una interfaz propia para gestionar las listas de la compra que ya tienes integradas en Home Assistant.
 
-Versión actual: **0.18.0**. Interfaz en español, pensada para móvil y ordenador. Requiere **Home Assistant Core 2026.10 o posterior**. La referencia de desarrollo es Core 2026.10.2.
+Versión actual: **0.19.0**. Interfaz en español, pensada para móvil y ordenador. Requiere **Home Assistant Core 2026.10 o posterior**. La referencia de desarrollo es Core 2026.10.2.
 
 Vinculaciones con Mercadona, Carrefour, Alcampo, Consum, La Sirena, Eroski y DIA, y consultas
 directas desde Home Assistant. Se ha retirado el feed
@@ -27,7 +27,6 @@ consulta las tiendas. El icono Actualizar ahora de Ajustes → Tiendas abre un p
 de las referencias vinculadas pendientes en las listas de todas las tiendas activas, incluso si ya se revisaron hoy.
 Respeta los cinco minutos entre peticiones y las pausas indicadas por el servidor, evita
 duplicar una revisión en curso y registra los resultados como manuales en Ajustes → Logs → Tiendas.
-El contador junto al interruptor incluye todos los productos del catálogo vinculados a esa tienda.
 Se conserva el último precio conocido para todo el catálogo aunque
 el producto se compre, salga de la lista o falle una consulta posterior. Un HTTP 404 se
 registra como referencia no disponible y un 403/429 pausa esa tienda el resto del día;
@@ -37,8 +36,8 @@ Alcampo utiliza la consulta JSON del flujo n8n. Su región se intenta resolver d
 Sin región se solicita el precio que ofrezca la web sin ubicación. Mercadona consulta
 su API por referencia y almacén. Carrefour utiliza la respuesta JSON del endpoint interno
 `/cloud-api/pdp-food-analytics/v1/impressions`, con la referencia y la cabecera `sale_point`,
-sin cookies ni identificadores de sesión. En su engranaje → Configuración se puede cambiar
-el centro de seis dígitos; el inicial es `005290`. Los precios quedan separados por centro.
+sin cookies ni identificadores de sesión para sus precios. Su centro se obtiene desde
+el código postal común; sin código postal utiliza `005290`. Los precios quedan separados por centro.
 La respuesta confirma la referencia antes de guardar el precio; el EAN, cuando existe,
 se conserva como metadato y no modifica los códigos del lector.
 

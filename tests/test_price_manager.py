@@ -1,6 +1,7 @@
 """Daily selection, durable pacing, cache retention and direct reference lookups."""
 
 from copy import deepcopy
+import asyncio
 from datetime import datetime, timezone
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock
@@ -663,3 +664,47 @@ async def test_blocked_remaining_references_finish_immediately_without_waiting_i
     assert env.manager._data["next_request"]>env.clock[0]
     env.manager.activity.record.assert_called_once()
     assert env.manager.activity.record.call_args.kwargs["diagnostics"]["totals"]["skipped"]==1
+
+
+async def test_refresh_all_resumes_existing_run_without_changing_queue_or_timer(env):
+    env.manager._queue=Mock();env.clock[0]+=12*3600
+    await env.manager.async_refresh_all()
+    before=deepcopy(env.manager._data)
+    env.manager.pending_names=AsyncMock(side_effect=AssertionError("No list reread on resume"))
+    result=await env.manager.async_refresh_all()
+    assert result["resumed"] and result["progress"]["batch_id"]==before["batch"]["id"]
+    assert result["progress"]["running"] and env.manager._data==before
+    env.manager.pending_names.assert_not_awaited()
+
+
+async def test_refresh_all_resumes_during_preparation_without_creating_another_batch(env):
+    env.manager._begin_batch("automatic");env.manager._preparing=1
+    before=deepcopy(env.manager._data)
+    try:
+        result=await env.manager.async_refresh_all()
+        assert result["resumed"] and result["progress"]["phase"]=="preparing"
+        assert result["progress"]["running"] and env.manager._data==before
+    finally:
+        env.manager._preparing=0
+
+
+async def test_refresh_all_can_reopen_progress_while_http_request_holds_queue_lock(env):
+    env.manager._queue=Mock();env.clock[0]+=12*3600
+    await env.manager.async_refresh_all()
+    original=env.manager.sources.fetch.side_effect
+    entered,resume=asyncio.Event(),asyncio.Event()
+    async def slow(store,link,config,before_request):
+        entered.set();await resume.wait()
+        return await original(store,link,config,before_request)
+    env.manager.sources.fetch.side_effect=slow
+    task=asyncio.create_task(env.manager.async_tick())
+    try:
+        await entered.wait()
+        batch=env.manager._data["batch"]["id"]
+        async with asyncio.timeout(1):
+            result=await env.manager.async_refresh_all()
+        assert result["resumed"] and result["progress"]["batch_id"]==batch
+        assert result["progress"]["running"] and not env.requests
+    finally:
+        resume.set();await task
+    assert len(env.requests)==1

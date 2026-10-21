@@ -59,7 +59,7 @@ const hass={
       const listener={callback,stock:true};listeners.set(listener,true);callback({items:structuredClone(window.stockItems)});return()=>listeners.delete(listener);
     }
     if(msg.type==='improved_shopping_list/settings/store_progress'){
-      (window.storeProgressListeners??=new Set()).add(callback);callback({running:false,last_updated:window.lastPriceUpdateFixture??0});
+      (window.storeProgressListeners??=new Set()).add(callback);callback(JSON.parse(localStorage.getItem('price-progress-fixture')??'null')??{running:false,last_updated:window.lastPriceUpdateFixture??0});
       return()=>window.storeProgressListeners.delete(callback);
     }
     if(msg.type==='improved_shopping_list/logs/subscribe'){
@@ -207,6 +207,7 @@ const hass={
     if(msg.type==='improved_shopping_list/settings/refresh_all_prices'){
       window.calls.push(structuredClone(msg));
       if(window.failManualPriceRefresh)throw new Error('La tienda ha indicado una pausa.');
+      if(window.manualResumeProgress)return {resumed:true,queued:5,errors:[],progress:structuredClone(window.manualResumeProgress)};
       return {queued:4,errors:window.manualPriceErrors??[]};
     }
     if(msg.type==='improved_shopping_list/catalog/store_prices'){
@@ -1139,6 +1140,36 @@ async function main() {
     assert.match(await receipt.locator('.receipt-total').textContent(),/0,00/);
     assert.equal(await receiptPage.evaluate(()=>window.calls.some(call=>/refresh_prices|refresh_all_prices|settings\/store_products/.test(call.type??''))),false);
     await receiptContext.close();
+    const resumeContext=await browser.newContext({viewport:{width:390,height:844}});
+    await resumeContext.addInitScript(()=>{
+      localStorage.setItem('settings-fixture',JSON.stringify({entities:['todo.bring'],primary_entity:'todo.bring',stores:{mercadona:{enabled:true,warehouse:'mad3'}}}));
+      localStorage.setItem('price-progress-fixture',JSON.stringify({running:true,total:6,processed:1,batch_id:'background-batch',finished_at:null,errors:{},estimated_seconds:1500}));
+    });
+    const resumePage=await resumeContext.newPage();
+    resumePage.on('pageerror',error=>errors.push(error.message));
+    await resumePage.goto(url);
+    const resumeSettings=resumePage.locator('isl-settings');
+    const resumeDialog=resumeSettings.getByRole('dialog',{name:'Actualización de precios',exact:true});
+    for(let reload=0;reload<2;reload++){
+      if(reload)await resumePage.reload();
+      await resumePage.getByRole('button',{name:'Ajustes',exact:true}).click();
+      await resumeSettings.getByRole('button',{name:'Tiendas',exact:true}).click();
+      await resumeSettings.locator('#refresh-all-prices').click();
+      await resumeDialog.waitFor();
+      assert.equal(await resumeDialog.locator('#prices-progress-percentage').textContent(),'17 %');
+      assert.match(await resumeDialog.locator('#prices-progress-status').textContent(),/1 de 6 referencias/);
+      assert.equal(await resumePage.evaluate(()=>window.calls.filter(call=>call.type==='improved_shopping_list/settings/refresh_all_prices').length),0);
+      await resumeDialog.getByRole('button',{name:'Cerrar',exact:true}).click();
+    }
+    // A reconnect can leave the local cache empty before the initial subscription arrives.
+    await resumePage.evaluate(()=>{
+      window.testPanel.shadowRoot.querySelector('isl-settings')._latestPriceProgress=null;
+      window.manualResumeProgress=JSON.parse(localStorage.getItem('price-progress-fixture'));
+    });
+    await resumeSettings.locator('#refresh-all-prices').click();
+    await resumeDialog.locator('#prices-progress-percentage').filter({hasText:'17 %'}).waitFor();
+    assert.equal(await resumePage.evaluate(()=>window.testPanel.shadowRoot.querySelector('isl-settings')._latestPriceProgress.batch_id),'background-batch');
+    await resumeContext.close();
     const settingsContext = await browser.newContext({ viewport: { width: 1280, height: 960 } });
     await settingsContext.route("https://logos-world.net/**",route=>route.fulfill({contentType:"image/svg+xml",body:'<svg xmlns="http://www.w3.org/2000/svg" width="56" height="56"><rect width="56" height="56" fill="green"/></svg>'}));
     await settingsContext.route("https://images.seeklogo.com/**",route=>route.fulfill({contentType:"image/svg+xml",body:'<svg xmlns="http://www.w3.org/2000/svg" width="56" height="56"><rect width="56" height="56" fill="blue"/></svg>'}));

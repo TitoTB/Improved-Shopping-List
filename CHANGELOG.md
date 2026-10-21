@@ -2,6 +2,7 @@
 
 ## Pendiente de publicación
 
+- Actualizar ahora vuelve a abrir la revisión activa sin reiniciar ni ampliar la cola, incluso después de una recarga, durante la preparación o mientras hay una petición en curso. La protección se aplica también en Home Assistant si el navegador todavía no ha recibido el estado inicial.
 - Guardado confirmado e idempotente del resumen final de precios en Logs, con recuperación tras fallo de almacenamiento o reinicio y protección frente a iniciar otro lote antes de guardarlo. Las referencias bloqueadas por una tienda se descartan sin esperar otros cinco minutos.
 - El progreso conserva el estado de revisión finalizada después de recargar, diferencia el resumen pendiente del ya guardado y permite volver a abrir una revisión en curso sin solicitar otra.
 - Recurrencia del catálogo y modo Perecedero de Stock coordinados en ambos sentidos, con los mismos días y un único temporizador. Al vencer se pone el stock a cero y se solicita compra sin duplicados; al comprar se suma la reposición configurada y se reinicia el plazo. Se conservan cantidades, preferencias y vencimientos anteriores, y las ediciones pendientes se recuperan tras fallos de almacenamiento o reinicios.

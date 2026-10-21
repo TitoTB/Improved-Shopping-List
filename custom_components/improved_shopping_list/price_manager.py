@@ -364,9 +364,13 @@ class PriceManager:
         """Prepare one manual batch, including stores whose preparation fails."""
         if not self._active or not self.hass.data.get(DOMAIN,{}).get("active"):
             raise ValueError("La integración no está disponible.")
+        if self._data["pending"] or self._preparing:
+            return self._resume_result()
         stores = [store for store in STORES if self.settings.snapshot["stores"].get(store,{}).get("enabled")]
         errors,queued = [],0
         async with self._lock:
+            if self._data["pending"] or self._preparing:
+                return self._resume_result()
             await self._save()
             self._begin_batch("manual")
             self._preparing += 1
@@ -383,6 +387,12 @@ class PriceManager:
                 await self._save();self._notify()
         self._queue()
         return {"queued":queued,"errors":errors}
+
+    def _resume_result(self):
+        """A reload or another client observes the same run, including an in-flight request."""
+        return {"resumed":True, "queued":len(self._data["pending"]),
+            "errors":[{"store":store,"error":error} for store,error in self._data["errors"].items()],
+            "progress":self.progress}
 
     async def _queue_store(self, store):
         """Queue a deliberate manual run without bypassing durable HTTP pacing."""

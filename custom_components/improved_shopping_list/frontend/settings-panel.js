@@ -518,6 +518,7 @@ class ImprovedShoppingSettings extends HTMLElement {
     try {
       const result = await hass.callWS({type:"improved_shopping_list/settings/refresh_all_prices"});
       if (!this.isConnected || this._data.hass.connection !== hass.connection) return;
+      if(result.progress){this._latestPriceProgress=result.progress;this._priceProgressReceivedAt=Date.now();}
       const names = {mercadona:"Mercadona",carrefour:"Carrefour",alcampo:"Alcampo",consum:"Consum",lasirena:"La Sirena",eroski:"Eroski",dia:"DIA"};
       const errors = (result.errors??[]).map(item=>storeError(names[item.store]??item.store,item.error));
       this._refreshStartErrors=errors;

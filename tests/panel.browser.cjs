@@ -781,7 +781,7 @@ async function main() {
     await suggestionCategories.getByLabel("Nombre de la categoría", { exact:true }).fill("Despensa");
     await suggestionCategories.getByRole("button", { name:"Guardar categoría", exact:true }).click();
     await suggestionCategories.getByRole("heading", { name:"Despensa", exact:true }).waitFor();
-    await suggestionCatalog.getByRole("button", { name: "Sugerencias", exact: true }).click();
+    await suggestionCatalog.getByRole("button", { name: "Nuevos", exact: true }).click();
     assert.equal(await suggestionCatalog.locator("#view-suggestions ha-icon").getAttribute("icon"), "mdi:creation");
     const suggestions = suggestionCatalog.locator("#suggestions-list");
     assert.equal(await suggestionCatalog.locator("#list-suggestions-group").evaluate(node => node.open), false);
@@ -839,7 +839,7 @@ async function main() {
     assert.equal(await suggestionCatalog.locator("#catalog-grid article").getAttribute("data-in-list"), "true");
     await suggestionPage.reload();
     await suggestionPage.getByRole("button", { name: "Catálogo", exact: true }).click();
-    await suggestionCatalog.getByRole("button", { name: "Sugerencias", exact: true }).click();
+    await suggestionCatalog.getByRole("button", { name: "Nuevos", exact: true }).click();
     assert.deepEqual(await suggestions.locator("h2").allTextContents(), ["Arroz"]);
     assert.equal(await suggestionCatalog.locator("#list-suggestions-group").evaluate(node => node.open), false);
     await suggestionCatalog.locator("#list-suggestions-summary").click();
@@ -1899,7 +1899,7 @@ async function main() {
     });
     await renamePage.getByRole("button",{name:"Catálogo",exact:true}).click();
     const renameCatalog=renamePage.locator("isl-catalog");
-    await renameCatalog.getByRole("button",{name:"Sugerencias",exact:true}).click();
+    await renameCatalog.getByRole("button",{name:"Nuevos",exact:true}).click();
     await renameCatalog.locator("#list-suggestions-summary").click();
     const renameSuggestions=renameCatalog.locator("#list-suggestions");
     assert.deepEqual(await renameSuggestions.locator("h2").allTextContents(),["Aguacat","Seitan"]);

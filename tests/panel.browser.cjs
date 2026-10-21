@@ -99,7 +99,7 @@ const hass={
     if(msg.type==='improved_shopping_list/catalog/nutriscore'){
       (window.nutriCalls??=[]).push(msg.code);
       if(window.delayNutriCode===msg.code)await new Promise(resolve=>{window.releaseNutri=resolve;});
-      if(window.failNutri)throw new Error('OFF sin conexión');
+      if(window.failNutri||window.failNutriCode===msg.code)throw new Error('OFF sin conexión');
       return {code:msg.code,product_name:'Producto '+msg.code,nutriscore:window.nutriFixture?.[msg.code]??null};
     }
     if(msg.type==='improved_shopping_list/community/export'){
@@ -315,7 +315,7 @@ async function main() {
       };
       visit(document);
       return dialogs.filter(dialog => dialog.querySelectorAll(".isl-dialog-close[aria-label='Cerrar ventana']").length === 1).length;
-    }), 17);
+    }), 18);
     await page.getByRole("button", { name: "Seleccionar lista", exact: true }).click();
     const listDialog = page.getByRole("dialog", { name: "Seleccionar lista", exact: true });
     assert.equal(await listDialog.getByRole("button", { name: "Compra · Bring!", exact: true }).getAttribute("aria-pressed"), "true");
@@ -2147,6 +2147,62 @@ async function main() {
     assert.deepEqual(await productNames(),['Agua','Arroz','Azúcar','Patatas','Zanahoria']);
     assert.equal(await groupedCatalog.locator('#toggle-catalog-order ha-icon').getAttribute('icon'),'mdi:label');
     assert.equal(await groupingPage.evaluate(()=>window.calls.length),0);
+    assert.equal(await groupedCatalog.locator('#configure-catalog-grouping').isVisible(),false);
+    await groupingPage.evaluate(async()=>{
+      const ean=prefix=>{
+        const sum=[...prefix].reverse().reduce((sum,digit,index)=>sum+Number(digit)*(index%2?1:3),0);
+        return prefix+String((10-sum%10)%10);
+      };
+      const codes=['123456789001','123456789002','123456789003','123456789004'].map(ean);
+      window.groupingNutritionCodes=codes;
+      window.nutriFixture={[codes[0]]:{grade:'b'},[codes[1]]:{grade:'e'},[codes[2]]:{grade:'a'}};
+      window.failNutriCode=codes[3];
+      for (const [id,code] of [['r',codes[0]],['a',codes[1]],['z',codes[2]],['p',codes[3]]]) {
+        const product=structuredClone(window.catalogProducts.find(product=>product.id===id));
+        product.barcode=code;
+        if(id==='r')product.barcodes=[code.padStart(14,'0'),'https://example.test/qr'];
+        await window.testPanel._hass.callWS({type:'improved_shopping_list/catalog/save',product});
+      }
+    });
+    assert.equal(await groupingPage.evaluate(()=>window.nutriCalls?.length??0),0);
+    await groupedCatalog.getByRole('button',{name:'Agrupar por categorías',exact:true}).click();
+    const groupingButton=groupedCatalog.getByRole('button',{name:'Cambiar criterio de agrupación',exact:true});
+    await groupingButton.click();
+    const groupingDialog=groupedCatalog.getByRole('dialog',{name:'Agrupar productos por',exact:true});
+    assert.equal(await groupingDialog.getByRole('button',{name:'Categoría',exact:true}).getAttribute('aria-pressed'),'true');
+    await groupingDialog.getByRole('button',{name:'Nutri-Score',exact:true}).click();
+    await groupingDialog.waitFor({state:'hidden'});
+    await groupedCatalog.locator('#grouping-status').waitFor({state:'hidden'});
+    assert.deepEqual(await groupedCatalog.locator('.category-group-title').allTextContents(),['Nutri-Score A','Nutri-Score B','Nutri-Score E','Sin Nutri-Score']);
+    assert.deepEqual(await productNames(),['Zanahoria','Arroz','Azúcar','Agua','Patatas']);
+    assert.equal(await groupingPage.evaluate(()=>window.nutriCalls.length),4);
+    assert.ok(await groupedCatalog.locator('.catalog-product-controls').evaluate(node=>{
+      const buttons=[...node.querySelectorAll('button')].map(button=>button.getBoundingClientRect());
+      return buttons.every((rect,index)=>!index||rect.left>=buttons[index-1].right)&&node.scrollWidth<=node.clientWidth+1;
+    }));
+    await groupingPage.screenshot({path:'test-results/catalog-nutriscore-mobile.png',fullPage:true});
+    await groupedCatalog.getByRole('button',{name:'Cambiar a vista de filas',exact:true}).click();
+    assert.equal(await groupedCatalog.locator('.category-products.rows').count(),4);
+    await groupingButton.click();
+    assert.equal(await groupingDialog.getByRole('button',{name:'Nutri-Score',exact:true}).getAttribute('aria-pressed'),'true');
+    await groupingDialog.getByRole('button',{name:'Categoría',exact:true}).click();
+    assert.deepEqual(await groupedCatalog.locator('.category-group-title').allTextContents(),['Despensa','Verduras','Sin categoría']);
+    await groupingButton.click();
+    await groupingDialog.getByRole('button',{name:'Nutri-Score',exact:true}).click();
+    assert.equal(await groupingPage.evaluate(()=>window.nutriCalls.length),4);
+    await groupedCatalog.getByRole('button',{name:'Ordenar alfabéticamente',exact:true}).click();
+    assert.equal(await groupingButton.isVisible(),false);
+    assert.deepEqual(await productNames(),['Agua','Arroz','Azúcar','Patatas','Zanahoria']);
+    await groupingPage.reload();
+    await groupingPage.getByRole('button',{name:'Catálogo',exact:true}).click();
+    await groupedCatalog.getByRole('button',{name:'Agrupar por Nutri-Score',exact:true}).waitFor();
+    assert.equal(await groupingButton.isVisible(),false);
+    assert.equal(await groupingPage.evaluate(()=>window.nutriCalls?.length??0),0);
+    await groupedCatalog.getByRole('button',{name:'Agrupar por Nutri-Score',exact:true}).click();
+    await groupingButton.click();
+    assert.equal(await groupingDialog.getByRole('button',{name:'Nutri-Score',exact:true}).getAttribute('aria-pressed'),'true');
+    await groupingDialog.getByRole('button',{name:'Cerrar ventana',exact:true}).click();
+    await groupingPage.getByRole('button',{name:'Lista',exact:true}).click();
     await groupingContext.close();
     // Logs display live changes as text, filter by origin/type and clean up on navigation.
     await page.setViewportSize({width:1280,height:960});

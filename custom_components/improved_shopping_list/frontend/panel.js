@@ -428,6 +428,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
     catalog.canAdd = canCreate && !this._busy && !session.loading;
     catalog.listName = state?.attributes.friendly_name ?? session.entityId;
     catalog.listEntity = session.entityId;
+    catalog.active = this._view === "catalog";
     catalog.listItems = available && !session.loading ? session.items : [];
     catalog.pendingItems = available && !session.loading
       ? session.items.filter(item => item.status !== "completed") : [];

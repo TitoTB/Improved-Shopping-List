@@ -1011,6 +1011,7 @@ async function main() {
     await settingsPage.getByRole("button", { name: "Ajustes", exact: true }).click();
     await settingsView.getByRole("button",{name:"Tiendas",exact:true}).click();
     assert.equal(await settingsView.locator("#settings-view-stores ha-icon").getAttribute("icon"), "mdi:store");
+    assert.deepEqual(await settingsView.locator(".stores-grid .store-name h3").allTextContents(),["Alcampo","Carrefour","Mercadona"]);
     await settingsView.getByLabel("Habilitar Mercadona").check();
     await settingsView.getByLabel("Código postal",{exact:true}).fill("28001");
     await settingsView.getByRole("button",{name:"Comprobar y guardar",exact:true}).click();
@@ -1019,6 +1020,9 @@ async function main() {
     const storeDialog = settingsView.getByRole("dialog",{name:"Mercadona",exact:true});
     await storeDialog.getByRole("button",{name:"Cerrar ventana",exact:true}).click();
     const storeRow = settingsView.locator("#mercadona-row");
+    assert.equal(await storeRow.evaluate(node=>getComputedStyle(node).opacity),"1");
+    assert.equal(await storeRow.evaluate(node=>getComputedStyle(node).backgroundColor),"rgba(38, 112, 82, 0.1)");
+    assert.equal(await settingsView.locator("#carrefour-row").evaluate(node=>getComputedStyle(node).opacity),"0.55");
     assert.equal(await storeRow.locator("img").getAttribute("src"),"https://logos-world.net/wp-content/uploads/2022/04/Mercadona-Symbol.png");
     assert.equal(await settingsView.locator('#carrefour-row img').getAttribute('src'),'https://images.seeklogo.com/logo-png/31/2/carrefour-logo-png_seeklogo-318190.png');
     assert.equal(await settingsView.locator('.stores-grid').evaluate(node=>getComputedStyle(node).gridTemplateColumns.split(' ').length),2);
@@ -1707,13 +1711,18 @@ async function main() {
     await linkedSettings.getByRole('button',{name:'Hora de revisión diaria',exact:true}).click();
     const priceScheduleDialog=linkedSettings.getByRole('dialog',{name:'Hora de revisión diaria',exact:true});
     await priceScheduleDialog.waitFor();
+    assert.equal(await priceScheduleDialog.getByRole("button",{name:"Cancelar",exact:true}).count(),0);
+    assert.ok(await priceScheduleDialog.locator("#price-schedule-form").evaluate(node=>{
+      const label=node.querySelector("label").getBoundingClientRect(),input=node.querySelector("input").getBoundingClientRect();
+      return input.top-label.bottom>=12;
+    }));
     await linkedSettings.locator('#price-update-time').fill('02:30');
     await linkedSettings.getByRole('button',{name:'Guardar horario',exact:true}).click();
     await linksPage.waitForFunction(()=>window.listSettings.price_update_time==='02:30');
     await priceScheduleDialog.waitFor({state:'hidden'});
     await linkedSettings.getByRole('button',{name:'Hora de revisión diaria',exact:true}).click();
     assert.equal(await linkedSettings.locator('#price-update-time').inputValue(),'02:30');
-    await priceScheduleDialog.getByRole('button',{name:'Cancelar',exact:true}).click();
+    await priceScheduleDialog.getByRole('button',{name:'Cerrar ventana',exact:true}).click();
     await linkedSettings.getByLabel('Habilitar Alcampo',{exact:true}).check();
     await linkedSettings.getByRole('button',{name:'Ajustes de Alcampo',exact:true}).click();
     const alcampoDialog=linkedSettings.getByRole('dialog',{name:'Alcampo',exact:true});

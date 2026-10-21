@@ -50,6 +50,10 @@ class ImprovedShoppingSettings extends HTMLElement {
         .preview { display:grid; place-items:center; min-height:120px; border-radius:16px; margin-top:24px; padding:20px; font-weight:650; }
         @media(max-width:540px) { .appearance-fields { grid-template-columns:1fr; } }
         .store-row { display:grid; grid-template-columns:56px minmax(0,1fr) auto; gap:8px 12px; align-items:center; }
+        .store-row[data-enabled=false] { opacity:.55; }
+        .store-row[data-enabled=true] { background:rgba(38,112,82,.10); }
+        #price-schedule-form > label { margin-bottom:12px; }
+        #price-update-time { display:block; width:100%; }
         #settings-stores { container-type:inline-size; }
         .stores-grid { display:grid; grid-template-columns:minmax(0,1fr); gap:12px; }
         @container(min-width:800px) { .stores-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
@@ -162,7 +166,7 @@ class ImprovedShoppingSettings extends HTMLElement {
       </dialog>
       <dialog id="price-schedule-dialog" aria-labelledby="price-schedule-title">
         <h2 id="price-schedule-title">Hora de revisión diaria</h2>
-        <form id="price-schedule-form"><label>Hora de revisión diaria<input id="price-update-time" type="time" value="01:00" required></label><div id="price-schedule-error" class="notice error" role="alert" hidden></div><div class="appearance-actions"><button id="cancel-price-schedule" type="button">Cancelar</button><button id="save-price-update-time" class="primary" type="submit">Guardar horario</button></div></form>
+        <form id="price-schedule-form"><label for="price-update-time">Hora de revisión diaria</label><input id="price-update-time" type="time" value="01:00" required><div id="price-schedule-error" class="notice error" role="alert" hidden></div><div class="appearance-actions"><button id="save-price-update-time" class="primary" type="submit">Guardar horario</button></div></form>
       </dialog>
       <dialog id="carrefour-dialog" aria-labelledby="carrefour-dialog-title">
         <h2 id="carrefour-dialog-title">Carrefour</h2>
@@ -204,6 +208,9 @@ class ImprovedShoppingSettings extends HTMLElement {
     const root = this.shadowRoot;
     installDialogCloseButtons(root);
     root.querySelector("#refresh-all-prices").addEventListener("click",()=>void this._refreshPricesNow());
+    const storesGrid=root.querySelector(".stores-grid");
+    storesGrid.append(...[...storesGrid.querySelectorAll(".store-row")].sort((a,b)=>
+      a.querySelector("h3").textContent.localeCompare(b.querySelector("h3").textContent,"es")));
     for (const store of ["mercadona", "carrefour", "alcampo"]) {
       const row = root.querySelector(`#${store}-enabled`).closest(".store-row");
       const count = document.createElement("span"); count.id = `${store}-linked-count`; count.className = "store-count";
@@ -220,7 +227,6 @@ class ImprovedShoppingSettings extends HTMLElement {
       this._error=""; this._render(); root.querySelector("#price-schedule-dialog").showModal();
     });
     root.querySelector("#price-schedule-form").addEventListener("submit",event=>{event.preventDefault();void this._savePriceSchedule();});
-    root.querySelector("#cancel-price-schedule").addEventListener("click",()=>root.querySelector("#price-schedule-dialog").close());
     root.querySelector("#close-prices-progress").addEventListener("click",()=>root.querySelector("#prices-progress-dialog").close());
     root.querySelector("#prices-progress-dialog").addEventListener("close",()=>clearInterval(this._pricesProgressTimer));
     root.querySelector("#alcampo-enabled").addEventListener("change",()=>void this._saveRetailSettings(()=>this._data.settings.saveAlcampo(root.querySelector("#alcampo-enabled").checked,this._data.settings.stores?.alcampo?.region_id ?? "")));
@@ -299,6 +305,7 @@ class ImprovedShoppingSettings extends HTMLElement {
     this._renderGlobalPriceProgress();
     for (const store of ["mercadona", "carrefour", "alcampo"]) {
       const count = (this._data.products ?? []).filter(product => Boolean(product.store_links?.[store])).length;
+      root.querySelector(`#${store}-enabled`).closest(".store-row").dataset.enabled = String(Boolean(settings.stores?.[store]?.enabled));
       const label = `${count} ${count === 1 ? "producto vinculado" : "productos vinculados"}`;
       const badge = root.querySelector(`#${store}-linked-count`); badge.textContent = String(count); badge.title = label; badge.setAttribute("aria-label", label);
       const favorite = root.querySelector(`#favorite-${store}`);
@@ -375,7 +382,6 @@ class ImprovedShoppingSettings extends HTMLElement {
     root.querySelector("#alcampo-error").hidden = !this._error;
     root.querySelector("#save-price-update-time").disabled = locked;
     root.querySelector("#price-update-time").disabled = locked;
-    root.querySelector("#cancel-price-schedule").disabled = Boolean(this._busy);
     root.querySelector("#price-schedule-error").textContent = this._error || "";
     root.querySelector("#price-schedule-error").hidden = !this._error;
     if(!root.querySelector("#price-schedule-dialog").open)root.querySelector("#price-update-time").value = settings.priceUpdateTime ?? "01:00";

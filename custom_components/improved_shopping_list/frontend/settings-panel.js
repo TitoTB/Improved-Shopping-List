@@ -5,6 +5,11 @@ import { DEFAULT_APPEARANCE, gradientTextColor } from "./list-settings-client.js
 const MERCADONA_LOGO_URL = new URL("mercadona.png", import.meta.url).href;
 const LIDL_LOGO_URL = new URL("lidl.png", import.meta.url).href;
 
+/** Default store navigation: use Mercadona's layout for every store dialog. */
+function storeViewTabs(name, productsId, configurationId) {
+  return `<nav class="settings-tabs store-view-tabs" aria-label="Vistas de ${name}"><button id="${productsId}" aria-pressed="true" type="button"><ha-icon icon="mdi:view-grid" aria-hidden="true"></ha-icon>Productos</button><button id="${configurationId}" aria-pressed="false" type="button"><ha-icon icon="mdi:cog" aria-hidden="true"></ha-icon>Configuración</button></nav>`;
+}
+
 class ImprovedShoppingSettings extends HTMLElement {
   constructor() {
     super();
@@ -72,7 +77,6 @@ class ImprovedShoppingSettings extends HTMLElement {
         #stores-last-updated { white-space:nowrap; }
         .store-refresh { display:inline-flex; align-items:center; justify-content:center; flex:none; width:44px; height:44px; min-height:44px; padding:0; }
         .store-refresh ha-icon { width:20px; height:20px; flex:none; --mdc-icon-size:20px; }
-        .store-count { font-size:13px; white-space:nowrap; }
         .store-controls { grid-column:3; grid-row:1; display:flex; align-items:center; gap:12px; margin-left:auto; flex:none; }
         .store-toggle[type=checkbox] { appearance:none; position:relative; width:40px; height:24px; min-height:24px; margin:0; padding:0; border:0; border-radius:20px; background:#b3261e; cursor:pointer; }
         .store-toggle::before { content:""; position:absolute; top:4px; left:4px; width:16px; height:16px; border-radius:50%; background:white; }
@@ -82,6 +86,7 @@ class ImprovedShoppingSettings extends HTMLElement {
         dialog { color:inherit; background:var(--card-background-color,#fff); width:min(680px,calc(100vw - 28px)); max-height:calc(100dvh - 28px); border:1px solid var(--divider-color,#dfe7e1); border-radius:18px; padding:24px; }
         dialog::backdrop { background:rgba(0,0,0,.4); }
         .store-products { display:grid; gap:12px; margin-top:16px; }.store-product { display:flex; justify-content:space-between; align-items:center; gap:12px; border:1px solid var(--divider-color,#dfe7e1); border-radius:10px; padding:14px; }
+        .store-configuration input:not([type=checkbox]), .store-configuration select { display:block; width:100%; }
         .store-cache-footer { text-align:left; margin:16px 0 0; font-size:12px; }
         .store-progress { text-align:center; }
         .store-progress-track { position:relative; }
@@ -175,27 +180,27 @@ class ImprovedShoppingSettings extends HTMLElement {
       </dialog>
       <dialog id="lidl-dialog" aria-labelledby="lidl-title">
         <h2 id="lidl-title">Lidl</h2>
-        <nav class="settings-tabs" aria-label="Vistas de Lidl"><button id="lidl-products-tab" type="button" aria-pressed="true"><ha-icon icon="mdi:view-grid" aria-hidden="true"></ha-icon>Productos</button><button id="lidl-config-tab" type="button" aria-pressed="false"><ha-icon icon="mdi:cog" aria-hidden="true"></ha-icon>Configuración</button></nav>
+        ${storeViewTabs("Lidl","lidl-products-tab","lidl-config-tab")}
         <section id="lidl-products-view"><div id="lidl-products-error" class="notice error" role="alert" hidden></div><div id="lidl-products" class="store-products"></div><p id="lidl-status" class="store-cache-footer" role="status"></p></section>
-        <section id="lidl-config-view" hidden><form id="lidl-form"><label for="lidl-region">Región de Lidl</label><select id="lidl-region" required><option value="">Selecciona una región</option></select><p>Selecciona la región de tu compra habitual.</p><div id="lidl-config-error" class="notice error" role="alert" hidden></div><div class="appearance-actions"><button id="save-lidl" class="primary" type="submit">Guardar configuración</button></div></form></section>
+        <section id="lidl-config-view" class="store-configuration" hidden><form id="lidl-form"><label for="lidl-region">Región de Lidl</label><select id="lidl-region" required><option value="">Selecciona una región</option></select><p>Selecciona la región de tu compra habitual.</p><div id="lidl-config-error" class="notice error" role="alert" hidden></div><div class="appearance-actions"><button id="save-lidl" class="primary" type="submit">Guardar configuración</button></div></form></section>
       </dialog>
       <dialog id="carrefour-dialog" aria-labelledby="carrefour-dialog-title">
         <h2 id="carrefour-dialog-title">Carrefour</h2>
-        <nav class="settings-tabs" aria-label="Vistas de Carrefour"><button id="carrefour-products-tab" type="button" aria-pressed="true"><ha-icon icon="mdi:view-grid" aria-hidden="true"></ha-icon>Productos</button><button id="carrefour-config-tab" type="button" aria-pressed="false"><ha-icon icon="mdi:cog" aria-hidden="true"></ha-icon>Configuración</button></nav>
+        ${storeViewTabs("Carrefour","carrefour-products-tab","carrefour-config-tab")}
         <section id="carrefour-products-view"><p>Últimos precios conocidos de las referencias vinculadas.</p><div id="carrefour-error" class="notice error" role="alert" hidden></div><div id="carrefour-products" class="store-products"></div><p id="carrefour-status" class="store-cache-footer" role="status"></p></section>
-        <section id="carrefour-config-view" hidden><label>Centro de Carrefour (sale_point)<input id="carrefour-sale-point" type="text" inputmode="numeric" minlength="6" maxlength="6" pattern="[0-9]{6}" placeholder="005290"></label><p>Identificador de seis dígitos del centro utilizado para consultar precios. Centro predeterminado: 005290. Los precios pueden variar entre centros.</p><div id="carrefour-config-error" class="notice error" role="alert" hidden></div><button id="save-carrefour" type="button">Guardar configuración</button></section>
+        <section id="carrefour-config-view" class="store-configuration" hidden><label for="carrefour-sale-point">Centro de Carrefour (sale_point)</label><input id="carrefour-sale-point" type="text" inputmode="numeric" minlength="6" maxlength="6" pattern="[0-9]{6}" placeholder="005290"><p>Identificador de seis dígitos del centro utilizado para consultar precios. Centro predeterminado: 005290. Los precios pueden variar entre centros.</p><div id="carrefour-config-error" class="notice error" role="alert" hidden></div><div class="appearance-actions"><button id="save-carrefour" class="primary" type="button">Guardar configuración</button></div></section>
       </dialog>
-      <dialog id="alcampo-dialog" aria-labelledby="alcampo-title"><h2 id="alcampo-title">Alcampo</h2><nav class="appearance-actions"><button id="alcampo-products-tab" type="button">Productos</button><button id="alcampo-config-tab" type="button">Configuración</button></nav><section id="alcampo-products-view"><div id="alcampo-products-error" class="notice error" role="alert" hidden></div><div id="alcampo-products" class="store-products"></div><p id="alcampo-status" class="store-cache-footer" role="status"></p></section><section id="alcampo-config-view" hidden><label>Región de Alcampo<input id="alcampo-region" maxlength="36" placeholder="regionId opcional"></label><p>Si tu consulta utiliza una región, introduce su regionId. Sin región solo se podrá mostrar el precio que devuelva la web sin ubicación seleccionada.</p><button id="save-alcampo" type="button">Guardar configuración</button></section></dialog>
+      <dialog id="alcampo-dialog" aria-labelledby="alcampo-title"><h2 id="alcampo-title">Alcampo</h2>${storeViewTabs("Alcampo","alcampo-products-tab","alcampo-config-tab")}<section id="alcampo-products-view"><div id="alcampo-products-error" class="notice error" role="alert" hidden></div><div id="alcampo-products" class="store-products"></div><p id="alcampo-status" class="store-cache-footer" role="status"></p></section><section id="alcampo-config-view" class="store-configuration" hidden><label for="alcampo-region">Región de Alcampo</label><input id="alcampo-region" maxlength="36" placeholder="regionId opcional"><p>Si tu consulta utiliza una región, introduce su regionId. Sin región solo se podrá mostrar el precio que devuelva la web sin ubicación seleccionada.</p><div class="appearance-actions"><button id="save-alcampo" class="primary" type="button">Guardar configuración</button></div></section></dialog>
       <dialog id="store-dialog" aria-labelledby="store-dialog-title">
         <h2 id="store-dialog-title">Mercadona</h2>
-        <nav class="settings-tabs" aria-label="Vistas de Mercadona"><button id="store-view-products" aria-pressed="true" type="button"><ha-icon icon="mdi:view-grid" aria-hidden="true"></ha-icon>Productos</button><button id="store-view-configuration" aria-pressed="false" type="button"><ha-icon icon="mdi:cog" aria-hidden="true"></ha-icon>Configuración</button></nav>
+        ${storeViewTabs("Mercadona","store-view-products","store-view-configuration")}
         <div id="store-dialog-error" class="notice error" role="alert" hidden></div>
         <section id="store-products-view">
           <div id="store-products-error" class="notice error" role="alert" hidden></div>
           <div id="store-products" class="store-products"></div>
           <p id="store-products-status" class="store-cache-footer" role="status"></p>
         </section>
-        <section id="store-configuration-view" hidden>
+        <section id="store-configuration-view" class="store-configuration" hidden>
           <form id="store-form">
             <p>Introduce tu código postal para obtener el almacén asignado por Mercadona. No necesitas una cuenta.</p>
             <label for="mercadona-postal">Código postal</label>
@@ -224,8 +229,6 @@ class ImprovedShoppingSettings extends HTMLElement {
       a.querySelector("h3").textContent.localeCompare(b.querySelector("h3").textContent,"es")));
     for (const store of ["mercadona", "carrefour", "alcampo", "lidl"]) {
       const row = root.querySelector(`#${store}-enabled`).closest(".store-row");
-      const count = document.createElement("span"); count.id = `${store}-linked-count`; count.className = "store-count";
-      row.querySelector(".store-controls").prepend(count);
       const heart = document.createElement("button"); heart.id = `favorite-${store}`; heart.type = "button"; heart.className = "store-cog store-favorite";
       const label = `Marcar ${row.querySelector("h3").textContent} como favorita`;
       heart.setAttribute("aria-label",label); heart.title = label; heart.setAttribute("aria-pressed","false");
@@ -259,10 +262,16 @@ class ImprovedShoppingSettings extends HTMLElement {
     });
     root.querySelector("#prices-progress-dialog").addEventListener("close",()=>clearInterval(this._pricesProgressTimer));
     root.querySelector("#alcampo-enabled").addEventListener("change",()=>void this._saveRetailSettings(()=>this._data.settings.saveAlcampo(root.querySelector("#alcampo-enabled").checked,this._data.settings.stores?.alcampo?.region_id ?? "")));
-    root.querySelector("#configure-alcampo").addEventListener("click",()=>{root.querySelector("#alcampo-region").value=this._data.settings.stores?.alcampo?.region_id ?? "";root.querySelector("#alcampo-dialog").showModal();void this._loadAlcampo();});
+    root.querySelector("#configure-alcampo").addEventListener("click",()=>{root.querySelector("#alcampo-region").value=this._data.settings.stores?.alcampo?.region_id ?? "";showAlcampoView("products");root.querySelector("#alcampo-dialog").showModal();void this._loadAlcampo();});
     root.querySelector("#alcampo-dialog").addEventListener("cancel",event=>{if(this._busy)event.preventDefault();});
     const alcampoError=document.createElement("div");alcampoError.id="alcampo-error";alcampoError.className="notice error";alcampoError.setAttribute("role","alert");alcampoError.hidden=true;root.querySelector("#alcampo-title").after(alcampoError);
-    for(const view of ["products","config"])root.querySelector(`#alcampo-${view}-tab`).addEventListener("click",()=>{root.querySelector("#alcampo-products-view").hidden=view!=="products";root.querySelector("#alcampo-config-view").hidden=view!=="config";});
+    const showAlcampoView = view => {
+      for (const name of ["products", "config"]) {
+        root.querySelector(`#alcampo-${name}-view`).hidden = name !== view;
+        root.querySelector(`#alcampo-${name}-tab`).setAttribute("aria-pressed", String(name === view));
+      }
+    };
+    for(const view of ["products","config"])root.querySelector(`#alcampo-${view}-tab`).addEventListener("click",()=>showAlcampoView(view));
     root.querySelector("#save-alcampo").addEventListener("click",()=>void this._saveRetailSettings(()=>this._data.settings.saveAlcampo(root.querySelector("#alcampo-enabled").checked,root.querySelector("#alcampo-region").value.trim())));
     for (const [id, view] of [["settings-view-lists", "lists"], ["settings-view-appearance", "appearance"], ["settings-view-community", "community"], ["settings-view-stores", "stores"]]) {
       root.querySelector(`#${id}`).addEventListener("click", () => {
@@ -333,10 +342,7 @@ class ImprovedShoppingSettings extends HTMLElement {
     this._renderPriceTimestamp();
     this._renderGlobalPriceProgress();
     for (const store of ["mercadona", "carrefour", "alcampo", "lidl"]) {
-      const count = (this._data.products ?? []).filter(product => Boolean(product.store_links?.[store])).length;
       root.querySelector(`#${store}-enabled`).closest(".store-row").dataset.enabled = String(Boolean(settings.stores?.[store]?.enabled));
-      const label = `${count} ${count === 1 ? "producto vinculado" : "productos vinculados"}`;
-      const badge = root.querySelector(`#${store}-linked-count`); badge.textContent = String(count); badge.title = label; badge.setAttribute("aria-label", label);
       const favorite = root.querySelector(`#favorite-${store}`);
       favorite.disabled = locked || !settings.stores?.[store]?.enabled;
       const selected = Boolean(settings.stores?.[store]?.enabled && settings.favoriteStore === store);

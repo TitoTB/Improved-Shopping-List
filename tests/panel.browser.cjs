@@ -1039,6 +1039,28 @@ async function main() {
     assert.equal(await settingsPage.evaluate(()=>window.listSettings.stores.lidl.region_id),'28');
     await settingsPage.evaluate(()=>{window.failSettings=false;window.storePriceFixture=[];});
     await lidlDialog.getByRole('button',{name:'Cerrar ventana',exact:true}).click();
+    // Every store uses Mercadona's default tabs, active styling and configuration actions.
+    for (const store of ['Mercadona','Carrefour','Alcampo','Lidl']) {
+      await settingsView.getByRole('button',{name:`Ajustes de ${store}`,exact:true}).click();
+      const dialog=settingsView.getByRole('dialog',{name:store,exact:true});
+      const products=dialog.getByRole('button',{name:'Productos',exact:true});
+      const configuration=dialog.getByRole('button',{name:'Configuración',exact:true});
+      assert.equal(await dialog.locator('.store-view-tabs').count(),1);
+      assert.equal(await products.getAttribute('aria-pressed'),'true');
+      assert.equal(await products.locator('ha-icon').getAttribute('icon'),'mdi:view-grid');
+      assert.equal(await configuration.locator('ha-icon').getAttribute('icon'),'mdi:cog');
+      await configuration.click();
+      assert.equal(await configuration.getAttribute('aria-pressed'),'true');
+      assert.equal(await products.getAttribute('aria-pressed'),'false');
+      assert.ok(await dialog.locator('.store-configuration').isVisible());
+      assert.equal(await dialog.locator('.store-configuration .appearance-actions .primary').count(),1);
+      const styles=await configuration.evaluate(button=>({display:getComputedStyle(button).display,gap:getComputedStyle(button).gap,weight:getComputedStyle(button).fontWeight}));
+      assert.deepEqual(styles,{display:'flex',gap:'8px',weight:'650'});
+      await products.click();
+      assert.equal(await products.getAttribute('aria-pressed'),'true');
+      assert.ok(await dialog.locator('.store-configuration').isHidden());
+      await dialog.getByRole('button',{name:'Cerrar ventana',exact:true}).click();
+    }
     await settingsView.getByLabel("Habilitar Mercadona").check();
     await settingsView.getByLabel("Código postal",{exact:true}).fill("28001");
     await settingsView.getByRole("button",{name:"Comprobar y guardar",exact:true}).click();
@@ -1140,8 +1162,7 @@ async function main() {
     assert.equal(await center.inputValue(),'012345');
     await carrefourDialog.getByRole('button',{name:'Cerrar ventana',exact:true}).click();
     await settingsPage.evaluate(()=>document.querySelector('improved-shopping-list-panel').shadowRoot.querySelector('isl-catalog').dispatchEvent(new CustomEvent('catalog-change',{detail:{products:[{id:'linked-1',name:'Vinculado',store_links:{carrefour:{id:'R-123'}}},{id:'unlinked-1',name:'Sin vincular'}],categories:[]}})));
-    assert.equal(await settingsView.locator('#carrefour-linked-count').textContent(),'1');
-    assert.equal(await settingsView.locator('#mercadona-linked-count').textContent(),'0');
+    assert.equal(await settingsView.locator('.store-count, [id$="-linked-count"]').count(),0);
     const updateAll = settingsView.getByRole('button',{name:'Actualizar ahora',exact:true});
     assert.equal(await updateAll.count(),1);
     assert.equal(await updateAll.textContent(),'');

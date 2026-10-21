@@ -1114,8 +1114,8 @@ async function main() {
     const locationDialog=settingsView.getByRole('dialog',{name:'Código postal de las tiendas',exact:true});
     await locationDialog.getByLabel('Código postal',{exact:true}).fill('28001');
     await locationDialog.getByRole('button',{name:'Guardar código postal',exact:true}).click();
-    await locationDialog.locator('#store-postal-result').filter({hasText:'Ubicación guardada'}).waitFor();
-    await locationDialog.getByRole('button',{name:'Cerrar ventana',exact:true}).click();
+    await locationDialog.waitFor({state:'hidden'});
+    assert.equal(await settingsPage.evaluate(()=>window.listSettings.store_postal_code),'28001');
     for(const [store,name] of [['consum','Consum'],['lasirena','La Sirena'],['eroski','Eroski'],['dia','DIA']]){
       await settingsView.getByLabel(`Habilitar ${name}`,{exact:true}).check();
       await settingsPage.waitForFunction(store=>window.listSettings.stores?.[store]?.enabled,store);
@@ -1319,7 +1319,7 @@ async function main() {
     await settingsView.getByRole("button", { name: "Añadir lista", exact: true }).click();
     await configured.filter({ hasText: "todo.local" }).waitFor();
     await settingsView.getByRole("button", { name: "Hacer principal: Casa", exact: true }).click();
-    await configured.filter({ hasText: "todo.local" }).locator(".badge").waitFor();
+    await configured.filter({ hasText: "todo.local" }).locator('.list-primary[aria-pressed="true"]').waitFor();
     assert.equal(await configured.locator('.list-primary[aria-pressed="true"]').count(),1);
     assert.equal(await configured.filter({hasText:"todo.local"}).locator('.list-primary').getAttribute('aria-pressed'),'true');
     assert.equal(await configured.filter({hasText:"todo.bring"}).locator('.list-primary').getAttribute('aria-pressed'),'false');
@@ -1335,7 +1335,7 @@ async function main() {
     assert.equal(await configured.count(), 3);
     await settingsPage.evaluate(() => { window.failSettings = false; });
     await settingsView.getByRole("button", { name: "Quitar: Casa", exact: true }).click();
-    await configured.filter({ hasText: "todo.bring" }).locator(".badge").waitFor();
+    await configured.filter({ hasText: "todo.bring" }).locator('.list-primary[aria-pressed="true"]').waitFor();
     await settingsView.getByRole("button", { name: "Quitar: Compra · Bring!", exact: true }).click();
     await settingsView.getByRole("button", { name: "Quitar: Solo lectura", exact: true }).click();
     await settingsView.getByText("No hay listas añadidas. Añade una entidad todo para empezar.", { exact: true }).waitFor();
@@ -1350,10 +1350,10 @@ async function main() {
     });
     await settingsView.getByLabel("Entidad todo", { exact: true }).selectOption("todo.custom_provider");
     await settingsView.getByRole("button", { name: "Añadir lista", exact: true }).click();
-    await configured.filter({ hasText: "todo.custom_provider" }).locator(".badge").waitFor();
+    await configured.filter({ hasText: "todo.custom_provider" }).locator('.list-primary[aria-pressed="true"]').waitFor();
     // A settings snapshot from another session updates the selected provider immediately.
     await settingsPage.evaluate(() => { window.listSettings={entities:['todo.bring','todo.custom_provider'],primary_entity:'todo.bring'};window.emitSettings(); });
-    await configured.filter({ hasText: "todo.bring" }).locator(".badge").waitFor();
+    await configured.filter({ hasText: "todo.bring" }).locator('.list-primary[aria-pressed="true"]').waitFor();
     await settingsPage.setViewportSize({ width: 390, height: 844 });
     await settingsPage.screenshot({ path: "test-results/settings-mobile.png", fullPage: true });
     assert.equal(await settingsPage.locator("main").evaluate(node => node.scrollWidth > innerWidth), false);
@@ -1974,8 +1974,10 @@ async function main() {
     await sharedLocation.getByLabel('Código postal',{exact:true}).fill('28024');
     await linksPage.evaluate(()=>{window.failAlcampoLocation=true;});
     await sharedLocation.getByRole('button',{name:'Guardar código postal',exact:true}).click();
-    await sharedLocation.locator('#store-postal-result').filter({hasText:'HTTP 403'}).waitFor();
+    await sharedLocation.waitFor({state:'hidden'});
+    assert.match(await linksPage.evaluate(()=>window.listSettings.stores.alcampo.location_error),/HTTP 403/);
     await linksPage.evaluate(()=>{window.failAlcampoLocation=false;});
+    await linkedSettings.getByRole('button',{name:'Código postal de las tiendas',exact:true}).click();
     await sharedLocation.getByLabel('Código postal',{exact:true}).fill('');
     await sharedLocation.getByRole('button',{name:'Guardar código postal',exact:true}).click();
     await linksPage.waitForFunction(()=>window.listSettings.store_postal_code==='');

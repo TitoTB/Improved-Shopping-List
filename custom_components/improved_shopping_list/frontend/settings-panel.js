@@ -203,9 +203,8 @@ class ImprovedShoppingSettings extends HTMLElement {
       <dialog id="store-postal-dialog" aria-labelledby="store-postal-title">
         <h2 id="store-postal-title">Código postal de las tiendas</h2>
         <form id="store-postal-form"><label for="store-postal-code">Código postal</label><input id="store-postal-code" inputmode="numeric" autocomplete="postal-code" maxlength="5" pattern="(?:0[1-9]|[1-4][0-9]|5[0-2])[0-9]{3}" placeholder="Código postal opcional">
-        <p>Se usará para todas las tiendas. Si lo dejas vacío, se utilizará una ubicación de referencia para consultar los precios.</p>
-        <p>Ubicaciones de referencia: Carrefour y Alcampo, consulta predeterminada de la web; Mercadona, 28001; Consum, 46409; La Sirena y DIA, 28024; Eroski, 48001.</p>
-        <p id="store-postal-result" role="status" hidden></p><div id="store-postal-error" class="notice error" role="alert" hidden></div>
+        <p>Se usará para todas las tiendas, y si lo dejas vacío, se utilizará uno genérico.</p>
+        <div id="store-postal-error" class="notice error" role="alert" hidden></div>
         <div class="appearance-actions"><button id="save-store-postal" class="primary" type="submit">Guardar código postal</button></div></form>
       </dialog>
       <dialog id="carrefour-dialog" aria-labelledby="carrefour-dialog-title">
@@ -260,7 +259,6 @@ class ImprovedShoppingSettings extends HTMLElement {
     });
     root.querySelector("#configure-store-postal").addEventListener("click",()=>{
       root.querySelector("#store-postal-code").value=this._data.settings.storePostalCode ?? "";
-      root.querySelector("#store-postal-result").hidden=true;
       this._error=""; this._render(); root.querySelector("#store-postal-dialog").showModal();
     });
     root.querySelector("#store-postal-form").addEventListener("submit",event=>{event.preventDefault();void this._saveStorePostal();});
@@ -445,11 +443,7 @@ class ImprovedShoppingSettings extends HTMLElement {
     const postal=input.value.trim();
     await this._saveRetailSettings(()=>this._data.settings.saveStorePostal(postal));
     if(this._error)return;
-    const names={mercadona:"Mercadona",carrefour:"Carrefour",alcampo:"Alcampo",consum:"Consum",lasirena:"La Sirena",eroski:"Eroski",dia:"DIA"};
-    const errors=Object.entries(this._data.settings.stores??{}).filter(([,value])=>value.enabled&&value.location_error).map(([store,value])=>`${names[store]}: ${value.location_error}`);
-    const result=root.querySelector("#store-postal-result");
-    result.textContent=errors.length ? `Código postal guardado. ${errors.join(" ")}` : "Ubicación guardada para todas las tiendas.";
-    result.hidden=false;
+    root.querySelector("#store-postal-dialog").close();
   }
 
   _watchPriceStatus() {

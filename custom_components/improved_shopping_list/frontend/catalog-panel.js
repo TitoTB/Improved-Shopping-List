@@ -173,6 +173,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
         .category-filter-controls label { flex:1; min-width:0; }
         #new-product,#new-catalog-category,#toggle-catalog-layout { display:grid; place-items:center; flex:0 0 46px; width:46px; height:46px; padding:0; }
         #new-product ha-icon,#new-catalog-category ha-icon,#toggle-catalog-layout ha-icon { --mdc-icon-size:24px; width:24px; height:24px; }
+        #toggle-catalog-layout { background:var(--card-background-color,#fff); }
         .product-category-controls { display:flex; align-items:end; gap:8px; }
         .product-category-controls select { flex:1; min-width:0; }
         #add-product-category { display:grid; place-items:center; flex:0 0 46px; width:46px; height:46px; padding:0; }
@@ -198,7 +199,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
         .placeholder ha-icon { --mdc-icon-size:clamp(14px,30cqi,160px); width:var(--mdc-icon-size); height:var(--mdc-icon-size); }
         .product .add-product { position:absolute; z-index:1; inset:0; width:100%; height:100%; min-height:0; margin:0; padding:0; border:0; border-radius:inherit; background:transparent; }
         .product .add-product:focus-visible { outline-offset:-3px; }
-        .product-controls { position:absolute; z-index:2; top:clamp(3px,4cqi,12px); right:clamp(3px,4cqi,12px); display:flex; gap:clamp(2px,2cqi,6px); }
+        .product-controls { position:absolute; z-index:2; top:clamp(3px,4cqi,12px); right:clamp(3px,4cqi,12px); display:none; gap:clamp(2px,2cqi,6px); }
         .product-controls button { --isl-control-size:clamp(18px,13cqi,32px); display:flex; align-items:center; justify-content:center; appearance:none; -webkit-appearance:none; flex:none; width:var(--isl-control-size); min-width:var(--isl-control-size); max-width:var(--isl-control-size); height:var(--isl-control-size); min-height:var(--isl-control-size); max-height:var(--isl-control-size); aspect-ratio:1; margin:0; padding:0; border:0; border-radius:50%; line-height:0; color:#fff; box-shadow:0 2px 6px rgba(0,0,0,.22); }
         .product-controls .edit-product { background:#f9a825; }
         .product-controls button:focus-visible { outline-offset:1px; }
@@ -209,9 +210,10 @@ class ImprovedShoppingCatalog extends HTMLElement {
         .rows .product-top { position:relative; display:grid; grid-template-columns:48px minmax(0,1fr) auto; gap:12px; min-height:80px; padding:12px 58px 12px 16px; }
         .rows .product-media { width:48px; height:48px; }
         .rows .placeholder ha-icon { --mdc-icon-size:40px; }
-        .rows .title { font-size:clamp(14px,2.5cqi,18px); -webkit-line-clamp:3; }
+        .rows .product-name { text-align:left; }
+        .rows .title { font-size:clamp(14px,2.5cqi,18px); -webkit-line-clamp:3; text-align:left; }
         .rows .tags { display:none; }
-        .rows .product-controls { top:50%; right:12px; transform:translateY(-50%); }
+        .rows .product-controls { display:flex; top:50%; right:12px; transform:translateY(-50%); }
         .rows .product-controls button { --isl-control-size:32px; }
         .rows .product-controls ha-icon { --mdc-icon-size:20px; }
         .rows .row-meta { display:flex; align-items:center; justify-content:flex-end; flex-wrap:wrap; gap:6px; max-width:min(36cqi,260px); }
@@ -220,6 +222,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
         .row-price { background:var(--secondary-background-color,#edf4ee); white-space:nowrap; }.in-list .row-price { background:rgba(255,255,255,.2); }
         .row-meta ha-icon { --mdc-icon-size:18px; display:flex; align-items:center; justify-content:center; width:18px; height:18px; flex:none; }
         @media(max-width:650px) { .filters { grid-template-columns:minmax(0,1fr); }.rows .product-top { grid-template-columns:36px minmax(0,1fr) auto; gap:8px; padding:10px 48px 10px 10px; }.rows .product-media { width:36px; height:36px; }.rows .placeholder ha-icon { --mdc-icon-size:32px; }.rows .product-controls { right:8px; }.rows .row-meta { max-width:30cqi; }.row-category,.row-price { font-size:11px; padding:5px 7px; } }
+        @media(max-width:540px) { .rows .row-category { width:28px; height:28px; padding:5px; }.rows .row-category span { display:none; } }
         /* Match List's outer li width, including the Catalog card's two border pixels. */
         .title { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:3; overflow:hidden; font-size:clamp(12px,calc((100cqi + 2px) / 10),32px); line-height:1.2; font-weight:650; margin:0; overflow-wrap:anywhere; text-align:center; }
         .subtitle { color:var(--secondary-text-color,#63766b); font-size:12px; margin:4px 0 0; overflow-wrap:anywhere; }
@@ -790,6 +793,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
       if (category) {
         const badge = element("span","row-category");
         badge.style.backgroundColor = category.color; badge.title = category.name;
+        badge.setAttribute("aria-label",`Categoría: ${category.name}`);
         const icon = element("ha-icon"); icon.setAttribute("icon",category.icon); icon.setAttribute("aria-hidden","true");
         badge.append(icon,element("span","",category.name)); metadata.append(badge);
       }

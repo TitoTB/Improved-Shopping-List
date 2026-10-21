@@ -4,7 +4,6 @@ import { todoEntities, isAvailable } from "./todo-client.js?v=0.17.0";
 import { DEFAULT_APPEARANCE, gradientTextColor } from "./list-settings-client.js?v=0.17.0";
 
 const MERCADONA_LOGO_URL = new URL("mercadona.png", import.meta.url).href;
-const LIDL_LOGO_URL = new URL("lidl.png", import.meta.url).href;
 
 /** Default store navigation: use Mercadona's layout for every store dialog. */
 function storeViewTabs(name, productsId, configurationId) {
@@ -44,7 +43,6 @@ class ImprovedShoppingSettings extends HTMLElement {
     this._productsLoading = false; this._productsGeneration = (this._productsGeneration || 0) + 1;
     this._carrefourGeneration = (this._carrefourGeneration || 0) + 1; this._carrefourLoading = false; this._alcampoGeneration = (this._alcampoGeneration || 0) + 1;
     this.shadowRoot.querySelector("#alcampo-dialog")?.close(); this.shadowRoot.querySelector("#carrefour-dialog")?.close(); this.shadowRoot.querySelector("#store-dialog")?.close();
-    this.shadowRoot.querySelector("#lidl-dialog")?.close(); this._lidlGeneration=(this._lidlGeneration||0)+1;
   }
 
   _build() {
@@ -177,7 +175,6 @@ class ImprovedShoppingSettings extends HTMLElement {
         <article class="store-row" id="carrefour-row"><img class="store-logo" src="https://images.seeklogo.com/logo-png/31/2/carrefour-logo-png_seeklogo-318190.png" alt="Logo de Carrefour" referrerpolicy="no-referrer" loading="lazy" width="56" height="56"><div class="store-name"><h3>Carrefour</h3></div><div class="store-controls"><input id="carrefour-enabled" class="store-toggle" type="checkbox" role="switch" aria-label="Habilitar Carrefour"><button id="configure-carrefour" class="store-cog" type="button" aria-label="Ajustes de Carrefour"><ha-icon icon="mdi:cog" aria-hidden="true"></ha-icon></button></div></article>
         <article class="store-row"><img class="store-logo" src="https://almeria.online/wp-content/uploads/2024/09/alcampo-logo.png" alt="Logo de Alcampo" referrerpolicy="no-referrer" loading="lazy" width="56" height="56"><div class="store-name"><h3>Alcampo</h3></div><div class="store-controls"><input id="alcampo-enabled" class="store-toggle" type="checkbox" role="switch" aria-label="Habilitar Alcampo"><button id="configure-alcampo" class="store-cog" type="button" aria-label="Ajustes de Alcampo"><ha-icon icon="mdi:cog" aria-hidden="true"></ha-icon></button></div></article>
 
-        <article class="store-row" id="lidl-row"><img class="store-logo" src="${LIDL_LOGO_URL}" alt="Logo de Lidl" loading="lazy" width="56" height="56"><div class="store-name"><h3>Lidl</h3></div><div class="store-controls"><input id="lidl-enabled" class="store-toggle" type="checkbox" role="switch" aria-label="Habilitar Lidl"><button id="configure-lidl" class="store-cog" type="button" aria-label="Ajustes de Lidl" title="Ajustes de Lidl"><ha-icon icon="mdi:cog" aria-hidden="true"></ha-icon></button></div></article>
         </div>
         <div class="stores-footer">Última actualización: <time id="stores-last-updated" title="Última actualización correcta de precios">—</time></div>
       </section>
@@ -190,12 +187,6 @@ class ImprovedShoppingSettings extends HTMLElement {
       <dialog id="price-schedule-dialog" aria-labelledby="price-schedule-title">
         <h2 id="price-schedule-title">Hora de revisión diaria</h2>
         <form id="price-schedule-form"><label for="price-update-time">Hora de revisión diaria</label><input id="price-update-time" type="time" value="01:00" required><div id="price-schedule-error" class="notice error" role="alert" hidden></div><div class="appearance-actions"><button id="save-price-update-time" class="primary" type="submit">Guardar horario</button></div></form>
-      </dialog>
-      <dialog id="lidl-dialog" aria-labelledby="lidl-title">
-        <h2 id="lidl-title">Lidl</h2>
-        ${storeViewTabs("Lidl","lidl-products-tab","lidl-config-tab")}
-        <section id="lidl-products-view"><div id="lidl-products-error" class="notice error" role="alert" hidden></div><div id="lidl-products" class="store-products"></div><p id="lidl-status" class="store-cache-footer" role="status"></p></section>
-        <section id="lidl-config-view" class="store-configuration" hidden><form id="lidl-form"><label for="lidl-region">Región de Lidl</label><select id="lidl-region" required><option value="">Selecciona una región</option></select><p>Selecciona la región de tu compra habitual.</p><div id="lidl-config-error" class="notice error" role="alert" hidden></div><div class="appearance-actions"><button id="save-lidl" class="primary" type="submit">Guardar configuración</button></div></form></section>
       </dialog>
       <dialog id="carrefour-dialog" aria-labelledby="carrefour-dialog-title">
         <h2 id="carrefour-dialog-title">Carrefour</h2>
@@ -241,7 +232,7 @@ class ImprovedShoppingSettings extends HTMLElement {
     const storesGrid=root.querySelector(".stores-grid");
     storesGrid.append(...[...storesGrid.querySelectorAll(".store-row")].sort((a,b)=>
       a.querySelector("h3").textContent.localeCompare(b.querySelector("h3").textContent,"es")));
-    for (const store of ["mercadona", "carrefour", "alcampo", "lidl"]) {
+    for (const store of ["mercadona", "carrefour", "alcampo"]) {
       const row = root.querySelector(`#${store}-enabled`).closest(".store-row");
       const heart = document.createElement("button"); heart.id = `favorite-${store}`; heart.type = "button"; heart.className = "store-cog store-favorite";
       const label = `Marcar ${row.querySelector("h3").textContent} como favorita`;
@@ -256,24 +247,6 @@ class ImprovedShoppingSettings extends HTMLElement {
     });
     root.querySelector("#price-schedule-form").addEventListener("submit",event=>{event.preventDefault();void this._savePriceSchedule();});
     root.querySelector("#close-prices-progress").addEventListener("click",()=>root.querySelector("#prices-progress-dialog").close());
-    root.querySelector("#configure-lidl").addEventListener("click",()=>this._openLidl("products"));
-    root.querySelector("#lidl-enabled").addEventListener("change",()=>{
-      const enabled=root.querySelector("#lidl-enabled").checked, region=this._data.settings.stores?.lidl?.region_id??"";
-      if(enabled&&!region){this._lidlEnableDraft=true;this._openLidl("config");}
-      else void this._saveRetailSettings(()=>this._data.settings.saveLidl(enabled,region));
-    });
-    for(const view of ["products","config"])root.querySelector(`#lidl-${view}-tab`).addEventListener("click",()=>this._switchLidlView(view));
-    root.querySelector("#lidl-form").addEventListener("submit",event=>{
-      event.preventDefault();
-      void this._saveRetailSettings(async()=>{
-        await this._data.settings.saveLidl(this._lidlEnableDraft??Boolean(this._data.settings.stores?.lidl?.enabled),root.querySelector("#lidl-region").value);
-        this._lidlEnableDraft=undefined;await this._loadLidlData();
-      });
-    });
-    root.querySelector("#lidl-dialog").addEventListener("cancel",event=>{if(this._busy)event.preventDefault();});
-    root.querySelector("#lidl-dialog").addEventListener("close",()=>{
-      this._lidlGeneration=(this._lidlGeneration||0)+1;this._lidlEnableDraft=undefined;this._error="";this._render();
-    });
     root.querySelector("#prices-progress-dialog").addEventListener("close",()=>clearInterval(this._pricesProgressTimer));
     root.querySelector("#alcampo-enabled").addEventListener("change",()=>void this._saveRetailSettings(()=>this._data.settings.saveAlcampo(root.querySelector("#alcampo-enabled").checked,this._data.settings.stores?.alcampo?.region_id ?? "")));
     root.querySelector("#configure-alcampo").addEventListener("click",()=>{root.querySelector("#alcampo-region").value=this._data.settings.stores?.alcampo?.region_id ?? "";showAlcampoView("products");root.querySelector("#alcampo-dialog").showModal();void this._loadAlcampo();});
@@ -357,7 +330,7 @@ class ImprovedShoppingSettings extends HTMLElement {
     this._watchPriceStatus();
     this._renderPriceTimestamp();
     this._renderGlobalPriceProgress();
-    for (const store of ["mercadona", "carrefour", "alcampo", "lidl"]) {
+    for (const store of ["mercadona", "carrefour", "alcampo"]) {
       root.querySelector(`#${store}-enabled`).closest(".store-row").dataset.enabled = String(Boolean(settings.stores?.[store]?.enabled));
       const favorite = root.querySelector(`#favorite-${store}`);
       favorite.disabled = locked || !settings.stores?.[store]?.enabled;
@@ -429,13 +402,6 @@ class ImprovedShoppingSettings extends HTMLElement {
     root.querySelector("#alcampo-enabled").disabled = locked;
     root.querySelector("#save-alcampo").disabled = locked;
     root.querySelector("#alcampo-region").disabled = locked;
-    root.querySelector("#lidl-enabled").checked = this._lidlEnableDraft ?? (settings.stores?.lidl?.enabled === true);
-    root.querySelector("#lidl-enabled").disabled = locked;
-    root.querySelector("#configure-lidl").disabled = !settings.loaded || settings.loading || Boolean(this._busy);
-    root.querySelector("#lidl-region").disabled = locked;
-    root.querySelector("#save-lidl").disabled = locked;
-    root.querySelector("#lidl-config-error").textContent = this._error || "";
-    root.querySelector("#lidl-config-error").hidden = !this._error;
     root.querySelector("#alcampo-error").textContent = this._error || "";
     root.querySelector("#alcampo-error").hidden = !this._error;
     root.querySelector("#save-price-update-time").disabled = locked;
@@ -521,7 +487,7 @@ class ImprovedShoppingSettings extends HTMLElement {
     bar.max=total||1;
     if(preparing)bar.removeAttribute("value");else bar.value=empty?0:processed;
     root.querySelector("#prices-progress-percentage").textContent=preparing?"…":`${total&&!empty?Math.round(processed/total*100):0} %`;
-    const names={mercadona:"Mercadona",carrefour:"Carrefour",alcampo:"Alcampo",lidl:"Lidl"};
+    const names={mercadona:"Mercadona",carrefour:"Carrefour",alcampo:"Alcampo"};
     const errors=[...(this._refreshStartErrors??[]),...Object.entries(state?.errors??{}).filter(([store])=>this._data.settings.stores?.[store]?.enabled).map(([store,error])=>`${names[store]??store}: ${error}`)];
     const errorBox=root.querySelector("#stores-refresh-error");errorBox.textContent=[...new Set(errors)].join(" ");errorBox.hidden=!errors.length;
     root.querySelector("#prices-progress-status").textContent=preparing?"Preparando actualización…":empty?(errors.length?"No se ha podido iniciar la revisión.":"No hay productos vinculados pendientes en tus listas."):`${processed} de ${total} referencias procesadas${state?.running?"":" · Revisión finalizada"}`;
@@ -539,7 +505,7 @@ class ImprovedShoppingSettings extends HTMLElement {
   async _refreshPricesNow() {
     if (this._pricesRefreshing || this._data.hass?.user?.is_admin !== true) return;
     const hass = this._data.hass;
-    const stores = ["mercadona","carrefour","alcampo","lidl"].filter(store=>this._data.settings.stores?.[store]?.enabled);
+    const stores = ["mercadona","carrefour","alcampo"].filter(store=>this._data.settings.stores?.[store]?.enabled);
     if (!stores.length) return;
     const errorBox = this.shadowRoot.querySelector("#stores-refresh-error");
     errorBox.textContent = ""; errorBox.hidden = true;
@@ -552,7 +518,7 @@ class ImprovedShoppingSettings extends HTMLElement {
     try {
       const results = await Promise.allSettled(stores.map(async store=>hass.callWS({type:"improved_shopping_list/settings/refresh_prices",store})));
       if (!this.isConnected || this._data.hass.connection !== hass.connection) return;
-      const names = {mercadona:"Mercadona",carrefour:"Carrefour",alcampo:"Alcampo",lidl:"Lidl"};
+      const names = {mercadona:"Mercadona",carrefour:"Carrefour",alcampo:"Alcampo"};
       const errors = results.flatMap((result,index)=>result.status === "rejected" ? [`${names[stores[index]]}: ${result.reason?.message ?? "No se pudo iniciar la actualización."}`] : []);
       this._refreshStartErrors=errors;
       this._manualQueued=results.reduce((count,result)=>count+(result.status==="fulfilled"?Math.max(0,Number(result.value.queued)||0):0),0);
@@ -566,55 +532,6 @@ class ImprovedShoppingSettings extends HTMLElement {
     this._busy = true; this._error = this._notice = "";
     try { const pending = save(); this._render(); await pending; } catch (error) { this._error = error.message ?? "No se pudieron guardar las tiendas."; }
     finally { this._busy = false; this._render(); }
-  }
-
-  _switchLidlView(view) {
-    for(const name of ["products","config"]){
-      this.shadowRoot.querySelector(`#lidl-${name}-view`).hidden=name!==view;
-      this.shadowRoot.querySelector(`#lidl-${name}-tab`).setAttribute("aria-pressed",String(name===view));
-    }
-  }
-
-  _openLidl(view) {
-    this._error="";
-    this.shadowRoot.querySelector("#lidl-region").value=this._data.settings.stores?.lidl?.region_id??"";
-    this._switchLidlView(view);this._render();
-    this.shadowRoot.querySelector("#lidl-dialog").showModal();
-    void this._loadLidlData();
-  }
-
-  async _loadLidlData() {
-    const root=this.shadowRoot, generation=this._lidlGeneration=(this._lidlGeneration||0)+1;
-    const connection=this._data.hass.connection,region=this._data.settings.stores?.lidl?.region_id??"";
-    const current=()=>this.isConnected&&root.querySelector("#lidl-dialog").open&&generation===this._lidlGeneration&&connection===this._data.hass.connection;
-    root.querySelector("#lidl-status").textContent="Cargando precios guardados…";
-    const results=await Promise.allSettled([
-      this._data.hass.callWS({type:"improved_shopping_list/settings/lidl_regions"}),
-      this._data.hass.callWS({type:"improved_shopping_list/catalog/store_prices",store:"lidl"})]);
-    if(!current())return;
-    const select=root.querySelector("#lidl-region"),selected=select.value||region,regions=results[0];
-    if(regions.status==="fulfilled"){
-      select.replaceChildren(new Option("Selecciona una región",""),...regions.value.regions.sort((a,b)=>a.name.localeCompare(b.name,"es")).map(item=>new Option(item.name,item.id)));
-      select.value=selected;
-    }
-    const prices=results[1],error=root.querySelector("#lidl-products-error");
-    const message=prices.status==="rejected"?prices.reason?.message:prices.value.error;
-    error.textContent=message??"";error.hidden=!error.textContent;
-    if(regions.status==="rejected"){
-      const alert=root.querySelector("#lidl-config-error");alert.textContent="No se pudieron cargar las regiones de Lidl.";alert.hidden=false;
-    }
-    if(prices.status==="fulfilled"&&region===(this._data.settings.stores?.lidl?.region_id??"")){
-      root.querySelector("#lidl-products").replaceChildren(...prices.value.products.map(product=>{
-        const row=document.createElement("div");row.className="store-product";
-        const info=document.createElement("div");info.className="store-product-info";
-        const link=document.createElement("a");link.textContent=product.name||product.store_name;link.href=product.url;link.target="_blank";link.rel="noopener noreferrer";
-        const details=document.createElement("p");details.textContent=`ID: ${product.reference_id} · ${product.region_name||"Lidl"}${product.packaging?" · "+product.packaging:""}`;
-        const date=document.createElement("p");date.textContent=`Último precio: ${new Date(product.checked_at*1000).toLocaleString("es-ES")}${product.expired?" · Oferta finalizada":""}`;
-        const price=document.createElement("strong");price.textContent=new Intl.NumberFormat("es-ES",{style:"currency",currency:product.currency}).format(Number(product.price));
-        info.append(link,details,date);row.append(info,price);return row;
-      }));
-    }
-    root.querySelector("#lidl-status").textContent=`${root.querySelector("#lidl-products").childElementCount} precios guardados`;
   }
 
   async _loadCarrefour() {

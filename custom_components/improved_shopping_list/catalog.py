@@ -208,6 +208,10 @@ class Catalog:
             # Earlier installations stored category names directly on products.
             # Promote those names without dropping products or their metadata.
             for product in self._products.values():
+                links = product.get("store_links")
+                if isinstance(links, dict) and "lidl" in links:
+                    del links["lidl"]
+                    migrated = True
                 for field in LEGACY_PRODUCT_FIELDS:
                     if field in product:
                         del product[field]

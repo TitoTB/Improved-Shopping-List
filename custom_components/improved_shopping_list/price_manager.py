@@ -41,6 +41,24 @@ class PriceManager:
             if not isinstance(data, dict) or not all(isinstance(data.get(key), dict) for key in ("offers", "attempts")) or not isinstance(data.get("pending"), list):
                 raise ValueError("No se pudo leer la cola de precios guardada.")
             self._data.update(data)
+            # Remove the retired provider from durable work without touching other prices.
+            migrated = False
+            for name in ("offers", "attempts", "legacy_ean"):
+                previous = self._data[name]
+                self._data[name] = {key:value for key,value in previous.items() if not key.startswith("lidl:")}
+                migrated |= self._data[name] != previous
+            for name in ("errors", "blocked_day", "blocked_until"):
+                if "lidl" in self._data[name]:
+                    del self._data[name]["lidl"]
+                    migrated = True
+            previous = self._data["pending"]
+            self._data["pending"] = [job for job in previous if job.get("store") != "lidl"]
+            removed = len(previous)-len(self._data["pending"])
+            if removed:
+                self._data["processed"] += removed
+                migrated = True
+            if migrated:
+                await self._save()
             return
         # Migrate prices locally. Neither of these legacy services is started.
         legacy = await Store(self.hass, 1, f"{DOMAIN}.store_products").async_load()
@@ -68,14 +86,14 @@ class PriceManager:
 
     def scope(self, store):
         config = self.settings.snapshot["stores"].get(store, {})
-        return config.get("warehouse", "") if store == "mercadona" else config.get("region_id", "") if store in ("alcampo", "lidl") else config.get("sale_point", "005290")
+        return config.get("warehouse", "") if store == "mercadona" else config.get("region_id", "") if store == "alcampo" else config.get("sale_point", "005290")
 
     @staticmethod
     def key(store, link, scope):
         return f"{store}:{scope}:{link['id']}"
 
     def links_for_product(self, product):
-        links = deepcopy(product.get("store_links", {}))
+        links = {store:deepcopy(link) for store,link in product.get("store_links", {}).items() if store in STORES}
         # Preserve exact EAN associations already discovered by the former service.
         if "store_links" not in product and "mercadona" not in links:
             for code in [product.get("barcode", ""), *product.get("barcodes", [])]:
@@ -92,7 +110,6 @@ class PriceManager:
             price = self._data["offers"].get(self.key(store, link, self.scope(store)))
             if price:
                 prices.append({**deepcopy(price), "catalog_product_id":product.get("id"), "name":product.get("name", ""),
-                    "expired":store == "lidl" and isinstance(price.get("valid_until"), (int,float)) and time.time() >= price["valid_until"],
                     "error":self._data["errors"].get(store, "")})
         for store in STORES:
             if store in links:

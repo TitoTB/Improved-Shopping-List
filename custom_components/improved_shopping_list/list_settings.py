@@ -11,14 +11,13 @@ from homeassistant.core import HomeAssistant, callback
 from .const import CONF_TODO_ENTITY, CONF_TODO_ENTITIES
 from .const import DOMAIN
 from .stores import StoreError, async_resolve_mercadona
-from .lidl import LIDL_REGIONS
 
 DEFAULT_APPEARANCE = {
     "gradient_start": "#ee524f", "gradient_end": "#b52a27",
     "completed_gradient_start": "#4faba2", "completed_gradient_end": "#26857c",
     "columns": 3, "mobile_columns": 1,
 }
-DEFAULT_STORES = {"mercadona": {"enabled": False, "postal_code": "", "warehouse": "", "checked_at": None}, "carrefour": {"enabled": False, "sale_point":"005290"}, "alcampo":{"enabled":False,"region_id":""}, "lidl":{"enabled":False,"region_id":""}}
+DEFAULT_STORES = {"mercadona": {"enabled": False, "postal_code": "", "warehouse": "", "checked_at": None}, "carrefour": {"enabled": False, "sale_point":"005290"}, "alcampo":{"enabled":False,"region_id":""}}
 
 
 def normalize_appearance(data: dict, *, defaults: dict | None = None) -> dict:
@@ -48,7 +47,7 @@ def list_options(entry: ConfigEntry) -> dict:
     entities = list(entry.options.get(CONF_TODO_ENTITIES, [primary] if primary else []))
     return {"entities": entities, "primary_entity": primary if primary in entities else next(iter(entities), ""),
             "appearance": {**DEFAULT_APPEARANCE, **entry.options.get("appearance", {})},
-            "stores": {**deepcopy(entry.options.get("stores", {})), **{key:{**deepcopy(defaults), **deepcopy(entry.options.get("stores", {}).get(key, {}))} for key,defaults in DEFAULT_STORES.items()}},
+            "stores": {key:{**deepcopy(defaults), **deepcopy(entry.options.get("stores", {}).get(key, {}))} for key,defaults in DEFAULT_STORES.items()},
             "favorite_store": entry.options.get("favorite_store", ""), "price_update_time":entry.options.get("price_update_time", "01:00")}
 
 
@@ -66,6 +65,14 @@ class ListSettings:
     def attach(self, entry: ConfigEntry) -> None:
         self._generation += 1
         self.entry = entry
+        if "lidl" in entry.options.get("stores", {}) or entry.options.get("favorite_store") == "lidl":
+            stores = self.snapshot["stores"]
+            favorite = entry.options.get("favorite_store", "")
+            if favorite == "lidl":
+                favorite = next((key for key,value in stores.items() if value.get("enabled")), "")
+            self.hass.config_entries.async_update_entry(entry, options={
+                **entry.options, "stores":stores, "favorite_store":favorite,
+            })
         if CONF_TODO_ENTITIES not in entry.options:
             # Keep the lists exposed by previous installations, including a
             # configured entity that has not finished starting yet.
@@ -143,20 +150,6 @@ class ListSettings:
             if generation != self._generation or not self.entry or not self.hass.data.get(DOMAIN, {}).get("active"):
                 raise StoreError("La integración no está activa.")
             stores = {**self.snapshot["stores"], "alcampo":{"enabled":enabled,"region_id":region_id.lower()}}
-            self.hass.config_entries.async_update_entry(self.entry, options={**self.entry.options,
-                "stores":stores,"favorite_store":self._favorite(stores)})
-            self.notify()
-            return self.snapshot
-
-    async def async_update_lidl(self, enabled, region_id):
-        if region_id not in LIDL_REGIONS and (enabled or region_id):
-            raise StoreError("Selecciona una región de Lidl válida.")
-        generation = self._generation
-        async with self._stores_lock:
-            if generation != self._generation or not self.entry or not self.hass.data.get(DOMAIN, {}).get("active"):
-                raise StoreError("La integración no está activa.")
-            current = self.snapshot["stores"]["lidl"]
-            stores = {**self.snapshot["stores"], "lidl":{"enabled":enabled,"region_id":region_id or current["region_id"]}}
             self.hass.config_entries.async_update_entry(self.entry, options={**self.entry.options,
                 "stores":stores,"favorite_store":self._favorite(stores)})
             self.notify()

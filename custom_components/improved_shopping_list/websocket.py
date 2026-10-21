@@ -20,7 +20,6 @@ from .community import build_export
 from .product_translation import async_translate_name
 from .product_lookup import is_product_barcode
 from .store_links import normalize_links, STORES
-from .lidl import LIDL_REGIONS
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -55,7 +54,6 @@ def async_register_commands(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_price_schedule)
     websocket_api.async_register_command(hass, ws_cached_prices)
     websocket_api.async_register_command(hass, ws_refresh_prices)
-    websocket_api.async_register_command(hass, ws_lidl_regions)
     websocket_api.async_register_command(hass, ws_readers_get)
     websocket_api.async_register_command(hass, ws_readers_subscribe)
     websocket_api.async_register_command(hass, ws_readers_save)
@@ -302,8 +300,7 @@ async def ws_store_update(hass, connection, msg):
         return
     try:
         settings = hass.data[DOMAIN]["settings"]
-        result = (await settings.async_update_lidl(msg["enabled"], msg["region_id"]) if msg["store"] == "lidl"
-                  else await settings.async_update_alcampo(msg["enabled"], msg["region_id"]) if msg["store"] == "alcampo"
+        result = (await settings.async_update_alcampo(msg["enabled"], msg["region_id"]) if msg["store"] == "alcampo"
                   else await settings.async_update_carrefour(msg["enabled"], msg.get("sale_point")) if msg["store"] == "carrefour"
             else await settings.async_update_store(msg["enabled"], msg["postal_code"], msg["verify"]))
     except StoreError as err:
@@ -403,13 +400,6 @@ async def ws_cached_prices(hass, connection, msg):
     else:
         result = {"products":manager.prices_for({"store_links":links,"barcodes":msg["codes"]}), "nightly":True}
     connection.send_result(msg["id"], result)
-
-
-@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/settings/lidl_regions"})
-@callback
-def ws_lidl_regions(hass, connection, msg):
-    if _catalog(hass, connection, msg):
-        connection.send_result(msg["id"], {"regions":[{"id":key,"name":name} for key,name in LIDL_REGIONS.items()]})
 
 
 @websocket_api.websocket_command({

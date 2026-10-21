@@ -131,11 +131,6 @@ export class ListSettingsSession {
     if (generation === this._generation && revision === this._revision) this._receive(data);
   }
 
-  async saveLidl(enabled, regionId) {
-    const generation = this._generation, revision = ++this._revision;
-    const data = await this.getHass().callWS({type:`${PREFIX}store`,store:"lidl",enabled,region_id:regionId});
-    if (generation === this._generation && revision === this._revision) this._receive(data);
-  }
 
   stop() {
     this._generation += 1;

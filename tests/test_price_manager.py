@@ -19,39 +19,6 @@ def product(name="Arroz", identifier="24097", store="alcampo"):
     return {"id":name, "name":name,"barcode":"", "barcodes":[], "store_links":{store:normalize_link(store, identifier)}}
 
 
-async def test_lidl_uses_pending_items_shared_pacing_and_region_scoped_cache(env):
-    env.manager._queue = Mock()
-    env.settings.snapshot["stores"]["lidl"] = {"enabled":True,"region_id":"28"}
-    env.catalog.products = [product("Arroz","11107037","lidl"),product("Café","11107038","lidl")]
-    await env.manager.async_refresh_store("lidl")
-    assert len(env.manager._data["pending"]) == 1
-    await env.manager.async_tick()
-    assert env.requests == [("lidl","11107037",env.clock[0])]
-    cached = env.manager.prices_for(env.catalog.products[0])[0]
-    assert cached["scope"] == "28" and not cached["expired"]
-    env.settings.snapshot["stores"]["lidl"]["enabled"] = False
-    assert env.manager.prices_for(env.catalog.products[0])  # Reads still use the cache.
-    env.settings.snapshot["stores"]["lidl"].update(enabled=True,region_id="26")
-    assert env.manager.prices_for(env.catalog.products[0]) == []
-    await env.manager.async_refresh_store("lidl")
-    env.clock[0] += 299
-    await env.manager.async_tick()
-    assert len(env.requests) == 1
-    env.clock[0] += 1
-    await env.manager.async_tick()
-    assert len(env.requests) == 2
-    assert len(env.manager._data["offers"]) == 2
-    price = next(value for value in env.manager._data["offers"].values() if value["scope"] == "26")
-    price["valid_until"] = env.clock[0]-1
-    assert env.manager.prices_for(env.catalog.products[0])[0]["expired"]
-    previous = deepcopy(env.manager._data["offers"])
-    env.manager.sources.fetch = AsyncMock(return_value=None)
-    env.clock[0] += 300
-    await env.manager.async_refresh_store("lidl")
-    await env.manager.async_tick()
-    assert env.manager._data["offers"] == previous  # An unavailable offer preserves last known prices.
-
-
 @pytest.fixture
 async def env(hass, monkeypatch):
     clock = [datetime(2026, 10, 20, 1, 0, tzinfo=timezone.utc).timestamp()]
@@ -80,6 +47,32 @@ async def env(hass, monkeypatch):
     manager.sources.fetch = AsyncMock(side_effect=fetch)
     yield state
     await manager.async_stop()
+
+
+async def test_retired_provider_cache_and_queue_migrate_without_touching_other_prices(env,hass):
+    await env.manager.async_tick()
+    kept = deepcopy(env.manager._data["offers"])
+    data = env.manager._data
+    data["offers"]["lidl:28:11107037"] = {"store":"lidl","price":"2.89"}
+    data["attempts"]["lidl:28:11107037"] = "2026-10-20"
+    data["legacy_ean"]["lidl:0012345"] = {"store":"lidl","price":"2.89"}
+    data["errors"].update(lidl="Old failure",carrefour="Preserved failure")
+    data["blocked_until"]["lidl"] = env.clock[0]+3600
+    data["blocked_day"]["lidl"] = "2026-10-20"
+    other_job = {"store":"alcampo","link":normalize_link("alcampo","1234"),"scope":""}
+    data.update(pending=[{"store":"lidl","link":{"id":"11107037"},"scope":"28"},other_job],total=3,processed=1)
+    await env.manager._save()
+    restored = PriceManager(hass,env.catalog,env.settings,env.manager.activity)
+    await restored.async_load()
+    assert restored._data["offers"] == kept
+    assert restored._data["pending"] == [other_job]
+    assert restored._data["processed"] == 2 and restored._data["total"] == 3
+    assert restored._data["errors"] == {"carrefour":"Preserved failure"}
+    for name in ("offers","attempts","legacy_ean","errors","blocked_day","blocked_until"):
+        assert not any(key.startswith("lidl") for key in restored._data[name])
+    assert len(env.requests) == 1  # Loading/migrating does not make requests.
+    stored = await restored._store.async_load()
+    assert stored["pending"] == [other_job]
 
 
 async def test_pending_union_deduplicates_and_reads_do_not_fetch(env):

@@ -4,7 +4,7 @@
 
 Una interfaz propia para gestionar las listas de la compra que ya tienes integradas en Home Assistant.
 
-Versión actual: **0.19.0**. Interfaz en español, pensada para móvil y ordenador. Requiere **Home Assistant Core 2026.10 o posterior**. La referencia de desarrollo es Core 2026.10.2.
+Versión actual: **0.20.0**. Interfaz en español, pensada para móvil y ordenador. Requiere **Home Assistant Core 2026.10 o posterior**. La referencia de desarrollo es Core 2026.10.2.
 
 Vinculaciones con Mercadona, Carrefour, Alcampo, Consum, La Sirena, Eroski y DIA, y consultas
 directas desde Home Assistant. Se ha retirado el feed
@@ -213,12 +213,15 @@ del reloj, abre un único **Código postal** opcional para todas las tiendas.
 Al guardarlo se comprueba la cobertura de las tiendas activas; las demás lo usan
 cuando se habilitan. Mercadona obtiene su almacén, Carrefour su centro y Alcampo
 su región; las demás consultan sus zonas públicas. Se conserva un centro anterior
-si sigue siendo válido o se usa el primero ofrecido. El centro utilizado se muestra
-en Configuración, sin campos técnicos ni códigos postales independientes.
+si sigue siendo válido o se usa el primero ofrecido, sin códigos postales independientes.
+El badge de cada tienda muestra el número de productos vinculados y un carrito;
+al pulsarlo se abre directamente el listado de precios guardados, incluso con la tienda desactivada.
 
 Si se deja vacío, Carrefour y Alcampo utilizan la consulta predeterminada de la
 web. Las tiendas que requieren una zona usan estos códigos de referencia:
 Mercadona 28001, Consum 46409, La Sirena y DIA 28024, Eroski 48001.
+Si falta la configuración del centro de una tienda ya habilitada, se resuelve
+automáticamente antes de su actualización manual o diaria.
 Estos precios pueden diferir de los de tu zona. Si se introduce un código postal
 y una tienda rechaza la consulta o no tiene cobertura, se muestra el error sin
 sustituirlo por otra ubicación. Alcampo inicia una sesión anónima temporal y usa
@@ -237,8 +240,7 @@ errores conservan el precio anterior. Los EAN recibidos son metadatos del precio
 no modifican automáticamente las asociaciones de los lectores.
 
 Eroski utiliza un centro de recogida devuelto por su selector público para el
-código postal común. El selector puede devolver centros de otras poblaciones;
-consulta el nombre del centro utilizado en Configuración.
+código postal común. El selector puede devolver centros de otras poblaciones.
 La integración inicia su propia sesión anónima, aplica el centro y verifica que la
 sesión conserva ese centro antes de aceptar un precio. No reserva una franja de
 recogida ni utiliza tu cuenta o carrito. Las vinculaciones de Eroski requieren el
@@ -261,8 +263,10 @@ consultas reutilizan esa sesión; los rechazos, respuestas ambiguas y productos
 sin resultado conservan el precio anterior. No se aplican precios exclusivos del club.
 
 En **Catálogo → Información adicional**, selecciona una tienda, pega su enlace
-o ID y pulsa Añadir vinculación. Puedes editar o quitar cada vínculo antes de
-guardar el producto. Solo se admiten fichas HTTPS de las tiendas registradas,
+o ID y pulsa **+** o **Enter**. Cada vínculo muestra el logo y nombre de la tienda
+junto al enlace, con un botón rojo para quitarlo antes de guardar el producto.
+Los campos de precio orientativo y moneda ya no se muestran; se conservan los
+precios manuales que estuvieran guardados. Solo se admiten fichas HTTPS de las tiendas registradas,
 sin credenciales, puertos arbitrarios ni redirecciones a otras tiendas o productos.
 No se exige EAN para consultar el precio de una referencia seleccionada por el usuario.
 

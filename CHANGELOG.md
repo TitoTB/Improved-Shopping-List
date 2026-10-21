@@ -1,11 +1,19 @@
 # Historial de cambios
 
-## Pendiente de publicación
+## 0.20.0
 
 - Nuevo apartado Stock, con inventario común persistente, búsqueda predictiva, cantidades por producto, vistas de cuadrícula y filas, degradado naranja y envío a la lista de compra seleccionada sin duplicados.
 - Las acciones de lectores para sumar y restar stock ya modifican el inventario, con protección antirrepetición y registro de movimientos.
 - Códigos de barras/QR y NFC en líneas capturadas desde lectores, sin campos manuales. La captura temporal no ejecuta acciones habituales y se libera al cerrar o desconectarse.
 - Las acciones de cada producto heredan las del lector salvo excepción elegida por el usuario. Eliminados los badges de categoría de las tarjetas del catálogo.
+
+- Tiendas muestra un badge con el número de productos vinculados y el icono de carrito; al pulsarlo se abre directamente su listado de precios guardados, incluso si la tienda está desactivada. Retiradas las pestañas Productos y Configuración de los siete popups.
+- Reparación automática de ubicaciones incompletas antes de actualizar precios manualmente o en la revisión diaria. Si no se indica código postal común se resuelven las ubicaciones predeterminadas, incluidas Consum 46409 y Eroski 48001; los códigos indicados por el usuario se respetan.
+- Carrefour admite referencias `R-prod…` cuyo identificador numérico de analítica es diferente de la referencia interna. Se mantiene la comprobación de identidad única y se amplía el diagnóstico de respuestas no coincidentes.
+- Fichas sin campos de precio orientativo ni moneda. Las vinculaciones se añaden con + o Enter, muestran logo y nombre de la tienda junto al enlace y usan un botón rojo para eliminar. Se conservan los precios manuales anteriores al editar.
+- Personalización sitúa los selectores de productos por fila debajo de las vistas previas. Ajustes → Listas elimina el texto explicativo y la etiqueta Principal redundante; el botón amarillo identifica la lista principal.
+- Código postal con texto simplificado y cierre automático tras guardar, sin aviso de confirmación. Retirado el contador de productos del catálogo.
+- Pruebas ampliadas de Stock, lectores, captura de códigos, ubicaciones predeterminadas, referencias de Carrefour, vinculaciones con Enter y presentación móvil y de escritorio.
 
 ## 0.19.0
 

@@ -206,6 +206,7 @@ const hass={
     }
     if(msg.type==='improved_shopping_list/settings/refresh_all_prices'){
       window.calls.push(structuredClone(msg));
+      if(window.delayManualRefresh)await new Promise(resolve=>{window.releaseManualRefresh=resolve;});
       if(window.failManualPriceRefresh)throw new Error('La tienda ha indicado una pausa.');
       if(window.manualResumeProgress)return {resumed:true,queued:5,errors:[],progress:structuredClone(window.manualResumeProgress)};
       return {queued:4,errors:window.manualPriceErrors??[]};
@@ -1169,6 +1170,16 @@ async function main() {
     await resumeSettings.locator('#refresh-all-prices').click();
     await resumeDialog.locator('#prices-progress-percentage').filter({hasText:'17 %'}).waitFor();
     assert.equal(await resumePage.evaluate(()=>window.testPanel.shadowRoot.querySelector('isl-settings')._latestPriceProgress.batch_id),'background-batch');
+    await resumeDialog.getByRole('button',{name:'Cerrar',exact:true}).click();
+    await resumePage.evaluate(()=>{window.delayManualRefresh=true;window.testPanel.shadowRoot.querySelector('isl-settings')._latestPriceProgress=null;});
+    await resumeSettings.locator('#refresh-all-prices').click();
+    await resumePage.waitForFunction(()=>typeof window.releaseManualRefresh==='function');
+    await resumeDialog.getByRole('button',{name:'Cerrar',exact:true}).click();
+    await resumeSettings.locator('#refresh-all-prices').click();
+    assert.equal(await resumeDialog.isVisible(),true);
+    assert.equal(await resumePage.evaluate(()=>window.calls.filter(call=>call.type==='improved_shopping_list/settings/refresh_all_prices').length),2);
+    await resumePage.evaluate(()=>{window.delayManualRefresh=false;window.releaseManualRefresh();});
+    await resumeDialog.locator('#prices-progress-percentage').filter({hasText:'17 %'}).waitFor();
     await resumeContext.close();
     const settingsContext = await browser.newContext({ viewport: { width: 1280, height: 960 } });
     await settingsContext.route("https://logos-world.net/**",route=>route.fulfill({contentType:"image/svg+xml",body:'<svg xmlns="http://www.w3.org/2000/svg" width="56" height="56"><rect width="56" height="56" fill="green"/></svg>'}));

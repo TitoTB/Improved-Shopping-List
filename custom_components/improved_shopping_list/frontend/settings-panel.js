@@ -321,7 +321,7 @@ class ImprovedShoppingSettings extends HTMLElement {
     const admin = hass?.user?.is_admin === true;
     const locked = !admin || !settings.loaded || settings.loading || this._busy;
     const refresh = root.querySelector("#refresh-all-prices");
-    refresh.disabled = locked || this._pricesRefreshing || !Object.values(settings.stores ?? {}).some(store=>store.enabled);
+    refresh.disabled = locked || !Object.values(settings.stores ?? {}).some(store=>store.enabled);
     refresh.setAttribute("aria-busy",String(Boolean(this._pricesRefreshing)));
     root.querySelector("#configure-price-schedule").disabled = !settings.loaded || settings.loading || this._busy;
     this._watchPriceStatus();
@@ -502,7 +502,7 @@ class ImprovedShoppingSettings extends HTMLElement {
   }
 
   async _refreshPricesNow() {
-    if (this._pricesRefreshing || this._data.hass?.user?.is_admin !== true) return;
+    if (this._data.hass?.user?.is_admin !== true) return;
     const hass = this._data.hass;
     const stores = ["mercadona","carrefour","alcampo","consum","lasirena","eroski","dia"].filter(store=>this._data.settings.stores?.[store]?.enabled);
     if (!stores.length) return;
@@ -513,7 +513,7 @@ class ImprovedShoppingSettings extends HTMLElement {
     if(!dialog.open)dialog.showModal();
     clearInterval(this._pricesProgressTimer);
     this._pricesProgressTimer=setInterval(()=>this._renderGlobalPriceProgress(),1000);
-    if(this._latestPriceProgress?.running){this._renderGlobalPriceProgress();return;}
+    if(this._pricesRefreshing || this._latestPriceProgress?.running){this._renderGlobalPriceProgress();return;}
     this._pricesRefreshing = true; this._render();
     try {
       const result = await hass.callWS({type:"improved_shopping_list/settings/refresh_all_prices"});

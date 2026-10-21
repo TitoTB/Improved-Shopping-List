@@ -22,11 +22,15 @@ class ImprovedShoppingListPanel extends HTMLElement {
     this._catalogProducts = new Map();
     this._catalogCategories = new Map();
     this._view = "shopping";
+    this._listLayout = "grid";
+    try { if (localStorage.getItem("isl-list-layout") === "rows") this._listLayout = "rows"; } catch { /* Storage may be disabled. */ }
+    this._rowPrices = [];
     this._onVisibility = () => {
       if (document.visibilityState === "visible") {
         void this._session.refresh();
         void this._settings.refresh();
         void this._readers.refresh();
+        if (this._listLayout === "rows") void this._refreshRowPrices();
       }
     };
   }
@@ -41,6 +45,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
       previousHass?.states[this._session.entityId] !== value.states[this._session.entityId];
     this._todoStatesSignature = signature;
     this._hass = value;
+    if (previousConnection !== value.connection) this._stopRowPrices();
     if (!this.isConnected) return;
     if (this._built) this.shadowRoot.querySelector("isl-catalog").hass = value;
     if (this._built) this.shadowRoot.querySelector("isl-logs").hass = value;
@@ -75,6 +80,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
     this._session.dispose();
     this._settings.stop();
     this._readers.stop();
+    this._stopRowPrices();
     this._settingsApplied = false;
     this._started = false;
     this.shadowRoot.querySelector("#list-dialog")?.close();
@@ -99,6 +105,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
       }
     }
     this._renderData();
+    if (this._listLayout === "rows") void this._refreshRowPrices();
   }
 
   _build() {
@@ -181,6 +188,21 @@ class ImprovedShoppingListPanel extends HTMLElement {
         .description { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; overflow:hidden; color:var(--secondary-text-color,#63766b); font-size:clamp(7px,4cqi,12px); white-space:pre-wrap; }
         @container(max-width:140px) { .item .subtitle,.item .description,.item .tags { display:none; } .item .summary { -webkit-line-clamp:2; } }
         .completed .summary { text-decoration:line-through; color:inherit; }
+        .row-meta { display:none; }
+        .product-grid.rows { grid-template-columns:minmax(0,1fr); gap:10px; }
+        .rows .item { display:grid; grid-template-columns:48px minmax(0,1fr) auto; gap:12px; aspect-ratio:auto; min-height:80px; padding:12px 16px; border-radius:12px; }
+        .rows .item .product-media { grid-column:1; grid-row:1; width:48px; height:48px; }
+        .rows .item .placeholder ha-icon { --mdc-icon-size:40px; }
+        .rows .item-text { grid-column:2; grid-row:1; }
+        .rows .item .summary { font-size:clamp(14px,2.5cqi,18px); -webkit-line-clamp:3; }
+        .rows .item .category-badge,.rows .item .tags,.rows .item .description { display:none; }
+        .rows .row-meta { grid-column:3; grid-row:1; display:flex; align-items:center; justify-content:flex-end; flex-wrap:wrap; gap:6px; max-width:min(40cqi,260px); }
+        .row-category,.row-price { display:inline-flex; align-items:center; justify-content:center; gap:5px; padding:6px 9px; border-radius:16px; font-size:12px; line-height:1.2; min-width:0; max-width:100%; }
+        .row-category { color:#fff; box-shadow:0 2px 6px rgba(0,0,0,.18); }
+        .row-category span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .row-price { background:rgba(255,255,255,.2); white-space:nowrap; }
+        .row-meta ha-icon { display:flex; align-items:center; justify-content:center; width:18px; height:18px; --mdc-icon-size:18px; flex:none; }
+        @media(max-width:540px) { .rows .item { grid-template-columns:36px minmax(0,1fr) auto; gap:8px; padding:10px; }.rows .item .product-media { width:36px; height:36px; }.rows .item .placeholder ha-icon { --mdc-icon-size:32px; }.row-category,.row-price { font-size:11px; padding:5px 7px; } }
         .empty { padding:28px 8px; text-align:center; color:var(--secondary-text-color,#63766b); line-height:1.6; }
         .empty strong { display:block; font-size:18px; color:var(--primary-text-color,#20352d); margin-bottom:5px; }
         details { margin-top:24px; }
@@ -220,6 +242,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
             <div class="input-wrap"><label class="sr-only" for="product-input">Añadir producto</label><input id="product-input" type="text" maxlength="255" placeholder="Busca o añade un producto" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="product-suggestions" aria-describedby="predictive-count" required><ul id="product-suggestions" class="predictive-results" role="listbox" aria-label="Productos del catálogo" hidden></ul><span id="predictive-count" class="sr-only" role="status" aria-live="polite"></span></div>
             <button id="add-button" class="icon-button" type="submit" aria-label="Añadir" title="Añadir producto"><ha-icon icon="mdi:plus-thick"></ha-icon></button>
             <button id="choose-list" class="icon-button" type="button" aria-label="Seleccionar lista" title="Seleccionar lista" aria-haspopup="dialog" aria-controls="list-dialog"><ha-icon icon="mdi:format-list-checks"></ha-icon></button>
+            <button id="toggle-list-layout" class="icon-button" type="button" aria-label="Cambiar a vista de filas" title="Cambiar a vista de filas"><ha-icon icon="mdi:view-sequential" aria-hidden="true"></ha-icon></button>
           </form>
           <p id="capability-help" class="helper" hidden></p>
         </section>
@@ -248,6 +271,14 @@ class ImprovedShoppingListPanel extends HTMLElement {
       this._catalogProducts = new Map(event.detail.products.map(product => [productNameKey(product.name), product]));
       this._catalogCategories = new Map(event.detail.categories.map(category => [normalizedName(category.name), category]));
       this._renderData();
+      if (this._listLayout === "rows") void this._refreshRowPrices();
+    });
+    root.querySelector("#toggle-list-layout").addEventListener("click", () => {
+      this._listLayout = this._listLayout === "grid" ? "rows" : "grid";
+      try { localStorage.setItem("isl-list-layout", this._listLayout); } catch { /* Storage may be disabled. */ }
+      this._renderData();
+      if (this._listLayout === "rows") void this._refreshRowPrices();
+      else this._stopRowPrices();
     });
     root.querySelector("#nav-shopping").addEventListener("click", () => this._switchView("shopping"));
     root.querySelector("#clear-completed").addEventListener("click", event => {
@@ -355,6 +386,13 @@ class ImprovedShoppingListPanel extends HTMLElement {
     this._renderOptions();
     const root = this.shadowRoot;
     const session = this._session;
+    const rows = this._listLayout === "rows";
+    const layoutLabel = rows ? "Cambiar a vista de cuadrícula" : "Cambiar a vista de filas";
+    const layoutButton = root.querySelector("#toggle-list-layout");
+    layoutButton.setAttribute("aria-label", layoutLabel); layoutButton.title = layoutLabel;
+    layoutButton.querySelector("ha-icon").setAttribute("icon", rows ? "mdi:view-comfy" : "mdi:view-sequential");
+    for (const id of ["pending","completed"]) root.querySelector("#" + id).classList.toggle("rows", rows);
+    if (rows) this._ensureRowPrices();
     const appearance = this._settings.appearance;
     this.style.setProperty("--isl-gradient-start", appearance.gradient_start);
     this.style.setProperty("--isl-gradient-end", appearance.gradient_end);
@@ -518,6 +556,60 @@ class ImprovedShoppingListPanel extends HTMLElement {
     void this._addItem();
   }
 
+  _stopRowPrices() {
+    this._rowPricesToken = null;
+    this._rowPricesConnection = null;
+    this._rowPricesLoading = null;
+    this._rowPricesAgain = false;
+    this._stopRowPricesSubscription?.(); this._stopRowPricesSubscription = null;
+    this._rowPrices = [];
+  }
+
+  _ensureRowPrices() {
+    const connection = this._hass?.connection;
+    if (!this.isConnected || !connection || this._rowPricesConnection === connection) return;
+    this._stopRowPrices();
+    this._rowPricesConnection = connection;
+    const token = this._rowPricesToken = {};
+    void connection.subscribeMessage(() => {
+      if (this._rowPricesToken === token) void this._refreshRowPrices();
+    }, {type:"improved_shopping_list/settings/store_progress"}).then(stop => {
+      if (this._rowPricesToken !== token) stop();
+      else this._stopRowPricesSubscription = stop;
+    }).catch(() => { /* Optional cached prices must not block list operations. */ });
+    void this._refreshRowPrices();
+  }
+
+  async _refreshRowPrices() {
+    if (!this.isConnected || this._listLayout !== "rows" || !this._hass) return;
+    if (this._rowPricesLoading) { this._rowPricesAgain = true; return this._rowPricesLoading; }
+    const token = this._rowPricesToken;
+    const pending = Promise.allSettled(["mercadona","carrefour","alcampo"].map(store =>
+      this._hass.callWS({type:"improved_shopping_list/catalog/store_prices",store}))).then(results => {
+        if (token !== this._rowPricesToken || !this.isConnected) return;
+        const stores = ["mercadona","carrefour","alcampo"];
+        this._rowPrices = results.flatMap((result,index) => result.status === "fulfilled" ?
+          result.value.products ?? [] : this._rowPrices.filter(offer => offer.store === stores[index]));
+        this._renderData();
+      }).finally(() => {
+        if (this._rowPricesLoading !== pending) return;
+        this._rowPricesLoading = null;
+        if (this._rowPricesAgain) { this._rowPricesAgain = false; void this._refreshRowPrices(); }
+      });
+    this._rowPricesLoading = pending;
+    return pending;
+  }
+
+  _listPrice(product) {
+    if (!product) return null;
+    const valid = offer => offer.price != null && offer.price !== "" && Number.isFinite(Number(offer.price)) &&
+      Number(offer.price) >= 0 && /^[A-Z]{3}$/.test(offer.currency ?? "");
+    const offers = this._rowPrices.filter(offer => offer.catalog_product_id === product.id && valid(offer));
+    offers.sort((a,b) => Number(b.store === this._settings.favoriteStore) - Number(a.store === this._settings.favoriteStore) ||
+      (b.checked_at ?? 0) - (a.checked_at ?? 0));
+    return offers[0] ?? (valid(product) ? {price:product.price,currency:product.currency} : null);
+  }
+
   _renderItems(container, items, disabled) {
     const focusedUid = this.shadowRoot.activeElement?.dataset.uid;
     const nodes = items.map((item, index) => {
@@ -545,7 +637,9 @@ class ImprovedShoppingListPanel extends HTMLElement {
         const tags = document.createElement("span");
         tags.className = "tags";
         text.append(summary, description);
-        card.append(badge, media, text, tags);
+        const metadata = document.createElement("span");
+        metadata.className = "row-meta";
+        card.append(badge, media, text, tags, metadata);
         row.append(card);
         this._rows.set(key, row);
       }
@@ -562,6 +656,25 @@ class ImprovedShoppingListPanel extends HTMLElement {
       summary.textContent = item.summary ?? "Producto sin nombre";
       const product = this._catalogProducts.get(productNameKey(item.summary));
       const category = this._catalogCategories.get(normalizedName(product?.category));
+      const metadata = row.querySelector(".row-meta");
+      metadata.replaceChildren();
+      if (category && this._listLayout === "rows") {
+        const categoryTag = document.createElement("span");
+        categoryTag.className = "row-category"; categoryTag.style.backgroundColor = category.color;
+        categoryTag.title = category.name;
+        const icon = document.createElement("ha-icon"); icon.setAttribute("icon",category.icon); icon.setAttribute("aria-hidden","true");
+        const label = document.createElement("span"); label.textContent = category.name;
+        categoryTag.append(icon,label); metadata.append(categoryTag);
+      }
+      const offer = this._listLayout === "rows" ? this._listPrice(product) : null;
+      if (offer) {
+        const price = document.createElement("span"); price.className = "row-price";
+        const icon = document.createElement("ha-icon"); icon.setAttribute("icon","mdi:cash-multiple"); icon.setAttribute("aria-hidden","true");
+        const label = document.createElement("span");
+        label.textContent = new Intl.NumberFormat("es-ES",{style:"currency",currency:offer.currency}).format(Number(offer.price));
+        price.title = offer.store ? `Último precio guardado · ${({mercadona:"Mercadona",carrefour:"Carrefour",alcampo:"Alcampo"})[offer.store] ?? offer.store}` : "Precio manual";
+        price.append(icon,label); metadata.append(price);
+      }
       const badge = row.querySelector(".category-badge");
       badge.hidden = !category;
       if (category) {

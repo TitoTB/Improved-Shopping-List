@@ -580,6 +580,39 @@ async function main() {
     assert.equal(await yogurtListCard.locator(".subtitle").count(), 0);
     assert.equal((await yogurtListCard.textContent()).includes("2,59"), false);
     await page.screenshot({ path: "test-results/list-grid-desktop.png", fullPage: true });
+    assert.equal(await page.locator("#toggle-list-layout ha-icon").getAttribute("icon"),"mdi:view-sequential");
+    await page.getByRole("button",{name:"Cambiar a vista de filas",exact:true}).click();
+    assert.equal(await page.locator("#toggle-list-layout ha-icon").getAttribute("icon"),"mdi:view-comfy");
+    assert.equal(await page.locator("#pending").evaluate(node=>getComputedStyle(node).gridTemplateColumns.split(" ").length),1);
+    assert.equal(await yogurtListCard.locator(".row-category").textContent(),"Lácteos y frescos");
+    assert.match(await yogurtListCard.locator(".row-price").textContent(),/2,59/);
+    await page.evaluate(()=>{
+      window.listSettings.favorite_store="alcampo";window.emitSettings();
+      window.storePriceFixture=[
+        {catalog_product_id:window.catalogProducts[0].id,store:"alcampo",price:"2.15",currency:"EUR",checked_at:1},
+        {catalog_product_id:window.catalogProducts[0].id,store:"carrefour",price:"2.25",currency:"EUR",checked_at:2}];
+      for(const callback of window.storeProgressListeners)callback({running:false});
+    });
+    await yogurtListCard.locator(".row-price").filter({hasText:"2,15"}).waitFor();
+    for(const width of [1280,390]){
+      await page.setViewportSize({width,height:844});
+      const bounds=await yogurtListCard.locator("button").evaluate(node=>{
+        const card=node.getBoundingClientRect(),media=node.querySelector(".product-media").getBoundingClientRect(),
+          text=node.querySelector(".item-text").getBoundingClientRect(),meta=node.querySelector(".row-meta").getBoundingClientRect();
+        return {wide:card.width>card.height,ordered:media.right<=text.left&&text.right<=meta.left,overflow:node.scrollWidth>node.clientWidth};
+      });
+      assert.deepEqual(bounds,{wide:true,ordered:true,overflow:false});
+      await page.screenshot({path:`test-results/list-rows-${width}.png`,fullPage:true});
+    }
+    await page.getByRole("button",{name:"Marcar como comprado: Yogur sin azúcar",exact:true}).click();
+    await page.locator("#completed-summary").click();
+    await page.locator("#completed .row-price").filter({hasText:"2,15"}).waitFor();
+    await page.getByRole("button",{name:"Volver a poner por comprar: Yogur sin azúcar",exact:true}).click();
+    await page.getByRole("button",{name:"Cambiar a vista de cuadrícula",exact:true}).click();
+    await page.locator("#completed-details").evaluate(node=>{node.open=false;});
+    assert.equal(await page.locator("#pending").evaluate(node=>node.classList.contains("rows")),false);
+    await page.evaluate(()=>{window.storePriceFixture=undefined;window.listSettings.favorite_store="";window.emitSettings();});
+    await page.setViewportSize({width:1280,height:844});
     await page.getByRole("button", { name: "Marcar como comprado: Yogur sin azúcar", exact: true }).click();
     await page.getByRole("button", { name: "Catálogo", exact: true }).click();
     assert.equal(await productCard.getAttribute("data-in-list"), "false");

@@ -1297,7 +1297,7 @@ async function main() {
     await settingsView.getByRole("button",{name:"Listas",exact:true}).click();
     const configured = settingsView.locator("#configured-lists article");
     assert.equal(await configured.count(), 3);
-    assert.equal(await configured.filter({ hasText: "todo.bring" }).locator(".badge").textContent(), "Principal");
+    assert.equal(await configured.filter({ hasText: "todo.bring" }).locator(".list-primary").getAttribute("aria-pressed"), "true");
     assert.equal(await configured.locator('.list-primary[aria-pressed="true"]').count(),1);
     const listActions=configured.filter({hasText:"todo.bring"}).locator('.actions button');
     assert.deepEqual(await listActions.locator('ha-icon').evaluateAll(nodes=>nodes.map(node=>node.getAttribute('icon'))),['mdi:delete','mdi:star']);

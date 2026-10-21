@@ -150,7 +150,6 @@ class ImprovedShoppingSettings extends HTMLElement {
       <p id="admin-help" hidden>Necesitas una cuenta administradora de Home Assistant para modificar estos ajustes.</p>
       <section id="settings-lists" class="card" aria-labelledby="settings-lists-title">
         <h2 id="settings-lists-title">Listas de la compra</h2>
-        <p>Elige las listas que quieres utilizar y marca una como principal. Quitar una lista de aquí conserva su entidad y sus productos en Home Assistant.</p>
         <div class="add-row"><div class="select-wrap"><label for="todo-entity">Entidad todo</label><select id="todo-entity"></select></div><button id="add-list" class="primary">Añadir lista</button></div>
         <div id="configured-lists" class="lists"></div>
         <p id="settings-empty" hidden>No hay listas añadidas. Añade una entidad todo para empezar.</p>
@@ -373,14 +372,6 @@ class ImprovedShoppingSettings extends HTMLElement {
       id.className = "entity";
       id.textContent = entity + (isAvailable(state) ? "" : " · No disponible");
       info.append(title, id);
-      if (entity === settings.primary) {
-        const badge = document.createElement("span");
-        badge.className = "badge";
-        const icon = document.createElement("ha-icon");
-        icon.setAttribute("icon", "mdi:star");
-        badge.append(icon, document.createTextNode("Principal"));
-        info.append(badge);
-      }
       const actions = document.createElement("div");
       actions.className = "actions";
       for (const [label, action] of [["Quitar", "remove"], ["Hacer principal", "primary"]]) {

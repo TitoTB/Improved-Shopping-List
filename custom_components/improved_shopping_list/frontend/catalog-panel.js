@@ -217,6 +217,12 @@ class ImprovedShoppingCatalog extends HTMLElement {
         .store-link-add select { appearance:none; -webkit-appearance:none; padding-right:32px; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right 12px center; }
         #add-product-store-link { display:grid; place-items:center; padding:0; }
         #add-product-store-link ha-icon { display:block; width:24px; height:24px; --mdc-icon-size:24px; }
+        .product-store-link { display:grid; grid-template-columns:minmax(90px,.8fr) minmax(0,1.4fr) 40px; gap:8px; align-items:center; margin-bottom:10px; }
+        .product-store-link input { min-width:0; width:100%; height:46px; margin:0; }
+        .store-reference { display:flex; align-items:center; justify-content:center; gap:6px; min-width:0; min-height:46px; padding:6px; border-radius:10px; background:var(--secondary-background-color,#edf4ee); font-size:12px; font-weight:650; }
+        .store-reference img { width:24px; height:24px; object-fit:contain; background:white; border-radius:6px; padding:2px; flex:none; }
+        .remove-store-link { display:grid; place-items:center; width:40px; height:46px; min-height:46px; padding:0; background:#d32f2f; color:white; border:0; }
+        .remove-store-link ha-icon { --mdc-icon-size:22px; width:22px; height:22px; }
         label { font-size:13px; font-weight:600; display:block; }
         input,select,textarea { display:block; min-height:46px; width:100%; margin-top:7px; padding:10px 12px; color:inherit; background:var(--card-background-color,#fff); border:1px solid var(--divider-color,#dfe7e1); border-radius:9px; min-width:0; }
         textarea { resize:vertical; min-height:76px; }
@@ -352,8 +358,6 @@ class ImprovedShoppingCatalog extends HTMLElement {
             <div class="wide"><label for="product-category">Categoría</label><div class="product-category-controls"><select id="product-category" name="category"><option value="">Sin categoría</option></select><button id="add-product-category" type="button" aria-label="Nueva categoría" title="Nueva categoría"><ha-icon icon="mdi:plus-thick"></ha-icon></button></div></div>
           </section>
           <section id="product-additional" class="fields" aria-label="Información adicional" hidden>
-            <label>Precio orientativo<input name="price" type="number" min="0" max="1000000" step="0.01" placeholder="Sin precio"></label>
-            <label>Moneda<select name="currency"><option value="EUR">EUR · Euro</option><option value="USD">USD · Dólar</option><option value="GBP">GBP · Libra</option></select></label>
             <div class="wide"><h3>Vinculaciones con tiendas</h3><div id="product-store-links"></div><div class="store-link-add"><select id="product-link-store" aria-label="Tienda del producto"></select><input id="product-link-value" aria-label="Enlace o ID del producto" maxlength="2048" placeholder="Enlace o ID del producto"><button id="add-product-store-link" type="button" aria-label="Añadir vinculación"><ha-icon icon="mdi:plus-thick" aria-hidden="true"></ha-icon></button></div></div>
             <div id="product-nutriscore" class="wide" hidden><h3>Nutri-Score</h3><div id="nutriscore-results"></div></div>
             <div id="product-store-prices" class="wide" hidden><h3>Precios de tiendas</h3><div id="store-price-results"></div></div>
@@ -386,13 +390,17 @@ class ImprovedShoppingCatalog extends HTMLElement {
     const root = this.shadowRoot;
     installDialogCloseButtons(root);
     root.querySelector("#product-link-store").addEventListener("change",()=>this._storeLinkHint());
-    root.querySelector("#add-product-store-link").addEventListener("click", () => {
+    const addStoreLink = () => {
       const store = root.querySelector("#product-link-store").value, value = root.querySelector("#product-link-value").value.trim();
       if (!store || !value) return;
       this._storeLinks[store] = value;
       root.querySelector("#product-link-value").value = "";
       this._renderStoreLinks();
       void this._loadRetailPrices();
+    };
+    root.querySelector("#add-product-store-link").addEventListener("click", addStoreLink);
+    root.querySelector("#product-link-value").addEventListener("keydown", event => {
+      if (event.key === "Enter" && !event.isComposing) { event.preventDefault(); addStoreLink(); }
     });
     for (const button of root.querySelectorAll("[data-product-view]")) button.addEventListener("click", () => this._switchProductView(button.dataset.productView));
     root.querySelector("#product-form").addEventListener("invalid", event => {
@@ -1095,16 +1103,19 @@ class ImprovedShoppingCatalog extends HTMLElement {
   _renderStoreLinks() {
     const root = this.shadowRoot, names = {mercadona:"Mercadona",carrefour:"Carrefour",alcampo:"Alcampo",consum:"Consum",lasirena:"La Sirena",eroski:"Eroski",dia:"DIA"};
     root.querySelector("#product-store-links").replaceChildren(...Object.entries(this._storeLinks).map(([store,value])=>{
-      const row = document.createElement("div"); row.className = "product-category-controls";
-      row.style.marginBottom = "10px";
-      const label = document.createElement("label"); label.textContent = names[store] ?? store; label.style.flex = "1";
+      const row = document.createElement("div"); row.className = "product-store-link";
+      const reference = document.createElement("span"); reference.className = "store-reference";
+      const image = document.createElement("img"); image.alt = ""; image.referrerPolicy = "no-referrer";
+      const logos = {carrefour:"https://images.seeklogo.com/logo-png/31/2/carrefour-logo-png_seeklogo-318190.png",alcampo:"https://almeria.online/wp-content/uploads/2024/09/alcampo-logo.png"};
+      image.src = logos[store] ?? new URL(`${store}.${store === "mercadona" || store === "dia" ? "png" : store === "eroski" ? "svg" : "jpg"}`,import.meta.url).href;
+      const name = document.createElement("span"); name.textContent = names[store] ?? store;
+      reference.append(image,name);
       const input = document.createElement("input"); input.value = typeof value === "string" ? value : value.url || value.id; input.maxLength = 2048; input.setAttribute("aria-label",`Enlace o ID de ${names[store]}`);
       input.addEventListener("input",()=>{this._storeLinks[store]=input.value.trim();});
       input.addEventListener("change",()=>void this._loadRetailPrices());
-      label.append(input);
-      const remove = document.createElement("button"); remove.type = "button"; remove.setAttribute("aria-label",`Quitar vinculación de ${names[store]}`); remove.innerHTML = '<ha-icon icon="mdi:delete" aria-hidden="true"></ha-icon>';
+      const remove = document.createElement("button"); remove.type = "button"; remove.className = "remove-store-link"; remove.setAttribute("aria-label",`Quitar vinculación de ${names[store]}`); remove.innerHTML = '<ha-icon icon="mdi:delete" aria-hidden="true"></ha-icon>';
       remove.addEventListener("click",()=>{delete this._storeLinks[store];this._renderStoreLinks();void this._loadRetailPrices();});
-      row.append(label,remove);return row;
+      row.append(reference,input,remove);return row;
     }));
     const select = root.querySelector("#product-link-store");
     select.replaceChildren(...Object.entries(names).filter(([key])=>!(key in this._storeLinks)).map(([key,name])=>new Option(name,key)));
@@ -1204,9 +1215,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
     root.querySelector("#product-dialog-title").textContent = product ? "Editar producto" : "Nuevo producto";
     root.querySelector("#product-error").hidden = true;
     if (product) {
-      for (const key of ["name", "category", "price", "image_url"]) form.elements[key].value = product[key] ?? "";
-      if (![...form.elements.currency.options].some(option => option.value === product.currency)) form.elements.currency.add(new Option(product.currency, product.currency));
-      form.elements.currency.value = product.currency;
+      for (const key of ["name", "category", "image_url"]) form.elements[key].value = product[key] ?? "";
       for (const code of [product.barcode,...(product.barcodes??[])]) this._addProductCode("barcode",code);
       for (const code of product.nfc_tags??[]) this._addProductCode("nfc",code);
     }
@@ -1225,7 +1234,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
     const root = this.shadowRoot;
     const form = root.querySelector("form");
     const fields = Object.fromEntries(new FormData(form));
-    const product = { ...fields, price: fields.price || null, tags: this._editing?.tags ?? [], icon: this._editing?.icon ?? "", notes: this._editing?.notes ?? "" };
+    const product = { ...fields, price: this._editing?.price ?? null, currency: this._editing?.currency ?? "EUR", tags: this._editing?.tags ?? [], icon: this._editing?.icon ?? "", notes: this._editing?.notes ?? "" };
     product.store_links = structuredClone(this._storeLinks ?? {});
     product.barcode = this._productCodes.barcode[0] ?? "";
     product.barcodes = this._productCodes.barcode.slice(1);

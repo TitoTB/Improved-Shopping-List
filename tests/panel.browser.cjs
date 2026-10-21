@@ -498,13 +498,19 @@ async function main() {
     assert.equal(await catalog.getByLabel("Formato", { exact: true }).count(), 0);
     await captureProductCode(page,catalog,"barcode","0012345678905");
     await catalog.getByRole("button",{name:"Información adicional",exact:true}).click();
-    await catalog.getByLabel("Precio orientativo", { exact: true }).fill("2.59");
+    assert.equal(await catalog.getByLabel("Precio orientativo", { exact: true }).count(),0);
+    assert.equal(await catalog.getByLabel("Moneda", { exact: true }).count(),0);
     await catalog.getByRole("button",{name:"Características",exact:true}).click();
     assert.equal(await catalog.getByLabel("Nombre del producto",{exact:true}).inputValue(),"Yogur natural");
     assert.equal(await catalog.locator("#product-automation").isVisible(),false);
     await catalog.getByRole("button", { name: "Guardar producto", exact: true }).click();
     await catalog.getByRole("heading", { name: "Yogur natural", exact: true }).waitFor();
     assert.equal(await page.evaluate(() => window.catalogProducts[0].barcode), "0012345678905");
+    // Existing manual prices remain readable after removing their edit controls.
+    await page.evaluate(async()=>{
+      const product=structuredClone(window.catalogProducts[0]);
+      await window.testPanel._hass.callWS({type:'improved_shopping_list/catalog/save',product:{...product,price:2.59,currency:'EUR'}});
+    });
     const productCard = catalog.locator("#catalog-grid article").first();
     const callsBeforeProductControls = await page.evaluate(()=>window.calls.length);
     assert.equal(await productCard.locator(".placeholder ha-icon").getAttribute("icon"), "mdi:food");
@@ -1920,8 +1926,17 @@ async function main() {
     await linksForm.getByRole('button',{name:'Añadir vinculación',exact:true}).click();
     await linksForm.getByLabel('Tienda del producto',{exact:true}).selectOption('alcampo');
     await linksForm.getByLabel('Enlace o ID del producto',{exact:true}).fill('https://www.compraonline.alcampo.es/products/arroz/24097');
-    await linksForm.getByRole('button',{name:'Añadir vinculación',exact:true}).click();
+    await linksForm.getByLabel('Enlace o ID del producto',{exact:true}).press('Enter');
+    assert.equal(await linksPage.evaluate(()=>window.catalogProducts.length),0);
     assert.equal(await linksForm.getByLabel('Enlace o ID de Mercadona',{exact:true}).inputValue(),'69938');
+    assert.equal(await linksForm.locator('.store-reference').count(),2);
+    assert.equal(await linksForm.locator('.store-reference img').count(),2);
+    assert.equal(await linksForm.locator('#product-store-links label').count(),0);
+    assert.equal(await linksForm.getByRole('button',{name:'Quitar vinculación de Mercadona',exact:true}).evaluate(node=>getComputedStyle(node).backgroundColor),'rgb(211, 47, 47)');
+    assert.ok(await linksForm.locator('.product-store-link').first().evaluate(row=>{
+      const [store,input,remove]=[...row.children].map(node=>node.getBoundingClientRect());
+      return store.right<=input.left && input.right<=remove.left && Math.abs(store.top-input.top)<1;
+    }));
     await linksPage.screenshot({path:'test-results/store-links-mobile.png',fullPage:true});
     assert.ok(await linksCatalog.locator('dialog[open]').evaluate(dialog=>dialog.scrollWidth<=dialog.clientWidth+1));
     await linksForm.getByRole('button',{name:'Guardar producto',exact:true}).click();

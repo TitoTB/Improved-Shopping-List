@@ -265,7 +265,7 @@ async function main() {
       return;
     }
     if (pathname === "/") { res.setHeader("content-type", "text/html; charset=utf-8"); res.end(html); return; }
-    if (!["/panel.js", "/dialog-controls.js", "/todo-client.js", "/catalog-panel.js", "/catalog-client.js", "/category-panel.js", "/icon-picker.js", "/list-settings-client.js", "/settings-panel.js", "/readers-client.js", "/readers-panel.js", "/product-matching.js", "/product-names.js", "/logs-panel.js", "/logo.png", "/mercadona.png", "/lidl.svg"].includes(pathname)) { res.writeHead(404).end(); return; }
+    if (!["/panel.js", "/dialog-controls.js", "/todo-client.js", "/catalog-panel.js", "/catalog-client.js", "/category-panel.js", "/icon-picker.js", "/list-settings-client.js", "/settings-panel.js", "/readers-client.js", "/readers-panel.js", "/product-matching.js", "/product-names.js", "/logs-panel.js", "/logo.png", "/mercadona.png", "/lidl.png"].includes(pathname)) { res.writeHead(404).end(); return; }
     res.setHeader("content-type", pathname.endsWith(".svg") ? "image/svg+xml" : pathname.endsWith(".png") ? "image/png" : "text/javascript; charset=utf-8");
     res.end(await fs.readFile(path.join(root, pathname.slice(1))));
   });
@@ -1013,7 +1013,7 @@ async function main() {
     await settingsView.getByRole("button",{name:"Tiendas",exact:true}).click();
     assert.equal(await settingsView.locator("#settings-view-stores ha-icon").getAttribute("icon"), "mdi:store");
     assert.deepEqual(await settingsView.locator(".stores-grid .store-name h3").allTextContents(),["Alcampo","Carrefour","Lidl","Mercadona"]);
-    assert.match(await settingsView.locator('#lidl-row img').getAttribute('src'),/\/lidl\.svg$/);
+    assert.match(await settingsView.locator('#lidl-row img').getAttribute('src'),/\/lidl\.png$/);
     await settingsView.getByLabel('Habilitar Lidl',{exact:true}).check();
     const lidlDialog=settingsView.getByRole('dialog',{name:'Lidl',exact:true});
     await lidlDialog.locator('#lidl-region option[value="28"]').waitFor({state:'attached'});

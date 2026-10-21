@@ -10,7 +10,7 @@ import "./logs-panel.js?v=0.17.0";
 const LOGO_URL = new URL("logo.png", import.meta.url).href;
 const STORE_LOGOS = {
   mercadona:new URL("mercadona.png", import.meta.url).href,
-  lidl:new URL("lidl.svg", import.meta.url).href,
+  lidl:new URL("lidl.png", import.meta.url).href,
   carrefour:"https://images.seeklogo.com/logo-png/31/2/carrefour-logo-png_seeklogo-318190.png",
   alcampo:"https://almeria.online/wp-content/uploads/2024/09/alcampo-logo.png",
 };

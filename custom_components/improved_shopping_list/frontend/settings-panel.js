@@ -3,7 +3,7 @@ import { todoEntities, isAvailable } from "./todo-client.js?v=0.17.0";
 import { DEFAULT_APPEARANCE, gradientTextColor } from "./list-settings-client.js?v=0.17.0";
 
 const MERCADONA_LOGO_URL = new URL("mercadona.png", import.meta.url).href;
-const LIDL_LOGO_URL = new URL("lidl.svg", import.meta.url).href;
+const LIDL_LOGO_URL = new URL("lidl.png", import.meta.url).href;
 
 class ImprovedShoppingSettings extends HTMLElement {
   constructor() {

@@ -174,15 +174,15 @@ async def test_quantity_unit_validation_and_reader_updates_keep_configuration(en
         await env.stock.async_save(changed["id"],changed["revision"],config(changed,unit="x"*33))
 
 
-async def test_purchase_arriving_during_list_read_does_not_restore_it_as_pending(env,hass,monkeypatch):
+async def test_purchase_arriving_during_list_read_does_not_restore_it_as_pending(env,hass):
     await env.stock.async_save(env.item["id"],env.item["revision"],config(env.item,
         quantity=0,reorder_enabled=True,reorder_at=0,refill_quantity=4,list_entity="todo.main"))
     env.todo.todo_items=[TodoItem(summary="Cacao",uid="one",status=TodoItemStatus.NEEDS_ACTION)]
     env.todo.publish()
-    async def get_items(*args,**kwargs):
+    async def get_items(call):
         env.todo.todo_items[0].status=TodoItemStatus.COMPLETED;env.todo.publish()
         return {"todo.main":{"items":[serialize_todo_item(item) for item in env.todo.todo_items]}}
-    monkeypatch.setattr(hass.services,"async_call",AsyncMock(side_effect=get_items))
+    hass.services.async_register("todo","get_items",get_items,supports_response=SupportsResponse.ONLY)
     await env.manager.async_check()
     assert env.calls==[] and env.todo.todo_items[0].status==TodoItemStatus.COMPLETED
     await env.manager.async_check()

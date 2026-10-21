@@ -37,12 +37,21 @@ def carrefour_offer(data, link):
     if not data["impressions"]:
         return None
     reference = link["id"].removeprefix("R-")
-    numeric_id = reference.rsplit("-", 1)[-1]
+    # Legacy prod references and their numeric analytics IDs are different IDs.
+    # Only numeric references carry a numeric suffix that can be cross-checked.
+    suffix = reference.rsplit("-", 1)[-1]
+    numeric_id = suffix if re.fullmatch(r"[0-9]+", suffix) else None
     matches = [item for item in data["impressions"] if isinstance(item, dict)
-        and (str(item.get("item_internal_id", "")) == reference and str(item.get("item_id", "")) in ("", numeric_id)
-             or not item.get("item_internal_id") and str(item.get("item_id", "")) == numeric_id)]
+        and (str(item.get("item_internal_id", "")) == reference
+             and (numeric_id is None or str(item.get("item_id", "")) in ("", numeric_id))
+             or numeric_id is not None and not item.get("item_internal_id")
+             and str(item.get("item_id", "")) == numeric_id)]
     if len(matches) != 1:
-        raise PriceError("Carrefour no permite confirmar una única referencia coincidente.", response_class="invalid_product")
+        raise PriceError("Carrefour no permite confirmar una única referencia coincidente.", response_class="invalid_product",
+            match_count=len(matches), impression_count=len(data["impressions"]),
+            returned_references=[{"internal_id":str(item.get("item_internal_id", ""))[:80],
+                "item_id":str(item.get("item_id", ""))[:80]}
+                for item in data["impressions"][:5] if isinstance(item, dict)])
     product = matches[0]
     if product.get("currency") != "EUR":
         raise PriceError("Carrefour no ha devuelto un precio en EUR.", response_class="invalid_price")

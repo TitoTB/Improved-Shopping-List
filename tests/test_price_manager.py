@@ -422,6 +422,39 @@ def test_carrefour_empty_and_ambiguous_responses():
             carrefour_offer(data,link)
 
 
+def test_carrefour_legacy_prod_reference_has_a_different_numeric_analytics_id():
+    link = normalize_link("carrefour","R-prod310215")
+    data = carrefour_response(item_internal_id="prod310215",item_id="371977",
+        item_name="cafe-molido-natural-cultivo-sostenible-nestle-bonka-500-g",
+        item_ean=["7613036039468"],price=7.59)
+    offer = carrefour_offer(data,link)
+    assert offer["price"] == "7.59" and offer["ean"] == "7613036039468"
+    # Other suggestions may occur, but only the explicitly linked product matches.
+    data["impressions"].append(carrefour_response()["impressions"][0])
+    assert carrefour_offer(data,link) == offer
+    for replacement in ("prod999999", "", "R-prod310215"):
+        wrong = carrefour_response(item_internal_id=replacement,item_id="371977")
+        with pytest.raises(PriceError) as error:
+            carrefour_offer(wrong,link)
+        assert error.value.diagnostics["match_count"] == 0
+        assert error.value.diagnostics["returned_references"][0]["item_id"] == "371977"
+    with pytest.raises(PriceError):
+        carrefour_offer({"impressions":data["impressions"]*2},link)
+
+
+async def test_carrefour_legacy_prod_reference_fetches_using_original_reference(hass,aioclient_mock):
+    url = "https://www.carrefour.es/cloud-api/pdp-food-analytics/v1/impressions?product_id=R-prod310215"
+    aioclient_mock.get(url,json=carrefour_response(item_internal_id="prod310215",item_id="371977",price=7.59))
+    gate = AsyncMock()
+    sources = PriceSources(hass)
+    try:
+        result = await sources.fetch("carrefour",normalize_link("carrefour","R-prod310215"),{"sale_point":"005290"},gate)
+        assert result["reference_id"] == "R-prod310215" and result["price"] == "7.59"
+        gate.assert_awaited_once()
+    finally:
+        sources.close()
+
+
 async def test_carrefour_api_uses_center_without_session_and_validates_result(hass,aioclient_mock,monkeypatch):
     import aiohttp
     captured = []

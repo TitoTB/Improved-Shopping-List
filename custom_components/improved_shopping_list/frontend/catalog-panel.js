@@ -1,9 +1,9 @@
-import { installDialogCloseButtons } from "./dialog-controls.js?v=0.14.0";
-import { CatalogSession } from "./catalog-client.js?v=0.14.0";
-import { matchCatalogProducts } from "./product-matching.js?v=0.14.0";
-import "./category-panel.js?v=0.14.0";
-import "./icon-picker.js?v=0.14.0";
-import { productNameKey } from "./product-names.js?v=0.14.0";
+import { installDialogCloseButtons } from "./dialog-controls.js?v=0.15.0";
+import { CatalogSession } from "./catalog-client.js?v=0.15.0";
+import { matchCatalogProducts } from "./product-matching.js?v=0.15.0";
+import "./category-panel.js?v=0.15.0";
+import "./icon-picker.js?v=0.15.0";
+import { productNameKey } from "./product-names.js?v=0.15.0";
 export { productNameKey };
 
 export const normalizedName = value => String(value ?? "").normalize("NFKC").trim().replace(/\s+/g, " ").toLocaleLowerCase("es");

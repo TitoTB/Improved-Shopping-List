@@ -1,5 +1,15 @@
 # Historial de cambios
 
+## 0.15.0
+
+- Carrefour consulta precios mediante el endpoint JSON de su web, con referencia y centro `sale_point`, sin cookies ni identificadores de sesión. Sustituye la descarga de HTML que devolvía 403. Verificado desde desarrollo con HTTP 200 y 2,69 EUR para la referencia 491998, tanto con enlace como con ID; el acceso desde cada Home Assistant sigue dependiendo de la tienda.
+- Nueva vista Configuración en el popup de Carrefour para guardar un centro de seis dígitos, inicialmente `005290`. Se conservan los ceros iniciales y la selección al activar o desactivar la tienda. Las cachés quedan separadas por centro y se descartan respuestas tardías de una configuración anterior.
+- Validación de referencia y precio en EUR antes de guardar. Los EAN recibidos son metadatos y no cambian los códigos del lector. Las respuestas vacías, ambiguas o inválidas y los errores conservan los precios anteriores. Logs → Tiendas registra cuándo comienza una consulta, diferenciándola de la cola.
+- Un único botón Actualizar ahora en la cabecera de Tiendas revisa las tiendas activas, solo para productos vinculados pendientes en las listas. Retirados los botones individuales y las confirmaciones de referencias en cola. Se mantienen las pausas de cinco minutos y los errores visibles.
+- Fecha de la última actualización correcta a la izquierda del botón, en formato dd/mm hh:mm y zona horaria de Home Assistant, actualizada en directo. Icono de actualizar dentro del botón.
+- Comunidad añade el icono de descarga a Exportar mis iconos y un botón azul de Telegram para unirse a la comunidad en una nueva pestaña.
+- Pruebas ampliadas de consulta JSON sin credenciales, coincidencias de producto, centros, persistencia, caché, permisos e interfaz.
+
 ## 0.14.0
 
 - Botón Actualizar ahora en cada tienda para revisar los precios de sus referencias vinculadas pendientes en las listas, incluso si ya se consultaron hoy. Respeta los cinco minutos entre peticiones y las pausas indicadas por la tienda, evita duplicar una cola activa y conserva los precios anteriores ante errores.

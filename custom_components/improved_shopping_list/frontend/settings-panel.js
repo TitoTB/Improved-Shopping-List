@@ -127,6 +127,10 @@ class ImprovedShoppingSettings extends HTMLElement {
         .lists { display:grid; gap:12px; margin-top:24px; }
         article { display:flex; flex-wrap:wrap; gap:14px; align-items:center; padding:18px; border:1px solid var(--divider-color,#dfe7e1); border-radius:12px; }
         .list-info { flex:1; min-width:150px; overflow-wrap:anywhere; }
+        .list-action { display:grid; place-items:center; width:44px; height:44px; min-height:44px; padding:0; border:0; flex:none; }
+        .list-action ha-icon { display:block; width:22px; height:22px; --mdc-icon-size:22px; }
+        .list-remove { background:#e53935; color:#fff; }
+        .list-primary[aria-pressed=true] { background:#ffca28; color:#352800; }
         h3 { margin:0; font-size:16px; }
         .entity { margin:5px 0 0; font-size:12px; }
         .badge { display:inline-flex; gap:5px; align-items:center; color:var(--primary-color,#267052); font-size:12px; margin-top:8px; }
@@ -380,13 +384,20 @@ class ImprovedShoppingSettings extends HTMLElement {
       }
       const actions = document.createElement("div");
       actions.className = "actions";
-      for (const [label, action] of [["Hacer principal", "primary"], ["Quitar", "remove"]]) {
-        if (action === "primary" && entity === settings.primary) continue;
+      for (const [label, action] of [["Quitar", "remove"], ["Hacer principal", "primary"]]) {
         const button = document.createElement("button");
-        button.textContent = label;
+        button.type = "button";
+        button.className = `list-action list-${action}`;
+        const selected = action === "primary" && entity === settings.primary;
+        const icon = document.createElement("ha-icon");
+        icon.setAttribute("icon",action === "remove" ? "mdi:delete" : selected ? "mdi:star" : "mdi:star-outline");
+        icon.setAttribute("aria-hidden","true");
+        button.append(icon);
         button.setAttribute("aria-label", `${label}: ${name}`);
+        button.title = action === "primary" && selected ? "Lista principal" : label;
+        if (action === "primary") button.setAttribute("aria-pressed",String(selected));
         button.disabled = locked;
-        button.addEventListener("click", () => void this._act(action, entity));
+        button.addEventListener("click", () => { if (!selected) void this._act(action, entity); });
         actions.append(button);
       }
       row.append(info, actions);

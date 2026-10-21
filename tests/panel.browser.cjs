@@ -1252,6 +1252,12 @@ async function main() {
     const configured = settingsView.locator("#configured-lists article");
     assert.equal(await configured.count(), 3);
     assert.equal(await configured.filter({ hasText: "todo.bring" }).locator(".badge").textContent(), "Principal");
+    assert.equal(await configured.locator('.list-primary[aria-pressed="true"]').count(),1);
+    const listActions=configured.filter({hasText:"todo.bring"}).locator('.actions button');
+    assert.deepEqual(await listActions.locator('ha-icon').evaluateAll(nodes=>nodes.map(node=>node.getAttribute('icon'))),['mdi:delete','mdi:star']);
+    assert.deepEqual(await listActions.allTextContents(),['','']);
+    assert.equal(await listActions.first().evaluate(node=>getComputedStyle(node).backgroundColor),'rgb(229, 57, 53)');
+    assert.equal(await listActions.last().evaluate(node=>getComputedStyle(node).backgroundColor),'rgb(255, 202, 40)');
     await settingsView.getByRole("button", { name: "Quitar: Casa", exact: true }).click();
     await settingsView.getByRole("status").filter({ hasText: "Ajustes guardados" }).waitFor();
     assert.equal(await configured.count(), 2);
@@ -1268,6 +1274,9 @@ async function main() {
     await configured.filter({ hasText: "todo.local" }).waitFor();
     await settingsView.getByRole("button", { name: "Hacer principal: Casa", exact: true }).click();
     await configured.filter({ hasText: "todo.local" }).locator(".badge").waitFor();
+    assert.equal(await configured.locator('.list-primary[aria-pressed="true"]').count(),1);
+    assert.equal(await configured.filter({hasText:"todo.local"}).locator('.list-primary').getAttribute('aria-pressed'),'true');
+    assert.equal(await configured.filter({hasText:"todo.bring"}).locator('.list-primary').getAttribute('aria-pressed'),'false');
     await settingsPage.screenshot({ path: "test-results/settings-desktop.png", fullPage: true });
     await settingsPage.getByRole("button", { name: "Lista", exact: true }).click();
     await settingsPage.locator("#pending").getByText("Detergente", { exact: true }).waitFor();

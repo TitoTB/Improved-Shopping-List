@@ -344,7 +344,6 @@ class ImprovedShoppingCatalog extends HTMLElement {
             <div class="suggestion-content"><div id="scan-suggestions" class="suggestions"></div><p id="scan-suggestions-empty" class="helper" hidden>No hay códigos escaneados pendientes de identificar.</p></div>
           </details>
         </div>
-        <p id="suggestions-empty" class="empty" hidden>No hay sugerencias nuevas en esta lista.</p>
       </section>
       <dialog aria-labelledby="product-dialog-title">
         <form id="product-form">
@@ -572,7 +571,6 @@ class ImprovedShoppingCatalog extends HTMLElement {
     root.querySelector("#scan-suggestions-count").textContent = String(pending.length);
     root.querySelector("#list-suggestions-empty").hidden = suggestions.length > 0 || this._catalog.loading || Boolean(this._catalog.error);
     root.querySelector("#scan-suggestions-empty").hidden = pending.length > 0 || Boolean(this._readers?.loading) || Boolean(this._readers?.error);
-    root.querySelector("#suggestions-empty").hidden = suggestions.length > 0 || pending.length > 0 || this._catalog.loading || Boolean(this._catalog.error);
   }
 
   _codeSuggestion(item) {

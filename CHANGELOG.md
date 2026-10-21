@@ -2,6 +2,7 @@
 
 ## Pendiente de publicación
 
+- Retirado el mensaje final «No hay sugerencias nuevas en esta lista» de Catálogo → Nuevos.
 - Vistas Productos, Categorías y Nuevos alineadas a la derecha del título Catálogo en la misma fila, también en móvil.
 - Buscador del catálogo sin rótulo visible y controles compactos a su derecha en una sola fila también en móvil, conservando el nombre accesible del campo.
 - Nuevo criterio «Vinculados» para agrupar el catálogo por tienda. Los productos con varias vinculaciones aparecen en cada tienda correspondiente; los que no tienen ninguna se reúnen en «No vinculados». Compatible con búsqueda, cuadrícula, filas y preferencia guardada, incluso con tiendas desactivadas.

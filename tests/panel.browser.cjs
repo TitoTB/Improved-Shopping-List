@@ -989,7 +989,7 @@ async function main() {
     assert.equal(await suggestionDialog.getByLabel("Nombre del producto", { exact:true }).inputValue(), "Arroz");
     assert.equal(await suggestionDialog.getByLabel("Marca", { exact:true }).count(), 0);
     await suggestionDialog.getByRole("button", { name:"Guardar producto", exact:true }).click();
-    await suggestionCatalog.locator("#suggestions-empty").waitFor();
+    await suggestions.locator("h2").waitFor({state:"detached"});
     await suggestionPage.getByRole("button", { name: "Lista", exact: true }).click();
     await selectList(suggestionPage, "todo.local");
     await suggestionPage.getByRole("button", { name: "Catálogo", exact: true }).click();

@@ -15,7 +15,7 @@ artículo. Sus EAN se conservan como metadatos de tienda; los códigos configura
 los lectores no se reasignan automáticamente. El precio manual sigue siendo independiente.
 
 La revisión diaria empieza a las 01:00 por defecto, en la zona horaria de Home Assistant,
-y puede configurarse en Ajustes → Tiendas. Solo entra en la cola lo pendiente en las listas
+y puede configurarse desde el icono del reloj en Ajustes → Tiendas. Solo entra en la cola lo pendiente en las listas
 configuradas, comparando nombres sin diferencias de acentos o mayúsculas. Se deduplican
 referencias compartidas por varias listas y se dejan al menos cinco minutos entre todas
 las peticiones, incluidas redirecciones. La cola y la reserva de peticiones persisten al
@@ -23,7 +23,7 @@ reiniciar. Si Home Assistant se inicia durante la hora siguiente a la programada
 esa ejecución; una cola ya iniciada puede continuar después de la madrugada.
 
 Las fichas y los popups muestran exclusivamente precios guardados. Actualizar vista no
-consulta las tiendas. El botón Actualizar ahora de Ajustes → Tiendas inicia una revisión manual
+consulta las tiendas. El icono Actualizar ahora de Ajustes → Tiendas abre un popup con el progreso e inicia una revisión manual
 de las referencias vinculadas pendientes en las listas de todas las tiendas activas, incluso si ya se revisaron hoy.
 Respeta los cinco minutos entre peticiones y las pausas indicadas por el servidor, evita
 duplicar una revisión en curso y registra los resultados como manuales en Logs → Tiendas.

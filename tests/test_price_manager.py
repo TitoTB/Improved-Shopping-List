@@ -80,6 +80,7 @@ async def test_last_price_remains_when_bought_and_failure_does_not_overwrite(env
     await env.manager.async_tick()
     assert env.manager._data["offers"] == old
     assert "403" in env.manager.snapshot("alcampo")["error"]
+    assert "403" in env.manager.progress["errors"]["alcampo"]
     assert env.manager.progress["last_updated"] == updated
 
 

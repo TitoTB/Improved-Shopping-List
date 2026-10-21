@@ -307,7 +307,7 @@ async function main() {
       };
       visit(document);
       return dialogs.filter(dialog => dialog.querySelectorAll(".isl-dialog-close[aria-label='Cerrar ventana']").length === 1).length;
-    }), 14);
+    }), 16);
     await page.getByRole("button", { name: "Seleccionar lista", exact: true }).click();
     const listDialog = page.getByRole("dialog", { name: "Seleccionar lista", exact: true });
     assert.equal(await listDialog.getByRole("button", { name: "Compra · Bring!", exact: true }).getAttribute("aria-pressed"), "true");
@@ -867,7 +867,8 @@ async function main() {
     assert.equal(await predictiveInput.getAttribute("aria-expanded"), "false");
     await predictiveContext.close();
     const settingsContext = await browser.newContext({ viewport: { width: 1280, height: 960 } });
-    await settingsContext.route("https://i.pinimg.com/**",route=>route.fulfill({contentType:"image/svg+xml",body:'<svg xmlns="http://www.w3.org/2000/svg" width="56" height="56"><rect width="56" height="56" fill="green"/></svg>'}));
+    await settingsContext.route("https://logos-world.net/**",route=>route.fulfill({contentType:"image/svg+xml",body:'<svg xmlns="http://www.w3.org/2000/svg" width="56" height="56"><rect width="56" height="56" fill="green"/></svg>'}));
+    await settingsContext.route("https://images.seeklogo.com/**",route=>route.fulfill({contentType:"image/svg+xml",body:'<svg xmlns="http://www.w3.org/2000/svg" width="56" height="56"><rect width="56" height="56" fill="blue"/></svg>'}));
     const settingsPage = await settingsContext.newPage();
     settingsPage.on("pageerror", error => errors.push(error.message));
     await settingsPage.goto(url);
@@ -885,7 +886,9 @@ async function main() {
     const storeDialog = settingsView.getByRole("dialog",{name:"Mercadona",exact:true});
     await storeDialog.getByRole("button",{name:"Cerrar",exact:true}).click();
     const storeRow = settingsView.locator("#mercadona-row");
-    assert.equal(await storeRow.locator("img").getAttribute("src"),"https://i.pinimg.com/736x/66/bc/4e/66bc4e8d1482e6ec4525987c1691c83e.jpg");
+    assert.equal(await storeRow.locator("img").getAttribute("src"),"https://logos-world.net/wp-content/uploads/2022/04/Mercadona-Symbol.png");
+    assert.equal(await settingsView.locator('#carrefour-row img').getAttribute('src'),'https://images.seeklogo.com/logo-png/31/2/carrefour-logo-png_seeklogo-318190.png');
+    assert.equal(await settingsView.locator('.stores-grid').evaluate(node=>getComputedStyle(node).gridTemplateColumns.split(' ').length),2);
     assert.equal(await storeRow.locator("#configure-mercadona ha-icon").getAttribute("icon"),"mdi:cog");
     assert.ok(await storeRow.evaluate(row=>{const image=row.querySelector('img').getBoundingClientRect(),name=row.querySelector('h3').getBoundingClientRect(),controls=row.querySelector('.store-controls').getBoundingClientRect();return image.right<=name.left && name.right<=controls.left;}));
     await settingsPage.reload();
@@ -990,6 +993,7 @@ async function main() {
     assert.equal(await settingsView.locator('#mercadona-linked-count').textContent(),'0');
     const updateAll = settingsView.getByRole('button',{name:'Actualizar ahora',exact:true});
     assert.equal(await updateAll.count(),1);
+    assert.equal(await updateAll.textContent(),'');
     assert.equal(await updateAll.locator('ha-icon').getAttribute('icon'),'mdi:refresh');
     assert.equal(await settingsView.locator('#stores-last-updated').textContent(),'—');
     await settingsPage.evaluate(()=>{
@@ -1000,14 +1004,24 @@ async function main() {
     assert.equal(await settingsView.locator('#stores-last-updated').textContent(),'20/10 20:35');
     assert.equal(await settingsView.locator('.store-row .store-refresh').count(),0);
     await updateAll.click();
+    const allPricesDialog=settingsView.getByRole('dialog',{name:'Actualización de precios',exact:true});
+    await allPricesDialog.waitFor();
     await settingsView.locator('#refresh-all-prices:not([disabled])').waitFor();
     assert.deepEqual(await settingsPage.evaluate(()=>window.calls.filter(call=>call.type==='improved_shopping_list/settings/refresh_prices').map(call=>call.store)),['mercadona','carrefour']);
     assert.equal(await settingsView.locator('#stores-refresh-error').isVisible(),false);
+    await settingsPage.evaluate(()=>{for(const callback of window.storeProgressListeners)callback({running:true,total:4,processed:1,estimated_seconds:900,errors:{},last_updated:window.lastPriceUpdateFixture});});
+    assert.equal(await allPricesDialog.locator('#prices-progress-bar').evaluate(node=>node.value),1);
+    assert.equal(await allPricesDialog.locator('#prices-progress-percentage').textContent(),'25 %');
+    await settingsPage.screenshot({path:'test-results/all-prices-progress-mobile.png',fullPage:true});
+    await settingsPage.evaluate(()=>{for(const callback of window.storeProgressListeners)callback({running:false,total:4,processed:4,estimated_seconds:0,errors:{},last_updated:window.lastPriceUpdateFixture});});
+    assert.equal(await allPricesDialog.locator('#prices-progress-percentage').textContent(),'100 %');
+    await allPricesDialog.getByRole('button',{name:'Cerrar',exact:true}).click();
     assert.equal(await settingsView.locator('#stores-last-updated').textContent(),'20/10 20:35'); // Queueing alone must not change a price's timestamp.
     assert.doesNotMatch(await settingsView.locator('#settings-stores').textContent(),/referencias pendientes en cola/);
     await settingsPage.evaluate(()=>{window.failManualPriceRefresh=true;});
     await updateAll.click();
     await settingsView.locator('#stores-refresh-error').filter({hasText:'pausa'}).waitFor();
+    await allPricesDialog.getByRole('button',{name:'Cerrar',exact:true}).click();
     await settingsPage.evaluate(()=>{window.failManualPriceRefresh=false;document.querySelector('improved-shopping-list-panel').shadowRoot.querySelector('isl-catalog').dispatchEvent(new CustomEvent('catalog-change',{detail:{products:window.catalogProducts,categories:window.catalogCategories}}));});
     for(const row of await settingsView.locator('.store-row').all()){
       const geometry=await row.evaluate(node=>{const name=node.querySelector('.store-name').getBoundingClientRect(),logo=node.querySelector('.store-logo').getBoundingClientRect();return {difference:Math.abs(name.y+name.height/2-logo.y-logo.height/2),overflow:node.scrollWidth-node.clientWidth};});
@@ -1015,6 +1029,10 @@ async function main() {
       assert.ok(geometry.overflow<=1,'Store controls fit the mobile card');
     }
     assert.match(await settingsView.locator('img[alt="Logo de Alcampo"]').getAttribute('src'),/almeria.online/);
+    assert.equal(await settingsView.locator('.stores-grid').evaluate(node=>getComputedStyle(node).gridTemplateColumns.split(' ').length),1);
+    assert.match(await settingsView.locator('.stores-footer').textContent(),/Última actualización: 20\/10 20:35/);
+    assert.equal(await settingsView.locator('.stores-footer').evaluate(node=>getComputedStyle(node).textAlign),'right');
+    assert.equal(await settingsView.locator('#settings-stores #price-update-time').count(),0);
     await settingsView.getByRole("switch",{name:"Habilitar Mercadona",exact:true}).uncheck();
     assert.equal(await settingsView.getByRole("switch",{name:"Habilitar Mercadona",exact:true}).isChecked(),false);
     assert.equal(await settingsPage.evaluate(()=>window.listSettings.stores.mercadona.postal_code),"28001");
@@ -1550,9 +1568,16 @@ async function main() {
     await linksPage.getByRole('button',{name:'Ajustes',exact:true}).click();
     const linkedSettings=linksPage.locator('isl-settings');
     await linkedSettings.getByRole('button',{name:'Tiendas',exact:true}).click();
+    await linkedSettings.getByRole('button',{name:'Hora de revisión diaria',exact:true}).click();
+    const priceScheduleDialog=linkedSettings.getByRole('dialog',{name:'Hora de revisión diaria',exact:true});
+    await priceScheduleDialog.waitFor();
     await linkedSettings.locator('#price-update-time').fill('02:30');
     await linkedSettings.getByRole('button',{name:'Guardar horario',exact:true}).click();
     await linksPage.waitForFunction(()=>window.listSettings.price_update_time==='02:30');
+    await priceScheduleDialog.waitFor({state:'hidden'});
+    await linkedSettings.getByRole('button',{name:'Hora de revisión diaria',exact:true}).click();
+    assert.equal(await linkedSettings.locator('#price-update-time').inputValue(),'02:30');
+    await priceScheduleDialog.getByRole('button',{name:'Cancelar',exact:true}).click();
     await linkedSettings.getByLabel('Habilitar Alcampo',{exact:true}).check();
     await linkedSettings.getByRole('button',{name:'Ajustes de Alcampo',exact:true}).click();
     const alcampoDialog=linkedSettings.getByRole('dialog',{name:'Alcampo',exact:true});

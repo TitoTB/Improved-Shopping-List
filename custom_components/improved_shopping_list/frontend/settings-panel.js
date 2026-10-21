@@ -15,7 +15,16 @@ class ImprovedShoppingSettings extends HTMLElement {
     this._render();
   }
 
-  disconnectedCallback() { this._priceStatusToken = null; this._priceStatusConnection = null; this._stopPriceStatus?.(); this._stopPriceStatus = null; clearTimeout(this._storeRetryTimer); clearInterval(this._storeProgressTimer); this._stopStoreProgress?.(); this._stopStoreProgress = null; this._productsLoading = false; this._productsGeneration = (this._productsGeneration || 0) + 1; this._carrefourGeneration = (this._carrefourGeneration || 0) + 1; this._carrefourLoading = false; this._alcampoGeneration = (this._alcampoGeneration || 0) + 1; this.shadowRoot.querySelector("#alcampo-dialog")?.close(); this.shadowRoot.querySelector("#carrefour-dialog")?.close(); this.shadowRoot.querySelector("#store-dialog")?.close(); }
+  disconnectedCallback() {
+    clearInterval(this._pricesProgressTimer);
+    this.shadowRoot.querySelector("#prices-progress-dialog")?.close();
+    this.shadowRoot.querySelector("#price-schedule-dialog")?.close();
+    this._priceStatusToken = null; this._priceStatusConnection = null; this._stopPriceStatus?.(); this._stopPriceStatus = null;
+    clearTimeout(this._storeRetryTimer); clearInterval(this._storeProgressTimer); this._stopStoreProgress?.(); this._stopStoreProgress = null;
+    this._productsLoading = false; this._productsGeneration = (this._productsGeneration || 0) + 1;
+    this._carrefourGeneration = (this._carrefourGeneration || 0) + 1; this._carrefourLoading = false; this._alcampoGeneration = (this._alcampoGeneration || 0) + 1;
+    this.shadowRoot.querySelector("#alcampo-dialog")?.close(); this.shadowRoot.querySelector("#carrefour-dialog")?.close(); this.shadowRoot.querySelector("#store-dialog")?.close();
+  }
 
   _build() {
     this.shadowRoot.innerHTML = `
@@ -42,7 +51,9 @@ class ImprovedShoppingSettings extends HTMLElement {
         .preview { display:grid; place-items:center; min-height:120px; border-radius:16px; margin-top:24px; padding:20px; font-weight:650; }
         @media(max-width:540px) { .appearance-fields { grid-template-columns:1fr; } }
         .store-row { display:grid; grid-template-columns:56px minmax(0,1fr) auto; gap:8px 12px; align-items:center; }
-        .store-row + .store-row { margin-top:12px; }
+        #settings-stores { container-type:inline-size; }
+        .stores-grid { display:grid; grid-template-columns:minmax(0,1fr); gap:12px; }
+        @container(min-width:800px) { .stores-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
         .store-logo { width:56px; height:56px; padding:8px; flex:none; object-fit:contain; border-radius:10px; background:#fff; }
         .store-row .store-logo { grid-column:1; grid-row:1; }
         .store-name { grid-column:2; grid-row:1; min-width:0; display:flex; flex-direction:column; justify-content:center; overflow-wrap:anywhere; }
@@ -50,8 +61,9 @@ class ImprovedShoppingSettings extends HTMLElement {
         .stores-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:16px; }
         .stores-heading h2 { margin:0; }
         .stores-heading-actions { display:flex; align-items:center; justify-content:flex-end; gap:10px; margin-left:auto; }
-        #stores-last-updated { font-size:12px; color:var(--secondary-text-color,#63766b); white-space:nowrap; }
-        .store-refresh { display:inline-flex; align-items:center; justify-content:center; gap:6px; flex:none; min-height:40px; padding:8px 12px; font-size:13px; }
+        .stores-footer { margin-top:14px; text-align:right; font-size:11px; color:var(--secondary-text-color,#63766b); }
+        #stores-last-updated { white-space:nowrap; }
+        .store-refresh { display:inline-flex; align-items:center; justify-content:center; flex:none; width:44px; height:44px; min-height:44px; padding:0; }
         .store-refresh ha-icon { width:20px; height:20px; flex:none; --mdc-icon-size:20px; }
         .store-count { font-size:13px; white-space:nowrap; }
         .store-controls { grid-column:3; grid-row:1; display:flex; align-items:center; gap:12px; margin-left:auto; flex:none; }
@@ -129,18 +141,29 @@ class ImprovedShoppingSettings extends HTMLElement {
         </form>
       </section>
       <section id="settings-stores" class="card" aria-labelledby="settings-stores-title" hidden>
-        <div class="stores-heading"><h2 id="settings-stores-title">Tiendas</h2><div class="stores-heading-actions"><time id="stores-last-updated" title="Última actualización correcta de precios">—</time><button id="refresh-all-prices" class="store-refresh" type="button"><ha-icon icon="mdi:refresh" aria-hidden="true"></ha-icon><span>Actualizar ahora</span></button></div></div>
-        <div id="stores-refresh-error" class="notice error" role="alert" hidden></div>
+        <div class="stores-heading"><h2 id="settings-stores-title">Tiendas</h2><div class="stores-heading-actions"><button id="refresh-all-prices" class="store-refresh" type="button" aria-label="Actualizar ahora" title="Actualizar ahora"><ha-icon icon="mdi:refresh" aria-hidden="true"></ha-icon></button><button id="configure-price-schedule" class="store-refresh" type="button" aria-label="Hora de revisión diaria" title="Hora de revisión diaria"><ha-icon icon="mdi:clock-outline" aria-hidden="true"></ha-icon></button></div></div>
+        <div class="stores-grid">
         <article class="store-row" id="mercadona-row">
-          <img class="store-logo" src="https://i.pinimg.com/736x/66/bc/4e/66bc4e8d1482e6ec4525987c1691c83e.jpg" alt="Logo de Mercadona" referrerpolicy="no-referrer" loading="lazy" width="56" height="56">
+          <img class="store-logo" src="https://logos-world.net/wp-content/uploads/2022/04/Mercadona-Symbol.png" alt="Logo de Mercadona" referrerpolicy="no-referrer" loading="lazy" width="56" height="56">
           <div class="store-name"><h3>Mercadona</h3></div>
           <div class="store-controls"><input id="mercadona-enabled" class="store-toggle" type="checkbox" role="switch" aria-label="Habilitar Mercadona"><button id="configure-mercadona" class="store-cog" type="button" aria-label="Ajustes de Mercadona" title="Ajustes de Mercadona"><ha-icon icon="mdi:cog" aria-hidden="true"></ha-icon></button></div>
         </article>
-        <article class="store-row" id="carrefour-row"><img class="store-logo" src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSDdTWD6223199se-ks2lxiIHkEb15SBB9CFnYBeaAe0g&amp;s=10" alt="Logo de Carrefour" referrerpolicy="no-referrer" loading="lazy" width="56" height="56"><div class="store-name"><h3>Carrefour</h3></div><div class="store-controls"><input id="carrefour-enabled" class="store-toggle" type="checkbox" role="switch" aria-label="Habilitar Carrefour"><button id="configure-carrefour" class="store-cog" type="button" aria-label="Ajustes de Carrefour"><ha-icon icon="mdi:cog" aria-hidden="true"></ha-icon></button></div></article>
+        <article class="store-row" id="carrefour-row"><img class="store-logo" src="https://images.seeklogo.com/logo-png/31/2/carrefour-logo-png_seeklogo-318190.png" alt="Logo de Carrefour" referrerpolicy="no-referrer" loading="lazy" width="56" height="56"><div class="store-name"><h3>Carrefour</h3></div><div class="store-controls"><input id="carrefour-enabled" class="store-toggle" type="checkbox" role="switch" aria-label="Habilitar Carrefour"><button id="configure-carrefour" class="store-cog" type="button" aria-label="Ajustes de Carrefour"><ha-icon icon="mdi:cog" aria-hidden="true"></ha-icon></button></div></article>
         <article class="store-row"><img class="store-logo" src="https://almeria.online/wp-content/uploads/2024/09/alcampo-logo.png" alt="Logo de Alcampo" referrerpolicy="no-referrer" loading="lazy" width="56" height="56"><div class="store-name"><h3>Alcampo</h3></div><div class="store-controls"><input id="alcampo-enabled" class="store-toggle" type="checkbox" role="switch" aria-label="Habilitar Alcampo"><button id="configure-alcampo" class="store-cog" type="button" aria-label="Ajustes de Alcampo"><ha-icon icon="mdi:cog" aria-hidden="true"></ha-icon></button></div></article>
 
-        <label>Hora de revisión diaria<input id="price-update-time" type="time" value="01:00"></label><button id="save-price-update-time" type="button">Guardar horario</button>
+        </div>
+        <div class="stores-footer">Última actualización: <time id="stores-last-updated" title="Última actualización correcta de precios">—</time></div>
       </section>
+      <dialog id="prices-progress-dialog" aria-labelledby="prices-progress-title">
+        <h2 id="prices-progress-title">Actualización de precios</h2>
+        <div class="store-progress"><div class="store-progress-track"><progress id="prices-progress-bar" max="1" aria-label="Progreso de actualización de todas las tiendas"></progress><span id="prices-progress-percentage" class="store-progress-percentage" aria-hidden="true">…</span></div><p id="prices-progress-status" role="status">Preparando actualización…</p><p id="prices-progress-time"></p></div>
+        <div id="stores-refresh-error" class="notice error" role="alert" hidden></div>
+        <div class="appearance-actions"><button id="close-prices-progress" type="button">Cerrar</button></div>
+      </dialog>
+      <dialog id="price-schedule-dialog" aria-labelledby="price-schedule-title">
+        <h2 id="price-schedule-title">Hora de revisión diaria</h2>
+        <form id="price-schedule-form"><label>Hora de revisión diaria<input id="price-update-time" type="time" value="01:00" required></label><div id="price-schedule-error" class="notice error" role="alert" hidden></div><div class="appearance-actions"><button id="cancel-price-schedule" type="button">Cancelar</button><button id="save-price-update-time" class="primary" type="submit">Guardar horario</button></div></form>
+      </dialog>
       <dialog id="carrefour-dialog" aria-labelledby="carrefour-dialog-title">
         <h2 id="carrefour-dialog-title">Carrefour</h2>
         <nav class="settings-tabs" aria-label="Vistas de Carrefour"><button id="carrefour-products-tab" type="button" aria-pressed="true"><ha-icon icon="mdi:view-grid" aria-hidden="true"></ha-icon>Productos</button><button id="carrefour-config-tab" type="button" aria-pressed="false"><ha-icon icon="mdi:cog" aria-hidden="true"></ha-icon>Configuración</button></nav>
@@ -195,7 +218,14 @@ class ImprovedShoppingSettings extends HTMLElement {
       heart.addEventListener("click",()=>void this._saveRetailSettings(()=>this._data.settings.saveFavoriteStore(store)));
       row.querySelector(".store-controls").append(heart);
     }
-    root.querySelector("#save-price-update-time").addEventListener("click",()=>void this._saveRetailSettings(()=>this._data.settings.savePriceSchedule(root.querySelector("#price-update-time").value)));
+    root.querySelector("#configure-price-schedule").addEventListener("click",()=>{
+      root.querySelector("#price-update-time").value=this._data.settings.priceUpdateTime ?? "01:00";
+      this._error=""; this._render(); root.querySelector("#price-schedule-dialog").showModal();
+    });
+    root.querySelector("#price-schedule-form").addEventListener("submit",event=>{event.preventDefault();void this._savePriceSchedule();});
+    root.querySelector("#cancel-price-schedule").addEventListener("click",()=>root.querySelector("#price-schedule-dialog").close());
+    root.querySelector("#close-prices-progress").addEventListener("click",()=>root.querySelector("#prices-progress-dialog").close());
+    root.querySelector("#prices-progress-dialog").addEventListener("close",()=>clearInterval(this._pricesProgressTimer));
     root.querySelector("#alcampo-enabled").addEventListener("change",()=>void this._saveRetailSettings(()=>this._data.settings.saveAlcampo(root.querySelector("#alcampo-enabled").checked,this._data.settings.stores?.alcampo?.region_id ?? "")));
     root.querySelector("#configure-alcampo").addEventListener("click",()=>{root.querySelector("#alcampo-region").value=this._data.settings.stores?.alcampo?.region_id ?? "";root.querySelector("#alcampo-dialog").showModal();void this._loadAlcampo();});
     root.querySelector("#refresh-alcampo").addEventListener("click",()=>void this._loadAlcampo());
@@ -273,9 +303,11 @@ class ImprovedShoppingSettings extends HTMLElement {
     const locked = !admin || !settings.loaded || settings.loading || this._busy;
     const refresh = root.querySelector("#refresh-all-prices");
     refresh.disabled = locked || this._pricesRefreshing || !Object.values(settings.stores ?? {}).some(store=>store.enabled);
-    refresh.querySelector("span").textContent = this._pricesRefreshing ? "Preparando…" : "Actualizar ahora";
+    refresh.setAttribute("aria-busy",String(Boolean(this._pricesRefreshing)));
+    root.querySelector("#configure-price-schedule").disabled = !settings.loaded || settings.loading || this._busy;
     this._watchPriceStatus();
     this._renderPriceTimestamp();
+    this._renderGlobalPriceProgress();
     for (const store of ["mercadona", "carrefour", "alcampo"]) {
       const count = (this._data.products ?? []).filter(product => Boolean(product.store_links?.[store])).length;
       const label = `${count} ${count === 1 ? "producto vinculado" : "productos vinculados"}`;
@@ -356,7 +388,10 @@ class ImprovedShoppingSettings extends HTMLElement {
     root.querySelector("#alcampo-error").hidden = !this._error;
     root.querySelector("#save-price-update-time").disabled = locked;
     root.querySelector("#price-update-time").disabled = locked;
-    if(root.activeElement !== root.querySelector("#price-update-time"))root.querySelector("#price-update-time").value = settings.priceUpdateTime ?? "01:00";
+    root.querySelector("#cancel-price-schedule").disabled = Boolean(this._busy);
+    root.querySelector("#price-schedule-error").textContent = this._error || "";
+    root.querySelector("#price-schedule-error").hidden = !this._error;
+    if(!root.querySelector("#price-schedule-dialog").open)root.querySelector("#price-update-time").value = settings.priceUpdateTime ?? "01:00";
     root.querySelector("#settings-empty").hidden = settings.entities.length > 0 || settings.loading;
     this._renderStore();
     const form = root.querySelector("#appearance-form");
@@ -397,11 +432,15 @@ class ImprovedShoppingSettings extends HTMLElement {
     this._stopPriceStatus?.(); this._stopPriceStatus = null;
     this._priceStatusConnection = connection;
     this._lastPriceUpdated = 0;
+    this._latestPriceProgress = null;
     const token = this._priceStatusToken = {};
     void connection.subscribeMessage(progress=>{
       if (this._priceStatusToken !== token || !this.isConnected) return;
       if (progress.last_updated !== undefined) this._lastPriceUpdated = progress.last_updated;
+      this._latestPriceProgress = progress;
+      this._priceProgressReceivedAt = Date.now();
       this._renderPriceTimestamp();
+      this._renderGlobalPriceProgress();
     },{type:"improved_shopping_list/settings/store_progress"}).then(stop=>{
       if (this._priceStatusToken !== token || !this.isConnected) stop();
       else this._stopPriceStatus = stop;
@@ -421,6 +460,32 @@ class ImprovedShoppingSettings extends HTMLElement {
     node.setAttribute("aria-label",`Última actualización correcta de precios: ${node.textContent}`);
   }
 
+  _renderGlobalPriceProgress() {
+    const root=this.shadowRoot;
+    if(!root.querySelector("#prices-progress-dialog")?.open)return;
+    const state=this._latestPriceProgress;
+    const bar=root.querySelector("#prices-progress-bar");
+    const total=Math.max(0,Number(state?.total)||0), processed=Math.min(total,Math.max(0,Number(state?.processed)||0));
+    const preparing=this._pricesRefreshing || this._manualQueued > 0 && !total;
+    const empty=!preparing && !state?.running && !this._manualQueued;
+    bar.max=total||1;
+    if(preparing)bar.removeAttribute("value");else bar.value=empty?0:processed;
+    root.querySelector("#prices-progress-percentage").textContent=preparing?"…":`${total&&!empty?Math.round(processed/total*100):0} %`;
+    const names={mercadona:"Mercadona",carrefour:"Carrefour",alcampo:"Alcampo"};
+    const errors=[...(this._refreshStartErrors??[]),...Object.entries(state?.errors??{}).filter(([store])=>this._data.settings.stores?.[store]?.enabled).map(([store,error])=>`${names[store]??store}: ${error}`)];
+    const errorBox=root.querySelector("#stores-refresh-error");errorBox.textContent=[...new Set(errors)].join(" ");errorBox.hidden=!errors.length;
+    root.querySelector("#prices-progress-status").textContent=preparing?"Preparando actualización…":empty?(errors.length?"No se ha podido iniciar la revisión.":"No hay productos vinculados pendientes en tus listas."):`${processed} de ${total} referencias procesadas${state?.running?"":" · Revisión finalizada"}`;
+    const seconds=Number.isFinite(state?.estimated_seconds)?Math.max(0,Math.ceil(state.estimated_seconds-(Date.now()-(this._priceProgressReceivedAt??Date.now()))/1000)):null;
+    root.querySelector("#prices-progress-time").textContent=preparing?"Calculando tiempo restante…":!state?.running?"":seconds===null?"Calculando tiempo restante…":seconds>0?`Tiempo estimado restante: ${Math.floor(seconds/60)} min ${seconds%60} s`:"Actualización en curso…";
+  }
+
+  async _savePriceSchedule() {
+    if(this._busy || this._data.hass?.user?.is_admin!==true)return;
+    const connection=this._data.hass.connection, value=this.shadowRoot.querySelector("#price-update-time").value;
+    await this._saveRetailSettings(()=>this._data.settings.savePriceSchedule(value));
+    if(this.isConnected && this._data.hass.connection===connection && !this._error)this.shadowRoot.querySelector("#price-schedule-dialog").close();
+  }
+
   async _refreshPricesNow() {
     if (this._pricesRefreshing || this._data.hass?.user?.is_admin !== true) return;
     const hass = this._data.hass;
@@ -428,13 +493,19 @@ class ImprovedShoppingSettings extends HTMLElement {
     if (!stores.length) return;
     const errorBox = this.shadowRoot.querySelector("#stores-refresh-error");
     errorBox.textContent = ""; errorBox.hidden = true;
+    this._refreshStartErrors=[]; this._manualQueued=null;
+    const dialog=this.shadowRoot.querySelector("#prices-progress-dialog");
+    if(!dialog.open)dialog.showModal();
+    clearInterval(this._pricesProgressTimer);
+    this._pricesProgressTimer=setInterval(()=>this._renderGlobalPriceProgress(),1000);
     this._pricesRefreshing = true; this._render();
     try {
       const results = await Promise.allSettled(stores.map(async store=>hass.callWS({type:"improved_shopping_list/settings/refresh_prices",store})));
       if (!this.isConnected || this._data.hass.connection !== hass.connection) return;
       const names = {mercadona:"Mercadona",carrefour:"Carrefour",alcampo:"Alcampo"};
       const errors = results.flatMap((result,index)=>result.status === "rejected" ? [`${names[stores[index]]}: ${result.reason?.message ?? "No se pudo iniciar la actualización."}`] : []);
-      errorBox.textContent = errors.join(" "); errorBox.hidden = !errors.length;
+      this._refreshStartErrors=errors;
+      this._manualQueued=results.reduce((count,result)=>count+(result.status==="fulfilled"?Math.max(0,Number(result.value.queued)||0):0),0);
     } finally {
       this._pricesRefreshing = false; this._render();
     }

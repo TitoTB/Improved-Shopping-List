@@ -1,6 +1,6 @@
 import { installDialogCloseButtons } from "./dialog-controls.js?v=0.15.0";
 import { FEATURES, TodoSession, errorMessage, isAvailable, supports } from "./todo-client.js?v=0.15.0";
-import { imageSource, normalizedName, productNameKey } from "./catalog-panel.js?v=0.15.0";
+import { imageSource, normalizedName, productNameKey, cachedProductPrice } from "./catalog-panel.js?v=0.15.0";
 import { ListSettingsSession, gradientTextColor } from "./list-settings-client.js?v=0.15.0";
 import "./settings-panel.js?v=0.15.0";
 import { ReadersSession } from "./readers-client.js?v=0.15.0";
@@ -30,7 +30,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
         void this._session.refresh();
         void this._settings.refresh();
         void this._readers.refresh();
-        if (this._listLayout === "rows") void this._refreshRowPrices();
+        if (this._needsRowPrices()) void this._refreshRowPrices();
       }
     };
   }
@@ -105,7 +105,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
       }
     }
     this._renderData();
-    if (this._listLayout === "rows") void this._refreshRowPrices();
+    if (this._needsRowPrices()) void this._refreshRowPrices();
   }
 
   _build() {
@@ -271,13 +271,18 @@ class ImprovedShoppingListPanel extends HTMLElement {
       this._catalogProducts = new Map(event.detail.products.map(product => [productNameKey(product.name), product]));
       this._catalogCategories = new Map(event.detail.categories.map(category => [normalizedName(category.name), category]));
       this._renderData();
-      if (this._listLayout === "rows") void this._refreshRowPrices();
+      if (this._needsRowPrices()) void this._refreshRowPrices();
+    });
+    root.querySelector("isl-catalog").addEventListener("catalog-layout-change", () => {
+      this._renderData();
+      if (this._needsRowPrices()) void this._refreshRowPrices();
+      else this._stopRowPrices();
     });
     root.querySelector("#toggle-list-layout").addEventListener("click", () => {
       this._listLayout = this._listLayout === "grid" ? "rows" : "grid";
       try { localStorage.setItem("isl-list-layout", this._listLayout); } catch { /* Storage may be disabled. */ }
       this._renderData();
-      if (this._listLayout === "rows") void this._refreshRowPrices();
+      if (this._needsRowPrices()) void this._refreshRowPrices();
       else this._stopRowPrices();
     });
     root.querySelector("#nav-shopping").addEventListener("click", () => this._switchView("shopping"));
@@ -392,7 +397,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
     layoutButton.setAttribute("aria-label", layoutLabel); layoutButton.title = layoutLabel;
     layoutButton.querySelector("ha-icon").setAttribute("icon", rows ? "mdi:view-comfy" : "mdi:view-sequential");
     for (const id of ["pending","completed"]) root.querySelector("#" + id).classList.toggle("rows", rows);
-    if (rows) this._ensureRowPrices();
+    if (this._needsRowPrices()) this._ensureRowPrices();
     const appearance = this._settings.appearance;
     this.style.setProperty("--isl-gradient-start", appearance.gradient_start);
     this.style.setProperty("--isl-gradient-end", appearance.gradient_end);
@@ -410,6 +415,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
     const canCreate = available && supports(state, FEATURES.CREATE);
     const canUpdate = available && supports(state, FEATURES.UPDATE);
     const catalog = root.querySelector("isl-catalog");
+    catalog.priceData = {offers:this._rowPrices,favorite:this._settings.favoriteStore};
     catalog.hass = this._hass;
     catalog.readerData = this._readers;
     catalog.canAdd = canCreate && !this._busy && !session.loading;
@@ -556,6 +562,10 @@ class ImprovedShoppingListPanel extends HTMLElement {
     void this._addItem();
   }
 
+  _needsRowPrices() {
+    return this._listLayout === "rows" || this.shadowRoot.querySelector("isl-catalog")?.productLayout === "rows";
+  }
+
   _stopRowPrices() {
     this._rowPricesToken = null;
     this._rowPricesConnection = null;
@@ -581,7 +591,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
   }
 
   async _refreshRowPrices() {
-    if (!this.isConnected || this._listLayout !== "rows" || !this._hass) return;
+    if (!this.isConnected || !this._needsRowPrices() || !this._hass) return;
     if (this._rowPricesLoading) { this._rowPricesAgain = true; return this._rowPricesLoading; }
     const token = this._rowPricesToken;
     const pending = Promise.allSettled(["mercadona","carrefour","alcampo"].map(store =>
@@ -601,13 +611,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
   }
 
   _listPrice(product) {
-    if (!product) return null;
-    const valid = offer => offer.price != null && offer.price !== "" && Number.isFinite(Number(offer.price)) &&
-      Number(offer.price) >= 0 && /^[A-Z]{3}$/.test(offer.currency ?? "");
-    const offers = this._rowPrices.filter(offer => offer.catalog_product_id === product.id && valid(offer));
-    offers.sort((a,b) => Number(b.store === this._settings.favoriteStore) - Number(a.store === this._settings.favoriteStore) ||
-      (b.checked_at ?? 0) - (a.checked_at ?? 0));
-    return offers[0] ?? (valid(product) ? {price:product.price,currency:product.currency} : null);
+    return cachedProductPrice(product,this._rowPrices,this._settings.favoriteStore);
   }
 
   _renderItems(container, items, disabled) {

@@ -387,7 +387,8 @@ async function main() {
     const catalog = page.locator("isl-catalog");
     const categories = catalog.locator("#catalog-categories");
     assert.equal(await catalog.locator(".heading #new-product").count(), 0);
-    assert.equal(await catalog.locator(".catalog-tools #new-product ha-icon").getAttribute("icon"), "mdi:plus-thick");
+    assert.equal(await catalog.locator(".category-filter-controls #new-product ha-icon").getAttribute("icon"), "mdi:plus-thick");
+    assert.equal(await catalog.getByRole("button",{name:"Actualizar catálogo",exact:true}).count(),0);
     assert.equal(await catalog.locator("#new-product").textContent(), "");
     await catalog.getByRole("button", { name: "Nuevo producto", exact: true }).click();
     await catalog.getByLabel("Nombre del producto", { exact: true }).fill("Yogur natural");
@@ -571,6 +572,29 @@ async function main() {
     assert.equal(await productCard.evaluate(node => getComputedStyle(node).backgroundImage), "linear-gradient(rgb(238, 82, 79), rgb(181, 42, 39))");
     assert.ok((await productCard.evaluate(node => getComputedStyle(node).backgroundImage)).includes("linear-gradient"));
     await page.screenshot({ path: "test-results/catalog-desktop.png", fullPage: true });
+    await catalog.getByRole("button",{name:"Cambiar a vista de filas",exact:true}).click();
+    assert.equal(await catalog.locator("#toggle-catalog-layout ha-icon").getAttribute("icon"),"mdi:view-comfy");
+    assert.equal(await catalog.locator("#catalog-grid").evaluate(node=>getComputedStyle(node).gridTemplateColumns.split(" ").length),1);
+    assert.equal(await productCard.locator(".row-category").textContent(),"Lácteos y frescos");
+    assert.match(await productCard.locator(".row-price").textContent(),/2,59/);
+    for(const width of [1280,390]){
+      await page.setViewportSize({width,height:844});
+      assert.ok(await catalog.locator(".category-filter-controls").evaluate(node=>{
+        const select=node.querySelector("select").getBoundingClientRect(),add=node.querySelector("#new-product").getBoundingClientRect(),
+          toggle=node.querySelector("#toggle-catalog-layout").getBoundingClientRect();
+        return select.right<=add.left&&add.right<=toggle.left&&Math.abs(select.top-add.top)<1&&Math.abs(add.top-toggle.top)<1&&select.height===add.height;
+      }));
+      assert.ok(await productCard.evaluate(node=>node.getBoundingClientRect().width>node.getBoundingClientRect().height&&node.scrollWidth<=node.clientWidth));
+      await page.screenshot({path:`test-results/catalog-rows-${width}.png`,fullPage:true});
+    }
+    const rowEditCalls=await page.evaluate(()=>window.calls.length);
+    await productCard.getByRole("button",{name:"Editar Yogur sin azúcar",exact:true}).click();
+    await catalog.getByRole("dialog",{name:"Editar producto",exact:true}).waitFor();
+    assert.equal(await page.evaluate(()=>window.calls.length),rowEditCalls);
+    await catalog.getByRole("button",{name:"Cancelar",exact:true}).click();
+    await catalog.getByRole("button",{name:"Cambiar a vista de cuadrícula",exact:true}).click();
+    assert.equal(await catalog.locator("#toggle-catalog-layout ha-icon").getAttribute("icon"),"mdi:view-sequential");
+    await page.setViewportSize({width:1280,height:844});
     await page.getByRole("button", { name: "Lista", exact: true }).click();
     await page.locator("#pending").getByText("Yogur sin azúcar", { exact: true }).waitFor();
     const yogurtListCard = page.locator("#pending > li").filter({ hasText: "Yogur sin azúcar" });

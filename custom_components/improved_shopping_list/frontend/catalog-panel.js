@@ -8,6 +8,15 @@ export { productNameKey };
 
 export const normalizedName = value => String(value ?? "").normalize("NFKC").trim().replace(/\s+/g, " ").toLocaleLowerCase("es");
 
+export function cachedProductPrice(product, prices = [], favorite = "") {
+  if (!product) return null;
+  const valid = offer => offer.price != null && offer.price !== "" && Number.isFinite(Number(offer.price)) &&
+    Number(offer.price) >= 0 && /^[A-Z]{3}$/.test(offer.currency ?? "");
+  const offers = prices.filter(offer => offer.catalog_product_id === product.id && valid(offer));
+  offers.sort((a,b) => Number(b.store === favorite) - Number(a.store === favorite) || (b.checked_at ?? 0) - (a.checked_at ?? 0));
+  return offers[0] ?? (valid(product) ? {price:product.price,currency:product.currency} : null);
+}
+
 function element(tag, className, text) {
   const node = document.createElement(tag);
   if (className) node.className = className;
@@ -43,6 +52,8 @@ class ImprovedShoppingCatalog extends HTMLElement {
     this._canAdd = false;
     this._notice = "";
     this._view = "products";
+    this._productLayout = "grid";
+    try { if (localStorage.getItem("isl-catalog-layout") === "rows") this._productLayout = "rows"; } catch { /* Storage may be disabled. */ }
     this._pendingNames = new Set();
     this._listItems = [];
   }
@@ -73,6 +84,13 @@ class ImprovedShoppingCatalog extends HTMLElement {
   }
 
   showSuggestions() { this._switchView("suggestions"); }
+  get productLayout() { return this._productLayout; }
+  set priceData(value) {
+    const key = JSON.stringify(value);
+    if (key === this._priceDataKey) return;
+    this._priceDataKey = key; this._priceData = value;
+    this._renderProducts();
+  }
   set listEntity(value) { this._listEntity = value; }
 
   set listItems(value) {
@@ -150,9 +168,11 @@ class ImprovedShoppingCatalog extends HTMLElement {
         .helper { color:var(--secondary-text-color,#63766b); font-size:13px; line-height:1.6; margin:8px 0 18px; }
         button { min-height:44px; padding:10px 14px; border:1px solid var(--divider-color,#dfe7e1); border-radius:10px; background:transparent; color:inherit; }
         .primary { background:#267052; color:#fff; border:0; font-weight:650; }
-        .filters { display:grid; grid-template-columns:2fr 1fr; gap:12px; margin:24px 0 14px; align-items:end; }
-        #new-product,#new-catalog-category,#catalog-refresh { display:grid; place-items:center; flex:0 0 44px; width:44px; height:44px; padding:0; }
-        #new-product ha-icon,#new-catalog-category ha-icon { --mdc-icon-size:24px; }
+        .filters { display:grid; grid-template-columns:minmax(0,2fr) minmax(0,1fr); gap:12px; margin:24px 0 14px; align-items:end; }
+        .category-filter-controls { display:flex; align-items:end; gap:8px; min-width:0; }
+        .category-filter-controls label { flex:1; min-width:0; }
+        #new-product,#new-catalog-category,#toggle-catalog-layout { display:grid; place-items:center; flex:0 0 46px; width:46px; height:46px; padding:0; }
+        #new-product ha-icon,#new-catalog-category ha-icon,#toggle-catalog-layout ha-icon { --mdc-icon-size:24px; width:24px; height:24px; }
         .product-category-controls { display:flex; align-items:end; gap:8px; }
         .product-category-controls select { flex:1; min-width:0; }
         #add-product-category { display:grid; place-items:center; flex:0 0 46px; width:46px; height:46px; padding:0; }
@@ -183,6 +203,23 @@ class ImprovedShoppingCatalog extends HTMLElement {
         .product-controls .edit-product { background:#f9a825; }
         .product-controls button:focus-visible { outline-offset:1px; }
         .product-controls ha-icon { --mdc-icon-size:clamp(12px,8cqi,20px); display:flex; align-items:center; justify-content:center; flex:none; width:var(--mdc-icon-size); height:var(--mdc-icon-size); margin:0; padding:0; }
+        .row-meta { display:none; }
+        .grid.rows { grid-template-columns:minmax(0,1fr); gap:10px; }
+        .rows .product { aspect-ratio:auto; min-height:80px; border-radius:12px; }
+        .rows .product-top { position:relative; display:grid; grid-template-columns:48px minmax(0,1fr) auto; gap:12px; min-height:80px; padding:12px 58px 12px 16px; }
+        .rows .product-media { width:48px; height:48px; }
+        .rows .placeholder ha-icon { --mdc-icon-size:40px; }
+        .rows .title { font-size:clamp(14px,2.5cqi,18px); -webkit-line-clamp:3; }
+        .rows .tags { display:none; }
+        .rows .product-controls { top:50%; right:12px; transform:translateY(-50%); }
+        .rows .product-controls button { --isl-control-size:32px; }
+        .rows .product-controls ha-icon { --mdc-icon-size:20px; }
+        .rows .row-meta { display:flex; align-items:center; justify-content:flex-end; flex-wrap:wrap; gap:6px; max-width:min(36cqi,260px); }
+        .row-category,.row-price { display:inline-flex; align-items:center; justify-content:center; gap:5px; min-width:0; max-width:100%; padding:6px 9px; border-radius:16px; font-size:12px; line-height:1.2; }
+        .row-category { color:#fff; box-shadow:0 2px 6px rgba(0,0,0,.18); }.row-category span { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .row-price { background:var(--secondary-background-color,#edf4ee); white-space:nowrap; }.in-list .row-price { background:rgba(255,255,255,.2); }
+        .row-meta ha-icon { --mdc-icon-size:18px; display:flex; align-items:center; justify-content:center; width:18px; height:18px; flex:none; }
+        @media(max-width:650px) { .filters { grid-template-columns:minmax(0,1fr); }.rows .product-top { grid-template-columns:36px minmax(0,1fr) auto; gap:8px; padding:10px 48px 10px 10px; }.rows .product-media { width:36px; height:36px; }.rows .placeholder ha-icon { --mdc-icon-size:32px; }.rows .product-controls { right:8px; }.rows .row-meta { max-width:30cqi; }.row-category,.row-price { font-size:11px; padding:5px 7px; } }
         /* Match List's outer li width, including the Catalog card's two border pixels. */
         .title { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:3; overflow:hidden; font-size:clamp(12px,calc((100cqi + 2px) / 10),32px); line-height:1.2; font-weight:650; margin:0; overflow-wrap:anywhere; text-align:center; }
         .subtitle { color:var(--secondary-text-color,#63766b); font-size:12px; margin:4px 0 0; overflow-wrap:anywhere; }
@@ -222,14 +259,14 @@ class ImprovedShoppingCatalog extends HTMLElement {
       <div class="heading"><h1>Catálogo</h1></div>
       <div class="catalog-toolbar">
         <nav class="catalog-tabs" aria-label="Vistas del catálogo"><button id="view-products" aria-label="Productos" aria-pressed="true"><ha-icon icon="mdi:view-grid" aria-hidden="true"></ha-icon><span class="tab-label">Productos</span></button><button id="view-categories" aria-label="Categorías" aria-pressed="false"><ha-icon icon="mdi:label" aria-hidden="true"></ha-icon><span class="tab-label">Categorías</span></button><button id="view-suggestions" aria-label="Sugerencias" aria-pressed="false"><ha-icon icon="mdi:creation" aria-hidden="true"></ha-icon><span class="tab-label">Sugerencias</span></button></nav>
-        <div class="catalog-tools"><button id="new-product" class="primary" type="button" aria-label="Nuevo producto" title="Nuevo producto"><ha-icon icon="mdi:plus-thick"></ha-icon></button><button id="new-catalog-category" class="primary" type="button" aria-label="Nueva categoría" title="Nueva categoría" hidden><ha-icon icon="mdi:plus-thick"></ha-icon></button><button id="catalog-refresh" type="button" aria-label="Actualizar catálogo" title="Actualizar catálogo"><ha-icon icon="mdi:refresh"></ha-icon></button></div>
+        <div class="catalog-tools"><button id="new-catalog-category" class="primary" type="button" aria-label="Nueva categoría" title="Nueva categoría" hidden><ha-icon icon="mdi:plus-thick"></ha-icon></button></div>
       </div>
       <div id="catalog-error" class="notice error" role="alert" hidden></div>
       <div id="catalog-status" class="notice" role="status" hidden></div>
       <section id="products-view">
       <div class="filters">
         <label class="search">Buscar productos<input id="catalog-search" type="search" placeholder="Nombre, código o etiqueta"></label>
-        <label>Categoría<select id="category-filter"><option value="">Todas</option></select></label>
+        <div class="category-filter-controls"><label>Categoría<select id="category-filter"><option value="">Todas</option></select></label><button id="new-product" class="primary" type="button" aria-label="Nuevo producto" title="Nuevo producto"><ha-icon icon="mdi:plus-thick" aria-hidden="true"></ha-icon></button><button id="toggle-catalog-layout" type="button" aria-label="Cambiar a vista de filas" title="Cambiar a vista de filas"><ha-icon icon="mdi:view-sequential" aria-hidden="true"></ha-icon></button></div>
       </div>
       <p id="catalog-count" class="count" aria-live="polite"></p>
       <div id="catalog-grid" class="grid"></div>
@@ -354,7 +391,12 @@ class ImprovedShoppingCatalog extends HTMLElement {
     };
     categoryEditor.onClose = () => root.querySelector("#add-product-category").focus();
     root.querySelector("#add-product-category").addEventListener("click", () => categoryEditor.create());
-    root.querySelector("#catalog-refresh").addEventListener("click", () => void this._catalog.refresh());
+    root.querySelector("#toggle-catalog-layout").addEventListener("click", () => {
+      this._productLayout = this._productLayout === "grid" ? "rows" : "grid";
+      try { localStorage.setItem("isl-catalog-layout", this._productLayout); } catch { /* Storage may be disabled. */ }
+      this._renderProducts();
+      this.dispatchEvent(new CustomEvent("catalog-layout-change"));
+    });
     root.querySelector("#catalog-search").addEventListener("input", () => this._renderProducts());
     root.querySelector("#category-filter").addEventListener("change", () => this._renderProducts());
     root.querySelector('[name="recurrence_enabled"]').addEventListener("change", () => {
@@ -391,7 +433,6 @@ class ImprovedShoppingCatalog extends HTMLElement {
     const status = root.querySelector("#catalog-status");
     status.hidden = !this._catalog.loading && (this._view === "products" || !this._notice);
     status.textContent = this._catalog.loading ? "Cargando catálogo…" : this._notice;
-    root.querySelector("#catalog-refresh").disabled = this._catalog.loading;
     const categories = this._catalog.categories.map(category => category.name).sort((a, b) => a.localeCompare(b, "es"));
     this._fillFilter(root.querySelector("#category-filter"), categories);
     const categorySelect = root.querySelector("[name=category]");
@@ -691,6 +732,11 @@ class ImprovedShoppingCatalog extends HTMLElement {
     const root = this.shadowRoot;
     const query = root.querySelector("#catalog-search").value.trim().toLocaleLowerCase("es");
     const category = root.querySelector("#category-filter").value;
+    const rows = this._productLayout === "rows";
+    root.querySelector("#catalog-grid").classList.toggle("rows", rows);
+    const toggle = root.querySelector("#toggle-catalog-layout"), label = rows ? "Cambiar a vista de cuadrícula" : "Cambiar a vista de filas";
+    toggle.setAttribute("aria-label", label); toggle.title = label;
+    toggle.querySelector("ha-icon").setAttribute("icon", rows ? "mdi:view-comfy" : "mdi:view-sequential");
     const products = this._catalog.products.filter(product =>
       (!category || normalizedName(product.category) === normalizedName(category)) &&
       [product.name, product.barcode, ...(product.barcodes??[]), ...(product.nfc_tags??[]), product.category, ...product.tags].join(" ").toLocaleLowerCase("es").includes(query));
@@ -739,6 +785,24 @@ class ImprovedShoppingCatalog extends HTMLElement {
     title.title = product.name;
     title.append(element("h2", "title", product.name));
     top.append(title);
+    if (this._productLayout === "rows") {
+      const metadata = element("div","row-meta");
+      if (category) {
+        const badge = element("span","row-category");
+        badge.style.backgroundColor = category.color; badge.title = category.name;
+        const icon = element("ha-icon"); icon.setAttribute("icon",category.icon); icon.setAttribute("aria-hidden","true");
+        badge.append(icon,element("span","",category.name)); metadata.append(badge);
+      }
+      const offer = cachedProductPrice(product,this._priceData?.offers,this._priceData?.favorite);
+      if (offer) {
+        const badge = element("span","row-price");
+        badge.title = offer.store ? `Último precio guardado · ${({mercadona:"Mercadona",carrefour:"Carrefour",alcampo:"Alcampo"})[offer.store] ?? offer.store}` : "Precio manual";
+        const icon = element("ha-icon"); icon.setAttribute("icon","mdi:cash-multiple"); icon.setAttribute("aria-hidden","true");
+        badge.append(icon,element("span","",new Intl.NumberFormat("es-ES",{style:"currency",currency:offer.currency}).format(Number(offer.price))));
+        metadata.append(badge);
+      }
+      top.append(metadata);
+    }
     card.append(top);
     if (product.tags.length) {
       const tags = element("div", "tags");

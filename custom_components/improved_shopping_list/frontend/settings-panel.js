@@ -70,6 +70,7 @@ class ImprovedShoppingSettings extends HTMLElement {
         input[type=color] { display:block; width:100%; padding:5px; cursor:pointer; }
         .appearance-actions { display:flex; justify-content:flex-end; flex-wrap:wrap; gap:10px; margin-top:24px; }
         .appearance-previews { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:18px; margin-top:24px; }
+        .appearance-previews + .appearance-fields { margin-top:24px; }
         .preview { display:grid; place-items:center; min-width:0; min-height:120px; border-radius:16px; padding:20px; font-weight:650; text-align:center; overflow-wrap:anywhere; }
         @media(max-width:540px) { .appearance-fields { grid-template-columns:1fr; } }
         .store-row { display:grid; grid-template-columns:56px minmax(0,1fr) auto; gap:8px 12px; align-items:center; }
@@ -163,12 +164,14 @@ class ImprovedShoppingSettings extends HTMLElement {
             <div><label for="gradient-end">Color final del degradado</label><input id="gradient-end" name="gradient_end" type="color" value="#b52a27"></div>
             <div><label for="completed-gradient-start">Color inicial de Comprados</label><input id="completed-gradient-start" name="completed_gradient_start" type="color" value="#4faba2"></div>
             <div><label for="completed-gradient-end">Color final de Comprados</label><input id="completed-gradient-end" name="completed_gradient_end" type="color" value="#26857c"></div>
-            <div><label for="desktop-columns">Productos por fila (ordenador)</label><select id="desktop-columns" name="columns">${[1,2,3,4,5,6].map(value => `<option value="${value}">${value}</option>`).join("")}</select></div>
-            <div><label for="mobile-columns">Productos por fila (móvil)</label><select id="mobile-columns" name="mobile_columns">${[1,2,3,4].map(value => `<option value="${value}">${value}</option>`).join("")}</select></div>
           </div>
           <div class="appearance-previews">
             <div id="appearance-preview" class="preview">Vista previa de producto pendiente</div>
             <div id="completed-appearance-preview" class="preview">Vista previa de producto comprado</div>
+          </div>
+          <div class="appearance-fields">
+            <div><label for="desktop-columns">Productos por fila (ordenador)</label><select id="desktop-columns" name="columns">${[1,2,3,4,5,6].map(value => `<option value="${value}">${value}</option>`).join("")}</select></div>
+            <div><label for="mobile-columns">Productos por fila (móvil)</label><select id="mobile-columns" name="mobile_columns">${[1,2,3,4].map(value => `<option value="${value}">${value}</option>`).join("")}</select></div>
           </div>
           <div class="appearance-actions"><button id="reset-appearance" type="button">Restablecer valores</button><button id="save-appearance" class="primary" type="submit">Guardar personalización</button></div>
         </form>

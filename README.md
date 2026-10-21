@@ -302,15 +302,34 @@ del producto ni provoca consultas repetidas al abrir la interfaz.
 independiente de las listas de compra. La barra permite escribir un nombre o elegir
 una coincidencia del catálogo y sumar una unidad con **+**. Repetir un producto
 suma unidades; las cantidades no bajan de cero. Cada tarjeta utiliza la imagen o
-icono del catálogo cuando existe, un degradado naranja y controles para sumar o
-restar unidades. Se puede alternar entre cuadrícula y filas; la cuadrícula utiliza
+icono del catálogo cuando existe y un degradado naranja. Los controles rápidos
+para sumar o restar aparecen solo en filas. Se puede alternar entre cuadrícula y filas; la cuadrícula utiliza
 el número de columnas configurado en Personalización.
 
-El selector de lista elige la lista de compra de destino. El botón del carrito en
-cada tarjeta añade el producto allí sin duplicar entradas pendientes ni modificar
-su cantidad en Stock. El icono de eliminar pide confirmación y solo retira el
-producto del inventario: conserva catálogo y listas. Los productos con cero
-unidades permanecen visibles hasta que se eliminen.
+Al pulsar una tarjeta se abre su ficha: cantidad, unidades (uds, kg, g, l, ml o
+personalizadas, como Latas), cantidad que se suma por compra y umbral opcional
+de reposición. Se admiten hasta tres decimales y las unidades se muestran junto
+a la cantidad. El selector de lista de la barra sirve como destino inicial al
+configurar la ficha; la lista de reposición queda guardada por producto.
+Al llegar al mínimo indicado, se añade a esa lista sin duplicar pendientes o se
+recupera su entrada comprada. El botón de eliminar está al final de la ficha,
+pide confirmación y conserva catálogo y listas. Los productos con cero permanecen visibles.
+
+Hay tres tipos de control: **Manual / lectores**, **Perecedero** y **Consumo
+registrado en Home Assistant**. Los perecederos pasan a cero cuando se cumplen
+los días desde la última compra y se añaden a la lista aunque quedase stock.
+El consumo registrado descuenta la cantidad indicada cada vez que una entidad
+entra en el estado configurado, por ejemplo al pasar una lavadora a `on`.
+Las actualizaciones de atributos, el arranque y la recuperación desde
+`unknown` o `unavailable` no cuentan como usos.
+
+Al marcar un producto configurado como comprado en cualquiera de las listas
+gestionadas, se suma su cantidad de reposición y se reinicia el plazo del perecedero.
+Los productos que ya estuvieran comprados al arrancar o reconectar no se suman
+otra vez. No se reconstruyen consumos ni compras ocurridos mientras Home Assistant
+estaba apagado. Al activar un perecedero o cambiar su plazo o cantidad en la ficha,
+el plazo empieza desde ese momento. Las automatizaciones funcionan con la interfaz cerrada;
+la caducidad se comprueba cada minuto y también al iniciar la integración.
 
 Los lectores pueden sumar o restar unidades, siguiendo su acción por defecto o
 la excepción de cada producto y respetando el intervalo antirrepetición. La captura

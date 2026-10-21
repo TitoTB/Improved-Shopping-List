@@ -41,6 +41,7 @@ def async_register_commands(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_stock_subscribe)
     websocket_api.async_register_command(hass, ws_stock_add)
     websocket_api.async_register_command(hass, ws_stock_adjust)
+    websocket_api.async_register_command(hass, ws_stock_save)
     websocket_api.async_register_command(hass, ws_stock_remove)
     websocket_api.async_register_command(hass, ws_catalog_subscribe)
     websocket_api.async_register_command(hass, ws_catalog_save)
@@ -121,6 +122,14 @@ async def ws_stock_add(hass, connection, msg):
 @websocket_api.async_response
 async def ws_stock_adjust(hass, connection, msg):
     await _stock_write(hass, connection, msg, lambda stock: stock.async_adjust(msg["item_id"], msg["delta"]))
+
+
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/stock/save", vol.Required("item_id"):str,
+    vol.Required("revision"):int, vol.Required("config"):dict})
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_stock_save(hass, connection, msg):
+    await _stock_write(hass, connection, msg, lambda stock: stock.async_save(msg["item_id"],msg["revision"],msg["config"]))
 
 
 @websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/stock/remove", vol.Required("item_id"):str, vol.Required("revision"):int})

@@ -131,6 +131,12 @@ const hass={
     if(msg.type==='improved_shopping_list/stock/get')return {items:structuredClone(window.stockItems)};
     if(msg.type.startsWith('improved_shopping_list/stock/')){
       if(window.failStock)throw new Error('No se ha podido guardar el stock');
+      if(msg.type.endsWith('/save')){
+        const item=window.stockItems.find(item=>item.id===msg.item_id);
+        if(item?.revision!==msg.revision)throw new Error('El stock ha cambiado. Cierra y vuelve a abrir la ficha para actualizarla.');
+        Object.assign(item,structuredClone(msg.config),{configured:true,config_revision:(item.config_revision??0)+1,revision:item.revision+1});
+        window.emitStock();return structuredClone(item);
+      }
       if(msg.type.endsWith('/remove')){
         const item=window.stockItems.find(item=>item.id===msg.item_id);
         if(item?.revision!==msg.revision)throw new Error('El stock del producto ha cambiado');
@@ -384,7 +390,7 @@ async function main() {
       };
       visit(document);
       return dialogs.filter(dialog => dialog.querySelectorAll(".isl-dialog-close[aria-label='Cerrar ventana']").length === 1).length;
-    }), 23);
+    }), 24);
     await page.getByRole("button", { name: "Seleccionar lista", exact: true }).click();
     const listDialog = page.getByRole("dialog", { name: "Seleccionar lista", exact: true });
     assert.equal(await listDialog.getByRole("button", { name: "Compra · Bring!", exact: true }).getAttribute("aria-pressed"), "true");
@@ -1851,64 +1857,89 @@ async function main() {
     await nutriForm.locator('..').getByRole('button',{name:'Cerrar ventana',exact:true}).click();
     await nutriPage.waitForFunction(()=>window.captureListeners.size===0);
     await nutriContext.close();
-    // Shared pantry: quantities, predictions, destination shopping list, persistence and permissions.
+    // Stock editor, units, modes, row-only controls, persistence and permissions.
     const stockContext=await browser.newContext({viewport:{width:1280,height:960}});
     await stockContext.addInitScript(()=>localStorage.setItem('catalog-fixture',JSON.stringify([{id:'stock-cacao',revision:1,name:'Cacao',category:'',tags:[],barcode:'',barcodes:[],nfc_tags:[],image_url:'',icon:'mdi:food',price:null,currency:'EUR'}])));
     const stockPage=await stockContext.newPage();stockPage.on('pageerror',error=>errors.push(error.message));
     await stockPage.goto(url);await stockPage.getByRole('button',{name:'Stock',exact:true}).click();
-    assert.equal(await stockPage.locator('#nav-stock ha-icon').getAttribute('icon'),'mdi:package-variant');
     const stockInput=stockPage.getByRole('combobox',{name:'Añadir producto',exact:true});
     await stockInput.fill('cac');await stockInput.press('ArrowDown');await stockInput.press('Enter');
     const stockCard=stockPage.locator('#stock-items li').filter({hasText:'Cacao'});
-    await stockCard.getByLabel('Stock de Cacao: 1',{exact:true}).waitFor();
+    await stockCard.getByLabel('Stock de Cacao: 1 uds',{exact:true}).waitFor();
+    assert.equal(await stockCard.locator('.stock-controls, .stock-tools').count(),0);
     assert.equal(await stockCard.locator('.item').evaluate(node=>getComputedStyle(node).backgroundImage),'linear-gradient(rgb(245, 154, 35), rgb(198, 91, 12))');
-    await stockCard.getByRole('button',{name:'Añadir una unidad de Cacao',exact:true}).click();
-    await stockCard.getByLabel('Stock de Cacao: 2',{exact:true}).waitFor();
-    await stockInput.fill('Cacao');await stockPage.getByRole('button',{name:'Añadir',exact:true}).click();
-    await stockCard.getByLabel('Stock de Cacao: 3',{exact:true}).waitFor();
-    assert.equal(await stockPage.locator('#stock-items li').count(),1);
-    await stockPage.getByRole('button',{name:'Cambiar a vista de filas',exact:true}).click();
-    assert.equal(await stockPage.locator('#stock-items').evaluate(node=>node.classList.contains('rows')),true);
     await selectList(stockPage,'todo.local');
-    await stockCard.getByRole('button',{name:'Añadir a la lista: Cacao',exact:true}).click();
-    await stockPage.waitForFunction(()=>window.listData['todo.local'].some(item=>item.summary==='Cacao'));
-    assert.equal(await stockPage.evaluate(()=>window.stockItems[0].quantity),3);
-    await stockCard.getByRole('button',{name:'Añadir a la lista: Cacao',exact:true}).click();
-    assert.equal(await stockPage.evaluate(()=>window.listData['todo.local'].filter(item=>item.summary==='Cacao').length),1);
-    await selectList(stockPage,'todo.readonly');
-    assert.equal(await stockCard.getByRole('button',{name:'Añadir a la lista: Cacao',exact:true}).isDisabled(),true);
-    assert.equal(await stockInput.isEnabled(),true);
+    await stockCard.getByRole('button',{name:'Configurar stock de Cacao',exact:true}).click();
+    const stockEditor=stockPage.getByRole('dialog',{name:'Cacao · Stock',exact:true}),stockForm=stockEditor.locator('form');
+    await stockForm.getByRole('button',{name:'Incrementar stock',exact:true}).click();
+    assert.equal(await stockForm.getByLabel('Stock actual',{exact:true}).inputValue(),'2');
+    await stockForm.getByRole('button',{name:'Disminuir stock',exact:true}).click();
+    await stockForm.getByLabel('Stock actual',{exact:true}).fill('2.5');
+    await stockForm.getByLabel('Unidades',{exact:true}).selectOption('custom');
+    await stockForm.getByLabel('Unidad personalizada',{exact:true}).fill('Latas');
+    await stockForm.getByLabel('Control del stock',{exact:true}).selectOption('usage');
+    await stockForm.getByLabel('Entidad de consumo',{exact:true}).fill('binary_sensor.lavadora');
+    await stockForm.getByLabel('Estado que representa un uso',{exact:true}).fill('on');
+    await stockForm.getByLabel('Cantidad consumida por uso',{exact:true}).fill('0.5');
+    await stockForm.getByLabel('Cantidad que se suma al marcarlo como comprado',{exact:true}).fill('4');
+    await stockForm.getByLabel('Añadir a la lista cuando el stock llegue al mínimo',{exact:true}).check();
+    await stockForm.getByLabel('Stock mínimo',{exact:true}).fill('1');
+    assert.equal(await stockForm.getByLabel('Lista para reponer',{exact:true}).inputValue(),'todo.local');
+    await stockForm.getByRole('button',{name:'Guardar',exact:true}).click();await stockEditor.waitFor({state:'hidden'});
+    await stockCard.getByLabel('Stock de Cacao: 2.5 Latas',{exact:true}).waitFor();
+    assert.deepEqual(await stockPage.evaluate(()=>({mode:window.stockItems[0].mode,unit:window.stockItems[0].unit,usage_amount:window.stockItems[0].usage_amount,refill_quantity:window.stockItems[0].refill_quantity})),{mode:'usage',unit:'Latas',usage_amount:0.5,refill_quantity:4});
+    await stockCard.getByRole('button',{name:'Configurar stock de Cacao',exact:true}).click();
+    await stockForm.getByLabel('Control del stock',{exact:true}).selectOption('perishable');
+    await stockForm.getByLabel('Caduca cada cuántos días desde la compra',{exact:true}).fill('3');
+    assert.equal(await stockForm.locator('#stock-usage-fields').isVisible(),false);
+    for(const width of [390,320]){
+      await stockPage.setViewportSize({width,height:844});
+      assert.ok(await stockEditor.evaluate(dialog=>dialog.scrollWidth<=dialog.clientWidth+1));
+      await stockPage.screenshot({path:'test-results/stock-editor-'+width+'.png',fullPage:true});
+    }
+    await stockForm.getByRole('button',{name:'Guardar',exact:true}).click();await stockEditor.waitFor({state:'hidden'});
+    await stockPage.getByRole('button',{name:'Cambiar a vista de filas',exact:true}).click();
+    assert.ok(await stockCard.evaluate(card=>{
+      const open=card.querySelector('.stock-open').getBoundingClientRect(),controls=card.querySelector('.stock-controls').getBoundingClientRect();
+      return open.right<=controls.left && Math.abs((open.top+open.bottom-controls.top-controls.bottom)/2)<1;
+    }));
+    await stockCard.getByRole('button',{name:'Añadir una unidad de Cacao',exact:true}).click();
+    await stockCard.getByLabel('Stock de Cacao: 3.5 Latas',{exact:true}).waitFor();
     await stockPage.evaluate(()=>{window.failStock=true;});
     await stockCard.getByRole('button',{name:'Añadir una unidad de Cacao',exact:true}).click();
     await stockPage.getByRole('alert').filter({hasText:'No se ha podido guardar el stock'}).waitFor();
-    assert.equal(await stockPage.evaluate(()=>window.stockItems[0].quantity),3);
+    assert.equal(await stockPage.evaluate(()=>window.stockItems[0].quantity),3.5);
     await stockPage.evaluate(()=>{window.failStock=false;});
-    for(let index=0;index<3;index++)await stockCard.getByRole('button',{name:'Quitar una unidad de Cacao',exact:true}).click();
-    await stockCard.getByLabel('Stock de Cacao: 0',{exact:true}).waitFor();
+    for(let index=0;index<4;index++)await stockCard.getByRole('button',{name:'Quitar una unidad de Cacao',exact:true}).click();
+    await stockCard.getByLabel('Stock de Cacao: 0 Latas',{exact:true}).waitFor();
     assert.equal(await stockCard.getByRole('button',{name:'Quitar una unidad de Cacao',exact:true}).isDisabled(),true);
     await stockInput.fill('Producto sin catálogo');await stockInput.press('Enter');
-    await stockPage.locator('#stock-items').getByText('Producto sin catálogo',{exact:true}).waitFor();
     await stockPage.reload();await stockPage.getByRole('button',{name:'Stock',exact:true}).click();
-    await stockCard.getByLabel('Stock de Cacao: 0',{exact:true}).waitFor();
-    assert.equal(await stockPage.locator('#stock-items').evaluate(node=>node.classList.contains('rows')),true);
+    await stockCard.getByLabel('Stock de Cacao: 0 Latas',{exact:true}).waitFor();
+    assert.equal(await stockPage.evaluate(()=>window.stockItems[0].mode),'perishable');
     for(const width of [1280,390,320]){
       await stockPage.setViewportSize({width,height:844});
       assert.ok(await stockPage.locator('#stock-card').evaluate(node=>node.scrollWidth<=node.clientWidth+1));
       await stockPage.screenshot({path:'test-results/stock-rows-'+width+'.png',fullPage:true});
     }
     await stockPage.getByRole('button',{name:'Cambiar a vista de cuadrícula',exact:true}).click();
+    assert.equal(await stockCard.locator('.stock-controls, .stock-tools').count(),0);
     await stockPage.screenshot({path:'test-results/stock-grid-mobile.png',fullPage:true});
-    await stockCard.getByRole('button',{name:'Eliminar de Stock: Cacao',exact:true}).click();
+    await stockCard.getByRole('button',{name:'Configurar stock de Cacao',exact:true}).click();
+    await stockForm.getByRole('button',{name:'Eliminar producto del stock',exact:true}).click();
     const stockDelete=stockPage.getByRole('dialog',{name:'Eliminar de Stock',exact:true});
     await stockDelete.getByRole('button',{name:'Cancelar',exact:true}).click();
     assert.equal(await stockPage.locator('#stock-items li').count(),2);
-    await stockCard.getByRole('button',{name:'Eliminar de Stock: Cacao',exact:true}).click();
+    await stockForm.getByRole('button',{name:'Eliminar producto del stock',exact:true}).click();
     await stockDelete.getByRole('button',{name:'Eliminar producto',exact:true}).click();
-    await stockCard.waitFor({state:'hidden'});
+    await stockCard.waitFor({state:'hidden'});await stockEditor.waitFor({state:'hidden'});
     assert.equal(await stockPage.evaluate(()=>window.catalogProducts.length),1);
+    await stockPage.getByRole('button',{name:'Cambiar a vista de filas',exact:true}).click();
     await stockPage.evaluate(()=>{const panel=window.testPanel;panel.hass={...panel._hass,user:{is_admin:false}};});
     assert.equal(await stockInput.isDisabled(),true);
     assert.equal(await stockPage.locator('#stock-items [data-stock-action="increase"]').isDisabled(),true);
+    await stockPage.locator('#stock-items .stock-open').click();
+    assert.equal(await stockPage.locator('#save-stock-config').isDisabled(),true);
     await stockContext.close();
     // Store bindings persist without barcodes; all product-price UI reads use cache.
     const linksContext=await browser.newContext({viewport:{width:390,height:844}});

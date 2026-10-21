@@ -102,6 +102,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
     this._started = false;
     this.shadowRoot.querySelector("#list-dialog")?.close();
     this.shadowRoot.querySelector("#stock-remove-dialog")?.close();
+    this.shadowRoot.querySelector("#stock-editor-dialog")?.close();
   }
 
   _ensureStarted() {
@@ -246,21 +247,28 @@ class ImprovedShoppingListPanel extends HTMLElement {
         @media(max-width:360px) { header { gap:4px; padding:10px 8px; } .brand-logo { width:28px; height:28px; } .menu { width:32px; padding:4px; flex:none; } .section-nav button { min-width:32px; padding:10px 6px; font-size:12px; } }
         .section-nav ha-icon { --mdc-icon-size:20px; width:20px; height:20px; flex:none; }
         @media(max-width:540px) { main { padding:26px 14px 40px; } .card { padding:18px 16px; border-radius:14px; } .primary { padding:10px 14px; } }
-        .stock-item { cursor:default; min-height:132px; background:linear-gradient(#f59a23,#c65b0c); color:#fff; border:0; padding:clamp(4px,4cqi,20px); }
+        .stock-item { min-height:132px; background:linear-gradient(#f59a23,#c65b0c); color:#fff; border:0; padding:clamp(4px,4cqi,20px); }
         .stock-item .placeholder { color:inherit; }.stock-item .product-media { width:clamp(18px,26cqi,144px); }
         .stock-item .summary { -webkit-line-clamp:2; }
-        .stock-controls { display:flex; align-items:center; justify-content:center; gap:clamp(1px,2cqi,8px); flex:none; margin-top:clamp(2px,3cqi,10px); }
-        .stock-controls button { display:grid; place-items:center; flex:none; width:clamp(16px,16cqi,36px); height:clamp(20px,16cqi,36px); padding:0; border:0; border-radius:8px; background:rgba(255,255,255,.24); color:inherit; }
-        .stock-controls ha-icon { width:clamp(12px,11cqi,22px); height:clamp(12px,11cqi,22px); --mdc-icon-size:clamp(12px,11cqi,22px); }
-        .stock-quantity { min-width:14px; font-weight:750; font-size:clamp(12px,10cqi,24px); font-variant-numeric:tabular-nums; }
-        .stock-tools { position:absolute; top:clamp(4px,4cqi,12px); right:clamp(4px,4cqi,12px); display:flex; gap:clamp(2px,2cqi,6px); }
-        .stock-tools button { display:grid; place-items:center; width:clamp(18px,17cqi,32px); height:clamp(18px,17cqi,32px); padding:0; border:0; border-radius:50%; background:#1976d2; color:white; }
-        .stock-tools button.stock-delete { background:#000; }
-        .stock-tools ha-icon { width:clamp(12px,11cqi,20px); height:clamp(12px,11cqi,20px); --mdc-icon-size:clamp(12px,11cqi,20px); }
-        .rows .stock-item { min-height:92px; }.rows .stock-item .product-media { width:48px; height:48px; grid-row:1 / 3; }.rows .stock-item .item-text { grid-row:1 / 3; }
-        .rows .stock-controls { grid-column:3; grid-row:1; margin:0; gap:6px; }.rows .stock-controls button { width:28px; height:28px; }.rows .stock-quantity { font-size:16px; min-width:22px; }
-        .rows .stock-tools { position:static; grid-column:3; grid-row:2; justify-content:flex-end; }.rows .stock-tools button { width:28px; height:28px; }
-        @media(max-width:540px) { .rows .stock-item .product-media { width:36px; height:36px; } }
+        .stock-open { display:flex; flex-direction:column; align-items:center; justify-content:center; flex:1; gap:8px; min-width:0; width:100%; padding:0; border:0; background:transparent; color:inherit; cursor:pointer; }
+        .stock-controls { display:flex; align-items:center; justify-content:center; gap:6px; flex:none; }
+        .stock-controls button { display:grid; place-items:center; width:28px; height:28px; padding:0; border:0; border-radius:8px; background:rgba(255,255,255,.24); color:inherit; }
+        .stock-controls ha-icon { width:20px; height:20px; --mdc-icon-size:20px; }
+        .stock-quantity { font-weight:750; font-size:clamp(12px,10cqi,24px); font-variant-numeric:tabular-nums; }
+        .rows .stock-item { display:flex; flex-direction:row; min-height:80px; gap:12px; }
+        .rows .stock-open { display:grid; grid-template-columns:48px minmax(0,1fr) auto; gap:12px; text-align:left; }
+        .rows .stock-item .product-media { width:48px; height:48px; }.rows .stock-quantity { font-size:16px; white-space:nowrap; }
+        @media(max-width:540px) { .rows .stock-open { grid-template-columns:32px minmax(0,1fr) auto; gap:8px; }.rows .stock-item .product-media { width:32px; height:32px; }.rows .stock-controls { flex-direction:column; gap:4px; } }
+        .stock-form-fields { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:18px; margin-top:20px; }
+        .stock-form-fields label { display:block; min-width:0; font-size:14px; font-weight:600; }
+        .stock-form-fields input:not([type=checkbox]),.stock-form-fields select { display:block; width:100%; min-width:0; height:44px; margin-top:8px; padding:8px 10px; border:1px solid var(--divider-color,#dfe7e1); border-radius:10px; color:inherit; background:var(--card-background-color,#fff); }
+        .stock-form-fields .wide { grid-column:1/-1; }.stock-form-fields .check { display:flex; align-items:center; gap:10px; }
+        .stock-form-fields .check input { width:20px; height:20px; }
+        .stock-quantity-editor { display:grid; grid-template-columns:40px minmax(0,1fr) 40px; gap:8px; align-items:end; }
+        .stock-quantity-editor button { width:40px; height:44px; padding:0; display:grid; place-items:center; border:0; border-radius:10px; }
+        .stock-form-fields [hidden] { display:none; } #delete-stock-from-editor { margin-right:auto; background:#d32f2f; color:white; border:0; }
+        #save-stock-config { background:var(--isl-green); color:white; border:0; }
+        @media(max-width:420px) { .stock-form-fields { grid-template-columns:minmax(0,1fr); } }
         #confirm-stock-remove { background:#000; color:#fff; border:0; }
         @media(max-width:380px) { header { gap:4px; padding:10px 8px; }.brand-logo { width:32px; height:32px; }.menu { width:36px; padding:6px; }.section-nav button { min-width:28px; padding:10px 4px; gap:3px; font-size:12px; }.section-nav ha-icon { --mdc-icon-size:18px; } }
       </style>
@@ -300,6 +308,25 @@ class ImprovedShoppingListPanel extends HTMLElement {
           <details id="completed-details"><summary id="completed-summary"><span id="completed-label">Compras recientes</span><button id="clear-completed" type="button"><ha-icon icon="mdi:delete" aria-hidden="true"></ha-icon>Limpiar productos</button></summary><ul id="completed" class="product-grid" aria-label="Compras recientes"></ul></details>
         </section>
         <section id="stock-card" aria-labelledby="stock-title" hidden><div class="list-header"><h2 id="stock-title">Stock</h2><div class="list-totals"><span id="stock-count" class="count"></span><span id="stock-units" class="count"></span></div></div><ul id="stock-items" class="product-grid" aria-label="Productos en stock"></ul><p id="stock-empty" class="empty" hidden>Añade productos para empezar a controlar tu despensa.</p></section>
+        <dialog id="stock-editor-dialog" aria-labelledby="stock-editor-title">
+          <form id="stock-editor-form"><h2 id="stock-editor-title">Configurar Stock</h2><p id="stock-editor-error" class="notice error" role="alert" hidden></p>
+          <div class="stock-form-fields">
+            <label>Stock actual<div class="stock-quantity-editor"><button id="stock-draft-minus" type="button" aria-label="Disminuir stock"><ha-icon icon="mdi:minus" aria-hidden="true"></ha-icon></button><input name="quantity" aria-label="Stock actual" type="number" min="0" max="1000000" step="0.001" required><button id="stock-draft-plus" type="button" aria-label="Incrementar stock"><ha-icon icon="mdi:plus" aria-hidden="true"></ha-icon></button></div></label>
+            <label>Unidades<select name="unit" aria-label="Unidades"><option value="uds">uds</option><option value="kg">kg</option><option value="g">g</option><option value="l">l</option><option value="ml">ml</option><option value="custom">Personalizadas</option></select></label>
+            <label class="wide" id="stock-custom-unit-label" hidden>Unidad personalizada<input name="custom_unit" maxlength="32" placeholder="Por ejemplo, Latas"></label>
+            <label class="wide">Control del stock<select name="mode" aria-label="Control del stock"><option value="manual">Manual / lectores</option><option value="perishable">Perecedero</option><option value="usage">Consumo registrado en Home Assistant</option></select></label>
+            <label id="stock-days-label" class="wide" hidden>Caduca cada cuántos días desde la compra<input name="days" type="number" min="1" max="3650" step="1" required></label>
+            <div id="stock-usage-fields" class="wide" hidden><div class="stock-form-fields">
+              <label class="wide">Entidad de consumo<input name="usage_entity" list="stock-usage-entities" placeholder="Por ejemplo, binary_sensor.lavadora"><datalist id="stock-usage-entities"></datalist></label>
+              <label>Estado que representa un uso<input name="usage_state" maxlength="255" placeholder="Por ejemplo, on"></label>
+              <label>Cantidad consumida por uso<input name="usage_amount" type="number" min="0.001" max="1000000" step="0.001" required></label>
+            </div></div>
+            <label class="wide">Cantidad que se suma al marcarlo como comprado<input name="refill_quantity" type="number" min="0.001" max="1000000" step="0.001" required></label>
+            <label class="wide check"><input name="reorder_enabled" type="checkbox">Añadir a la lista cuando el stock llegue al mínimo</label>
+            <label id="stock-threshold-label" hidden>Stock mínimo<input name="reorder_at" type="number" min="0" max="1000000" step="0.001" required></label>
+            <label id="stock-target-label" class="wide">Lista para reponer<select name="list_entity" aria-label="Lista para reponer"></select></label>
+          </div><div class="dialog-actions"><button id="delete-stock-from-editor" type="button">Eliminar producto del stock</button><button id="save-stock-config" type="submit">Guardar</button></div></form>
+        </dialog>
         <dialog id="stock-remove-dialog" aria-labelledby="stock-remove-title"><h2 id="stock-remove-title">Eliminar de Stock</h2><p id="stock-remove-description"></p><p id="stock-remove-error" class="notice error" role="alert" hidden></p><div class="dialog-actions"><button id="cancel-stock-remove" type="button">Cancelar</button><button id="confirm-stock-remove" type="button">Eliminar producto</button></div></dialog>
         <isl-catalog hidden></isl-catalog>
         <isl-settings hidden></isl-settings>
@@ -335,6 +362,19 @@ class ImprovedShoppingListPanel extends HTMLElement {
       this._renderData();
     });
     root.querySelector("#nav-stock").addEventListener("click",()=>this._switchView("stock"));
+    root.querySelector("#stock-editor-form").addEventListener("submit",event=>{event.preventDefault();void this._saveStockConfig();});
+    root.querySelector("#stock-editor-form").addEventListener("change",()=>this._updateStockForm());
+    root.querySelector("#stock-editor-dialog").addEventListener("cancel",event=>{if(this._busy)event.preventDefault();});
+    for(const [id,delta] of [["stock-draft-minus",-1],["stock-draft-plus",1]])root.querySelector('#'+id).addEventListener("click",()=>{
+      const input=root.querySelector('#stock-editor-form').elements.quantity;
+      input.value=String(Math.min(1000000,Math.max(0,Math.round((Number(input.value)+delta)*1000)/1000)));
+    });
+    root.querySelector('#delete-stock-from-editor').addEventListener('click',()=>{
+      if(!this._stockEditing||this._busy)return;
+      this._stockDeleteTarget=this._stock.items.find(item=>item.id===this._stockEditing.id)??this._stockEditing;
+      root.querySelector('#stock-remove-description').textContent='¿Eliminar «'+this._stockEditing.name+'» de Stock?';
+      root.querySelector('#stock-remove-error').hidden=true;root.querySelector('#stock-remove-dialog').showModal();
+    });
     root.querySelector("#cancel-stock-remove").addEventListener("click",()=>root.querySelector("#stock-remove-dialog").close());
     root.querySelector("#confirm-stock-remove").addEventListener("click",()=>void this._removeStockItem());
     root.querySelector("#stock-remove-dialog").addEventListener("cancel",event=>{if(this._busy)event.preventDefault();});
@@ -535,16 +575,16 @@ class ImprovedShoppingListPanel extends HTMLElement {
       title.textContent = "Todo listo por aquí";
       empty.replaceChildren(title, document.createTextNode("Añade lo que necesites para tu próxima compra."));
     }
-    this._renderStock(stockLocked,canCreate);
+    this._renderStock(stockLocked);
     this._renderPredictions();
   }
 
-  _renderStock(locked,canAdd) {
+  _renderStock(locked) {
     const root=this.shadowRoot, items=this._stock.items, grid=root.querySelector("#stock-items");
     grid.classList.toggle("rows",this._stockLayout === "rows");
     root.querySelector("#stock-count").textContent=`${items.length} ${items.length===1?"producto":"productos"}`;
-    const units=items.reduce((total,item)=>total+item.quantity,0);
-    root.querySelector("#stock-units").textContent=`${units} ${units===1?"unidad":"unidades"}`;
+    const totals=new Map();for(const item of items)totals.set(item.unit??'uds',(totals.get(item.unit??'uds')??0)+item.quantity);
+    root.querySelector('#stock-units').textContent=[...totals].map(([unit,total])=>new Intl.NumberFormat('es-ES',{maximumFractionDigits:3}).format(total)+' '+unit).join(' · ');
     root.querySelector("#stock-empty").hidden=items.length>0||this._stock.loading||!this._stock.loaded||Boolean(this._stock.error);
     root.querySelector("#stock-card").setAttribute("aria-busy",String(this._stock.loading||this._busy));
     const focus=root.activeElement, focusedId=focus?.closest?.("[data-stock-id]")?.dataset.stockId, focusedAction=focus?.dataset.stockAction;
@@ -554,7 +594,8 @@ class ImprovedShoppingListPanel extends HTMLElement {
       const product=products.get(item.catalog_product_id)??this._catalogProducts.get(productNameKey(item.name));
       const category=this._catalogCategories.get(normalizedName(product?.category));
       const li=node("li");li.dataset.stockId=item.id;
-      const card=node("div","item stock-item");
+      const card=node("div","item stock-item"), open=node("button","stock-open");
+      open.type="button";open.setAttribute("aria-label",`Configurar stock de ${item.name}`);open.addEventListener("click",()=>this._openStockEditor(item));
       const media=node("span","product-media"), placeholder=node("span","image placeholder"), icon=node("ha-icon");
       icon.setAttribute("icon",product?.icon||category?.icon||"mdi:package-variant");placeholder.append(icon);
       const source=imageSource(product?.image_url);
@@ -564,30 +605,74 @@ class ImprovedShoppingListPanel extends HTMLElement {
         const result=node("button");result.type="button";result.dataset.stockAction=action;result.setAttribute("aria-label",label);result.title=label;result.disabled=disabled;
         const glyph=node("ha-icon");glyph.setAttribute("icon",mdi);glyph.setAttribute("aria-hidden","true");result.append(glyph);result.addEventListener("click",callback);return result;
       };
-      const controls=node("div","stock-controls"), quantity=node("span","stock-quantity",String(item.quantity));
-      quantity.setAttribute("aria-label",`Stock de ${item.name}: ${item.quantity}`);
-      controls.append(button("decrease","mdi:minus",`Quitar una unidad de ${item.name}`,locked||item.quantity===0,()=>void this._runAction(()=>this._stock.adjust(item,-1),"Una unidad retirada de Stock.")),quantity,
-        button("increase","mdi:plus",`Añadir una unidad de ${item.name}`,locked||item.quantity>=1000000,()=>void this._runAction(()=>this._stock.adjust(item,1),"Una unidad añadida a Stock.")));
-      const tools=node("div","stock-tools");
-      tools.append(button("shopping","mdi:cart-plus",`Añadir a la lista: ${item.name}`,this._busy||this._session.loading||!canAdd,()=>void this._runAction(()=>this._session.add(item.name),"Producto añadido a la lista.")));
-      const remove=button("remove","mdi:delete",`Eliminar de Stock: ${item.name}`,locked,()=>{
-        this._stockDeleteTarget={...item};this._actionError="";
-        root.querySelector("#stock-remove-description").textContent=`¿Eliminar «${item.name}» de Stock?`;
-        root.querySelector("#stock-remove-error").hidden=true;
-        root.querySelector("#stock-remove-dialog").showModal();
-      });remove.className="stock-delete";tools.append(remove);
-      card.append(media,text,controls,tools);li.append(card);return li;
+      const quantity=node("span","stock-quantity",new Intl.NumberFormat('es-ES',{maximumFractionDigits:3}).format(item.quantity)+' '+(item.unit??'uds'));
+      quantity.setAttribute('aria-label',`Stock de ${item.name}: ${item.quantity} ${item.unit??'uds'}`);
+      open.append(media,text,quantity);card.append(open);
+      if(this._stockLayout==='rows'){
+        const controls=node('div','stock-controls');
+        controls.append(button('decrease','mdi:minus',`Quitar una unidad de ${item.name}`,locked||item.quantity===0,()=>void this._runAction(()=>this._stock.adjust(item,-1),'Stock actualizado.')),
+          button('increase','mdi:plus',`Añadir una unidad de ${item.name}`,locked||item.quantity>=1000000,()=>void this._runAction(()=>this._stock.adjust(item,1),'Stock actualizado.')));
+        card.append(controls);
+      }
+      li.append(card);return li;
     }));
     if(focusedId&&focusedAction){const li=[...grid.children].find(item=>item.dataset.stockId===focusedId);const button=li?.querySelector(`[data-stock-action="${focusedAction}"]:not([disabled])`)??li?.querySelector("button:not([disabled])");button?.focus({preventScroll:true});}
     root.querySelector("#confirm-stock-remove").disabled=this._busy;
     root.querySelector("#cancel-stock-remove").disabled=this._busy;
+    if(root.querySelector("#stock-editor-dialog").open)this._updateStockForm();
+  }
+
+  _openStockEditor(item) {
+    const root=this.shadowRoot, form=root.querySelector('#stock-editor-form');
+    this._stockEditing={...item};
+    const defaults={unit:'uds',mode:'manual',days:7,refill_quantity:1,reorder_enabled:false,reorder_at:0,usage_entity:'',usage_state:'',usage_amount:1};
+    const config={...defaults,...item};
+    for(const key of ['quantity','mode','days','refill_quantity','reorder_at','usage_entity','usage_state','usage_amount'])form.elements[key].value=config[key];
+    const standard=['uds','kg','g','l','ml'].includes(config.unit);
+    form.elements.unit.value=standard?config.unit:'custom';form.elements.custom_unit.value=standard?'':config.unit;
+    form.elements.reorder_enabled.checked=config.reorder_enabled;
+    const options=this._settings.entities??[], target=item.list_entity||this._session.entityId||this._settings.primary||'';
+    form.elements.list_entity.replaceChildren(...options.map(id=>new Option(this._hass.states[id]?.attributes?.friendly_name??id,id)));
+    if(target&&!options.includes(target))form.elements.list_entity.add(new Option(target+' · No disponible',target));
+    if(!form.elements.list_entity.options.length)form.elements.list_entity.add(new Option('No hay listas configuradas',''));
+    if(target)form.elements.list_entity.value=target;
+    root.querySelector('#stock-usage-entities').replaceChildren(...Object.entries(this._hass.states).filter(([id])=>!id.startsWith('todo.')).map(([id,state])=>new Option(state.attributes?.friendly_name??id,id)));
+    root.querySelector('#stock-editor-title').textContent=item.name+' · Stock';root.querySelector('#stock-editor-error').hidden=true;
+    this._updateStockForm();root.querySelector('#stock-editor-dialog').showModal();
+  }
+
+  _updateStockForm() {
+    const root=this.shadowRoot,form=root.querySelector('#stock-editor-form'),locked=this._busy||this._hass.user?.is_admin!==true;
+    const custom=form.elements.unit.value==='custom',usage=form.elements.mode.value==='usage',perishable=form.elements.mode.value==='perishable';
+    root.querySelector('#stock-custom-unit-label').hidden=!custom;
+    root.querySelector('#stock-days-label').hidden=!perishable;root.querySelector('#stock-usage-fields').hidden=!usage;
+    root.querySelector('#stock-threshold-label').hidden=!form.elements.reorder_enabled.checked;
+    for(const input of form.querySelectorAll('input,select,button'))input.disabled=locked;
+    form.elements.custom_unit.required=custom;form.elements.days.disabled=locked||!perishable;
+    for(const key of ['usage_entity','usage_state','usage_amount']){form.elements[key].disabled=locked||!usage;form.elements[key].required=usage;}
+    form.elements.reorder_at.disabled=locked||!form.elements.reorder_enabled.checked;
+    form.elements.list_entity.required=perishable||form.elements.reorder_enabled.checked;
+  }
+
+  async _saveStockConfig() {
+    if(this._busy||!this._stockEditing||this._hass.user?.is_admin!==true)return;
+    const root=this.shadowRoot,form=root.querySelector('#stock-editor-form');
+    if(!form.reportValidity())return;
+    const value=key=>form.elements[key].value;
+    const config={quantity:Number(value('quantity')),unit:value('unit')==='custom'?value('custom_unit').trim():value('unit'),
+      mode:value('mode'),days:Number(value('days')),refill_quantity:Number(value('refill_quantity')),
+      reorder_enabled:form.elements.reorder_enabled.checked,reorder_at:Number(value('reorder_at')),
+      list_entity:value('list_entity'),usage_entity:value('usage_entity').trim(),usage_state:value('usage_state'),usage_amount:Number(value('usage_amount'))};
+    const success=await this._runAction(()=>this._stock.save(this._stockEditing,config),'Stock guardado.');
+    if(success){root.querySelector('#stock-editor-dialog').close();this._stockEditing=null;}
+    else {const error=root.querySelector('#stock-editor-error');error.textContent=this._actionError;error.hidden=!error.textContent;}
   }
 
   async _removeStockItem() {
     if(!this._stockDeleteTarget||this._busy)return;
     const item=this._stockDeleteTarget;
     const result=await this._runAction(()=>this._stock.remove(item),"Producto eliminado de Stock.");
-    if(result){this.shadowRoot.querySelector("#stock-remove-dialog").close();this._stockDeleteTarget=null;}
+    if(result){this.shadowRoot.querySelector("#stock-remove-dialog").close();this.shadowRoot.querySelector("#stock-editor-dialog").close();this._stockDeleteTarget=null;}
     else {const error=this.shadowRoot.querySelector("#stock-remove-error");error.textContent=this._actionError;error.hidden=!error.textContent;}
   }
 

@@ -77,7 +77,8 @@ async def test_stock_ws_pushes_permissions_and_unload(hass,hass_ws_client,hass_r
     assert (await client.receive_json())["result"]["quantity"]==2
     await readonly.receive_json()
     await readonly.close();await hass.async_block_till_done()
-    assert not hass.data[DOMAIN]["stock"]._listeners
+    assert len(hass.data[DOMAIN]["stock"]._listeners)==1  # Backend automation remains subscribed.
     assert await hass.config_entries.async_unload(entry.entry_id)
+    assert not hass.data[DOMAIN]["stock"]._listeners
     await client.send_json({"id":3,"type":f"{DOMAIN}/stock/get"})
     assert (await client.receive_json())["error"]["code"]=="not_loaded"

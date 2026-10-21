@@ -2,6 +2,9 @@
 
 from asyncio import Lock
 from copy import deepcopy
+from decimal import Decimal, InvalidOperation
+import re
+import time
 from uuid import uuid4
 
 from homeassistant.core import callback
@@ -11,6 +14,53 @@ from .catalog import CatalogError, normalized_name
 from .const import DOMAIN
 
 MAX_QUANTITY = 1000000
+DAY = 86400
+DEFAULT_CONFIG = {"unit":"uds", "mode":"manual", "days":7, "refill_quantity":1,
+    "reorder_enabled":False, "reorder_at":0, "list_entity":"", "usage_entity":"",
+    "usage_state":"", "usage_amount":1, "configured":False, "config_revision":0,
+    "expires_at":0, "expired":False}
+
+
+def quantity_value(value, *, positive=False):
+    if isinstance(value, bool) or not isinstance(value, (int,float)):
+        raise CatalogError("Introduce una cantidad numérica válida.")
+    try:
+        number = Decimal(str(value))
+        if (not number.is_finite() or not (0 < number if positive else 0 <= number)
+            or number > MAX_QUANTITY or number != number.quantize(Decimal("0.001"))):
+            raise InvalidOperation
+        return int(number) if number == number.to_integral_value() else float(number)
+    except InvalidOperation:
+        raise CatalogError("La cantidad debe estar entre 0 y 1000000, con un máximo de tres decimales.") from None
+
+
+def stock_config(data):
+    fields = {"quantity","unit","mode","days","refill_quantity","reorder_enabled","reorder_at",
+        "list_entity","usage_entity","usage_state","usage_amount"}
+    if not isinstance(data, dict) or set(data) != fields:
+        raise CatalogError("La configuración de Stock no es válida.")
+    result = deepcopy(data)
+    for field in ("quantity","refill_quantity","reorder_at","usage_amount"):
+        result[field] = quantity_value(data[field],positive=field in ("refill_quantity","usage_amount"))
+    if (not isinstance(data["unit"],str) or not data["unit"].strip() or len(data["unit"].strip()) > 32
+        or any(ord(char)<32 for char in data["unit"])):
+        raise CatalogError("Indica una unidad de hasta 32 caracteres.")
+    result["unit"] = data["unit"].strip()
+    if data["mode"] not in ("manual","perishable","usage") or type(data["reorder_enabled"]) is not bool:
+        raise CatalogError("Selecciona un tipo de control de stock válido.")
+    if type(data["days"]) is not int or not 1 <= data["days"] <= 3650:
+        raise CatalogError("Indica entre 1 y 3650 días.")
+    for field in ("list_entity","usage_entity"):
+        if not isinstance(data[field],str) or data[field] and not re.fullmatch(r"[a-z_][a-z0-9_]*\.[a-z0-9_]+",data[field]):
+            raise CatalogError("Selecciona una entidad válida.")
+    if data["list_entity"] and not data["list_entity"].startswith("todo."):
+        raise CatalogError("La lista de reposición debe ser una entidad todo.")
+    if not isinstance(data["usage_state"],str) or len(data["usage_state"])>255 or any(ord(c)<32 for c in data["usage_state"]):
+        raise CatalogError("El estado de consumo no es válido.")
+    if data["mode"] == "usage" and (not data["usage_entity"] or not data["usage_state"].strip()
+        or data["usage_state"] in ("unknown","unavailable")):
+        raise CatalogError("Selecciona la entidad y el estado que representa cada uso.")
+    return result
 
 
 class StockManager:
@@ -31,10 +81,17 @@ class StockManager:
         if not isinstance(items, dict) or any(not isinstance(item, dict) or item.get("id") != key
             or not isinstance(item.get("name"), str) or not item["name"] or len(item["name"]) > 255
             or not isinstance(item.get("catalog_product_id", ""), str)
-            or type(item.get("quantity")) is not int or not 0 <= item["quantity"] <= MAX_QUANTITY
+            or type(item.get("quantity")) not in (int,float) or not 0 <= item["quantity"] <= MAX_QUANTITY
             or type(item.get("revision")) is not int or item["revision"] < 1 for key,item in items.items()):
             raise CatalogError("No se ha podido leer el stock guardado.", "storage_error")
-        self._items = deepcopy(items)
+        try:
+            for item in items.values():
+                merged = {**DEFAULT_CONFIG, **item}
+                stock_config({field:merged[field] for field in ("quantity","unit","mode","days","refill_quantity",
+                    "reorder_enabled","reorder_at","list_entity","usage_entity","usage_state","usage_amount")})
+        except CatalogError as err:
+            raise CatalogError("No se ha podido leer el stock guardado.", "storage_error") from err
+        self._items = {key:{**deepcopy(DEFAULT_CONFIG),**deepcopy(item)} for key,item in items.items()}
 
     def _product(self, item):
         products = self.catalog.products
@@ -97,18 +154,64 @@ class StockManager:
             if product_id and item.get("catalog_product_id") == product_id
             or normalized_name((self._product(item) or item)["name"]) == normalized_name(name)), None)
         before = current["quantity"] if current else 0
-        quantity = max(0, before + delta)
+        quantity = quantity_value(round(max(0, before + delta),3))
         if quantity > MAX_QUANTITY:
             raise CatalogError("Se ha alcanzado el máximo de unidades del producto.")
         if delta < 0 and before == 0:
             return {**deepcopy(current or {}), "name":name, "quantity":0}
-        item = {"id":current["id"] if current else str(uuid4()), "name":product["name"] if product else current["name"] if current else name,
+        item = {**deepcopy(current or DEFAULT_CONFIG), "id":current["id"] if current else str(uuid4()), "name":product["name"] if product else current["name"] if current else name,
             "catalog_product_id":product_id, "quantity":quantity, "revision":current["revision"]+1 if current else 1}
         await self._persist({**deepcopy(self._items), item["id"]:item})
         if self.activity:
-            self.activity.record("stock.change", f'{item["name"]}: {quantity} unidades en stock', source=source,
+            self.activity.record("stock.change", f'{item["name"]}: {quantity} {item["unit"]} en stock', source=source,
                 product=item["name"], quantity=quantity, delta=quantity-before, **({"reader":reader} if reader else {}))
         return deepcopy(item)
+
+    async def async_save(self, item_id, revision, data):
+        config = stock_config(data)
+        async with self._lock:
+            current = self._items.get(item_id)
+            if current is None or type(revision) is not int or current["revision"] != revision:
+                raise CatalogError("El stock ha cambiado. Cierra y vuelve a abrir la ficha para actualizarla.", "conflict")
+            item = {**deepcopy(current), **config, "configured":True,
+                "config_revision":current.get("config_revision",0)+1, "revision":revision+1}
+            if config["mode"] != "perishable":
+                item.update(expires_at=0,expired=False)
+            elif (current.get("mode") != "perishable" or current.get("days") != config["days"]
+                or current["quantity"] != config["quantity"]):
+                item.update(expires_at=time.time()+config["days"]*DAY,expired=False)
+            await self._persist({**deepcopy(self._items), item_id:item})
+            if self.activity:
+                self.activity.record("stock.configured",f'{item["name"]}: configuración de Stock guardada',source="manual",product=item["name"])
+            return deepcopy(item)
+
+    async def async_automatic(self, item_id, config_revision, action):
+        """Apply observed usage, a purchase, or expiry atomically against current settings."""
+        async with self._lock:
+            current = self._items.get(item_id)
+            if not current or not current.get("configured") or current.get("config_revision") != config_revision:
+                return None
+            item = deepcopy(current)
+            before = item["quantity"]
+            if action == "purchase":
+                item["quantity"] = quantity_value(round(before+item["refill_quantity"],3))
+                if item["mode"] == "perishable":
+                    item.update(expires_at=time.time()+item["days"]*DAY,expired=False)
+            elif action == "usage" and item["mode"] == "usage":
+                item["quantity"] = quantity_value(round(max(0,before-item["usage_amount"]),3))
+            elif action == "expire" and item["mode"] == "perishable" and item.get("expires_at",0) and time.time() >= item["expires_at"]:
+                item.update(quantity=0,expires_at=0,expired=True)
+            else:
+                return None
+            if item == current:
+                return deepcopy(item)
+            item["revision"] += 1
+            await self._persist({**deepcopy(self._items), item_id:item})
+            if self.activity:
+                verb = {"purchase":"Reposición por compra", "usage":"Consumo registrado", "expire":"Caducidad alcanzada"}[action]
+                self.activity.record(f"stock.{action}",f'{verb}: {item["name"]} · {item["quantity"]} {item["unit"]}',
+                    source="automatic", product=item["name"],quantity=item["quantity"],delta=round(item["quantity"]-before,3))
+            return deepcopy(item)
 
     async def async_adjust(self, item_id, delta):
         if type(delta) is not int or delta not in (-1,1):

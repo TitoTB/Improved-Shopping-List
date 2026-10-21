@@ -17,5 +17,6 @@ export class StockSession extends ListSettingsSession {
   }
   add(name) { return this._write("add",{name}); }
   adjust(item,delta) { return this._write("adjust",{item_id:item.id,delta}); }
+  save(item,config) { return this._write("save",{item_id:item.id,revision:item.revision,config}); }
   remove(item) { return this._write("remove",{item_id:item.id,revision:item.revision}); }
 }

@@ -1405,7 +1405,7 @@ async function main() {
     for (const width of [1280,390]) {
       await settingsPage.setViewportSize({width,height:844});
       const actions = await settingsView.locator(".community-action").evaluateAll(nodes=>nodes.map(node=>{
-        const rect=node.getBoundingClientRect(),icon=node.querySelector("svg").getBoundingClientRect();
+        const rect=node.getBoundingClientRect(),icon=node.querySelector("svg, input").getBoundingClientRect();
         return {width:rect.width,iconWidth:icon.width,iconHeight:icon.height};
       }));
       assert.equal(actions.length,3);
@@ -1414,7 +1414,7 @@ async function main() {
     }
     const sharing=settingsView.getByLabel('Compartir mis datos de productos',{exact:true});
     assert.equal(await sharing.isChecked(),false);
-    await sharing.check();
+    await settingsView.locator('.community-share span').click();
     await settingsView.getByText('ABCD-EFGH',{exact:true}).waitFor();
     const authorize=settingsView.getByRole('link',{name:'Autorizar en GitHub',exact:true});
     assert.equal(await authorize.getAttribute('href'),'https://github.com/login/device');
@@ -1422,16 +1422,10 @@ async function main() {
     await sharing.uncheck();
     await settingsView.locator('#community-authorization').waitFor({state:'hidden'});
     assert.equal(await settingsPage.evaluate(()=>window.communityFixture.sharing),false);
-    const exportDownload = settingsPage.waitForEvent("download");
-    await settingsView.getByRole("button",{name:"Exportar mis iconos",exact:true}).click();
-    const zipDownload = await exportDownload;
-    assert.equal(zipDownload.suggestedFilename(),"improved-shopping-list-icons.zip");
-    assert.equal((await fs.readFile(await zipDownload.path())).subarray(0,2).toString(),"PK");
-    await settingsView.getByRole("status").filter({hasText:"Exportados 2 registros y 1 imágenes"}).waitFor();
-    await settingsPage.evaluate(()=>{window.failCommunityExport=true;});
-    await settingsView.getByRole("button",{name:"Exportar mis iconos",exact:true}).click();
-    await settingsView.getByRole("alert").filter({hasText:"No se ha podido exportar"}).waitFor();
-    await settingsPage.evaluate(()=>{window.failCommunityExport=false;});
+    assert.equal(await settingsView.locator('#export-community').count(),0);
+    assert.equal(await settingsView.locator('.community-action #community-sharing').count(),1);
+    assert.match(await settingsView.locator('#community-description').textContent(),/una vez al día/);
+    assert.equal(await settingsPage.evaluate(()=>window.calls.some(call=>call.type==='improved_shopping_list/community/export')),false);
     await settingsView.getByRole("button",{name:"Listas",exact:true}).click();
     const configured = settingsView.locator("#configured-lists article");
     assert.equal(await configured.count(), 3);

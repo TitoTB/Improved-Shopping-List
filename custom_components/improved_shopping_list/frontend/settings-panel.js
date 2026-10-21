@@ -127,6 +127,9 @@ class ImprovedShoppingSettings extends HTMLElement {
         .community-export { display:flex; align-items:center; gap:24px; }
         .community-export p { flex:1; min-width:0; }
         .community-action { display:inline-flex; align-items:center; justify-content:flex-start; gap:8px; flex:0 0 240px; width:240px; max-width:100%; min-height:46px; padding:10px 14px; border:0; border-radius:10px; text-decoration:none; text-align:left; font:inherit; }
+        .community-share { cursor:pointer; align-self:center; }
+        .community-share input { width:16px; height:16px; min-height:16px; flex:none; margin:0; padding:0; accent-color:var(--isl-green,#267052); }
+        .community-share:has(input:disabled) { opacity:.6; cursor:default; }
         .community-action svg { width:16px; height:16px; flex:none; fill:currentColor; }
         #settings-community a { color:var(--primary-color,#267052); }
         #settings-community .community-join { background:#0088cc; color:#fff; }
@@ -228,14 +231,15 @@ class ImprovedShoppingSettings extends HTMLElement {
       <section id="settings-logs" class="card" aria-label="Logs" hidden><isl-logs></isl-logs></section>
       <section id="settings-community" class="card" aria-labelledby="settings-community-title" hidden>
         <h2 id="settings-community-title">Comunidad</h2>
+        <div class="community-export">
+          <p id="community-description">El diccionario comunitario permite completar tu catálogo con nombres, traducciones, EAN, vinculaciones con tiendas, Nutri-Score, precios e iconos con licencia comprobable. Activa esta opción y autoriza GitHub para compartir automáticamente estos datos de todo tu catálogo una vez al día en el <a href="https://github.com/TitoTB/Improved-Shopping-List" target="_blank" rel="noopener noreferrer">repositorio de GitHub</a>. Las aportaciones son públicas, están asociadas a tu cuenta y se validan automáticamente. No se comparten listas, stock, etiquetas NFC ni automatizaciones.</p>
+          <label class="primary community-action community-share"><input id="community-sharing" type="checkbox" aria-describedby="community-description"><span>Compartir mis datos de productos</span></label>
+        </div>
         <div class="community-sharing">
-          <label><input id="community-sharing" type="checkbox"> Compartir mis datos de productos</label>
-          <p>Comparte nombres, traducciones, EAN, vinculaciones con tiendas, Nutri-Score, precios e iconos con licencia comprobable de todo tu catálogo. Las aportaciones serán públicas y estarán asociadas a tu cuenta de GitHub. No se comparten listas, stock, etiquetas NFC ni automatizaciones.</p>
           <p id="community-connection" role="status"></p>
           <div id="community-authorization" hidden><p>Abre GitHub e introduce este código: <strong id="community-user-code"></strong></p><a href="https://github.com/login/device" target="_blank" rel="noopener noreferrer">Autorizar en GitHub</a></div>
           <button id="community-connect" type="button" hidden>Conectar con GitHub</button>
         </div>
-        <div class="community-export"><p>Exporta un diccionario con los nombres de tus productos, sus traducciones disponibles y las imágenes locales asignadas. Puedes enviarlo al mantenedor para incorporar las imágenes revisadas al catálogo comunitario, creando un Issue en el <a href="https://github.com/TitoTB/Improved-Shopping-List" target="_blank" rel="noopener noreferrer">repositorio de Github</a>.</p><button id="export-community" class="primary community-action" type="button"><svg viewBox="0 0 512 512" aria-hidden="true" focusable="false"><!--! Font Awesome Free 6.7.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2024 Fonticons, Inc. --><path d="M288 32c0-17.7-14.3-32-32-32s-32 14.3-32 32l0 242.7-73.4-73.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3l128 128c12.5 12.5 32.8 12.5 45.3 0l128-128c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L288 274.7 288 32zM64 352c-35.3 0-64 28.7-64 64l0 32c0 35.3 28.7 64 64 64l384 0c35.3 0 64-28.7 64-64l0-32c0-35.3-28.7-64-64-64l-101.5 0-45.3 45.3c-25 25-65.5 25-90.5 0L165.5 352 64 352zm368 56a24 24 0 1 1 0 48 24 24 0 1 1 0-48z"/></svg>Exportar mis iconos</button></div>
         <div class="community-export"><p>Este proyecto ha sido desarrollado por la <a href="https://t.me/aguacatec_es/3" target="_blank" rel="noopener noreferrer">comunidad de Aguacatec</a>. Si tienes cualquier duda o sugerencia para mejorar la integración puedes unirte a través de Telegram.</p><a class="community-action community-join" href="https://t.me/aguacatec_es/3" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 496 512" aria-hidden="true" focusable="false"><!--! Font Awesome Free 6.7.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2024 Fonticons, Inc. --><path d="M248,8C111.033,8,0,119.033,0,256S111.033,504,248,504,496,392.967,496,256,384.967,8,248,8ZM362.952,176.66c-3.732,39.215-19.881,134.378-28.1,178.3-3.476,18.584-10.322,24.816-16.948,25.425-14.4,1.326-25.338-9.517-39.287-18.661-21.827-14.308-34.158-23.215-55.346-37.177-24.485-16.135-8.612-25,5.342-39.5,3.652-3.793,67.107-61.51,68.335-66.746.153-.655.3-3.1-1.154-4.384s-3.59-.849-5.135-.5q-3.283.746-104.608,69.142-14.845,10.194-26.894,9.934c-8.855-.191-25.888-5.006-38.551-9.123-15.531-5.048-27.875-7.717-26.8-16.291q.84-6.7,18.45-13.7,108.446-47.248,144.628-62.3c68.872-28.647,83.183-33.623,92.511-33.789,2.052-.034,6.639.474,9.61,2.885a10.452,10.452,0,0,1,3.53,6.716A43.765,43.765,0,0,1,362.952,176.66Z"/></svg>Unirme a la comunidad</a></div>
         <div class="community-export"><p>Si quieres apoyar a <a href="https://aguacatec.es/" target="_blank" rel="noopener noreferrer">Aguacatec</a> para que podamos seguir desarrollando proyectos como estos, conseguir contenido exclusivo, participar en sorteos y otras ventajas, puedes hacerte <a href="https://www.patreon.com/c/aguacatec/membership" target="_blank" rel="noopener noreferrer">Patreon</a>.</p><a class="community-action community-patreon" href="https://www.patreon.com/c/aguacatec/membership" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 512 512" aria-hidden="true" focusable="false"><!--! Font Awesome Free 6.7.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2024 Fonticons, Inc. --><path d="M489.7 153.8c-.1-65.4-51-119-110.7-138.3C304.8-8.5 207-5 136.1 28.4C50.3 68.9 23.3 157.7 22.3 246.2C21.5 319 28.7 510.6 136.9 512c80.3 1 92.3-102.5 129.5-152.3c26.4-35.5 60.5-45.5 102.4-55.9c72-17.8 121.1-74.7 121-150z"/></svg>Hacerme Patreon</a></div>
       </section>`;
@@ -298,7 +302,6 @@ class ImprovedShoppingSettings extends HTMLElement {
     });
     root.querySelector("#community-sharing").addEventListener("change", () => void this._setCommunity(root.querySelector("#community-sharing").checked));
     root.querySelector("#community-connect").addEventListener("click", () => void this._setCommunity(true));
-    root.querySelector("#export-community").addEventListener("click", () => void this._exportCommunity());
     root.querySelector("#appearance-form").addEventListener("input", () => { this._appearanceDirty = true; this._preview(); });
     root.querySelector("#appearance-form").addEventListener("change", () => { this._appearanceDirty = true; this._preview(); });
     root.querySelector("#appearance-form").addEventListener("submit", event => { event.preventDefault(); void this._saveAppearance(); });
@@ -335,7 +338,6 @@ class ImprovedShoppingSettings extends HTMLElement {
       favorite.setAttribute("aria-pressed",String(selected));
       favorite.querySelector("ha-icon").setAttribute("icon",selected ? "mdi:heart" : "mdi:heart-outline");
     }
-    root.querySelector("#export-community").disabled = locked;
     const error = root.querySelector("#settings-error");
     error.textContent = this._error || settings.error;
     error.hidden = !error.textContent || root.querySelector("#store-dialog").open;
@@ -740,31 +742,6 @@ class ImprovedShoppingSettings extends HTMLElement {
       this._communityState=await this._data.hass.callWS({type:"improved_shopping_list/community/sharing",enabled});
     } catch {this._communityError="No se ha podido guardar la autorización comunitaria.";}
     finally {this._communityBusy=false;clearTimeout(this._communityTimer);this._communityTimer=null;this._renderCommunity();}
-  }
-
-  async _exportCommunity() {
-    if (this._busy || !this._data?.hass?.user?.is_admin) return;
-    this._busy = true;
-    this._error = this._notice = "";
-    this._render();
-    let downloadUrl;
-    try {
-      const result = await this._data.hass.callWS({type:"improved_shopping_list/community/export"});
-      const bytes = Uint8Array.from(atob(result.data), character => character.charCodeAt(0));
-      downloadUrl = URL.createObjectURL(new Blob([bytes], {type:"application/zip"}));
-      const anchor = document.createElement("a");
-      anchor.href = downloadUrl;
-      anchor.download = "improved-shopping-list-icons.zip";
-      this.shadowRoot.append(anchor);
-      anchor.click();
-      anchor.remove();
-      this._notice = `Exportados ${result.entries} registros y ${result.images} imágenes.${result.skipped ? ` No se pudieron incluir ${result.skipped} referencias locales.` : ""}`;
-    } catch (error) { this._error = error.message ?? "No se ha podido exportar el diccionario."; }
-    finally {
-      if (downloadUrl) setTimeout(() => URL.revokeObjectURL(downloadUrl), 60000);
-      this._busy = false;
-      this._render();
-    }
   }
 
   async _saveAppearance() {

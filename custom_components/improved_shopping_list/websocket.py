@@ -60,6 +60,7 @@ def async_register_commands(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_refresh_prices)
     websocket_api.async_register_command(hass, ws_readers_get)
     websocket_api.async_register_command(hass, ws_readers_subscribe)
+    websocket_api.async_register_command(hass, ws_reader_capture)
     websocket_api.async_register_command(hass, ws_readers_save)
     websocket_api.async_register_command(hass, ws_readers_delete)
     websocket_api.async_register_command(hass, ws_readers_dismiss)
@@ -194,6 +195,21 @@ def ws_readers_subscribe(hass, connection, msg):
     connection.subscriptions[msg["id"]] = readers.subscribe(on_update)
     connection.send_result(msg["id"])
     on_update()
+
+
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/readers/capture", vol.Required("reader_id"):str})
+@websocket_api.require_admin
+@callback
+def ws_reader_capture(hass, connection, msg):
+    if not _catalog(hass, connection, msg):
+        return
+    try:
+        stop = hass.data[DOMAIN]["readers"].capture(msg["reader_id"], lambda reading: connection.send_event(msg["id"], reading))
+    except CatalogError as err:
+        connection.send_error(msg["id"], err.code, str(err))
+    else:
+        connection.subscriptions[msg["id"]] = stop
+        connection.send_result(msg["id"])
 
 
 async def _reader_write(hass, connection, msg, operation):

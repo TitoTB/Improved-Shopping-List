@@ -79,6 +79,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
     this._hass = value;
     if (this._built) this.shadowRoot.querySelector("isl-icon-picker").hass = value;
     if (previous && previous !== value.connection) {
+      this._stopCodeCapture();
       this._started = false;
       this._groupNutritionToken = null; this._groupNutritionLoading = false; this._groupNutrition.clear();
     }
@@ -99,6 +100,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
   set readerData(value) {
     this._readers = value;
     this._renderReaderActions();
+    this._renderProductCodes();
     this._renderSuggestions();
   }
 
@@ -106,6 +108,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
   set active(value) {
     if (this._active === Boolean(value)) return;
     this._active = Boolean(value);
+    if (!this._active) this._stopCodeCapture();
     this._renderProducts();
   }
   set priceData(value) {
@@ -140,6 +143,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
 
   disconnectedCallback() {
     this._active = false; this._groupNutritionToken = null; this._groupNutritionLoading = false;
+    this._stopCodeCapture();
     this._catalog.stop();
     this._started = false;
     this.shadowRoot.querySelectorAll("dialog").forEach(dialog => dialog.close());
@@ -289,6 +293,15 @@ class ImprovedShoppingCatalog extends HTMLElement {
         @media(max-width:650px) { .filters { grid-template-columns:1fr; } .grid { grid-template-columns:repeat(var(--isl-mobile-columns,1),minmax(0,1fr)); } .heading { gap:10px; flex-wrap:wrap; } h1 { font-size:28px; } dialog { padding:20px; } }
         @media(max-width:650px) { .catalog-toolbar { gap:6px; } .catalog-tabs { gap:4px; } .catalog-tabs button { gap:4px; min-width:36px; justify-content:center; padding:10px 6px; font-size:13px; } .catalog-tabs button[aria-pressed=false] .tab-label { display:none; } }
         @media(max-width:390px) { .fields { grid-template-columns:1fr; } .heading { align-items:flex-start; } .catalog-tabs { gap:3px; } .catalog-tabs button { min-width:32px; padding-inline:4px; } .catalog-tools { gap:4px; } }
+        .code-list { display:grid; gap:8px; margin:12px 0; }
+        .code-row { display:flex; align-items:center; gap:12px; border:1px solid var(--divider-color,#dfe7e1); border-radius:10px; padding:8px 12px; min-width:0; }
+        .code-value { flex:1; min-width:0; overflow-wrap:anywhere; user-select:text; }
+        .code-remove { display:grid; place-items:center; width:36px; height:36px; min-height:36px; padding:0; border:0; background:#e53935; color:white; flex:none; }
+        .code-remove ha-icon { width:20px; height:20px; --mdc-icon-size:20px; }
+        .code-capture-controls { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+        .code-capture-controls select { flex:1; min-width:140px; }
+        .code-capture-controls button { display:flex; align-items:center; justify-content:center; gap:6px; min-height:44px; }
+        .code-capture-controls ha-icon { width:20px; height:20px; --mdc-icon-size:20px; }
       </style>
       <div class="heading"><h1>Catálogo</h1></div>
       <div class="catalog-toolbar">
@@ -347,9 +360,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
             <div id="product-store-prices" class="wide" hidden><h3>Precios de tiendas</h3><div id="store-price-results"></div></div>
           </section>
           <section id="product-automation" class="fields" aria-label="Automatización" hidden>
-            <label class="wide">Código de barras<input name="barcode" type="text" maxlength="1024"></label>
-            <label class="wide">Otros códigos de barras o QR<textarea name="barcodes" maxlength="52000" placeholder="Un código por línea"></textarea></label>
-            <label class="wide">Etiquetas NFC<textarea name="nfc_tags" maxlength="52000" placeholder="Un identificador por línea"></textarea></label>
+            ${[["barcode","Códigos de barras/QR","mdi:barcode-scan"],["nfc","Etiquetas NFC","mdi:nfc-variant"]].map(([kind,title,icon])=>`<section id="product-${kind}-codes" class="wide product-codes" aria-label="${title}"><h3>${title}</h3><div id="${kind}-code-list" class="code-list"></div><div class="code-capture-controls"><select id="${kind}-capture-reader" aria-label="Lector para ${title}"></select><button id="${kind}-capture-start" type="button"><ha-icon icon="${icon}" aria-hidden="true"></ha-icon>Escanear</button><button id="${kind}-capture-stop" type="button" hidden>Detener</button></div><p id="${kind}-capture-status" class="helper" role="status"></p></section>`).join("")}
             <div class="wide"><h3>Acciones de los lectores</h3><div id="product-reader-actions"></div><p class="helper">La acción se aplica solo al reconocer este producto. Las acciones de stock quedan guardadas para cuando esté disponible el inventario.</p></div>
             <div class="wide" id="product-recurrence"><h3>Recurrencia</h3><div class="recurrence-controls"><label><input name="recurrence_enabled" type="checkbox">Comprar cada</label><input name="recurrence_days" type="number" min="1" max="3650" step="1" value="7" aria-label="Días de recurrencia" disabled required><span>días</span></div><p class="helper">Se añadirá a la lista principal sin duplicar productos pendientes.</p></div>
           </section>
@@ -404,8 +415,11 @@ class ImprovedShoppingCatalog extends HTMLElement {
     iconPicker.onBusyChange = busy => { root.querySelector("#save-product").disabled = Boolean(this._saving || busy); };
     root.querySelector('[name="name"]').addEventListener("input", () => iconPicker.suggest());
     root.querySelector('[name="image_url"]').addEventListener("input", event => { iconPicker.value = event.target.value; });
-    root.querySelector("dialog").addEventListener("close", () => { iconPicker.close(); this._resetNutriscores(); });
-    for (const field of ["barcode", "barcodes"]) root.querySelector(`[name=${field}]`).addEventListener("input", () => this._resetNutriscores());
+    root.querySelector("dialog").addEventListener("close", () => { this._stopCodeCapture(); iconPicker.close(); this._resetNutriscores(); });
+    for (const kind of ["barcode","nfc"]) {
+      root.querySelector(`#${kind}-capture-start`).addEventListener("click",()=>void this._startCodeCapture(kind));
+      root.querySelector(`#${kind}-capture-stop`).addEventListener("click",()=>this._stopCodeCapture());
+    }
     root.querySelector("#cancel-link-code").addEventListener("click", () => root.querySelector("#link-code-dialog").close());
     root.querySelector("#confirm-link-code").addEventListener("click", () => void this._assignCode());
     root.querySelector("#link-code-dialog").addEventListener("cancel", event => { if (this._linkBusy) event.preventDefault(); });
@@ -731,6 +745,81 @@ class ImprovedShoppingCatalog extends HTMLElement {
     }
   }
 
+  _productCodeKey(kind, code) {
+    return kind === "nfc" ? (/^[0-9a-f:-]+$/i.test(code) ? code.replace(/[:-]/g,"").toLowerCase() : code.toLowerCase()) : code;
+  }
+
+  _addProductCode(kind, value) {
+    if (!this._productCodes || !["barcode","nfc"].includes(kind) || typeof value !== "string") return false;
+    const code=value.trim();
+    if (!code || code.length>1024 || /[\x00-\x1f]/.test(code)) return false;
+    const values=this._productCodes[kind], key=this._productCodeKey(kind,code);
+    if (values.some(value=>this._productCodeKey(kind,value)===key)) return false;
+    values.push(code);
+    this._resetNutriscores();
+    return true;
+  }
+
+  _renderProductCodes() {
+    const root=this.shadowRoot;
+    if (!this._built || !root.querySelector("#barcode-code-list")) return;
+    const admin=this._hass?.user?.is_admin === true;
+    for (const kind of ["barcode","nfc"]) {
+      const values=this._productCodes?.[kind] ?? [], readers=(this._readers?.readers??[]).filter(reader=>reader.kind===kind&&reader.enabled);
+      const select=root.querySelector(`#${kind}-capture-reader`), previous=this._codeCapture?.kind===kind ? this._codeCapture.readerId : select.value;
+      select.replaceChildren(...(readers.length ? readers.map(reader=>new Option(reader.name,reader.id)) : [new Option("No hay lectores activos de este tipo","")]));
+      if (readers.some(reader=>reader.id===previous)) select.value=previous;
+      select.disabled=!admin||this._saving||Boolean(this._codeCapture)||!readers.length;
+      root.querySelector(`#${kind}-code-list`).replaceChildren(...(values.length ? values.map((code,index)=>{
+        const row=element("div","code-row");
+        row.append(element("span","code-value",code));
+        const remove=iconButton("mdi:delete",`Quitar código ${code}`,"code-remove");
+        remove.disabled=!admin||this._saving;
+        remove.addEventListener("click",()=>{this._productCodes[kind].splice(index,1);this._resetNutriscores();this._renderProductCodes();});
+        row.append(remove);return row;
+      }) : [element("p","helper",kind==="barcode"?"Sin códigos de barras/QR asociados.":"Sin etiquetas NFC asociadas.")]));
+      const capturing=this._codeCapture?.kind===kind;
+      root.querySelector(`#${kind}-capture-start`).hidden=capturing;
+      root.querySelector(`#${kind}-capture-start`).disabled=!admin||this._saving||Boolean(this._codeCapture)||!readers.length||values.length>=50;
+      root.querySelector(`#${kind}-capture-stop`).hidden=!capturing;
+      root.querySelector(`#${kind}-capture-status`).textContent=capturing ? "Escanea con el lector seleccionado. Las lecturas se guardarán al guardar el producto. La captura termina tras 60 segundos." : this._scanNotice?.kind===kind ? this._scanNotice.text : readers.length ? "" : "Añade y activa un lector en el apartado Lectores para capturar códigos.";
+    }
+  }
+
+  _stopCodeCapture() {
+    const capture=this._codeCapture;
+    this._codeCapture=null;
+    if (capture?.stop) { try { Promise.resolve(capture.stop()).catch(()=>{}); } catch { /* Disconnected. */ } }
+    this._renderProductCodes();
+  }
+
+  async _startCodeCapture(kind) {
+    const root=this.shadowRoot, readerId=root.querySelector(`#${kind}-capture-reader`).value;
+    if (this._codeCapture || this._saving || this._hass?.user?.is_admin !== true || !readerId || !root.querySelector("dialog").open) return;
+    const capture={kind,readerId};this._codeCapture=capture;this._scanNotice=null;this._renderProductCodes();
+    try {
+      const stop=await this._hass.connection.subscribeMessage(reading=>{
+        if (this._codeCapture!==capture) return;
+        if (reading.status!=="scanned") {
+          this._scanNotice={kind,text:reading.status==="expired"?"Captura finalizada. Pulsa Escanear para continuar.":"La captura se ha detenido."};
+          this._stopCodeCapture();return;
+        }
+        if (reading.kind!==kind || reading.reader_id!==readerId || !root.querySelector("dialog").open) return;
+        if (this._productCodes[kind].length>=50) {
+          this._scanNotice={kind,text:"Puedes asignar hasta 50 códigos de cada tipo."};this._stopCodeCapture();return;
+        }
+        this._addProductCode(kind,reading.code);
+        this._renderProductCodes();
+      },{type:"improved_shopping_list/readers/capture",reader_id:readerId});
+      if (this._codeCapture===capture) capture.stop=stop;
+      else { try { await stop(); } catch { /* Closed before subscription resolved. */ } }
+    } catch(error) {
+      if (this._codeCapture===capture) {
+        this._scanNotice={kind,text:error.message??"No se pudo iniciar la captura."};this._stopCodeCapture();
+      }
+    }
+  }
+
   _renderReaderActions() {
     if (!this._built) return;
     const container = this.shadowRoot.querySelector("#product-reader-actions");
@@ -953,6 +1042,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
   }
 
   _switchProductView(view) {
+    if (view !== "automation") this._stopCodeCapture();
     if (this._saving) return;
     for (const button of this.shadowRoot.querySelectorAll("[data-product-view]")) {
       const selected = button.dataset.productView === view;
@@ -977,7 +1067,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
     root.querySelector("#product-store-prices").hidden = true;
     try {
       const linksKey = JSON.stringify(this._storeLinks ?? {});
-      const data = await this._hass.callWS({type:"improved_shopping_list/catalog/store_prices",links:this._storeLinks ?? {},codes:[form.elements.barcode.value,...form.elements.barcodes.value.split(/\r?\n/)].map(value=>value.trim()).filter(Boolean)});
+      const data = await this._hass.callWS({type:"improved_shopping_list/catalog/store_prices",links:this._storeLinks ?? {},codes:this._productCodes?.barcode ?? []});
       if (generation !== this._nutriGeneration || linksKey !== JSON.stringify(this._storeLinks ?? {}) || !root.querySelector("dialog").open || !this.isConnected) return;
       const names = {mercadona:"Mercadona",carrefour:"Carrefour",alcampo:"Alcampo",consum:"Consum",lasirena:"La Sirena",eroski:"Eroski",dia:"DIA"};
       const rows = data.products.map(product => {
@@ -1030,7 +1120,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
     const root = this.shadowRoot;
     const form = root.querySelector("#product-form");
     const seen = new Set();
-    const codes = [form.elements.barcode.value, ...form.elements.barcodes.value.split(/\r?\n/)]
+    const codes = [...(this._productCodes?.barcode ?? [])]
       .map(code => code.trim()).filter(code => {
         if (!/^(?:\d{8}|\d{12,14})$/.test(code)) return false;
         const total = [...code.slice(0,-1)].reverse().reduce((sum,digit,index) => sum + Number(digit) * (index % 2 ? 1 : 3),0);
@@ -1087,6 +1177,9 @@ class ImprovedShoppingCatalog extends HTMLElement {
     const root = this.shadowRoot;
     const form = root.querySelector("form");
     this._listOrigin = listOrigin;
+    this._stopCodeCapture();
+    this._scanNotice = null;
+    this._productCodes = {barcode:[],nfc:[]};
     form.reset();
     this._resetNutriscores();
     this._switchProductView("main");
@@ -1106,22 +1199,15 @@ class ImprovedShoppingCatalog extends HTMLElement {
     root.querySelector("#product-dialog-title").textContent = product ? "Editar producto" : "Nuevo producto";
     root.querySelector("#product-error").hidden = true;
     if (product) {
-      for (const key of ["name", "category", "barcode", "price", "image_url"]) form.elements[key].value = product[key] ?? "";
+      for (const key of ["name", "category", "price", "image_url"]) form.elements[key].value = product[key] ?? "";
       if (![...form.elements.currency.options].some(option => option.value === product.currency)) form.elements.currency.add(new Option(product.currency, product.currency));
       form.elements.currency.value = product.currency;
-      form.elements.barcodes.value = (product.barcodes ?? []).join("\n");
-      form.elements.nfc_tags.value = (product.nfc_tags ?? []).join("\n");
+      for (const code of [product.barcode,...(product.barcodes??[])]) this._addProductCode("barcode",code);
+      for (const code of product.nfc_tags??[]) this._addProductCode("nfc",code);
     }
     for (const select of root.querySelectorAll("[data-reader-action]")) select.value = product?.reader_actions?.[select.dataset.readerAction] ?? "default";
-    if (reading) {
-      if (reading.kind === "barcode" && !form.elements.barcode.value) form.elements.barcode.value = reading.code;
-      else {
-        const field = reading.kind === "nfc" ? "nfc_tags" : "barcodes";
-        const values = form.elements[field].value.split(/\r?\n/).filter(Boolean);
-        if (!values.includes(reading.code) && !(reading.kind === "barcode" && form.elements.barcode.value === reading.code)) values.push(reading.code);
-        form.elements[field].value = values.join("\n");
-      }
-    }
+    if (reading) this._addProductCode(reading.kind,reading.code);
+    this._renderProductCodes();
     const iconPicker = root.querySelector("isl-icon-picker");
     iconPicker.hass = this._hass;
     iconPicker.value = form.elements.image_url.value;
@@ -1137,13 +1223,17 @@ class ImprovedShoppingCatalog extends HTMLElement {
     const fields = Object.fromEntries(new FormData(form));
     const product = { ...fields, price: fields.price || null, tags: this._editing?.tags ?? [], icon: this._editing?.icon ?? "", notes: this._editing?.notes ?? "" };
     product.store_links = structuredClone(this._storeLinks ?? {});
-    for (const key of ["barcodes","nfc_tags"]) product[key] = fields[key].split(/\r?\n/).map(value => value.trim()).filter(Boolean);
+    product.barcode = this._productCodes.barcode[0] ?? "";
+    product.barcodes = this._productCodes.barcode.slice(1);
+    product.nfc_tags = [...this._productCodes.nfc];
     product.recurrence = {enabled:form.elements.recurrence_enabled.checked, days:Number(form.elements.recurrence_days.value) || 7};
     delete product.recurrence_enabled;
     delete product.recurrence_days;
     product.reader_actions = Object.fromEntries([...root.querySelectorAll("[data-reader-action]")].filter(select => select.value !== "default").map(select => [select.dataset.readerAction,select.value]));
     if (this._editing) Object.assign(product, { id: this._editing.id, revision: this._editing.revision });
+    this._stopCodeCapture();
     this._saving = true;
+    this._renderProductCodes();
     root.querySelector("isl-icon-picker").disabled = true;
     root.querySelector("#save-product").disabled = true;
     root.querySelector("#delete-product").disabled = true;
@@ -1172,6 +1262,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
       notice.hidden = false;
     } finally {
       this._saving = false;
+      this._renderProductCodes();
       root.querySelector("isl-icon-picker").disabled = false;
       root.querySelector("#save-product").disabled = false;
       root.querySelector("#delete-product").disabled = false;

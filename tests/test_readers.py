@@ -81,6 +81,53 @@ async def add_product(env, reader, **changes):
     return await env.catalog.async_save_product({"name":"Cacao","barcode":"0012345","barcodes":["0012346"],"nfc_tags":["AA:BB:CC:DD"],"reader_actions":{reader["id"]:"add_list"},**changes})
 
 
+async def test_product_capture_suppresses_actions_and_suggestions_until_released(reader_env):
+    env = reader_env
+    reader = await add_reader(env, default_action="add_list")
+    await add_product(env, reader)
+    events = []
+    stop = env.manager.capture(reader["id"], events.append)
+    with pytest.raises(CatalogError, match="otra ficha"):
+        env.manager.capture(reader["id"], lambda reading: None)
+    await env.manager.async_process(reader["id"], "0012345")
+    await env.manager.async_process(reader["id"], "unknown-new-code")
+    await env.manager.async_process(reader["id"], "0012345")
+    assert [event["code"] for event in events] == ["0012345", "unknown-new-code", "0012345"]
+    assert all(event["kind"] == "barcode" and event["status"] == "scanned" for event in events)
+    assert env.calls == [] and env.manager.snapshot["pending"] == []
+    assert env.manager._data["cooldowns"] == {}
+    stop(); stop()
+    await env.manager.async_process(reader["id"], "0012345")
+    assert len(env.calls) == 1
+
+
+async def test_capture_receives_fresh_nfc_events_and_cancel_on_reader_change(hass, reader_env):
+    env = reader_env
+    reader = await add_reader(env, kind="nfc", source="tag", entity_id="", device_id="nfc-device")
+    events = []
+    env.manager.capture(reader["id"], events.append)
+    hass.bus.async_fire("tag_scanned", {"device_id":"another-device", "tag_id":"ignored"})
+    hass.bus.async_fire("tag_scanned", {"device_id":"nfc-device", "tag_id":"AA:BB:CC:DD"})
+    await hass.async_block_till_done()
+    assert len(events) == 1 and events[0]["kind"] == "nfc" and events[0]["code"] == "AA:BB:CC:DD"
+    await env.manager.async_save_reader({**reader,"enabled":False})
+    assert events[-1] == {"status":"cancelled"}
+    with pytest.raises(CatalogError): env.manager.capture(reader["id"], events.append)
+
+
+async def test_capture_expires_and_integration_stop_releases_reader(reader_env):
+    env = reader_env
+    reader = await add_reader(env)
+    events = []
+    env.manager.capture(reader["id"], events.append)
+    # Fire the scheduled lease callback without waiting a real minute.
+    env.manager._captures[reader["id"]]["timer"]._callback()
+    assert events == [{"status":"expired"}] and not env.manager._captures
+    env.manager.capture(reader["id"], events.append)
+    await env.manager.async_stop()
+    assert events[-1] == {"status":"cancelled"} and not env.manager._captures
+
+
 async def test_default_action_adds_known_product_and_keeps_existing_guards(hass, reader_env):
     env = reader_env
     reader = await add_reader(env, default_action="add_list", list_entity="todo.local")
@@ -365,6 +412,24 @@ async def test_reader_websocket_admin_and_reload(hass,hass_ws_client,hass_read_o
     readonly=await hass_ws_client(hass,hass.auth.async_create_access_token(token))
     await readonly.send_json({"id":1,"type":f"{DOMAIN}/readers/delete","reader_id":saved["id"],"revision":saved["revision"]})
     assert (await readonly.receive_json())["error"]["code"]=="unauthorized"
+    await readonly.send_json({"id":2,"type":f"{DOMAIN}/readers/capture","reader_id":saved["id"]})
+    assert (await readonly.receive_json())["error"]["code"]=="unauthorized"
+    await client.send_json({"id":2,"type":f"{DOMAIN}/readers/capture","reader_id":saved["id"]})
+    assert (await client.receive_json())["success"] is True
+    hass.states.async_set("sensor.scanner","captured-code")
+    await hass.async_block_till_done()
+    event = (await client.receive_json())["event"]
+    assert event["code"] == "captured-code" and event["kind"] == "barcode"
+    manager = hass.data[DOMAIN]["readers"]
+    assert manager.snapshot["pending"] == []
+    await client.send_json({"id":3,"type":"unsubscribe_events","subscription":2})
+    assert (await client.receive_json())["success"] is True
+    assert not manager._captures
+    await client.send_json({"id":4,"type":f"{DOMAIN}/readers/capture","reader_id":saved["id"]})
+    assert (await client.receive_json())["success"] is True
+    await client.close()
+    await hass.async_block_till_done()
+    assert not manager._captures
     assert await hass.config_entries.async_unload(entry.entry_id)
     assert await hass.config_entries.async_setup(entry.entry_id)
     assert hass.data[DOMAIN]["readers"].snapshot["readers"][0]["id"]==saved["id"]

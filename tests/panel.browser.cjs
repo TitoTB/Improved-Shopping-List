@@ -61,6 +61,11 @@ const hass={
       if(window.failLogs)throw new Error('Error al cargar logs');
       const listener={callback,logs:true};listeners.set(listener,true);callback(structuredClone(window.logFixture));return()=>listeners.delete(listener);
     }
+    if(msg.type==='improved_shopping_list/readers/capture'){
+      if(window.failCapture)throw new Error('Lector ocupado');
+      const captures=window.captureListeners??=new Map();
+      captures.set(msg.reader_id,callback);return()=>captures.delete(msg.reader_id);
+    }
     if(msg.type==='improved_shopping_list/readers/subscribe'){
       const listener={callback,readers:true};listeners.set(listener,true);callback(structuredClone(window.readerFixture));return()=>listeners.delete(listener);
     }
@@ -276,6 +281,27 @@ async function editCatalogProduct(catalog, name) {
   await catalog.getByRole("button",{name,exact:true}).click();
 }
 
+async function captureProductCode(page, form, kind, code, expected = code) {
+  await page.evaluate(kind=>{
+    if(!window.readerFixture.readers.some(reader=>reader.kind===kind&&reader.enabled)){
+      window.readerFixture.readers.push({id:'capture-'+kind,name:'Captura '+kind,kind,enabled:true,default_action:'none'});
+      window.emitReaders();
+    }
+  },kind);
+  await form.getByRole('button',{name:'Automatización',exact:true}).click();
+  const group=form.locator('#product-'+kind+'-codes');
+  await group.getByRole('button',{name:'Escanear',exact:true}).click();
+  await page.waitForFunction(()=>window.captureListeners?.size>0);
+  await page.evaluate(({kind,code})=>{
+    for(const [readerId,callback] of window.captureListeners){
+      const reader=window.readerFixture.readers.find(reader=>reader.id===readerId);
+      if(reader.kind===kind)callback({status:'scanned',kind,reader_id:readerId,code});
+    }
+  },{kind,code});
+  await group.getByText(expected,{exact:true}).waitFor();
+  await group.getByRole('button',{name:'Detener',exact:true}).click();
+}
+
 async function main() {
   await fs.mkdir("test-results", { recursive: true });
   const server = http.createServer(async (req, res) => {
@@ -453,7 +479,7 @@ async function main() {
     await catalog.getByRole("button",{name:"Automatización",exact:true}).click();
     assert.equal(await catalog.getByLabel("Marca", { exact: true }).count(), 0);
     assert.equal(await catalog.getByLabel("Formato", { exact: true }).count(), 0);
-    await catalog.getByLabel("Código de barras", { exact: true }).fill("0012345678905");
+    await captureProductCode(page,catalog,"barcode","0012345678905");
     await catalog.getByRole("button",{name:"Información adicional",exact:true}).click();
     await catalog.getByLabel("Precio orientativo", { exact: true }).fill("2.59");
     await catalog.getByRole("button",{name:"Características",exact:true}).click();
@@ -1591,7 +1617,7 @@ async function main() {
     assert.equal(await scanCard.getByRole("button",{name:"Asignar código 0012345678905 a un producto del catálogo",exact:true}).isDisabled(),true);
     await readerCatalog.getByRole("button",{name:"Crear producto con el código 0012345678905",exact:true}).click();
     const codeDialog=readerCatalog.getByRole("dialog",{name:"Nuevo producto",exact:true});
-    assert.equal(await codeDialog.getByLabel("Código de barras",{exact:true}).inputValue(),"0012345678905");
+    assert.deepEqual(await codeDialog.locator("#barcode-code-list .code-value").allTextContents(),["0012345678905"]);
     assert.equal(await codeDialog.getByLabel("Nombre del producto",{exact:true}).inputValue(),"");
     await codeDialog.getByLabel("Nombre del producto",{exact:true}).fill("Cacao lector");
     await codeDialog.getByRole("button",{name:"Automatización",exact:true}).click();
@@ -1601,8 +1627,19 @@ async function main() {
     await codeDialog.getByRole("checkbox",{name:"Comprar cada",exact:true}).check();
     assert.equal(await recurrenceDays.isDisabled(),false);
     await recurrenceDays.fill("12");
-    await codeDialog.getByLabel("Otros códigos de barras o QR",{exact:true}).fill("https://example.test/cacao\n0012345678906");
-    await codeDialog.getByLabel("Etiquetas NFC",{exact:true}).fill("AA:BB:CC:DD\ntag-despensa");
+    assert.equal(await codeDialog.locator('[name="barcode"], [name="barcodes"], [name="nfc_tags"]').count(),0);
+    await captureProductCode(readerPage,codeDialog,"barcode","https://example.test/cacao");
+    await captureProductCode(readerPage,codeDialog,"barcode","0012345678906");
+    await captureProductCode(readerPage,codeDialog,"barcode","0012345678906");
+    assert.equal(await codeDialog.locator('#barcode-code-list .code-row').count(),3);
+    await captureProductCode(readerPage,codeDialog,"nfc","AA:BB:CC:DD");
+    await captureProductCode(readerPage,codeDialog,"nfc","aa-bb-cc-dd","AA:BB:CC:DD");
+    await captureProductCode(readerPage,codeDialog,"nfc","tag-despensa");
+    assert.equal(await codeDialog.locator('#nfc-code-list .code-row').count(),2);
+    await captureProductCode(readerPage,codeDialog,"nfc","remove-me");
+    await codeDialog.getByRole('button',{name:'Quitar código remove-me',exact:true}).click();
+    assert.equal(await codeDialog.getByText('remove-me',{exact:true}).count(),0);
+    assert.equal(await readerPage.evaluate(()=>window.captureListeners.size),0);
     assert.equal(await codeDialog.getByLabel('Cocina',{exact:true}).inputValue(),'default');
     assert.match(await codeDialog.getByLabel('Cocina',{exact:true}).locator('option:checked').textContent(),/Usar acción por defecto del lector.*Añadir a la lista/);
     await codeDialog.getByLabel("Cocina",{exact:true}).selectOption("add_list");
@@ -1707,7 +1744,7 @@ async function main() {
     await readerCatalog.getByText("Consulta no disponible. Puedes identificarlo manualmente.",{exact:true}).waitFor();
     await readerCatalog.getByRole("button",{name:"Crear producto con el código 3017620422003",exact:true}).click();
     assert.equal(await codeDialog.getByLabel("Nombre del producto",{exact:true}).inputValue(),"");
-    assert.equal(await codeDialog.getByLabel("Código de barras",{exact:true}).inputValue(),"3017620422003");
+    assert.deepEqual(await codeDialog.locator("#barcode-code-list .code-value").allTextContents(),["3017620422003"]);
     await codeDialog.getByRole("button",{name:"Cerrar ventana",exact:true}).click();
     await readerPage.getByRole("button",{name:"Lectores",exact:true}).click();
     await readersView.getByRole("button",{name:"Editar lector Cocina",exact:true}).click();
@@ -1740,9 +1777,8 @@ async function main() {
     assert.equal(await nutriPage.evaluate(()=>window.nutriCalls?.length??0),0);
     await nutriPage.evaluate(()=>{window.nutriFixture={'8410109115543':{grade:'a',version:'2023',checked_at:1800000000},'3017620422003':{grade:'d',checked_at:1800000000}};});
     await nutriForm.getByRole('button',{name:'Automatización',exact:true}).click();
-    await nutriForm.getByLabel('Código de barras',{exact:true}).fill('8410109115543');
-    await nutriForm.getByLabel('Otros códigos de barras o QR',{exact:true}).fill('08410109115543\n3017620422003\nhttps://private.test/qr\n3017620422004');
-    await nutriForm.getByLabel('Etiquetas NFC',{exact:true}).fill('AA:BB:CC:DD');
+    for(const code of ['8410109115543','08410109115543','3017620422003','https://private.test/qr','3017620422004'])await captureProductCode(nutriPage,nutriForm,'barcode',code);
+    await captureProductCode(nutriPage,nutriForm,'nfc','AA:BB:CC:DD');
     await nutriForm.getByRole('button',{name:'Información adicional',exact:true}).click();
     await nutriForm.getByText('Nutri-Score: D',{exact:true}).waitFor();
     assert.equal(await nutriForm.locator('.nutriscore-item').count(),2);
@@ -1752,7 +1788,7 @@ async function main() {
     assert.equal(await nutriPage.evaluate(()=>window.nutriCalls.length),2);
     await nutriPage.evaluate(()=>{window.listSettings.stores={carrefour:{enabled:true}};window.emitSettings();});
     await nutriForm.getByRole('button',{name:'Automatización',exact:true}).click();
-    await nutriForm.getByLabel('Código de barras',{exact:true}).fill('8431876279146');
+    await captureProductCode(nutriPage,nutriForm,'barcode','8431876279146');
     await nutriForm.getByRole('button',{name:'Información adicional',exact:true}).click();
     await nutriForm.locator('#store-price-results').getByRole('link').waitFor();
     assert.match(await nutriForm.locator('#store-price-results').textContent(),/Carrefour: 1,35/);
@@ -1760,7 +1796,7 @@ async function main() {
     await nutriForm.locator('..').getByRole('button',{name:'Cerrar ventana',exact:true}).click();
     await nutriCatalog.getByRole('button',{name:'Nuevo producto',exact:true}).click();
     await nutriForm.getByRole('button',{name:'Automatización',exact:true}).click();
-    await nutriForm.getByLabel('Código de barras',{exact:true}).fill('3017620422003');
+    await captureProductCode(nutriPage,nutriForm,'barcode','3017620422003');
     await nutriPage.evaluate(()=>{window.delayNutriCode='3017620422003';});
     await nutriForm.getByRole('button',{name:'Información adicional',exact:true}).click();
     await nutriPage.waitForFunction(()=>typeof window.releaseNutri==='function');
@@ -1769,6 +1805,19 @@ async function main() {
     await nutriPage.evaluate(()=>window.releaseNutri());
     await nutriForm.getByRole('button',{name:'Información adicional',exact:true}).click();
     assert.equal(await nutriForm.locator('#product-nutriscore').isVisible(),false);
+    await nutriForm.getByRole('button',{name:'Automatización',exact:true}).click();
+    const captureGroup=nutriForm.locator('#product-barcode-codes');
+    await nutriPage.evaluate(()=>{window.failCapture=true;});
+    await captureGroup.getByRole('button',{name:'Escanear',exact:true}).click();
+    await captureGroup.getByRole('status').filter({hasText:'Lector ocupado'}).waitFor();
+    await nutriPage.evaluate(()=>{window.failCapture=false;});
+    await captureGroup.getByRole('button',{name:'Escanear',exact:true}).click();
+    await nutriPage.evaluate(()=>{for(const callback of window.captureListeners.values())callback({status:'expired'});});
+    await captureGroup.getByRole('status').filter({hasText:'Captura finalizada'}).waitFor();
+    assert.equal(await nutriPage.evaluate(()=>window.captureListeners.size),0);
+    await captureGroup.getByRole('button',{name:'Escanear',exact:true}).click();
+    await nutriForm.locator('..').getByRole('button',{name:'Cerrar ventana',exact:true}).click();
+    assert.equal(await nutriPage.evaluate(()=>window.captureListeners.size),0);
     await nutriContext.close();
     // Store bindings persist without barcodes; all product-price UI reads use cache.
     const linksContext=await browser.newContext({viewport:{width:390,height:844}});

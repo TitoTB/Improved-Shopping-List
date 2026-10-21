@@ -64,6 +64,7 @@ class ReaderManager:
         self._operation_lock = Lock()
         self._listeners = set()
         self._last = {}
+        self._captures = {}
         self._tasks = set()
         self._unsubscribers = []
         self._active = False
@@ -122,6 +123,39 @@ class ReaderManager:
         for listener in tuple(self._listeners):
             listener()
 
+    @callback
+    def capture(self, reader_id, listener):
+        """Temporarily route fresh physical scans to one product editor only."""
+        reader = self._data["readers"].get(reader_id)
+        if not self._active or not reader or not reader["enabled"]:
+            raise CatalogError("Selecciona un lector activo.")
+        if reader_id in self._captures:
+            raise CatalogError("Este lector ya está capturando códigos en otra ficha.", "conflict")
+        capture = {"listener":listener}
+        self._captures[reader_id] = capture
+
+        @callback
+        def stop():
+            if self._captures.get(reader_id) is capture:
+                self._captures.pop(reader_id)
+                capture["timer"].cancel()
+
+        @callback
+        def expire():
+            if self._captures.get(reader_id) is capture:
+                stop()
+                listener({"status":"expired"})
+
+        capture["stop"] = stop
+        capture["timer"] = self.hass.loop.call_later(60, expire)
+        return stop
+
+    @callback
+    def _cancel_capture(self, reader_id):
+        if capture := self._captures.get(reader_id):
+            capture["stop"]()
+            capture["listener"]({"status":"cancelled"})
+
     async def _persist(self, data):
         await self._store.async_save(data)
         self._data = data
@@ -158,7 +192,7 @@ class ReaderManager:
             updated["readers"][reader["id"]] = reader
             await self._persist(updated)
         self._listen_sources()
-
+        self._cancel_capture(reader["id"])
         self._notify()
         return deepcopy(reader)
 
@@ -171,6 +205,7 @@ class ReaderManager:
             del updated["readers"][reader_id]
             await self._persist(updated)
         self._last.pop(reader_id, None)
+        self._cancel_capture(reader_id)
         self._listen_sources()
         self._notify()
 
@@ -198,6 +233,8 @@ class ReaderManager:
 
     async def async_stop(self):
         self._active = False
+        for reader_id in tuple(self._captures):
+            self._cancel_capture(reader_id)
         for unsubscribe in self._unsubscribers:
             unsubscribe()
         self._unsubscribers = []
@@ -286,6 +323,9 @@ class ReaderManager:
                 reader = deepcopy(self._data["readers"].get(reader_id))
                 if not self._active or not reader or not reader["enabled"]:
                     return
+                if capture := self._captures.get(reader_id):
+                    capture["listener"]({"status":"scanned", "reader_id":reader_id, "kind":reader["kind"], "code":code})
+                    return  # No list action, cooldown write, lookup or unknown-code suggestion.
                 product = self.catalog.find_by_code(reader["kind"], code)
                 now = time.time()
                 code_id = f'{reader["kind"]}:{code_key(reader["kind"], code)}'

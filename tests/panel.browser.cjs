@@ -1084,26 +1084,17 @@ async function main() {
     await settingsView.getByRole("button",{name:"Tiendas",exact:true}).click();
     assert.equal(await settingsView.locator("#settings-view-stores ha-icon").getAttribute("icon"), "mdi:store");
     assert.deepEqual(await settingsView.locator(".stores-grid .store-name h3").allTextContents(),["Alcampo","Carrefour","Consum","DIA","Eroski","La Sirena","Mercadona"]);
-    // Every store uses Mercadona's default tabs, active styling and configuration actions.
+    // All stores expose a count/cart badge and a product-only dialog, even when disabled.
     for (const store of ['Mercadona','Carrefour','Alcampo','Consum','La Sirena','Eroski','DIA']) {
-      await settingsView.getByRole('button',{name:`Ajustes de ${store}`,exact:true}).click();
+      const badge=settingsView.getByRole('button',{name:`Productos de ${store}`,exact:true});
+      assert.equal(await badge.locator('ha-icon').getAttribute('icon'),'mdi:cart');
+      assert.equal(await badge.locator('.store-associated-count').textContent(),'0');
+      await badge.click();
       const dialog=settingsView.getByRole('dialog',{name:store,exact:true});
-      const products=dialog.getByRole('button',{name:'Productos',exact:true});
-      const configuration=dialog.getByRole('button',{name:'Configuración',exact:true});
-      assert.equal(await dialog.locator('.store-view-tabs').count(),1);
-      assert.equal(await products.getAttribute('aria-pressed'),'true');
-      assert.equal(await products.locator('ha-icon').getAttribute('icon'),'mdi:view-grid');
-      assert.equal(await configuration.locator('ha-icon').getAttribute('icon'),'mdi:cog');
-      await configuration.click();
-      assert.equal(await configuration.getAttribute('aria-pressed'),'true');
-      assert.equal(await products.getAttribute('aria-pressed'),'false');
-      assert.ok(await dialog.locator('.store-configuration').isVisible());
-      assert.equal(await dialog.locator('.store-configuration input, .store-configuration select').count(),0);
-      const styles=await configuration.evaluate(button=>({display:getComputedStyle(button).display,gap:getComputedStyle(button).gap,weight:getComputedStyle(button).fontWeight}));
-      assert.deepEqual(styles,{display:'flex',gap:'8px',weight:'650'});
-      await products.click();
-      assert.equal(await products.getAttribute('aria-pressed'),'true');
-      assert.ok(await dialog.locator('.store-configuration').isHidden());
+      assert.equal(await dialog.locator('.store-view-tabs, .store-configuration').count(),0);
+      assert.equal(await dialog.getByRole('button',{name:'Productos',exact:true}).count(),0);
+      assert.equal(await dialog.getByRole('button',{name:'Configuración',exact:true}).count(),0);
+      assert.ok(await dialog.locator('section').isVisible());
       await dialog.getByRole('button',{name:'Cerrar ventana',exact:true}).click();
     }
     // All stores share a single optional postal code, including stores enabled later.
@@ -1122,11 +1113,9 @@ async function main() {
       assert.equal(await settingsPage.evaluate(store=>window.listSettings.stores[store].postal_code,store),'28001');
       assert.equal(await settingsView.locator('dialog[open]').count(),0);
       await settingsView.getByLabel(`Habilitar ${name}`,{exact:true}).uncheck();
-      await settingsView.getByRole('button',{name:`Ajustes de ${name}`,exact:true}).click();
+      await settingsView.getByRole('button',{name:`Productos de ${name}`,exact:true}).click();
       const dialog=settingsView.getByRole('dialog',{name,exact:true});
       await dialog.getByText('0 precios guardados',{exact:true}).waitFor();
-      await dialog.getByRole('button',{name:'Configuración',exact:true}).click();
-      assert.match(await dialog.locator('[data-store-location]').textContent(),/28001/);
       assert.equal(await dialog.getByLabel('Código postal',{exact:true}).count(),0);
       await dialog.getByRole('button',{name:'Cerrar ventana',exact:true}).click();
     }
@@ -1141,7 +1130,7 @@ async function main() {
     assert.match(await storeRow.locator("img").getAttribute("src"),/\/mercadona\.png$/);
     assert.equal(await settingsView.locator('#carrefour-row img').getAttribute('src'),'https://images.seeklogo.com/logo-png/31/2/carrefour-logo-png_seeklogo-318190.png');
     assert.equal(await settingsView.locator('.stores-grid').evaluate(node=>getComputedStyle(node).gridTemplateColumns.split(' ').length),2);
-    assert.equal(await storeRow.locator("#configure-mercadona ha-icon").getAttribute("icon"),"mdi:cog");
+    assert.equal(await storeRow.locator("#configure-mercadona ha-icon").getAttribute("icon"),"mdi:cart");
     assert.ok(await storeRow.evaluate(row=>{const image=row.querySelector('img').getBoundingClientRect(),name=row.querySelector('h3').getBoundingClientRect(),controls=row.querySelector('.store-controls').getBoundingClientRect();return image.right<=name.left && name.right<=controls.left;}));
     await settingsPage.reload();
     await settingsPage.getByRole("button",{name:"Ajustes",exact:true}).click();
@@ -1154,7 +1143,7 @@ async function main() {
     });
     await settingsView.getByLabel("Habilitar Mercadona",{exact:true}).uncheck();
     const mutationsBeforeCache=await settingsPage.evaluate(()=>window.calls.length);
-    await settingsView.getByRole("button",{name:"Ajustes de Mercadona",exact:true}).click();
+    await settingsView.getByRole("button",{name:"Productos de Mercadona",exact:true}).click();
     await storeDialog.getByText("Tomate",{exact:true}).waitFor();
     assert.match(await storeDialog.locator(".store-price strong").textContent(),/1,45/);
     assert.equal(await storeDialog.locator("#store-products-status").textContent(),"1 precios guardados");
@@ -1169,7 +1158,7 @@ async function main() {
     await settingsPage.screenshot({path:'test-results/store-products-mobile.png',fullPage:true});
     assert.ok(await storeDialog.evaluate(dialog=>dialog.scrollWidth<=dialog.clientWidth+1));
     await storeDialog.getByRole("button",{name:"Cerrar ventana",exact:true}).click();
-    await settingsView.getByRole("button",{name:"Ajustes de Alcampo",exact:true}).click();
+    await settingsView.getByRole("button",{name:"Productos de Alcampo",exact:true}).click();
     const alcampoCacheDialog=settingsView.getByRole("dialog",{name:"Alcampo",exact:true});
     await alcampoCacheDialog.getByText("Patatas",{exact:true}).waitFor();
     assert.equal(await alcampoCacheDialog.locator("#alcampo-status").textContent(),"1 precios guardados");
@@ -1177,7 +1166,7 @@ async function main() {
     assert.equal(await alcampoCacheDialog.getByRole("button",{name:"Cerrar",exact:true}).count(),0);
     await alcampoCacheDialog.getByRole("button",{name:"Cerrar ventana",exact:true}).click();
     await settingsView.getByLabel("Habilitar Mercadona",{exact:true}).check();
-    await settingsView.getByRole("button",{name:"Ajustes de Mercadona",exact:true}).click();
+    await settingsView.getByRole("button",{name:"Productos de Mercadona",exact:true}).click();
     await storeDialog.getByRole('button',{name:'Cerrar ventana',exact:true}).click();
     await locationButton.click();
     assert.equal(await locationDialog.getByLabel('Código postal',{exact:true}).inputValue(),'28001');
@@ -1198,7 +1187,7 @@ async function main() {
     assert.equal(await settingsView.locator('#favorite-store').count(),0);
     assert.equal(await settingsView.locator('.store-name .badge').count(),0);
     assert.ok(await settingsView.locator('#favorite-carrefour').evaluate(node=>node.previousElementSibling.id==='configure-carrefour'));
-    await settingsView.getByRole("button",{name:"Ajustes de Carrefour",exact:true}).click();
+    await settingsView.getByRole("button",{name:"Productos de Carrefour",exact:true}).click();
     const carrefourDialog = settingsView.getByRole("dialog",{name:"Carrefour",exact:true});
     await carrefourDialog.getByText("Alcaparras Carrefour",{exact:true}).waitFor();
     assert.match(await carrefourDialog.locator(".store-product").textContent(),/1,35/);
@@ -1207,18 +1196,17 @@ async function main() {
     assert.equal(await carrefourDialog.getByRole("button",{name:"Cerrar",exact:true}).count(),0);
     await carrefourDialog.getByRole("button",{name:"Cerrar ventana",exact:true}).click();
     await settingsView.getByLabel("Habilitar Carrefour",{exact:true}).uncheck();
-    await settingsView.getByRole("button",{name:"Ajustes de Carrefour",exact:true}).click();
+    await settingsView.getByRole("button",{name:"Productos de Carrefour",exact:true}).click();
     await carrefourDialog.getByText("Alcaparras Carrefour",{exact:true}).waitFor();
     assert.equal(await carrefourDialog.locator("#carrefour-status").textContent(),"1 precios guardados");
     await carrefourDialog.getByRole("button",{name:"Cerrar ventana",exact:true}).click();
     await settingsView.getByLabel("Habilitar Carrefour",{exact:true}).check();
-    await settingsView.getByRole("button",{name:"Ajustes de Carrefour",exact:true}).click();
-    await carrefourDialog.getByRole("button",{name:"Configuración",exact:true}).click();
+    await settingsView.getByRole("button",{name:"Productos de Carrefour",exact:true}).click();
     assert.equal(await carrefourDialog.locator('input, select').count(),0);
-    assert.match(await carrefourDialog.locator('[data-store-location]').textContent(),/28001/);
     await carrefourDialog.getByRole('button',{name:'Cerrar ventana',exact:true}).click();
     await settingsPage.evaluate(()=>document.querySelector('improved-shopping-list-panel').shadowRoot.querySelector('isl-catalog').dispatchEvent(new CustomEvent('catalog-change',{detail:{products:[{id:'linked-1',name:'Vinculado',store_links:{carrefour:{id:'R-123'}}},{id:'unlinked-1',name:'Sin vincular'}],categories:[]}})));
-    assert.equal(await settingsView.locator('.store-count, [id$="-linked-count"]').count(),0);
+    assert.equal(await settingsView.locator('#configure-carrefour .store-associated-count').textContent(),'1');
+    assert.equal(await settingsView.locator('#configure-mercadona .store-associated-count').textContent(),'0');
     const updateAll = settingsView.getByRole('button',{name:'Actualizar ahora',exact:true});
     assert.equal(await updateAll.count(),1);
     assert.equal(await updateAll.textContent(),'');
@@ -1964,9 +1952,8 @@ async function main() {
     assert.equal(await linkedSettings.locator('#price-update-time').inputValue(),'02:30');
     await priceScheduleDialog.getByRole('button',{name:'Cerrar ventana',exact:true}).click();
     await linkedSettings.getByLabel('Habilitar Alcampo',{exact:true}).check();
-    await linkedSettings.getByRole('button',{name:'Ajustes de Alcampo',exact:true}).click();
+    await linkedSettings.getByRole('button',{name:'Productos de Alcampo',exact:true}).click();
     const alcampoDialog=linkedSettings.getByRole('dialog',{name:'Alcampo',exact:true});
-    await alcampoDialog.getByRole('button',{name:'Configuración',exact:true}).click();
     assert.equal(await alcampoDialog.locator('input,select').count(),0);
     await alcampoDialog.getByRole('button',{name:'Cerrar ventana',exact:true}).click();
     await linkedSettings.getByRole('button',{name:'Código postal de las tiendas',exact:true}).click();

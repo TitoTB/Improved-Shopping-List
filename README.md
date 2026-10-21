@@ -52,6 +52,7 @@ actualización puesta en cola de una petición de precio que ya ha comenzado.
 
 - Seleccionar cualquier entidad `todo.*` disponible para tu usuario, incluida Bring!, Shopping List u otros proveedores.
 - Consultar productos pendientes y comprados.
+- Pulsar el importe estimado para abrir un ticket por tienda con los precios guardados. Las tiendas activas con algún precio de la lista se ordenan por total conocido; cada una indica cuántos productos tienen precio. Los desconocidos se separan y cuentan como 0, por lo que los totales no siempre comparan la misma cesta completa. El badge del número de productos devuelve a la vista habitual.
 - Añadir productos, marcarlos como comprados y volver a ponerlos por comprar.
 - Recibir cambios del proveedor mediante la API nativa de listas de Home Assistant.
 - Añadir o quitar entidades `todo` desde Ajustes y marcar una lista como principal.

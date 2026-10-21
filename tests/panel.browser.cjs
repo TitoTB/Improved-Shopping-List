@@ -1077,12 +1077,68 @@ async function main() {
     totalPage.on("pageerror",error=>errors.push(error.message));
     await totalPage.goto(url);
     await totalPage.locator("#pending-total").filter({hasText:"0,30"}).waitFor();
+    await totalPage.locator("#pending-total").click();
+    assert.match(await totalPage.locator("#receipt .receipt-total").textContent(),/0,30/);
+    assert.equal(await totalPage.locator("#pending").isVisible(),false);
+    await totalPage.locator("#pending-count").click();
     await totalPage.getByRole("button",{name:"Marcar como comprado: Cacao",exact:true}).click();
     await totalPage.locator("#pending-total").filter({hasText:"0,20"}).waitFor();
     await selectList(totalPage,"todo.local");
     await totalPage.locator("#pending-total").filter({hasText:"0,00"}).waitFor();
     assert.equal(await totalPage.evaluate(()=>window.calls.some(call=>/refresh_prices|settings\/store_products/.test(call.type??""))),false);
     await totalContext.close();
+    const receiptContext=await browser.newContext({viewport:{width:390,height:844}});
+    for (const domain of ['https://images.seeklogo.com/**','https://almeria.online/**']) await receiptContext.route(domain,route=>route.fulfill({contentType:'image/svg+xml',body:'<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32"><circle cx="16" cy="16" r="14" fill="green"/></svg>'}));
+    await receiptContext.addInitScript(()=>{
+      localStorage.setItem('settings-fixture',JSON.stringify({entities:['todo.bring','todo.local'],primary_entity:'todo.bring',favorite_store:'carrefour',stores:{alcampo:{enabled:true},carrefour:{enabled:true},mercadona:{enabled:false},dia:{enabled:true}}}));
+      localStorage.setItem('catalog-fixture',JSON.stringify([
+        {id:'ticket-cacao',name:'Cacao',price:99},{id:'ticket-milk',name:'Leche entera',price:99},{id:'ticket-rice',name:'Arroz',price:99}
+      ].map(product=>({...product,revision:1,currency:'EUR',category:'',tags:[],barcode:'',barcodes:[],nfc_tags:[],image_url:'',icon:''}))));
+      window.storePriceFixture=[
+        {catalog_product_id:'ticket-cacao',store:'alcampo',price:'2.10',currency:'EUR',checked_at:1},
+        {catalog_product_id:'ticket-cacao',store:'alcampo',price:'1.10',currency:'EUR',checked_at:2},
+        {catalog_product_id:'ticket-milk',store:'alcampo',price:'0.20',currency:'EUR',checked_at:2},
+        {catalog_product_id:'ticket-cacao',store:'carrefour',price:'2.00',currency:'EUR',checked_at:2},
+        {catalog_product_id:'ticket-milk',store:'mercadona',price:'0.01',currency:'EUR',checked_at:2},
+        {catalog_product_id:'ticket-rice',store:'dia',price:'0.01',currency:'EUR',checked_at:2}
+      ];
+    });
+    const receiptPage=await receiptContext.newPage();
+    receiptPage.on('pageerror',error=>errors.push(error.message));
+    await receiptPage.goto(url);
+    await receiptPage.locator('#pending-total').filter({hasText:'1,30'}).waitFor();
+    assert.equal(await receiptPage.locator('#pending-total img').getAttribute('alt'),'Alcampo');
+    await receiptPage.locator('#pending-total').press('Enter');
+    const receipt=receiptPage.locator('#receipt');
+    await receipt.waitFor();
+    assert.deepEqual(await receipt.locator('.receipt-stores button').evaluateAll(nodes=>nodes.map(node=>node.dataset.receiptStore)),['alcampo','carrefour']);
+    assert.deepEqual(await receipt.locator('.receipt-known .receipt-name').allTextContents(),['Cacao','Leche entera']);
+    assert.match(await receipt.locator('.receipt-total').textContent(),/1,30/);
+    assert.equal(await receiptPage.locator('#completed-details').isVisible(),false);
+    await receipt.locator('[data-receipt-store="carrefour"]').click();
+    assert.match(await receipt.locator('.receipt-total').textContent(),/2,00/);
+    assert.deepEqual(await receipt.locator('.receipt-missing .receipt-name').allTextContents(),['Leche entera']);
+    assert.equal(await receiptPage.locator('#pending-total img').getAttribute('alt'),'Carrefour');
+    for(const width of [1280,390,320]){
+      await receiptPage.setViewportSize({width,height:844});
+      assert.ok(await receipt.evaluate(node=>node.scrollWidth<=node.clientWidth));
+      assert.ok(await receipt.locator('.receipt-row').evaluateAll(nodes=>nodes.every(node=>node.querySelector('.receipt-name').getBoundingClientRect().right<=node.querySelector('.receipt-price').getBoundingClientRect().left)));
+      await receiptPage.screenshot({path:`test-results/list-receipt-${width}.png`,fullPage:true});
+    }
+    await receiptPage.locator('#pending-count').click();
+    assert.equal(await receipt.isVisible(),false);
+    await receiptPage.getByRole('button',{name:'Marcar como comprado: Cacao',exact:true}).click();
+    await receiptPage.locator('#pending-total').filter({hasText:'0,20'}).waitFor();
+    assert.equal(await receiptPage.locator('#pending-total img').getAttribute('alt'),'Alcampo');
+    await receiptPage.locator('#pending-total').click();
+    assert.deepEqual(await receipt.locator('.receipt-known .receipt-name').allTextContents(),['Leche entera']);
+    await receiptPage.evaluate(()=>{window.listSettings.stores.alcampo.enabled=false;window.emitSettings();});
+    await receipt.locator('.receipt-stores button').waitFor({state:'detached'});
+    await selectList(receiptPage,'todo.local');
+    await receipt.locator('.receipt-missing').getByText('Detergente',{exact:true}).waitFor();
+    assert.match(await receipt.locator('.receipt-total').textContent(),/0,00/);
+    assert.equal(await receiptPage.evaluate(()=>window.calls.some(call=>/refresh_prices|refresh_all_prices|settings\/store_products/.test(call.type??''))),false);
+    await receiptContext.close();
     const settingsContext = await browser.newContext({ viewport: { width: 1280, height: 960 } });
     await settingsContext.route("https://logos-world.net/**",route=>route.fulfill({contentType:"image/svg+xml",body:'<svg xmlns="http://www.w3.org/2000/svg" width="56" height="56"><rect width="56" height="56" fill="green"/></svg>'}));
     await settingsContext.route("https://images.seeklogo.com/**",route=>route.fulfill({contentType:"image/svg+xml",body:'<svg xmlns="http://www.w3.org/2000/svg" width="56" height="56"><rect width="56" height="56" fill="blue"/></svg>'}));

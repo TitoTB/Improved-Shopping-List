@@ -36,6 +36,8 @@ class ImprovedShoppingListPanel extends HTMLElement {
     this._catalogCategories = new Map();
     this._view = "shopping";
     this._listLayout = "grid";
+    this._ticket = false;
+    this._ticketStore = "";
     try { if (localStorage.getItem("isl-list-layout") === "rows") this._listLayout = "rows"; } catch { /* Storage may be disabled. */ }
     this._rowPrices = [];
     this._nutrition = new Map();
@@ -185,6 +187,21 @@ class ImprovedShoppingListPanel extends HTMLElement {
         .list-header { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:14px; }
         .list-totals { display:flex; align-items:center; gap:8px; margin-left:auto; }
         .list-totals .count { white-space:nowrap; }
+        button.count { border:0; color:inherit; display:inline-flex; align-items:center; gap:7px; height:34px; }
+        .store-logo { width:24px; height:24px; object-fit:contain; background:white; padding:3px; border-radius:50%; flex:none; }
+        #receipt { max-width:760px; margin:0 auto; }
+        #receipt[hidden], #pending[hidden] { display:none; }
+        .receipt-stores { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px; }
+        .receipt-stores button { display:flex; align-items:center; gap:8px; border:1px solid var(--divider-color,#dfe7e1); border-radius:12px; padding:10px; background:var(--card-background-color,#fff); color:inherit; }
+        .receipt-stores button[aria-pressed=true] { border-color:var(--primary-color,#267052); box-shadow:inset 0 0 0 1px var(--primary-color,#267052); }
+        .receipt-store-copy { display:flex; flex-direction:column; text-align:left; gap:3px; }
+        .receipt-store-copy small,.receipt-hint { color:var(--secondary-text-color,#63766b); font-size:12px; }
+        .receipt-paper { background:var(--card-background-color,#fff); border:1px solid var(--divider-color,#dfe7e1); border-radius:12px; padding:20px; }
+        .receipt-row { display:flex; justify-content:space-between; gap:16px; padding:12px 0; border-bottom:1px dashed var(--divider-color,#dfe7e1); }
+        .receipt-name { min-width:0; overflow-wrap:anywhere; }
+        .receipt-price { flex:none; white-space:nowrap; font-variant-numeric:tabular-nums; }
+        .receipt-unknown { margin:18px 0 0; padding-top:16px; border-top:2px dashed var(--divider-color,#dfe7e1); font-size:14px; }
+        .receipt-total { display:flex; justify-content:space-between; gap:16px; margin-top:20px; font-weight:700; }
         h2 { margin:0; font-size:18px; font-weight:650; }
         .count { padding:5px 10px; border-radius:20px; background:var(--secondary-background-color,#edf4ee); font-size:13px; }
         ul { list-style:none; margin:0; padding:0; }
@@ -302,8 +319,9 @@ class ImprovedShoppingListPanel extends HTMLElement {
           <div class="dialog-actions"><button id="refresh" type="button">Actualizar lista</button><button id="close-list-dialog" type="button">Cerrar</button></div>
         </dialog>
         <section class="card" aria-labelledby="pending-title" id="items-card">
-          <div class="list-header"><h2 id="pending-title">Lista de la compra</h2><div class="list-totals"><span id="pending-count" class="count">0 productos</span><span id="pending-total" class="count" title="Importe aproximado · Últimos precios guardados" aria-live="polite">≈ 0,00 €</span></div></div>
+          <div class="list-header"><h2 id="pending-title">Lista de la compra</h2><div class="list-totals"><button type="button" id="pending-count" class="count" title="Volver a la vista habitual" aria-controls="pending">0 productos</button><button type="button" id="pending-total" class="count" title="Ver ticket · Últimos precios guardados" aria-controls="receipt" aria-expanded="false" aria-live="polite">≈ 0,00 €</button></div></div>
           <ul id="pending" class="product-grid" aria-label="Lista de la compra"></ul>
+          <div id="receipt" aria-label="Ticket de la compra" hidden></div>
           <div id="empty" class="empty" hidden></div>
           <details id="completed-details"><summary id="completed-summary"><span id="completed-label">Compras recientes</span><button id="clear-completed" type="button"><ha-icon icon="mdi:delete" aria-hidden="true"></ha-icon>Limpiar productos</button></summary><ul id="completed" class="product-grid" aria-label="Compras recientes"></ul></details>
         </section>
@@ -336,6 +354,14 @@ class ImprovedShoppingListPanel extends HTMLElement {
     this._built = true;
     const root = this.shadowRoot;
     installDialogCloseButtons(root);
+    root.querySelector("#pending-total").addEventListener("click", () => {
+      this._ticket = true;
+      this._renderData();
+    });
+    root.querySelector("#pending-count").addEventListener("click", () => {
+      this._ticket = false;
+      this._renderData();
+    });
     root.querySelector("isl-catalog").addEventListener("product-nutriscore", event => {
       const {code,nutriscore} = event.detail;
       if (typeof code !== "string" || !/^[a-e]$/.test(nutriscore?.grade ?? "")) return;
@@ -356,6 +382,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
         this._stockLayout=this._stockLayout === "grid" ? "rows" : "grid";
         try { localStorage.setItem("isl-stock-layout",this._stockLayout); } catch { /* Storage disabled. */ }
       } else {
+        this._ticket = false;
         this._listLayout = this._listLayout === "grid" ? "rows" : "grid";
         try { localStorage.setItem("isl-list-layout", this._listLayout); } catch { /* Storage disabled. */ }
       }
@@ -547,12 +574,21 @@ class ImprovedShoppingListPanel extends HTMLElement {
     if (this._rowsEntity !== session.entityId) {
       this._rows.clear();
       this._rowsEntity = session.entityId;
+      this._ticketStore = "";
     }
     this._usedRows = new Set();
     root.querySelector("#pending-count").textContent = `${pending.length} ${pending.length === 1 ? "producto" : "productos"}`;
-    const total = this._pendingTotal(pending);
+    const receipts = this._storeReceipts(pending);
+    if (!receipts.some(receipt => receipt.store === this._ticketStore)) this._ticketStore = receipts[0]?.store ?? "";
+    const selectedReceipt = receipts.find(receipt => receipt.store === this._ticketStore);
+    const total = selectedReceipt ? this._receiptTotal(selectedReceipt) : this._pendingTotal(pending);
     root.querySelector("#pending-total").textContent = `≈ ${total}`;
-    root.querySelector("#pending-total").setAttribute("aria-label", `Importe aproximado de la lista: ${total}`);
+    if (selectedReceipt) root.querySelector("#pending-total").append(this._storeLogo(selectedReceipt.store));
+    root.querySelector("#pending-total").setAttribute("aria-label", `Ver ticket · Importe aproximado de la lista: ${total}${selectedReceipt ? ` · ${STORE_NAMES[selectedReceipt.store]}` : ""}`);
+    root.querySelector("#pending-total").setAttribute("aria-expanded", String(this._ticket));
+    root.querySelector("#pending-count").setAttribute("aria-pressed", String(!this._ticket));
+    root.querySelector("#pending").hidden = this._ticket;
+    this._renderReceipt(pending, receipts, selectedReceipt);
     root.querySelector("#items-card").setAttribute("aria-busy", String(session.loading));
     this._renderItems(root.querySelector("#pending"), pending, locked || !canUpdate);
     this._renderItems(root.querySelector("#completed"), completed, locked || !canUpdate);
@@ -561,7 +597,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
       if (!this._usedRows.has(key)) this._rows.delete(key);
     }
     const details = root.querySelector("#completed-details");
-    details.hidden = !completed.length;
+    details.hidden = this._ticket || !completed.length;
     root.querySelector("#completed-label").textContent = `Compras recientes (${completed.length})`;
     const clearCompleted = root.querySelector("#clear-completed");
     const canDelete = supports(state, FEATURES.DELETE);
@@ -851,6 +887,81 @@ class ImprovedShoppingListPanel extends HTMLElement {
     } finally {
       if (token === this._nutritionToken) { this._nutritionLoading = false; if (this.isConnected) this._renderData(); }
     }
+  }
+
+  _storeLogo(store) {
+    const image = document.createElement("img");
+    image.className = "store-logo";
+    image.src = STORE_LOGOS[store];
+    image.alt = STORE_NAMES[store] ?? store;
+    image.addEventListener("error", () => image.remove(), {once:true});
+    return image;
+  }
+
+  _storeReceipts(items) {
+    const sorted = [...items].sort((a,b) => a.summary.localeCompare(b.summary,"es",{sensitivity:"base"}));
+    return Object.keys(STORE_NAMES).filter(store => this._settings.stores[store]?.enabled).map(store => {
+      const prices = this._rowPrices.filter(offer => offer.store === store);
+      const lines = sorted.map(item => {
+        const product = this._catalogProducts.get(productNameKey(item.summary));
+        // Store tickets never substitute manual prices or prices from another shop.
+        const offer = cachedProductPrice(product ? {...product,price:null} : null,prices,store);
+        return {name:item.summary,offer};
+      });
+      return {store,lines,cents:lines.reduce((sum,line) => sum + (line.offer ? Math.round(Number(line.offer.price)*100) : 0),0)};
+    }).filter(receipt => receipt.lines.some(line => line.offer)).sort((a,b) => a.cents-b.cents || STORE_NAMES[a.store].localeCompare(STORE_NAMES[b.store],"es"));
+  }
+
+  _receiptTotal(receipt) {
+    const totals = new Map();
+    for (const {offer} of receipt.lines) if (offer) totals.set(offer.currency,(totals.get(offer.currency) ?? 0)+Math.round(Number(offer.price)*100));
+    if (!totals.size) totals.set("EUR",0);
+    return [...totals].map(([currency,cents]) => new Intl.NumberFormat("es-ES",{style:"currency",currency}).format(cents/100)).join(" + ");
+  }
+
+  _renderReceipt(items, receipts, selected) {
+    const root = this.shadowRoot.querySelector("#receipt");
+    root.hidden = !this._ticket;
+    if (!this._ticket) return;
+    const focusStore = this.shadowRoot.activeElement?.dataset.receiptStore;
+    const make = (tag, className, text) => {
+      const node = document.createElement(tag);
+      node.className = className;
+      if (text !== undefined) node.textContent = text;
+      return node;
+    };
+    const stores = make("div","receipt-stores");
+    stores.setAttribute("role","group"); stores.setAttribute("aria-label","Tiendas con precios guardados");
+    for (const receipt of receipts) {
+      const button = make("button",""); button.type="button"; button.dataset.receiptStore=receipt.store;
+      button.setAttribute("aria-pressed",String(receipt.store === selected?.store));
+      const copy = make("span","receipt-store-copy");
+      copy.append(make("strong","",`${STORE_NAMES[receipt.store]} · ${this._receiptTotal(receipt)}`),
+        make("small","",`${receipt.lines.filter(line=>line.offer).length} de ${items.length} productos con precio`));
+      button.append(this._storeLogo(receipt.store),copy);
+      button.addEventListener("click",()=>{this._ticketStore=receipt.store;this._renderData();});
+      stores.append(button);
+    }
+    // Retain legacy manual estimates when no enabled shop has a saved price.
+    const receipt = selected ?? {lines:[...items].sort((a,b)=>a.summary.localeCompare(b.summary,"es",{sensitivity:"base"})).map(item=>({
+      name:item.summary,offer:this._listPrice(this._catalogProducts.get(productNameKey(item.summary)))
+    }))};
+    const paper = make("div","receipt-paper");
+    paper.append(make("h3","",selected ? STORE_NAMES[selected.store] : "Últimos precios guardados"));
+    const known = make("ul","receipt-known"), unknown=make("ul","receipt-missing");
+    known.setAttribute("aria-label","Productos con precio"); unknown.setAttribute("aria-label","Productos sin precio");
+    for (const line of receipt.lines) {
+      const row=make("li","receipt-row");
+      row.append(make("span","receipt-name",line.name),make("span","receipt-price",line.offer ? new Intl.NumberFormat("es-ES",{style:"currency",currency:line.offer.currency}).format(Number(line.offer.price)) : "Sin precio"));
+      (line.offer ? known : unknown).append(row);
+    }
+    paper.append(known);
+    if (unknown.childElementCount) paper.append(make("h3","receipt-unknown","Productos sin precio conocido"),unknown);
+    const total=make("div","receipt-total");
+    total.append(make("span","","Total estimado"),make("span","receipt-price",`≈ ${this._receiptTotal(receipt)}`));
+    paper.append(total,make("p","receipt-hint","Últimos precios guardados. Los productos sin precio cuentan como 0; los totales pueden incluir distintos números de productos."));
+    root.replaceChildren(stores,paper);
+    if (focusStore) [...stores.children].find(button=>button.dataset.receiptStore===focusStore)?.focus({preventScroll:true});
   }
 
   _pendingTotal(items) {

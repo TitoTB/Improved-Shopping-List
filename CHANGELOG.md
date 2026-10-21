@@ -1,5 +1,10 @@
 # Historial de cambios
 
+## Pendiente de publicación
+
+- Vista de ticket al pulsar el importe estimado de la lista: tiendas activas con precios guardados, ordenadas por total conocido, selección de tienda, productos en orden alfabético y separación de productos sin precio. El badge muestra el logo de la tienda seleccionada; el número de productos permite volver a la vista habitual sin cambiar su formato.
+- Totales calculados con los últimos precios guardados, sin actualizar tiendas, indicando la cobertura de precios de cada tienda y conservando el importe 0 para los productos sin precio.
+
 ## 0.21.0
 
 - Actualizaciones de precios agrupadas en una única entrada final de Logs, con totales, resultados por tienda, referencias, incidencias y diagnóstico técnico. La información del proceso se conserva entre reinicios; la barra de progreso sigue actualizándose en directo.

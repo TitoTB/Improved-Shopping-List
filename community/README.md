@@ -49,10 +49,22 @@ que transcurran 24 horas desde su consulta, no desde su descarga o publicación.
 Son observaciones comunitarias: la autorización identifica a la cuenta, no
 demuestra que una instalación modificada consultase realmente la tienda.
 
+Si existe un precio anterior, una variación de más del 50 % en cualquier dirección
+queda pendiente de tres cuentas independientes con antigüedad suficiente, dentro
+de las 24 horas de validez. Se conserva el precio anterior sin renovar su fecha.
+El umbral y el número de coincidencias son configurables en la política del
+repositorio. No puede aplicarse un porcentaje cuando todavía no hay precio previo.
+Una promoción real puede necesitar esas confirmaciones adicionales.
+
 Los iconos requieren tres confirmaciones y metadatos contrastados contra Iconify.
 Se conservan autor, licencia y procedencia. No se infiere una licencia por el
 dominio o por popularidad. Las URL manuales y archivos de origen desconocido
 permanecen locales. El ZIP de exportación anterior sigue disponible por separado.
+Elegir explícitamente un icono de la comunidad suma una preferencia para ordenar
+recomendaciones, pero no una nueva confirmación independiente de su procedencia.
+Flaticon no se incluye como fuente de redistribución automática: su licencia
+estándar restringe las bases de datos y servicios que distribuyen los iconos.
+Las imágenes manuales que utilice cada usuario localmente no se publican.
 
 ## Administración sin revisar aportaciones
 
@@ -61,6 +73,8 @@ El mantenedor configura `community/policy.json` en `main`:
 - `blocked_github_ids`: IDs numéricos de cuentas excluidas. Se ignoran nuevos
   envíos y sus votos/precios dejan de publicarse al regenerar el diccionario.
 - `minimum_account_age_days`: antigüedad mínima para contar confirmaciones.
+- `max_price_variation_percent`: variación máxima sin confirmación adicional.
+- `price_outlier_confirmations`: coincidencias para aceptar cambios superiores.
 - `allowed_licenses`: licencias admisibles para iconos.
 - `allowed_image_hosts`: fuentes permitidas; actualmente solo `api.iconify.design`.
 - `allowed_icon_prefixes`: colecciones de color admitidas por la integración.
@@ -70,9 +84,33 @@ Cambiar la política regenera el diccionario automáticamente. No concede a los
 usuarios permisos para editarla. Bloquear una cuenta no impide descargar datos
 públicos; GitHub permite además bloquearla para impedir nuevos Issues.
 
-`registry.json` de `data` conserva observaciones e identificadores públicos para
-deduplicar votos y recalcular bloqueos; no contiene credenciales. Al empezar el
+`registry.json` de `data` es un manifiesto de 16 archivos de observaciones e
+identificadores públicos para deduplicar votos y recalcular bloqueos; no contiene
+credenciales. Cada selección diferente se guarda una vez y las cuentas apuntan
+a esa selección. Se conservan hasta 20 precios anteriores por referencia, y los
+IDs recientes de lotes se mantienen acotados. Los límites de publicación son
+8 MiB por archivo de registro y 16 MiB para el diccionario descargable; superar
+un límite detiene la publicación y conserva la versión anterior. No es un servicio
+de almacenamiento ilimitado: habrá que vigilar el crecimiento si aumenta mucho
+la comunidad. Las instalaciones reciben solo `products.json` y descargan únicamente
+los iconos elegidos. El registro y la rama `data` no forman parte del ZIP de HACS.
+Al empezar el
 diccionario está vacío. Los datos se actualizan sin una nueva versión de HACS.
+
+## Recuperación tras abuso
+
+1. Añadir las cuentas identificadas a `blocked_github_ids`, si procede.
+2. Abrir **Actions → Community dictionary → Run workflow** en GitHub.
+3. En `restore_registry_commit`, pegar el SHA completo de un commit fiable de la
+   rama `data`. Dejarlo vacío ejecuta la actualización normal.
+
+La recuperación procesa únicamente JSON histórico usando el código actual de
+`main`. Genera un nuevo commit, conserva el historial Git y no rejuvenece precios
+caducados. Publica huellas de revocación de los precios sustituidos. En su siguiente
+sincronización, Home Assistant retira esos precios comunitarios y recupera la
+observación local anterior si existe (hasta cinco se guardan por referencia).
+No se revocan precios consultados directamente por el usuario a una tienda.
+Las decisiones locales de nombre, imagen y vinculaciones no se sobrescriben.
 
 Nutri-Score obtenido de Open Food Facts se debe a esa base de datos:
 https://world.openfoodfacts.org/ — licencia ODbL:

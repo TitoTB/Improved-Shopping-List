@@ -195,6 +195,21 @@ async def test_fresh_community_price_avoids_store_http_and_keeps_original_age(en
     assert saved["price"]=="1.99" and saved["checked_at"]==original and saved["source"]=="community"
 
 
+async def test_revoked_community_price_restores_previous_direct_observation(env):
+    from custom_components.improved_shopping_list.community_data import price_fingerprint
+    await env.manager.async_tick()
+    key = next(iter(env.manager._data["offers"]))
+    direct = deepcopy(env.manager._data["offers"][key])
+    bad = {**direct, "source":"community", "price":"99.00"}
+    env.manager._data["offer_history"][key] = [direct]
+    env.manager._data["offers"][key] = bad
+    await env.manager.async_apply_revocations([price_fingerprint(bad)])
+    assert env.manager._data["offers"][key] == direct
+    assert (await env.manager._store.async_load())["offers"][key] == direct
+    await env.manager.async_apply_revocations([price_fingerprint(direct)])
+    assert env.manager._data["offers"][key] == direct  # Local store observations are not withdrawn remotely.
+
+
 async def test_daily_run_with_no_enabled_stores_does_not_read_lists_or_log_a_queue(env):
     for configuration in env.settings.snapshot["stores"].values():
         configuration["enabled"] = False

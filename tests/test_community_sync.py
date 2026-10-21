@@ -22,7 +22,7 @@ async def shared(hass, monkeypatch):
     monkeypatch.setattr(module, "time", SimpleNamespace(time=lambda:clock[0], monotonic=lambda:clock[0]))
     catalog = SimpleNamespace(products=[], async_apply_community=AsyncMock())
     icons = SimpleNamespace(_assets={})
-    prices = SimpleNamespace(_data={"pending": []}, _preparing=0, _notify=Mock(), prices_for=Mock(return_value=[]))
+    prices = SimpleNamespace(_data={"pending": []}, _preparing=0, _notify=Mock(), prices_for=Mock(return_value=[]), async_apply_revocations=AsyncMock())
     lookup = SimpleNamespace(cached=Mock(return_value=None))
     service = CommunitySync(hass, catalog, icons, prices, lookup)
     await service.async_load()

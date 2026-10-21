@@ -151,13 +151,85 @@ def identities(item):
 
 
 def new_registry():
-    return {"schema": SCHEMA, "records": {}, "last_submission": {}, "processed": []}
+    return {"schema": SCHEMA, "records": {}, "last_submission": {}, "processed": [], "revoked_prices": []}
 
 
-def contribute(registry, payload, user_id, created, issue_id, *, banned=(), eligible=True):
+def price_fingerprint(price):
+    return fingerprint({key:price.get(key) for key in ("store", "reference_id", "price", "currency", "checked_at")})
+
+
+def record_votes(record):
+    """Read old snapshots as well as compact, deduplicated choices."""
+    return {user: {"item": vote.get("item", record.get("choices", {}).get(vote.get("choice"))),
+                   "eligible": vote["eligible"]} for user, vote in record["votes"].items()}
+
+
+def compact_registry(registry):
+    """Store each distinct selection once; one lightweight vote per account."""
+    for record in registry["records"].values():
+        choices, votes = {}, {}
+        for user, vote in record_votes(record).items():
+            key = fingerprint(vote["item"])
+            choices[key] = vote["item"]
+            votes[user] = {"choice": key, "eligible": vote["eligible"]}
+        record["choices"], record["votes"] = choices, votes
+    registry["processed"] = registry["processed"][-10000:]
+    return registry
+
+
+def _accept_price(record, price, user, created, eligible, blocked, max_variation, confirmations):
+    store = price["store"]
+    previous = record["prices"].get(store)
+    if previous and previous["contributor"] in blocked:
+        previous = next((old for old in reversed(record.get("price_history", {}).get(store, []))
+                         if old["contributor"] not in blocked), None)
+    if previous and previous["checked_at"] > created-DAY:
+        return  # The first fresh accepted observation remains authoritative for this day.
+    suspicious = previous and abs(Decimal(price["price"])-Decimal(previous["price"]))/Decimal(previous["price"])*100 > Decimal(str(max_variation))
+    candidate = {**price, "contributor":user, "received_at":created}
+    if suspicious:
+        pending = record.setdefault("price_candidates", {}).setdefault(store, {})
+        pending = {key:value for key,value in pending.items() if value["price"]["checked_at"] >= created-DAY}
+        # Bounded alternatives prevent a contributor from growing the registry indefinitely.
+        record["price_candidates"][store] = pending
+        group = pending.setdefault(price["price"], {"price":candidate, "reporters":{}})
+        if eligible:
+            group["reporters"][user] = created
+        voters = {who for who, when in group["reporters"].items() if who not in blocked and when >= created-DAY}
+        if len(voters) < confirmations:
+            if len(pending) > 10:
+                del pending[next(iter(pending))]
+            return
+        candidate = group["price"]  # Confirmation never renews the observation timestamp.
+    if previous:
+        history = record.setdefault("price_history", {}).setdefault(store, [])
+        history.append(previous)
+        record["price_history"][store] = history[-20:]
+    record["prices"][store] = candidate
+    record.get("price_candidates", {}).pop(store, None)
+
+
+def restore_registry(previous, current):
+    """Recover trusted observations and publish withdrawals for overwritten prices."""
+    restored = deepcopy(previous)
+    restored["last_submission"] = {user:max(previous["last_submission"].get(user, 0), current["last_submission"].get(user, 0))
+        for user in set(previous["last_submission"]) | set(current["last_submission"])}
+    restored["processed"] = sorted(set(restored["processed"]) | set(current["processed"]))[-10000:]
+    revoked = set(restored.get("revoked_prices", [])) | set(current.get("revoked_prices", []))
+    for key, record in current["records"].items():
+        trusted = restored["records"].get(key, {}).get("prices", {})
+        for store, price in record["prices"].items():
+            if price_fingerprint(price) != price_fingerprint(trusted.get(store, {})):
+                revoked.add(price_fingerprint(price))
+    restored["revoked_prices"] = sorted(revoked)
+    return restored
+
+
+def contribute(registry, payload, user_id, created, issue_id, *, banned=(), eligible=True, max_price_variation=50, outlier_confirmations=3):
     """Use the GitHub-authenticated author and server timestamp, never payload identity."""
     user = str(user_id)
-    if user in set(map(str, banned)) or issue_id in registry["processed"]:
+    blocked = set(map(str, banned))
+    if user in blocked or issue_id in registry["processed"]:
         return False
     if created < registry["last_submission"].get(user, -DAY)+DAY:
         return False
@@ -174,12 +246,13 @@ def contribute(registry, payload, user_id, created, issue_id, *, banned=(), elig
         key = matches[0] if matches else fingerprint(sorted(keys) if keys else ["term", term])[:32]
         record = records.setdefault(key, {"identities": [], "term": term, "votes": {}, "prices": {}})
         # Only established accounts contribute votes; young accounts can still submit candidates/prices.
-        record["votes"][user] = {"item": {k:v for k,v in item.items() if k != "prices"}, "eligible": eligible}
+        choice = {k:v for k,v in item.items() if k != "prices"}
+        choice_id = fingerprint(choice)
+        record.setdefault("choices", {})[choice_id] = choice
+        record["votes"][user] = {"choice":choice_id, "eligible":eligible}
         record["identities"] = sorted(set(record["identities"]) | keys)
         for price in item["prices"]:
-            previous = record["prices"].get(price["store"])
-            if previous is None or previous["checked_at"] <= created-DAY:
-                record["prices"][price["store"]] = {**price, "contributor": user, "received_at": created}
+            _accept_price(record, price, user, created, eligible, blocked, max_price_variation, outlier_confirmations)
     registry["last_submission"][user] = created
     registry["processed"].append(issue_id)
     return True
@@ -188,8 +261,12 @@ def contribute(registry, payload, user_id, created, issue_id, *, banned=(), elig
 def compile_dictionary(registry, now, *, banned=(), icon_metadata=None):
     blocked = set(map(str, banned))
     result = []
+    revoked = set(registry.get("revoked_prices", []))
     for identifier, record in registry["records"].items():
-        votes = [vote for user, vote in record["votes"].items() if user not in blocked]
+        for price in [*record["prices"].values(), *(old for history in record.get("price_history", {}).values() for old in history)]:
+            if price["contributor"] in blocked:
+                revoked.add(price_fingerprint(price))
+        votes = [vote for user, vote in record_votes(record).items() if user not in blocked]
         if not votes:
             continue
         item = {"id": identifier, "confirmed_fields": [], "confirmations": {}, "icons": [], "prices": []}
@@ -221,20 +298,24 @@ def compile_dictionary(registry, now, *, banned=(), icon_metadata=None):
                 item["store_links"][store] = deepcopy(ranked[0]["value"])
                 if ranked[0]["count"] >= 3 and (len(ranked) == 1 or ranked[0]["count"] > ranked[1]["count"]):
                     item["confirmed_fields"].append("store_links."+store)
-        counts = {}
+        counts, selections = {}, {}
         for vote in votes:
             for icon in vote["item"]["icons"]:
                 counts[icon] = counts.get(icon, 0)+int(vote["eligible"] and "icons" not in vote["item"].get("borrowed_fields", []))
-        for icon, count in sorted(counts.items(), key=lambda pair:(-pair[1], pair[0]))[:5]:
+                selections[icon] = selections.get(icon, 0)+int(vote["eligible"])
+        for icon, count in sorted(counts.items(), key=lambda pair:(-selections[pair[0]], -pair[1], pair[0])):
             info = (icon_metadata or {}).get(icon)
             if count >= 3 and info:
-                item["icons"].append({"id": icon, "confirmations": count, **info})
+                item["icons"].append({"id": icon, "confirmations": count, "selections": selections[icon], **info})
+                if len(item["icons"]) == 5:
+                    break
         for price in record["prices"].values():
             if (price["contributor"] not in blocked and price["checked_at"] >= now-DAY
-                and item["store_links"].get(price["store"], {}).get("id") == price["reference_id"]):
+                and item["store_links"].get(price["store"], {}).get("id") == price["reference_id"]
+                and price_fingerprint(price) not in revoked):
                 item["prices"].append({key:value for key,value in price.items() if key not in ("contributor", "received_at")})
         result.append(item)
-    return {"schema": SCHEMA, "reference_version": REFERENCE_VERSION, "generated_at": now, "products": result}
+    return {"schema": SCHEMA, "reference_version": REFERENCE_VERSION, "generated_at": now, "products": result, "revoked_prices": sorted(revoked)}
 
 
 def validate_dictionary(data, now):
@@ -243,6 +324,9 @@ def validate_dictionary(data, now):
         or not isinstance(data.get("products"), list) or len(data["products"]) > 20000):
         raise ValueError("Diccionario comunitario no válido.")
     result = deepcopy(data)
+    revoked = result.get("revoked_prices", [])
+    if not isinstance(revoked, list) or len(revoked) > 50000 or any(not isinstance(key, str) or not re.fullmatch(r"[a-f0-9]{64}", key) for key in revoked):
+        raise ValueError("Revocaciones comunitarias no válidas.")
     seen = set()
     for item in result["products"]:
         identifier = item.get("id")

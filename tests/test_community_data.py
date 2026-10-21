@@ -122,6 +122,60 @@ class CommunityProtocolTests(unittest.TestCase):
         p.contribute(state, payload(other), 2, NOW, 2)
         self.assertEqual(len(p.compile_dictionary(state, NOW)["products"]), 2)
 
+    def test_large_price_change_waits_for_three_independent_accounts(self):
+        state = p.new_registry()
+        p.contribute(state, payload(), 1, NOW, 1)
+        revised = item(); revised["prices"][0].update(price="5.00", checked_at=NOW+86400)
+        for user in (2, 3):
+            p.contribute(state, payload(revised), user, NOW+86400, user)
+            self.assertEqual(p.compile_dictionary(state, NOW+86400)["products"][0]["prices"], [])
+        self.assertFalse(p.contribute(state, payload(revised), 2, NOW+86401, 20))
+        p.contribute(state, payload(revised), 4, NOW+86400, 4)
+        saved = p.compile_dictionary(state, NOW+86400)["products"][0]["prices"][0]
+        self.assertEqual(saved["price"], "5.00")
+        self.assertEqual(saved["checked_at"], NOW+86400)
+
+    def test_normal_price_change_is_accepted_and_history_is_preserved(self):
+        state = p.new_registry()
+        p.contribute(state, payload(), 1, NOW, 1)
+        revised = item(); revised["prices"][0].update(price="1.50", checked_at=NOW+86400)
+        p.contribute(state, payload(revised), 2, NOW+86400, 2)
+        record = next(iter(state["records"].values()))
+        self.assertEqual(record["prices"]["mercadona"]["price"], "1.50")
+        self.assertEqual(record["price_history"]["mercadona"][0]["price"], "1.25")
+
+    def test_recovery_withdraws_replaced_price_and_retains_daily_account_limits(self):
+        state = p.new_registry()
+        p.contribute(state, payload(), 1, NOW, 1)
+        trusted = deepcopy(state)
+        revised = item(); revised["prices"][0].update(price="1.50", checked_at=NOW+86400)
+        p.contribute(state, payload(revised), 2, NOW+86400, 2)
+        bad = next(iter(state["records"].values()))["prices"]["mercadona"]
+        restored = p.restore_registry(trusted, state)
+        self.assertIn(p.price_fingerprint(bad), p.compile_dictionary(restored, NOW+86400)["revoked_prices"])
+        self.assertEqual(next(iter(restored["records"].values()))["prices"]["mercadona"]["price"], "1.25")
+        self.assertFalse(p.contribute(restored, payload(revised), 2, NOW+86401, 3))
+
+    def test_compaction_deduplicates_selections_without_changing_consensus(self):
+        state = p.new_registry()
+        for user in range(1, 11): p.contribute(state, payload(), user, NOW, user)
+        expected = p.compile_dictionary(state, NOW)
+        p.compact_registry(state)
+        record = next(iter(state["records"].values()))
+        self.assertEqual(len(record["choices"]), 1)
+        self.assertEqual(len(record["votes"]), 10)
+        self.assertEqual(p.compile_dictionary(state, NOW), expected)
+
+    def test_explicit_community_icon_choice_counts_preference_without_echo_confirmation(self):
+        state = p.new_registry()
+        for user in (1,2,3): p.contribute(state, payload(), user, NOW, user)
+        selected = item(); selected["borrowed_fields"] = ["icons"]
+        p.contribute(state, payload(selected), 4, NOW, 4)
+        info = {"author":"Google", "license":"Apache-2.0", "license_url":"https://www.apache.org/licenses/LICENSE-2.0"}
+        icon = p.compile_dictionary(state, NOW, icon_metadata={"noto:cooked-rice":info})["products"][0]["icons"][0]
+        self.assertEqual(icon["selections"], 4)
+        self.assertEqual(icon["confirmations"], 3)
+
 
 if __name__ == "__main__":
     unittest.main()

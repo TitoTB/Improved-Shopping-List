@@ -7,6 +7,12 @@ on:
   schedule:
     - cron: '17 * * * *'
   workflow_dispatch:
+    inputs:
+      restore_registry_commit:
+        description: 'Optional full SHA of a trusted data commit to recover; leave blank for normal processing'
+        required: false
+        default: ''
+        type: string
   push:
     branches: [main]
     paths: ['community/policy.json', 'scripts/community-process.py', 'custom_components/improved_shopping_list/community_data.py', '.github/workflows/community.yml']
@@ -34,6 +40,7 @@ jobs:
         run: python scripts/community-process.py
         env:
           GH_TOKEN: ${{ github.token }}
+          RESTORE_DATA_SHA: ${{ inputs.restore_registry_commit }}
       - name: Publish data only
         env:
           GH_TOKEN: ${{ github.token }}
@@ -56,7 +63,9 @@ jobs:
           mkdir -p community
           cp ../.community-output/products.json community/products.json
           cp ../.community-output/registry.json community/registry.json
-          git add community/products.json community/registry.json
+          mkdir -p community/registry
+          cp ../.community-output/registry/*.json community/registry/
+          git add community/products.json community/registry.json community/registry
           if ! git diff --cached --quiet; then
             git commit -m 'Update validated community product dictionary'
             git -c http.extraheader="AUTHORIZATION: basic $AUTH" push origin data

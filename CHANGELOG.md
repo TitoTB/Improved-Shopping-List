@@ -2,6 +2,9 @@
 
 ## Pendiente de publicación
 
+- Protección de precios comunitarios: variaciones superiores al 50 % respecto al último precio aceptado quedan pendientes hasta recibir tres coincidencias independientes. Recuperación de un commit de datos mediante GitHub Actions, con revocación de precios sustituidos y restauración de la observación local anterior cuando exista.
+- Votos compactados por elección y registro comunitario dividido en 16 archivos; límites de 8 MiB por archivo de registro y 16 MiB para el diccionario publicado. Las instalaciones no descargan el registro de votos ni el historial Git.
+- Preferencias explícitas de iconos separadas de las confirmaciones independientes, para ordenar recomendaciones sin convertir datos copiados de la comunidad en nuevas verificaciones.
 - Sincronización comunitaria con la GitHub App Improved Shopping List Community: consentimiento explícito en Ajustes → Comunidad, autorización mediante código, renovación de tokens y almacenamiento privado sin reutilizar credenciales de HACS.
 - Diccionario único de productos en la rama `data`, con consulta diaria anónima, envío diario del catálogo permitido y recuperación de lotes fragmentados sin duplicarlos. Se excluyen listas, stock, NFC, lectores, categorías personales, notas y automatizaciones.
 - Validación automática en GitHub Actions con identidad del autor comprobada, límite de un lote por cuenta cada 24 horas, consenso de tres cuentas, exclusión de datos copiados del diccionario, licencias de Iconify contrastadas y lista de bloqueo administrada desde el repositorio.

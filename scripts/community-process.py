@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 import importlib
 import json
 import os
+import re
 from pathlib import Path
 import sys
 import time
@@ -64,17 +65,33 @@ def parse_body(body):
         raise ValueError("Envelope nesting too deep") from err
 
 
-def load_data(filename, default):
+def load_data(filename, default, ref="data"):
     try:
-        return request(f"https://raw.githubusercontent.com/{protocol.REPO}/data/community/{filename}", github=False, limit=64*1024*1024)
+        return request(f"https://raw.githubusercontent.com/{protocol.REPO}/{ref}/community/{filename}", github=False, limit=64*1024*1024)
     except HTTPError as err:
         if err.code != 404:
             raise
         return default
 
 
+def load_registry(ref):
+    data = load_data("registry.json", protocol.new_registry(), ref)
+    if "shards" in data:
+        expected = [f"registry/{index:x}.json" for index in range(16)]
+        if data["shards"] != expected:
+            raise ValueError("Invalid registry shard manifest")
+        records = {}
+        for filename in expected:
+            records.update(load_data(filename, {}, ref))
+        data.pop("shards")
+        data["records"] = records
+    if data.get("schema") != protocol.SCHEMA or not isinstance(data.get("records"), dict):
+        raise ValueError("Invalid registry snapshot")
+    return data
+
+
 def icon_metadata(registry, policy):
-    identifiers = {icon for record in registry["records"].values() for vote in record["votes"].values()
+    identifiers = {icon for record in registry["records"].values() for vote in protocol.record_votes(record).values()
                    for icon in vote["item"]["icons"]}
     prefixes = ({icon.split(":")[0] for icon in identifiers} & set(policy["allowed_icon_prefixes"])) - set(policy["excluded_icon_prefixes"])
     cache = {}
@@ -107,14 +124,24 @@ def icon_metadata(registry, policy):
 
 def main():
     policy = json.loads((ROOT / "community/policy.json").read_text())
-    registry = load_data("registry.json", protocol.new_registry())
+    try:
+        # Immutable Git ref avoids CDN caching losing a preceding workflow's votes.
+        current_ref = request(API+"/git/ref/heads/data")["object"]["sha"]
+    except HTTPError as err:
+        if err.code != 404: raise
+        current_ref = "data"
+    current_registry = load_registry(current_ref)
+    restore = os.environ.get("RESTORE_DATA_SHA", "").strip()
+    if restore and not re.fullmatch(r"[a-f0-9]{40}", restore):
+        raise ValueError("Recovery requires the full SHA of a trusted data commit")
+    registry = protocol.restore_registry(load_registry(restore), current_registry) if restore else current_registry
     now = time.time()
     accounts = {}
     close = []
     incomplete = 0
     # One account submits one issue per daily batch. Only open intake issues are read.
     # Limit work per invocation; the next run handles remaining open contributions.
-    for page in range(1, 11):
+    for page in ([] if restore else range(1, 11)):
         issues = request(API+f"/issues?state=open&sort=created&direction=asc&per_page=100&page={page}")
         if not issues:
             break
@@ -153,7 +180,9 @@ def main():
                     account = request("https://api.github.com/users/"+issue["user"]["login"])
                     accounts[user] = created-stamp(account["created_at"]) >= policy["minimum_account_age_days"]*protocol.DAY
                 protocol.contribute(registry, payload, user, created, number,
-                    banned=policy["blocked_github_ids"], eligible=accounts[user])
+                    banned=policy["blocked_github_ids"], eligible=accounts[user],
+                    max_price_variation=policy["max_price_variation_percent"],
+                    outlier_confirmations=policy["price_outlier_confirmations"])
                 close.append(number)
             except (ValueError, KeyError, TypeError):
                 # Invalid authenticated payloads consume their daily slot too.
@@ -163,9 +192,26 @@ def main():
     dictionary = protocol.compile_dictionary(registry, now, banned=policy["blocked_github_ids"],
         icon_metadata=icon_metadata(registry, policy))
     protocol.validate_dictionary(dictionary, now)
+    protocol.compact_registry(registry)
     OUTPUT.mkdir(exist_ok=True)
-    for filename, data in (("registry.json", registry), ("products.json", dictionary), ("close.json", sorted(set(close)))):
-        (OUTPUT/filename).write_text(json.dumps(data, ensure_ascii=False, sort_keys=True, separators=(",", ":"))+"\n")
+    # Persist compact votes in bounded shards. Clients never download this registry.
+    shards = {f"registry/{index:x}.json": {} for index in range(16)}
+    for key, record in registry["records"].items():
+        shards[f"registry/{key[0]}.json"][key] = record
+    manifest = {key:value for key,value in registry.items() if key != "records"}
+    manifest["shards"] = list(shards)
+    previous = load_data("products.json", {}, current_ref)
+    if {k:v for k,v in previous.items() if k != "generated_at"} == {k:v for k,v in dictionary.items() if k != "generated_at"}:
+        dictionary["generated_at"] = previous["generated_at"]
+    files = {**shards, "registry.json": manifest, "products.json": dictionary, "close.json": sorted(set(close))}
+    for filename, data in files.items():
+        raw = json.dumps(data, ensure_ascii=False, sort_keys=True, separators=(",", ":"))+"\n"
+        limit = 16*1024*1024 if filename == "products.json" else 8*1024*1024
+        if len(raw.encode()) > limit:
+            raise ValueError(f"Community data size limit reached: {filename}")
+        target = OUTPUT/filename
+        target.parent.mkdir(exist_ok=True)
+        target.write_text(raw)
     print(f"Validated dictionary: {len(dictionary['products'])} products; {len(close)} completed batches; {incomplete} incomplete batches.")
 
 

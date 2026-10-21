@@ -19,6 +19,7 @@ from .const import DOMAIN
 from .price_sources import PriceError, PriceSources
 from .store_links import STORES, normalize_link
 from .regional_stores import valid_area
+from .community_data import price_fingerprint
 
 INTERVAL = 300
 _LOGGER = logging.getLogger(__name__)
@@ -31,7 +32,7 @@ class PriceManager:
         self._store = Store(hass, 1, f"{DOMAIN}.prices")
         self._data = {"offers":{}, "attempts":{}, "pending":[], "day":"", "next_request":0,
             "errors":{}, "blocked_day":{}, "blocked_until":{}, "legacy_ean":{}, "total":0, "processed":0,
-            "partial":False, "prepare_retry_at":0, "batch":None}
+            "partial":False, "prepare_retry_at":0, "batch":None, "offer_history":{}}
         self._active = False
         self._lock = asyncio.Lock()
         self._task = None
@@ -196,6 +197,27 @@ class PriceManager:
                         "error":self._data["errors"].get(store, "")})
                     break
         return prices
+
+    async def async_apply_revocations(self, revoked):
+        """Withdraw only community observations; never touch directly fetched prices."""
+        keys = set(revoked)
+        if not keys:
+            return
+        async with self._lock:
+            changed = False
+            for key, price in list(self._data["offers"].items()):
+                if price.get("source") != "community" or price_fingerprint(price) not in keys:
+                    continue
+                history = self._data["offer_history"].get(key, [])
+                previous = next((old for old in reversed(history) if old.get("source") != "community" or price_fingerprint(old) not in keys), None)
+                if previous:
+                    self._data["offers"][key] = deepcopy(previous)
+                else:
+                    del self._data["offers"][key]
+                changed = True
+            if changed:
+                await self._store.async_save(deepcopy(self._data))
+                self._notify()
 
     def snapshot(self, store=None):
         settings = self.settings.snapshot
@@ -552,6 +574,11 @@ class PriceManager:
                         or self.settings.snapshot["stores"].get(store) != configuration or not self._linked_job(job)):
                         result = "discarded"
                     if isinstance(result, dict):
+                        previous = self._data["offers"].get(key)
+                        if previous and price_fingerprint(previous) != price_fingerprint(result):
+                            history = self._data["offer_history"].setdefault(key, [])
+                            history.append(deepcopy(previous))
+                            self._data["offer_history"][key] = history[-5:]
                         self._data["offers"][key] = {**result, "checked_at":result.get("checked_at", time.time()), "scope":job["scope"]}
                         self._data["errors"].pop(store, None)
                         self._record("stores.price", f"{STORES[store]}: precio actualizado", source=source,

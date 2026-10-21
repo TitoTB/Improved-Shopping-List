@@ -13,7 +13,7 @@ from homeassistant.helpers.storage import Store
 
 from .const import DOMAIN, VERSION
 from .community_data import (APP_URL, CLIENT_ID, REPO, SCHEMA, REFERENCE_VERSION, DAY,
-    MARKER, MAX_BYTES, ean, normalized, fingerprint, pack, validate_product, validate_dictionary, scope)
+    MARKER, MAX_BYTES, ean, normalized, fingerprint, price_fingerprint, pack, validate_product, validate_dictionary, scope)
 
 DATA_URL = f"https://raw.githubusercontent.com/{REPO}/data/community/products.json"
 API = f"https://api.github.com/repos/{REPO}"
@@ -49,6 +49,7 @@ class CommunitySync:
             cached = await self._cache.async_load()
             if cached:
                 self.dictionary = validate_dictionary(cached, time.time())
+                await self.prices.async_apply_revocations(self.dictionary.get("revoked_prices", []))
         except (ValueError, TypeError, KeyError):
             pass
 
@@ -230,7 +231,8 @@ class CommunitySync:
     def price(self, store, link):
         for item in self.dictionary["products"]:
             for price in item["prices"]:
-                if price["store"] == store and price["reference_id"] == link["id"] and price["checked_at"] >= time.time()-DAY:
+                if (price["store"] == store and price["reference_id"] == link["id"] and price["checked_at"] >= time.time()-DAY
+                    and price_fingerprint(price) not in self.dictionary.get("revoked_prices", [])):
                     return {**deepcopy(price), "store": store, "url": link["url"], "source": "community", "scope": scope(store)}
         return None
 
@@ -251,7 +253,7 @@ class CommunitySync:
                     unique[icon["id"]] = icon
         return [{**icon, "id": "shared:"+icon["id"], "label": query, "collection": "Comunidad",
             "preview_url": f"https://api.iconify.design/{icon['id'].replace(':', '/')}.svg?height=96"}
-            for icon in sorted(unique.values(), key=lambda i:(-i["confirmations"], i["id"]))[:5]]
+            for icon in sorted(unique.values(), key=lambda i:(-i.get("selections", i["confirmations"]), -i["confirmations"], i["id"]))[:5]]
 
     async def async_import(self, identifier):
         identifier = identifier.removeprefix("shared:")
@@ -278,8 +280,10 @@ class CommunitySync:
                     "borrowed_fields": [field for field, digest in borrowed.items()
                         if field in ("name", "name_en") and digest == fingerprint(product.get(field, ""))]}
             asset = self.icons._assets.get(product.get("image_url", ""), {})
-            if asset and not asset.get("community_origin"):
+            if asset:
                 item["icons"] = [asset["id"]] if ":" in asset.get("id", "") else []
+                if asset.get("community_origin"):
+                    item["borrowed_fields"].append("icons")
             for code in codes:
                 hint = self.lookup.cached(code) or {}
                 if hint.get("source") != "community":
@@ -349,6 +353,7 @@ class CommunitySync:
                     data = validate_dictionary(await self._request("GET", DATA_URL, limit=16*1024*1024), time.time())
                     await self._cache.async_save(data)
                     self.dictionary = data
+                    await self.prices.async_apply_revocations(data.get("revoked_prices", []))
                     self._data["last_download"] = time.time()
                     await self._store.async_save(self._data)
                     await self.catalog.async_apply_community(self)

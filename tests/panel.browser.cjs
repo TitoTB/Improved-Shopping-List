@@ -1694,10 +1694,20 @@ async function main() {
     assert.equal(await readerPage.evaluate(()=>Object.values(window.catalogProducts[0].reader_actions).includes('add_list')),true);
     assert.deepEqual(await readerPage.evaluate(()=>window.catalogProducts[0].recurrence),{enabled:true,days:12});
     await readerCatalog.getByRole('button',{name:'Productos',exact:true}).click();
+    await readerPage.evaluate(()=>{window.savedReaderMetadata=window.readerFixture.readers;window.readerFixture.readers=[];window.emitReaders();});
     await editCatalogProduct(readerCatalog,'Editar Cacao lector');
     const inheritDialog=readerCatalog.getByRole('dialog',{name:'Editar producto',exact:true});
     await inheritDialog.getByRole('button',{name:'Automatización',exact:true}).click();
+    // Late metadata restores only explicit saved exceptions, never another form's selection.
+    await readerPage.evaluate(()=>{window.readerFixture.readers=window.savedReaderMetadata;window.emitReaders();});
+    assert.equal(await inheritDialog.getByLabel('Cocina',{exact:true}).inputValue(),'add_list');
+    assert.equal(await inheritDialog.getByLabel('NFC despensa',{exact:true}).inputValue(),'stock_remove');
     await inheritDialog.getByLabel('Cocina',{exact:true}).selectOption('default');
+    await readerPage.evaluate(()=>{window.readerFixture.readers.find(reader=>reader.name==='Cocina').default_action='stock_add';window.emitReaders();});
+    assert.equal(await inheritDialog.getByLabel('Cocina',{exact:true}).inputValue(),'default');
+    assert.match(await inheritDialog.getByLabel('Cocina',{exact:true}).locator('option:checked').textContent(),/Añadir stock/);
+    assert.equal(await inheritDialog.getByLabel('NFC despensa',{exact:true}).inputValue(),'stock_remove');
+    await readerPage.evaluate(()=>{window.readerFixture.readers.find(reader=>reader.name==='Cocina').default_action='add_list';window.emitReaders();});
     await inheritDialog.getByRole('button',{name:'Guardar producto',exact:true}).click();
     await inheritDialog.waitFor({state:'hidden'});
     assert.equal(await readerPage.evaluate(()=>{
@@ -1705,6 +1715,17 @@ async function main() {
       return Object.hasOwn(window.catalogProducts[0].reader_actions,id);
     }),false);
     assert.equal(await readerPage.evaluate(()=>Object.values(window.catalogProducts[0].reader_actions).includes('stock_remove')),true);
+    await readerCatalog.getByRole('button',{name:'Nuevo producto',exact:true}).click();
+    const defaultActionsDialog=readerCatalog.getByRole('dialog',{name:'Nuevo producto',exact:true});
+    await defaultActionsDialog.getByRole('button',{name:'Automatización',exact:true}).click();
+    assert.equal(await defaultActionsDialog.getByLabel('Cocina',{exact:true}).inputValue(),'default');
+    assert.equal(await defaultActionsDialog.getByLabel('NFC despensa',{exact:true}).inputValue(),'default');
+    await defaultActionsDialog.getByLabel('Cocina',{exact:true}).selectOption('none');
+    await defaultActionsDialog.getByRole('button',{name:'Cerrar ventana',exact:true}).click();
+    await readerCatalog.getByRole('button',{name:'Nuevo producto',exact:true}).click();
+    await defaultActionsDialog.getByRole('button',{name:'Automatización',exact:true}).click();
+    assert.equal(await defaultActionsDialog.getByLabel('Cocina',{exact:true}).inputValue(),'default');
+    await defaultActionsDialog.getByRole('button',{name:'Cerrar ventana',exact:true}).click();
     await readerCatalog.getByRole('button',{name:'Nuevos',exact:true}).click();
     await readerPage.evaluate(()=>{window.readerFixture.pending=[{id:'scan-discard',kind:'barcode',code:'999999',reader_name:'Cocina',time:new Date().toISOString()}];window.emitReaders();});
     await readerCatalog.getByRole("button",{name:"Descartar código 999999",exact:true}).click();

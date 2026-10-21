@@ -315,7 +315,6 @@ class ImprovedShoppingCatalog extends HTMLElement {
         <label class="search">Buscar productos<input id="catalog-search" type="search" placeholder="Nombre, código o etiqueta"></label>
         <div class="catalog-product-controls"><button id="new-product" class="primary" type="button" aria-label="Nuevo producto" title="Nuevo producto"><ha-icon icon="mdi:plus-thick" aria-hidden="true"></ha-icon></button><button id="toggle-catalog-order" type="button" aria-label="Agrupar por categorías" title="Agrupar por categorías" aria-pressed="false"><ha-icon icon="mdi:label" aria-hidden="true"></ha-icon></button><button id="configure-catalog-grouping" type="button" aria-label="Cambiar criterio de agrupación" title="Cambiar criterio de agrupación" hidden><ha-icon icon="mdi:tune" aria-hidden="true"></ha-icon></button><button id="toggle-catalog-layout" type="button" aria-label="Cambiar a vista de filas" title="Cambiar a vista de filas"><ha-icon icon="mdi:view-sequential" aria-hidden="true"></ha-icon></button></div>
       </div>
-      <p id="catalog-count" class="count" aria-live="polite"></p>
       <p id="grouping-status" class="count" role="status" hidden>Cargando Nutri-Score…</p>
       <div id="catalog-grid" class="grid"></div>
       <p id="catalog-empty" class="empty" hidden></p>
@@ -887,7 +886,6 @@ class ImprovedShoppingCatalog extends HTMLElement {
     const products = this._catalog.products.filter(product =>
       [product.name, product.barcode, ...(product.barcodes??[]), ...(product.nfc_tags??[]), product.category, ...product.tags].join(" ").toLocaleLowerCase("es").includes(query))
       .sort((a,b) => a.name.localeCompare(b.name,"es",{sensitivity:"base"}));
-    root.querySelector("#catalog-count").textContent = `${products.length} de ${this._catalog.products.length} productos`;
     if (grouped) {
       const categories = new Map(this._catalog.categories.map(category => [normalizedName(category.name),category.name]));
       const groups = new Map();

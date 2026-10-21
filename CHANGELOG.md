@@ -1,5 +1,15 @@
 # Historial de cambios
 
+## 0.16.0
+
+- Nueva vista de filas en Lista y Catálogo → Productos, alternable con la cuadrícula y recordada en el navegador. Muestra imagen o icono, nombre, categoría y último precio guardado; prioriza la tienda favorita, después el precio más reciente de otras tiendas y finalmente el precio manual. No provoca consultas a los supermercados. Se mantienen las acciones de compra y edición.
+- En el catálogo, los botones de añadir producto y cambiar vista se sitúan a la derecha del selector de categorías. Retirado el botón de actualizar catálogo y renombrada la vista Sugerencias como Nuevos.
+- Alcampo utiliza las cabeceras anónimas verificadas de su API pública para corregir el rechazo HTTP 403 observado. Comprobado desde desarrollo con el producto 10739: precio, disponibilidad y EAN. Conserva la región configurada, los intervalos y el último precio ante errores; el acceso desde Home Assistant debe verificarse en cada instalación.
+- La eliminación de productos y categorías se realiza desde el final de sus fichas, con confirmación. Retirados los botones de eliminar de las tarjetas; borrar un producto del catálogo conserva los elementos de las listas.
+- Tiendas abre el progreso de actualización en un popup y permite configurar la hora diaria desde un botón de reloj. Dos tiendas por fila en pantallas grandes, nuevos logos y última actualización en el pie.
+- Comunidad incorpora los textos revisados, botón negro de Patreon y botones de igual ancho con iconos Font Awesome del mismo tamaño.
+- Pruebas ampliadas de consultas de Alcampo, precios guardados, cambio de vistas, controles del catálogo, edición, eliminación y presentación en móvil y ordenador.
+
 ## 0.15.0
 
 - Carrefour consulta precios mediante el endpoint JSON de su web, con referencia y centro `sale_point`, sin cookies ni identificadores de sesión. Sustituye la descarga de HTML que devolvía 403. Verificado desde desarrollo con HTTP 200 y 2,69 EUR para la referencia 491998, tanto con enlace como con ID; el acceso desde cada Home Assistant sigue dependiendo de la tienda.

@@ -21,7 +21,7 @@ async def test_retired_store_settings_migrate_without_losing_lists(hass,other_en
         "favorite_store":"lidl","other_setting":"preserved"})
     entry.add_to_hass(hass)
     settings = ListSettings(hass); settings.attach(entry)
-    assert set(settings.snapshot["stores"]) == {"mercadona","carrefour","alcampo"}
+    assert set(settings.snapshot["stores"]) == {"mercadona","carrefour","alcampo","consum","lasirena"}
     assert settings.snapshot["favorite_store"] == expected_favorite
     assert settings.snapshot["stores"]["carrefour"]["sale_point"] == "012345"
     assert settings.snapshot["primary_entity"] == "todo.bring"

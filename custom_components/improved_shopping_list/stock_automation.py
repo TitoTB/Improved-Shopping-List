@@ -182,9 +182,13 @@ class StockAutomation:
         return state
 
     async def _add_or_restore(self, item):
+        if any(event[0] == item["id"] and event[2] == "purchase" for event in self._events):
+            return  # Process the observed purchase before deciding whether to reorder.
         target = item.get("list_entity") or self.settings.snapshot["primary_entity"]
         self._validate(item,target)
         response = await self.hass.services.async_call("todo","get_items",{"entity_id":target},blocking=True,return_response=True)
+        if any(event[0] == item["id"] and event[2] == "purchase" for event in self._events):
+            return
         state = self._validate(item,target)
         items = response.get(target,{}).get("items") if isinstance(response,dict) else None
         if not isinstance(items,list):

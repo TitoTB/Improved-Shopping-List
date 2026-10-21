@@ -70,6 +70,8 @@ async def test_stock_ws_pushes_permissions_and_unload(hass,hass_ws_client,hass_r
     assert (await readonly.receive_json())["event"]=={"items":[]}
     await readonly.send_json({"id":2,"type":f"{DOMAIN}/stock/add","name":"Cacao"})
     assert (await readonly.receive_json())["error"]["code"]=="unauthorized"
+    await readonly.send_json({"id":3,"type":f"{DOMAIN}/stock/save","item_id":"missing","revision":1,"config":{}})
+    assert (await readonly.receive_json())["error"]["code"]=="unauthorized"
     await client.send_json({"id":1,"type":f"{DOMAIN}/stock/add","name":"Cacao"})
     item=(await client.receive_json())["result"]
     assert (await readonly.receive_json())["event"]["items"][0]["quantity"]==1

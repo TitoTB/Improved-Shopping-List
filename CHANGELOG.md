@@ -1,5 +1,15 @@
 # Historial de cambios
 
+## 0.17.0
+
+- Lidl en Ajustes → Tiendas, con selección de región, tienda favorita y vinculaciones por enlace o ID en las fichas de productos. Consulta su API pública sin cuenta, cookies ni claves y utiliza el precio general vigente de la región elegida, excluyendo ofertas futuras y precios exclusivos de Lidl Plus. Respeta la cola de productos pendientes y los cinco minutos entre peticiones; conserva el último precio conocido y señala las ofertas finalizadas. Verificado desde desarrollo con la referencia 11107037 para Madrid: 2,89 EUR.
+- Importe aproximado junto al contador de la lista de la compra, calculado con los últimos precios guardados, sin consultas externas. Los productos sin precio cuentan como cero.
+- Filas de Lista con nombres alineados a la izquierda, logo de la tienda en el precio y badge de Nutri-Score. En móvil, la categoría muestra solo su icono. Catálogo adopta la misma alineación y limita el botón de editar a la vista de filas.
+- Fichas de productos y categorías sin botón Cancelar; Eliminar aparece junto a Guardar y sigue solicitando confirmación. Texto de recurrencia simplificado.
+- Popups de tiendas con precios guardados accesibles aunque estén deshabilitadas, contador en el pie y sin botones individuales de actualización ni Cerrar. Tiendas ordenadas alfabéticamente, menos opacidad al deshabilitarlas y fondo verdoso al activarlas. Ajustado el espaciado del horario de revisión.
+- Logo local de Mercadona aportado por el usuario y logo local de Lidl. Botones de Comunidad con iconos más pequeños y contenido alineado a la izquierda.
+- Pruebas ampliadas de Lidl, selección regional, vigencia, identidad de productos, consultas anónimas, permisos, caché, pausas y presentación de la interfaz.
+
 ## 0.16.0
 
 - Nueva vista de filas en Lista y Catálogo → Productos, alternable con la cuadrícula y recordada en el navegador. Muestra imagen o icono, nombre, categoría y último precio guardado; prioriza la tienda favorita, después el precio más reciente de otras tiendas y finalmente el precio manual. No provoca consultas a los supermercados. Se mantienen las acciones de compra y edición.

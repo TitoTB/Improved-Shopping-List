@@ -71,6 +71,7 @@ class ReaderManager:
         self.lookup = ProductLookup(hass)
         self._lookup_pending = set()
         self.activity = None
+        self.stock = None
 
     async def async_load(self):
         await self.lookup.async_load()
@@ -352,7 +353,14 @@ class ReaderManager:
             if action == "none":
                 self._status(reader_id, code, "Sin acción configurada para este producto y lector", product["name"])
             elif action in ("stock_remove", "stock_add"):
-                self._status(reader_id, code, "Acción de stock guardada; inventario pendiente de implementar", product["name"])
+                if self.stock is None:
+                    raise CatalogError("El stock no está disponible.")
+                def still_current():
+                    matched = self.catalog.find_by_code(reader["kind"], code)
+                    return self._active and self._data["readers"].get(reader_id) == reader and matched is not None and matched["id"] == product["id"] and matched["revision"] == product["revision"]
+                result = await self.stock.async_change_product(product, 1 if action == "stock_add" else -1,
+                    reader=reader["name"], guard=still_current)
+                self._status(reader_id, code, f'Stock: {result["quantity"]} unidades', product["name"])
             elif action == "add_list":
                 async with self._operation_lock:
                     await self._add_to_list(reader, product, code)

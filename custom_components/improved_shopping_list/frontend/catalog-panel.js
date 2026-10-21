@@ -361,7 +361,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
           </section>
           <section id="product-automation" class="fields" aria-label="Automatización" hidden>
             ${[["barcode","Códigos de barras/QR","mdi:barcode-scan"],["nfc","Etiquetas NFC","mdi:nfc-variant"]].map(([kind,title,icon])=>`<section id="product-${kind}-codes" class="wide product-codes" aria-label="${title}"><h3>${title}</h3><div id="${kind}-code-list" class="code-list"></div><div class="code-capture-controls"><select id="${kind}-capture-reader" aria-label="Lector para ${title}"></select><button id="${kind}-capture-start" type="button"><ha-icon icon="${icon}" aria-hidden="true"></ha-icon>Escanear</button><button id="${kind}-capture-stop" type="button" hidden>Detener</button></div><p id="${kind}-capture-status" class="helper" role="status"></p></section>`).join("")}
-            <div class="wide"><h3>Acciones de los lectores</h3><div id="product-reader-actions"></div><p class="helper">La acción se aplica solo al reconocer este producto. Las acciones de stock quedan guardadas para cuando esté disponible el inventario.</p></div>
+            <div class="wide"><h3>Acciones de los lectores</h3><div id="product-reader-actions"></div><p class="helper">La acción se aplica solo al reconocer este producto. Los cambios de stock afectan a la despensa común.</p></div>
             <div class="wide" id="product-recurrence"><h3>Recurrencia</h3><div class="recurrence-controls"><label><input name="recurrence_enabled" type="checkbox">Comprar cada</label><input name="recurrence_days" type="number" min="1" max="3650" step="1" value="7" aria-label="Días de recurrencia" disabled required><span>días</span></div><p class="helper">Se añadirá a la lista principal sin duplicar productos pendientes.</p></div>
           </section>
           <div class="form-actions product-actions"><button id="delete-product" type="button" hidden>Eliminar producto</button><button id="save-product" class="primary" type="submit">Guardar producto</button></div>
@@ -831,9 +831,9 @@ class ImprovedShoppingCatalog extends HTMLElement {
       const label = element("label", "", reader.name);
       const select = element("select");
       select.id = `action-${reader.id}`;label.htmlFor=select.id;select.dataset.readerAction=reader.id;
-      const defaults={none:"Sin acción",add_list:"Añadir a la lista",stock_remove:"Quitar stock (próximamente)",stock_add:"Añadir stock (próximamente)"};
+      const defaults={none:"Sin acción",add_list:"Añadir a la lista",stock_remove:"Quitar stock",stock_add:"Añadir stock"};
       const selected=this._readerActionDraft?.[reader.id] ?? "default";
-      for (const [value,text] of [["default",`Usar acción por defecto del lector (${defaults[reader.default_action]??defaults.none})`],["none","Sin acción"],["add_list","Añadir a la lista de la compra"],["stock_remove","Quitar una unidad al stock (próximamente)"],["stock_add","Añadir una unidad al stock (próximamente)"]]) select.append(new Option(text,value,value===selected,value===selected));
+      for (const [value,text] of [["default",`Usar acción por defecto del lector (${defaults[reader.default_action]??defaults.none})`],["none","Sin acción"],["add_list","Añadir a la lista de la compra"],["stock_remove","Quitar una unidad al stock"],["stock_add","Añadir una unidad al stock"]]) select.append(new Option(text,value,value===selected,value===selected));
       select.addEventListener("change",()=>{
         this._readerActionDraft ??= {};
         if(select.value === "default") delete this._readerActionDraft[reader.id];

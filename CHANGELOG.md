@@ -1,5 +1,12 @@
 # Historial de cambios
 
+## Pendiente de publicación
+
+- Nuevo apartado Stock, con inventario común persistente, búsqueda predictiva, cantidades por producto, vistas de cuadrícula y filas, degradado naranja y envío a la lista de compra seleccionada sin duplicados.
+- Las acciones de lectores para sumar y restar stock ya modifican el inventario, con protección antirrepetición y registro de movimientos.
+- Códigos de barras/QR y NFC en líneas capturadas desde lectores, sin campos manuales. La captura temporal no ejecuta acciones habituales y se libera al cerrar o desconectarse.
+- Las acciones de cada producto heredan las del lector salvo excepción elegida por el usuario. Eliminados los badges de categoría de las tarjetas del catálogo.
+
 ## 0.19.0
 
 - Código postal común para todas las tiendas desde un nuevo botón de ubicación junto al reloj de Ajustes → Tiendas. Se comprueban las tiendas activas al guardar; las desactivadas lo usan al habilitarlas. Eliminados los campos de ubicación independientes de los popups.

@@ -29,6 +29,8 @@ const emitCatalog=()=>{
   localStorage.setItem('dismissed-fixture',JSON.stringify(window.dismissedSuggestions));
   for(const listener of listeners.keys())if(listener.catalog)listener.callback(snapshot());
 };
+window.stockItems=JSON.parse(localStorage.getItem('stock-fixture')??'[]');
+window.emitStock=()=>{localStorage.setItem('stock-fixture',JSON.stringify(window.stockItems));for(const listener of listeners.keys())if(listener.stock)listener.callback({items:structuredClone(window.stockItems)});};
 window.calls=[];window.fail=false;window.failCatalog=false;
 window.logFixture={entries:[],limit:1000};window.failLogs=false;
 window.emitLogs=()=>{for(const listener of listeners.keys())if(listener.logs)listener.callback(structuredClone(window.logFixture));};
@@ -53,6 +55,9 @@ const hass={
     'todo.readonly':{entity_id:'todo.readonly',state:'1',attributes:{friendly_name:'Solo lectura',supported_features:0}}
   },
   connection:{subscribeMessage:async(callback,msg)=>{
+    if(msg.type==='improved_shopping_list/stock/subscribe'){
+      const listener={callback,stock:true};listeners.set(listener,true);callback({items:structuredClone(window.stockItems)});return()=>listeners.delete(listener);
+    }
     if(msg.type==='improved_shopping_list/settings/store_progress'){
       (window.storeProgressListeners??=new Set()).add(callback);callback({running:false,last_updated:window.lastPriceUpdateFixture??0});
       return()=>window.storeProgressListeners.delete(callback);
@@ -123,6 +128,18 @@ const hass={
     }
     if(msg.type==='improved_shopping_list/readers/delete'){window.readerFixture.readers=window.readerFixture.readers.filter(reader=>reader.id!==msg.reader_id);window.emitReaders();return null;}
     if(msg.type==='improved_shopping_list/readers/dismiss'){window.readerFixture.pending=window.readerFixture.pending.filter(item=>item.id!==msg.pending_id);window.emitReaders();return null;}
+    if(msg.type==='improved_shopping_list/stock/get')return {items:structuredClone(window.stockItems)};
+    if(msg.type.startsWith('improved_shopping_list/stock/')){
+      if(window.failStock)throw new Error('No se ha podido guardar el stock');
+      if(msg.type.endsWith('/remove')){
+        const item=window.stockItems.find(item=>item.id===msg.item_id);
+        if(item?.revision!==msg.revision)throw new Error('El stock del producto ha cambiado');
+        window.stockItems=window.stockItems.filter(item=>item.id!==msg.item_id);window.emitStock();return null;
+      }
+      let item=msg.item_id?window.stockItems.find(item=>item.id===msg.item_id):window.stockItems.find(item=>normalizeName(item.name)===normalizeName(msg.name));
+      if(!item){const product=window.catalogProducts.find(product=>normalizeName(product.name)===normalizeName(msg.name));item={id:crypto.randomUUID(),name:product?.name??msg.name,catalog_product_id:product?.id??'',quantity:0,revision:0};window.stockItems.push(item);}
+      item.quantity=Math.max(0,item.quantity+(msg.delta??1));item.revision++;window.emitStock();return structuredClone(item);
+    }
     if(msg.type==='improved_shopping_list/settings/get')return structuredClone(window.listSettings);
     if(msg.type==='improved_shopping_list/settings/personalization'){
       if(window.failSettings)throw new Error('No se ha podido guardar la personalización');
@@ -317,7 +334,7 @@ async function main() {
       return;
     }
     if (pathname === "/") { res.setHeader("content-type", "text/html; charset=utf-8"); res.end(html); return; }
-    if (!["/panel.js", "/dialog-controls.js", "/todo-client.js", "/catalog-panel.js", "/catalog-client.js", "/category-panel.js", "/icon-picker.js", "/list-settings-client.js", "/settings-panel.js", "/readers-client.js", "/readers-panel.js", "/product-matching.js", "/product-names.js", "/logs-panel.js", "/logo.png", "/mercadona.png", "/consum.jpg", "/lasirena.jpg", "/eroski.svg", "/dia.png"].includes(pathname)) { res.writeHead(404).end(); return; }
+    if (!["/panel.js", "/stock-client.js", "/dialog-controls.js", "/todo-client.js", "/catalog-panel.js", "/catalog-client.js", "/category-panel.js", "/icon-picker.js", "/list-settings-client.js", "/settings-panel.js", "/readers-client.js", "/readers-panel.js", "/product-matching.js", "/product-names.js", "/logs-panel.js", "/logo.png", "/mercadona.png", "/consum.jpg", "/lasirena.jpg", "/eroski.svg", "/dia.png"].includes(pathname)) { res.writeHead(404).end(); return; }
     res.setHeader("content-type", pathname.endsWith(".svg") ? "image/svg+xml" : pathname.endsWith(".png") ? "image/png" : pathname.endsWith(".jpg") ? "image/jpeg" : "text/javascript; charset=utf-8");
     res.end(await fs.readFile(path.join(root, pathname.slice(1))));
   });
@@ -367,7 +384,7 @@ async function main() {
       };
       visit(document);
       return dialogs.filter(dialog => dialog.querySelectorAll(".isl-dialog-close[aria-label='Cerrar ventana']").length === 1).length;
-    }), 22);
+    }), 23);
     await page.getByRole("button", { name: "Seleccionar lista", exact: true }).click();
     const listDialog = page.getByRole("dialog", { name: "Seleccionar lista", exact: true });
     assert.equal(await listDialog.getByRole("button", { name: "Compra · Bring!", exact: true }).getAttribute("aria-pressed"), "true");
@@ -423,7 +440,7 @@ async function main() {
     await selectList(page, "todo.local");
     await page.locator("#pending").getByText("Detergente", { exact: true }).waitFor();
     assert.equal(await page.locator("#pending").getByText("Cacao puro", { exact: true }).count(), 0);
-    assert.equal(await page.evaluate(() => window.listenerCount()), 4);
+    assert.equal(await page.evaluate(() => window.listenerCount()), 5);
 
     await selectList(page, "todo.readonly");
     await page.locator("#pending").getByText("Lista compartida", { exact: true }).waitFor();
@@ -727,7 +744,7 @@ async function main() {
       }));
       assert.equal(await yogurtListCard.locator(".row-category span").isVisible(),width>540);
       assert.equal(await yogurtListCard.locator(".row-category").getAttribute("aria-label"),"Categoría: Lácteos y frescos");
-      assert.ok(await page.locator(".list-totals").evaluate(node=>{
+    assert.ok(await page.locator("#items-card .list-totals").evaluate(node=>{
         const count=node.querySelector("#pending-count").getBoundingClientRect(),total=node.querySelector("#pending-total").getBoundingClientRect();
         return count.right<=total.left&&Math.abs(count.top-total.top)<1&&node.scrollWidth<=node.clientWidth;
       }));
@@ -819,7 +836,7 @@ async function main() {
       await page.setViewportSize({ width, height:844 });
       assert.equal(await page.locator(".brand-copy").isVisible(), false);
       assert.equal(await page.locator(".brand-logo").isVisible(), true);
-      for (const view of ["catalog", "readers", "settings", "shopping"]) {
+      for (const view of ["catalog", "stock", "readers", "settings", "shopping"]) {
         await page.locator(`#nav-${view}`).click();
         assert.equal(await page.locator(".section-nav .nav-label:visible").count(), 1);
         assert.equal(await page.locator(`#nav-${view} .nav-label`).isVisible(), true);
@@ -852,7 +869,7 @@ async function main() {
     }
     await page.setViewportSize({ width:1280, height:960 });
     assert.equal(await page.locator(".brand-copy").isVisible(), true);
-    assert.equal(await page.locator(".section-nav .nav-label:visible").count(), 4);
+    assert.equal(await page.locator(".section-nav .nav-label:visible").count(), 5);
     await page.getByRole("button",{name:"Catálogo",exact:true}).click();
     assert.equal(await catalog.locator(".catalog-tabs .tab-label:visible").count(),3);
     await page.getByRole("button",{name:"Lista",exact:true}).click();
@@ -1840,6 +1857,65 @@ async function main() {
     await nutriForm.locator('..').getByRole('button',{name:'Cerrar ventana',exact:true}).click();
     await nutriPage.waitForFunction(()=>window.captureListeners.size===0);
     await nutriContext.close();
+    // Shared pantry: quantities, predictions, destination shopping list, persistence and permissions.
+    const stockContext=await browser.newContext({viewport:{width:1280,height:960}});
+    await stockContext.addInitScript(()=>localStorage.setItem('catalog-fixture',JSON.stringify([{id:'stock-cacao',revision:1,name:'Cacao',category:'',tags:[],barcode:'',barcodes:[],nfc_tags:[],image_url:'',icon:'mdi:food',price:null,currency:'EUR'}])));
+    const stockPage=await stockContext.newPage();stockPage.on('pageerror',error=>errors.push(error.message));
+    await stockPage.goto(url);await stockPage.getByRole('button',{name:'Stock',exact:true}).click();
+    assert.equal(await stockPage.locator('#nav-stock ha-icon').getAttribute('icon'),'mdi:package-variant');
+    const stockInput=stockPage.getByRole('combobox',{name:'Añadir producto',exact:true});
+    await stockInput.fill('cac');await stockInput.press('ArrowDown');await stockInput.press('Enter');
+    const stockCard=stockPage.locator('#stock-items li').filter({hasText:'Cacao'});
+    await stockCard.getByLabel('Stock de Cacao: 1',{exact:true}).waitFor();
+    assert.equal(await stockCard.locator('.item').evaluate(node=>getComputedStyle(node).backgroundImage),'linear-gradient(rgb(245, 154, 35), rgb(198, 91, 12))');
+    await stockCard.getByRole('button',{name:'Añadir una unidad de Cacao',exact:true}).click();
+    await stockCard.getByLabel('Stock de Cacao: 2',{exact:true}).waitFor();
+    await stockInput.fill('Cacao');await stockPage.getByRole('button',{name:'Añadir',exact:true}).click();
+    await stockCard.getByLabel('Stock de Cacao: 3',{exact:true}).waitFor();
+    assert.equal(await stockPage.locator('#stock-items li').count(),1);
+    await stockPage.getByRole('button',{name:'Cambiar a vista de filas',exact:true}).click();
+    assert.equal(await stockPage.locator('#stock-items').evaluate(node=>node.classList.contains('rows')),true);
+    await selectList(stockPage,'todo.local');
+    await stockCard.getByRole('button',{name:'Añadir a la lista: Cacao',exact:true}).click();
+    await stockPage.waitForFunction(()=>window.listData['todo.local'].some(item=>item.summary==='Cacao'));
+    assert.equal(await stockPage.evaluate(()=>window.stockItems[0].quantity),3);
+    await stockCard.getByRole('button',{name:'Añadir a la lista: Cacao',exact:true}).click();
+    assert.equal(await stockPage.evaluate(()=>window.listData['todo.local'].filter(item=>item.summary==='Cacao').length),1);
+    await selectList(stockPage,'todo.readonly');
+    assert.equal(await stockCard.getByRole('button',{name:'Añadir a la lista: Cacao',exact:true}).isDisabled(),true);
+    assert.equal(await stockInput.isEnabled(),true);
+    await stockPage.evaluate(()=>{window.failStock=true;});
+    await stockCard.getByRole('button',{name:'Añadir una unidad de Cacao',exact:true}).click();
+    await stockPage.getByRole('alert').filter({hasText:'No se ha podido guardar el stock'}).waitFor();
+    assert.equal(await stockPage.evaluate(()=>window.stockItems[0].quantity),3);
+    await stockPage.evaluate(()=>{window.failStock=false;});
+    for(let index=0;index<3;index++)await stockCard.getByRole('button',{name:'Quitar una unidad de Cacao',exact:true}).click();
+    await stockCard.getByLabel('Stock de Cacao: 0',{exact:true}).waitFor();
+    assert.equal(await stockCard.getByRole('button',{name:'Quitar una unidad de Cacao',exact:true}).isDisabled(),true);
+    await stockInput.fill('Producto sin catálogo');await stockInput.press('Enter');
+    await stockPage.locator('#stock-items').getByText('Producto sin catálogo',{exact:true}).waitFor();
+    await stockPage.reload();await stockPage.getByRole('button',{name:'Stock',exact:true}).click();
+    await stockCard.getByLabel('Stock de Cacao: 0',{exact:true}).waitFor();
+    assert.equal(await stockPage.locator('#stock-items').evaluate(node=>node.classList.contains('rows')),true);
+    for(const width of [1280,390,320]){
+      await stockPage.setViewportSize({width,height:844});
+      assert.ok(await stockPage.locator('#stock-card').evaluate(node=>node.scrollWidth<=node.clientWidth+1));
+      await stockPage.screenshot({path:'test-results/stock-rows-'+width+'.png',fullPage:true});
+    }
+    await stockPage.getByRole('button',{name:'Cambiar a vista de cuadrícula',exact:true}).click();
+    await stockPage.screenshot({path:'test-results/stock-grid-mobile.png',fullPage:true});
+    await stockCard.getByRole('button',{name:'Eliminar de Stock: Cacao',exact:true}).click();
+    const stockDelete=stockPage.getByRole('dialog',{name:'Eliminar de Stock',exact:true});
+    await stockDelete.getByRole('button',{name:'Cancelar',exact:true}).click();
+    assert.equal(await stockPage.locator('#stock-items li').count(),2);
+    await stockCard.getByRole('button',{name:'Eliminar de Stock: Cacao',exact:true}).click();
+    await stockDelete.getByRole('button',{name:'Eliminar producto',exact:true}).click();
+    await stockCard.waitFor({state:'hidden'});
+    assert.equal(await stockPage.evaluate(()=>window.catalogProducts.length),1);
+    await stockPage.evaluate(()=>{const panel=window.testPanel;panel.hass={...panel._hass,user:{is_admin:false}};});
+    assert.equal(await stockInput.isDisabled(),true);
+    assert.equal(await stockPage.locator('#stock-items [data-stock-action="increase"]').isDisabled(),true);
+    await stockContext.close();
     // Store bindings persist without barcodes; all product-price UI reads use cache.
     const linksContext=await browser.newContext({viewport:{width:390,height:844}});
     const linksPage=await linksContext.newPage();

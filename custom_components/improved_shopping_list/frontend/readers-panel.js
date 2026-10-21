@@ -46,7 +46,7 @@ class ImprovedShoppingReaders extends HTMLElement {
           <label class="wide" data-tag-field hidden>Device ID del lector NFC<input name="device_id" maxlength="100" placeholder="device_id incluido en el evento tag_scanned"></label>
           <div class="wide"><label for="reader-list">Lista de destino</label><select id="reader-list" name="list_entity"><option value="">Usar lista principal</option></select></div>
           <label>Antirrepetición (segundos)<input name="cooldown" type="number" min="1" max="3600" step="1" value="60" required></label>
-          <div><label for="reader-default-action">Acción por defecto</label><select id="reader-default-action" name="default_action"><option value="none">Sin acción</option><option value="add_list">Añadir a la lista de la compra</option><option value="stock_remove">Quitar una unidad al stock (próximamente)</option><option value="stock_add">Añadir una unidad al stock (próximamente)</option></select></div>
+          <div><label for="reader-default-action">Acción por defecto</label><select id="reader-default-action" name="default_action"><option value="none">Sin acción</option><option value="add_list">Añadir a la lista de la compra</option><option value="stock_remove">Quitar una unidad al stock</option><option value="stock_add">Añadir una unidad al stock</option></select></div>
         </div>
         <div class="form-actions"><button id="cancel-reader" type="button">Cancelar</button><button id="save-reader" class="primary" type="submit">Guardar lector</button></div>
       </form></dialog>

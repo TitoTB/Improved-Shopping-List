@@ -14,6 +14,7 @@ from custom_components.improved_shopping_list.activity import ActivityLog
 from custom_components.improved_shopping_list.const import CONF_TODO_ENTITY, DOMAIN
 from custom_components.improved_shopping_list.list_settings import ListSettings
 from custom_components.improved_shopping_list.readers import ReaderManager
+from custom_components.improved_shopping_list.stock import StockManager
 from custom_components.improved_shopping_list import readers as readers_module
 
 
@@ -31,6 +32,9 @@ async def reader_env(hass, monkeypatch):
     catalog = Catalog(hass)
     await catalog.async_load()
     manager = ReaderManager(hass, catalog, settings)
+    stock = StockManager(hass,catalog)
+    await stock.async_load()
+    manager.stock=stock
     monkeypatch.setattr(manager.lookup, "_fetch", AsyncMock(return_value={"status":"not_found"}))
     await manager.async_load()
     manager.start()
@@ -51,7 +55,7 @@ async def reader_env(hass, monkeypatch):
     hass.services.async_register("todo","get_items",get_items,supports_response=SupportsResponse.ONLY)
     hass.services.async_register("todo","add_item",add_item)
     hass.services.async_register("todo","update_item",update_item)
-    env = SimpleNamespace(manager=manager,catalog=catalog,settings=settings,clock=clock,calls=calls,items=items)
+    env = SimpleNamespace(manager=manager,catalog=catalog,stock=stock,settings=settings,clock=clock,calls=calls,items=items)
     yield env
     await manager.async_stop()
 
@@ -147,7 +151,7 @@ async def test_default_action_adds_known_product_and_keeps_existing_guards(hass,
     await env.manager.async_save_reader({**reader,"default_action":"stock_remove"})
     env.clock[0] += 61
     await env.manager.async_process(reader["id"], "0012345")
-    assert "inventario pendiente" in env.manager.snapshot["readers"][0]["last"]["message"]
+    assert "Stock: 0" in env.manager.snapshot["readers"][0]["last"]["message"]
     assert len(env.calls) == 1
 
 
@@ -159,17 +163,36 @@ async def test_explicit_product_action_overrides_reader_default(reader_env, over
     await env.manager.async_process(reader["id"], "0012345")
     assert env.calls == []
     message = env.manager.snapshot["readers"][0]["last"]["message"]
-    assert ("Sin acción" if override == "none" else "inventario pendiente") in message
+    assert ("Sin acción" if override == "none" else "Stock:") in message
 
 
 @pytest.mark.parametrize("default_action", ["stock_remove", "stock_add"])
-async def test_default_stock_action_is_reserved_without_touching_lists(reader_env, default_action):
+async def test_default_stock_action_updates_pantry_without_touching_lists(reader_env, default_action):
     env = reader_env
     reader = await add_reader(env, default_action=default_action)
     await add_product(env, reader, reader_actions={})
     await env.manager.async_process(reader["id"], "0012345")
     assert env.calls == []
-    assert "inventario pendiente" in env.manager.snapshot["readers"][0]["last"]["message"]
+    assert "Stock:" in env.manager.snapshot["readers"][0]["last"]["message"]
+    assert [item["quantity"] for item in env.stock.snapshot["items"]] == ([1] if default_action == "stock_add" else [])
+
+
+async def test_stock_reader_cooldown_capture_and_no_shopping_list_required(reader_env):
+    env=reader_env
+    reader=await add_reader(env,default_action="stock_add")
+    await add_product(env,reader,reader_actions={})
+    for entity in list(env.settings.snapshot["entities"]):env.settings.update("remove",entity)
+    await env.manager.async_process(reader["id"],"0012345")
+    await env.manager.async_process(reader["id"],"0012346")
+    assert env.stock.snapshot["items"][0]["quantity"]==1
+    stop=env.manager.capture(reader["id"],lambda reading:None)
+    await env.manager.async_process(reader["id"],"0012345")
+    stop()
+    assert env.stock.snapshot["items"][0]["quantity"]==1
+    await env.manager.async_save_reader({**reader,"default_action":"stock_remove"})
+    env.clock[0]+=61
+    await env.manager.async_process(reader["id"],"0012345")
+    assert env.stock.snapshot["items"][0]["quantity"]==0 and env.calls==[]
 
 
 async def test_default_action_does_not_associate_unknown_codes(reader_env):
@@ -340,7 +363,7 @@ async def test_stock_disabled_and_durable_cooldown(hass, reader_env):
     await add_product(env,reader,reader_actions={reader["id"]:"stock_remove"})
     await env.manager.async_process(reader["id"],"0012345")
     assert env.calls==[]
-    assert "inventario pendiente" in env.manager.snapshot["readers"][0]["last"]["message"]
+    assert "Stock: 0" in env.manager.snapshot["readers"][0]["last"]["message"]
     await env.manager.async_stop()
     restored=ReaderManager(hass,env.catalog,env.settings)
     await restored.async_load()

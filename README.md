@@ -142,7 +142,7 @@ En la ficha del producto, **Automatización** reúne los códigos en dos apartad
 
 La captura dura hasta 60 segundos y puede detenerse manualmente. Se libera al cerrar la ficha, cambiar de apartado, desconectarse, modificar el lector o detener la integración. Durante la captura, ese lector no ejecuta acciones, no genera sugerencias de códigos desconocidos y no actualiza el periodo antirrepetición. Solo una ficha puede capturarlo a la vez; se requiere una cuenta administradora.
 
-Para cada lector puedes elegir **Usar acción por defecto del lector**, **Sin acción**, **Añadir a la lista de la compra**, **Quitar una unidad al stock** o **Añadir una unidad al stock**. Si no hay una acción específica, se aplica la del lector al reconocer el producto; cambiarla afecta también a los productos que la heredan. Una acción específica tiene prioridad, incluido **Sin acción**. Las selecciones anteriores se conservan y los lectores existentes empiezan sin acción por defecto. Las acciones de stock se guardan para una fase posterior y, por ahora, solo informan de que el inventario está pendiente de implementar.
+Para cada lector puedes elegir **Usar acción por defecto del lector**, **Sin acción**, **Añadir a la lista de la compra**, **Quitar una unidad al stock** o **Añadir una unidad al stock**. Si no hay una acción específica, se aplica la del lector al reconocer el producto; cambiarla afecta también a los productos que la heredan. Una acción específica tiene prioridad, incluido **Sin acción**. Las selecciones anteriores se conservan y los lectores existentes empiezan sin acción por defecto. Las acciones de stock suman o restan una unidad de la despensa común, conservan la protección antirrepetición y no modifican listas de compra.
 
 Las lecturas se procesan en Home Assistant aunque el panel esté cerrado. El intervalo antirrepetición se aplica a cada pareja lector/producto y también al código leído, se guarda para sobrevivir a recargas y no impide leer otros productos. No se ejecutan lecturas antiguas al arrancar ni cambios de atributos ajenos al código. Para repetir exactamente el mismo código tras el intervalo, la entidad debe generar una nueva lectura/evento; conservar su valor sin emitir nada no es una nueva lectura.
 
@@ -291,3 +291,27 @@ En **Ajustes → Logs → Tiendas** se registran la preparación de la cola, los
 las referencias no disponibles y los errores HTTP. No se guardan cookies, claves
 de acceso ni cuerpos HTML de errores. Un bloqueo 403 no se interpreta como ausencia
 del producto ni provoca consultas repetidas al abrir la interfaz.
+
+## Stock de la despensa
+
+**Stock** (`mdi:package-variant`) guarda un inventario común en Home Assistant,
+independiente de las listas de compra. La barra permite escribir un nombre o elegir
+una coincidencia del catálogo y sumar una unidad con **+**. Repetir un producto
+suma unidades; las cantidades no bajan de cero. Cada tarjeta utiliza la imagen o
+icono del catálogo cuando existe, un degradado naranja y controles para sumar o
+restar unidades. Se puede alternar entre cuadrícula y filas; la cuadrícula utiliza
+el número de columnas configurado en Personalización.
+
+El selector de lista elige la lista de compra de destino. El botón del carrito en
+cada tarjeta añade el producto allí sin duplicar entradas pendientes ni modificar
+su cantidad en Stock. El icono de eliminar pide confirmación y solo retira el
+producto del inventario: conserva catálogo y listas. Los productos con cero
+unidades permanecen visibles hasta que se eliminen.
+
+Los lectores pueden sumar o restar unidades, siguiendo su acción por defecto o
+la excepción de cada producto y respetando el intervalo antirrepetición. La captura
+de códigos para una ficha sigue suspendiendo estas acciones. Los movimientos y
+eliminaciones quedan registrados en Ajustes → Logs → Stock. Las cantidades se
+guardan tras cada cambio y se sincronizan entre paneles abiertos; administrar el
+inventario requiere una cuenta administradora, mientras que su lectura está
+disponible para las demás cuentas autenticadas.

@@ -37,6 +37,11 @@ def _catalog(hass: HomeAssistant, connection, msg) -> Catalog | None:
 def async_register_commands(hass: HomeAssistant) -> None:
     """Register once; commands check that the config entry is still loaded."""
     websocket_api.async_register_command(hass, ws_catalog_get)
+    websocket_api.async_register_command(hass, ws_stock_get)
+    websocket_api.async_register_command(hass, ws_stock_subscribe)
+    websocket_api.async_register_command(hass, ws_stock_add)
+    websocket_api.async_register_command(hass, ws_stock_adjust)
+    websocket_api.async_register_command(hass, ws_stock_remove)
     websocket_api.async_register_command(hass, ws_catalog_subscribe)
     websocket_api.async_register_command(hass, ws_catalog_save)
     websocket_api.async_register_command(hass, ws_catalog_delete)
@@ -71,6 +76,58 @@ def async_register_commands(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_nutriscore)
     websocket_api.async_register_command(hass, ws_logs_get)
     websocket_api.async_register_command(hass, ws_logs_subscribe)
+
+
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/stock/get"})
+@callback
+def ws_stock_get(hass, connection, msg):
+    if _catalog(hass, connection, msg):
+        connection.send_result(msg["id"], hass.data[DOMAIN]["stock"].snapshot)
+
+
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/stock/subscribe"})
+@callback
+def ws_stock_subscribe(hass, connection, msg):
+    if not _catalog(hass, connection, msg):
+        return
+    stock = hass.data[DOMAIN]["stock"]
+    connection.subscriptions[msg["id"]] = stock.subscribe(lambda: connection.send_event(msg["id"], stock.snapshot))
+    connection.send_result(msg["id"])
+    connection.send_event(msg["id"], stock.snapshot)
+
+
+async def _stock_write(hass, connection, msg, operation):
+    if not _catalog(hass, connection, msg):
+        return
+    try:
+        result = await operation(hass.data[DOMAIN]["stock"])
+    except CatalogError as err:
+        connection.send_error(msg["id"], err.code, str(err))
+    except OSError:
+        connection.send_error(msg["id"], "storage_error", "No se ha podido guardar el stock.")
+    else:
+        connection.send_result(msg["id"], result)
+
+
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/stock/add", vol.Required("name"):str})
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_stock_add(hass, connection, msg):
+    await _stock_write(hass, connection, msg, lambda stock: stock.async_add(msg["name"]))
+
+
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/stock/adjust", vol.Required("item_id"):str, vol.Required("delta"):int})
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_stock_adjust(hass, connection, msg):
+    await _stock_write(hass, connection, msg, lambda stock: stock.async_adjust(msg["item_id"], msg["delta"]))
+
+
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/stock/remove", vol.Required("item_id"):str, vol.Required("revision"):int})
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_stock_remove(hass, connection, msg):
+    await _stock_write(hass, connection, msg, lambda stock: stock.async_remove(msg["item_id"], msg["revision"]))
 
 
 @websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/logs/get"})

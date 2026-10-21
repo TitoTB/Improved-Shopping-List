@@ -30,7 +30,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
         void this._session.refresh();
         void this._settings.refresh();
         void this._readers.refresh();
-        if (this._needsRowPrices()) void this._refreshRowPrices();
+        void this._refreshRowPrices();
       }
     };
   }
@@ -105,7 +105,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
       }
     }
     this._renderData();
-    if (this._needsRowPrices()) void this._refreshRowPrices();
+    void this._refreshRowPrices();
   }
 
   _build() {
@@ -162,7 +162,9 @@ class ImprovedShoppingListPanel extends HTMLElement {
         .predictive-text small { display:block; color:var(--secondary-text-color,#63766b); margin-top:3px; }
         input[type=text] { width:100%; }
         .primary { min-height:48px; padding:10px 20px; border:0; border-radius:10px; color:white; background:var(--isl-green); font-weight:650; align-self:end; }
-        .list-header { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:14px; }
+        .list-header { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:14px; }
+        .list-totals { display:flex; align-items:center; gap:8px; margin-left:auto; }
+        .list-totals .count { white-space:nowrap; }
         h2 { margin:0; font-size:18px; font-weight:650; }
         .count { padding:5px 10px; border-radius:20px; background:var(--secondary-background-color,#edf4ee); font-size:13px; }
         ul { list-style:none; margin:0; padding:0; }
@@ -253,7 +255,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
           <div class="dialog-actions"><button id="refresh" type="button">Actualizar lista</button><button id="close-list-dialog" type="button">Cerrar</button></div>
         </dialog>
         <section class="card" aria-labelledby="pending-title" id="items-card">
-          <div class="list-header"><h2 id="pending-title">Lista de la compra</h2><span id="pending-count" class="count">0 productos</span></div>
+          <div class="list-header"><h2 id="pending-title">Lista de la compra</h2><div class="list-totals"><span id="pending-count" class="count">0 productos</span><span id="pending-total" class="count" title="Importe aproximado · Últimos precios guardados" aria-live="polite">≈ 0,00 €</span></div></div>
           <ul id="pending" class="product-grid" aria-label="Lista de la compra"></ul>
           <div id="empty" class="empty" hidden></div>
           <details id="completed-details"><summary id="completed-summary"><span id="completed-label">Compras recientes</span><button id="clear-completed" type="button"><ha-icon icon="mdi:delete" aria-hidden="true"></ha-icon>Limpiar productos</button></summary><ul id="completed" class="product-grid" aria-label="Compras recientes"></ul></details>
@@ -271,19 +273,15 @@ class ImprovedShoppingListPanel extends HTMLElement {
       this._catalogProducts = new Map(event.detail.products.map(product => [productNameKey(product.name), product]));
       this._catalogCategories = new Map(event.detail.categories.map(category => [normalizedName(category.name), category]));
       this._renderData();
-      if (this._needsRowPrices()) void this._refreshRowPrices();
+      void this._refreshRowPrices();
     });
     root.querySelector("isl-catalog").addEventListener("catalog-layout-change", () => {
       this._renderData();
-      if (this._needsRowPrices()) void this._refreshRowPrices();
-      else this._stopRowPrices();
     });
     root.querySelector("#toggle-list-layout").addEventListener("click", () => {
       this._listLayout = this._listLayout === "grid" ? "rows" : "grid";
       try { localStorage.setItem("isl-list-layout", this._listLayout); } catch { /* Storage may be disabled. */ }
       this._renderData();
-      if (this._needsRowPrices()) void this._refreshRowPrices();
-      else this._stopRowPrices();
     });
     root.querySelector("#nav-shopping").addEventListener("click", () => this._switchView("shopping"));
     root.querySelector("#clear-completed").addEventListener("click", event => {
@@ -397,7 +395,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
     layoutButton.setAttribute("aria-label", layoutLabel); layoutButton.title = layoutLabel;
     layoutButton.querySelector("ha-icon").setAttribute("icon", rows ? "mdi:view-comfy" : "mdi:view-sequential");
     for (const id of ["pending","completed"]) root.querySelector("#" + id).classList.toggle("rows", rows);
-    if (this._needsRowPrices()) this._ensureRowPrices();
+    this._ensureRowPrices();
     const appearance = this._settings.appearance;
     this.style.setProperty("--isl-gradient-start", appearance.gradient_start);
     this.style.setProperty("--isl-gradient-end", appearance.gradient_end);
@@ -451,6 +449,9 @@ class ImprovedShoppingListPanel extends HTMLElement {
     }
     this._usedRows = new Set();
     root.querySelector("#pending-count").textContent = `${pending.length} ${pending.length === 1 ? "producto" : "productos"}`;
+    const total = this._pendingTotal(pending);
+    root.querySelector("#pending-total").textContent = `≈ ${total}`;
+    root.querySelector("#pending-total").setAttribute("aria-label", `Importe aproximado de la lista: ${total}`);
     root.querySelector("#items-card").setAttribute("aria-busy", String(session.loading));
     this._renderItems(root.querySelector("#pending"), pending, locked || !canUpdate);
     this._renderItems(root.querySelector("#completed"), completed, locked || !canUpdate);
@@ -562,10 +563,6 @@ class ImprovedShoppingListPanel extends HTMLElement {
     void this._addItem();
   }
 
-  _needsRowPrices() {
-    return this._listLayout === "rows" || this.shadowRoot.querySelector("isl-catalog")?.productLayout === "rows";
-  }
-
   _stopRowPrices() {
     this._rowPricesToken = null;
     this._rowPricesConnection = null;
@@ -591,7 +588,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
   }
 
   async _refreshRowPrices() {
-    if (!this.isConnected || !this._needsRowPrices() || !this._hass) return;
+    if (!this.isConnected || !this._hass) return;
     if (this._rowPricesLoading) { this._rowPricesAgain = true; return this._rowPricesLoading; }
     const token = this._rowPricesToken;
     const pending = Promise.allSettled(["mercadona","carrefour","alcampo"].map(store =>
@@ -612,6 +609,16 @@ class ImprovedShoppingListPanel extends HTMLElement {
 
   _listPrice(product) {
     return cachedProductPrice(product,this._rowPrices,this._settings.favoriteStore);
+  }
+
+  _pendingTotal(items) {
+    const totals = new Map();
+    for (const item of items) {
+      const offer = this._listPrice(this._catalogProducts.get(productNameKey(item.summary)));
+      if (offer) totals.set(offer.currency,(totals.get(offer.currency) ?? 0) + Math.round(Number(offer.price)*100));
+    }
+    if (!totals.size) totals.set("EUR",0);
+    return [...totals].map(([currency,cents]) => new Intl.NumberFormat("es-ES",{style:"currency",currency}).format(cents/100)).join(" + ");
   }
 
   _renderItems(container, items, disabled) {

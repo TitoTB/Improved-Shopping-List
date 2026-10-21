@@ -603,6 +603,7 @@ async function main() {
     assert.equal(await yogurtListCard.locator(".category-badge").evaluate(node => getComputedStyle(node).color), "rgb(255, 255, 255)");
     assert.equal(await yogurtListCard.locator(".subtitle").count(), 0);
     assert.equal((await yogurtListCard.textContent()).includes("2,59"), false);
+    assert.match(await page.locator("#pending-total").textContent(),/≈ 2,59/);
     await page.screenshot({ path: "test-results/list-grid-desktop.png", fullPage: true });
     assert.equal(await page.locator("#toggle-list-layout ha-icon").getAttribute("icon"),"mdi:view-sequential");
     await page.getByRole("button",{name:"Cambiar a vista de filas",exact:true}).click();
@@ -618,6 +619,7 @@ async function main() {
       for(const callback of window.storeProgressListeners)callback({running:false});
     });
     await yogurtListCard.locator(".row-price").filter({hasText:"2,15"}).waitFor();
+    assert.match(await page.locator("#pending-total").textContent(),/≈ 2,15/);
     for(const width of [1280,390]){
       await page.setViewportSize({width,height:844});
       const bounds=await yogurtListCard.locator("button").evaluate(node=>{
@@ -626,15 +628,21 @@ async function main() {
         return {wide:card.width>card.height,ordered:media.right<=text.left&&text.right<=meta.left,overflow:node.scrollWidth>node.clientWidth};
       });
       assert.deepEqual(bounds,{wide:true,ordered:true,overflow:false});
+      assert.ok(await page.locator(".list-totals").evaluate(node=>{
+        const count=node.querySelector("#pending-count").getBoundingClientRect(),total=node.querySelector("#pending-total").getBoundingClientRect();
+        return count.right<=total.left&&Math.abs(count.top-total.top)<1&&node.scrollWidth<=node.clientWidth;
+      }));
       await page.screenshot({path:`test-results/list-rows-${width}.png`,fullPage:true});
     }
     await page.getByRole("button",{name:"Marcar como comprado: Yogur sin azúcar",exact:true}).click();
     await page.locator("#completed-summary").click();
     await page.locator("#completed .row-price").filter({hasText:"2,15"}).waitFor();
+    assert.match(await page.locator("#pending-total").textContent(),/≈ 0,00/);
     await page.getByRole("button",{name:"Volver a poner por comprar: Yogur sin azúcar",exact:true}).click();
     await page.getByRole("button",{name:"Cambiar a vista de cuadrícula",exact:true}).click();
     await page.locator("#completed-details").evaluate(node=>{node.open=false;});
     assert.equal(await page.locator("#pending").evaluate(node=>node.classList.contains("rows")),false);
+    assert.match(await page.locator("#pending-total").textContent(),/≈ 2,15/);
     await page.evaluate(()=>{window.storePriceFixture=undefined;window.listSettings.favorite_store="";window.emitSettings();});
     await page.setViewportSize({width:1280,height:844});
     await page.getByRole("button", { name: "Marcar como comprado: Yogur sin azúcar", exact: true }).click();
@@ -923,6 +931,24 @@ async function main() {
     assert.equal(await predictiveInput.isDisabled(), true);
     assert.equal(await predictiveInput.getAttribute("aria-expanded"), "false");
     await predictiveContext.close();
+    const totalContext = await browser.newContext({viewport:{width:390,height:844}});
+    await totalContext.addInitScript(()=>{
+      localStorage.setItem("catalog-fixture",JSON.stringify([
+        {id:"total-cacao",name:"Cacao",price:"0.10"},
+        {id:"total-milk",name:"Leche entera",price:"0.20"},
+        {id:"total-rice",name:"Arroz",price:"99.99"}
+      ].map(product=>({...product,currency:"EUR",category:"",tags:[],barcode:"",barcodes:[],nfc_tags:[],image_url:"",icon:"",revision:1}))));
+    });
+    const totalPage=await totalContext.newPage();
+    totalPage.on("pageerror",error=>errors.push(error.message));
+    await totalPage.goto(url);
+    await totalPage.locator("#pending-total").filter({hasText:"0,30"}).waitFor();
+    await totalPage.getByRole("button",{name:"Marcar como comprado: Cacao",exact:true}).click();
+    await totalPage.locator("#pending-total").filter({hasText:"0,20"}).waitFor();
+    await selectList(totalPage,"todo.local");
+    await totalPage.locator("#pending-total").filter({hasText:"0,00"}).waitFor();
+    assert.equal(await totalPage.evaluate(()=>window.calls.some(call=>/refresh_prices|settings\/store_products/.test(call.type??""))),false);
+    await totalContext.close();
     const settingsContext = await browser.newContext({ viewport: { width: 1280, height: 960 } });
     await settingsContext.route("https://logos-world.net/**",route=>route.fulfill({contentType:"image/svg+xml",body:'<svg xmlns="http://www.w3.org/2000/svg" width="56" height="56"><rect width="56" height="56" fill="green"/></svg>'}));
     await settingsContext.route("https://images.seeklogo.com/**",route=>route.fulfill({contentType:"image/svg+xml",body:'<svg xmlns="http://www.w3.org/2000/svg" width="56" height="56"><rect width="56" height="56" fill="blue"/></svg>'}));

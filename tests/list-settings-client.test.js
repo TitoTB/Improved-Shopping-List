@@ -8,6 +8,21 @@ const deferred = () => {
   return { promise, resolve };
 };
 
+test("shared postcode and store activation keep newer pushed settings", async () => {
+  for(const [method,args,type] of [["saveStorePostal",["28024"],"store_postal"],["setStoreEnabled",["alcampo",true],"store_enabled"]]){
+    const response=deferred();let message;
+    const session=new ListSettingsSession(()=>({callWS:msg=>{message=msg;return response.promise;}}),()=>{});
+    const saving=session[method](...args);
+    assert.equal(message.type,`improved_shopping_list/settings/${type}`);
+    session._revision++;
+    session._receive({store_postal_code:"46001",stores:{alcampo:{enabled:false}}});
+    response.resolve({store_postal_code:"28024",stores:{alcampo:{enabled:true}}});
+    await saving;
+    assert.equal(session.storePostalCode,"46001");
+    assert.equal(session.stores.alcampo.enabled,false);
+  }
+});
+
 test("personalization defaults and readable text for custom gradients", () => {
   assert.equal(gradientTextColor("#ee524f", "#b52a27"), "#ffffff");
   assert.equal(gradientTextColor("#4faba2", "#26857c"), "#ffffff");

@@ -12,6 +12,7 @@ from .const import CONF_TODO_ENTITY, CONF_TODO_ENTITIES
 from .const import DOMAIN
 from .stores import StoreError, async_resolve_mercadona
 from .regional_stores import REGIONAL_STORES, async_resolve_areas, valid_area
+from .store_location import resolve_location, POSTAL_PATTERN
 
 DEFAULT_APPEARANCE = {
     "gradient_start": "#ee524f", "gradient_end": "#b52a27",
@@ -50,7 +51,8 @@ def list_options(entry: ConfigEntry) -> dict:
     return {"entities": entities, "primary_entity": primary if primary in entities else next(iter(entities), ""),
             "appearance": {**DEFAULT_APPEARANCE, **entry.options.get("appearance", {})},
             "stores": {key:{**deepcopy(defaults), **deepcopy(entry.options.get("stores", {}).get(key, {}))} for key,defaults in DEFAULT_STORES.items()},
-            "favorite_store": entry.options.get("favorite_store", ""), "price_update_time":entry.options.get("price_update_time", "01:00")}
+            "favorite_store": entry.options.get("favorite_store", ""), "price_update_time":entry.options.get("price_update_time", "01:00"),
+            "store_postal_code":entry.options.get("store_postal_code", entry.options.get("stores", {}).get("mercadona", {}).get("postal_code", ""))}
 
 
 class ListSettings:
@@ -92,7 +94,61 @@ class ListSettings:
 
     @property
     def snapshot(self) -> dict:
-        return list_options(self.entry) if self.entry else {"entities": [], "primary_entity": "", "appearance": dict(DEFAULT_APPEARANCE), "stores": deepcopy(DEFAULT_STORES), "favorite_store": "", "price_update_time":"01:00"}
+        return list_options(self.entry) if self.entry else {"entities": [], "primary_entity": "", "appearance": dict(DEFAULT_APPEARANCE), "stores": deepcopy(DEFAULT_STORES), "favorite_store": "", "price_update_time":"01:00", "store_postal_code":""}
+
+    async def _located_store(self, store, enabled, postal, current):
+        value = {**deepcopy(DEFAULT_STORES[store]), "enabled":enabled}
+        try:
+            async with asyncio.timeout(75):
+                location = await resolve_location(self.hass, store, postal, current)
+            value.update(location, checked_at=int(time.time()), location_error="")
+        except (StoreError, TimeoutError) as err:
+            # Keep the last price's scope readable, but block new price requests.
+            value = {**deepcopy(current), "enabled":enabled,
+                "location_error":str(err) or "La comprobación de ubicación ha tardado demasiado."}
+        return value
+
+    async def async_store_postal(self, postal):
+        """Save a single location, resolving active stores independently."""
+        if not isinstance(postal, str) or postal and not re.fullmatch(POSTAL_PATTERN, postal):
+            raise StoreError("Introduce un código postal español válido de cinco cifras o deja el campo vacío.")
+        generation = self._generation
+        async with self._stores_lock:
+            entry = self.entry
+            if not entry or generation != self._generation or not self.hass.data.get(DOMAIN, {}).get("active"):
+                raise StoreError("La integración no está activa.")
+            current = self.snapshot["stores"]
+            active = [key for key,value in current.items() if value.get("enabled")]
+            resolved = await asyncio.gather(*(self._located_store(key, True, postal, current[key]) for key in active))
+            if self.entry is not entry or generation != self._generation or not self.hass.data.get(DOMAIN, {}).get("active"):
+                raise StoreError("La integración se ha detenido. Vuelve a abrirla para guardar los ajustes.")
+            # Inactive stores will resolve the common postcode when enabled.
+            stores = deepcopy(current)
+            stores.update(zip(active, resolved))
+            self.hass.config_entries.async_update_entry(entry, options={**entry.options,
+                "store_postal_code":postal, "stores":stores})
+            self.notify()
+            return self.snapshot
+
+    async def async_toggle_located_store(self, store, enabled):
+        """Configure the store from the shared location on first activation."""
+        if store not in DEFAULT_STORES:
+            raise StoreError("Tienda no compatible.")
+        generation = self._generation
+        async with self._stores_lock:
+            entry = self.entry
+            if not entry or generation != self._generation or not self.hass.data.get(DOMAIN, {}).get("active"):
+                raise StoreError("La integración no está activa.")
+            current = self.snapshot["stores"][store]
+            value = ({**current,"enabled":False} if not enabled else
+                await self._located_store(store, True, self.snapshot["store_postal_code"], current))
+            if self.entry is not entry or generation != self._generation or not self.hass.data.get(DOMAIN, {}).get("active"):
+                raise StoreError("La integración se ha detenido.")
+            stores = {**self.snapshot["stores"], store:value}
+            self.hass.config_entries.async_update_entry(entry, options={**entry.options,
+                "stores":stores,"favorite_store":self._favorite(stores)})
+            self.notify()
+            return self.snapshot
 
     async def async_update_store(self, enabled: bool, postal_code: str, verify: bool = False) -> dict:
         """Verify before saving, serialize writes and preserve unrelated options."""

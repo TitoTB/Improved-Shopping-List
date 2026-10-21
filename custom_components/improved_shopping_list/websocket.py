@@ -54,6 +54,8 @@ def async_register_commands(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_carrefour_products)
     websocket_api.async_register_command(hass, ws_favorite_store)
     websocket_api.async_register_command(hass, ws_price_schedule)
+    websocket_api.async_register_command(hass, ws_store_postal)
+    websocket_api.async_register_command(hass, ws_store_enabled)
     websocket_api.async_register_command(hass, ws_cached_prices)
     websocket_api.async_register_command(hass, ws_refresh_prices)
     websocket_api.async_register_command(hass, ws_readers_get)
@@ -371,6 +373,35 @@ def ws_store_progress(hass, connection, msg):
     connection.subscriptions[msg["id"]] = products.subscribe(on_update)
     connection.send_result(msg["id"])
     on_update()
+
+
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/settings/store_postal", vol.Required("postal_code"):str})
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_store_postal(hass, connection, msg):
+    if not _catalog(hass, connection, msg):
+        return
+    try:
+        result = await hass.data[DOMAIN]["settings"].async_store_postal(msg["postal_code"])
+    except StoreError as err:
+        connection.send_error(msg["id"], "invalid_location", str(err))
+    else:
+        connection.send_result(msg["id"], result)
+
+
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/settings/store_enabled",
+    vol.Required("store"):vol.In(tuple(STORES)), vol.Required("enabled"):bool})
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_store_enabled(hass, connection, msg):
+    if not _catalog(hass, connection, msg):
+        return
+    try:
+        result = await hass.data[DOMAIN]["settings"].async_toggle_located_store(msg["store"], msg["enabled"])
+    except StoreError as err:
+        connection.send_error(msg["id"], "invalid_location", str(err))
+    else:
+        connection.send_result(msg["id"], result)
 
 
 @websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/settings/price_schedule", vol.Required("time"):str})

@@ -33,7 +33,7 @@ el producto se compre, salga de la lista o falle una consulta posterior. Un HTTP
 registra como referencia no disponible y un 403/429 pausa esa tienda el resto del día;
 las demás pueden continuar. Los precios indican fecha y región cuando corresponde.
 
-Alcampo utiliza la consulta JSON del flujo n8n y admite su `regionId` en Configuración.
+Alcampo utiliza la consulta JSON del flujo n8n. Su región se intenta resolver desde el código postal común de Tiendas.
 Sin región se solicita el precio que ofrezca la web sin ubicación. Mercadona consulta
 su API por referencia y almacén. Carrefour utiliza la respuesta JSON del endpoint interno
 `/cloud-api/pdp-food-analytics/v1/impressions`, con la referencia y la cabecera `sale_point`,
@@ -205,13 +205,23 @@ Se reutiliza la caché persistente de identificación (30 días para productos e
 ## Tiendas y vinculaciones
 
 En **Ajustes → Tiendas** se habilitan Mercadona, Carrefour, Alcampo, Consum, La Sirena, Eroski y DIA, se elige la
-favorita y se configura la hora de revisión. Mercadona resuelve su almacén desde
-el código postal; Alcampo permite indicar la región de su consulta pública.
-En Consum y La Sirena, abre **Configuración**, introduce el código postal y pulsa
-**Comprobar código postal**. Selecciona uno de los centros con cobertura y guarda.
-Si solo hay un centro, se selecciona automáticamente. No se utiliza una zona por
-defecto cuando no hay cobertura. Puedes desactivar una tienda sin perder sus
-ajustes ni los precios guardados para ese centro.
+favorita y se configura la hora de revisión. El botón de ubicación, a la derecha
+del reloj, abre un único **Código postal** opcional para todas las tiendas.
+Al guardarlo se comprueba la cobertura de las tiendas activas; las demás lo usan
+cuando se habilitan. Mercadona obtiene su almacén, Carrefour su centro y Alcampo
+su región; las demás consultan sus zonas públicas. Se conserva un centro anterior
+si sigue siendo válido o se usa el primero ofrecido. El centro utilizado se muestra
+en Configuración, sin campos técnicos ni códigos postales independientes.
+
+Si se deja vacío, Carrefour y Alcampo utilizan la consulta predeterminada de la
+web. Las tiendas que requieren una zona usan estos códigos de referencia:
+Mercadona 28001, Consum 46409, La Sirena y DIA 28024, Eroski 48001.
+Estos precios pueden diferir de los de tu zona. Si se introduce un código postal
+y una tienda rechaza la consulta o no tiene cobertura, se muestra el error sin
+sustituirlo por otra ubicación. La comprobación de Alcampo puede recibir HTTP 403;
+el HAR documenta la cadena de consultas, pero no garantiza su aceptación desde HA.
+Los errores no borran los precios anteriores. Cambiar la ubicación no inicia una
+actualización de precios. Puedes desactivar una tienda y consultar su caché.
 
 Consum consulta su ficha JSON con las cabeceras de zona seleccionadas. La Sirena
 resuelve la referencia a su variante y consulta el precio de entrega para el centro
@@ -221,9 +231,9 @@ cookies de usuario ni su carrito. Las respuestas ambiguas, sin disponibilidad o 
 errores conservan el precio anterior. Los EAN recibidos son metadatos del precio:
 no modifican automáticamente las asociaciones de los lectores.
 
-Eroski utiliza el centro de recogida que elijas en Configuración. Introduce un código
-postal, consulta los centros y selecciona uno por su nombre. El selector público
-puede mostrar centros de otras poblaciones: elige el que corresponda a tu compra.
+Eroski utiliza un centro de recogida devuelto por su selector público para el
+código postal común. El selector puede devolver centros de otras poblaciones;
+consulta el nombre del centro utilizado en Configuración.
 La integración inicia su propia sesión anónima, aplica el centro y verifica que la
 sesión conserva ese centro antes de aceptar un precio. No reserva una franja de
 recogida ni utiliza tu cuenta o carrito. Las vinculaciones de Eroski requieren el
@@ -233,7 +243,7 @@ cinco minutos); las siguientes reutilizan esa sesión mientras conserve el centr
 Al cambiar de centro se prepara otra sesión y los precios de cada centro permanecen
 separados. Los errores conservan el último precio conocido.
 
-DIA admite enlace o ID. En Configuración, comprueba y guarda el código postal;
+DIA admite enlace o ID. Utiliza el código postal común de Tiendas;
 la tienda asigna su centro automáticamente. La integración utiliza el cliente
 estándar `urllib` de Python, con su identidad predeterminada, en el executor de
 Home Assistant para evitar bloquear el bucle de eventos. En las pruebas, ese

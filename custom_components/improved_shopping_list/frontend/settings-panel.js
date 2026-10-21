@@ -40,6 +40,7 @@ class ImprovedShoppingSettings extends HTMLElement {
     clearInterval(this._pricesProgressTimer);
     this.shadowRoot.querySelector("#prices-progress-dialog")?.close();
     this.shadowRoot.querySelector("#price-schedule-dialog")?.close();
+    this.shadowRoot.querySelector("#store-postal-dialog")?.close();
     this._priceStatusToken = null; this._priceStatusConnection = null; this._stopPriceStatus?.(); this._stopPriceStatus = null;
     this._productsLoading = false; this._productsGeneration = (this._productsGeneration || 0) + 1;
     this._carrefourGeneration = (this._carrefourGeneration || 0) + 1; this._carrefourLoading = false; this._alcampoGeneration = (this._alcampoGeneration || 0) + 1;
@@ -76,6 +77,7 @@ class ImprovedShoppingSettings extends HTMLElement {
         .store-row[data-enabled=true] { background:rgba(38,112,82,.10); }
         #price-schedule-form > label { margin-bottom:12px; }
         #price-update-time { display:block; width:100%; }
+        #store-postal-code { display:block; width:100%; }
         #settings-stores { container-type:inline-size; }
         .stores-grid { display:grid; grid-template-columns:minmax(0,1fr); gap:12px; }
         @container(min-width:800px) { .stores-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
@@ -173,7 +175,7 @@ class ImprovedShoppingSettings extends HTMLElement {
         </form>
       </section>
       <section id="settings-stores" class="card" aria-labelledby="settings-stores-title" hidden>
-        <div class="stores-heading"><h2 id="settings-stores-title">Tiendas</h2><div class="stores-heading-actions"><button id="refresh-all-prices" class="store-refresh" type="button" aria-label="Actualizar ahora" title="Actualizar ahora"><ha-icon icon="mdi:refresh" aria-hidden="true"></ha-icon></button><button id="configure-price-schedule" class="store-refresh" type="button" aria-label="Hora de revisión diaria" title="Hora de revisión diaria"><ha-icon icon="mdi:clock-outline" aria-hidden="true"></ha-icon></button></div></div>
+        <div class="stores-heading"><h2 id="settings-stores-title">Tiendas</h2><div class="stores-heading-actions"><button id="refresh-all-prices" class="store-refresh" type="button" aria-label="Actualizar ahora" title="Actualizar ahora"><ha-icon icon="mdi:refresh" aria-hidden="true"></ha-icon></button><button id="configure-price-schedule" class="store-refresh" type="button" aria-label="Hora de revisión diaria" title="Hora de revisión diaria"><ha-icon icon="mdi:clock-outline" aria-hidden="true"></ha-icon></button><button id="configure-store-postal" class="store-refresh" type="button" aria-label="Código postal de las tiendas" title="Código postal de las tiendas"><ha-icon icon="mdi:map-marker" aria-hidden="true"></ha-icon></button></div></div>
         <div class="stores-grid">
         <article class="store-row" id="mercadona-row">
           <img class="store-logo" src="${MERCADONA_LOGO_URL}" alt="Logo de Mercadona" referrerpolicy="no-referrer" loading="lazy" width="56" height="56">
@@ -196,13 +198,21 @@ class ImprovedShoppingSettings extends HTMLElement {
         <h2 id="price-schedule-title">Hora de revisión diaria</h2>
         <form id="price-schedule-form"><label for="price-update-time">Hora de revisión diaria</label><input id="price-update-time" type="time" value="01:00" required><div id="price-schedule-error" class="notice error" role="alert" hidden></div><div class="appearance-actions"><button id="save-price-update-time" class="primary" type="submit">Guardar horario</button></div></form>
       </dialog>
+      <dialog id="store-postal-dialog" aria-labelledby="store-postal-title">
+        <h2 id="store-postal-title">Código postal de las tiendas</h2>
+        <form id="store-postal-form"><label for="store-postal-code">Código postal</label><input id="store-postal-code" inputmode="numeric" autocomplete="postal-code" maxlength="5" pattern="(?:0[1-9]|[1-4][0-9]|5[0-2])[0-9]{3}" placeholder="Código postal opcional">
+        <p>Se usará para todas las tiendas. Si lo dejas vacío, se utilizará una ubicación de referencia para consultar los precios.</p>
+        <p>Ubicaciones de referencia: Carrefour y Alcampo, consulta predeterminada de la web; Mercadona, 28001; Consum, 46409; La Sirena y DIA, 28024; Eroski, 48001.</p>
+        <p id="store-postal-result" role="status" hidden></p><div id="store-postal-error" class="notice error" role="alert" hidden></div>
+        <div class="appearance-actions"><button id="save-store-postal" class="primary" type="submit">Guardar código postal</button></div></form>
+      </dialog>
       <dialog id="carrefour-dialog" aria-labelledby="carrefour-dialog-title">
         <h2 id="carrefour-dialog-title">Carrefour</h2>
         ${storeViewTabs("Carrefour","carrefour-products-tab","carrefour-config-tab")}
         <section id="carrefour-products-view"><p>Últimos precios conocidos de las referencias vinculadas.</p><div id="carrefour-error" class="notice error" role="alert" hidden></div><div id="carrefour-products" class="store-products"></div><p id="carrefour-status" class="store-cache-footer" role="status"></p></section>
-        <section id="carrefour-config-view" class="store-configuration" hidden><label for="carrefour-sale-point">Centro de Carrefour (sale_point)</label><input id="carrefour-sale-point" type="text" inputmode="numeric" minlength="6" maxlength="6" pattern="[0-9]{6}" placeholder="005290"><p>Identificador de seis dígitos del centro utilizado para consultar precios. Centro predeterminado: 005290. Los precios pueden variar entre centros.</p><div id="carrefour-config-error" class="notice error" role="alert" hidden></div><div class="appearance-actions"><button id="save-carrefour" class="primary" type="button">Guardar configuración</button></div></section>
+        <section id="carrefour-config-view" class="store-configuration" hidden><p data-store-location="carrefour"></p></section>
       </dialog>
-      <dialog id="alcampo-dialog" aria-labelledby="alcampo-title"><h2 id="alcampo-title">Alcampo</h2>${storeViewTabs("Alcampo","alcampo-products-tab","alcampo-config-tab")}<section id="alcampo-products-view"><div id="alcampo-products-error" class="notice error" role="alert" hidden></div><div id="alcampo-products" class="store-products"></div><p id="alcampo-status" class="store-cache-footer" role="status"></p></section><section id="alcampo-config-view" class="store-configuration" hidden><label for="alcampo-region">Región de Alcampo</label><input id="alcampo-region" maxlength="36" placeholder="regionId opcional"><p>Si tu consulta utiliza una región, introduce su regionId. Sin región solo se podrá mostrar el precio que devuelva la web sin ubicación seleccionada.</p><div class="appearance-actions"><button id="save-alcampo" class="primary" type="button">Guardar configuración</button></div></section></dialog>
+      <dialog id="alcampo-dialog" aria-labelledby="alcampo-title"><h2 id="alcampo-title">Alcampo</h2>${storeViewTabs("Alcampo","alcampo-products-tab","alcampo-config-tab")}<section id="alcampo-products-view"><div id="alcampo-products-error" class="notice error" role="alert" hidden></div><div id="alcampo-products" class="store-products"></div><p id="alcampo-status" class="store-cache-footer" role="status"></p></section><section id="alcampo-config-view" class="store-configuration" hidden><p data-store-location="alcampo"></p></section></dialog>
       <dialog id="store-dialog" aria-labelledby="store-dialog-title">
         <h2 id="store-dialog-title">Mercadona</h2>
         ${storeViewTabs("Mercadona","store-view-products","store-view-configuration")}
@@ -212,15 +222,7 @@ class ImprovedShoppingSettings extends HTMLElement {
           <div id="store-products" class="store-products"></div>
           <p id="store-products-status" class="store-cache-footer" role="status"></p>
         </section>
-        <section id="store-configuration-view" class="store-configuration" hidden>
-          <form id="store-form">
-            <p>Introduce tu código postal para obtener el almacén asignado por Mercadona. No necesitas una cuenta.</p>
-            <label for="mercadona-postal">Código postal</label>
-            <input id="mercadona-postal" type="text" inputmode="numeric" autocomplete="postal-code" maxlength="5" pattern="(?:0[1-9]|[1-4][0-9]|5[0-2])[0-9]{3}" placeholder="28001" required>
-            <p id="mercadona-warehouse" role="status"></p>
-            <div class="appearance-actions"><button id="save-store" class="primary" type="submit">Comprobar y guardar</button></div>
-          </form>
-        </section>
+        <section id="store-configuration-view" class="store-configuration" hidden><p data-store-location="mercadona"></p></section>
       </dialog>
       <section id="settings-logs" class="card" aria-label="Logs" hidden><isl-logs></isl-logs></section>
       <section id="settings-community" class="card" aria-labelledby="settings-community-title" hidden>
@@ -254,11 +256,18 @@ class ImprovedShoppingSettings extends HTMLElement {
       root.querySelector("#price-update-time").value=this._data.settings.priceUpdateTime ?? "01:00";
       this._error=""; this._render(); root.querySelector("#price-schedule-dialog").showModal();
     });
+    root.querySelector("#configure-store-postal").addEventListener("click",()=>{
+      root.querySelector("#store-postal-code").value=this._data.settings.storePostalCode ?? "";
+      root.querySelector("#store-postal-result").hidden=true;
+      this._error=""; this._render(); root.querySelector("#store-postal-dialog").showModal();
+    });
+    root.querySelector("#store-postal-form").addEventListener("submit",event=>{event.preventDefault();void this._saveStorePostal();});
+    root.querySelector("#store-postal-dialog").addEventListener("cancel",event=>{if(this._busy)event.preventDefault();});
     root.querySelector("#price-schedule-form").addEventListener("submit",event=>{event.preventDefault();void this._savePriceSchedule();});
     root.querySelector("#close-prices-progress").addEventListener("click",()=>root.querySelector("#prices-progress-dialog").close());
     root.querySelector("#prices-progress-dialog").addEventListener("close",()=>clearInterval(this._pricesProgressTimer));
-    root.querySelector("#alcampo-enabled").addEventListener("change",()=>void this._saveRetailSettings(()=>this._data.settings.saveAlcampo(root.querySelector("#alcampo-enabled").checked,this._data.settings.stores?.alcampo?.region_id ?? "")));
-    root.querySelector("#configure-alcampo").addEventListener("click",()=>{root.querySelector("#alcampo-region").value=this._data.settings.stores?.alcampo?.region_id ?? "";showAlcampoView("products");root.querySelector("#alcampo-dialog").showModal();void this._loadAlcampo();});
+    root.querySelector("#alcampo-enabled").addEventListener("change",()=>void this._saveRetailSettings(()=>this._data.settings.setStoreEnabled("alcampo",root.querySelector("#alcampo-enabled").checked)));
+    root.querySelector("#configure-alcampo").addEventListener("click",()=>{showAlcampoView("products");root.querySelector("#alcampo-dialog").showModal();void this._loadAlcampo();});
     root.querySelector("#alcampo-dialog").addEventListener("cancel",event=>{if(this._busy)event.preventDefault();});
     const alcampoError=document.createElement("div");alcampoError.id="alcampo-error";alcampoError.className="notice error";alcampoError.setAttribute("role","alert");alcampoError.hidden=true;root.querySelector("#alcampo-title").after(alcampoError);
     const showAlcampoView = view => {
@@ -268,7 +277,6 @@ class ImprovedShoppingSettings extends HTMLElement {
       }
     };
     for(const view of ["products","config"])root.querySelector(`#alcampo-${view}-tab`).addEventListener("click",()=>showAlcampoView(view));
-    root.querySelector("#save-alcampo").addEventListener("click",()=>void this._saveRetailSettings(()=>this._data.settings.saveAlcampo(root.querySelector("#alcampo-enabled").checked,root.querySelector("#alcampo-region").value.trim())));
     for (const [id, view] of [["settings-view-lists", "lists"], ["settings-view-appearance", "appearance"], ["settings-view-community", "community"], ["settings-view-stores", "stores"], ["settings-view-logs", "logs"]]) {
       root.querySelector(`#${id}`).addEventListener("click", () => {
         this._view = view;
@@ -281,8 +289,7 @@ class ImprovedShoppingSettings extends HTMLElement {
         this._render();
       });
     }
-    root.querySelector("#store-form").addEventListener("submit", event => { event.preventDefault(); void this._saveStore(this._storeEnableDraft ?? Boolean(this._data.settings.stores?.mercadona?.enabled), true); });
-    root.querySelector("#carrefour-enabled").addEventListener("change", () => void this._saveRetailSettings(() => this._data.settings.saveCarrefour(root.querySelector("#carrefour-enabled").checked)));
+    root.querySelector("#carrefour-enabled").addEventListener("change", () => void this._saveRetailSettings(() => this._data.settings.setStoreEnabled("carrefour",root.querySelector("#carrefour-enabled").checked)));
     const showCarrefourView = view => {
       for (const name of ["products","config"]) {
         root.querySelector(`#carrefour-${name}-view`).hidden = name !== view;
@@ -291,20 +298,10 @@ class ImprovedShoppingSettings extends HTMLElement {
     };
     root.querySelector("#carrefour-products-tab").addEventListener("click",()=>showCarrefourView("products"));
     root.querySelector("#carrefour-config-tab").addEventListener("click",()=>showCarrefourView("config"));
-    root.querySelector("#configure-carrefour").addEventListener("click", () => { root.querySelector("#carrefour-sale-point").value=this._data.settings.stores?.carrefour?.sale_point ?? "005290"; showCarrefourView("products"); root.querySelector("#carrefour-dialog").showModal(); void this._loadCarrefour(false); });
-    root.querySelector("#save-carrefour").addEventListener("click",()=>void this._saveRetailSettings(async()=>{
-      await this._data.settings.saveCarrefour(Boolean(this._data.settings.stores?.carrefour?.enabled),root.querySelector("#carrefour-sale-point").value.trim());
-      this._carrefourGeneration = (this._carrefourGeneration || 0)+1; this._carrefourLoading = false;
-      await this._loadCarrefour(false);
-    }));
+    root.querySelector("#configure-carrefour").addEventListener("click", () => { showCarrefourView("products"); root.querySelector("#carrefour-dialog").showModal(); void this._loadCarrefour(false); });
     root.querySelector("#carrefour-dialog").addEventListener("cancel",event=>{if(this._busy)event.preventDefault();});
     root.querySelector("#carrefour-dialog").addEventListener("close", () => { if (!root.querySelector("#carrefour-dialog").open) { this._carrefourGeneration = (this._carrefourGeneration || 0) + 1; this._carrefourLoading = false; } });
-    root.querySelector("#mercadona-enabled").addEventListener("change", () => {
-      const enabled = root.querySelector("#mercadona-enabled").checked;
-      const store = this._data.settings.stores?.mercadona ?? {};
-      if (enabled && !store.postal_code) { this._storeEnableDraft = true; this._openStore("configuration"); }
-      else void this._saveStore(enabled, false);
-    });
+    root.querySelector("#mercadona-enabled").addEventListener("change",()=>void this._saveRetailSettings(()=>this._data.settings.setStoreEnabled("mercadona",root.querySelector("#mercadona-enabled").checked)));
     root.querySelector("#configure-mercadona").addEventListener("click", () => this._openStore("products"));
     root.querySelector("#store-dialog").addEventListener("cancel", event => { if (this._busy) event.preventDefault(); });
     root.querySelector("#store-dialog").addEventListener("close", () => {
@@ -314,7 +311,6 @@ class ImprovedShoppingSettings extends HTMLElement {
       this._error = ""; this._render();
     });
     for (const view of ["products", "configuration"]) root.querySelector(`#store-view-${view}`).addEventListener("click", () => this._switchStoreView(view));
-    root.querySelector("#store-form").addEventListener("input", () => { this._storeDirty = true; this._renderStore(); });
     root.querySelector("#export-community").addEventListener("click", () => void this._exportCommunity());
     root.querySelector("#appearance-form").addEventListener("input", () => { this._appearanceDirty = true; this._preview(); });
     root.querySelector("#appearance-form").addEventListener("change", () => { this._appearanceDirty = true; this._preview(); });
@@ -410,14 +406,8 @@ class ImprovedShoppingSettings extends HTMLElement {
     const carrefour = settings.stores?.carrefour?.enabled === true;
     root.querySelector("#carrefour-enabled").checked = carrefour;
     root.querySelector("#carrefour-enabled").disabled = locked;
-    root.querySelector("#carrefour-sale-point").disabled = locked;
-    root.querySelector("#save-carrefour").disabled = locked;
-    root.querySelector("#carrefour-config-error").textContent = this._error || "";
-    root.querySelector("#carrefour-config-error").hidden = !this._error;
     root.querySelector("#alcampo-enabled").checked = settings.stores?.alcampo?.enabled === true;
     root.querySelector("#alcampo-enabled").disabled = locked;
-    root.querySelector("#save-alcampo").disabled = locked;
-    root.querySelector("#alcampo-region").disabled = locked;
     root.querySelector("#alcampo-error").textContent = this._error || "";
     root.querySelector("#alcampo-error").hidden = !this._error;
     root.querySelector("#save-price-update-time").disabled = locked;
@@ -435,28 +425,37 @@ class ImprovedShoppingSettings extends HTMLElement {
   }
 
   _renderStore() {
-    const { settings, hass } = this._data;
-    const root = this.shadowRoot;
-    const store = settings.stores?.mercadona ?? {};
-    const enabled = root.querySelector("#mercadona-enabled");
-    const postal = root.querySelector("#mercadona-postal");
-    if (!this._storeDirty && !this._busy) {
-      enabled.checked = this._storeEnableDraft ?? (store.enabled === true);
-      postal.value = store.postal_code ?? "";
+    const {settings,hass}=this._data, root=this.shadowRoot;
+    const locked=hass?.user?.is_admin !== true || !settings.loaded || settings.loading || this._busy;
+    root.querySelector("#mercadona-enabled").checked=Boolean(settings.stores?.mercadona?.enabled);
+    root.querySelector("#mercadona-enabled").disabled=locked;
+    root.querySelector("#configure-mercadona").disabled=!settings.loaded || settings.loading || this._busy;
+    root.querySelector("#store-dialog-error").textContent=this._error || "";
+    root.querySelector("#store-dialog-error").hidden=!this._error;
+    for (const node of root.querySelectorAll("[data-store-location]")) {
+      const store=settings.stores?.[node.dataset.storeLocation] ?? {};
+      node.textContent=store.location_error || `${settings.storePostalCode ? `Código postal común: ${settings.storePostalCode}` : "Ubicación de referencia"}. Última ubicación consultada: ${store.postal_code || "predeterminada de la web"}${store.area_name ? ` · ${store.area_name}` : ""}. Puedes cambiar el código postal desde el botón de ubicación de Tiendas.`;
     }
-    const locked = hass?.user?.is_admin !== true || !settings.loaded || settings.loading || this._busy;
-    enabled.disabled = locked;
-    postal.disabled = locked;
-    root.querySelector("#configure-mercadona").disabled = !settings.loaded || settings.loading || this._busy;
-    root.querySelector("#store-dialog-error").textContent = this._error || "";
-    root.querySelector("#store-dialog-error").hidden = !this._error;
-    const save = root.querySelector("#save-store");
-    save.disabled = locked;
-    save.textContent = this._busy ? "Guardando…" : "Comprobar y guardar";
-    root.querySelector("#mercadona-warehouse").textContent = store.warehouse
-      ? `Configuración guardada: ${store.postal_code} · Almacén: ${store.warehouse}${store.enabled ? "" : " · Deshabilitada"}`
-      : "Todavía no se ha configurado un almacén.";
+    root.querySelector("#configure-store-postal").disabled=!settings.loaded || settings.loading || this._busy;
+    root.querySelector("#store-postal-code").disabled=locked;
+    root.querySelector("#save-store-postal").disabled=locked;
+    root.querySelector("#save-store-postal").textContent=this._busy ? "Comprobando tiendas…" : "Guardar código postal";
+    root.querySelector("#store-postal-error").textContent=this._error || "";
+    root.querySelector("#store-postal-error").hidden=!this._error;
     this._renderStoreProducts();
+  }
+
+  async _saveStorePostal() {
+    const root=this.shadowRoot, input=root.querySelector("#store-postal-code");
+    if(this._busy || this._data.hass?.user?.is_admin !== true || !input.reportValidity())return;
+    const postal=input.value.trim();
+    await this._saveRetailSettings(()=>this._data.settings.saveStorePostal(postal));
+    if(this._error)return;
+    const names={mercadona:"Mercadona",carrefour:"Carrefour",alcampo:"Alcampo",consum:"Consum",lasirena:"La Sirena",eroski:"Eroski",dia:"DIA"};
+    const errors=Object.entries(this._data.settings.stores??{}).filter(([,value])=>value.enabled&&value.location_error).map(([store,value])=>`${names[store]}: ${value.location_error}`);
+    const result=root.querySelector("#store-postal-result");
+    result.textContent=errors.length ? `Código postal guardado. ${errors.join(" ")}` : "Ubicación guardada para todas las tiendas.";
+    result.hidden=false;
   }
 
   _watchPriceStatus() {
@@ -583,7 +582,7 @@ class ImprovedShoppingSettings extends HTMLElement {
     for (const [store,name] of [["consum","Consum"],["lasirena","La Sirena"],["eroski","Eroski"],["dia","DIA"]]) {
       root.querySelector(".stores-grid").insertAdjacentHTML("beforeend", `<article class="store-row"><img class="store-logo" src="${new URL(`${store}.${store === "dia" ? "png" : store === "eroski" ? "svg" : "jpg"}`,import.meta.url).href}" alt="Logo de ${name}" loading="lazy" width="56" height="56"><div class="store-name"><h3>${name}</h3></div><div class="store-controls"><input id="${store}-enabled" class="store-toggle" type="checkbox" role="switch" aria-label="Habilitar ${name}"><button id="configure-${store}" class="store-cog" type="button" aria-label="Ajustes de ${name}" title="Ajustes de ${name}"><ha-icon icon="mdi:cog" aria-hidden="true"></ha-icon></button></div></article>`);
       const container = document.createElement("div");
-      container.innerHTML = `<dialog id="${store}-dialog" aria-labelledby="${store}-title"><h2 id="${store}-title">${name}</h2>${storeViewTabs(name,`${store}-products-tab`,`${store}-config-tab`)}<div id="${store}-error" class="notice error" role="alert" hidden></div><section id="${store}-products-view"><div id="${store}-products" class="store-products"></div><p id="${store}-status" class="store-cache-footer" role="status"></p></section><section id="${store}-config-view" class="store-configuration" hidden><form id="${store}-form"><label for="${store}-postal">Código postal</label><input id="${store}-postal" inputmode="numeric" autocomplete="postal-code" maxlength="5" pattern="(?:0[1-9]|[1-4][0-9]|5[0-2])[0-9]{3}" required><div class="appearance-actions"><button id="${store}-resolve" type="button">Comprobar código postal</button></div><label for="${store}-area">${store === "dia" ? "Zona de DIA" : `Centro de ${name}`}</label><select id="${store}-area" required aria-label="${store === "dia" ? "Zona de DIA" : `Centro de ${name}`}"></select><p>${store === "dia" ? "DIA asigna el centro a partir del código postal. No necesitas una cuenta." : store === "eroski" ? "Selecciona un centro de recogida. Se consultará el precio de ese centro. Las vinculaciones necesitan el enlace completo del producto." : "Selecciona un centro con entrega para tu código postal."}</p><div class="appearance-actions"><button id="save-${store}" class="primary" type="submit">Guardar configuración</button></div></form></section></dialog>`;
+      container.innerHTML = `<dialog id="${store}-dialog" aria-labelledby="${store}-title"><h2 id="${store}-title">${name}</h2>${storeViewTabs(name,`${store}-products-tab`,`${store}-config-tab`)}<div id="${store}-error" class="notice error" role="alert" hidden></div><section id="${store}-products-view"><div id="${store}-products" class="store-products"></div><p id="${store}-status" class="store-cache-footer" role="status"></p></section><section id="${store}-config-view" class="store-configuration" hidden><p data-store-location="${store}"></p></section></dialog>`;
       root.append(...container.children);
       const dialog = root.querySelector(`#${store}-dialog`);
       const showView = view => {
@@ -594,19 +593,7 @@ class ImprovedShoppingSettings extends HTMLElement {
       };
       for (const view of ["products","config"]) root.querySelector(`#${store}-${view}-tab`).addEventListener("click",()=>showView(view));
       root.querySelector(`#configure-${store}`).addEventListener("click",()=>this._openRegionalStore(store,false));
-      root.querySelector(`#${store}-enabled`).addEventListener("change",()=>{
-        const enabled = root.querySelector(`#${store}-enabled`).checked;
-        if (enabled && !this._data.settings.stores?.[store]?.area_id) this._openRegionalStore(store,true);
-        else void this._saveRetailSettings(()=>this._data.settings.saveRegionalStore(store,enabled));
-      });
-      root.querySelector(`#${store}-postal`).addEventListener("input",()=>{
-        this._regionalDrafts[store].postal = "";
-        root.querySelector(`#${store}-area`).replaceChildren();
-        this._render();
-      });
-      root.querySelector(`#${store}-area`).addEventListener("change",()=>this._render());
-      root.querySelector(`#${store}-resolve`).addEventListener("click",()=>void this._resolveRegionalStore(store));
-      root.querySelector(`#${store}-form`).addEventListener("submit",event=>{event.preventDefault();void this._saveRegionalStore(store);});
+      root.querySelector(`#${store}-enabled`).addEventListener("change",()=>void this._saveRetailSettings(()=>this._data.settings.setStoreEnabled(store,root.querySelector(`#${store}-enabled`).checked)));
       dialog.addEventListener("cancel",event=>{if(this._busy)event.preventDefault();});
       dialog.addEventListener("close",()=>{this._regionalDrafts[store]=null;this._render();});
       this._regionalDrafts[store] = null;
@@ -616,8 +603,6 @@ class ImprovedShoppingSettings extends HTMLElement {
   _openRegionalStore(store, enabling) {
     const root = this.shadowRoot, config = this._data.settings.stores?.[store] ?? {};
     this._regionalDrafts[store] = {postal:config.postal_code ?? "", enabled:enabling || Boolean(config.enabled)};
-    root.querySelector(`#${store}-postal`).value = config.postal_code ?? "";
-    root.querySelector(`#${store}-area`).replaceChildren(...(config.area_id ? [new Option(config.area_name || config.area_id,config.area_id)] : []));
     this._error = "";
     root.querySelector(`#${store}-dialog`).showModal();
     root.querySelector(`#${store}-${enabling ? "config" : "products"}-tab`).click();
@@ -629,41 +614,10 @@ class ImprovedShoppingSettings extends HTMLElement {
     const root = this.shadowRoot;
     for (const store of ["consum","lasirena","eroski","dia"]) {
       root.querySelector(`#${store}-enabled`).checked = Boolean(this._data.settings.stores?.[store]?.enabled);
-      for (const id of [`${store}-enabled`,`${store}-postal`,`${store}-resolve`,`${store}-area`]) root.querySelector(`#${id}`).disabled = locked;
+      root.querySelector(`#${store}-enabled`).disabled = locked;
       root.querySelector(`#configure-${store}`).disabled = !this._data.settings.loaded || this._data.settings.loading || this._busy;
-      const draft = this._regionalDrafts?.[store];
-      root.querySelector(`#save-${store}`).disabled = locked || !draft || draft.postal !== root.querySelector(`#${store}-postal`).value.trim() || !root.querySelector(`#${store}-area`).value;
       const error = root.querySelector(`#${store}-error`);
       error.textContent = this._error || ""; error.hidden = !error.textContent;
-    }
-  }
-
-  async _resolveRegionalStore(store) {
-    const root = this.shadowRoot, input = root.querySelector(`#${store}-postal`);
-    if (this._busy || this._data.hass?.user?.is_admin !== true || !input.reportValidity()) return;
-    const draft = this._regionalDrafts[store], connection = this._data.hass.connection, postal = input.value.trim();
-    const current = () => this.isConnected && this._regionalDrafts[store] === draft && this._data.hass.connection === connection;
-    this._busy = true; this._error = ""; this._render();
-    try {
-      const data = await this._data.settings.resolvePostalStore(store,postal);
-      if (!current()) return;
-      draft.postal = data.postal_code;
-      const previous = root.querySelector(`#${store}-area`).value;
-      const options = data.areas.map(area=>new Option(area.name,area.id));
-      root.querySelector(`#${store}-area`).replaceChildren(...(options.length > 1 ? [new Option("Selecciona un centro","")] : []),...options);
-      if (data.areas.some(area=>area.id === previous)) root.querySelector(`#${store}-area`).value = previous;
-    } catch(error) { if(current()) this._error = error.message ?? "No se ha podido comprobar la cobertura."; }
-    finally { this._busy = false; this._render(); }
-  }
-
-  async _saveRegionalStore(store) {
-    const root = this.shadowRoot, draft = this._regionalDrafts[store];
-    if (!draft || root.querySelector(`#save-${store}`).disabled) return;
-    await this._saveRetailSettings(()=>this._data.settings.saveRegionalStore(store,draft.enabled,
-      root.querySelector(`#${store}-postal`).value.trim(),root.querySelector(`#${store}-area`).value,true));
-    if (!this._error && this.isConnected && this._regionalDrafts[store] === draft) {
-      root.querySelector(`#${store}-products-tab`).click();
-      void this._loadRegionalProducts(store);
     }
   }
 
@@ -703,21 +657,6 @@ class ImprovedShoppingSettings extends HTMLElement {
       const alert=root.querySelector("#alcampo-products-error");alert.textContent=error.message??"No se pudo leer la caché de precios.";alert.hidden=false;
       root.querySelector("#alcampo-status").textContent=`${root.querySelector("#alcampo-products").childElementCount} precios guardados`;
     }}
-  }
-
-  async _saveStore(enabled, verify) {
-    if (this._busy || this._data?.hass?.user?.is_admin !== true) return;
-    const root = this.shadowRoot;
-    const postal = verify ? root.querySelector("#mercadona-postal").value.trim() : this._data.settings.stores?.mercadona?.postal_code ?? "";
-    this._busy = true;
-    this._error = this._notice = "";
-    this._render();
-    try {
-      await this._data.settings.saveStore(enabled, postal, verify);
-      this._storeEnableDraft = undefined;
-      this._storeDirty = false;
-    } catch (error) { this._error = error.message ?? "No se ha podido configurar Mercadona."; }
-    finally { this._busy = false; this._render(); }
   }
 
   _openStore(view) {

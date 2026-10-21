@@ -1040,6 +1040,22 @@ async function main() {
     await settingsView.getByRole("button",{name:"Comunidad",exact:true}).click();
     await settingsView.getByRole("heading",{name:"Comunidad",exact:true}).waitFor();
     assert.equal(await settingsView.locator("#settings-lists").isVisible(),false);
+    assert.match(await settingsView.locator("#settings-community").textContent(),/sugerencia para mejorar la integración puedes unirte a través de Telegram/);
+    assert.match(await settingsView.locator("#settings-community").textContent(),/conseguir contenido exclusivo, participar en sorteos y otras ventajas/);
+    const patreon = settingsView.getByRole("link",{name:"Hacerme Patreon",exact:true});
+    assert.equal(await patreon.getAttribute("href"),"https://www.patreon.com/c/aguacatec/membership");
+    assert.equal(await patreon.getAttribute("target"),"_blank");
+    assert.equal(await patreon.evaluate(node=>getComputedStyle(node).backgroundColor),"rgb(0, 0, 0)");
+    for (const width of [1280,390]) {
+      await settingsPage.setViewportSize({width,height:844});
+      const actions = await settingsView.locator(".community-action").evaluateAll(nodes=>nodes.map(node=>{
+        const rect=node.getBoundingClientRect(),icon=node.querySelector("svg").getBoundingClientRect();
+        return {width:rect.width,iconWidth:icon.width,iconHeight:icon.height};
+      }));
+      assert.equal(actions.length,3);
+      assert.ok(actions.every(action=>action.width===actions[0].width && action.iconWidth===22 && action.iconHeight===22));
+      await settingsPage.screenshot({path:`test-results/community-${width}.png`,fullPage:true});
+    }
     const exportDownload = settingsPage.waitForEvent("download");
     await settingsView.getByRole("button",{name:"Exportar mis iconos",exact:true}).click();
     const zipDownload = await exportDownload;

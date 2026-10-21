@@ -88,6 +88,15 @@ async def test_pending_union_deduplicates_and_reads_do_not_fetch(env):
     assert len(env.requests) == 1
 
 
+async def test_daily_run_with_no_enabled_stores_does_not_read_lists_or_log_a_queue(env):
+    for configuration in env.settings.snapshot["stores"].values():
+        configuration["enabled"] = False
+    env.manager.pending_names = AsyncMock(side_effect=AssertionError("No list read expected"))
+    await env.manager.async_tick()
+    assert env.requests == [] and env.manager._data["pending"] == []
+    env.manager.activity.record.assert_not_called()
+
+
 async def test_last_price_remains_when_bought_and_failure_does_not_overwrite(env):
     assert env.manager.progress["last_updated"] == 0
     await env.manager.async_tick()

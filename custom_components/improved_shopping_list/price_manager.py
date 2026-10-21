@@ -205,6 +205,8 @@ class PriceManager:
         return names, failures
 
     async def _prepare(self, day):
+        if not any(self.settings.snapshot["stores"].get(store, {}).get("enabled") for store in STORES):
+            return
         names, failures = await self.pending_names()
         jobs = {}
         for job in self._data["pending"]:

@@ -49,6 +49,22 @@ async def env(hass, monkeypatch):
     await manager.async_stop()
 
 
+@pytest.mark.parametrize(("store","config","identifier"),[
+    ("consum",{"enabled":True,"postal_code":"46409","area_id":"301D","zone":"301"},"7394260"),
+    ("lasirena",{"enabled":True,"postal_code":"28024","area_id":"lasirena259"},"655")])
+async def test_regional_stores_only_queue_pending_and_keep_disabled_cache(env,store,config,identifier):
+    env.settings.snapshot["stores"][store]=config
+    env.catalog.products=[product("Arroz",identifier,store),product("Café","1234",store)]
+    await env.manager.async_tick()
+    assert [(s,i) for s,i,_ in env.requests]==[(store,identifier)]
+    saved=env.manager.prices_for(env.catalog.products[0])
+    assert len(saved)==1 and saved[0]["scope"]==f"{config['postal_code']}:{config['area_id']}"
+    config["enabled"]=False
+    assert env.manager.prices_for(env.catalog.products[0])==saved
+    config["area_id"]="302D" if store=="consum" else "lasirena102"
+    assert env.manager.prices_for(env.catalog.products[0])==[]
+
+
 async def test_retired_provider_cache_and_queue_migrate_without_touching_other_prices(env,hass):
     await env.manager.async_tick()
     kept = deepcopy(env.manager._data["offers"])

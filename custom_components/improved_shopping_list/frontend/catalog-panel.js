@@ -902,7 +902,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
       const offer = cachedProductPrice(product,this._priceData?.offers,this._priceData?.favorite);
       if (offer) {
         const badge = element("span","row-price");
-        badge.title = offer.store ? `Último precio guardado · ${({mercadona:"Mercadona",carrefour:"Carrefour",alcampo:"Alcampo"})[offer.store] ?? offer.store}` : "Precio manual";
+        badge.title = offer.store ? `Último precio guardado · ${({mercadona:"Mercadona",carrefour:"Carrefour",alcampo:"Alcampo",consum:"Consum",lasirena:"La Sirena"})[offer.store] ?? offer.store}` : "Precio manual";
         const icon = element("ha-icon"); icon.setAttribute("icon","mdi:cash-multiple"); icon.setAttribute("aria-hidden","true");
         badge.append(icon,element("span","",new Intl.NumberFormat("es-ES",{style:"currency",currency:offer.currency}).format(Number(offer.price))));
         metadata.append(badge);
@@ -987,7 +987,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
       const linksKey = JSON.stringify(this._storeLinks ?? {});
       const data = await this._hass.callWS({type:"improved_shopping_list/catalog/store_prices",links:this._storeLinks ?? {},codes:[form.elements.barcode.value,...form.elements.barcodes.value.split(/\r?\n/)].map(value=>value.trim()).filter(Boolean)});
       if (generation !== this._nutriGeneration || linksKey !== JSON.stringify(this._storeLinks ?? {}) || !root.querySelector("dialog").open || !this.isConnected) return;
-      const names = {mercadona:"Mercadona",carrefour:"Carrefour",alcampo:"Alcampo"};
+      const names = {mercadona:"Mercadona",carrefour:"Carrefour",alcampo:"Alcampo",consum:"Consum",lasirena:"La Sirena"};
       const rows = data.products.map(product => {
         const row = document.createElement("div"); row.className = "nutriscore-item";
         const link = document.createElement("a"); link.textContent = `${names[product.store] ?? product.store}: ${new Intl.NumberFormat("es-ES",{style:"currency",currency:product.currency}).format(Number(product.price))} · ${product.store_name || product.name || "Ver producto"}${product.reference_id ? ` · ID ${product.reference_id}` : ""}`;
@@ -1008,7 +1008,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
   }
 
   _renderStoreLinks() {
-    const root = this.shadowRoot, names = {mercadona:"Mercadona",carrefour:"Carrefour",alcampo:"Alcampo"};
+    const root = this.shadowRoot, names = {mercadona:"Mercadona",carrefour:"Carrefour",alcampo:"Alcampo",consum:"Consum",lasirena:"La Sirena"};
     root.querySelector("#product-store-links").replaceChildren(...Object.entries(this._storeLinks).map(([store,value])=>{
       const row = document.createElement("div"); row.className = "product-category-controls";
       row.style.marginBottom = "10px";

@@ -1,5 +1,12 @@
 # Historial de cambios
 
+## Pendiente de publicación
+
+- Consum y La Sirena en Ajustes → Tiendas, con los logos aportados, configuración por código postal y selección entre centros con cobertura.
+- Vinculaciones de productos por enlace o ID, precios guardados por centro, tienda favorita y revisión diaria o manual de productos pendientes. La Sirena verifica la variante y el precio de entrega con una pausa de cinco minutos entre peticiones.
+- Consultas anónimas sin cuenta ni carrito del usuario. Errores, productos no disponibles y cambios de centro no sustituyen los precios guardados de otras zonas ni modifican los códigos de los lectores.
+- Pruebas de cobertura, selección de centros, precios, permisos, cambios de configuración, caché e interfaz de ambas tiendas.
+
 ## 0.17.0
 
 - Lidl en Ajustes → Tiendas, con selección de región, tienda favorita y vinculaciones por enlace o ID en las fichas de productos. Consulta su API pública sin cuenta, cookies ni claves y utiliza el precio general vigente de la región elegida, excluyendo ofertas futuras y precios exclusivos de Lidl Plus. Respeta la cola de productos pendientes y los cinco minutos entre peticiones; conserva el último precio conocido y señala las ofertas finalizadas. Verificado desde desarrollo con la referencia 11107037 para Madrid: 2,89 EUR.

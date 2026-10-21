@@ -6,7 +6,7 @@ Una interfaz propia para gestionar las listas de la compra que ya tienes integra
 
 Versión actual: **0.17.0**. Interfaz en español, pensada para móvil y ordenador. Requiere **Home Assistant Core 2026.10 o posterior**. La referencia de desarrollo es Core 2026.10.2.
 
-Vinculaciones por enlace o ID con Mercadona, Carrefour y Alcampo, y consultas
+Vinculaciones por enlace o ID con Mercadona, Carrefour, Alcampo, Consum y La Sirena, y consultas
 directas desde Home Assistant. Se ha retirado el feed
 de precios de GitHub y la dependencia de Aguacatec.
 
@@ -204,9 +204,23 @@ Se reutiliza la caché persistente de identificación (30 días para productos e
 
 ## Tiendas y vinculaciones
 
-En **Ajustes → Tiendas** se habilitan Mercadona, Carrefour y Alcampo, se elige la
+En **Ajustes → Tiendas** se habilitan Mercadona, Carrefour, Alcampo, Consum y La Sirena, se elige la
 favorita y se configura la hora de revisión. Mercadona resuelve su almacén desde
 el código postal; Alcampo permite indicar la región de su consulta pública.
+En Consum y La Sirena, abre **Configuración**, introduce el código postal y pulsa
+**Comprobar código postal**. Selecciona uno de los centros con cobertura y guarda.
+Si solo hay un centro, se selecciona automáticamente. No se utiliza una zona por
+defecto cuando no hay cobertura. Puedes desactivar una tienda sin perder sus
+ajustes ni los precios guardados para ese centro.
+
+Consum consulta su ficha JSON con las cabeceras de zona seleccionadas. La Sirena
+resuelve la referencia a su variante y consulta el precio de entrega para el centro
+y código postal elegidos. Ambas consultas de La Sirena respetan los cinco minutos
+entre peticiones; un producto puede necesitar dos peticiones. No se usa una cuenta,
+cookies de usuario ni su carrito. Las respuestas ambiguas, sin disponibilidad o con
+errores conservan el precio anterior. Los EAN recibidos son metadatos del precio:
+no modifican automáticamente las asociaciones de los lectores.
+
 En **Catálogo → Información adicional**, selecciona una tienda, pega su enlace
 o ID y pulsa Añadir vinculación. Puedes editar o quitar cada vínculo antes de
 guardar el producto. Solo se admiten fichas HTTPS de las tiendas registradas,

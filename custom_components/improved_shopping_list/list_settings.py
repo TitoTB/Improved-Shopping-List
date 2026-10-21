@@ -11,6 +11,7 @@ from homeassistant.core import HomeAssistant, callback
 from .const import CONF_TODO_ENTITY, CONF_TODO_ENTITIES
 from .const import DOMAIN
 from .stores import StoreError, async_resolve_mercadona
+from .regional_stores import REGIONAL_STORES, async_resolve_areas, valid_area
 
 DEFAULT_APPEARANCE = {
     "gradient_start": "#ee524f", "gradient_end": "#b52a27",
@@ -18,6 +19,7 @@ DEFAULT_APPEARANCE = {
     "columns": 3, "mobile_columns": 1,
 }
 DEFAULT_STORES = {"mercadona": {"enabled": False, "postal_code": "", "warehouse": "", "checked_at": None}, "carrefour": {"enabled": False, "sale_point":"005290"}, "alcampo":{"enabled":False,"region_id":""}}
+DEFAULT_STORES.update({store:{"enabled":False, "postal_code":"", "area_id":"", "area_name":"", "zone":"", "checked_at":None} for store in REGIONAL_STORES})
 
 
 def normalize_appearance(data: dict, *, defaults: dict | None = None) -> dict:
@@ -152,6 +154,39 @@ class ListSettings:
             stores = {**self.snapshot["stores"], "alcampo":{"enabled":enabled,"region_id":region_id.lower()}}
             self.hass.config_entries.async_update_entry(self.entry, options={**self.entry.options,
                 "stores":stores,"favorite_store":self._favorite(stores)})
+            self.notify()
+            return self.snapshot
+
+    async def async_update_regional(self, store, enabled, postal_code="", area_id="", verify=False):
+        """Verify a postal/center pair before committing, preserving data on failure."""
+        if store not in REGIONAL_STORES:
+            raise StoreError("Tienda no compatible.")
+        generation = self._generation
+        async with self._stores_lock:
+            entry = self.entry
+            if generation != self._generation or not entry or not self.hass.data.get(DOMAIN, {}).get("active"):
+                raise StoreError("La integración no está activa.")
+            current = self.snapshot["stores"][store]
+            if not enabled and not verify:
+                value = {**current, "enabled":False}
+            elif (not verify and current.get("checked_at") and valid_area(store, current.get("area_id"))
+                  and postal_code in ("", current["postal_code"]) and area_id in ("", current["area_id"])):
+                value = {**current, "enabled":enabled}
+            else:
+                coverage = await async_resolve_areas(self.hass, store, postal_code)
+                areas = coverage["areas"]
+                selected = next((area for area in areas if area["id"] == area_id), None)
+                if not area_id and len(areas) == 1:
+                    selected = areas[0]
+                if not selected:
+                    raise StoreError("Selecciona uno de los centros disponibles para este código postal.")
+                value = {"enabled":enabled, "postal_code":postal_code, "area_id":selected["id"],
+                    "area_name":selected["name"], "zone":selected.get("zone", ""), "checked_at":int(time.time())}
+            if generation != self._generation or self.entry is not entry or not self.hass.data.get(DOMAIN, {}).get("active"):
+                raise StoreError("La integración se ha detenido. Vuelve a abrirla para guardar los ajustes.")
+            stores = {**self.snapshot["stores"], store:value}
+            self.hass.config_entries.async_update_entry(entry, options={**entry.options,
+                "stores":stores, "favorite_store":self._favorite(stores)})
             self.notify()
             return self.snapshot
 

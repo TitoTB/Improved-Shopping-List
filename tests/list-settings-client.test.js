@@ -107,3 +107,22 @@ test("store and favorite changes preserve a later pushed snapshot", async () => 
     assert.equal(session.favoriteStore,"mercadona");
   }
 });
+
+test("regional coverage lookup does not change settings and stale saves yield to pushes", async () => {
+  const response = deferred();
+  const messages = [];
+  const session = new ListSettingsSession(() => ({callWS: msg => {
+    messages.push(msg);
+    return msg.type.endsWith("resolve_store") ? Promise.resolve({postal_code:"46409",areas:[{id:"301D"}]}) : response.promise;
+  }}),()=>{});
+  const coverage = await session.resolvePostalStore("consum","46409");
+  assert.equal(coverage.areas[0].id,"301D");
+  assert.deepEqual(session.stores,{});
+  const saving = session.saveRegionalStore("consum",true,"46409","301D",true);
+  assert.deepEqual(messages[1],{type:"improved_shopping_list/settings/store",store:"consum",enabled:true,postal_code:"46409",area_id:"301D",verify:true});
+  session._revision++;
+  session._receive({stores:{consum:{enabled:false}}});
+  response.resolve({stores:{consum:{enabled:true}}});
+  await saving;
+  assert.equal(session.stores.consum.enabled,false);
+});

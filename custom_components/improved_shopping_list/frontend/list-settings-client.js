@@ -125,6 +125,16 @@ export class ListSettingsSession {
     if (generation === this._generation && revision === this._revision) this._receive(data);
   }
 
+  async resolvePostalStore(store, postalCode) {
+    return this.getHass().callWS({type:`${PREFIX}resolve_store`,store,postal_code:postalCode});
+  }
+
+  async saveRegionalStore(store, enabled, postalCode = "", areaId = "", verify = false) {
+    const generation = this._generation, revision = ++this._revision;
+    const data = await this.getHass().callWS({type:`${PREFIX}store`,store,enabled,postal_code:postalCode,area_id:areaId,verify});
+    if (generation === this._generation && revision === this._revision) this._receive(data);
+  }
+
   async savePriceSchedule(time) {
     const generation = this._generation, revision = ++this._revision;
     const data = await this.getHass().callWS({type:`${PREFIX}price_schedule`,time});

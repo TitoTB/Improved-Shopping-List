@@ -36,6 +36,7 @@ class ImprovedShoppingSettings extends HTMLElement {
 
   disconnectedCallback() {
     this.active = false;
+    for (const store of ["consum", "lasirena"]) this.shadowRoot.querySelector(`#${store}-dialog`)?.close();
     clearInterval(this._pricesProgressTimer);
     this.shadowRoot.querySelector("#prices-progress-dialog")?.close();
     this.shadowRoot.querySelector("#price-schedule-dialog")?.close();
@@ -227,12 +228,13 @@ class ImprovedShoppingSettings extends HTMLElement {
       if (entity) void this._act("add", entity);
     });
     const root = this.shadowRoot;
+    this._buildRegionalStores(root);
     installDialogCloseButtons(root);
     root.querySelector("#refresh-all-prices").addEventListener("click",()=>void this._refreshPricesNow());
     const storesGrid=root.querySelector(".stores-grid");
     storesGrid.append(...[...storesGrid.querySelectorAll(".store-row")].sort((a,b)=>
       a.querySelector("h3").textContent.localeCompare(b.querySelector("h3").textContent,"es")));
-    for (const store of ["mercadona", "carrefour", "alcampo"]) {
+    for (const store of ["mercadona", "carrefour", "alcampo", "consum", "lasirena"]) {
       const row = root.querySelector(`#${store}-enabled`).closest(".store-row");
       const heart = document.createElement("button"); heart.id = `favorite-${store}`; heart.type = "button"; heart.className = "store-cog store-favorite";
       const label = `Marcar ${row.querySelector("h3").textContent} como favorita`;
@@ -330,7 +332,7 @@ class ImprovedShoppingSettings extends HTMLElement {
     this._watchPriceStatus();
     this._renderPriceTimestamp();
     this._renderGlobalPriceProgress();
-    for (const store of ["mercadona", "carrefour", "alcampo"]) {
+    for (const store of ["mercadona", "carrefour", "alcampo", "consum", "lasirena"]) {
       root.querySelector(`#${store}-enabled`).closest(".store-row").dataset.enabled = String(Boolean(settings.stores?.[store]?.enabled));
       const favorite = root.querySelector(`#favorite-${store}`);
       favorite.disabled = locked || !settings.stores?.[store]?.enabled;
@@ -410,6 +412,7 @@ class ImprovedShoppingSettings extends HTMLElement {
     root.querySelector("#price-schedule-error").hidden = !this._error;
     if(!root.querySelector("#price-schedule-dialog").open)root.querySelector("#price-update-time").value = settings.priceUpdateTime ?? "01:00";
     root.querySelector("#settings-empty").hidden = settings.entities.length > 0 || settings.loading;
+    this._renderRegionalStores(locked);
     this._renderStore();
     const form = root.querySelector("#appearance-form");
     if (!this._appearanceDirty && !this._busy) this._fillAppearance(settings.appearance);
@@ -487,7 +490,7 @@ class ImprovedShoppingSettings extends HTMLElement {
     bar.max=total||1;
     if(preparing)bar.removeAttribute("value");else bar.value=empty?0:processed;
     root.querySelector("#prices-progress-percentage").textContent=preparing?"…":`${total&&!empty?Math.round(processed/total*100):0} %`;
-    const names={mercadona:"Mercadona",carrefour:"Carrefour",alcampo:"Alcampo"};
+    const names={mercadona:"Mercadona",carrefour:"Carrefour",alcampo:"Alcampo",consum:"Consum",lasirena:"La Sirena"};
     const errors=[...(this._refreshStartErrors??[]),...Object.entries(state?.errors??{}).filter(([store])=>this._data.settings.stores?.[store]?.enabled).map(([store,error])=>`${names[store]??store}: ${error}`)];
     const errorBox=root.querySelector("#stores-refresh-error");errorBox.textContent=[...new Set(errors)].join(" ");errorBox.hidden=!errors.length;
     root.querySelector("#prices-progress-status").textContent=preparing?"Preparando actualización…":empty?(errors.length?"No se ha podido iniciar la revisión.":"No hay productos vinculados pendientes en tus listas."):`${processed} de ${total} referencias procesadas${state?.running?"":" · Revisión finalizada"}`;
@@ -505,7 +508,7 @@ class ImprovedShoppingSettings extends HTMLElement {
   async _refreshPricesNow() {
     if (this._pricesRefreshing || this._data.hass?.user?.is_admin !== true) return;
     const hass = this._data.hass;
-    const stores = ["mercadona","carrefour","alcampo"].filter(store=>this._data.settings.stores?.[store]?.enabled);
+    const stores = ["mercadona","carrefour","alcampo","consum","lasirena"].filter(store=>this._data.settings.stores?.[store]?.enabled);
     if (!stores.length) return;
     const errorBox = this.shadowRoot.querySelector("#stores-refresh-error");
     errorBox.textContent = ""; errorBox.hidden = true;
@@ -518,7 +521,7 @@ class ImprovedShoppingSettings extends HTMLElement {
     try {
       const results = await Promise.allSettled(stores.map(async store=>hass.callWS({type:"improved_shopping_list/settings/refresh_prices",store})));
       if (!this.isConnected || this._data.hass.connection !== hass.connection) return;
-      const names = {mercadona:"Mercadona",carrefour:"Carrefour",alcampo:"Alcampo"};
+      const names = {mercadona:"Mercadona",carrefour:"Carrefour",alcampo:"Alcampo",consum:"Consum",lasirena:"La Sirena"};
       const errors = results.flatMap((result,index)=>result.status === "rejected" ? [`${names[stores[index]]}: ${result.reason?.message ?? "No se pudo iniciar la actualización."}`] : []);
       this._refreshStartErrors=errors;
       this._manualQueued=results.reduce((count,result)=>count+(result.status==="fulfilled"?Math.max(0,Number(result.value.queued)||0):0),0);
@@ -559,6 +562,113 @@ class ImprovedShoppingSettings extends HTMLElement {
       const alert=root.querySelector("#carrefour-error");alert.textContent=error.message??"No se pudieron leer los precios guardados.";alert.hidden=false;
       root.querySelector("#carrefour-status").textContent=`${root.querySelector("#carrefour-products").childElementCount} precios guardados`;
     } } finally { if (current()) this._carrefourLoading=false; }
+  }
+
+  _buildRegionalStores(root) {
+    this._regionalDrafts = {};
+    for (const [store,name] of [["consum","Consum"],["lasirena","La Sirena"]]) {
+      root.querySelector(".stores-grid").insertAdjacentHTML("beforeend", `<article class="store-row"><img class="store-logo" src="${new URL(`${store}.jpg`,import.meta.url).href}" alt="Logo de ${name}" loading="lazy" width="56" height="56"><div class="store-name"><h3>${name}</h3></div><div class="store-controls"><input id="${store}-enabled" class="store-toggle" type="checkbox" role="switch" aria-label="Habilitar ${name}"><button id="configure-${store}" class="store-cog" type="button" aria-label="Ajustes de ${name}" title="Ajustes de ${name}"><ha-icon icon="mdi:cog" aria-hidden="true"></ha-icon></button></div></article>`);
+      const container = document.createElement("div");
+      container.innerHTML = `<dialog id="${store}-dialog" aria-labelledby="${store}-title"><h2 id="${store}-title">${name}</h2>${storeViewTabs(name,`${store}-products-tab`,`${store}-config-tab`)}<div id="${store}-error" class="notice error" role="alert" hidden></div><section id="${store}-products-view"><div id="${store}-products" class="store-products"></div><p id="${store}-status" class="store-cache-footer" role="status"></p></section><section id="${store}-config-view" class="store-configuration" hidden><form id="${store}-form"><label for="${store}-postal">Código postal</label><input id="${store}-postal" inputmode="numeric" autocomplete="postal-code" maxlength="5" pattern="(?:0[1-9]|[1-4][0-9]|5[0-2])[0-9]{3}" required><div class="appearance-actions"><button id="${store}-resolve" type="button">Comprobar código postal</button></div><label for="${store}-area">Centro de ${name}</label><select id="${store}-area" required aria-label="Centro de ${name}"></select><p>Selecciona un centro con entrega para tu código postal.</p><div class="appearance-actions"><button id="save-${store}" class="primary" type="submit">Guardar configuración</button></div></form></section></dialog>`;
+      root.append(...container.children);
+      const dialog = root.querySelector(`#${store}-dialog`);
+      const showView = view => {
+        for (const key of ["products","config"]) {
+          root.querySelector(`#${store}-${key}-view`).hidden = key !== view;
+          root.querySelector(`#${store}-${key}-tab`).setAttribute("aria-pressed",String(key === view));
+        }
+      };
+      for (const view of ["products","config"]) root.querySelector(`#${store}-${view}-tab`).addEventListener("click",()=>showView(view));
+      root.querySelector(`#configure-${store}`).addEventListener("click",()=>this._openRegionalStore(store,false));
+      root.querySelector(`#${store}-enabled`).addEventListener("change",()=>{
+        const enabled = root.querySelector(`#${store}-enabled`).checked;
+        if (enabled && !this._data.settings.stores?.[store]?.area_id) this._openRegionalStore(store,true);
+        else void this._saveRetailSettings(()=>this._data.settings.saveRegionalStore(store,enabled));
+      });
+      root.querySelector(`#${store}-postal`).addEventListener("input",()=>{
+        this._regionalDrafts[store].postal = "";
+        root.querySelector(`#${store}-area`).replaceChildren();
+        this._render();
+      });
+      root.querySelector(`#${store}-area`).addEventListener("change",()=>this._render());
+      root.querySelector(`#${store}-resolve`).addEventListener("click",()=>void this._resolveRegionalStore(store));
+      root.querySelector(`#${store}-form`).addEventListener("submit",event=>{event.preventDefault();void this._saveRegionalStore(store);});
+      dialog.addEventListener("cancel",event=>{if(this._busy)event.preventDefault();});
+      dialog.addEventListener("close",()=>{this._regionalDrafts[store]=null;this._render();});
+      this._regionalDrafts[store] = null;
+    }
+  }
+
+  _openRegionalStore(store, enabling) {
+    const root = this.shadowRoot, config = this._data.settings.stores?.[store] ?? {};
+    this._regionalDrafts[store] = {postal:config.postal_code ?? "", enabled:enabling || Boolean(config.enabled)};
+    root.querySelector(`#${store}-postal`).value = config.postal_code ?? "";
+    root.querySelector(`#${store}-area`).replaceChildren(...(config.area_id ? [new Option(config.area_name || config.area_id,config.area_id)] : []));
+    this._error = "";
+    root.querySelector(`#${store}-dialog`).showModal();
+    root.querySelector(`#${store}-${enabling ? "config" : "products"}-tab`).click();
+    this._render();
+    void this._loadRegionalProducts(store);
+  }
+
+  _renderRegionalStores(locked) {
+    const root = this.shadowRoot;
+    for (const store of ["consum","lasirena"]) {
+      root.querySelector(`#${store}-enabled`).checked = Boolean(this._data.settings.stores?.[store]?.enabled);
+      for (const id of [`${store}-enabled`,`${store}-postal`,`${store}-resolve`,`${store}-area`]) root.querySelector(`#${id}`).disabled = locked;
+      root.querySelector(`#configure-${store}`).disabled = !this._data.settings.loaded || this._data.settings.loading || this._busy;
+      const draft = this._regionalDrafts?.[store];
+      root.querySelector(`#save-${store}`).disabled = locked || !draft || draft.postal !== root.querySelector(`#${store}-postal`).value.trim() || !root.querySelector(`#${store}-area`).value;
+      const error = root.querySelector(`#${store}-error`);
+      error.textContent = this._error || ""; error.hidden = !error.textContent;
+    }
+  }
+
+  async _resolveRegionalStore(store) {
+    const root = this.shadowRoot, input = root.querySelector(`#${store}-postal`);
+    if (this._busy || this._data.hass?.user?.is_admin !== true || !input.reportValidity()) return;
+    const draft = this._regionalDrafts[store], connection = this._data.hass.connection, postal = input.value.trim();
+    const current = () => this.isConnected && this._regionalDrafts[store] === draft && this._data.hass.connection === connection;
+    this._busy = true; this._error = ""; this._render();
+    try {
+      const data = await this._data.settings.resolvePostalStore(store,postal);
+      if (!current()) return;
+      draft.postal = data.postal_code;
+      const previous = root.querySelector(`#${store}-area`).value;
+      const options = data.areas.map(area=>new Option(area.name,area.id));
+      root.querySelector(`#${store}-area`).replaceChildren(...(options.length > 1 ? [new Option("Selecciona un centro","")] : []),...options);
+      if (data.areas.some(area=>area.id === previous)) root.querySelector(`#${store}-area`).value = previous;
+    } catch(error) { if(current()) this._error = error.message ?? "No se ha podido comprobar la cobertura."; }
+    finally { this._busy = false; this._render(); }
+  }
+
+  async _saveRegionalStore(store) {
+    const root = this.shadowRoot, draft = this._regionalDrafts[store];
+    if (!draft || root.querySelector(`#save-${store}`).disabled) return;
+    await this._saveRetailSettings(()=>this._data.settings.saveRegionalStore(store,draft.enabled,
+      root.querySelector(`#${store}-postal`).value.trim(),root.querySelector(`#${store}-area`).value,true));
+    if (!this._error && this.isConnected && this._regionalDrafts[store] === draft) {
+      root.querySelector(`#${store}-products-tab`).click();
+      void this._loadRegionalProducts(store);
+    }
+  }
+
+  async _loadRegionalProducts(store) {
+    const root = this.shadowRoot, draft = this._regionalDrafts[store], connection = this._data.hass.connection;
+    const current = () => this.isConnected && this._regionalDrafts[store] === draft && this._data.hass.connection === connection;
+    try {
+      const data = await this._data.hass.callWS({type:"improved_shopping_list/catalog/store_prices",store});
+      if (!current()) return;
+      root.querySelector(`#${store}-status`).textContent = `${data.products.length} precios guardados`;
+      root.querySelector(`#${store}-products`).replaceChildren(...data.products.map(product=>{
+        const row = document.createElement("div"); row.className = "store-product";
+        const link = document.createElement("a"); link.textContent = product.name || product.store_name || product.reference_id;
+        link.href = product.url; link.target = "_blank"; link.rel = "noopener noreferrer";
+        const text = document.createElement("p"); text.textContent = `${new Intl.NumberFormat("es-ES",{style:"currency",currency:product.currency}).format(Number(product.price))} · Último precio: ${new Date(product.checked_at*1000).toLocaleString("es-ES")}`;
+        row.append(link,text); return row;
+      }));
+      if(data.error){const error=root.querySelector(`#${store}-error`);error.textContent=data.error;error.hidden=false;}
+    } catch(error) { if(current()){const box=root.querySelector(`#${store}-error`);box.textContent=error.message ?? "No se pudieron leer los precios guardados.";box.hidden=false;} }
   }
 
   async _loadAlcampo() {

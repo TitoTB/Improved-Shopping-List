@@ -86,6 +86,8 @@ class PriceManager:
 
     def scope(self, store):
         config = self.settings.snapshot["stores"].get(store, {})
+        if store in ("consum", "lasirena"):
+            return f"{config['postal_code']}:{config['area_id']}" if config.get("postal_code") and config.get("area_id") else ""
         return config.get("warehouse", "") if store == "mercadona" else config.get("region_id", "") if store == "alcampo" else config.get("sale_point", "005290")
 
     @staticmethod
@@ -138,7 +140,8 @@ class PriceManager:
     @property
     def progress(self):
         running = bool(self._data["pending"])
-        remaining = len(self._data["pending"])
+        remaining = len(self._data["pending"]) + sum(1 for job in self._data["pending"]
+            if job.get("store") == "lasirena" and not job.get("reserved"))
         return {"running":running, "total":self._data["total"], "processed":self._data["processed"],
             "errors":deepcopy(self._data["errors"]),
             "last_updated":max((offer.get("checked_at", 0) for offer in self._data["offers"].values()), default=0),
@@ -238,8 +241,8 @@ class PriceManager:
                 raise ValueError("La integración no está disponible.")
             if not self.settings.snapshot["stores"].get(store, {}).get("enabled"):
                 raise ValueError("Habilita la tienda antes de actualizar sus precios.")
-            if store == "mercadona" and not self.scope(store):
-                raise ValueError("Configura el código postal de Mercadona antes de actualizar.")
+            if store in ("mercadona", "consum", "lasirena") and not self.scope(store):
+                raise ValueError(f"Configura el código postal de {STORES[store]} antes de actualizar.")
             if time.time() < self._data["blocked_until"].get(store, 0):
                 raise ValueError("La tienda ha indicado una pausa. Espera antes de volver a actualizar.")
             active = [job for job in self._data["pending"] if job["store"] == store and not job.get("blocked")]
@@ -307,6 +310,7 @@ class PriceManager:
         job["reserved"] = True
         self._data["next_request"] = time.time()+INTERVAL
         await self._save()  # Persist request reservation before touching the retailer.
+        self._notify()
         self.activity.record("stores.request", f"{STORES[job['store']]}: consulta de precio iniciada",
             source="manual" if job.get("manual") else "automatic", store=STORES[job["store"]],
             diagnostics={"reference_id":job["link"]["id"], "scope":job["scope"],

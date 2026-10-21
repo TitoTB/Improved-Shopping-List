@@ -129,8 +129,19 @@ const hass={
       if(msg.force&&window.holdStoreRefresh)await new Promise(resolve=>window.finishStoreRefresh=resolve);
       return {warehouse:'mad3',enabled:true,products:[{name:'Tomate',ean:'8430543025611',store_name:'Tomate rallado',store_product_id:'69938',price:msg.force?1.55:1.45,reference_price:5,reference_unit:'kg',checked_at:1800000000}],error:window.failStoreProducts?'Mercadona ha rechazado la consulta (HTTP 403)':'',automatic_refresh_blocked:!!window.failStoreProducts,remaining:window.failStoreProducts?20:0,processed:0,total:20,retry_at:window.failStoreProducts?Date.now()/1000+900:0};
     }
+    if(msg.type==='improved_shopping_list/settings/resolve_store'){
+      if(msg.postal_code==='28024'&&msg.store==='consum')throw new Error('Consum no ofrece entrega para este código postal.');
+      return {postal_code:msg.postal_code,areas:msg.store==='consum'?[{id:'301D',name:'Centro 301 · Cullera',zone:'301'}]:[{id:'lasirena102',name:'Centro 102'},{id:'lasirena259',name:'Centro 259'}]};
+    }
     if(msg.type==='improved_shopping_list/settings/store'){
       if(window.failSettings)throw new Error('Mercadona no está disponible');
+      if(['consum','lasirena'].includes(msg.store)){
+        const previous=window.listSettings.stores?.[msg.store]??{};
+        window.listSettings.stores={...window.listSettings.stores,[msg.store]:{...previous,enabled:msg.enabled,...(msg.verify?{postal_code:msg.postal_code,area_id:msg.area_id,area_name:msg.area_id,zone:msg.store==='consum'?'301':'',checked_at:12345}:{})}};
+        const active=Object.keys(window.listSettings.stores).filter(key=>window.listSettings.stores[key].enabled);
+        if(!active.includes(window.listSettings.favorite_store))window.listSettings.favorite_store=active[0]??'';
+        window.emitSettings();return structuredClone(window.listSettings);
+      }
       if(msg.store==='carrefour'||msg.store==='alcampo'){
         if(msg.store==='carrefour'&&msg.sale_point!==undefined&&!/^[0-9]{6}$/.test(msg.sale_point))throw new Error('El centro de Carrefour debe contener seis dígitos.');
         window.listSettings.stores={...window.listSettings.stores,[msg.store]:{...window.listSettings.stores?.[msg.store],enabled:msg.enabled,...(msg.store!=='carrefour'?{region_id:msg.region_id}: {sale_point:msg.sale_point??window.listSettings.stores?.carrefour?.sale_point??'005290'})}};
@@ -264,8 +275,8 @@ async function main() {
       return;
     }
     if (pathname === "/") { res.setHeader("content-type", "text/html; charset=utf-8"); res.end(html); return; }
-    if (!["/panel.js", "/dialog-controls.js", "/todo-client.js", "/catalog-panel.js", "/catalog-client.js", "/category-panel.js", "/icon-picker.js", "/list-settings-client.js", "/settings-panel.js", "/readers-client.js", "/readers-panel.js", "/product-matching.js", "/product-names.js", "/logs-panel.js", "/logo.png", "/mercadona.png"].includes(pathname)) { res.writeHead(404).end(); return; }
-    res.setHeader("content-type", pathname.endsWith(".svg") ? "image/svg+xml" : pathname.endsWith(".png") ? "image/png" : "text/javascript; charset=utf-8");
+    if (!["/panel.js", "/dialog-controls.js", "/todo-client.js", "/catalog-panel.js", "/catalog-client.js", "/category-panel.js", "/icon-picker.js", "/list-settings-client.js", "/settings-panel.js", "/readers-client.js", "/readers-panel.js", "/product-matching.js", "/product-names.js", "/logs-panel.js", "/logo.png", "/mercadona.png", "/consum.jpg", "/lasirena.jpg"].includes(pathname)) { res.writeHead(404).end(); return; }
+    res.setHeader("content-type", pathname.endsWith(".svg") ? "image/svg+xml" : pathname.endsWith(".png") ? "image/png" : pathname.endsWith(".jpg") ? "image/jpeg" : "text/javascript; charset=utf-8");
     res.end(await fs.readFile(path.join(root, pathname.slice(1))));
   });
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -314,7 +325,7 @@ async function main() {
       };
       visit(document);
       return dialogs.filter(dialog => dialog.querySelectorAll(".isl-dialog-close[aria-label='Cerrar ventana']").length === 1).length;
-    }), 17);
+    }), 19);
     await page.getByRole("button", { name: "Seleccionar lista", exact: true }).click();
     const listDialog = page.getByRole("dialog", { name: "Seleccionar lista", exact: true });
     assert.equal(await listDialog.getByRole("button", { name: "Compra · Bring!", exact: true }).getAttribute("aria-pressed"), "true");
@@ -1014,9 +1025,9 @@ async function main() {
     await settingsPage.getByRole("button", { name: "Ajustes", exact: true }).click();
     await settingsView.getByRole("button",{name:"Tiendas",exact:true}).click();
     assert.equal(await settingsView.locator("#settings-view-stores ha-icon").getAttribute("icon"), "mdi:store");
-    assert.deepEqual(await settingsView.locator(".stores-grid .store-name h3").allTextContents(),["Alcampo","Carrefour","Mercadona"]);
+    assert.deepEqual(await settingsView.locator(".stores-grid .store-name h3").allTextContents(),["Alcampo","Carrefour","Consum","La Sirena","Mercadona"]);
     // Every store uses Mercadona's default tabs, active styling and configuration actions.
-    for (const store of ['Mercadona','Carrefour','Alcampo']) {
+    for (const store of ['Mercadona','Carrefour','Alcampo','Consum','La Sirena']) {
       await settingsView.getByRole('button',{name:`Ajustes de ${store}`,exact:true}).click();
       const dialog=settingsView.getByRole('dialog',{name:store,exact:true});
       const products=dialog.getByRole('button',{name:'Productos',exact:true});
@@ -1037,8 +1048,31 @@ async function main() {
       assert.ok(await dialog.locator('.store-configuration').isHidden());
       await dialog.getByRole('button',{name:'Cerrar ventana',exact:true}).click();
     }
+    // Configure new postal stores, require an explicit center when several exist.
+    for (const [store,name,postal,area] of [['consum','Consum','46409','301D'],['lasirena','La Sirena','28024','lasirena259']]) {
+      await settingsView.getByLabel(`Habilitar ${name}`,{exact:true}).click();
+      const dialog=settingsView.getByRole('dialog',{name,exact:true});
+      await dialog.getByLabel('Código postal',{exact:true}).fill(postal);
+      assert.equal(await dialog.getByRole('button',{name:'Guardar configuración',exact:true}).isDisabled(),true);
+      await dialog.getByRole('button',{name:'Comprobar código postal',exact:true}).click();
+      await dialog.locator(`#${store}-area option[value="${area}"]`).waitFor({state:'attached'});
+      if(store==='lasirena')assert.equal(await dialog.getByRole('button',{name:'Guardar configuración',exact:true}).isDisabled(),true);
+      await dialog.getByLabel(`Centro de ${name}`,{exact:true}).selectOption(area);
+      await dialog.getByRole('button',{name:'Guardar configuración',exact:true}).click();
+      await settingsPage.waitForFunction(store=>window.listSettings.stores?.[store]?.enabled,store);
+      await dialog.getByRole('button',{name:'Cerrar ventana',exact:true}).click();
+      assert.match(await settingsView.locator(`img[alt="Logo de ${name}"]`).getAttribute('src'),new RegExp('/'+store+'\\.jpg$'));
+      await settingsView.getByLabel(`Habilitar ${name}`,{exact:true}).uncheck();
+      await settingsPage.waitForFunction(store=>!window.listSettings.stores?.[store]?.enabled,store);
+      await settingsView.getByRole('button',{name:`Ajustes de ${name}`,exact:true}).click();
+      await dialog.getByText('0 precios guardados',{exact:true}).waitFor();
+      await dialog.getByRole('button',{name:'Configuración',exact:true}).click();
+      assert.equal(await dialog.getByLabel('Código postal',{exact:true}).inputValue(),postal);
+      assert.equal(await dialog.getByLabel(`Centro de ${name}`,{exact:true}).inputValue(),area);
+      await dialog.getByRole('button',{name:'Cerrar ventana',exact:true}).click();
+    }
     await settingsView.getByLabel("Habilitar Mercadona").check();
-    await settingsView.getByLabel("Código postal",{exact:true}).fill("28001");
+    await settingsView.locator("#mercadona-postal").fill("28001");
     await settingsView.getByRole("button",{name:"Comprobar y guardar",exact:true}).click();
     await settingsView.locator("#mercadona-warehouse").filter({hasText:"Almacén: mad3"}).waitFor();
     assert.equal(await settingsView.locator("#favorite-mercadona").getAttribute("aria-pressed"), "true");
@@ -1089,13 +1123,13 @@ async function main() {
     await settingsView.getByLabel("Habilitar Mercadona",{exact:true}).check();
     await settingsView.getByRole("button",{name:"Ajustes de Mercadona",exact:true}).click();
     await storeDialog.getByRole("button",{name:"Configuración",exact:true}).click();
-    assert.equal(await settingsView.getByLabel("Código postal",{exact:true}).inputValue(), "28001");
+    assert.equal(await settingsView.locator("#mercadona-postal").inputValue(), "28001");
     await settingsPage.evaluate(()=>{window.failSettings=true;});
-    await settingsView.getByLabel("Código postal",{exact:true}).fill("46001");
+    await settingsView.locator("#mercadona-postal").fill("46001");
     await settingsView.getByRole("button",{name:"Comprobar y guardar",exact:true}).click();
     await storeDialog.getByRole("alert").filter({hasText:"Mercadona no está disponible"}).waitFor();
     assert.match(await settingsView.locator("#mercadona-warehouse").textContent(), /28001/);
-    assert.equal(await settingsView.getByLabel("Código postal",{exact:true}).inputValue(), "46001");
+    assert.equal(await settingsView.locator("#mercadona-postal").inputValue(), "46001");
     await settingsPage.evaluate(()=>{window.failSettings=false;});
     await storeDialog.getByRole("button",{name:"Cerrar ventana",exact:true}).click();
     await settingsView.getByLabel("Habilitar Carrefour",{exact:true}).check();

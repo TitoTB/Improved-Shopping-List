@@ -15,6 +15,7 @@ from .catalog import Catalog, CatalogError
 from .const import DOMAIN
 from .list_settings import ListSettingsError
 from .stores import StoreError
+from .regional_stores import async_resolve_areas
 from .icons import IconError
 from .community import build_export
 from .product_translation import async_translate_name
@@ -47,6 +48,7 @@ def async_register_commands(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_settings_update)
     websocket_api.async_register_command(hass, ws_personalization)
     websocket_api.async_register_command(hass, ws_store_update)
+    websocket_api.async_register_command(hass, ws_resolve_store)
     websocket_api.async_register_command(hass, ws_store_products)
     websocket_api.async_register_command(hass, ws_store_progress)
     websocket_api.async_register_command(hass, ws_carrefour_products)
@@ -292,6 +294,7 @@ def ws_personalization(hass: HomeAssistant, connection, msg) -> None:
     vol.Optional("verify", default=False): bool,
     vol.Optional("region_id", default=""): str,
     vol.Optional("sale_point"): str,
+    vol.Optional("area_id", default=""): str,
 })
 @websocket_api.require_admin
 @websocket_api.async_response
@@ -300,13 +303,32 @@ async def ws_store_update(hass, connection, msg):
         return
     try:
         settings = hass.data[DOMAIN]["settings"]
-        result = (await settings.async_update_alcampo(msg["enabled"], msg["region_id"]) if msg["store"] == "alcampo"
+        result = (await settings.async_update_regional(msg["store"], msg["enabled"], msg["postal_code"], msg["area_id"], msg["verify"]) if msg["store"] in ("consum", "lasirena")
+                  else await settings.async_update_alcampo(msg["enabled"], msg["region_id"]) if msg["store"] == "alcampo"
                   else await settings.async_update_carrefour(msg["enabled"], msg.get("sale_point")) if msg["store"] == "carrefour"
             else await settings.async_update_store(msg["enabled"], msg["postal_code"], msg["verify"]))
     except StoreError as err:
         connection.send_error(msg["id"], "invalid_store", str(err))
     else:
         connection.send_result(msg["id"], result)
+
+
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/settings/resolve_store",
+    vol.Required("store"):vol.In(("consum", "lasirena")), vol.Required("postal_code"):str})
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_resolve_store(hass, connection, msg):
+    if not _catalog(hass, connection, msg):
+        return
+    settings = hass.data[DOMAIN]["settings"]
+    generation = settings._generation
+    try:
+        result = await async_resolve_areas(hass, msg["store"], msg["postal_code"])
+        if generation != settings._generation or not hass.data.get(DOMAIN, {}).get("active"):
+            raise StoreError("La integración se ha detenido.")
+        connection.send_result(msg["id"], result)
+    except StoreError as err:
+        connection.send_error(msg["id"], "invalid_store", str(err))
 
 
 @websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/settings/favorite_store", vol.Required("store"): vol.In(tuple(STORES))})

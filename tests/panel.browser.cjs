@@ -2719,20 +2719,21 @@ async function main() {
     await spendingContext.route('https://images.seeklogo.com/**',route=>route.fulfill({contentType:'image/svg+xml',body:'<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32"><circle cx="16" cy="16" r="14" fill="blue"/></svg>'}));
     const spendingPage=await spendingContext.newPage();spendingPage.on('pageerror',error=>errors.push(error.message));
     await spendingPage.addInitScript(()=>{
-      const receipts=[['j1','carrefour','Carrefour','2026-01-10T12:00:00',10.25],['j2','mercadona','Mercadona','2026-01-15T12:00:00',20],['j3','carrefour','Carrefour','2026-01-20T12:00:00',5.5],['f1','mercadona','Mercadona','2026-02-15T12:00:00',40]];
+      const now=new Date(),first=new Date(now.getFullYear(),now.getMonth()-5,1),before=new Date(first.getTime()-1);
+      const receipts=[['recent','carrefour','Carrefour',now.toISOString(),9],['start','carrefour','Carrefour',first.toISOString(),2],['before','carrefour','Carrefour',before.toISOString(),3],['older','carrefour','Carrefour','2025-01-10T12:00:00',4],['j1','carrefour','Carrefour','2026-01-10T12:00:00',10.25],['j2','mercadona','Mercadona','2026-01-15T12:00:00',20],['j3','carrefour','Carrefour','2026-01-20T12:00:00',5.5],['f1','mercadona','Mercadona','2026-02-15T12:00:00',40]];
       localStorage.setItem('receipt-fixture',JSON.stringify(receipts.map(([id,store,store_name,purchased_at,total])=>({id,store,store_name,purchased_at,total,article_count:1,lines:[{description:'Producto '+id,count:1,unit_price:total,amount:total}]}))));
     });
     await spendingPage.goto(url);await spendingPage.getByRole('button',{name:'Stock',exact:true}).click();await spendingPage.getByRole('tab',{name:'Compras',exact:true}).click();
     const spending=spendingPage.locator('isl-purchases');await spending.locator('#history .ticket').first().waitFor();
     assert.equal(await spending.locator('#history details,#history summary').count(),0);
-    assert.equal(await spending.locator('#history .ticket').count(),4);
+    assert.deepEqual(await spending.locator('#history .ticket').evaluateAll(cards=>cards.map(card=>card.dataset.id)),['recent','start']);
     const firstPurchase=spending.locator('#history .ticket').first();
     assert.match(await firstPurchase.locator('.store-image').getAttribute('src'),/carrefour-logo/);
     assert.ok(await firstPurchase.evaluate(card=>card.querySelector('.total').getBoundingClientRect().right<=card.querySelector('.ticket-open').getBoundingClientRect().left));
     await firstPurchase.locator('.title').click();assert.equal(await spending.locator('#purchase-detail').isVisible(),false);
     await firstPurchase.locator('.ticket-open').focus();await firstPurchase.locator('.ticket-open').press('Enter');
     const purchaseDetail=spending.getByRole('dialog',{name:'Detalle de la compra',exact:true});await purchaseDetail.waitFor();
-    await purchaseDetail.getByText('Producto j1',{exact:true}).waitFor();
+    await purchaseDetail.getByText('Producto recent',{exact:true}).waitFor();
     await purchaseDetail.getByRole('button',{name:'Cerrar ventana',exact:true}).click();
     assert.equal(await spending.locator('.month-column').count(),6);
     const defaultMonths=await spendingPage.evaluate(()=>{const now=new Date();return Array.from({length:6},(_,i)=>{const month=new Date(now.getFullYear(),now.getMonth()-5+i,1);return month.getFullYear()+'-'+String(month.getMonth()+1).padStart(2,'0');});});
@@ -2741,14 +2742,21 @@ async function main() {
     const nextPeriod=spending.getByRole('button',{name:'Mostrar seis meses siguientes',exact:true});
     assert.equal(await nextPeriod.isDisabled(),true);
     while(!await spending.locator('.month-column[data-month="2026-01"]').count())await previousPeriod.click();
+    assert.deepEqual(await spending.locator('#history .ticket').evaluateAll(cards=>cards.map(card=>card.dataset.id)),['before','j1','j2','j3','f1']);
     const jan=spending.locator('.month-column[data-month="2026-01"]'),feb=spending.locator('.month-column[data-month="2026-02"]');
     assert.equal(await jan.getAttribute('data-total'),'35.75');assert.equal(await feb.getAttribute('data-total'),'40');
     assert.equal(await jan.locator('[data-store="carrefour"]').getAttribute('data-amount'),'15.75');
     assert.equal(await jan.locator('[data-store="mercadona"]').getAttribute('data-amount'),'20');
     assert.equal(await jan.locator('.store-segment').count(),2);assert.equal(await feb.locator('.store-segment').count(),1);
     assert.match(await jan.getAttribute('aria-label'),/Carrefour.*15,75.*Mercadona.*20,00/);
-    assert.equal(await previousPeriod.isDisabled(),true);
+    await previousPeriod.click();
+    assert.equal(await spending.locator('#history .ticket').count(),0);
+    await spending.locator('#empty').getByText('No hay compras registradas en este periodo.',{exact:true}).waitFor();
+    while(!await previousPeriod.isDisabled())await previousPeriod.click();
+    assert.equal(await spending.locator('#history [data-id="older"]').count(),1);
     while(!await nextPeriod.isDisabled())await nextPeriod.click();
+    assert.deepEqual(await spending.locator('#history .ticket').evaluateAll(cards=>cards.map(card=>card.dataset.id)),['recent','start']);
+
     assert.deepEqual(await spending.locator('.month-column').evaluateAll(columns=>columns.map(column=>column.dataset.month)),defaultMonths);
     for(const width of [320,390,1280]){
       await spendingPage.setViewportSize({width,height:844});

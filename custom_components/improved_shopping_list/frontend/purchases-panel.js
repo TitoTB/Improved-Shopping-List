@@ -404,11 +404,18 @@ class ImprovedShoppingPurchases extends HTMLElement {
     const root=this.shadowRoot,message=root.querySelector('#message');
     const text=this._reading?'Leyendo ticket…':this._error|| (this._history?this._session.error:'') || (this._history&&this._session.loading?'Cargando compras…':'');
     message.textContent=text;message.hidden=!text;message.classList.toggle('error',Boolean(this._error||this._session.error));
-    root.querySelector('#history').hidden=!this._history;root.querySelector('#empty').hidden=!this._history||this._session.receipts.length>0||this._session.loading||Boolean(this._session.error);
+    root.querySelector('#history').hidden=!this._history;root.querySelector('#empty').hidden=true;
     root.querySelector('#spending-chart').hidden=!this._history||!this._session.receipts.length;
     if(!this._history)return;
-    this._renderSpendingChart();
-    root.querySelector('#history').replaceChildren(...this._session.receipts.map(receipt=>{
+    const period=this._renderSpendingChart();
+    const receipts=this._session.receipts.filter(receipt=>{
+      const date=new Date(receipt.purchased_at),month=date.getFullYear()*12+date.getMonth();
+      return period&&month>=period.start&&month<=period.end;
+    });
+    const empty=root.querySelector('#empty');
+    empty.textContent=this._session.receipts.length?'No hay compras registradas en este periodo.':'Todavía no has subido ningún ticket.';
+    empty.hidden=receipts.length>0||this._session.loading||Boolean(this._session.error);
+    root.querySelector('#history').replaceChildren(...receipts.map(receipt=>{
       const card=node('article','ticket');card.dataset.id=receipt.id;
       const title=node('div','title');title.append(node('strong','',receipt.store_name+(receipt.document_type==='invoice'?' · Factura':'')),node('span','muted',documentDate(receipt)+(receipt.article_count==null?'':' · '+receipt.article_count+' artículos')));
       const open=this._button('Ver ticket de '+receipt.store_name+' del '+documentDate(receipt),'mdi:receipt-text',()=>receipt.summary_only?void this._reviewPending(receipt):this._openPurchaseDetail(receipt),'ticket-open'+(!receipt.summary_only?' reviewed':''));
@@ -466,8 +473,8 @@ class ImprovedShoppingPurchases extends HTMLElement {
     const palette=['#607d8b','#9e8048','#6978c8'];
     const colors=new Map(sortedStores.map(([store],index)=>[store,STORE_COLORS[store]||palette[index%palette.length]]));
     const heading=node('div','chart-heading'),navigation=node('div','chart-navigation');
-    const previous=this._button('Mostrar seis meses anteriores','mdi:chevron-left',()=>{this._spendingOffset+=6;this._renderSpendingChart();});
-    const next=this._button('Mostrar seis meses siguientes','mdi:chevron-right',()=>{this._spendingOffset=Math.max(0,this._spendingOffset-6);this._renderSpendingChart();});
+    const previous=this._button('Mostrar seis meses anteriores','mdi:chevron-left',()=>{this._spendingOffset+=6;this._render();});
+    const next=this._button('Mostrar seis meses siguientes','mdi:chevron-right',()=>{this._spendingOffset=Math.max(0,this._spendingOffset-6);this._render();});
     previous.disabled=this._spendingOffset>=maximumOffset;next.disabled=this._spendingOffset===0;
     const format=new Intl.DateTimeFormat('es-ES',{month:'short',year:'numeric'});
     const period=node('span','chart-period',format.format(visible[0][1].date)+' – '+format.format(visible[5][1].date));period.setAttribute('aria-live','polite');
@@ -486,6 +493,7 @@ class ImprovedShoppingPurchases extends HTMLElement {
     const legend=node('div','chart-legend');
     for(const [store,name] of sortedStores){const key=node('span','chart-key'),swatch=node('span','chart-swatch');swatch.style.background=colors.get(store);key.append(swatch,document.createTextNode(name));legend.append(key);}
     scroll.append(bars);chart.append(heading,node('p','chart-note','Importes de las compras registradas, por tienda'),scroll,legend);
+    return {start,end};
   }
   _totalRow(label,value){const row=node('div','totals');row.append(node('span','',label),node('strong','',money(value)));return row;}
 }

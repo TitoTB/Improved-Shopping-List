@@ -68,7 +68,7 @@ class ProductLookup:
             if isinstance(data, dict):
                 self._cache = {key: item for key, item in data.items() if isinstance(item, dict)
                                and isinstance(item.get("expires"), (int, float)) and isinstance(item.get("result"), dict)
-                               and item["result"].get("status") in TTLS}
+                               and item["result"].get("status") in TTLS and item["result"].get("source")!="community"}
                 for item in self._cache.values():
                     item["result"].pop("brand", None)
                     item["result"].pop("quantity", None)

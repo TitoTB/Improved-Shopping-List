@@ -27,7 +27,7 @@ async def account(hass):
 
 async def test_start_and_status_never_contact_carrefour(account):
     account._http = AsyncMock()
-    assert account.status("owner") == {"connected":False,"email":"","options":{"history_enabled":False,"auto_ticket":False,"public_prices":False},"verification_required":False,"destinations":[],"verification_sent":False}
+    assert account.status("owner") == {"connected":False,"email":"","options":{"history_enabled":False,"auto_ticket":False},"verification_required":False,"destinations":[],"verification_sent":False}
     account.stop();account.start()
     account._http.assert_not_awaited()
 
@@ -232,19 +232,19 @@ async def test_history_sync_reads_all_pages_of_last_year_and_imports_only_summar
     account.receipts.async_preview.assert_not_awaited()
 
 
-async def test_carrefour_options_require_connection_except_public_prices(account):
+async def test_carrefour_options_require_connection_and_ignore_retired_public_price_setting(account):
     account._queue_background=Mock()
     with pytest.raises(CarrefourAccountError,match="Conecta"):
-        await account.async_options("owner",{"history_enabled":True,"auto_ticket":False,"public_prices":False})
+        await account.async_options("owner",{"history_enabled":True,"auto_ticket":False})
     status=await account.async_options("owner",{"history_enabled":False,"auto_ticket":False,"public_prices":True})
-    assert status["options"]["public_prices"] and not status["connected"]
+    assert "public_prices" not in status["options"] and not status["connected"]
     account._session={"login_token":"private","email":"account@example.test"}
     account.async_sync_history=AsyncMock()
     status=await account.async_options("owner",{"history_enabled":True,"auto_ticket":False,"public_prices":True})
     account.async_sync_history.assert_awaited_once_with("owner")
     assert status["email"]=="account@example.test"
     await account.async_disconnect("owner")
-    assert account.status("owner")["options"]=={"history_enabled":False,"auto_ticket":False,"public_prices":True}
+    assert account.status("owner")["options"]=={"history_enabled":False,"auto_ticket":False}
 
 
 async def test_automatic_download_requires_completion_and_runs_once_per_day(account):

@@ -41,7 +41,7 @@ class CarrefourAccount:
         self._store = Store(hass, 1, f"{DOMAIN}.carrefour_account", private=True)
         self._session, self._config, self._pending, self._purchases = {}, {}, {}, {}
         self._options_store = Store(hass, 1, f"{DOMAIN}.carrefour_options", private=True)
-        self._options = {"history_enabled":False,"auto_ticket":False,"public_prices":False,"completion_at":0,"handled_completion":0,"ticket_day":"","public_day":""}
+        self._options = {"history_enabled":False,"auto_ticket":False,"completion_at":0,"handled_completion":0,"ticket_day":""}
         self._background_task, self._timer_stop = None, None
         self._options_lock = asyncio.Lock()
         self._saved_options = None
@@ -63,8 +63,6 @@ class CarrefourAccount:
         if not self._timer_stop:
             self._timer_stop = async_track_time_interval(self.hass,self._queue_background,timedelta(minutes=1))
         self._cookies = dict(self._session.get("device_cookies", {}))
-        if getattr(getattr(self,"prices",None),"community",None):
-            self.prices.community.daily_public_prices=self._options["public_prices"]
 
     def stop(self):
         self._active = False
@@ -80,7 +78,7 @@ class CarrefourAccount:
     def status(self, owner):
         pending = self._pending.get(owner, {})
         return {"connected": bool(self._session.get("login_token")), "email":self._email(),
-                "options":{key:self._options[key] for key in ("history_enabled","auto_ticket","public_prices")},
+                "options":{key:self._options[key] for key in ("history_enabled","auto_ticket")},
                 "verification_required": pending.get("expires", 0) > time.time(),
                 "destinations": [{"id": str(i), "label": item["label"]} for i, item in enumerate(pending.get("destinations", []))]
                     if pending.get("expires", 0) > time.time() else [],
@@ -105,15 +103,14 @@ class CarrefourAccount:
                 self._saved_options=payload
 
     async def async_options(self, owner, options):
-        if (not isinstance(options,dict) or set(options)!={"history_enabled","auto_ticket","public_prices"}
+        if (not isinstance(options,dict) or set(options)-{"public_prices"}!={"history_enabled","auto_ticket"}
                 or any(type(value) is not bool for value in options.values())):
             raise CarrefourAccountError("Las opciones de Carrefour no son válidas.","options")
         if not self._session.get("login_token") and (options["history_enabled"] or options["auto_ticket"]):
             raise CarrefourAccountError("Conecta primero tu cuenta de Carrefour.","not_connected")
+        options={key:options[key] for key in ("history_enabled","auto_ticket")}
         recover = options["history_enabled"] and not self._options["history_enabled"]
         self._options.update(options)
-        if getattr(getattr(self,"prices",None),"community",None):
-            self.prices.community.daily_public_prices=options["public_prices"]
         await self._save_options()
         if recover:
             await self.async_sync_history(owner)
@@ -127,7 +124,7 @@ class CarrefourAccount:
         self._queue_background()
 
     def _queue_background(self, *_args):
-        if self._active and (self._options["auto_ticket"] or self._options["public_prices"]) and (self._background_task is None or self._background_task.done()):
+        if self._active and self._options["auto_ticket"] and (self._background_task is None or self._background_task.done()):
             self._background_task = self.hass.async_create_task(self._run_background())
 
     async def _run_background(self):
@@ -139,12 +136,6 @@ class CarrefourAccount:
             now = dt_util.now();day=now.date().isoformat()
             if now.strftime("%H:%M") < settings.snapshot["price_update_time"]:
                 return
-            if self._options["public_prices"] and self._options["public_day"]!=day:
-                self._options["public_day"]=day;await self._save_options()
-                try:
-                    await self.prices.async_public_catalog_prices("carrefour")
-                except (CatalogError,aiohttp.ClientError,OSError,TimeoutError) as err:
-                    self.activity.record("stores.account","Carrefour: no se han podido actualizar los precios comunitarios",source="automatic",diagnostics={"stage":"public_prices","error_type":type(err).__name__})
             completion = self._options["completion_at"]
             if (not self._session.get("login_token") or not self._options["auto_ticket"] or self._options["ticket_day"]==day
                     or completion<=self._options["handled_completion"]):

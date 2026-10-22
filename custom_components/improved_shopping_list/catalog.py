@@ -331,34 +331,7 @@ class Catalog:
         return unsubscribe
 
     async def async_apply_community(self, community):
-        """Fill missing confirmed data, preserving local choices and edit revisions."""
-        async with self._lock:
-            products = deepcopy(self._products)
-            changed = False
-            for product in products.values():
-                strong_match = community.find(product)
-                item = strong_match or community.find(query=product["name"])
-                if item is None:
-                    continue
-                borrowed = product.setdefault("community_fields", {})
-                filled = False
-                if not product.get("name_en") and "name_en" in item["confirmed_fields"]:
-                    product["name_en"] = item["name_en"]
-                    borrowed["name_en"] = fingerprint(item["name_en"])
-                    filled = True
-                links = product.setdefault("store_links", {})
-                for store, link in item["store_links"].items():
-                    if strong_match and len(item.get("eans",[]))==1 and store not in links and "store_links."+store in item["confirmed_fields"]:
-                        links[store] = normalize_links({store: link})[store]
-                        borrowed["store_links."+store] = fingerprint(links[store])
-                        filled = True
-                if filled:
-                    product["revision"] += 1
-                    changed = True
-            if changed:
-                await self._persist(products, self._categories)
-        if changed:
-            self._notify()
+        return  # Community data is reserved for icon suggestions.
 
     async def async_save_product(self, data: dict[str, Any], *, from_suggestion: bool = False) -> dict[str, Any]:
         """Persist before publishing, preserving the previous state on write failure."""
@@ -406,7 +379,7 @@ class Catalog:
             # Translation is server-owned metadata; old clients cannot erase it.
             product["community_fields"] = deepcopy((current or {}).get("community_fields", {}))
             community = getattr(self, "community", None)
-            shared = (community.find(product) or community.find(query=product["name"])) if community else None
+            shared = None
             shared_translation = shared.get("name_en", "") if shared and "name_en" in shared["confirmed_fields"] else ""
             product["name_en"] = (
                 current["name_en"]

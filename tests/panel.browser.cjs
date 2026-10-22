@@ -3503,7 +3503,7 @@ async function main() {
     await accountPage.waitForFunction(()=>window.receiptHistory.length===2);
     assert.equal(await account.locator('#account-email').textContent(),'test@example.test');
     await account.getByRole('switch',{name:'Descargar ticket automáticamente',exact:true}).check();
-    await account.getByRole('switch',{name:'Actualizar precios públicos en el catálogo',exact:true}).check();
+    assert.equal(await account.getByRole('switch',{name:'Actualizar precios públicos en el catálogo',exact:true}).count(),0);
     await account.getByRole('button',{name:'Consultar compras',exact:true}).click();
     const accountPurchases=account.getByRole('dialog',{name:'Compras de Carrefour',exact:true});
     await accountPurchases.getByRole('button',{name:'Revisar ticket',exact:true}).waitFor();

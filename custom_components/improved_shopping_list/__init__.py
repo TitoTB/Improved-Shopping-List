@@ -69,7 +69,6 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         carrefour_account = CarrefourAccount(hass, receipts, activity)
         await carrefour_account.async_load()
         carrefour_account.settings=settings
-        carrefour_account.prices=prices
         stock_automation.carrefour_account=carrefour_account
         prices.receipts = receipts
         store_products = StorePriceView(prices, "mercadona")

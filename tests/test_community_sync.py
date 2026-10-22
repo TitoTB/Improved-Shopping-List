@@ -35,28 +35,25 @@ def credentials():
     return {"access_token": "ghu_PRIVATE_ACCESS", "refresh_token": "ghr_PRIVATE_REFRESH", "expires_in": 28800}
 
 
-async def test_dictionary_honors_configured_period_and_changes(shared):
-    shared.prices.settings=SimpleNamespace(snapshot={"price_update_days":3,"price_updates_enabled":True})
+async def test_icon_dictionary_downloads_daily_independently_of_price_preferences(shared):
+    shared.prices.settings=SimpleNamespace(snapshot={"price_update_days":30,"price_updates_enabled":False})
     service=shared.service
     service._request=AsyncMock(return_value={"schema":2,"reference_version":1,"generated_at":shared.clock[0],"products":[]})
     await service.async_sync();assert service._request.await_count==1
-    shared.clock[0]+=module.DAY
+    shared.clock[0]+=module.DAY-1
     await service.async_sync();assert service._request.await_count==1
-    shared.clock[0]+=module.DAY
-    shared.prices.settings.snapshot["price_update_days"]=1
+    shared.clock[0]+=1
     await service.async_sync();assert service._request.await_count==2
-    shared.prices.settings.snapshot["price_update_days"]=3
-    shared.clock[0]+=module.DAY
-    await service.async_sync();assert service._request.await_count==2
-    shared.clock[0]+=2*module.DAY
-    await service.async_sync();assert service._request.await_count==3
+    shared.prices.prices_for.assert_not_called()
+    shared.catalog.async_apply_community.assert_not_awaited()
 
 
-async def test_disabled_pricing_does_not_use_or_submit_community_prices(shared):
-    shared.prices.settings=SimpleNamespace(snapshot={"price_update_days":1,"price_updates_enabled":False})
-    shared.catalog.products=[{"name":"Arroz","store_links":{}}]
-    assert shared.service.price("alcampo",{"id":"24097"}) is None
-    assert shared.service.payload()["products"][0]["prices"]==[]
+async def test_community_never_returns_or_uploads_commercial_data(shared):
+    shared.catalog.products=[{"name":"Arroz","barcode":"8410109115543","barcodes":[],"store_links":{"mercadona":{"id":"123","url":"https://tienda.mercadona.es/product/123"}}}]
+    assert shared.service.price("mercadona",{"id":"123"},["8410109115543"]) is None
+    assert shared.service.product_hint("8410109115543") is None
+    raw=shared.service.payload()["products"][0]
+    assert raw["prices"]==[] and raw["eans"]==[] and raw["store_links"]=={} and raw["nutriscore"]==""
     shared.prices.prices_for.assert_not_called()
     shared.service._request=AsyncMock()
     await shared.service.async_prepare_prices()
@@ -182,7 +179,7 @@ async def test_payload_allowlist_excludes_personal_fields_unknown_images_and_bor
     assert "PRIVATE" not in json.dumps(result) and "private.test" not in json.dumps(result)
     assert result["products"][0]["icons"] == []
     assert result["products"][0]["borrowed_fields"] == ["name_en"]
-    assert result["products"][0]["eans"] == ["08410109115543"]
+    assert result["products"][0]["eans"] == []
 
 
 async def test_daily_download_attempt_is_durable_and_reading_does_not_require_consent(shared, hass):
@@ -248,13 +245,3 @@ async def test_community_admin_commands_do_not_expose_credentials_to_other_users
     assert aioclient_mock.call_count == 0
 
 
-async def test_public_prices_require_exact_unambiguous_ean_not_name_or_reference(shared):
-    service=shared.service;now=shared.clock[0]
-    link={"id":"24097","url":"https://www.compraonline.alcampo.es/products/arroz/24097"}
-    price={"store":"alcampo","reference_id":"24097","price":"1.50","currency":"EUR","checked_at":now}
-    service.dictionary["products"]=[{"name":"Arroz","eans":["01234567890128"],"store_links":{"alcampo":link},"prices":[price]}]
-    assert service.price("alcampo",link) is None
-    assert service.price("alcampo",link,["8410109115543"]) is None
-    assert service.price("alcampo",link,["1234567890128"])["ean"]=="01234567890128"
-    service.dictionary["products"][0]["eans"].append("08410109115543")
-    assert service.price("alcampo",link,["1234567890128"]) is None

@@ -60,46 +60,19 @@ def scope(store):
 
 
 def validate_product(raw, now):
-    if not isinstance(raw, dict) or set(raw)-{"name", "name_en", "eans", "store_links", "nutriscore", "icons", "prices", "borrowed_fields"}:
+    """Accept legacy envelopes but discard all commercial and barcode data."""
+    if not isinstance(raw,dict) or set(raw)-{"name","name_en","eans","store_links","nutriscore","icons","prices","borrowed_fields"}:
         raise ValueError("Campos comunitarios no admitidos.")
-    item = {"name": text(raw.get("name")), "name_en": text(raw["name_en"]) if raw.get("name_en") else ""}
-    codes = raw.get("eans", [])
-    if not isinstance(codes, list) or len(codes) > 50 or any(not ean(code) for code in codes):
-        raise ValueError("EAN comunitario no válido.")
-    item["eans"] = sorted({ean(code) for code in codes})
-    item["store_links"] = normalize_links(raw.get("store_links", {}))
-    grade = raw.get("nutriscore", "")
-    if grade not in ("", "a", "b", "c", "d", "e"):
-        raise ValueError("Nutri-Score no válido.")
-    item["nutriscore"] = grade
-    borrowed = raw.get("borrowed_fields", [])
-    allowed = {"name", "name_en", "eans", "nutriscore", "icons", *("store_links."+store for store in STORES)}
-    if not isinstance(borrowed, list) or any(not isinstance(field, str) or field not in allowed for field in borrowed):
-        raise ValueError("Procedencia comunitaria no válida.")
-    item["borrowed_fields"] = sorted(set(borrowed))
-    icons = raw.get("icons", [])
-    if not isinstance(icons, list) or len(icons) > 5 or any(not isinstance(icon, str) or not ICON_ID.fullmatch(icon) for icon in icons):
+    item={"name":text(raw.get("name")),"name_en":text(raw["name_en"]) if raw.get("name_en") else "",
+          "eans":[],"store_links":{},"nutriscore":"","prices":[]}
+    icons=raw.get("icons",[])
+    if not isinstance(icons,list) or len(icons)>5 or any(not isinstance(icon,str) or not ICON_ID.fullmatch(icon) for icon in icons):
         raise ValueError("Icono comunitario no válido.")
-    item["icons"] = sorted(set(icons))
-    prices = raw.get("prices", [])
-    if not isinstance(prices, list) or len(prices) > len(STORES):
-        raise ValueError("Precios comunitarios no válidos.")
-    item["prices"] = []
-    for price in prices:
-        if not isinstance(price, dict) or set(price) != {"store", "reference_id", "price", "currency", "checked_at"}:
-            raise ValueError("Campos de precio no admitidos.")
-        store = price["store"]
-        if store not in item["store_links"] or price["reference_id"] != item["store_links"][store]["id"] or price["currency"] != "EUR":
-            raise ValueError("El precio no corresponde a su referencia.")
-        try:
-            amount = Decimal(price["price"])
-            valid = amount.is_finite() and 0 < amount <= 10000 and amount.as_tuple().exponent >= -2
-        except (InvalidOperation, ValueError, TypeError):
-            valid = False
-        checked = price["checked_at"]
-        if not valid or type(checked) not in (int, float) or not now-DAY <= checked <= now+300:
-            raise ValueError("Importe o fecha de precio no válido.")
-        item["prices"].append({**price, "price": format(amount, ".2f"), "checked_at": min(checked, now)})
+    item["icons"]=sorted(set(icons))
+    borrowed=raw.get("borrowed_fields",[])
+    if not isinstance(borrowed,list) or any(not isinstance(field,str) for field in borrowed):
+        raise ValueError("Procedencia comunitaria no válida.")
+    item["borrowed_fields"]=sorted(set(borrowed)&{"name","name_en","icons"})
     return item
 
 
@@ -146,9 +119,7 @@ def unpack(manifest, parts):
 
 
 def identities(item):
-    if item["eans"]:
-        return {"ean:"+code for code in item["eans"]}
-    return {"store:"+store+":"+link["id"] for store,link in item["store_links"].items()}
+    return set()  # Icon suggestions are grouped by terms, never by EAN or shop.
 
 
 def new_registry():
@@ -166,15 +137,20 @@ def record_votes(record):
 
 
 def compact_registry(registry):
-    """Store each distinct selection once; one lightweight vote per account."""
-    for record in registry["records"].values():
-        choices, votes = {}, {}
-        for user, vote in record_votes(record).items():
-            key = fingerprint(vote["item"])
-            choices[key] = vote["item"]
-            votes[user] = {"choice": key, "eligible": vote["eligible"]}
-        record["choices"], record["votes"] = choices, votes
-    registry["processed"] = registry["processed"][-10000:]
+    """Migrate old votes to icon-only records and drop commercial observations."""
+    records={}
+    for old in registry["records"].values():
+        for user,vote in record_votes(old).items():
+            item=validate_product(vote["item"],0)
+            term=normalized(item["name_en"] or item["name"])
+            identifier=fingerprint(["term",term])[:32]
+            record=records.setdefault(identifier,{"identities":[],"term":term,"prices":{},"choices":{},"votes":{}})
+            key=fingerprint(item)
+            record["choices"][key]=item
+            record["votes"][user]={"choice":key,"eligible":vote["eligible"]}
+    registry["records"]=records
+    registry["revoked_prices"]=[]
+    registry["processed"]=registry["processed"][-10000:]
     return registry
 
 
@@ -211,6 +187,8 @@ def _accept_price(record, price, user, created, eligible, blocked, max_variation
 
 
 def restore_registry(previous, current):
+    previous=compact_registry(deepcopy(previous))
+    current=compact_registry(deepcopy(current))
     """Recover trusted observations and publish withdrawals for overwritten prices."""
     restored = deepcopy(previous)
     restored["last_submission"] = {user:max(previous["last_submission"].get(user, 0), current["last_submission"].get(user, 0))
@@ -235,6 +213,7 @@ def contribute(registry, payload, user_id, created, issue_id, *, banned=(), elig
     if created < registry["last_submission"].get(user, -DAY)+DAY:
         return False
     payload = validate_payload(payload, created)
+    compact_registry(registry)
     records = registry["records"]
     for item in payload["products"]:
         keys = identities(item)
@@ -260,6 +239,7 @@ def contribute(registry, payload, user_id, created, issue_id, *, banned=(), elig
 
 
 def compile_dictionary(registry, now, *, banned=(), icon_metadata=None):
+    registry=compact_registry(deepcopy(registry))
     blocked = set(map(str, banned))
     result = []
     revoked = set(registry.get("revoked_prices", []))
@@ -329,7 +309,8 @@ def validate_dictionary(data, now):
         or not isinstance(data.get("products"), list) or len(data["products"]) > 20000):
         raise ValueError("Diccionario comunitario no válido.")
     result = deepcopy(data)
-    revoked = result.get("revoked_prices", [])
+    result["revoked_prices"]=[]
+    revoked = []
     if not isinstance(revoked, list) or len(revoked) > 50000 or any(not isinstance(key, str) or not re.fullmatch(r"[a-f0-9]{64}", key) for key in revoked):
         raise ValueError("Revocaciones comunitarias no válidas.")
     seen = set()
@@ -342,13 +323,18 @@ def validate_dictionary(data, now):
         if not isinstance(terms,list) or len(terms)>100 or any(not isinstance(term,str) or not term.strip() or len(term)>160 for term in terms):
             raise ValueError("Términos comunitarios no válidos.")
         # Reuse strict validators; old prices are omitted rather than refreshed by a download.
-        item["prices"] = [p for p in item.get("prices", []) if type(p.get("checked_at")) in (int,float) and p["checked_at"] >= now-DAY]
+        item["prices"] = []
         raw = {key:item.get(key, [] if key in ("eans", "prices") else {} if key == "store_links" else "")
                for key in ("name", "name_en", "eans", "store_links", "nutriscore", "prices")}
         raw["name"] = raw["name"] or raw["name_en"] or "Producto"
         raw["icons"] = [icon["id"] for icon in item.get("icons", [])]
-        validate_product(raw, now)
-        allowed = {"name", "name_en", "eans", "nutriscore", *("store_links."+s for s in STORES)}
+        clean=validate_product(raw, now)
+        for field in ("eans","store_links","nutriscore","prices"):
+            item[field]=clean[field]
+        if not isinstance(item.get("confirmed_fields"),list):
+            raise ValueError("Confirmaciones comunitarias no válidas.")
+        item["confirmed_fields"]=[field for field in item["confirmed_fields"] if field in ("name","name_en")]
+        allowed = {"name", "name_en"}
         if not isinstance(item.get("confirmed_fields"), list) or set(item["confirmed_fields"])-allowed:
             raise ValueError("Confirmaciones comunitarias no válidas.")
         for icon in item.get("icons", []):

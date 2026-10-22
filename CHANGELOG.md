@@ -2,9 +2,12 @@
 
 ## Pendiente de publicación
 
-- Ajustes de tiendas mediante engranajes sin contador ni listados; Carrefour incorpora cabecera de cuenta y opciones independientes de historial anual, tickets automáticos pendientes de revisión y precios comunitarios para todo el catálogo.
+- El diccionario comunitario queda reservado a propuestas de iconos por nombres y traducciones; se retiran precios, EAN, referencias y Nutri-Score de envíos, cachés y publicaciones. Se elimina la opción de precios públicos de Carrefour.
+- Los precios de la integración proceden exclusivamente de tickets y facturas confirmados por el usuario; se cancelan las antiguas colas de proveedores públicos y se retiran sus precios de las vistas.
+
+- Ajustes de tiendas mediante engranajes sin contador ni listados; Carrefour incorpora cabecera de cuenta y opciones independientes de historial anual y tickets automáticos pendientes de revisión.
 - Los tickets automáticos solo se consultan tras completar productos en las listas, como máximo una vez por día; se conservan pendientes sin aplicar stock o precios. Los tickets revisados se muestran en verde y el gráfico mensual es más compacto.
-- Iconos comunitarios con términos alternativos; precios y referencias automáticos restringidos a EAN únicos coincidentes, evitando unir productos comerciales por nombre o referencia de tienda.
+- Iconos comunitarios con términos alternativos y propuestas de varias imágenes por producto.
 
 ## 0.31.0 — 2026-10-22
 

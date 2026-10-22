@@ -297,7 +297,7 @@ class ImprovedShoppingSettings extends HTMLElement {
       <section id="settings-community" class="card" aria-labelledby="settings-community-title" hidden>
         <h2 id="settings-community-title">Comunidad</h2>
         <div class="community-export">
-          <p id="community-description">El diccionario comunitario permite completar tu catálogo con nombres, traducciones, EAN, vinculaciones con tiendas, Nutri-Score, precios e iconos con licencia comprobable. Activa esta opción y autoriza GitHub para compartir automáticamente estos datos de todo tu catálogo una vez al día en el <a href="https://github.com/TitoTB/Improved-Shopping-List" target="_blank" rel="noopener noreferrer">repositorio de GitHub</a>. Las aportaciones son públicas, están asociadas a tu cuenta y se validan automáticamente. No se comparten listas, stock, etiquetas NFC ni automatizaciones.</p>
+          <p id="community-description">El diccionario comunitario propone iconos para tus productos. Activa esta opción y autoriza GitHub para compartir los nombres, traducciones e iconos con licencia comprobable de tu catálogo una vez al día en el <a href="https://github.com/TitoTB/Improved-Shopping-List" target="_blank" rel="noopener noreferrer">repositorio de GitHub</a>. Las aportaciones son públicas, están asociadas a tu cuenta y se validan automáticamente. No se comparten precios, EAN, referencias de tiendas, tickets, facturas, listas, stock ni automatizaciones.</p>
           <label class="primary community-action community-share"><input id="community-sharing" type="checkbox" aria-describedby="community-description"><span>Compartir mis datos de productos</span></label>
         </div>
         <div class="community-sharing">

@@ -29,7 +29,7 @@ class CommunitySync:
         self._store = Store(hass, 1, f"{DOMAIN}.community_account", private=True)
         self._cache = Store(hass, 1, f"{DOMAIN}.community_products")
         self._data = {"sharing": False, "credentials": {}, "last_download": 0, "last_upload": 0,
-                      "next_attempt": 0, "last_download_attempt":0, "next_upload_attempt": 0, "outbox": None, "account": ""}
+                      "next_attempt": 0, "last_download_attempt":0, "next_upload_attempt": 0, "outbox": None, "account": "", "content_scope":"icons"}
         self.dictionary = {"schema": SCHEMA, "reference_version": REFERENCE_VERSION, "generated_at": 0, "products": []}
         self._active = False
         self._lock = asyncio.Lock()
@@ -46,11 +46,15 @@ class CommunitySync:
         saved = await self._store.async_load()
         if isinstance(saved, dict):
             self._data.update({key:deepcopy(saved[key]) for key in self._data if key in saved})
+        if isinstance(saved,dict) and saved.get("content_scope")!="icons":
+            self._data["outbox"]=None
+            self._data["content_scope"]="icons"
+            await self._store.async_save(self._data)
         try:
             cached = await self._cache.async_load()
             if cached:
                 self.dictionary = validate_dictionary(cached, time.time())
-                await self.prices.async_apply_revocations(self.dictionary.get("revoked_prices", []))
+                await self._cache.async_save(self.dictionary)
         except (ValueError, TypeError, KeyError):
             pass
 
@@ -233,44 +237,17 @@ class CommunitySync:
         return deepcopy(matches[0]) if len(matches) == 1 else None
 
     def product_hint(self, code):
-        item = self.find(code=code)
-        if not item or "name" not in item["confirmed_fields"]:
-            return None
-        result = {"status": "found", "name": item["name"], "common_name": item["name"], "source": "community"}
-        if "nutriscore" in item["confirmed_fields"] and item["nutriscore"]:
-            result["nutriscore"] = {"grade": item["nutriscore"], "checked_at": self.dictionary["generated_at"], "source": "community"}
-        return result
-
-    def price(self, store, link, codes=()):
-        if not self._prices_enabled:
-            return None
-        wanted={ean(code) for code in codes}-{""}
-        for item in self.dictionary["products"]:
-            if len(item.get("eans",[]))!=1 or not wanted.intersection(item.get("eans", [])):
-                continue
-            for price in item["prices"]:
-                if (price["store"] == store and price["reference_id"] == link["id"] and price["checked_at"] >= time.time()-DAY
-                    and price_fingerprint(price) not in self.dictionary.get("revoked_prices", [])):
-                    return {**deepcopy(price), "store": store, "url": link["url"], "source": "community", "scope": scope(store), "ean":item["eans"][0]}
         return None
 
-    async def async_prepare_prices(self, *, daily=False):
-        """A store batch first consumes the daily dictionary, without uploading yet."""
-        if not self._prices_enabled or not (time.time() >= max(self._data["last_download"],self._data.get("last_download_attempt",0))+DAY if daily else self._download_due()):
-            return
-        await self.async_sync(upload=False)
+    def price(self, store, link, codes=()):
+        return None
 
-    @property
-    def _prices_enabled(self):
-        settings=getattr(self.prices,"settings",None)
-        return settings.snapshot.get("price_updates_enabled",True) if settings else True
+    async def async_prepare_prices(self, **_kwargs):
+        return
 
     @property
     def _period(self):
-        if getattr(self,"daily_public_prices",False):
-            return DAY
-        settings=getattr(self.prices,"settings",None)
-        return DAY*(settings.snapshot.get("price_update_days",1) if settings else 1)
+        return DAY
 
     def _download_due(self):
         attempt=self._data.get("last_download_attempt") or max(0,self._data["next_attempt"]-DAY)
@@ -301,42 +278,21 @@ class CommunitySync:
         return deepcopy(asset)
 
     def payload(self):
-        products = []
-        now = time.time()
+        products=[]
         for product in self.catalog.products:
-            borrowed = product.get("community_fields", {})
-            def local(field, value):
-                return borrowed.get(field) != fingerprint(value)
-            links = {store:link for store,link in product.get("store_links", {}).items() if local("store_links."+store, link)}
-            codes = sorted({ean(c) for c in [product.get("barcode", ""), *product.get("barcodes", [])] if ean(c)})
-            item = {"name": product["name"], "name_en": product.get("name_en", ""),
-                    "eans": codes, "store_links": links, "icons": [], "prices": [], "nutriscore": "",
-                    "borrowed_fields": [field for field, digest in borrowed.items()
-                        if field in ("name", "name_en") and digest == fingerprint(product.get(field, ""))]}
-            asset = self.icons._assets.get(product.get("image_url", ""), {})
+            borrowed=product.get("community_fields",{})
+            item={"name":product["name"],"name_en":product.get("name_en",""),"icons":[],
+                  "borrowed_fields":[field for field in ("name","name_en") if borrowed.get(field)==fingerprint(product.get(field,""))]}
+            asset=self.icons._assets.get(product.get("image_url",""),{})
             if asset:
-                item["icons"] = [asset["id"]] if ":" in asset.get("id", "") else []
+                item["icons"]=[asset["id"]] if ":" in asset.get("id","") else []
                 if asset.get("community_origin"):
                     item["borrowed_fields"].append("icons")
-            for code in codes:
-                hint = self.lookup.cached(code) or {}
-                if hint.get("source") != "community":
-                    item["nutriscore"] = (hint.get("nutriscore") or {}).get("grade", "")
-                    if item["nutriscore"]:
-                        break
-            for price in (self.prices.prices_for(product) if self._prices_enabled else []):
-                if (price.get("source") not in ("community", "receipt") and price.get("checked_at", 0) >= now-DAY
-                    and price["store"] in product.get("store_links", {})):
-                    # Include the reference needed to validate a fresh, independently fetched price.
-                    item["store_links"][price["store"]] = product["store_links"][price["store"]]
-                    if not local("store_links."+price["store"], product["store_links"][price["store"]]):
-                        item["borrowed_fields"].append("store_links."+price["store"])
-                    item["prices"].append({key:price[key] for key in ("store", "reference_id", "price", "currency", "checked_at")})
             try:
-                products.append(validate_product(item, now))
-            except (ValueError, TypeError):
+                products.append(validate_product(item,time.time()))
+            except (ValueError,TypeError):
                 continue
-        return {"schema": SCHEMA, "reference_version": REFERENCE_VERSION, "products": products}
+        return {"schema":SCHEMA,"reference_version":REFERENCE_VERSION,"products":products}
 
     async def _upload(self):
         if not self._data["sharing"] or not self._data["credentials"] or time.time() < self._data["last_upload"]+DAY:
@@ -376,7 +332,7 @@ class CommunitySync:
             # Consent sends the current catalog without waiting for a public download or store batch.
             download_due = not immediate_upload and self._download_due()
             upload_due = (upload and self._data["sharing"] and self._data["credentials"]
-                and (immediate_upload or not self.prices._data["pending"] and not self.prices._preparing)
+                and True
                 and time.time() >= max(self._data["last_upload"]+self._period, self._data["next_upload_attempt"]))
             if not download_due and not upload_due:
                 return
@@ -389,11 +345,8 @@ class CommunitySync:
                     data = validate_dictionary(await self._request("GET", DATA_URL, limit=16*1024*1024), time.time())
                     await self._cache.async_save(data)
                     self.dictionary = data
-                    await self.prices.async_apply_revocations(data.get("revoked_prices", []))
                     self._data["last_download"] = time.time()
                     await self._store.async_save(self._data)
-                    await self.catalog.async_apply_community(self)
-                self.prices._notify()
                 if upload_due:
                     # Multipart retries resume the same issue; they never create a second daily batch.
                     self._data["next_upload_attempt"] = time.time()+(900 if self._data["outbox"] else DAY)

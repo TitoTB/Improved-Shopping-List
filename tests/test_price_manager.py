@@ -1,443 +1,51 @@
-"""Daily selection, durable pacing, cache retention and direct reference lookups."""
-
+"""Receipt-only prices and retained source-format/link validation."""
 from copy import deepcopy
+
+
 import asyncio
+
+
 from datetime import datetime, timezone
+
+
 from types import SimpleNamespace
+
+
 from unittest.mock import AsyncMock, Mock
 
+
 import pytest
+
+
 from homeassistant.core import SupportsResponse
+
+
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
+
 from custom_components.improved_shopping_list.const import DOMAIN, CONF_TODO_ENTITY, CONF_TODO_ENTITIES
+
+
 from custom_components.improved_shopping_list.list_settings import ListSettings
+
+
 from custom_components.improved_shopping_list.store_location import reference_location
+
+
 from custom_components.improved_shopping_list.price_manager import PriceManager, StorePriceView
+
+
 from custom_components.improved_shopping_list.price_sources import PriceError, PriceSources, carrefour_offer
+
+
 from custom_components.improved_shopping_list.store_links import normalize_link, normalize_links
+
+
 from custom_components.improved_shopping_list import price_manager as module
 
 
 def product(name="Arroz", identifier="24097", store="alcampo"):
     return {"id":name, "name":name,"barcode":"", "barcodes":[], "store_links":{store:normalize_link(store, identifier)}}
-
-
-async def test_frequency_survives_restart_and_skips_intermediate_days(env):
-    env.settings.snapshot["price_update_days"]=3
-    await env.manager.async_tick()
-    assert len(env.requests)==1
-    env.clock[0]+=86400
-    await env.manager.async_tick()
-    assert len(env.requests)==1
-    restored=PriceManager(env.manager.hass,env.catalog,env.settings,env.manager.activity)
-    await restored.async_load();restored._active=True
-    restored.sources.fetch=env.manager.sources.fetch
-    try:
-        env.clock[0]+=86400
-        await restored.async_tick();assert len(env.requests)==1
-        env.clock[0]+=86400
-        await restored.async_tick();assert len(env.requests)==2
-    finally:await restored.async_stop()
-
-
-async def test_random_late_hour_recovers_once_after_midnight(env):
-    env.settings.snapshot["price_update_time"]="23:50"
-    env.clock[0]=datetime(2026,10,21,0,10,tzinfo=timezone.utc).timestamp()
-    await env.manager.async_tick()
-    assert len(env.requests)==1 and env.manager._data["day"]=="2026-10-20"
-    env.clock[0]+=60
-    await env.manager.async_tick()
-    assert len(env.requests)==1
-
-
-async def test_disabling_prices_hides_cache_stops_queue_and_blocks_manual_refresh(env):
-    await env.manager.async_tick()
-    cached=deepcopy(env.manager._data["offers"])
-    assert env.manager.prices_for(env.catalog.products[0])
-    await env.manager.async_refresh_store("alcampo")
-    env.settings.snapshot["price_updates_enabled"]=False
-    await env.manager.async_tick()
-    assert env.manager.prices_for(env.catalog.products[0]) == []
-    assert env.manager.snapshot("alcampo")["products"] == []
-    assert not env.manager._data["pending"] and len(env.requests)==1
-    with pytest.raises(ValueError):await env.manager.async_refresh_all()
-    with pytest.raises(ValueError):await env.manager.async_refresh_store("alcampo")
-    assert env.manager._data["offers"]==cached
-    env.settings.snapshot["price_updates_enabled"]=True
-    assert env.manager.prices_for(env.catalog.products[0])
-
-
-@pytest.fixture
-async def env(hass, monkeypatch):
-    clock = [datetime(2026, 10, 20, 1, 0, tzinfo=timezone.utc).timestamp()]
-    monkeypatch.setattr(module, "time", SimpleNamespace(time=lambda:clock[0]))
-    monkeypatch.setattr(module, "dt_util", SimpleNamespace(now=lambda:datetime.fromtimestamp(clock[0], timezone.utc)))
-    hass.data[DOMAIN] = {"active":True}
-    config = {"entities":["todo.one","todo.two"], "price_update_time":"01:00", "stores":{
-        "mercadona":{"enabled":True,"warehouse":"mad3"}, "carrefour":{"enabled":True}, "alcampo":{"enabled":True,"region_id":""}}}
-    settings = SimpleNamespace(snapshot=config, entry=object(), _generation=1)
-    catalog = SimpleNamespace(products=[product(),product("Café","1234"),product("Otro","5678")])
-    activity = SimpleNamespace(record=Mock())
-    async def durable(kind,message,*,entry_id,**fields):
-        activity.record(kind,message,**fields)
-        return True
-    activity.async_record_durable = AsyncMock(side_effect=durable)
-    manager = PriceManager(hass,catalog,settings,activity)
-    await manager.async_load()
-    manager._active = True
-    state = SimpleNamespace(manager=manager, clock=clock, settings=settings, catalog=catalog,
-        items={"todo.one":[{"summary":"ARROZ","status":"needs_action"},{"summary":"Café","status":"completed"}],
-               "todo.two":[{"summary":"arroz","status":"needs_action"}]}, requests=[])
-    for entity in config["entities"]:
-        hass.states.async_set(entity, "1")
-    async def get_items(call):
-        return {call.data["entity_id"]:{"items":deepcopy(state.items[call.data["entity_id"]])}}
-    hass.services.async_register("todo","get_items",get_items,supports_response=SupportsResponse.ONLY)
-    async def fetch(store,link,config,before_request):
-        await before_request()
-        state.requests.append((store,link["id"],clock[0]))
-        return {"store":store,"reference_id":link["id"],"url":link["url"],"store_name":"Arroz 500 g", "price":"1.05","currency":"EUR","ean":"3596710387427"}
-    manager.sources.fetch = AsyncMock(side_effect=fetch)
-    yield state
-    await manager.async_stop()
-
-
-@pytest.mark.parametrize(("store","config","identifier"),[
-    ("consum",{"enabled":True,"postal_code":"46409","area_id":"301D","zone":"301"},"7394260"),
-    ("lasirena",{"enabled":True,"postal_code":"28024","area_id":"lasirena259"},"655"),
-    ("dia",{"enabled":True,"postal_code":"28024","area_id":"28024","zone":"28024"},"84892"),
-    ("eroski",{"enabled":True,"postal_code":"48001","area_id":"f7e80707-fd7a-437c-b451-698301f2cf77","zone":"244"},
-     "https://supermercado.eroski.es/es/productdetail/17528126-aceite/")])
-async def test_regional_stores_only_queue_pending_and_keep_disabled_cache(env,store,config,identifier):
-    env.settings.snapshot["stores"][store]=config
-    other = identifier.replace("17528126", "24791428") if store == "eroski" else "1234"
-    env.catalog.products=[product("Arroz",identifier,store),product("Café",other,store)]
-    await env.manager.async_tick()
-    assert [(s,i) for s,i,_ in env.requests]==[(store,normalize_link(store,identifier)["id"])]
-    saved=env.manager.prices_for(env.catalog.products[0])
-    assert len(saved)==1 and saved[0]["scope"]==f"{config['postal_code']}:{config['area_id']}"
-    config["enabled"]=False
-    assert env.manager.prices_for(env.catalog.products[0])==saved
-    config["area_id"]="302D" if store=="consum" else "lasirena102"
-    assert env.manager.prices_for(env.catalog.products[0])==[]
-
-
-async def test_fixed_reference_migration_retains_old_scope_and_fetches_only_pending_links(env, hass):
-    # Save an offer with the old Alcampo scope before migrating user locations.
-    await env.manager.async_tick()
-    previous = deepcopy(env.manager._data["offers"])
-    entry = MockConfigEntry(domain=DOMAIN, data={CONF_TODO_ENTITY: "todo.one"}, options={
-        CONF_TODO_ENTITIES: ["todo.one", "todo.two"], "store_postal_code": "46001",
-        "stores": {"alcampo": {"enabled": True, "region_id": ""}},
-    })
-    entry.add_to_hass(hass)
-    settings = ListSettings(hass)
-    settings.attach(entry)
-    env.manager.settings = settings
-    assert env.manager._data["offers"] == previous
-    assert env.manager.prices_for(env.catalog.products[0]) == []
-    env.clock[0] += 300
-    env.manager._queue = Mock()
-    await env.manager.async_refresh_all()
-    await env.manager.async_tick()
-    config = env.manager.sources.fetch.await_args.args[2]
-    assert config == {"enabled": True, **reference_location("alcampo")}
-    assert [reference for _, reference, _ in env.requests] == ["24097", "24097"]
-    assert all(env.manager._data["offers"][key] == offer for key, offer in previous.items())
-    saved = env.manager.prices_for(env.catalog.products[0])
-    assert len(saved) == 1 and saved[0]["scope"] == reference_location("alcampo")["region_id"]
-
-
-@pytest.mark.parametrize("manual", [True, False])
-@pytest.mark.parametrize(("store","postal","area","zone","identifier"), [
-    ("consum","46409","301D","301","7394260"),
-    ("eroski","48001","f7e80707-fd7a-437c-b451-698301f2cf77","244",
-        "https://supermercado.eroski.es/es/productdetail/17528126-aceite/"),
-])
-async def test_refresh_repairs_missing_default_location(env, manual, store, postal, area, zone, identifier):
-    env.settings.snapshot["stores"][store] = {"enabled":True}
-    env.catalog.products = [product("Arroz",identifier,store)]
-    async def resolve(key):
-        assert key == store
-        config = {"enabled":True,"postal_code":postal,"area_id":area,"zone":zone,"location_error":""}
-        env.settings.snapshot["stores"][store] = config
-        return config
-    env.settings.async_ensure_store_location = AsyncMock(side_effect=resolve)
-    if manual:
-        result = await env.manager.async_refresh_store(store)
-        assert result["queued"] == 1
-    await env.manager.async_tick()
-    env.settings.async_ensure_store_location.assert_awaited_once_with(store)
-    assert [(key,code) for key,code,_ in env.requests] == [(store,normalize_link(store,identifier)["id"])]
-    assert env.manager.prices_for(env.catalog.products[0])[0]["scope"] == f"{postal}:{area}"
-
-
-async def test_default_location_discovery_failure_does_not_request_prices(env):
-    env.settings.snapshot["stores"]["consum"] = {"enabled":True}
-    env.catalog.products = [product("Arroz","7394260","consum")]
-    async def resolve(store):
-        config = {"enabled":True,"location_error":"HTTP 503 al consultar centros"}
-        env.settings.snapshot["stores"][store] = config
-        return config
-    env.settings.async_ensure_store_location = AsyncMock(side_effect=resolve)
-    with pytest.raises(ValueError, match="HTTP 503"):
-        await env.manager.async_refresh_store("consum")
-    await env.manager.async_tick()
-    assert env.requests == []
-    assert "HTTP 503" in env.manager._data["errors"]["consum"]
-
-
-async def test_retired_provider_cache_and_queue_migrate_without_touching_other_prices(env,hass):
-    await env.manager.async_tick()
-    kept = deepcopy(env.manager._data["offers"])
-    data = env.manager._data
-    data["offers"]["lidl:28:11107037"] = {"store":"lidl","price":"2.89"}
-    data["attempts"]["lidl:28:11107037"] = "2026-10-20"
-    data["legacy_ean"]["lidl:0012345"] = {"store":"lidl","price":"2.89"}
-    data["errors"].update(lidl="Old failure",carrefour="Preserved failure")
-    data["blocked_until"]["lidl"] = env.clock[0]+3600
-    data["blocked_day"]["lidl"] = "2026-10-20"
-    other_job = {"store":"alcampo","link":normalize_link("alcampo","1234"),"scope":""}
-    data.update(pending=[{"store":"lidl","link":{"id":"11107037"},"scope":"28"},other_job],total=3,processed=1)
-    await env.manager._save()
-    restored = PriceManager(hass,env.catalog,env.settings,env.manager.activity)
-    await restored.async_load()
-    assert restored._data["offers"] == kept
-    assert restored._data["pending"] == [other_job]
-    assert restored._data["processed"] == 2 and restored._data["total"] == 3
-    assert restored._data["errors"] == {"carrefour":"Preserved failure"}
-    for name in ("offers","attempts","legacy_ean","errors","blocked_day","blocked_until"):
-        assert not any(key.startswith("lidl") for key in restored._data[name])
-    assert len(env.requests) == 1  # Loading/migrating does not make requests.
-    stored = await restored._store.async_load()
-    assert stored["pending"] == [other_job]
-
-
-async def test_pending_union_deduplicates_and_reads_do_not_fetch(env):
-    view = StorePriceView(env.manager, "alcampo")
-    await view.async_refresh(force=True)
-    assert env.requests == []
-    await env.manager.async_tick()
-    assert len(env.requests) == 1
-    assert env.manager._data["total"] == 1
-    assert env.manager.snapshot("alcampo")["products"][0]["price"] == "1.05"
-    assert env.catalog.products[0]["barcode"] == ""  # Store metadata does not reassign scanner codes.
-    await env.manager.async_tick()
-    assert len(env.requests) == 1
-
-
-async def test_fresh_community_price_avoids_store_http_and_keeps_original_age(env):
-    env.catalog.products[0]["barcode"]="1234567890128"
-    original = env.clock[0]-3600
-    shared = {"store":"alcampo", "reference_id":"24097", "url":normalize_link("alcampo","24097")["url"],
-        "price":"1.99", "currency":"EUR", "checked_at":original, "source":"community", "ean":"01234567890128"}
-    env.manager.community = SimpleNamespace(price=lambda store,link,codes=():deepcopy(shared) if store=="alcampo" and link["id"]=="24097" else None,
-        async_prepare_prices=AsyncMock())
-    env.manager.sources.fetch = AsyncMock(side_effect=AssertionError("No store request for a fresh shared price"))
-    await env.manager.async_tick()
-    env.manager.sources.fetch.assert_not_awaited()
-    saved = env.manager.prices_for(env.catalog.products[0])[0]
-    assert saved["price"]=="1.99" and saved["checked_at"]==original and saved["source"]=="community"
-
-
-async def test_revoked_community_price_restores_previous_direct_observation(env):
-    from custom_components.improved_shopping_list.community_data import price_fingerprint
-    await env.manager.async_tick()
-    key = next(iter(env.manager._data["offers"]))
-    direct = deepcopy(env.manager._data["offers"][key])
-    bad = {**direct, "source":"community", "price":"99.00"}
-    env.manager._data["offer_history"][key] = [direct]
-    env.manager._data["offers"][key] = bad
-    await env.manager.async_apply_revocations([price_fingerprint(bad)])
-    assert env.manager._data["offers"][key] == direct
-    assert (await env.manager._store.async_load())["offers"][key] == direct
-    await env.manager.async_apply_revocations([price_fingerprint(direct)])
-    assert env.manager._data["offers"][key] == direct  # Local store observations are not withdrawn remotely.
-
-
-async def test_daily_run_with_no_enabled_stores_does_not_read_lists_or_log_a_queue(env):
-    for configuration in env.settings.snapshot["stores"].values():
-        configuration["enabled"] = False
-    env.manager.pending_names = AsyncMock(side_effect=AssertionError("No list read expected"))
-    await env.manager.async_tick()
-    assert env.requests == [] and env.manager._data["pending"] == []
-    env.manager.activity.record.assert_not_called()
-
-
-async def test_last_price_remains_when_bought_and_failure_does_not_overwrite(env):
-    assert env.manager.progress["last_updated"] == 0
-    await env.manager.async_tick()
-    updated = env.manager.progress["last_updated"]
-    assert updated == env.clock[0]
-    old = deepcopy(env.manager._data["offers"])
-    env.items["todo.one"] = env.items["todo.two"] = []
-    env.clock[0] += 86400
-    await env.manager.async_tick()
-    assert len(env.requests) == 1
-    assert env.manager._data["offers"] == old
-    assert env.manager.prices_for(env.catalog.products[0])[0]["price"] == "1.05"
-    env.clock[0] += 86400
-    env.items["todo.one"] = [{"summary":"Arroz","status":"needs_action"}]
-    env.manager.sources.fetch.side_effect = PriceError("Bloqueado HTTP 403",http_status=403)
-    await env.manager.async_tick()
-    assert env.manager._data["offers"] == old
-    assert "403" in env.manager.snapshot("alcampo")["error"]
-    assert "403" in env.manager.progress["errors"]["alcampo"]
-    assert env.manager.progress["last_updated"] == updated
-
-
-async def test_five_minutes_persist_after_restart_and_skip_removed_items(env, hass):
-    env.items["todo.one"].append({"summary":"Café","status":"needs_action"})
-    await env.manager.async_tick()
-    assert len(env.requests) == 1 and len(env.manager._data["pending"]) == 1
-    restored = PriceManager(hass,env.catalog,env.settings,env.manager.activity)
-    await restored.async_load()
-    restored._active = True
-    restored.sources = env.manager.sources
-    env.clock[0] += 299
-    await restored.async_tick()
-    assert len(env.requests) == 1
-    env.items["todo.one"] = env.items["todo.two"] = []
-    env.clock[0] += 1
-    await restored.async_tick()
-    assert len(env.requests) == 1 and restored._data["pending"] == []
-
-
-async def test_no_daytime_first_run_and_daily_configurable_start(env):
-    env.clock[0] += 12*3600
-    await env.manager.async_tick()
-    assert env.requests == []
-    env.settings.snapshot["price_update_time"] = "13:00"
-    await env.manager.async_tick()
-    assert len(env.requests) == 1
-    env.settings.snapshot["price_update_time"] = "13:10"
-    env.clock[0] += 600
-    await env.manager.async_tick()
-    assert len(env.requests) == 1
-
-
-async def test_manual_daytime_run_only_pending_selected_store_and_shared_pacing(env):
-    env.manager._queue = Mock()
-    env.clock[0] += 12*3600
-    env.items["todo.one"].append({"summary":"Café","status":"needs_action"})
-    env.catalog.products.append(product("Arroz","69938","mercadona"))
-    result = await env.manager.async_refresh_store("alcampo")
-    assert result["queued"] == 2 and not env.requests
-    await env.manager.async_tick()
-    assert len(env.requests) == 1
-    # Clicking again while the remaining references wait does not requeue the first.
-    await env.manager.async_refresh_store("alcampo")
-    assert len(env.manager._data["pending"]) == 1
-    env.clock[0] += 299
-    await env.manager.async_tick()
-    assert len(env.requests) == 1
-    env.clock[0] += 1
-    await env.manager.async_tick()
-    assert len(env.requests) == 2 and all(request[0] == "alcampo" for request in env.requests)
-    assert env.manager.activity.record.call_args.kwargs["source"] == "manual"
-
-
-async def test_manual_can_repeat_today_but_preserves_five_minute_wait(env):
-    env.manager._queue = Mock()
-    await env.manager.async_tick()
-    assert len(env.requests) == 1
-    await env.manager.async_refresh_store("alcampo")
-    await env.manager.async_tick()
-    assert len(env.requests) == 1
-    env.clock[0] += 300
-    await env.manager.async_tick()
-    assert len(env.requests) == 2
-
-
-async def test_manual_skips_bought_during_wait_and_keeps_last_price(env):
-    env.manager._queue = Mock()
-    await env.manager.async_tick()
-    old = deepcopy(env.manager._data["offers"])
-    await env.manager.async_refresh_store("alcampo")
-    env.items["todo.one"] = env.items["todo.two"] = []
-    env.clock[0] += 300
-    await env.manager.async_tick()
-    assert len(env.requests) == 1 and env.manager._data["offers"] == old
-    assert not env.manager._data["pending"]
-
-
-async def test_manual_rejects_disabled_unavailable_lists_and_server_wait(env,hass):
-    env.manager._queue = Mock()
-    env.settings.snapshot["stores"]["alcampo"]["enabled"] = False
-    with pytest.raises(ValueError,match="Habilita"):
-        await env.manager.async_refresh_store("alcampo")
-    env.settings.snapshot["stores"]["alcampo"]["enabled"] = True
-    hass.states.async_set("todo.one","unavailable")
-    with pytest.raises(ValueError,match="listas"):
-        await env.manager.async_refresh_store("alcampo")
-    hass.states.async_set("todo.one","0")
-    env.manager._data["blocked_until"]["alcampo"] = env.clock[0]+600
-    with pytest.raises(ValueError,match="pausa"):
-        await env.manager.async_refresh_store("alcampo")
-    assert not env.requests
-
-
-async def test_manual_reserved_request_not_replayed_after_restart(env,hass):
-    env.manager._queue = Mock()
-    env.clock[0] += 12*3600
-    await env.manager.async_refresh_store("alcampo")
-    job = env.manager._data["pending"][0]
-    job["reserved"] = True  # Crash after durable reservation, before reply.
-    await env.manager._save()
-    restored = PriceManager(hass,env.catalog,env.settings,env.manager.activity)
-    await restored.async_load()
-    restored._active = True
-    restored.sources = env.manager.sources
-    await restored.async_tick()
-    assert not env.requests and not restored._data["pending"]
-
-
-async def test_unavailable_list_does_not_block_known_pending_from_other_list(env,hass):
-    hass.states.async_set("todo.one", "unavailable")
-    await env.manager.async_tick()
-    assert len(env.requests) == 1
-
-
-async def test_lists_can_finish_starting_during_the_nightly_window(env,hass):
-    for entity in env.settings.snapshot["entities"]:
-        hass.states.async_set(entity,"unavailable")
-    await env.manager.async_tick()
-    assert not env.requests
-    env.clock[0] += 300
-    for entity in env.settings.snapshot["entities"]:
-        hass.states.async_set(entity,"1")
-    await env.manager.async_tick()
-    assert len(env.requests) == 1
-
-
-async def test_blocked_store_stops_but_other_store_continues(env):
-    env.catalog.products = [product("Arroz"), product("Segundo","1234"), product("Tomate","69938","mercadona")]
-    env.items["todo.one"] = [{"summary":p["name"],"status":"needs_action"} for p in env.catalog.products]
-    original = env.manager.sources.fetch.side_effect
-    async def fetch(store,link,config,before_request):
-        if store == "alcampo":
-            await before_request()
-            raise PriceError("Alcampo HTTP 403",http_status=403)
-        return await original(store,link,config,before_request)
-    env.manager.sources.fetch.side_effect = fetch
-    await env.manager.async_tick()
-    assert env.requests == []
-    env.clock[0] += 300
-    await env.manager.async_tick()
-    assert len(env.requests) == 1 and env.requests[0][0] == "mercadona"
-    assert not env.manager._data["pending"]
-
-
-async def test_late_reply_after_binding_change_is_not_attached(env):
-    original = env.manager.sources.fetch.side_effect
-    async def fetch(*args):
-        result = await original(*args)
-        env.catalog.products[0]["store_links"] = {"alcampo":normalize_link("alcampo","1234")}
-        return result
-    env.manager.sources.fetch.side_effect = fetch
-    await env.manager.async_tick()
-    assert not env.manager._data["offers"]
 
 
 @pytest.mark.parametrize("store,value,identifier",[
@@ -585,22 +193,6 @@ async def test_carrefour_api_uses_center_without_session_and_validates_result(ha
     before.assert_awaited_once()
 
 
-async def test_carrefour_centers_keep_independent_cached_prices(env):
-    env.manager._queue = Mock()
-    env.catalog.products = [product("Arroz","R-VC4AECOMM-491998","carrefour")]
-    env.settings.snapshot["stores"]["carrefour"]["sale_point"] = "005290"
-    await env.manager.async_tick()
-    assert env.manager.prices_for(env.catalog.products[0])
-    env.settings.snapshot["stores"]["carrefour"]["sale_point"] = "123456"
-    assert not env.manager.prices_for(env.catalog.products[0])
-    assert env.manager._data["offers"]  # The former center's prices remain stored.
-    await env.manager.async_refresh_store("carrefour")
-    env.clock[0] += 300
-    await env.manager.async_tick()
-    assert env.manager.prices_for(env.catalog.products[0])[0]["scope"] == "123456"
-    assert len(env.manager._data["offers"]) == 2
-
-
 async def test_mercadona_reference_does_not_require_ean(hass,aioclient_mock):
     source = PriceSources(hass)
     aioclient_mock.get("https://tienda.mercadona.es/api/products/69938/?lang=es&wh=mad3",json={
@@ -625,205 +217,31 @@ async def test_bindings_persist_and_old_clients_do_not_erase_them(hass):
         await catalog.async_save_product({"name":"Error","store_links":{"alcampo":"https://localhost/products/a/1"}})
 
 
-async def test_manual_update_does_not_resolve_unused_stores(env):
-    env.manager._queue=Mock()
-    env.settings.snapshot["stores"]["consum"]={"enabled":True,"location_error":"Sin cobertura"}
-    env.settings.async_ensure_store_location=AsyncMock(side_effect=AssertionError("No location lookup expected"))
-    result=await env.manager.async_refresh_store("consum")
-    assert result["queued"]==0
-    env.settings.async_ensure_store_location.assert_not_awaited()
-    env.manager.activity.record.assert_not_called()
+
+async def test_only_confirmed_receipt_prices_are_exposed_and_no_providers_are_contacted(hass,aioclient_mock):
+    catalog=SimpleNamespace(products=[product()])
+    settings=SimpleNamespace(snapshot={"stores":{},"price_updates_enabled":True,"price_update_time":"01:00"})
+    manager=PriceManager(hass,catalog,settings,None)
+    manager._data["offers"]={"retired":{"price":"999.00","source":"community"}}
+    manager._data["legacy_ean"]={"retired":{"price":"99.00","source":"legacy_feed"}}
+    assert manager.prices_for(catalog.products[0])==[]
+    receipt={"store":"carrefour","price":2.65,"source":"receipt","checked_at":123}
+    manager.receipts=SimpleNamespace(offers_for=lambda _product:[receipt,{"price":99,"source":"community"}])
+    assert [offer["price"] for offer in manager.prices_for(catalog.products[0])]==[2.65]
+    manager.start()
+    await manager.async_tick();await manager.async_refresh_all();await manager.async_refresh_store("carrefour")
+    assert aioclient_mock.call_count==0 and not manager.progress["running"]
+    await manager.async_stop()
+    settings.snapshot["price_updates_enabled"]=False
+    assert manager.prices_for(catalog.products[0])==[]
 
 
-async def test_one_final_log_groups_all_stores_and_survives_restart(env,hass):
-    env.manager._queue=Mock();env.clock[0]+=12*3600
-    env.catalog.products=[product("Arroz","24097","alcampo"),product("Arroz","R-prod310215","carrefour")]
-    result=await env.manager.async_refresh_all()
-    assert result=={"queued":2,"errors":[]}
-    env.manager.activity.record.assert_not_called()
-    await env.manager.async_tick()
-    assert len(env.requests)==1
-    env.manager.activity.record.assert_not_called()
-    restored=PriceManager(hass,env.catalog,env.settings,env.manager.activity)
-    await restored.async_load();restored._active=True;restored.sources=env.manager.sources
-    env.clock[0]+=300
-    await restored.async_tick()
-    assert len(env.requests)==2
-    env.manager.activity.record.assert_called_once()
-    entry=env.manager.activity.record.call_args
-    assert entry.args[0]=="stores.summary" and entry.kwargs["source"]=="manual"
-    details=entry.kwargs["diagnostics"]
-    assert details["totals"]["updated"]==2 and details["totals"]["http_requests"]==2
-    assert set(details["stores"])=={"alcampo","carrefour"}
-    assert details["stores"]["carrefour"]["totals"]["updated"]==1
-    assert any(event["diagnostics"].get("reference_id")=="R-prod310215" for event in details["events"])
-    assert details["elapsed_seconds"]==300
-    await restored.async_tick();env.manager.activity.record.assert_called_once()
-    await restored.async_stop()
-
-
-async def test_preparation_errors_are_aggregated_with_other_stores_results(env):
-    env.manager._queue=Mock();env.clock[0]+=12*3600
-    env.settings.snapshot["stores"]["consum"]={"enabled":True}
-    env.catalog.products=[product("Arroz","24097","alcampo"),product("Arroz","7394260","consum")]
-    async def resolve(store):
-        config={"enabled":True,"postal_code":"28024","location_error":"Consum no ofrece entrega para el código postal 28024.",
-            "location_diagnostics":{"response_class":"no_coverage","postal_code":"28024"}}
-        env.settings.snapshot["stores"][store]=config
-        return config
-    env.settings.async_ensure_store_location=AsyncMock(side_effect=resolve)
-    result=await env.manager.async_refresh_all()
-    assert result["queued"]==1 and len(result["errors"])==1
-    assert result["errors"][0]["error"]=="Consum: no ofrece entrega para el código postal 28024."
-    env.manager.activity.record.assert_not_called()
-    await env.manager.async_tick()
-    env.manager.activity.record.assert_called_once()
-    details=env.manager.activity.record.call_args.kwargs["diagnostics"]
-    assert details["totals"]["errors"]==1 and details["totals"]["updated"]==1
-    assert any(event["diagnostics"].get("response_class")=="no_coverage" for event in details["events"])
-    assert details["stores"]["consum"]["reference_postal_code"]=="28024"
-
-
-async def test_manual_retry_revalidates_a_cached_location_error(env):
-    env.manager._queue=Mock()
-    config={"enabled":True,"postal_code":"28024","area_id":"f7e80707-fd7a-437c-b451-698301f2cf77", "zone":"244","location_error":"Eroski: consulta rechazada (HTTP 403)."}
-    env.settings.snapshot["stores"]["eroski"]=config
-    env.catalog.products=[product("Arroz","https://supermercado.eroski.es/es/productdetail/17528126-aceite/","eroski")]
-    async def resolve(store):
-        env.settings.snapshot["stores"][store]={**config,"location_error":""}
-        return env.settings.snapshot["stores"][store]
-    env.settings.async_ensure_store_location=AsyncMock(side_effect=resolve)
-    assert (await env.manager.async_refresh_store("eroski"))["queued"]==1
-    env.settings.async_ensure_store_location.assert_awaited_once_with("eroski")
-
-
-async def test_failed_all_store_preparation_produces_one_summary(env):
-    env.manager._queue=Mock();env.clock[0]+=12*3600
-    env.catalog.products=[product("Arroz","7394260","consum"),product("Arroz","84892","dia")]
-    env.settings.snapshot["stores"]={"consum":{"enabled":True},"dia":{"enabled":True}}
-    async def resolve(store):
-        value={"enabled":True,"location_error":"HTTP 403","location_diagnostics":{"http_status":403,"endpoint":"/coverage"}}
-        env.settings.snapshot["stores"][store]=value
-        return value
-    env.settings.async_ensure_store_location=AsyncMock(side_effect=resolve)
-    result=await env.manager.async_refresh_all()
-    assert result["queued"]==0 and len(result["errors"])==2
-    env.manager.activity.record.assert_called_once()
-    details=env.manager.activity.record.call_args.kwargs["diagnostics"]
-    assert details["totals"]["errors"]==2
-    assert all(event["diagnostics"]["http_status"]==403 for event in details["events"])
-
-
-async def test_final_log_retries_after_storage_failure_and_restart(env,hass):
-    env.manager._queue=Mock();env.clock[0]+=12*3600
-    await env.manager.async_refresh_all()
-    env.manager.activity.async_record_durable.side_effect=OSError("log disk")
-    with pytest.raises(OSError):await env.manager.async_tick()
-    assert not env.manager._data["pending"] and env.manager.progress["log_pending"]
-    assert env.manager.progress["finished_at"] is not None
-    sent=len(env.requests)
-    restored=PriceManager(hass,env.catalog,env.settings,env.manager.activity)
-    await restored.async_load();restored._active=True;restored.sources=env.manager.sources
-    env.manager.activity.async_record_durable.side_effect=None
-    env.manager.activity.async_record_durable.return_value=True
-    await restored.async_tick()
-    assert len(env.requests)==sent and not restored.progress["log_pending"]
-    assert restored._data["batch"]["logged"] is True
-    await restored.async_stop()
-
-
-async def test_final_log_is_replayed_if_price_acknowledgement_fails(env,monkeypatch):
-    env.manager._queue=Mock();env.clock[0]+=12*3600
-    await env.manager.async_refresh_all()
-    persist=env.manager._store.async_save
-    published=[]
-    async def durable(kind,message,*,entry_id,**fields):
-        published.append(entry_id)
-        monkeypatch.setattr(env.manager._store,"async_save",AsyncMock(side_effect=OSError("ack disk")))
-        return True
-    env.manager.activity.async_record_durable.side_effect=durable
-    with pytest.raises(OSError):await env.manager.async_tick()
-    assert len(published)==1 and env.manager.progress["log_pending"]
-    monkeypatch.setattr(env.manager._store,"async_save",persist)
-    async def retry(kind,message,*,entry_id,**fields):
-        assert entry_id==published[0]
-        return True
-    env.manager.activity.async_record_durable.side_effect=retry
-    await env.manager.async_tick()
-    assert len(env.requests)==1 and not env.manager.progress["log_pending"]
-
-
-async def test_blocked_remaining_references_finish_immediately_without_waiting_interval(env):
-    env.manager._queue=Mock();env.clock[0]+=12*3600
-    env.catalog.products=[product("Arroz"),product("Segundo","1234")]
-    env.items["todo.one"]=[{"summary":p["name"],"status":"needs_action"} for p in env.catalog.products]
-    async def rejected(store,link,config,before_request):
-        await before_request()
-        raise PriceError("Alcampo: consulta rechazada (HTTP 403).",http_status=403,response_class="access_denied")
-    env.manager.sources.fetch.side_effect=rejected
-    await env.manager.async_refresh_all();await env.manager.async_tick()
-    assert env.manager.progress["processed"]==2 and not env.manager.progress["running"]
-    assert env.manager._data["next_request"]>env.clock[0]
-    env.manager.activity.record.assert_called_once()
-    assert env.manager.activity.record.call_args.kwargs["diagnostics"]["totals"]["skipped"]==1
-
-
-async def test_refresh_all_resumes_existing_run_without_changing_queue_or_timer(env):
-    env.manager._queue=Mock();env.clock[0]+=12*3600
-    await env.manager.async_refresh_all()
-    before=deepcopy(env.manager._data)
-    env.manager.pending_names=AsyncMock(side_effect=AssertionError("No list reread on resume"))
-    result=await env.manager.async_refresh_all()
-    assert result["resumed"] and result["progress"]["batch_id"]==before["batch"]["id"]
-    assert result["progress"]["running"] and env.manager._data==before
-    env.manager.pending_names.assert_not_awaited()
-
-
-async def test_refresh_all_resumes_during_preparation_without_creating_another_batch(env):
-    env.manager._begin_batch("automatic");env.manager._preparing=1
-    before=deepcopy(env.manager._data)
-    try:
-        result=await env.manager.async_refresh_all()
-        assert result["resumed"] and result["progress"]["phase"]=="preparing"
-        assert result["progress"]["running"] and env.manager._data==before
-    finally:
-        env.manager._preparing=0
-
-
-async def test_refresh_all_can_reopen_progress_while_http_request_holds_queue_lock(env):
-    env.manager._queue=Mock();env.clock[0]+=12*3600
-    await env.manager.async_refresh_all()
-    original=env.manager.sources.fetch.side_effect
-    entered,resume=asyncio.Event(),asyncio.Event()
-    async def slow(store,link,config,before_request):
-        entered.set();await resume.wait()
-        return await original(store,link,config,before_request)
-    env.manager.sources.fetch.side_effect=slow
-    task=asyncio.create_task(env.manager.async_tick())
-    try:
-        await entered.wait()
-        batch=env.manager._data["batch"]["id"]
-        async with asyncio.timeout(1):
-            result=await env.manager.async_refresh_all()
-        assert result["resumed"] and result["progress"]["batch_id"]==batch
-        assert result["progress"]["running"] and not env.requests
-    finally:
-        resume.set();await task
-    assert len(env.requests)==1
-
-
-async def test_public_catalog_update_fills_missing_prices_by_exact_ean_only(env):
-    linked=product("Sin precio")
-    linked["barcode"]="1234567890128"
-    unlinked=product("Sin enlace");unlinked["store_links"]={};unlinked["barcode"]="1234567890128"
-    missing=product("Sin EAN");missing["store_links"]={}
-    env.catalog.products=[linked,unlinked,missing]
-    link=normalize_link("alcampo","24097")
-    shared={"store":"alcampo","reference_id":"24097","url":link["url"],"price":"1.99","currency":"EUR","checked_at":env.clock[0],"source":"community","ean":"01234567890128"}
-    env.manager.community=SimpleNamespace(dictionary={"products":[{"eans":["01234567890128"],"store_links":{"alcampo":link}}]},
-        async_prepare_prices=AsyncMock(),price=lambda store,link,codes:deepcopy(shared))
-    await env.manager.async_public_catalog_prices("alcampo")
-    assert env.manager.prices_for(linked)[0]["price"]=="1.99"
-    assert env.manager.prices_for(unlinked)[0]["price"]=="1.99"
-    assert env.manager.prices_for(missing)==[]
-    assert env.requests==[]
+async def test_migration_cancels_stored_public_price_queue(hass,aioclient_mock):
+    catalog=SimpleNamespace(products=[product()]);settings=SimpleNamespace(snapshot={"stores":{}})
+    manager=PriceManager(hass,catalog,settings,None)
+    await manager._store.async_save({"offers":{"external":{"source":"community","price":1}},"legacy_ean":{},"pending":[{"store":"carrefour"}]})
+    await manager.async_load()
+    assert (await manager._store.async_load())["pending"]==[]
+    assert (await manager._store.async_load())["offers"]=={}
+    assert manager.prices_for(catalog.products[0])==[]
+    assert aioclient_mock.call_count==0

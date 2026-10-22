@@ -6,51 +6,9 @@ Una interfaz propia para gestionar las listas de la compra que ya tienes integra
 
 Versión actual: **0.31.0**. Interfaz en español, pensada para móvil y ordenador. Requiere **Home Assistant Core 2026.10 o posterior**. La referencia de desarrollo es Core 2026.10.2.
 
-Vinculaciones con Mercadona, Carrefour, Alcampo, Consum, La Sirena, Eroski y DIA, y consultas
-directas desde Home Assistant. Se ha retirado el feed
-de precios de GitHub y la dependencia de Aguacatec.
+Los precios proceden únicamente de los tickets y facturas del usuario, después de confirmarlos en el asistente de revisión. No se consultan las webs de supermercados ni se utilizan precios públicos o comunitarios. Se conserva el último precio confirmado de cada producto y tienda.
 
-En Información adicional se elige una tienda y se añade el enlace o referencia del
-artículo. Sus EAN se conservan como metadatos de tienda; los códigos configurados para
-los lectores no se reasignan automáticamente. El precio manual sigue siendo independiente.
-
-La actualización automática se configura desde el icono del reloj en Ajustes → Tiendas.
-La primera hora se asigna aleatoriamente y se guarda, en la zona horaria de Home Assistant;
-las horas ya elegidas se conservan. La frecuencia mínima es un día y puede ampliarse
-hasta 3650 días. Tiendas y diccionario comunitario respetan el periodo configurado.
-Al desactivar la función se detienen las consultas de precios y se ocultan los importes,
-conservando la caché local para una posible reactivación. Solo entra en la cola lo pendiente en las listas
-configuradas, comparando nombres sin diferencias de acentos o mayúsculas. Se deduplican
-referencias compartidas por varias listas y se dejan al menos cinco minutos entre todas
-las peticiones, incluidas redirecciones. La cola y la reserva de peticiones persisten al
-reiniciar. Si Home Assistant se inicia durante la hora siguiente a la programada recupera
-esa ejecución; una cola ya iniciada puede continuar después de la madrugada.
-
-Las fichas y los popups muestran exclusivamente precios guardados. Actualizar vista no
-consulta las tiendas. El icono Actualizar ahora de Ajustes → Tiendas abre un popup con el progreso e inicia una revisión manual
-de las referencias vinculadas pendientes en las listas de todas las tiendas activas, incluso si ya se revisaron hoy.
-Respeta los cinco minutos entre peticiones y las pausas indicadas por el servidor, evita
-duplicar una revisión en curso y registra los resultados como manuales en Ajustes → Logs → Tiendas.
-Se conserva el último precio conocido para todo el catálogo aunque
-el producto se compre, salga de la lista o falle una consulta posterior. Un HTTP 404 se
-registra como referencia no disponible y un 403/429 pausa esa tienda el resto del día;
-las demás pueden continuar. Los precios indican fecha y región cuando corresponde.
-
-Alcampo utiliza la consulta JSON del flujo n8n con una región fija de referencia.
-Mercadona consulta
-su API por referencia y almacén. Carrefour utiliza la respuesta JSON del endpoint interno
-`/cloud-api/pdp-food-analytics/v1/impressions`, con la referencia y la cabecera `sale_point`,
-sin cookies ni identificadores de sesión para sus precios. Utiliza el centro fijo
-`005704`. Los precios quedan separados por centro.
-La respuesta confirma la referencia antes de guardar el precio; el EAN, cuando existe,
-se conserva como metadato y no modifica los códigos del lector.
-
-La consulta JSON de Carrefour ha devuelto HTTP 200 y 2,69 EUR para la referencia 491998
-desde el entorno de desarrollo, tanto con enlace completo como con ID. Su ficha HTML
-sigue devolviendo 403 y ya no se utiliza para obtener precios. Alcampo sigue sujeto al
-403 observado. El acceso depende de cada tienda y debe comprobarse desde cada Home Assistant;
-los errores se muestran en Ajustes → Logs → Tiendas y no borran precios. Los logs distinguen una
-actualización puesta en cola de una petición de precio que ya ha comenzado.
+El diccionario comunitario sirve exclusivamente para sugerir iconos por nombre o traducción del producto. No intercambia precios, EAN, referencias, Nutri-Score ni documentos de compra.
 
 ## Qué puedes hacer
 
@@ -261,17 +219,15 @@ MIT. Consulta [LICENSE](LICENSE).
 
 ### Diccionario comunitario y aportaciones automáticas
 
-En **Ajustes → Comunidad**, activa **Compartir mis datos de productos** para iniciar la autorización con la GitHub App. GitHub se abre automáticamente en otra pestaña y Home Assistant muestra el código y las instrucciones en un popup. Introduce el código y confirma la autorización en GitHub; esperar sin autorizar no completa el proceso. Si el navegador bloquea la apertura, utiliza el enlace del popup. Puedes cerrar y reabrir las instrucciones con **Ver autorización**, sin reiniciar el código. El popup se cierra al confirmar GitHub. Al completarla se solicita el envío inmediato de los datos disponibles, aunque haya una revisión de precios en curso, respetando el límite de un lote cada 24 horas y las pausas de reintento. Volver a marcar la casilla no reinicia ese límite. La integración guarda sus credenciales de forma privada y no utiliza las de HACS. Desmarcar la casilla detiene las aportaciones.
+En **Ajustes → Comunidad**, autoriza voluntariamente GitHub para compartir los nombres, traducciones e iconos con licencia comprobable del catálogo. Los datos son públicos y están asociados a tu cuenta, con un lote como máximo cada 24 horas. La autorización es independiente de HACS.
 
-El diccionario público se consulta una vez al día, sin cuenta y sin actualizar la integración. Permite completar traducciones y vinculaciones confirmadas que falten, sugerir nombres e iconos y reutilizar precios por referencia exacta durante 24 horas, conservando la fecha original. No sobrescribe elecciones locales ni crea automáticamente productos del catálogo.
+La consulta pública de iconos se realiza una vez al día, sin cuenta y sin actualizar la integración. Se admiten términos alternativos y distintas propuestas de icono, ordenadas por preferencias, con validación de licencia y tres confirmaciones independientes. Se excluyen precios, códigos EAN/NFC, referencias de tiendas, Nutri-Score, tickets, facturas, listas y stock. No se completan otros campos del catálogo mediante la comunidad.
 
-Con el consentimiento activado se aportan los datos permitidos de todo el catálogo: nombres, traducciones, EAN, vinculaciones con tiendas, Nutri-Score, precios e iconos admitidos. Las aportaciones son públicas y están asociadas a la cuenta de GitHub, con un lote por cuenta cada 24 horas. Se excluyen listas, stock, NFC, lectores, categorías personales, notas y automatizaciones.
-
-GitHub Actions valida los datos automáticamente: consenso de tres cuentas independientes para los campos confirmados, comprobación de licencias de Iconify y control de variaciones de precios superiores al 50 %. Las preferencias de iconos se cuentan por separado. El mantenedor puede bloquear cuentas y recuperar una versión anterior del diccionario. Consulta [el funcionamiento y la política del catálogo comunitario](community/README.md).
+Consulta [la política y administración del diccionario de iconos](community/README.md).
 
 ### Nutri-Score del catálogo
 
-**Ajustes → Nutri-Score** muestra una gráfica de barras con los colores A–E, el número de productos y su porcentaje sobre los productos del catálogo con Nutri-Score conocido. Se utilizan exclusivamente los datos guardados de Open Food Facts o del diccionario comunitario; abrir la gráfica no consulta esas fuentes ni actualiza precios. Los productos sin una letra válida no entran en el cálculo. Cada ficha cuenta una sola vez; si tiene varios códigos con Nutri-Score, se toma el primer código con resultado, empezando por su código principal. Al volver a abrir la vista se vuelve a leer la información local disponible. No requiere tarjetas HACS ni librerías gráficas adicionales.
+**Ajustes → Nutri-Score** muestra una gráfica de barras con los colores A–E, el número de productos y su porcentaje sobre los productos del catálogo con Nutri-Score conocido. Se utilizan exclusivamente los datos guardados de Open Food Facts; abrir la gráfica no consulta esas fuentes ni actualiza precios. Los productos sin una letra válida no entran en el cálculo. Cada ficha cuenta una sola vez; si tiene varios códigos con Nutri-Score, se toma el primer código con resultado, empezando por su código principal. Al volver a abrir la vista se vuelve a leer la información local disponible. No requiere tarjetas HACS ni librerías gráficas adicionales.
 
 Nutri-Score deja de ser un criterio de «Agrupar productos por» en Catálogo → Productos. Una selección antigua de ese criterio pasa a agrupar por categoría.
 
@@ -284,86 +240,7 @@ Se reutiliza la caché persistente de identificación (30 días para productos e
 
 ## Tiendas y vinculaciones
 
-En **Ajustes → Tiendas** se habilitan Mercadona, Carrefour, Alcampo, Consum, La Sirena, Eroski y DIA, se elige la
-favorita y se configura la hora de revisión. Cada tienda utiliza un centro fijo de
-referencia. No se pide ni se utiliza el código postal del usuario, y activar una
-tienda no realiza peticiones de descubrimiento de cobertura.
-El badge de cada tienda muestra el número de productos vinculados y un carrito;
-al pulsarlo se abre directamente el listado de precios guardados, incluso con la tienda desactivada.
-
-Referencias utilizadas:
-
-| Tienda | Código postal de referencia | Centro |
-| --- | --- | --- |
-| Alcampo | 28024 | Región `deb03a69-3104-4451-9ffa-3a55dc156d9f` |
-| Carrefour | 28024 | `005704` |
-| Consum | 46409 | Área `301D`, zona `301` |
-| DIA | 28024 | Sesión de precios para `28024` |
-| Eroski | 48001 | Eroski Deusto, centro `244` |
-| La Sirena | 28024 | `lasirena259` |
-| Mercadona | 28024 | Almacén `mad1` |
-
-Los precios son orientativos y pueden diferir de los de tu zona. Las instalaciones
-anteriores se migran conservando las tiendas activas, favorita y demás preferencias,
-pero retirando los códigos postales y errores de cobertura anteriores. La migración
-no inicia consultas ni elimina precios: las ofertas de otro centro siguen guardadas
-con su ámbito original y no se presentan como precios del centro nuevo.
-Se conservan las pausas y protecciones frente a rechazos del servidor. Una ubicación
-fija evita el descubrimiento de cobertura, pero no garantiza evitar un HTTP 403 al
-iniciar sesión anónima o consultar un producto. Puedes desactivar una tienda y seguir
-consultando los precios guardados para su centro de referencia.
-
-Cada revisión genera una sola entrada final en **Ajustes → Logs → Tiendas**,
-con el resultado por tienda, precios actualizados, referencias sin resultado,
-incidencias y peticiones realizadas. Los detalles técnicos y la información de
-la revisión en curso se guardan entre reinicios; la barra sigue mostrando el
-avance mientras se procesan las referencias. No se crean entradas por cada petición.
-
-Consum consulta su ficha JSON con las cabeceras de zona seleccionadas. La Sirena
-resuelve la referencia a su variante y consulta el precio de entrega para el centro
-y código postal elegidos. Ambas consultas de La Sirena respetan los cinco minutos
-entre peticiones; un producto puede necesitar dos peticiones. No se usa una cuenta,
-cookies de usuario ni su carrito. Las respuestas ambiguas, sin disponibilidad o con
-errores conservan el precio anterior. Los EAN recibidos son metadatos del precio:
-no modifican automáticamente las asociaciones de los lectores.
-
-Eroski utiliza el centro de recogida fijo Eroski Deusto, confirmado previamente
-en su selector público.
-La integración inicia su propia sesión anónima, aplica el centro y verifica que la
-sesión conserva ese centro antes de aceptar un precio. No reserva una franja de
-recogida ni utiliza tu cuenta o carrito. Las vinculaciones de Eroski requieren el
-**enlace completo de la ficha**, ya que no se ha verificado una ruta por ID sola.
-La primera consulta necesita preparar la sesión (cuatro peticiones, separadas por
-cinco minutos); las siguientes reutilizan esa sesión mientras conserve el centro.
-Los precios de cada centro permanecen separados. Los errores conservan el último
-precio conocido.
-
-DIA admite enlace o ID. Utiliza el código postal de referencia 28024;
-la tienda asigna su centro automáticamente. La integración utiliza el cliente
-estándar `urllib` de Python, con su identidad predeterminada, en el executor de
-Home Assistant para evitar bloquear el bucle de eventos. En las pruebas, ese
-cliente permite consultar la API pública donde `aiohttp` recibía HTTP 403. No usa
-un navegador, cuenta, claves, cookies del usuario ni dependencias externas.
-La primera revisión configura una sesión anónima para el código postal y después
-consulta la referencia exacta; ambas peticiones respetan los cinco minutos de
-pausa. Cada respuesta debe confirmar el mismo código postal. Las siguientes
-consultas reutilizan esa sesión; los rechazos, respuestas ambiguas y productos
-sin resultado conservan el precio anterior. No se aplican precios exclusivos del club.
-
-En **Catálogo → Información adicional**, selecciona una tienda, pega su enlace
-o ID y pulsa **+** o **Enter**. Cada vínculo muestra el logo y nombre de la tienda
-junto al enlace, con un botón rojo para quitarlo antes de guardar el producto.
-Los campos de precio orientativo y moneda ya no se muestran; se conservan los
-precios manuales que estuvieran guardados. Solo se admiten fichas HTTPS de las tiendas registradas,
-sin credenciales, puertos arbitrarios ni redirecciones a otras tiendas o productos.
-No se exige EAN para consultar el precio de una referencia seleccionada por el usuario.
-
-La cola diaria consulta solo productos pendientes y sus referencias vinculadas.
-Abrir una ficha, abrir Productos en una tienda o pulsar **Actualizar vista** solo
-lee la caché local. Los precios se mantienen separados del precio orientativo manual
-y de los EAN utilizados por los lectores. Las asociaciones exactas de Mercadona
-ya descubiertas y los últimos precios del antiguo feed se recuperan de sus copias
-locales, sin volver a consultar GitHub ni depender de Aguacatec.
+Las tiendas se utilizan para clasificar compras y precios guardados en documentos. Las vinculaciones manuales ya configuradas se conservan, pero no generan consultas de precios. El catálogo comunitario no aporta ni publica referencias o enlaces comerciales. La cuenta Carrefour permite recuperar compras y tickets con las opciones indicadas al final. Las facturas online siguen admitiéndose por subida manual.
 
 ## Compras recurrentes
 
@@ -374,17 +251,9 @@ Home Assistant comprueba los vencimientos cada minuto aunque el panel esté cerr
 La programación y las ediciones pendientes de sincronizar se guardan en Home Assistant y sobreviven a reinicios. Un único temporizador de Stock gestiona cada producto; la programación anterior del catálogo no añade una segunda compra. Las recurrencias existentes se migran conservando su siguiente vencimiento cuando está disponible. Si un plazo venció con Home Assistant apagado, se procesa al volver sin acumular compras atrasadas. Los errores del proveedor se reintentan después de cinco minutos, sin duplicar productos. Los movimientos y errores aparecen en **Ajustes → Logs → Stock**. Eliminar un producto de Stock desactiva su recurrencia para evitar que se vuelva a crear automáticamente.
 
 
-## Diagnóstico de precios
+## Precios de tickets y facturas
 
-Recargar la página o cerrar el popup no termina la revisión: la cola sigue en Home Assistant. Si hay una revisión en curso, el botón de actualizar vuelve a abrir su progreso sin iniciar otra. Al acabar, el popup indica «Revisión finalizada» y si el resumen está pendiente de guardarse o disponible en Ajustes → Logs → Tiendas. El resumen se guarda antes de darlo por entregado y se recupera sin duplicados tras errores de almacenamiento o reinicios. Los rechazos y la falta de cobertura se incluyen en esa única entrada final, aunque no se haya podido actualizar ningún precio.
-
-La barra de progreso muestra las referencias procesadas de la cola nocturna y una
-estimación basada en cinco minutos por petición. La cola puede durar varias horas;
-el porcentaje no representa la antigüedad del precio ni garantiza cobertura de una tienda.
-En **Ajustes → Logs → Tiendas** se registran la preparación de la cola, los precios obtenidos,
-las referencias no disponibles y los errores HTTP. No se guardan cookies, claves
-de acceso ni cuerpos HTML de errores. Un bloqueo 403 no se interpreta como ausencia
-del producto ni provoca consultas repetidas al abrir la interfaz.
+El paso **Precios** del asistente permite elegir los importes que se guardan para los productos vinculados al catálogo. Los tickets pendientes de revisión no actualizan precios. Los importes guardados incluyen su fecha y tienda y se usan en la estimación de la lista y en la vista ticket. Las colas antiguas de proveedores públicos se cancelan al actualizar; sus precios no se muestran ni se reutilizan. El botón de actualización de tiendas refresca los datos locales sin consultar proveedores.
 
 ## Stock de la despensa
 
@@ -517,8 +386,7 @@ El engranaje de cada tienda abre sus ajustes; se han retirado los listados de pr
 
 - **Recuperar compras del último año** requiere cuenta conectada e incorpora solo los resúmenes de las compras, sin aplicar stock o precios.
 - **Descargar ticket automáticamente** requiere cuenta conectada. Se detectan cambios reales de pendiente a completado en las listas configuradas (el estado inicial tras reiniciar es solo una referencia). A partir de la hora de actualización configurada se consulta la última compra, como máximo una vez por día, si hay nuevas finalizaciones. La solicitud y la condición pendiente se conservan tras reiniciar. El ticket se guarda pendiente de revisión, sin aplicar stock ni precios. Los errores quedan en Logs y se reintentan otro día. Las facturas online siguen requiriendo subida manual de PDF.
-- **Actualizar precios públicos en el catálogo** no requiere conectar la cuenta. Cada día completa o actualiza los precios disponibles de todos los productos del catálogo mediante el diccionario comunitario, sin consultar las webs de las tiendas. Respeta la desactivación general de precios. Solo utiliza un EAN válido único e idéntico tras normalizar GTIN; si hay varios EAN en el registro, ninguna coincidencia inequívoca o un precio caducado, no aplica el dato. Los precios anteriores se conservan.
 
-Los iconos comunitarios admiten varias imágenes y términos alternativos. Los datos comerciales utilizan identidades EAN y se valida también que la referencia de tienda corresponda al precio. Compartir una referencia o un nombre no une registros comerciales con distintos EAN. No se publican precios ni referencias automáticas de registros con varios EAN.
+Los iconos comunitarios admiten varias imágenes y términos alternativos. No se intercambian datos comerciales.
 
 En **Compras**, los tickets revisados muestran su botón en verde. Los tickets descargados automáticamente permiten abrir la revisión desde ese botón; cerrar la revisión conserva el ticket pendiente.

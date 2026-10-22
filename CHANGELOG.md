@@ -1,6 +1,8 @@
 # Historial de cambios
 
-## Pendiente de publicación
+## 0.35.0 — 2026-10-22
+
+- Al confirmar las vinculaciones de tickets y facturas se incorporan los EAN válidos al producto del catálogo, conservando sus códigos anteriores. Se comprueban equivalencias GTIN y conflictos entre productos, sin guardar códigos al descargar o previsualizar.
 
 - Detección automática de compra configurable en Ajustes → Listas: suma transiciones nuevas de todas las listas, umbral estricto de más de X y una compra por día, con contador persistente y protección ante marcar/desmarcar.
 - Analítica → Compras permite completar tienda e importe de las compras detectadas o descartarlas. La asociación automática exige un ticket del mismo día con productos reconocidos coincidentes; no duplica gastos ni repone stock o actualiza precios por segunda vez.

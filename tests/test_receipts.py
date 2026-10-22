@@ -504,3 +504,56 @@ async def test_structured_account_preview_matches_ean_and_never_imports_until_co
         await env.manager.async_preview_carrefour_ticket(structured_account_detail(),"structured-ticket",5.22,"owner")
     with pytest.raises(CatalogError,match="ya se ha importado"):
         await env.manager.async_preview(base64.b64encode(pdf_bytes(receipt_text())).decode(),"owner")
+
+
+async def test_confirmed_receipt_links_learn_eans_preserving_codes_and_restart(hass):
+    env = await setup_manager(hass)
+    current = env.stock.catalog.products[0]
+    saved = await env.stock.catalog.async_save_product({'id':current['id'], 'revision':current['revision'], 'name':current['name'], 'barcode':'my-qr', 'barcodes':['4006381333931'], 'tags':['test']})
+    draft = await env.manager.async_preview(base64.b64encode(pdf_bytes(invoice_text())).decode(), 'owner')
+    assert env.stock.catalog.products[0] == saved  # Preview is read-only.
+    links = [{'id':line['id'], 'product_id':saved['id'] if index == 0 else ''} for index,line in enumerate(draft['receipt']['lines'])]
+    await env.manager.async_link(draft['token'], 'owner', links)
+    product = env.stock.catalog.products[0]
+    assert product['barcode'] == 'my-qr'
+    assert product['barcodes'] == ['4006381333931', '1234567890128']
+    assert product['tags'] == ['test'] and product['revision'] == saved['revision'] + 1
+    await env.manager.async_link(draft['token'], 'owner', links)
+    assert env.stock.catalog.products[0] == product  # Reconfirming does not duplicate or revise.
+    restored = Catalog(hass)
+    await restored.async_load()
+    assert restored.products[0] == product
+    assert not env.manager.snapshot['receipts'] and env.stock.snapshot['items'][0]['quantity'] == 20
+
+
+async def test_direct_receipt_confirmation_learns_only_linked_valid_eans(hass):
+    env = await setup_manager(hass)
+    draft = await env.manager.async_preview(base64.b64encode(pdf_bytes(invoice_text())).decode(), 'owner')
+    await env.manager.async_confirm(draft['token'], 'owner', selections(draft, env.product, 500), True)
+    assert env.stock.catalog.products[0]['barcodes'] == ['1234567890128']
+
+
+async def test_receipt_ean_conflict_rejects_entire_batch_before_aliases_or_stock(hass):
+    env = await setup_manager(hass)
+    second = await env.stock.catalog.async_save_product({'name':'Otro'})
+    await env.stock.catalog.async_save_product({'name':'Dueño', 'barcodes':['04006381333931']})
+    draft = await env.manager.async_preview(base64.b64encode(pdf_bytes(invoice_text())).decode(), 'owner')
+    links = [{'id':line['id'], 'product_id':[env.product['id'],second['id'],''][index]} for index,line in enumerate(draft['receipt']['lines'])]
+    before = deepcopy(env.stock.catalog.products)
+    ledger = deepcopy(env.stock.receipts)
+    with pytest.raises(CatalogError, match='ya está asociado'):
+        await env.manager.async_link(draft['token'], 'owner', links)
+    assert env.stock.catalog.products == before and env.stock.receipts == ledger
+
+
+async def test_receipt_ean_equivalence_invalid_codes_and_storage_failure(hass, monkeypatch):
+    env = await setup_manager(hass)
+    catalog = env.stock.catalog
+    await catalog.async_bind_receipt_eans([(env.product['id'],'01234567890128')])
+    before = deepcopy(catalog.products)
+    await catalog.async_bind_receipt_eans([(env.product['id'],'1234567890128'), (env.product['id'],'1234567890129'), (env.product['id'],'internal-reference')])
+    assert catalog.products == before
+    monkeypatch.setattr(catalog._store, 'async_save', AsyncMock(side_effect=OSError('disk')))
+    with pytest.raises(OSError):
+        await catalog.async_bind_receipt_eans([(env.product['id'],'4006381333931')])
+    assert catalog.products == before

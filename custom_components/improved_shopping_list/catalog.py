@@ -418,6 +418,37 @@ class Catalog:
         self._notify()
         return deepcopy(product)
 
+    async def async_bind_receipt_eans(self, bindings):
+        """Learn only confirmed ticket associations, preserving concurrent product edits."""
+        from .product_lookup import is_product_barcode
+
+        async with self._lock:
+            products = deepcopy(self._products)
+            changed = False
+            for product_id, ean in bindings:
+                if not is_product_barcode(ean) or (len(ean) == 13 and ean.startswith("2")):
+                    continue
+                current = products.get(product_id)
+                if not current:
+                    raise CatalogError("El producto vinculado ya no existe.", "conflict")
+                key = ean.zfill(14)
+                for other_id, other in products.items():
+                    if other_id != product_id and any(is_product_barcode(code) and code.zfill(14) == key for code in product_codes(other, "barcode")):
+                        raise CatalogError(f'El EAN {ean} ya está asociado a «{other["name"]}». Revisa la vinculación del ticket.', "duplicate_barcode")
+                if any(is_product_barcode(code) and code.zfill(14) == key for code in product_codes(current, "barcode")):
+                    continue
+                codes = current.get("barcodes", [])
+                if len(codes) >= 50:
+                    raise CatalogError("El producto ya tiene 50 códigos de barras. Revisa sus códigos antes de vincular el ticket.")
+                current["barcodes"] = [*codes, ean]
+                current["revision"] += 1
+                current["updated_at"] = datetime.now(UTC).isoformat()
+                changed = True
+            if changed:
+                await self._persist(products, self._categories)
+        if changed:
+            self._notify()
+
     async def async_bind_alcampo(self, product_id, ean, link):
         """Bind only a still-scanned exact EAN; never replace a user's binding."""
         async with self._lock:

@@ -4,7 +4,7 @@
 
 Una interfaz propia para gestionar las listas de la compra que ya tienes integradas en Home Assistant.
 
-Versión actual: **0.34.0**. Interfaz en español, pensada para móvil y ordenador. Requiere **Home Assistant Core 2026.10 o posterior**. La referencia de desarrollo es Core 2026.10.2.
+Versión actual: **0.35.0**. Interfaz en español, pensada para móvil y ordenador. Requiere **Home Assistant Core 2026.10 o posterior**. La referencia de desarrollo es Core 2026.10.2.
 
 Los precios proceden de tickets y facturas confirmados por el usuario y, opcionalmente, de Alcampo al activar sus opciones. El catálogo comunitario se dedica exclusivamente a sugerencias de iconos y no proporciona precios. Se conserva el último precio conocido de cada producto y tienda.
 
@@ -421,3 +421,5 @@ La compra sin identificar muestra **Tienda desconocida** e **Importe pendiente**
 Una detección se sustituye por un ticket guardado únicamente si pertenece al mismo día, incluye al menos un producto reconocido del catálogo que se haya completado y no hay varios tickets candidatos. Las propuestas de vinculación por similitud sin confirmar no bastan. Si ya indicaste tienda e importe manualmente, también deben coincidir. Así se evita contabilizar la detección y su ticket por separado. Si confirmas manualmente tienda e importe y ya hay una única compra guardada de esa tienda con el mismo importe y día, se vincula con ella en vez de duplicar el gasto. Abrir o completar la detección no vuelve a reponer Stock, no reparte el importe entre productos ni actualiza sus precios.
 
 Con Carrefour conectado y **Descargar ticket automáticamente** activado, se intenta recuperar el último ticket de ese día al superar el umbral, usando el mismo límite de una consulta automática diaria. No se intenta asociar el ticket de un día anterior. Si ya se agotó la consulta, el ticket todavía no está disponible, no coincide o falla la conexión, la compra sigue pendiente de completar manualmente. No requiere nuevas dependencias ni tarjetas de HACS.
+
+Al confirmar la vinculación de una línea de ticket o factura con un producto, su EAN válido se guarda en el catálogo, conservando los códigos anteriores. Consultar o descargar un ticket no añade códigos. Si el EAN ya pertenece a otro producto, hay que revisar la vinculación; no se reasigna automáticamente.

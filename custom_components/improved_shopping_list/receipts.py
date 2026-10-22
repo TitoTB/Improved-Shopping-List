@@ -292,6 +292,7 @@ class ReceiptManager:
             for line,product in linked:
                 if product:
                     self._remember_alias(data,draft["receipt"]["store"],line,product)
+            await self.stock.catalog.async_bind_receipt_eans([(product["id"], line.get("ean", "")) for line, product in linked if product])
             await self.stock._persist(deepcopy(self.stock._items),receipts=data)
         return await self.async_options(token,owner)
 
@@ -456,6 +457,7 @@ class ReceiptManager:
                             data["coverage"][key] = {"quantity":quantity,"receipt_id":receipt["id"],"item_id":item_id,"unit":item["unit"]}
                 receipt.update(imported_at=time.time(),prices_enabled=update_prices)
                 data["history"][receipt["id"]] = receipt
+                await self.stock.catalog.async_bind_receipt_eans([(line["product_id"], line.get("ean", "")) for line in receipt["lines"] if line.get("product_id")])
                 await self.stock._persist(items,receipts=data)
                 self._drafts.pop(token,None)
         self.prices._notify()

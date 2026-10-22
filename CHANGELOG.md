@@ -2,6 +2,8 @@
 
 ## Pendiente de publicación
 
+- Stock reúne orden y agrupación en un único botón: menor stock → alfabético → categorías → menor stock. La selección se conserva al recargar y la ordenación de Lista sigue siendo independiente.
+
 - Catálogo → Sugerencias muestra únicamente los bloques de tipos de sugerencias. En el calendario de temporada, los badges llevan la imagen a la izquierda del nombre y al 50 % del tamaño anterior.
 
 - Las recetas permiten asignar una imagen mediante URL http/https o ruta local, conservándola al editar. Sus cantidades de ingredientes aparecen centradas horizontalmente.

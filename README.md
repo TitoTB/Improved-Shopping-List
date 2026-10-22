@@ -395,7 +395,7 @@ sin buscador permanente. Subir ticket aparece únicamente en Compras.
 Las cantidades no bajan de cero. Cada tarjeta utiliza la imagen o
 icono del catálogo cuando existe y un degradado naranja configurable en **Ajustes → Personalización**, con colores inicial y final y vista previa junto a Recetas. Las barras de progreso usan estos colores y se tornan rojizas al agotarse. Los controles rápidos
 para sumar o restar aparecen solo en filas. Se puede alternar entre cuadrícula y filas; la cuadrícula utiliza
-el número de columnas configurado en Personalización. El botón de orden permite alternar entre orden alfabético y menor stock. El criterio numérico es el predeterminado y compara todos los productos por porcentaje de stock respecto a su cantidad de reposición, de menor a mayor; los empates se ordenan alfabéticamente. La elección se conserva al recargar.
+el número de columnas configurado en Personalización. Un único botón recorre tres modos de ordenación: menor stock, alfabético y agrupado por categorías (con productos alfabéticos dentro de cada grupo). Cada pulsación pasa al siguiente modo y la tercera vuelve al inicial. El criterio numérico es el predeterminado y compara todos los productos por porcentaje de stock respecto a su cantidad de reposición, de menor a mayor; los empates se ordenan alfabéticamente. La elección se conserva al recargar.
 
 Al pulsar una tarjeta se abre su ficha: cantidad, unidades (uds, kg, g, l, ml o
 personalizadas, como Latas), cantidad que se suma por compra y umbral opcional

@@ -46,6 +46,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
     } catch { /* Storage disabled. */ }
     try { if (localStorage.getItem("isl-stock-layout") === "rows") this._stockLayout = "rows"; } catch { /* Storage disabled. */ }
     try { if (localStorage.getItem("isl-stock-sort") === "alphabetical") this._stockSort = "alphabetical"; } catch { /* Storage disabled. */ }
+    if(this._stockGrouped)this._stockSort="alphabetical";
     this._busy = false;
     this._rows = new Map();
     this._catalogProducts = new Map();
@@ -473,17 +474,17 @@ class ImprovedShoppingListPanel extends HTMLElement {
       this._renderData();
     });
     root.querySelector("#toggle-product-grouping").addEventListener("click",()=>{
-      const stock=this._view === "stock";
-      const field=stock ? "_stockGrouped" : "_listGrouped";
-      this[field]=!this[field];
-      if(!stock)this._ticket=false;
-      try { localStorage.setItem(stock ? "isl-stock-grouped" : "isl-list-grouped",String(this[field])); } catch { /* Storage disabled. */ }
+      this._listGrouped=!this._listGrouped;
+      this._ticket=false;
+      try { localStorage.setItem('isl-list-grouped',String(this._listGrouped)); } catch { /* Storage disabled. */ }
       this._renderData();
     });
     root.querySelector("#nav-stock").addEventListener("click",()=>this._switchView("stock"));
     root.querySelector("#toggle-stock-sort").addEventListener("click",()=>{
-      this._stockSort=this._stockSort === "alphabetical" ? "lowest" : "alphabetical";
-      try { localStorage.setItem("isl-stock-sort",this._stockSort); } catch { /* Storage disabled. */ }
+      if(this._stockGrouped){this._stockGrouped=false;this._stockSort='lowest';}
+      else if(this._stockSort==='lowest')this._stockSort='alphabetical';
+      else this._stockGrouped=true;
+      try { localStorage.setItem("isl-stock-sort",this._stockSort);localStorage.setItem('isl-stock-grouped',String(this._stockGrouped)); } catch { /* Storage disabled. */ }
       this._renderData();
     });
     root.querySelector("#stock-editor-form").addEventListener("submit",event=>{event.preventDefault();void this._saveStockConfig();});
@@ -629,7 +630,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
     for(const id of ['toggle-stock-sort','choose-list','toggle-product-grouping','toggle-list-layout']){
       const button=root.querySelector('#'+id);
       if(button.parentElement!==actions)actions.append(button);
-      button.hidden=(stockView&&!stockItemsView)||(id==='choose-list'&&this._settings.entities.length===1);
+      button.hidden=(stockView&&!stockItemsView)||(id==='toggle-product-grouping'&&stockView)||(id==='choose-list'&&this._settings.entities.length===1);
     }
     if(this._settings.entities.length===1)root.querySelector('#list-dialog').close();
     const grouped=stockView ? this._stockGrouped : this._listGrouped;
@@ -647,9 +648,10 @@ class ImprovedShoppingListPanel extends HTMLElement {
     root.querySelector('isl-purchases').data={hass:this._hass,active:stockView,history:this._stockView==='purchases',pricesEnabled:this._settings.priceUpdatesEnabled!==false};
     const sortButton=root.querySelector("#toggle-stock-sort");
     sortButton.hidden=!stockItemsView;
-    const sortLabel=this._stockSort === "alphabetical" ? "Ordenar por menor stock" : "Ordenar alfabéticamente";
+    const sortLabel=this._stockGrouped ? "Ordenar por menor stock" : this._stockSort === "lowest" ? "Ordenar alfabéticamente" : "Agrupar por categorías";
     sortButton.title=sortLabel;sortButton.setAttribute("aria-label",sortLabel);
-    sortButton.querySelector("ha-icon").setAttribute("icon",this._stockSort === "alphabetical" ? "mdi:sort-numeric-ascending" : "mdi:sort-alphabetical-ascending");
+    sortButton.querySelector("ha-icon").setAttribute("icon",this._stockGrouped ? "mdi:sort-numeric-ascending" : this._stockSort === "lowest" ? "mdi:sort-alphabetical-ascending" : "mdi:label");
+    sortButton.dataset.mode=this._stockGrouped ? "categories" : this._stockSort;
     const rows = (stockView ? this._stockLayout : this._listLayout) === "rows";
     const layoutLabel = rows ? "Cambiar a vista de cuadrícula" : "Cambiar a vista de filas";
     const layoutButton = root.querySelector("#toggle-list-layout");

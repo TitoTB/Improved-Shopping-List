@@ -239,7 +239,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
         .product-grid { display:grid; grid-template-columns:repeat(var(--isl-columns,3),minmax(0,1fr)); gap:16px; }
         .product-group { grid-column:1/-1; min-width:0; }
         .product-group-heading { display:flex; align-items:center; gap:8px; margin:8px 0 14px; font-size:17px; }
-        .product-group-heading ha-icon { --mdc-icon-size:22px; width:22px; height:22px; flex:none; }
+        .product-group-heading ha-icon { --mdc-icon-size:22px; width:22px; height:22px; flex:none; color:#fff; }
         .product-grid li { min-width:0; container-type:inline-size; }
         .item { position:relative; display:flex; flex-direction:column; align-items:center; justify-content:center; width:100%; aspect-ratio:1; min-width:0; min-height:0; overflow:hidden; gap:clamp(2px,2.5cqi,12px); padding:clamp(4px,5cqi,24px); border:1px solid var(--divider-color,#dfe7e1); border-radius:clamp(6px,6cqi,16px); background:var(--card-background-color,#fff); color:inherit; text-align:center; cursor:pointer; }
         .item.pending { background:linear-gradient(var(--isl-gradient-start,#ee524f),var(--isl-gradient-end,#b52a27)); border-color:var(--isl-gradient-end,#b52a27); color:var(--isl-gradient-text,#fff); }
@@ -266,10 +266,10 @@ class ImprovedShoppingListPanel extends HTMLElement {
         .quantity-controls { display:none; }
         .rows li { position:relative; }
         .rows .quantity-controls { display:inline-flex; flex-direction:row; align-items:center; gap:5px; margin-right:10px; padding:3px; }
-        .quantity-controls button { display:grid; place-items:center; flex:none; width:28px; height:28px; padding:0; border:0; border-radius:12px; background:transparent; color:#fff; }
+        .quantity-controls button { display:grid; place-items:center; flex:none; width:28px; height:28px; padding:0; border:0; border-radius:12px; background:transparent; color:inherit; }
         .quantity-controls ha-icon { width:18px; height:18px; --mdc-icon-size:18px; }
         .rows .quantity-corner { display:none; }
-        .row-quantity { justify-content:center; border-radius:18px; background:var(--isl-quantity-color,#267052); color:#fff; font-size:12px; font-weight:700; min-width:0; max-width:100%; white-space:nowrap; }
+        .row-quantity { justify-content:center; background:rgba(255,255,255,.2); color:inherit; font-size:12px; font-weight:700; min-width:0; max-width:100%; white-space:nowrap; }
         .quantity-value { min-width:0; max-width:16ch; overflow:hidden; text-overflow:ellipsis; }
         .rows .list-product-row { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; border-radius:12px; background:linear-gradient(var(--isl-gradient-start,#ee524f),var(--isl-gradient-end,#b52a27)); color:var(--isl-gradient-text,#fff); border:1px solid var(--isl-gradient-end,#b52a27); }
         .rows .list-product-row.list-completed { background:linear-gradient(var(--isl-completed-gradient-start,#4faba2),var(--isl-completed-gradient-end,#26857c)); color:var(--isl-completed-gradient-text,#fff); border-color:var(--isl-completed-gradient-end,#26857c); }
@@ -292,6 +292,8 @@ class ImprovedShoppingListPanel extends HTMLElement {
         .row-nutriscore[data-grade=a] { background:#038141; }.row-nutriscore[data-grade=b] { background:#85bb2f; color:#182b22; }.row-nutriscore[data-grade=c] { background:#fecb02; color:#182b22; }.row-nutriscore[data-grade=d] { background:#ee8100; color:#182b22; }.row-nutriscore[data-grade=e] { background:#e63e11; }
         .row-meta ha-icon { display:flex; align-items:center; justify-content:center; width:18px; height:18px; --mdc-icon-size:18px; flex:none; }
         @media(max-width:540px) { .rows .item { grid-template-columns:36px minmax(0,1fr) auto; gap:8px; padding:10px; }.rows .item .product-media { width:36px; height:36px; }.rows .item .placeholder ha-icon { --mdc-icon-size:32px; }.row-category,.row-price { font-size:11px; padding:5px 7px; }.rows .row-category { width:28px; height:28px; padding:5px; }.rows .row-category span { display:none; }.row-price .store-logo { width:18px; height:18px; }.row-nutriscore { height:26px; min-width:26px; font-size:13px; } }
+        .rows .row-category,.rows .row-price,.rows .row-nutriscore,.rows .row-quantity { box-sizing:border-box; height:34px; min-height:34px; border-radius:16px; }
+        .rows .row-category,.rows .row-nutriscore { min-width:34px; }
         .rows .row-meta { max-width:min(35cqi,280px); }
         .empty { padding:28px 8px; text-align:center; color:var(--secondary-text-color,#63766b); line-height:1.6; }
         .empty strong { display:block; font-size:18px; color:var(--primary-text-color,#20352d); margin-bottom:5px; }
@@ -1184,7 +1186,6 @@ class ImprovedShoppingListPanel extends HTMLElement {
       const section=document.createElement('li');section.className='product-group';section.setAttribute('aria-label',group.name);
       const heading=document.createElement('h3');heading.className='product-group-heading';
       const icon=document.createElement('ha-icon');icon.setAttribute('icon',group.category?.icon||'mdi:label-outline');icon.setAttribute('aria-hidden','true');
-      if(group.category?.color)icon.style.color=group.category.color;
       heading.append(icon,document.createTextNode(group.name));
       const grid=document.createElement('ul');grid.className='product-grid'+(layout==='rows'?' rows':'');grid.setAttribute('aria-label',group.name);grid.append(...group.nodes);
       section.append(heading,grid);return section;

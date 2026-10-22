@@ -221,7 +221,8 @@ class ImprovedShoppingCatalog extends HTMLElement {
         .grouping-options ha-icon { width:24px; height:24px; --mdc-icon-size:24px; flex:none; }
         #catalog-grid.grouped { grid-template-columns:minmax(0,1fr); gap:24px; }
         .category-group { min-width:0; }
-        .category-group-title { margin:0 0 12px; font-size:18px; overflow-wrap:anywhere; }
+        .category-group-title { display:flex; align-items:center; gap:8px; margin:0 0 12px; font-size:18px; overflow-wrap:anywhere; }
+        .category-group-title ha-icon { --mdc-icon-size:22px; width:22px; height:22px; flex:none; color:#fff; }
         .product-category-controls { display:flex; align-items:end; gap:8px; }
         .product-category-controls select { flex:1; min-width:0; }
         #add-product-category { display:grid; place-items:center; flex:0 0 46px; width:46px; height:46px; padding:0; }
@@ -1173,7 +1174,13 @@ class ImprovedShoppingCatalog extends HTMLElement {
         section.setAttribute("aria-label",group.name);
         const items = element("div",rows ? "grid rows category-products" : "grid category-products");
         items.append(...group.products.map(product => this._productCard(product)));
-        section.append(element("h2","category-group-title",group.name),items);
+        const heading=element("h2","category-group-title");
+        if(this._groupBy === "category") {
+          const category=this._catalog.categories.find(category=>normalizedName(category.name)===group.key);
+          const icon=element("ha-icon");icon.setAttribute("icon",category?.icon || "mdi:label-outline");icon.setAttribute("aria-hidden","true");heading.append(icon);
+        }
+        heading.append(document.createTextNode(group.name));
+        section.append(heading,items);
         return section;
       }));
     } else grid.replaceChildren(...products.map(product => this._productCard(product)));

@@ -868,6 +868,16 @@ async function main() {
     await yogurtListCard.locator(".row-nutriscore").filter({hasText:"B"}).waitFor();
     assert.equal(await yogurtListCard.locator(".row-nutriscore").getAttribute("aria-label"),"Nutri-Score B");
     assert.equal(await yogurtListCard.locator(".row-nutriscore").evaluate(node=>getComputedStyle(node).backgroundColor),"rgb(133, 187, 47)");
+    for(const width of [1280,390,320]){
+      await page.setViewportSize({width,height:960});
+      const badges=await yogurtListCard.evaluate(node=>[...node.closest('li').querySelectorAll('.row-category,.row-price,.row-nutriscore,.row-quantity')].map(badge=>({kind:badge.className,height:badge.getBoundingClientRect().height,radius:getComputedStyle(badge).borderRadius,background:getComputedStyle(badge).backgroundColor})));
+      assert.ok(badges.length>=4);
+      assert.equal(new Set(badges.map(badge=>badge.height)).size,1);
+      assert.equal(new Set(badges.map(badge=>badge.radius)).size,1);
+      assert.equal(badges.find(badge=>badge.kind.includes('row-quantity')).background,badges.find(badge=>badge.kind==='row-price').background);
+    }
+    await page.setViewportSize({width:1280,height:960});
+
     assert.equal(await page.locator("#pending > li").filter({hasText:"Cacao"}).locator(".row-nutriscore").count(),0);
     assert.equal(await page.locator("#toggle-list-layout ha-icon").getAttribute("icon"),"mdi:view-comfy");
     assert.equal(await page.locator("#pending").evaluate(node=>getComputedStyle(node).gridTemplateColumns.split(" ").length),1);
@@ -1963,6 +1973,7 @@ async function main() {
     assert.deepEqual(await listGroupsPage.locator('#pending .summary').allTextContents(),['Cacao','Leche entera','Sin ficha','Zanahoria']);
     await listGroupsPage.getByRole('button',{name:'Agrupar por categorías',exact:true}).click();
     assert.deepEqual(await listGroupsPage.locator('#pending .product-group-heading').allTextContents(),['Despensa','Lácteos','Verduras','Sin categoría']);
+    assert.equal(await listGroupsPage.locator('#pending .product-group-heading ha-icon').first().evaluate(node=>getComputedStyle(node).color),'rgb(255, 255, 255)');
     await listGroupsPage.locator('#completed-summary').click();
     assert.deepEqual(await listGroupsPage.locator('#completed .product-group-heading').allTextContents(),['Despensa']);
     await listGroupsPage.getByRole('button',{name:'Marcar como comprado: Cacao',exact:true}).click();
@@ -3266,6 +3277,7 @@ async function main() {
     assert.deepEqual(await productNames(),['Agua','Arroz','Azúcar','Patatas','Zanahoria']);
     await groupedCatalog.getByRole('button',{name:'Agrupar por categorías',exact:true}).click();
     assert.deepEqual(await groupedCatalog.locator('.category-group-title').allTextContents(),['Despensa','Verduras','Sin categoría']);
+    assert.deepEqual(await groupedCatalog.locator('.category-group-title ha-icon').evaluateAll(nodes=>nodes.map(node=>[node.getAttribute('icon'),getComputedStyle(node).color])),[['mdi:food','rgb(255, 255, 255)'],['mdi:carrot','rgb(255, 255, 255)'],['mdi:label-outline','rgb(255, 255, 255)']]);
     assert.deepEqual(await productNames(),['Arroz','Azúcar','Patatas','Zanahoria','Agua']);
     for (const group of await groupedCatalog.locator('.category-group').all()) {
       assert.ok(await group.locator('.product').count()>0);

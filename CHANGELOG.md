@@ -1,5 +1,9 @@
 # Historial de cambios
 
+## Pendiente de publicación
+
+- Lista en filas unifica la altura y el radio de los badges; cantidad utiliza el mismo fondo blanco semitransparente que el precio. Las agrupaciones por categoría muestran iconos blancos en Lista y Catálogo.
+
 ## 0.28.0 — 2026-10-22
 
 - Ajustes → Nutri-Score permite desplegar cada calificación para consultar sus productos ordenados alfabéticamente, utilizando únicamente los datos guardados.

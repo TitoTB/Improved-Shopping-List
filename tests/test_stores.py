@@ -128,6 +128,7 @@ async def test_store_progress_subscription_and_cleanup(hass, hass_ws_client):
     assert await hass.config_entries.async_setup(entry.entry_id)
     client = await hass_ws_client(hass)
     service = hass.data[DOMAIN]["store_products"]
+    background_listeners = set(service.manager._listeners)
     await client.send_json({"id": 1, "type": f"{DOMAIN}/settings/store_progress"})
     assert (await client.receive_json())["success"]
     assert not (await client.receive_json())["event"]["running"]
@@ -137,4 +138,4 @@ async def test_store_progress_subscription_and_cleanup(hass, hass_ws_client):
     assert event["processed"] == 3 and event["total"] == 20 and event["running"]
     await client.send_json({"id": 2, "type": "unsubscribe_events", "subscription": 1})
     assert (await client.receive_json())["success"]
-    assert not service.manager._listeners
+    assert service.manager._listeners == background_listeners

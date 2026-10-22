@@ -62,6 +62,7 @@ async def test_stock_stale_delete_and_reader_guard(hass):
 async def test_stock_ws_pushes_permissions_and_unload(hass,hass_ws_client,hass_read_only_user):
     entry=MockConfigEntry(domain=DOMAIN,data={CONF_TODO_ENTITY:"todo.bring"})
     entry.add_to_hass(hass);assert await hass.config_entries.async_setup(entry.entry_id)
+    background_listeners = set(hass.data[DOMAIN]["stock"]._listeners)
     client=await hass_ws_client(hass)
     token=await hass.auth.async_create_refresh_token(hass_read_only_user,client_id="http://test.local")
     readonly=await hass_ws_client(hass,hass.auth.async_create_access_token(token))
@@ -79,7 +80,7 @@ async def test_stock_ws_pushes_permissions_and_unload(hass,hass_ws_client,hass_r
     assert (await client.receive_json())["result"]["quantity"]==2
     await readonly.receive_json()
     await readonly.close();await hass.async_block_till_done()
-    assert len(hass.data[DOMAIN]["stock"]._listeners)==2  # Stock automation and recurrence synchronization remain subscribed.
+    assert hass.data[DOMAIN]["stock"]._listeners == background_listeners
     assert await hass.config_entries.async_unload(entry.entry_id)
     assert not hass.data[DOMAIN]["stock"]._listeners
     await client.send_json({"id":3,"type":f"{DOMAIN}/stock/get"})

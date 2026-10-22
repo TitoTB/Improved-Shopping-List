@@ -1,6 +1,11 @@
 # Historial de cambios
 
-## Pendiente de publicación
+## 0.25.0
+
+- Stock incluye las vistas Stock y Últimas compras, con subida local de tickets PDF electrónicos de Carrefour y revisión antes de confirmar. El historial conserva fecha, tienda, importe, descuentos generales y detalle de los productos; los escaneos y otros formatos todavía no están disponibles.
+- Reposición con cantidades reales del ticket, conversión de unidades confirmada por el usuario, correspondencias aprendidas y detección de tickets duplicados. Permite corregir una reposición anterior sin volver a sumarla ni perder consumos posteriores, y evita duplicaciones si la compra se marca después de importar el ticket o durante la confirmación.
+- Precios de tickets opcionales como último precio conocido por tienda, sin sobrescribir observaciones más recientes ni repartir cupones generales. Los tickets se procesan localmente y sus precios no se comparten con la comunidad; no se conserva el PDF original ni los datos de pago o fidelización.
+- Retirados el buscador y su botón de añadir en Stock. Se conservan los controles de ordenación, lista, vista y subida de tickets; el buscador de Lista mantiene su funcionamiento.
 
 - Popup Actualización de precios con interruptor global, frecuencia desde un día y hora inicial aleatoria persistente. Tiendas y diccionario respetan el periodo; desactivarlo detiene consultas de precios y oculta importes sin borrar el historial. Campos en filas con etiqueta izquierda y control derecho, y botón Guardar.
 - Vistas de Ajustes en la misma fila del título, alineadas a la derecha, con navegación compacta y desplazamiento horizontal en pantallas pequeñas.

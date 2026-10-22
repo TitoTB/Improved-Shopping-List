@@ -1,6 +1,6 @@
 # Historial de cambios
 
-## Pendiente de publicación
+## 0.27.0 — 2026-10-22
 
 - Revisión de tickets: vinculación en filas compactas con selector de catálogo en popup, creación en verde e ignorado reversible en rojo. Se retiran la ayuda inicial y las cantidades y precios del paso de vinculación.
 

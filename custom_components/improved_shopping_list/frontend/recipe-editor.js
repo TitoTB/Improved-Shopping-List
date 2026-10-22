@@ -1,6 +1,6 @@
 /** Recipe editor; ingredient units belong to catalog products. */
-import { installDialogCloseButtons } from "./dialog-controls.js?v=0.26.0";
-import { productNameKey } from "./product-names.js?v=0.26.0";
+import { installDialogCloseButtons } from "./dialog-controls.js?v=0.27.0";
+import { productNameKey } from "./product-names.js?v=0.27.0";
 const node = (tag, text, className) => { const el=document.createElement(tag); if(text!==undefined)el.textContent=text; if(className)el.className=className; return el; };
 class RecipeEditor extends HTMLElement {
   constructor(){super();this.attachShadow({mode:"open"});this.products=[];this._ingredients=[];}

@@ -50,6 +50,8 @@ def async_register_commands(hass: HomeAssistant) -> None:
         websocket_api.async_register_command(hass, command)
     websocket_api.async_register_command(hass, ws_catalog_subscribe)
     websocket_api.async_register_command(hass, ws_catalog_save)
+    for command in (ws_recipe_save, ws_recipe_delete, ws_recipe_add, ws_recipe_season):
+        websocket_api.async_register_command(hass, command)
     websocket_api.async_register_command(hass, ws_season_months)
     websocket_api.async_register_command(hass, ws_recommendation_category_save)
     websocket_api.async_register_command(hass, ws_recommendation_category_delete)
@@ -756,6 +758,58 @@ async def ws_catalog_save(hass: HomeAssistant, connection, msg: dict[str, Any]) 
         connection.send_error(msg["id"], "storage_error", "No se ha podido guardar el catálogo. Inténtalo de nuevo.")
     else:
         connection.send_result(msg["id"], {"product": product})
+
+
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/catalog/recipe/save", vol.Required("recipe"): dict})
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_recipe_save(hass, connection, msg):
+    await _recipe_write(hass, connection, msg, "save")
+
+
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/catalog/recipe/delete", vol.Required("recipe_id"): str, vol.Required("revision"): int})
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_recipe_delete(hass, connection, msg):
+    await _recipe_write(hass, connection, msg, "delete")
+
+
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/catalog/recipe/season_months", vol.Required("recipe_id"): str,
+    vol.Required("months"): list, vol.Required("enabled"): bool})
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_recipe_season(hass, connection, msg):
+    await _recipe_write(hass, connection, msg, "season")
+
+
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/catalog/recipe/add", vol.Required("recipe_id"): str,
+    vol.Required("revision"): int, vol.Required("entity_id"): str})
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_recipe_add(hass, connection, msg):
+    await _recipe_write(hass, connection, msg, "add")
+
+
+async def _recipe_write(hass, connection, msg, action):
+    if not (catalog := _catalog(hass, connection, msg)):
+        return
+    try:
+        if action == "save":
+            result = {"recipe": await catalog.async_save_recipe(msg["recipe"])}
+        elif action == "delete":
+            await catalog.async_delete_recipe(msg["recipe_id"], msg["revision"])
+            result = {}
+        elif action == "season":
+            result = {"recipe": await catalog.async_set_recipe_season_months(msg["recipe_id"], msg["months"], msg["enabled"])}
+        else:
+            result = await hass.data[DOMAIN]["quantities"].async_add_recipe(msg["recipe_id"], msg["revision"], msg["entity_id"], hass.data[DOMAIN]["readers"]._operation_lock)
+    except CatalogError as err:
+        connection.send_error(msg["id"], err.code, str(err))
+    except (OSError, HomeAssistantError):
+        _LOGGER.exception("Could not process recipe")
+        connection.send_error(msg["id"], "storage_error", "No se ha podido completar la operación con la receta.")
+    else:
+        connection.send_result(msg["id"], result)
 
 
 @websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/catalog/recommendation_category/save",

@@ -16,6 +16,7 @@ class ImprovedShoppingCategories extends HTMLElement {
   create() { this._open(); }
   edit(category) { this._open(category); }
   set products(value) { this._products = value ?? []; }
+  set recipes(value) { this._recipes = value ?? []; }
 
   connectedCallback() {
     if (!this._built) this._build();
@@ -180,7 +181,13 @@ class ImprovedShoppingCategories extends HTMLElement {
         label.dataset.productName = product.name;
         label.append(checkbox,document.createTextNode(product.name)); return label;
       });
-      root.querySelector("#category-product-options").replaceChildren(...options);
+      const recipeOptions = [...(this._recipes ?? [])].map(recipe=>{
+        const label=document.createElement("label"),checkbox=document.createElement("input");checkbox.type="checkbox";checkbox.value=recipe.id;checkbox.dataset.kind="recipe";
+        checkbox.checked=(category?.recipe_ids??[]).includes(recipe.id);label.dataset.productName=recipe.name;
+        label.append(checkbox,document.createTextNode("Receta · "+recipe.name));return label;
+      });
+      root.querySelector("#category-product-options").replaceChildren(...options,...recipeOptions);
+      root.querySelector("#category-products legend").textContent="Productos y recetas del catálogo";
     }
     this._preview();
     root.querySelector("#category-dialog").showModal();
@@ -225,7 +232,10 @@ class ImprovedShoppingCategories extends HTMLElement {
     if (this._busy) return;
     const root = this.shadowRoot;
     const category = Object.fromEntries(new FormData(root.querySelector("form")));
-    if (this.hasAttribute("product-assignment")) category.product_ids = [...root.querySelectorAll("#category-product-options input:checked")].map(input=>input.value);
+    if (this.hasAttribute("product-assignment")) {
+      category.product_ids = [...root.querySelectorAll("#category-product-options input:checked:not([data-kind=recipe])")].map(input=>input.value);
+      category.recipe_ids = [...root.querySelectorAll("#category-product-options input[data-kind=recipe]:checked")].map(input=>input.value);
+    }
     if (this._editing) Object.assign(category, { id: this._editing.id, revision: this._editing.revision });
     this._setBusy(true);
     root.querySelector("#category-error").hidden = true;

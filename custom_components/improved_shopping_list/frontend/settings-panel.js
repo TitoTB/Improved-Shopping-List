@@ -206,6 +206,7 @@ class ImprovedShoppingSettings extends HTMLElement {
             <div><label for="mobile-columns">Productos por fila (móvil)</label><select id="mobile-columns" name="mobile_columns">${[1,2,3,4].map(value => `<option value="${value}">${value}</option>`).join("")}</select></div>
           </div>
           <div style="margin-top:18px"><label for="quantity-color">Color del indicador de cantidad</label><input id="quantity-color" name="quantity_color" type="color" value="#267052"></div>
+          <div class="appearance-fields" style="margin-top:18px"><div><label for="recipe-gradient-start">Color inicial de Recetas</label><input id="recipe-gradient-start" name="recipe_gradient_start" type="color" value="#66bb6a"></div><div><label for="recipe-gradient-end">Color final de Recetas</label><input id="recipe-gradient-end" name="recipe_gradient_end" type="color" value="#2e7d32"></div></div><div id="recipe-appearance-preview" class="preview" style="margin-top:18px">Vista previa de receta</div>
           <div class="appearance-actions"><button id="reset-appearance" type="button">Restablecer valores</button><button id="save-appearance" class="primary" type="submit">Guardar personalización</button></div>
         </form>
       </section>
@@ -758,6 +759,8 @@ class ImprovedShoppingSettings extends HTMLElement {
     return {
       gradient_start: form.elements.gradient_start.value,
       quantity_color: form.elements.quantity_color.value,
+      recipe_gradient_start: form.elements.recipe_gradient_start.value,
+      recipe_gradient_end: form.elements.recipe_gradient_end.value,
       gradient_end: form.elements.gradient_end.value,
       completed_gradient_start: form.elements.completed_gradient_start.value,
       completed_gradient_end: form.elements.completed_gradient_end.value,
@@ -771,6 +774,9 @@ class ImprovedShoppingSettings extends HTMLElement {
     const preview = this.shadowRoot.querySelector("#appearance-preview");
     preview.style.background = `linear-gradient(${appearance.gradient_start},${appearance.gradient_end})`;
     preview.style.color = gradientTextColor(appearance.gradient_start, appearance.gradient_end);
+    const recipe = this.shadowRoot.querySelector("#recipe-appearance-preview");
+    recipe.style.background = `linear-gradient(${appearance.recipe_gradient_start},${appearance.recipe_gradient_end})`;
+    recipe.style.color = gradientTextColor(appearance.recipe_gradient_start,appearance.recipe_gradient_end);
     const completed = this.shadowRoot.querySelector("#completed-appearance-preview");
     completed.style.background = `linear-gradient(${appearance.completed_gradient_start},${appearance.completed_gradient_end})`;
     completed.style.color = gradientTextColor(appearance.completed_gradient_start, appearance.completed_gradient_end);

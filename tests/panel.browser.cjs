@@ -21,13 +21,15 @@ const listeners = new Map();
 window.catalogProducts=JSON.parse(localStorage.getItem('catalog-fixture')??'[]');
 window.catalogCategories=JSON.parse(localStorage.getItem('category-fixture')??'[]');
 window.recommendationCategories=JSON.parse(localStorage.getItem('recommendation-fixture')??'[]');
+window.catalogRecipes=JSON.parse(localStorage.getItem('recipe-fixture')??'[]');
 window.dismissedSuggestions=JSON.parse(localStorage.getItem('dismissed-fixture')??'[]');
 const normalizeName=name=>name.normalize('NFKC').trim().replace(/\\s+/g,' ').toLowerCase();
-const snapshot=()=>({recommendation_categories:structuredClone(window.recommendationCategories),products:structuredClone(window.catalogProducts),dismissed_suggestions:[...window.dismissedSuggestions],categories:window.catalogCategories.map(category=>({...category,product_count:window.catalogProducts.filter(product=>product.category===category.name).length}))});
+const snapshot=()=>({recipes:structuredClone(window.catalogRecipes),recommendation_categories:structuredClone(window.recommendationCategories),products:structuredClone(window.catalogProducts),dismissed_suggestions:[...window.dismissedSuggestions],categories:window.catalogCategories.map(category=>({...category,product_count:window.catalogProducts.filter(product=>product.category===category.name).length}))});
 const emitCatalog=window.emitCatalog=()=>{
   localStorage.setItem('catalog-fixture',JSON.stringify(window.catalogProducts));
   localStorage.setItem('category-fixture',JSON.stringify(window.catalogCategories));
   localStorage.setItem('recommendation-fixture',JSON.stringify(window.recommendationCategories));
+  localStorage.setItem('recipe-fixture',JSON.stringify(window.catalogRecipes));
   localStorage.setItem('dismissed-fixture',JSON.stringify(window.dismissedSuggestions));
   for(const listener of listeners.keys())if(listener.catalog)listener.callback(snapshot());
 };
@@ -319,6 +321,33 @@ const hass={
       window.catalogProducts=window.catalogProducts.map(product=>product.category===category.name?{...product,category:'',revision:product.revision+1}:product);
       window.catalogCategories=window.catalogCategories.filter(item=>item.id!==category.id);emitCatalog();return {};
     }
+    if(msg.type==='improved_shopping_list/catalog/recipe/save'){
+      if(window.failCatalog)throw new Error('No se ha podido guardar la receta');
+      const previous=window.catalogRecipes.find(recipe=>recipe.id===msg.recipe.id);
+      const recipe={...msg.recipe,id:previous?.id??crypto.randomUUID(),revision:(previous?.revision??0)+1,season_months:previous?.season_months??[]};
+      window.catalogRecipes=window.catalogRecipes.filter(item=>item.id!==recipe.id);window.catalogRecipes.push(recipe);emitCatalog();return {recipe};
+    }
+    if(msg.type==='improved_shopping_list/catalog/recipe/delete'){
+      window.catalogRecipes=window.catalogRecipes.filter(recipe=>recipe.id!==msg.recipe_id);
+      for(const group of window.recommendationCategories)group.recipe_ids=(group.recipe_ids??[]).filter(id=>id!==msg.recipe_id);
+      emitCatalog();return {};
+    }
+    if(msg.type==='improved_shopping_list/catalog/recipe/season_months'){
+      const recipe=window.catalogRecipes.find(recipe=>recipe.id===msg.recipe_id),months=new Set(recipe.season_months??[]);
+      for(const month of msg.months)msg.enabled?months.add(month):months.delete(month);
+      recipe.season_months=[...months];recipe.revision++;emitCatalog();return {recipe};
+    }
+    if(msg.type==='improved_shopping_list/catalog/recipe/add'){
+      const recipe=window.catalogRecipes.find(recipe=>recipe.id===msg.recipe_id);const applied=[];
+      for(const ingredient of recipe.ingredients){
+        const product=window.catalogProducts.find(product=>product.id===ingredient.product_id);
+        let item=data[msg.entity_id].find(item=>item.summary===product.name&&item.status==='needs_action');
+        const current=item?window.quantityEntries[msg.entity_id]?.[item.uid]?.quantity??product.unit_quantity??1:0;
+        if(!item){await hass.callService('todo','add_item',{entity_id:msg.entity_id,item:product.name});item=data[msg.entity_id].find(item=>item.summary===product.name&&item.status==='needs_action');}
+        (window.quantityEntries[msg.entity_id]??={})[item.uid]={quantity:current+ingredient.quantity,unit:ingredient.unit,step:product.quantity_step??1};applied.push({product_id:product.id});
+      }
+      window.emitQuantities();return {applied,error:''};
+    }
     if(msg.type==='improved_shopping_list/catalog/recommendation_category/save'){
       if(window.failCatalog)throw new Error('No se ha podido guardar la categoría');
       const previous=window.recommendationCategories.find(group=>group.id===msg.category.id);
@@ -423,7 +452,7 @@ async function main() {
       return;
     }
     if (pathname === "/") { res.setHeader("content-type", "text/html; charset=utf-8"); res.end(html); return; }
-    if (!["/quantity-client.js", "/panel.js", "/purchases-panel.js", "/stock-client.js", "/dialog-controls.js", "/todo-client.js", "/catalog-panel.js", "/catalog-client.js", "/category-panel.js", "/icon-picker.js", "/list-settings-client.js", "/settings-panel.js", "/readers-client.js", "/readers-panel.js", "/product-matching.js", "/product-names.js", "/logs-panel.js", "/logo.png", "/mercadona.png", "/consum.jpg", "/lasirena.jpg", "/eroski.svg", "/dia.png"].includes(pathname)) { res.writeHead(404).end(); return; }
+    if (!["/recipe-editor.js", "/quantity-client.js", "/panel.js", "/purchases-panel.js", "/stock-client.js", "/dialog-controls.js", "/todo-client.js", "/catalog-panel.js", "/catalog-client.js", "/category-panel.js", "/icon-picker.js", "/list-settings-client.js", "/settings-panel.js", "/readers-client.js", "/readers-panel.js", "/product-matching.js", "/product-names.js", "/logs-panel.js", "/logo.png", "/mercadona.png", "/consum.jpg", "/lasirena.jpg", "/eroski.svg", "/dia.png"].includes(pathname)) { res.writeHead(404).end(); return; }
     res.setHeader("content-type", pathname.endsWith(".svg") ? "image/svg+xml" : pathname.endsWith(".png") ? "image/png" : pathname.endsWith(".jpg") ? "image/jpeg" : "text/javascript; charset=utf-8");
     res.end(await fs.readFile(path.join(root, pathname.slice(1))));
   });
@@ -473,7 +502,7 @@ async function main() {
       };
       visit(document);
       return dialogs.filter(dialog => dialog.querySelectorAll(".isl-dialog-close[aria-label='Cerrar ventana']").length === 1).length;
-    }), 30);
+    }), 32);
     await page.getByRole("button", { name: "Seleccionar lista", exact: true }).click();
     const listDialog = page.getByRole("dialog", { name: "Seleccionar lista", exact: true });
     assert.equal(await listDialog.getByRole("button", { name: "Compra · Bring!", exact: true }).getAttribute("aria-pressed"), "true");
@@ -936,11 +965,11 @@ async function main() {
         assert.equal(await page.locator(".section-nav .nav-label:visible").count(), 1);
         assert.equal(await page.locator(`#nav-${view} .nav-label`).isVisible(), true);
         if (view === "catalog") {
-          for (const tab of ["products","categories","recommendations","suggestions"]) {
+          for (const tab of ["products","categories","recipes","recommendations","suggestions"]) {
             await catalog.locator(`#view-${tab}`).click();
             assert.equal(await catalog.locator(".catalog-tabs .tab-label:visible").count(),1);
             assert.equal(await catalog.locator(`#view-${tab} .tab-label`).isVisible(),true);
-            assert.equal(await catalog.locator(".catalog-tabs ha-icon:visible").count(),4);
+            assert.equal(await catalog.locator(".catalog-tabs ha-icon:visible").count(),5);
             const tabLayout = await catalog.locator(".catalog-toolbar").evaluate(toolbar=>{
               const tabs=toolbar.querySelector(".catalog-tabs");
               const bounds=toolbar.getBoundingClientRect();
@@ -964,7 +993,7 @@ async function main() {
     assert.equal(await page.locator(".brand-copy").isVisible(), true);
     assert.equal(await page.locator(".section-nav .nav-label:visible").count(), 4);
     await page.getByRole("button",{name:"Catálogo",exact:true}).click();
-    assert.equal(await catalog.locator(".catalog-tabs .tab-label:visible").count(),4);
+    assert.equal(await catalog.locator(".catalog-tabs .tab-label:visible").count(),5);
     await page.getByRole("button",{name:"Lista",exact:true}).click();
     await page.setViewportSize({ width:390, height:844 });
     await page.getByRole("button", { name: "Abrir menú de Home Assistant" }).click();
@@ -2782,6 +2811,67 @@ async function main() {
     assert.equal(await renameSuggestions.locator("h2").count(),0);
     await renameContext.close();
     // Category grouping sorts headings and products, preserves searching, layouts and user preference.
+    const recipeContext=await browser.newContext({viewport:{width:1280,height:960}});
+    const recipePage=await recipeContext.newPage();recipePage.on('pageerror',error=>errors.push(error.message));
+    await recipePage.addInitScript(()=>{
+      if(localStorage.getItem('recipe-test-ready'))return;localStorage.setItem('recipe-test-ready','1');
+      localStorage.setItem('catalog-fixture',JSON.stringify([
+        {id:'recipe-cacao',name:'Cacao',unit_quantity:100},{id:'recipe-pavo',name:'Pavo',unit_quantity:250}
+      ].map(product=>({...product,revision:1,category:'',tags:[],notes:'',price:null,currency:'EUR',barcode:'',barcodes:[],nfc_tags:[],reader_actions:{},purchase_unit:'g',quantity_step:10,image_url:'',icon:''}))));
+    });
+    await recipePage.goto(url);await recipePage.getByRole('button',{name:'Catálogo',exact:true}).click();
+    const recipeCatalog=recipePage.locator('isl-catalog'),recipeEditor=recipeCatalog.locator('isl-recipe-editor');
+    await recipeCatalog.getByRole('button',{name:'Recetas',exact:true}).click();
+    await recipeCatalog.getByRole('button',{name:'Nueva receta',exact:true}).click();
+    const recipeDialog=recipeEditor.getByRole('dialog',{name:'Nueva receta',exact:true});
+    await recipeDialog.getByLabel('Nombre de la receta',{exact:true}).fill('Desayuno');
+    await recipeDialog.getByLabel('Producto del catálogo',{exact:true}).fill('Cacao');
+    await recipeDialog.getByLabel('Producto del catálogo',{exact:true}).press('Enter');
+    await recipeDialog.getByLabel('Cantidad de Cacao',{exact:true}).fill('30');
+    await recipeDialog.getByLabel('Producto del catálogo',{exact:true}).fill('Pavo');
+    await recipeDialog.getByRole('button',{name:'Añadir ingrediente',exact:true}).click();
+    await recipeDialog.getByLabel('Cantidad de Pavo',{exact:true}).fill('200');
+    assert.deepEqual(await recipeDialog.locator('.unit').allTextContents(),['g','g']);
+    await recipeDialog.getByRole('button',{name:'Guardar receta',exact:true}).click();await recipeDialog.waitFor({state:'hidden'});
+    const recipeCard=recipeCatalog.locator('#recipe-grid .recipe-card');await recipeCard.waitFor();
+    assert.equal(await recipeCard.evaluate(node=>getComputedStyle(node).backgroundImage),'linear-gradient(rgb(102, 187, 106), rgb(46, 125, 50))');
+    await recipeCard.getByRole('button',{name:'Añadir receta Desayuno a la lista',exact:true}).click();
+    await recipePage.waitForFunction(()=>window.quantityEntries['todo.bring']?.['cacao-1']?.quantity===130);
+    await recipeCard.getByRole('button',{name:'Añadir receta Desayuno a la lista',exact:true}).click();
+    await recipePage.waitForFunction(()=>window.quantityEntries['todo.bring']?.['cacao-1']?.quantity===160);
+    assert.equal(await recipePage.evaluate(()=>window.listData['todo.bring'].filter(item=>item.summary==='Pavo').length),1);
+    assert.equal(await recipePage.evaluate(()=>{const item=window.listData['todo.bring'].find(item=>item.summary==='Pavo');return window.quantityEntries['todo.bring'][item.uid].quantity;}),400);
+    for(const width of [390,320]){await recipePage.setViewportSize({width,height:844});assert.ok(await recipeCard.evaluate(node=>Math.abs(node.getBoundingClientRect().width-node.getBoundingClientRect().height)<1));await recipePage.screenshot({path:'test-results/recipes-'+width+'.png',fullPage:true});}
+    await recipeCard.getByRole('button',{name:'Editar receta Desayuno',exact:true}).click();
+    const editRecipe=recipeEditor.getByRole('dialog',{name:'Editar receta',exact:true});
+    await editRecipe.getByLabel('Nombre de la receta',{exact:true}).fill('Almuerzo');await editRecipe.getByLabel('Cantidad de Pavo',{exact:true}).fill('300');
+    await recipePage.screenshot({path:'test-results/recipe-editor-mobile.png',fullPage:true});
+    await editRecipe.getByRole('button',{name:'Guardar receta',exact:true}).click();await editRecipe.waitFor({state:'hidden'});
+    await recipePage.reload();await recipePage.getByRole('button',{name:'Catálogo',exact:true}).click();await recipeCatalog.getByRole('button',{name:'Recetas',exact:true}).click();
+    await recipeCatalog.getByRole('button',{name:'Editar receta Almuerzo',exact:true}).waitFor();
+    await recipeCatalog.getByRole('button',{name:'Sugerencias',exact:true}).click();await recipeCatalog.getByRole('button',{name:'Nueva categoría de sugerencias',exact:true}).click();
+    const groupEditor=recipeCatalog.locator('#recommendation-category-editor'),groupDialog=groupEditor.getByRole('dialog',{name:'Nueva categoría de sugerencias',exact:true});
+    await groupDialog.getByLabel('Nombre de la categoría',{exact:true}).fill('Menús');await groupDialog.getByLabel('Receta · Almuerzo',{exact:true}).check();
+    await groupDialog.getByRole('button',{name:'Guardar categoría',exact:true}).click();await groupDialog.waitFor({state:'hidden'});
+    assert.equal(await recipeCatalog.locator('.recommendation-products .recipe-card').count(),1);
+    await recipeCatalog.getByRole('button',{name:'Productos de temporada',exact:true}).click();
+    await recipeCatalog.getByRole('button',{name:'Añadir producto a Enero',exact:true}).click();
+    const seasonRecipe=recipeCatalog.locator('#season-add-dialog');await seasonRecipe.getByLabel('Producto o receta del catálogo',{exact:true}).fill('Receta · Almuerzo');
+    const recipeMonth=await recipeCatalog.evaluate(node=>node._seasonMonth());await seasonRecipe.locator('input[name=season_month][value="'+recipeMonth+'"]').check();
+    await seasonRecipe.getByRole('button',{name:'Añadir',exact:true}).click();await seasonRecipe.waitFor({state:'hidden'});
+    await recipeCatalog.locator('#season-calendar-dialog').getByRole('button',{name:'Cerrar ventana',exact:true}).click();
+    assert.equal(await recipeCatalog.locator('#season-current-products .recipe-card').count(),1);
+    await recipePage.getByRole('button',{name:'Ajustes',exact:true}).click();const recipeSettings=recipePage.locator('isl-settings');
+    await recipeSettings.getByRole('button',{name:'Personalización',exact:true}).click();await recipeSettings.getByLabel('Color inicial de Recetas',{exact:true}).fill('#a5d6a7');
+    await recipeSettings.getByLabel('Color final de Recetas',{exact:true}).fill('#1b5e20');await recipeSettings.getByRole('button',{name:'Guardar personalización',exact:true}).click();
+    await recipePage.getByRole('button',{name:'Catálogo',exact:true}).click();await recipeCatalog.getByRole('button',{name:'Recetas',exact:true}).click();
+    assert.equal(await recipeCard.evaluate(node=>getComputedStyle(node).backgroundImage),'linear-gradient(rgb(165, 214, 167), rgb(27, 94, 32))');
+    await recipeCatalog.getByRole('button',{name:'Editar receta Almuerzo',exact:true}).click();await editRecipe.getByRole('button',{name:'Eliminar receta',exact:true}).click();
+    await recipeEditor.locator('#delete-recipe-dialog').getByRole('button',{name:'Eliminar receta',exact:true}).click();await editRecipe.waitFor({state:'hidden'});
+    assert.equal(await recipePage.evaluate(()=>window.catalogProducts.length),2);assert.equal(await recipeCatalog.locator('#recipe-grid .recipe-card').count(),0);
+    assert.deepEqual(await recipePage.evaluate(()=>window.recommendationCategories[0].recipe_ids),[]);
+    await recipeContext.close();
+
     const seasonContext=await browser.newContext({viewport:{width:1280,height:960}});
     const seasonPage=await seasonContext.newPage();
     seasonPage.on('pageerror',error=>errors.push(error.message));
@@ -2793,14 +2883,14 @@ async function main() {
     await seasonPage.goto(url);
     await seasonPage.getByRole('button',{name:'Catálogo',exact:true}).click();
     const seasonCatalog=seasonPage.locator('isl-catalog');
-    assert.deepEqual(await seasonCatalog.locator('.catalog-tabs .tab-label').allTextContents(),['Productos','Categorías','Sugerencias','Nuevos']);
+    assert.deepEqual(await seasonCatalog.locator('.catalog-tabs .tab-label').allTextContents(),['Productos','Categorías','Recetas','Sugerencias','Nuevos']);
     await seasonCatalog.getByRole('button',{name:'Sugerencias',exact:true}).click();
     await seasonCatalog.getByRole('button',{name:'Productos de temporada',exact:true}).click();
     const calendar=seasonCatalog.locator('#season-calendar-dialog');
     assert.equal(await calendar.locator('.season-month').count(),12);
     await calendar.getByRole('button',{name:'Añadir producto a Enero',exact:true}).click();
     const seasonForm=seasonCatalog.locator('#season-add-dialog');
-    await seasonForm.getByLabel('Producto del catálogo',{exact:true}).fill('Fresas');
+    await seasonForm.getByLabel('Producto o receta del catálogo',{exact:true}).fill('Fresas');
     await seasonForm.getByLabel('Marzo',{exact:true}).check();
     await seasonForm.getByLabel('Diciembre',{exact:true}).check();
     const currentMonth=await seasonCatalog.evaluate(node=>node._seasonMonth());

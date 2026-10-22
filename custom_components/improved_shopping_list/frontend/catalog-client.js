@@ -6,6 +6,7 @@ export class CatalogSession {
     this.getHass = getHass;
     this.onChange = onChange;
     this.products = [];
+    this.recipes = [];
     this.categories = [];
     this.recommendationCategories = [];
     this.dismissedSuggestions = [];
@@ -27,6 +28,7 @@ export class CatalogSession {
         if (generation !== this._generation) return;
         this._revision += 1;
         this.products = data.products ?? [];
+        this.recipes = data.recipes ?? [];
         this.categories = data.categories ?? [];
         this.recommendationCategories = data.recommendation_categories ?? [];
         this.dismissedSuggestions = data.dismissed_suggestions ?? [];
@@ -52,6 +54,7 @@ export class CatalogSession {
       const data = await this.getHass().callWS({ type: `${PREFIX}get` });
       if (generation !== this._generation || revision !== this._revision) return;
       this.products = data.products ?? [];
+      this.recipes = data.recipes ?? [];
       this.categories = data.categories ?? [];
       this.recommendationCategories = data.recommendation_categories ?? [];
       this.dismissedSuggestions = data.dismissed_suggestions ?? [];
@@ -78,6 +81,24 @@ export class CatalogSession {
     const generation = this._generation;
     await this.getHass().callWS({type: `${PREFIX}season_months`, product_id: productId, months, enabled});
     if (generation === this._generation) await this.refresh();
+  }
+
+  async saveRecipe(recipe) {
+    const generation = this._generation;
+    const result = await this.getHass().callWS({type:PREFIX+"recipe/save", recipe});
+    if (generation === this._generation) await this.refresh(); return result.recipe;
+  }
+
+  async deleteRecipe(recipe) {
+    const generation = this._generation;
+    await this.getHass().callWS({type:PREFIX+"recipe/delete", recipe_id:recipe.id, revision:recipe.revision});
+    if (generation === this._generation) await this.refresh();
+  }
+
+  async setRecipeSeasonMonths(recipeId, months, enabled) {
+    const generation = this._generation;
+    await this.getHass().callWS({type:PREFIX+"recipe/season_months", recipe_id:recipeId, months, enabled});
+    await this.refresh();
   }
 
   async saveRecommendationCategory(category) {

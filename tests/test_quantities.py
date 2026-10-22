@@ -115,3 +115,65 @@ async def test_quantity_api_permissions_and_unload(hass, hass_ws_client, hass_re
     assert len(hass.data[DOMAIN]["quantities"]._listeners) == 1
     assert await hass.config_entries.async_unload(entry.entry_id)
     assert not hass.data[DOMAIN]["quantities"]._listeners
+
+
+async def test_recipe_adds_exact_physical_quantities_and_sums_pending_without_duplicates(hass, env):
+    salt = await env.catalog.async_save_product({"name": "Sal", "purchase_unit": "g", "unit_quantity": 100, "quantity_step": 5})
+    recipe = await env.catalog.async_save_recipe({"name": "Pavo con sal", "ingredients": [
+        {"product_id": env.product["id"], "quantity": 50}, {"product_id": salt["id"], "quantity": 5}]})
+    async def add_item(call):
+        todo = env.todos[call.data["entity_id"]]
+        todo.todo_items.append(TodoItem(uid="salt-uid", summary=call.data["item"], status=TodoItemStatus.NEEDS_ACTION))
+        todo.publish()
+    hass.services.async_register("todo", "add_item", add_item)
+    lock = asyncio.Lock()
+    result = await env.manager.async_add_recipe(recipe["id"], recipe["revision"], "todo.main", lock)
+    assert result["error"] == "" and len(result["applied"]) == 2
+    assert len(env.todos["todo.main"].todo_items) == 2
+    assert env.manager.value("todo.main", item())["quantity"] == 300
+    assert env.manager.value("todo.main", {"uid": "salt-uid", "summary": "Sal"})["quantity"] == 5
+    assert env.manager.value("todo.other", item())["quantity"] == 250
+    await env.manager.async_add_recipe(recipe["id"], recipe["revision"], "todo.main", lock)
+    assert len(env.todos["todo.main"].todo_items) == 2
+    assert env.manager.value("todo.main", item())["quantity"] == 350
+    assert env.manager.value("todo.main", {"uid": "salt-uid", "summary": "Sal"})["quantity"] == 10
+
+
+async def test_recipe_restores_completed_with_recipe_quantity_and_rejects_changed_units(hass, env):
+    env.todos["todo.main"].todo_items[0].status = TodoItemStatus.COMPLETED
+    recipe = await env.catalog.async_save_recipe({"name": "Pavo", "ingredients": [{"product_id": env.product["id"], "quantity": 70}]})
+    async def update_item(call):
+        env.todos["todo.main"].todo_items[0].status = TodoItemStatus.NEEDS_ACTION
+        env.todos["todo.main"].publish()
+    hass.services.async_register("todo", "update_item", update_item)
+    result = await env.manager.async_add_recipe(recipe["id"], recipe["revision"], "todo.main", asyncio.Lock())
+    assert result["error"] == ""
+    assert env.manager.value("todo.main", item())["quantity"] == 70
+    assert len(env.todos["todo.main"].todo_items) == 1
+    changed = await env.catalog.async_save_product({"id": env.product["id"], "revision": env.product["revision"], "name": "Pavo", "purchase_unit": "kg"})
+    with pytest.raises(CatalogError, match="unidades distintas"):
+        await env.manager.async_add_recipe(recipe["id"], recipe["revision"], "todo.main", asyncio.Lock())
+    assert changed["purchase_unit"] == "kg"
+
+
+async def test_recipe_partial_provider_failure_reports_exact_applied_ingredients(hass, env):
+    missing = await env.catalog.async_save_product({"name": "Pan"})
+    recipe = await env.catalog.async_save_recipe({"name": "Bocadillo", "ingredients": [
+        {"product_id": env.product["id"], "quantity": 10}, {"product_id": missing["id"], "quantity": 1}]})
+    from homeassistant.exceptions import HomeAssistantError
+    async def fail(call):
+        raise HomeAssistantError("Proveedor sin conexión")
+    hass.services.async_register("todo", "add_item", fail)
+    result = await env.manager.async_add_recipe(recipe["id"], recipe["revision"], "todo.main", asyncio.Lock())
+    assert result["error"] == "Proveedor sin conexión"
+    assert [item["name"] for item in result["applied"]] == ["Pavo"]
+    assert env.manager.value("todo.main", item())["quantity"] == 260
+
+
+async def test_simultaneous_recipe_additions_do_not_lose_quantities(hass, env):
+    recipe = await env.catalog.async_save_recipe({"name": "Pavo", "ingredients": [{"product_id": env.product["id"], "quantity": 25}]})
+    lock = asyncio.Lock()
+    results = await asyncio.gather(*(env.manager.async_add_recipe(recipe["id"], recipe["revision"], "todo.main", lock) for _ in range(2)))
+    assert all(not result["error"] for result in results)
+    assert env.manager.value("todo.main", item())["quantity"] == 300
+    assert len(env.todos["todo.main"].todo_items) == 1

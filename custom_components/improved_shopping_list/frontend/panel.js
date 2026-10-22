@@ -628,6 +628,9 @@ class ImprovedShoppingListPanel extends HTMLElement {
     this._ensureRowPrices();
     const appearance = this._settings.appearance;
     this.style.setProperty("--isl-gradient-start", appearance.gradient_start);
+    this.style.setProperty("--isl-recipe-gradient-start",appearance.recipe_gradient_start);
+    this.style.setProperty("--isl-recipe-gradient-end",appearance.recipe_gradient_end);
+    this.style.setProperty("--isl-recipe-gradient-text",gradientTextColor(appearance.recipe_gradient_start,appearance.recipe_gradient_end));
     this.style.setProperty("--isl-quantity-color",appearance.quantity_color??'#267052');
     this.style.setProperty("--isl-gradient-end", appearance.gradient_end);
     this.style.setProperty("--isl-gradient-text", gradientTextColor(appearance.gradient_start, appearance.gradient_end));

@@ -18,7 +18,7 @@ from .const import DOMAIN
 from .product_translation import async_translate_name
 from .store_links import normalize_links
 from .community_data import fingerprint
-from .quantity_values import DEFAULT_PURCHASE, normalize_purchase
+from .quantity_values import DEFAULT_PURCHASE, normalize_purchase, positive_quantity, purchase_defaults
 
 STORAGE_KEY = f"{DOMAIN}.catalog"
 FIELDS = {
@@ -192,6 +192,7 @@ class Catalog:
         self._products: dict[str, dict[str, Any]] = {}
         self._categories: dict[str, dict[str, Any]] = {}
         self._recommendation_categories: dict[str, dict[str, Any]] = {}
+        self._recipes: dict[str, dict[str, Any]] = {}
         self._dismissed_suggestions: set[str] = set()
         self._lock = Lock()
         self._listeners: set = set()
@@ -208,6 +209,10 @@ class Catalog:
             if not isinstance(groups, dict) or any(not isinstance(group, dict) or not isinstance(group.get("product_ids", []), list) for group in groups.values()):
                 raise CatalogError("No se han podido leer las categorías de sugerencias.", "storage_error")
             self._recommendation_categories = deepcopy(groups)
+            recipes = data.get("recipes", {})
+            if not isinstance(recipes, dict):
+                raise CatalogError("No se han podido leer las recetas.", "storage_error")
+            self._recipes = deepcopy(recipes)
             dismissed = data.get("dismissed_suggestions", [])
             if not isinstance(dismissed, list) or any(not isinstance(name, str) for name in dismissed):
                 raise CatalogError("No se han podido leer las sugerencias descartadas.", "storage_error")
@@ -247,7 +252,7 @@ class Catalog:
             if migrated:
                 await self._store.async_save({"products": self._products, "categories": categories,
                                               "dismissed_suggestions": sorted(self._dismissed_suggestions),
-                                              "recommendation_categories": self._recommendation_categories})
+                                              "recommendation_categories": self._recommendation_categories, "recipes": self._recipes})
             self._categories = categories
 
     @property
@@ -277,23 +282,30 @@ class Catalog:
                 for group in sorted(self._recommendation_categories.values(), key=lambda item: item["name"].casefold())]
 
     @property
+    def recipes(self) -> list[dict]:
+        return deepcopy(sorted(self._recipes.values(), key=lambda item: item["name"].casefold()))
+
+    @property
     def snapshot(self) -> dict[str, Any]:
         return {"products": self.products, "categories": self.categories,
-                "recommendation_categories": self.recommendation_categories,
+                "recommendation_categories": self.recommendation_categories, "recipes": self.recipes,
                 "dismissed_suggestions": sorted(self._dismissed_suggestions)}
 
-    async def _persist(self, products, categories, dismissed=None, recommendation_categories=None) -> None:
+    async def _persist(self, products, categories, dismissed=None, recommendation_categories=None, recipes=None) -> None:
         """Commit related category and product changes together under the lock."""
         if dismissed is None:
             dismissed = self._dismissed_suggestions
+        recipes = self._recipes if recipes is None else recipes
         groups = deepcopy(self._recommendation_categories if recommendation_categories is None else recommendation_categories)
         for group in groups.values():
             members = [uid for uid in group["product_ids"] if uid in products]
-            if members != group["product_ids"]:
-                group.update(product_ids=members, revision=group["revision"] + 1,
+            recipe_members = [uid for uid in group.get("recipe_ids", []) if uid in recipes]
+            if members != group["product_ids"] or recipe_members != group.get("recipe_ids", []):
+                group.update(product_ids=members, recipe_ids=recipe_members, revision=group["revision"] + 1,
                              updated_at=datetime.now(UTC).isoformat())
         await self._store.async_save({"products": products, "categories": categories,
-                                      "dismissed_suggestions": sorted(dismissed), "recommendation_categories": groups})
+                                      "dismissed_suggestions": sorted(dismissed), "recommendation_categories": groups, "recipes": recipes})
+        self._recipes = recipes
         self._recommendation_categories = groups
         self._products = products
         self._categories = categories
@@ -508,12 +520,86 @@ class Catalog:
             await self._persist(self._products, self._categories, self._dismissed_suggestions | {key})
         self._notify()
 
+    async def async_save_recipe(self, data: dict) -> dict:
+        if not isinstance(data, dict) or set(data) - {"id", "revision", "name", "ingredients"}:
+            raise CatalogError("La receta contiene campos no admitidos.")
+        name = _text(data, "name", 160)
+        ingredients = data.get("ingredients")
+        if not name or not isinstance(ingredients, list) or not 1 <= len(ingredients) <= 100:
+            raise CatalogError("Indica un nombre y entre 1 y 100 ingredientes del catálogo.")
+        async with self._lock:
+            uid = data.get("id")
+            if uid is not None and not isinstance(uid, str):
+                raise CatalogError("Identificador de receta no válido.")
+            current = self._recipes.get(uid) if uid else None
+            if uid and current is None:
+                raise CatalogError("La receta ya no existe.", "not_found")
+            if current and data.get("revision") != current["revision"]:
+                raise CatalogError("Otra sesión ha modificado esta receta. Vuelve a abrirla.", "conflict")
+            if any(item["id"] != uid and normalized_name(item["name"]) == normalized_name(name) for item in self._recipes.values()):
+                raise CatalogError("Ya existe una receta con ese nombre.")
+            normalized, seen, seen_names = [], set(), set()
+            for ingredient in ingredients:
+                if not isinstance(ingredient, dict) or set(ingredient) - {"product_id", "quantity", "unit"} or not isinstance(ingredient.get("product_id"), str):
+                    raise CatalogError("Selecciona ingredientes válidos del catálogo.")
+                product = self._products.get(ingredient["product_id"])
+                if product is None or product["id"] in seen or normalized_name(product["name"]) in seen_names:
+                    raise CatalogError("Hay un ingrediente repetido o que ya no existe en el catálogo.")
+                unit = purchase_defaults(product)["purchase_unit"]
+                if ingredient.get("unit", unit) != unit:
+                    raise CatalogError(f"Han cambiado las unidades de {product['name']}. Quita y vuelve a añadir ese ingrediente.")
+                try:
+                    amount = positive_quantity(ingredient.get("quantity"))
+                except ValueError as err:
+                    raise CatalogError(str(err)) from err
+                normalized.append({"product_id": product["id"], "quantity": amount, "unit": unit})
+                seen.add(product["id"])
+                seen_names.add(normalized_name(product["name"]))
+            now = datetime.now(UTC).isoformat()
+            recipe = {"id": uid or str(uuid4()), "revision": current["revision"] + 1 if current else 1,
+                      "name": name, "ingredients": normalized, "season_months": list((current or {}).get("season_months", [])),
+                      "created_at": current["created_at"] if current else now, "updated_at": now}
+            await self._persist(self._products, self._categories, recipes={**self._recipes, recipe["id"]: recipe})
+        self._notify()
+        return deepcopy(recipe)
+
+    async def async_delete_recipe(self, recipe_id: str, revision: int) -> None:
+        async with self._lock:
+            current = self._recipes.get(recipe_id)
+            if current is None:
+                raise CatalogError("La receta ya no existe.", "not_found")
+            if current["revision"] != revision:
+                raise CatalogError("Otra sesión ha modificado esta receta. Vuelve a abrirla.", "conflict")
+            await self._persist(self._products, self._categories, recipes={uid: item for uid, item in self._recipes.items() if uid != recipe_id})
+        self._notify()
+
+    async def async_set_recipe_season_months(self, recipe_id, months, enabled):
+        if (not isinstance(months, list) or not 1 <= len(months) <= 12 or type(enabled) is not bool
+            or any(type(month) is not int or not 1 <= month <= 12 for month in months)):
+            raise CatalogError("Selecciona uno o varios meses válidos.")
+        async with self._lock:
+            current = self._recipes.get(recipe_id)
+            if current is None:
+                raise CatalogError("La receta ya no existe.", "not_found")
+            previous = set(current.get("season_months", []))
+            months = sorted(previous.union(months) if enabled else previous.difference(months))
+            if months == sorted(previous):
+                return deepcopy(current)
+            recipe = {**deepcopy(current), "season_months": months, "revision": current["revision"] + 1,
+                      "updated_at": datetime.now(UTC).isoformat()}
+            await self._persist(self._products, self._categories, recipes={**self._recipes, recipe_id: recipe})
+        self._notify()
+        return deepcopy(recipe)
+
     async def async_save_recommendation_category(self, data: dict) -> dict:
         """Save an independent suggestion group; products can belong to several groups."""
-        if not isinstance(data, dict) or set(data) - CATEGORY_FIELDS - {"product_ids"}:
+        if not isinstance(data, dict) or set(data) - CATEGORY_FIELDS - {"product_ids", "recipe_ids"}:
             raise CatalogError("La categoría de sugerencias contiene campos no admitidos.")
-        group = normalize_category({key: value for key, value in data.items() if key != "product_ids"})
+        group = normalize_category({key: value for key, value in data.items() if key not in ("product_ids", "recipe_ids")})
         members = data.get("product_ids", [])
+        recipe_ids = data.get("recipe_ids", [])
+        if not isinstance(recipe_ids, list) or len(recipe_ids) > 10000 or any(not isinstance(uid, str) for uid in recipe_ids):
+            raise CatalogError("Selecciona recetas válidas del catálogo.")
         if not isinstance(members, list) or len(members) > 10000 or any(not isinstance(uid, str) for uid in members):
             raise CatalogError("Selecciona productos válidos del catálogo.")
         async with self._lock:
@@ -529,12 +615,16 @@ class Catalog:
                 item["id"] != uid and normalized_name(item["name"]) == normalized_name(group["name"])
                 for item in self._recommendation_categories.values()):
                 raise CatalogError("Ya existe una categoría de sugerencias con ese nombre.", "duplicate_category")
+            if current and "recipe_ids" not in data:
+                recipe_ids = current.get("recipe_ids", [])
+            if any(uid not in self._recipes for uid in recipe_ids):
+                raise CatalogError("Alguna de las recetas ya no existe. Vuelve a abrir la categoría.", "not_found")
             if any(product_id not in self._products for product_id in members):
                 raise CatalogError("Alguno de los productos ya no existe. Vuelve a abrir la categoría.", "not_found")
             now = datetime.now(UTC).isoformat()
             group.update(id=uid or str(uuid4()), revision=current["revision"] + 1 if current else 1,
                          created_at=current["created_at"] if current else now, updated_at=now,
-                         product_ids=sorted(set(members)))
+                         product_ids=sorted(set(members)), recipe_ids=sorted(set(recipe_ids)))
             await self._persist(self._products, self._categories,
                                 recommendation_categories={**self._recommendation_categories, group["id"]: group})
         self._notify()

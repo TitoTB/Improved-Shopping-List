@@ -2,6 +2,9 @@
 
 import asyncio
 from copy import deepcopy
+from decimal import Decimal
+
+from homeassistant.exceptions import HomeAssistantError
 
 from homeassistant.components.todo import DATA_COMPONENT
 from homeassistant.core import callback
@@ -97,6 +100,73 @@ class ListQuantities:
                 source="manual", product=item.get("summary", ""), list_entity=entity_id,
                 diagnostics={"quantity": quantity, "unit": value["unit"]})
             return self.snapshot
+
+    async def async_add_recipe(self, recipe_id, revision, entity_id, operation_lock):
+        """Add physical ingredient quantities, serializing with readers and quantity edits."""
+        applied = []
+        async with operation_lock, self._lock:
+            recipe = next((item for item in self.catalog.recipes if item["id"] == recipe_id), None)
+            if not recipe or recipe["revision"] != revision:
+                raise CatalogError("La receta ha cambiado o ya no existe. Vuelve a abrirla.", "conflict")
+            products = {product["id"]: product for product in self.catalog.products}
+            for ingredient in recipe["ingredients"]:
+                product = products.get(ingredient["product_id"])
+                if product is None or purchase_defaults(product)["purchase_unit"] != ingredient["unit"]:
+                    raise CatalogError("Hay ingredientes eliminados o con unidades distintas. Revisa la receta antes de añadirla.")
+            async def read_items():
+                state = self.hass.states.get(entity_id)
+                if not self._active or entity_id not in self.settings.snapshot["entities"] or state is None or state.state in ("unknown", "unavailable"):
+                    raise CatalogError("La lista de la compra no está disponible.")
+                response = await self.hass.services.async_call("todo", "get_items", {"entity_id": entity_id}, blocking=True, return_response=True)
+                items = response.get(entity_id, {}).get("items") if isinstance(response, dict) else None
+                if not self._active or entity_id not in self.settings.snapshot["entities"] or not isinstance(items, list):
+                    raise CatalogError("No se ha podido comprobar el contenido de la lista.")
+                return items
+            try:
+                for ingredient in recipe["ingredients"]:
+                    product = products[ingredient["product_id"]]
+                    current = next((p for p in self.catalog.products if p["id"] == product["id"]), None)
+                    if current is None or current["name"] != product["name"] or purchase_defaults(current)["purchase_unit"] != ingredient["unit"]:
+                        raise CatalogError("Ha cambiado un ingrediente. Revisa la receta antes de continuar.")
+                    items = await read_items()
+                    matches = [item for item in items if normalized_name(item.get("summary", "")) == normalized_name(product["name"])]
+                    pending = next((item for item in matches if item.get("status") != "completed"), None)
+                    amount = ingredient["quantity"]
+                    if pending:
+                        amount = positive_quantity(float(Decimal(str(self.value(entity_id, pending, product)["quantity"])) + Decimal(str(amount))))
+                        item = pending
+                    else:
+                        completed = next((item for item in matches if item.get("uid")), None)
+                        features = int(self.hass.states.get(entity_id).attributes.get("supported_features", 0))
+                        if completed and features & 4:
+                            await self.hass.services.async_call("todo", "update_item", {"entity_id": entity_id, "item": completed["uid"], "status": "needs_action"}, blocking=True)
+                        elif completed:
+                            raise CatalogError("La lista no permite recuperar un ingrediente comprado sin duplicarlo.")
+                        elif features & 1:
+                            await self.hass.services.async_call("todo", "add_item", {"entity_id": entity_id, "item": product["name"]}, blocking=True)
+                        else:
+                            raise CatalogError("La lista no permite añadir ingredientes.")
+                        items = await read_items()
+                        item = next((item for item in items if item.get("status") != "completed" and normalized_name(item.get("summary", "")) == normalized_name(product["name"])), None)
+                    if not item or not item.get("uid"):
+                        raise CatalogError("El proveedor todavía no ha devuelto el identificador del ingrediente. Comprueba la lista antes de reintentar.")
+                    entries = deepcopy(self._entries)
+                    entries.setdefault(entity_id, {})[str(item["uid"])] = {"quantity": amount, "unit": ingredient["unit"], "step": purchase_defaults(product)["quantity_step"]}
+                    try:
+                        await self._store.async_save({"entries": entries})
+                    except (OSError, HomeAssistantError) as err:
+                        raise CatalogError("El ingrediente está en la lista, pero no se ha podido guardar su cantidad. Compruébala antes de reintentar.") from err
+                    self._entries = entries
+                    self._notify()
+                    applied.append({"product_id": product["id"], "name": product["name"], "quantity": amount, "unit": ingredient["unit"]})
+            except (CatalogError, HomeAssistantError, OSError, ValueError) as err:
+                error = str(err)
+                self.activity.record("list.recipe", f"Receta incompleta: {recipe['name']}", source="manual", list_entity=entity_id,
+                                     diagnostics={"ingredients": applied, "error": error})
+                return {"applied": applied, "error": error}
+            self.activity.record("list.recipe", f"Receta añadida: {recipe['name']}", source="manual", list_entity=entity_id,
+                                 diagnostics={"ingredients": applied})
+            return {"applied": applied, "error": ""}
 
     @callback
     def start(self):

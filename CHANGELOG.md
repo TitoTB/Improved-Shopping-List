@@ -2,6 +2,9 @@
 
 ## Pendiente de publicación
 
+- Nueva vista Recetas: ingredientes del catálogo con cantidades y unidades; creación, edición y borrado. Al añadir una receta se suman cantidades en las entradas existentes sin duplicarlas.
+- Degradado verde de recetas personalizable y asociaciones con sugerencias manuales y de temporada.
+
 - Categorías de sugerencias personalizadas con nombre, icono MDI, color y selección de productos del catálogo. Admiten varias asociaciones por producto y aparecen al agrupar por Sugerencias.
 
 - Ficha de producto simplificada: hasta seis iconos automáticos con prioridad comunitaria; retirados el buscador, el botón + y los textos de ayuda genéricos.

@@ -278,7 +278,7 @@ async def test_catalog_websocket_save_push_get_and_unload(hass, hass_ws_client):
     client = await hass_ws_client(hass)
     await client.send_json({"id": 1, "type": f"{DOMAIN}/catalog/subscribe"})
     assert (await client.receive_json())["success"]
-    assert (await client.receive_json())["event"] == {"products": [], "categories": [], "recommendation_categories": [], "dismissed_suggestions": []}
+    assert (await client.receive_json())["event"] == {"products": [], "categories": [], "recommendation_categories": [], "recipes": [], "dismissed_suggestions": []}
     await client.send_json({"id": 2, "type": f"{DOMAIN}/catalog/save", "product": {"name": "Cacao"}})
     messages = [await client.receive_json(), await client.receive_json()]
     saved = next(message for message in messages if message["id"] == 2)
@@ -581,3 +581,69 @@ async def test_recommendation_category_websocket_push_and_delete(hass, hass_ws_c
     messages = [await client.receive_json(), await client.receive_json()]
     assert next(message for message in messages if message["id"] == 3)["success"]
     assert next(message for message in messages if message["id"] == 1)["event"]["recommendation_categories"] == []
+
+
+async def test_recipes_persist_units_months_membership_and_cleanup_without_deleting_products(hass):
+    catalog = Catalog(hass)
+    await catalog.async_load()
+    product = await catalog.async_save_product({"name": "Arroz", "purchase_unit": "g", "unit_quantity": 100})
+    recipe = await catalog.async_save_recipe({"name": "Arroz cocido", "ingredients": [{"product_id": product["id"], "quantity": 250}]})
+    assert recipe["ingredients"] == [{"product_id": product["id"], "quantity": 250, "unit": "g"}]
+    recipe = await catalog.async_set_recipe_season_months(recipe["id"], [1, 12], True)
+    group = await catalog.async_save_recommendation_category({"name": "Comidas", "recipe_ids": [recipe["id"]]})
+    edited = await catalog.async_save_recipe({"id": recipe["id"], "revision": recipe["revision"], "name": "Arroz blanco", "ingredients": [{"product_id": product["id"], "quantity": 300, "unit": "g"}]})
+    assert edited["season_months"] == [1, 12]
+    restored = Catalog(hass)
+    await restored.async_load()
+    assert restored.recipes == [edited]
+    assert restored.recommendation_categories[0]["recipe_ids"] == [edited["id"]]
+    # Older category editors cannot erase recipe associations.
+    group = await restored.async_save_recommendation_category({"id": group["id"], "revision": group["revision"], "name": "Almuerzos"})
+    assert group["recipe_ids"] == [edited["id"]]
+    with pytest.raises(CatalogError, match="Otra sesión"):
+        await restored.async_delete_recipe(recipe["id"], recipe["revision"])
+    await restored.async_delete_recipe(edited["id"], edited["revision"])
+    assert restored.recommendation_categories[0]["recipe_ids"] == []
+    assert restored.products == [product]
+
+
+@pytest.mark.parametrize("ingredients", [[], [{"product_id": "missing", "quantity": 1}], [{"product_id": "product", "quantity": 0}],
+    [{"product_id": "product", "quantity": True}], [{"product_id": "product", "quantity": 1, "unit": "kg"}],
+    [{"product_id": "product", "quantity": 1}, {"product_id": "product", "quantity": 2}]])
+async def test_recipe_validation(hass, ingredients):
+    catalog = Catalog(hass)
+    await catalog.async_load()
+    product = await catalog.async_save_product({"name": "Arroz", "purchase_unit": "g"})
+    ingredients = [{**item, "product_id": product["id"] if item["product_id"] == "product" else item["product_id"]} for item in ingredients]
+    with pytest.raises(CatalogError):
+        await catalog.async_save_recipe({"name": "Receta", "ingredients": ingredients})
+    assert catalog.recipes == []
+
+
+async def test_recipe_storage_failure_keeps_existing_data_and_conflicts(hass, monkeypatch):
+    catalog = Catalog(hass)
+    await catalog.async_load()
+    product = await catalog.async_save_product({"name": "Pan"})
+    recipe = await catalog.async_save_recipe({"name": "Tostada", "ingredients": [{"product_id": product["id"], "quantity": 1}]})
+    before = catalog.snapshot
+    monkeypatch.setattr(catalog._store, "async_save", AsyncMock(side_effect=OSError("Disk full")))
+    with pytest.raises(OSError):
+        await catalog.async_delete_recipe(recipe["id"], recipe["revision"])
+    assert catalog.snapshot == before
+
+
+async def test_recipe_websocket_save_push_delete(hass, hass_ws_client):
+    entry = MockConfigEntry(domain=DOMAIN, data={CONF_TODO_ENTITY: "todo.bring"})
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    product = await hass.data[DOMAIN]["catalog"].async_save_product({"name": "Pan"})
+    client = await hass_ws_client(hass)
+    await client.send_json({"id": 1, "type": f"{DOMAIN}/catalog/recipe/save", "recipe": {"name": "Tostadas", "ingredients": [{"product_id": product["id"], "quantity": 2}]}})
+    result = await client.receive_json()
+    assert result["success"]
+    recipe = result["result"]["recipe"]
+    await client.send_json({"id": 2, "type": f"{DOMAIN}/catalog/recipe/season_months", "recipe_id": recipe["id"], "months": [6], "enabled": True})
+    recipe = (await client.receive_json())["result"]["recipe"]
+    assert recipe["season_months"] == [6]
+    await client.send_json({"id": 3, "type": f"{DOMAIN}/catalog/recipe/delete", "recipe_id": recipe["id"], "revision": recipe["revision"]})
+    assert (await client.receive_json())["success"]

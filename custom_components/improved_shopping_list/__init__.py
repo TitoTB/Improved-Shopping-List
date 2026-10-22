@@ -56,7 +56,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         stock.activity = activity
         quantities = ListQuantities(hass, catalog, settings, activity)
         await quantities.async_load()
-        notifications = NotificationManager(hass, settings, stock, activity)
+        notifications = NotificationManager(hass, settings, stock, activity, catalog, readers)
         await notifications.async_load()
         gateways = GatewayLists(hass, settings, activity, readers._operation_lock)
         await gateways.async_load()

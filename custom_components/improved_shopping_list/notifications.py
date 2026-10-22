@@ -13,6 +13,7 @@ from homeassistant.helpers.event import async_track_time_interval
 from homeassistant.helpers.storage import Store
 
 from .const import DOMAIN
+from .catalog import normalized_name, code_key, product_codes
 from .stock import stock_needs_reorder
 from .notification_settings import RESERVED_SERVICES
 
@@ -29,8 +30,9 @@ def render_message(text, values):
 
 
 class NotificationManager:
-    def __init__(self, hass, settings, stock, activity):
+    def __init__(self, hass, settings, stock, activity, catalog=None, readers=None):
         self.hass, self.settings, self.stock, self.activity = hass, settings, stock, activity
+        self.catalog, self.readers = catalog, readers
         self._store = Store(hass, 1, f"{DOMAIN}.notifications")
         self._above, self._lists, self._items, self._stops = {}, {}, {}, []
         self._active, self._dirty, self._task = False, False, None
@@ -52,6 +54,9 @@ class NotificationManager:
         self._stops = [self.settings.subscribe(self._changed), self.stock.subscribe(self._queue),
                        self.hass.bus.async_listen("state_changed", self._state_changed),
                        async_track_time_interval(self.hass, self._queue, timedelta(minutes=1))]
+        for source in (self.catalog, self.readers):
+            if source is not None:
+                self._stops.append(source.subscribe(self._queue))
         self._changed()
 
     @callback
@@ -65,7 +70,7 @@ class NotificationManager:
             return
         config = self.settings.snapshot
         component = self.hass.data.get(DATA_COMPONENT)
-        wanted = set(config["entities"]) if config["notifications"]["shopping_list"]["enabled"] else set()
+        wanted = set(config["entities"]) if any(config["notifications"][kind]["enabled"] for kind in ("shopping_list", "catalog_new")) else set()
         for entity_id in tuple(self._lists):
             entity = component.get_entity(entity_id) if component else None
             if entity_id not in wanted or entity is not self._lists[entity_id][0]:
@@ -93,6 +98,35 @@ class NotificationManager:
         if self._task is None or self._task.done():
             self._task = self.hass.async_create_background_task(self._run(), "Shopping list notifications")
 
+    def _catalog_candidates(self, settings):
+        if self.catalog is None:
+            return None
+        catalog = self.catalog.snapshot
+        excluded = {normalized_name(product["name"]) for product in catalog["products"]}
+        excluded.update(normalized_name(name) for name in catalog["dismissed_suggestions"])
+        names = {}
+        for entity_id in settings["entities"]:
+            state, items = self.hass.states.get(entity_id), self._items.get(entity_id)
+            if state is None or state.state in ("unknown", "unavailable") or items is None:
+                return None  # Do not rearm from an incomplete list snapshot.
+            for item in items:
+                name = str(item.get("summary", "")).strip()
+                key = normalized_name(name)
+                if key and key not in excluded:
+                    names.setdefault(key, name)
+        result = sorted(names.values(), key=normalized_name)
+        known_codes = {(kind, code_key(kind, code)) for product in catalog["products"]
+                       for kind in ("barcode", "nfc") for code in product_codes(product, kind)}
+        seen = set()
+        for item in self.readers.snapshot["pending"] if self.readers is not None else []:
+            key = (item["kind"], code_key(item["kind"], item["code"]))
+            if key in known_codes or key in seen:
+                continue
+            seen.add(key)
+            hint = item.get("identification") or {}
+            result.append(hint.get("name") or ("NFC " if item["kind"] == "nfc" else "Código ") + item["code"])
+        return result
+
     def _observations(self, settings):
         result = []
         for entity_id in settings["entities"]:
@@ -103,6 +137,8 @@ class NotificationManager:
                 result.append(("shopping_list:"+entity_id, "shopping_list", entity_id,
                                [item.get("summary", "") for item in items if item.get("status") == "needs_action"]))
         result.append(("low_stock", "low_stock", "", [item["name"] for item in self.stock.snapshot["items"] if stock_needs_reorder(item)]))
+        if settings["notifications"]["catalog_new"]["enabled"]:
+            result.append(("catalog_new", "catalog_new", "", self._catalog_candidates(settings)))
         return result
 
     def _eligible(self, event):
@@ -135,7 +171,7 @@ class NotificationManager:
                     updated[key] = {"above": above, "signature": stamp}
                     if above and (previous.get("signature") != stamp or not previous.get("above")):
                         state = self.hass.states.get(entity_id) if entity_id else None
-                        values = {"lista":state.attributes.get("friendly_name",entity_id) if state else "Stock",
+                        values = {"lista":state.attributes.get("friendly_name",entity_id) if state else "Catálogo" if kind == "catalog_new" else "Stock",
                                   "cantidad":len(products), "limite":rule["threshold"], "productos":", ".join(products)[:3000]}
                         events.append({"key":key,"kind":kind,"signature":stamp,"entity_id":entity_id,
                                        "rule":deepcopy(rule),"values":values})
@@ -180,7 +216,7 @@ class NotificationManager:
                 failed.append({"target":target,"error":str(err)})
         if sent or failed:
             self.activity.record("notification.error" if failed else "notification.sent",
-                ("Aviso de stock bajo" if event["kind"] == "low_stock" else "Aviso de lista: "+event["values"]["lista"]) + (" · con incidencias" if failed else " · enviado"),
+                ({"low_stock":"Aviso de stock bajo", "catalog_new":"Aviso de productos nuevos"}.get(event["kind"], "Aviso de lista: "+event["values"]["lista"])) + (" · con incidencias" if failed else " · enviado"),
                 source="automatic", list_entity=event["entity_id"],
                 diagnostics={"count":event["values"]["cantidad"],"threshold":rule["threshold"],"sent":sent,"failed":failed})
 

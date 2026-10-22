@@ -220,7 +220,7 @@ class ListSettings:
         if self.entry is None:
             raise ListSettingsError("La integración no está activa.")
         try:
-            notifications = normalize_notifications(data)
+            notifications = normalize_notifications(data, self.snapshot["notifications"])
         except ValueError as err:
             raise ListSettingsError(str(err)) from err
         self.hass.config_entries.async_update_entry(self.entry, options={**self.entry.options, "notifications": notifications})

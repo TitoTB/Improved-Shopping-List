@@ -7,6 +7,8 @@ DEFAULT_NOTIFICATIONS = {
                       "message": "{lista} tiene {cantidad} productos pendientes."},
     "low_stock": {"enabled": False, "threshold": 3, "targets": [], "title": "Stock bajo",
                   "message": "Hay {cantidad} productos con stock bajo: {productos}."},
+    "catalog_new": {"enabled": False, "threshold": 0, "targets": [], "title": "Productos nuevos",
+                    "message": "Hay {cantidad} productos nuevos pendientes de incluir en el catálogo."},
 }
 RESERVED_SERVICES = {"notify", "send_message", "persistent_notification", "reload"}
 
@@ -16,9 +18,11 @@ def notification_options(data=None):
             for key, defaults in DEFAULT_NOTIFICATIONS.items()}
 
 
-def normalize_notifications(data):
-    if not isinstance(data, dict) or set(data) != set(DEFAULT_NOTIFICATIONS):
+def normalize_notifications(data, current=None):
+    if not isinstance(data, dict) or set(data) not in (set(DEFAULT_NOTIFICATIONS), {"shopping_list", "low_stock"}):
         raise ValueError("La configuración de notificaciones no es válida.")
+    # Older open panels must not erase a newly configured rule.
+    data = {**notification_options(current), **data}
     result = {}
     for key, defaults in DEFAULT_NOTIFICATIONS.items():
         rule = data[key]

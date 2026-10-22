@@ -40,6 +40,18 @@ class Stock:
             listener()
 
 
+class SnapshotSource:
+    def __init__(self, snapshot):
+        self.snapshot, self.listeners = snapshot, []
+    def subscribe(self, listener):
+        self.listeners.append(listener)
+        return lambda: self.listeners.remove(listener)
+    def emit(self, snapshot):
+        self.snapshot = snapshot
+        for listener in tuple(self.listeners):
+            listener()
+
+
 async def settled(manager):
     for _ in range(10):
         task = manager._task
@@ -63,11 +75,13 @@ async def env(hass):
         sent.append((call.service, dict(call.data)))
     for service in ("mobile_app_one", "mobile_app_two", "send_message"):
         hass.services.async_register("notify", service, notify)
-    manager = NotificationManager(hass, settings, stock, activity)
+    catalog = SnapshotSource({"products": [], "dismissed_suggestions": []})
+    readers = SnapshotSource({"pending": []})
+    manager = NotificationManager(hass, settings, stock, activity, catalog, readers)
     await manager.async_load()
     manager.start()
     await settled(manager)
-    yield SimpleNamespace(manager=manager, settings=settings, stock=stock, todos=todos, sent=sent, activity=activity)
+    yield SimpleNamespace(manager=manager, settings=settings, stock=stock, todos=todos, sent=sent, activity=activity, catalog=catalog, readers=readers)
     await manager.async_stop()
     settings.detach()
 
@@ -225,3 +239,70 @@ async def test_notification_config_websocket_is_admin_only_and_durable(hass, has
     readonly = await hass_ws_client(hass, hass.auth.async_create_access_token(token))
     await readonly.send_json({"id": 1, "type": f"{DOMAIN}/settings/notifications", "notifications": config})
     assert (await readonly.receive_json())["error"]["code"] == "unauthorized"
+
+
+async def test_new_catalog_products_include_scans_and_unique_names_and_exclude_known_and_dismissed(hass, env):
+    env.catalog.emit({"products": [{"name": "Seitán", "barcode": "known", "nfc_tags": ["AA:BB"]}], "dismissed_suggestions": ["AGUACATE"]})
+    for key, names in (("todo.main", [" SEITAN ", "Arroz", "arroz", "aguacate"]), ("todo.other", ["ARROZ", "Leche"])):
+        todo = env.todos[key]
+        todo.todo_items = [TodoItem(uid=str(index), summary=name, status=TodoItemStatus.COMPLETED if name == "Leche" else TodoItemStatus.NEEDS_ACTION) for index, name in enumerate(names)]
+    env.readers.emit({"pending": [{"kind": "barcode", "code": "known"}, {"kind": "nfc", "code": "aa-bb"},
+                                  {"kind": "barcode", "code": "new", "identification": {"name": "Cacao"}},
+                                  {"kind": "barcode", "code": "new"}]})
+    config = deepcopy(DEFAULT_NOTIFICATIONS)
+    config["catalog_new"].update(enabled=True, threshold=2, targets=["service:notify.mobile_app_one"], message="{lista}: {cantidad} · {productos}")
+    env.settings.update_notifications(config)
+    await settled(env.manager)
+    assert env.sent == [("mobile_app_one", {"title": "Productos nuevos", "message": "Catálogo: 3 · Arroz, Leche, Cacao"})]
+    assert not config["shopping_list"]["enabled"] and all(todo.listeners for todo in env.todos.values())
+    env.readers.emit({"pending": [{"kind": "barcode", "code": "new"}, {"kind": "nfc", "code": "other"}]})
+    await settled(env.manager)
+    assert len(env.sent) == 1
+    env.readers.emit({"pending": []})
+    await settled(env.manager)
+    assert env.manager._above["catalog_new"]["above"] is False
+    env.readers.emit({"pending": [{"kind": "nfc", "code": "other"}]})
+    await settled(env.manager)
+    assert len(env.sent) == 2
+    assert env.activity.record.call_args.args[1] == "Aviso de productos nuevos · enviado"
+    await env.manager.async_stop()
+    assert env.catalog.listeners == [] and env.readers.listeners == []
+
+
+async def test_catalog_changes_rearm_new_products_and_restart_does_not_repeat(hass, env):
+    env.todos["todo.main"].emit(1)
+    configure(env, kind="catalog_new", threshold=0, targets=["service:notify.mobile_app_one"])
+    await settled(env.manager)
+    assert len(env.sent) == 1
+    await env.manager.async_stop()
+    restored = NotificationManager(hass, env.settings, env.stock, env.activity, env.catalog, env.readers)
+    await restored.async_load()
+    restored.start()
+    try:
+        await settled(restored)
+        assert len(env.sent) == 1
+        hass.states.async_set("todo.other", "unavailable")
+        await hass.async_block_till_done()
+        await settled(restored)
+        hass.states.async_set("todo.other", "0")
+        await hass.async_block_till_done()
+        await settled(restored)
+        assert len(env.sent) == 1
+        env.catalog.emit({"products": [{"name": "Producto 0"}], "dismissed_suggestions": []})
+        await settled(restored)
+        env.catalog.emit({"products": [], "dismissed_suggestions": ["Producto 0"]})
+        await settled(restored)
+        assert len(env.sent) == 1
+        env.catalog.emit({"products": [], "dismissed_suggestions": []})
+        await settled(restored)
+        assert len(env.sent) == 2
+    finally:
+        await restored.async_stop()
+
+
+def test_legacy_notification_panels_keep_new_rule_settings():
+    config = deepcopy(DEFAULT_NOTIFICATIONS)
+    config["catalog_new"].update(enabled=True, targets=["service:notify.mobile_app_one"])
+    legacy = {key: value for key, value in config.items() if key != "catalog_new"}
+    assert normalize_notifications(legacy)["catalog_new"] == DEFAULT_NOTIFICATIONS["catalog_new"]
+    assert normalize_notifications(legacy, config) == config

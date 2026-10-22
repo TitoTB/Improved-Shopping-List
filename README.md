@@ -475,3 +475,10 @@ Los avisos funcionan con el panel cerrado. Se intenta enviar un aviso por destin
 ### Agrupar Lista y Stock por categoría
 
 Lista y Stock incluyen un botón con `mdi:label` para agrupar por categorías del catálogo y otro estado con `mdi:sort-alphabetical-ascending` para mostrar todos los productos sin agrupar. La elección se recuerda por separado en cada apartado y funciona en cuadrícula y filas. Las categorías se ordenan por nombre y «Sin categoría» aparece al final. En Lista, tanto pendientes como compras recientes se ordenan alfabéticamente dentro de cada grupo. En Stock, la agrupación conserva el criterio elegido: alfabético o porcentaje de stock de menor a mayor, también al quitar la agrupación. El botón no aparece en Compras; al utilizarlo desde el ticket de Lista vuelve a la vista habitual.
+
+
+### Avisos de productos nuevos
+
+En **Ajustes → Notificaciones → Productos nuevos** puedes activar un aviso con límite, dispositivos, título y mensaje propios. Cuenta los nombres presentes en las listas configuradas que aún no están en el catálogo (también los de compras recientes, como en Catálogo → Nuevos), unificando repeticiones entre listas sin distinguir tildes o mayúsculas, y suma los códigos desconocidos pendientes de los lectores. Excluye productos y códigos ya vinculados y sugerencias descartadas. Las listas pasarela no se incluyen. Un código pendiente es una propuesta independiente: no se presupone que coincida con un nombre sin vincular.
+
+El límite inicial es 0: se avisa a partir de la primera propuesta si activas la regla. Se envía una vez al superar el límite; añadir al catálogo, vincular o descartar puede rearmar el aviso al reducir el total al límite o por debajo. El estado sobrevive a reinicios y una lista temporalmente no disponible no provoca avisos repetidos. Funciona en segundo plano, sin tener el panel abierto y sin consultas externas adicionales. Admite los mismos destinos nativos de notificación que los demás avisos.

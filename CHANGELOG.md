@@ -2,6 +2,8 @@
 
 ## Pendiente de publicación
 
+- Listas pasarela en Ajustes → Listas: cada entidad todo envía las nuevas incorporaciones pendientes a una lista de compra vinculada, sin duplicados por acentos o mayúsculas. Permite conservarlas o eliminarlas del origen tras transferirlas, con reintentos, estado persistente y registro en Logs. Los productos anteriores a su configuración no se importan.
+
 - Lectores pasa de la navegación principal a una vista de Ajustes, con el mismo icono y controles de configuración, activación y lectura en directo. La gestión de lectores en segundo plano se mantiene activa.
 
 ## 0.26.0

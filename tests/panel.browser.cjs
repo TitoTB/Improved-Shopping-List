@@ -252,6 +252,17 @@ const hass={
       enabled:!!window.listSettings.stores?.carrefour?.enabled,version:'published',generated_at:'2026-10-20T12:00:00+00:00',error:'',stale:false,
       products:[{ean:'8431876279146',name:'Alcaparras Carrefour',price:'1.35',currency:'EUR',affiliate_url:'https://www.awin1.com/pclick.php?p=123&a=1535625&m=25399'}]
     };
+    if(msg.type==='improved_shopping_list/settings/gateway_save'){
+      if(window.failSettings)throw new Error('No se pudo guardar la pasarela');
+      window.listSettings.gateway_lists=(window.listSettings.gateway_lists??[]).filter(item=>item.entity_id!==msg.entity_id);
+      window.listSettings.gateway_lists.push({entity_id:msg.entity_id,target_entity:msg.target_entity,remove_after_transfer:msg.remove_after_transfer});
+      window.listSettings.entities=window.listSettings.entities.filter(entity=>entity!==msg.entity_id);
+      window.emitSettings();return structuredClone(window.listSettings);
+    }
+    if(msg.type==='improved_shopping_list/settings/gateway_remove'){
+      window.listSettings.gateway_lists=(window.listSettings.gateway_lists??[]).filter(item=>item.entity_id!==msg.entity_id);
+      window.emitSettings();return structuredClone(window.listSettings);
+    }
     if(msg.type==='improved_shopping_list/settings/update'){
       if(window.failSettings)throw new Error('No se han podido guardar los ajustes');
       if(msg.action==='add'&&!window.listSettings.entities.includes(msg.entity_id))window.listSettings.entities.push(msg.entity_id);
@@ -1643,6 +1654,7 @@ async function main() {
     await settingsView.getByRole("button", { name:"Listas", exact:true }).click();
     assert.equal(await settingsView.getByRole("button", { name: "Añadir lista", exact: true }).isDisabled(), true);
     assert.equal(await settingsView.getByRole("button", { name: "Quitar: Compra · Bring!", exact: true }).isDisabled(), true);
+    assert.equal(await settingsView.getByRole('button',{name:'Añadir pasarela',exact:true}).isDisabled(),true);
     await settingsPage.getByRole("button", { name:"Lista", exact:true }).click();
     await settingsPage.evaluate(() => {
       window.listData['todo.bring'].push({uid:'square-long',summary:'Producto con un nombre muy largo '.repeat(6),description:'Una descripción extensa '.repeat(20),status:'needs_action'});
@@ -1696,6 +1708,40 @@ async function main() {
     }
     await settingsContext.close();
     // Reader configuration and unknown-code association use the same product form.
+    const gatewayContext=await browser.newContext({viewport:{width:390,height:844}});
+    const gatewayPage=await gatewayContext.newPage();
+    gatewayPage.on('pageerror',error=>errors.push(error.message));
+    await gatewayPage.goto(url);
+    await gatewayPage.getByRole('button',{name:'Ajustes',exact:true}).click();
+    const gatewaySettings=gatewayPage.locator('isl-settings');
+    await gatewaySettings.locator('#gateway-entity').selectOption('todo.local');
+    assert.equal(await gatewaySettings.locator('#gateway-target').inputValue(),'todo.bring');
+    await gatewaySettings.locator('#gateway-remove').check();
+    await gatewaySettings.getByRole('button',{name:'Añadir pasarela',exact:true}).click();
+    const gatewayRow=gatewaySettings.locator('#configured-gateways article');
+    await gatewayRow.waitFor();
+    assert.equal(await gatewaySettings.locator('#configured-lists article').count(),2);
+    assert.equal(await gatewaySettings.locator('#todo-entity option[value="todo.local"]').count(),0);
+    assert.equal(await gatewayRow.getByRole('checkbox').isChecked(),true);
+    await gatewayRow.getByRole('checkbox').uncheck();
+    await gatewayPage.waitForFunction(()=>window.listSettings.gateway_lists[0].remove_after_transfer===false);
+    await gatewaySettings.getByRole('button',{name:'Personalización',exact:true}).click();
+    assert.equal(await gatewaySettings.locator('#settings-gateways').isVisible(),false);
+    await gatewayPage.reload();
+    await gatewayPage.getByRole('button',{name:'Ajustes',exact:true}).click();
+    await gatewayRow.waitFor();
+    await gatewayPage.screenshot({path:'test-results/gateway-lists-mobile.png',fullPage:true});
+    assert.equal(await gatewaySettings.evaluate(node=>node.scrollWidth>innerWidth),false);
+    await gatewayRow.getByRole('button',{name:'Quitar pasarela: Casa',exact:true}).click();
+    await gatewayRow.waitFor({state:'hidden'});
+    assert.equal(await gatewaySettings.locator('#todo-entity option[value="todo.local"]').count(),1);
+    await gatewayPage.evaluate(()=>window.failSettings=true);
+    await gatewaySettings.locator('#gateway-entity').selectOption('todo.local');
+    await gatewaySettings.getByRole('button',{name:'Añadir pasarela',exact:true}).click();
+    await gatewaySettings.locator('#settings-error').filter({hasText:'No se pudo guardar la pasarela'}).waitFor();
+    assert.equal(await gatewayRow.count(),0);
+    await gatewayContext.close();
+
     const readerContext=await browser.newContext({viewport:{width:1280,height:960}});
     const readerPage=await readerContext.newPage();readerPage.on("pageerror",error=>errors.push(error.message));
     await readerPage.clock.install();

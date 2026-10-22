@@ -22,6 +22,7 @@ export class ListSettingsSession {
     this.getHass = getHass;
     this.onChange = onChange;
     this.entities = [];
+    this.gatewayLists = [];
     this.primary = "";
     this.stores = {};
     this.favoriteStore = "";
@@ -35,6 +36,7 @@ export class ListSettingsSession {
 
   _receive(data) {
     this.entities = data.entities ?? [];
+    this.gatewayLists = data.gateway_lists ?? [];
     this.primary = data.primary_entity ?? "";
     this.stores = data.stores ?? {};
     this.favoriteStore = data.favorite_store ?? "";
@@ -93,6 +95,19 @@ export class ListSettingsSession {
     const data = await this.getHass().callWS({ type: `${PREFIX}update`, action, entity_id: entityId });
     if (generation === this._generation && revision === this._revision) this._receive(data);
     // A newer pushed snapshot takes precedence over this response.
+  }
+
+  async saveGateway(entityId, targetEntity, removeAfterTransfer) {
+    const generation = this._generation, revision = ++this._revision;
+    const data = await this.getHass().callWS({type:`${PREFIX}gateway_save`, entity_id:entityId,
+      target_entity:targetEntity, remove_after_transfer:removeAfterTransfer});
+    if(generation === this._generation && revision === this._revision)this._receive(data);
+  }
+
+  async removeGateway(entityId) {
+    const generation = this._generation, revision = ++this._revision;
+    const data = await this.getHass().callWS({type:`${PREFIX}gateway_remove`, entity_id:entityId});
+    if(generation === this._generation && revision === this._revision)this._receive(data);
   }
 
   async saveAppearance(appearance) {

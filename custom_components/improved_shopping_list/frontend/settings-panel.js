@@ -140,6 +140,12 @@ class ImprovedShoppingSettings extends HTMLElement {
         .primary { color:#fff; background:#267052; border:0; }
         .add-row { display:flex; align-items:end; gap:10px; }
         .select-wrap { flex:1; min-width:0; }
+        .gateway-add { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto; gap:14px; align-items:end; }
+        .gateway-add .gateway-cleanup { grid-column:1/-1; }
+        .gateway-cleanup { display:flex; align-items:center; gap:10px; margin:0; font-weight:400; }
+        .gateway-cleanup input { flex:none; }
+        .gateway-options { flex:1; min-width:180px; display:grid; gap:14px; }
+        @media(max-width:650px) { .gateway-add { grid-template-columns:minmax(0,1fr); }.gateway-add button { justify-self:end; } }
         .community-export { display:flex; align-items:center; gap:24px; }
         .community-export p { flex:1; min-width:0; }
         .community-action { display:inline-flex; align-items:center; justify-content:flex-start; gap:8px; flex:0 0 240px; width:240px; max-width:100%; min-height:46px; padding:10px 14px; border:0; border-radius:10px; text-decoration:none; text-align:left; font:inherit; }
@@ -278,6 +284,22 @@ class ImprovedShoppingSettings extends HTMLElement {
       if (entity) void this._act("add", entity);
     });
     const root = this.shadowRoot;
+    const gateways = document.createElement('section');
+    gateways.id='settings-gateways';gateways.className='card';gateways.setAttribute('aria-labelledby','gateway-title');
+    gateways.innerHTML=`<h2 id="gateway-title">Listas pasarela</h2>
+      <p>Envían las nuevas incorporaciones a la lista de la compra vinculada, sin duplicar productos pendientes. Los productos que ya contiene la pasarela al configurarla no se transfieren.</p>
+      <form id="gateway-form" class="gateway-add">
+        <div><label for="gateway-entity">Entidad todo de la pasarela</label><select id="gateway-entity" required></select></div>
+        <div><label for="gateway-target">Lista de destino</label><select id="gateway-target" required></select></div>
+        <button id="add-gateway" class="primary" type="submit">Añadir pasarela</button>
+        <label class="gateway-cleanup"><input id="gateway-remove" type="checkbox">Eliminar de la pasarela tras transferir</label>
+      </form><div id="configured-gateways" class="lists"></div>`;
+    root.querySelector('#settings-lists').after(gateways);
+    root.querySelector('#gateway-form').addEventListener('submit',event=>{
+      event.preventDefault();
+      void this._saveRetailSettings(()=>this._data.settings.saveGateway(root.querySelector('#gateway-entity').value,
+        root.querySelector('#gateway-target').value,root.querySelector('#gateway-remove').checked));
+    });
     const readersTab=document.createElement('button');
     readersTab.id='settings-view-readers';readersTab.type='button';readersTab.setAttribute('aria-label','Lectores');readersTab.setAttribute('aria-pressed','false');
     readersTab.innerHTML='<ha-icon icon="mdi:barcode-scan" aria-hidden="true"></ha-icon><span class="tab-label">Lectores</span>';
@@ -384,7 +406,7 @@ class ImprovedShoppingSettings extends HTMLElement {
     root.querySelector("#admin-help").hidden = admin;
     const select = root.querySelector("#todo-entity");
     const previous = select.value;
-    const candidates = todoEntities(hass).filter(state => !settings.entities.includes(state.entity_id));
+    const candidates = todoEntities(hass).filter(state => !settings.entities.includes(state.entity_id) && !(settings.gatewayLists??[]).some(item=>item.entity_id===state.entity_id));
     select.replaceChildren(...(candidates.length ? candidates.map(state => new Option(
       `${state.attributes.friendly_name ?? state.entity_id} · ${state.entity_id}${isAvailable(state) ? "" : " · No disponible"}`, state.entity_id,
     )) : [new Option("No hay más entidades todo disponibles", "")]));
@@ -426,6 +448,7 @@ class ImprovedShoppingSettings extends HTMLElement {
       return row;
     });
     root.querySelector("#configured-lists").replaceChildren(...rows);
+    this._renderGateways(locked);
     const carrefour = settings.stores?.carrefour?.enabled === true;
     root.querySelector("#carrefour-enabled").checked = carrefour;
     root.querySelector("#carrefour-enabled").disabled = locked;
@@ -802,6 +825,48 @@ class ImprovedShoppingSettings extends HTMLElement {
       this._communityState=await this._data.hass.callWS({type:"improved_shopping_list/community/sharing",enabled});
     } catch {this._communityError="No se ha podido guardar la autorización comunitaria.";}
     finally {this._communityBusy=false;clearTimeout(this._communityTimer);this._communityTimer=null;this._renderCommunity();}
+  }
+
+  _renderGateways(locked) {
+    const root=this.shadowRoot,{hass,settings}=this._data;
+    root.querySelector('#settings-gateways').hidden=this._view!=='lists';
+    const gateways=settings.gatewayLists??[];
+    const sources=new Set(gateways.map(item=>item.entity_id));
+    const targets=new Set(gateways.map(item=>item.target_entity));
+    const name=entity=>hass?.states[entity]?.attributes.friendly_name??entity;
+    const fill=(select,entities,preferred)=>{
+      const previous=select.value;
+      select.replaceChildren(...(entities.length?entities.map(entity=>new Option(`${name(entity)} · ${entity}`,entity)):[new Option('No hay listas disponibles','')]));
+      select.value=entities.includes(previous)?previous:entities.includes(preferred)?preferred:entities[0]??'';
+      select.disabled=locked||!entities.length;
+    };
+    const candidates=todoEntities(hass).map(state=>state.entity_id).filter(entity=>!sources.has(entity)&&!targets.has(entity)&&entity!==settings.primary);
+    const destinations=settings.entities.filter(entity=>!sources.has(entity));
+    fill(root.querySelector('#gateway-entity'),candidates);
+    fill(root.querySelector('#gateway-target'),destinations,settings.primary);
+    root.querySelector('#gateway-remove').disabled=locked;
+    root.querySelector('#add-gateway').disabled=locked||!candidates.length||!destinations.length;
+    root.querySelector('#configured-gateways').replaceChildren(...gateways.map(gateway=>{
+      const row=document.createElement('article');row.dataset.entityId=gateway.entity_id;
+      const info=document.createElement('div');info.className='list-info';
+      const title=document.createElement('h3');title.textContent=name(gateway.entity_id);
+      const entity=document.createElement('p');entity.className='entity';entity.textContent=gateway.entity_id;
+      info.append(title,entity);
+      const options=document.createElement('div');options.className='gateway-options';
+      const target=document.createElement('select');target.setAttribute('aria-label',`Lista de destino: ${name(gateway.entity_id)}`);
+      fill(target,destinations,gateway.target_entity);target.value=gateway.target_entity;
+      const cleanup=document.createElement('label');cleanup.className='gateway-cleanup';
+      const check=document.createElement('input');check.type='checkbox';check.checked=gateway.remove_after_transfer;check.disabled=locked;
+      cleanup.append(check,document.createTextNode('Eliminar de la pasarela tras transferir'));
+      const save=()=>void this._saveRetailSettings(()=>settings.saveGateway(gateway.entity_id,target.value,check.checked));
+      target.addEventListener('change',save);check.addEventListener('change',save);
+      options.append(target,cleanup);
+      const remove=document.createElement('button');remove.type='button';remove.className='list-action list-remove';remove.disabled=locked;
+      remove.setAttribute('aria-label',`Quitar pasarela: ${name(gateway.entity_id)}`);remove.title='Quitar pasarela';
+      remove.innerHTML='<ha-icon icon="mdi:delete" aria-hidden="true"></ha-icon>';
+      remove.addEventListener('click',()=>void this._saveRetailSettings(()=>settings.removeGateway(gateway.entity_id)));
+      row.append(info,options,remove);return row;
+    }));
   }
 
   async _saveAppearance() {

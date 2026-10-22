@@ -8,6 +8,19 @@ const deferred = () => {
   return { promise, resolve };
 };
 
+test("gateway settings synchronize and preserve newer pushed configuration", async () => {
+  const response=deferred();const calls=[];
+  const session=new ListSettingsSession(()=>({callWS:msg=>{calls.push(msg);return response.promise;}}),()=>{});
+  const saving=session.saveGateway('todo.voice','todo.main',true);
+  assert.deepEqual(calls[0],{type:'improved_shopping_list/settings/gateway_save',entity_id:'todo.voice',target_entity:'todo.main',remove_after_transfer:true});
+  session._revision++;
+  session._receive({gateway_lists:[{entity_id:'todo.voice',target_entity:'todo.other',remove_after_transfer:false}]});
+  response.resolve({gateway_lists:[]});await saving;
+  assert.equal(session.gatewayLists[0].target_entity,'todo.other');
+  await session.removeGateway('todo.voice');assert.equal(calls[1].type,'improved_shopping_list/settings/gateway_remove');
+  assert.deepEqual(session.gatewayLists,[]);
+});
+
 test("store activation keeps newer pushed settings", async () => {
   for(const [method,args,type] of [["setStoreEnabled",["alcampo",true],"store_enabled"]]){
     const response=deferred();let message;

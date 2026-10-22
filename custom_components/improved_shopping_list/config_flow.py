@@ -64,8 +64,10 @@ class ImprovedShoppingListOptionsFlow(config_entries.OptionsFlow):
     ) -> config_entries.ConfigFlowResult:
         errors: dict[str, str] = {}
         if user_input is not None:
-            if _valid_entity(self.hass, user_input[CONF_TODO_ENTITY]):
-                entities = list_options(self.config_entry)["entities"]
+            options = list_options(self.config_entry)
+            gateway_entities = {item["entity_id"] for item in options["gateway_lists"]}
+            if _valid_entity(self.hass, user_input[CONF_TODO_ENTITY]) and user_input[CONF_TODO_ENTITY] not in gateway_entities:
+                entities = options["entities"]
                 if user_input[CONF_TODO_ENTITY] not in entities:
                     entities.append(user_input[CONF_TODO_ENTITY])
                 return self.async_create_entry(title="", data={

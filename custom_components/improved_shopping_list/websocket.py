@@ -55,6 +55,8 @@ def async_register_commands(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_settings_get)
     websocket_api.async_register_command(hass, ws_settings_subscribe)
     websocket_api.async_register_command(hass, ws_settings_update)
+    websocket_api.async_register_command(hass, ws_gateway_save)
+    websocket_api.async_register_command(hass, ws_gateway_remove)
     websocket_api.async_register_command(hass, ws_personalization)
     websocket_api.async_register_command(hass, ws_store_update)
     websocket_api.async_register_command(hass, ws_resolve_store)
@@ -437,6 +439,34 @@ def ws_settings_update(hass: HomeAssistant, connection, msg) -> None:
         connection.send_error(msg["id"], "invalid_list", str(err))
     else:
         connection.send_result(msg["id"], result)
+
+
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/settings/gateway_save",
+    vol.Required("entity_id"): str, vol.Required("target_entity"): str,
+    vol.Required("remove_after_transfer"): bool})
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_gateway_save(hass, connection, msg):
+    if not _catalog(hass, connection, msg):
+        return
+    try:
+        result = await hass.data[DOMAIN]["gateway_lists"].async_configure(
+            msg["entity_id"], msg["target_entity"], msg["remove_after_transfer"])
+    except (ListSettingsError, HomeAssistantError) as err:
+        connection.send_error(msg["id"], "invalid_gateway", str(err))
+    else:
+        connection.send_result(msg["id"], result)
+
+
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/settings/gateway_remove",
+    vol.Required("entity_id"): str})
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_gateway_remove(hass, connection, msg):
+    if not _catalog(hass, connection, msg):
+        return
+    result = await hass.data[DOMAIN]["gateway_lists"].async_remove(msg["entity_id"])
+    connection.send_result(msg["id"], result)
 
 
 @websocket_api.websocket_command({

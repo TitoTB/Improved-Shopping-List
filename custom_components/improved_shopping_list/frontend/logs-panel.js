@@ -1,7 +1,7 @@
 import { ListSettingsSession } from "./list-settings-client.js?v=0.26.0";
 
 const SOURCES = {manual:"Usuario / API",automatic:"Automático · Home Assistant",reader:"Lector",integration:"Integración",external:"Proveedor externo · origen desconocido",home_assistant:"Home Assistant · origen desconocido"};
-const GROUPS = {stock:"Stock",list:"Listas",catalog:"Catálogo y categorías",reader:"Lectores",settings:"Ajustes",recurrence:"Recurrencias",stores:"Tiendas"};
+const GROUPS = {stock:"Stock",list:"Listas",gateway:"Listas pasarela",catalog:"Catálogo y categorías",reader:"Lectores",settings:"Ajustes",recurrence:"Recurrencias",stores:"Tiendas"};
 const FIELDS = {name:"nombre",category:"categoría",icon:"icono",color:"color",image_url:"imagen",price:"precio",currency:"moneda",tags:"etiquetas",notes:"notas",barcode:"código",barcodes:"códigos de barras",nfc_tags:"etiquetas NFC",reader_actions:"acciones de lectores",recurrence:"recurrencia",price_updated_at:"fecha del precio"};
 const node = (tag, text, className) => { const value=document.createElement(tag); if(text!==undefined)value.textContent=text; if(className)value.className=className;return value; };
 

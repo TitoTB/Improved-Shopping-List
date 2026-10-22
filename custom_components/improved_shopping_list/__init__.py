@@ -14,6 +14,7 @@ from .community import CommunityLibrary
 from .community_sync import CommunitySync
 from .icons import ICONS_URL, IconLibrary
 from .list_settings import ListSettings
+from .gateway_lists import GatewayLists
 from .readers import ReaderManager
 from .stock import StockManager
 from .stock_automation import StockAutomation
@@ -47,6 +48,8 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         await activity.async_load()
         readers.activity = activity
         stock.activity = activity
+        gateways = GatewayLists(hass, settings, activity, readers._operation_lock)
+        await gateways.async_load()
         stock_automation = StockAutomation(hass,stock,settings,activity,readers._operation_lock)
         prices = PriceManager(hass, catalog, settings, activity)
         await prices.async_load()
@@ -70,6 +73,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
              StaticPathConfig(ICONS_URL, str(icons.directory), True)]
         )
         hass.data[DOMAIN] = {"catalog": catalog, "stock":stock, "receipts":receipts, "stock_automation":stock_automation, "settings": settings, "price_manager":prices, "store_products": store_products, "recurrence": recurrence, "readers": readers, "icons": icons, "community": community, "community_sync": community_sync, "activity": activity, "active": False}
+        hass.data[DOMAIN]["gateway_lists"] = gateways
         async_register_commands(hass)
     return True
 
@@ -80,6 +84,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     await _async_register_panel(hass, entry)
     hass.data[DOMAIN]["active"] = True
     hass.data[DOMAIN]["activity"].start()
+    hass.data[DOMAIN]["gateway_lists"].start()
     hass.data[DOMAIN]["stock"].start()
     hass.data[DOMAIN]["stock_automation"].start()
     hass.data[DOMAIN]["readers"].start()
@@ -113,6 +118,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Remove the panel without changing any shopping-list items."""
     frontend.async_remove_panel(hass, PANEL_PATH)
     hass.data[DOMAIN]["active"] = False
+    await hass.data[DOMAIN]["gateway_lists"].async_stop()
     await hass.data[DOMAIN]["community_sync"].async_stop()
     hass.data[DOMAIN]["stock"].stop()
     await hass.data[DOMAIN]["stock_automation"].async_stop()

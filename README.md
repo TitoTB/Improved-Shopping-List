@@ -400,3 +400,9 @@ eliminaciones quedan registrados en Ajustes → Logs → Stock. Las cantidades s
 guardan tras cada cambio y se sincronizan entre paneles abiertos; administrar el
 inventario requiere una cuenta administradora, mientras que su lectura está
 disponible para las demás cuentas autenticadas.
+
+### Listas pasarela
+
+En **Ajustes → Listas**, añade una entidad `todo` como pasarela y selecciona su lista de compra de destino. Por ejemplo, un asistente de voz puede escribir en la pasarela y la integración trasladará los productos nuevos a Bring. Cada pasarela tiene un destino propio y puede conservar los productos o eliminarlos después de transferirlos. Si el producto ya está pendiente en destino, no se duplica; las comparaciones ignoran acentos, mayúsculas y espacios. Si solo existe como completado, se recupera como pendiente cuando el proveedor lo permite.
+
+El contenido anterior a la configuración no se transfiere. Las pasarelas funcionan con la interfaz cerrada, guardan su estado entre reinicios y reintentan las transferencias fallidas sin eliminar el origen antes de tiempo. Las incidencias y transferencias aparecen en **Ajustes → Logs → Listas pasarela**. Una pasarela queda fuera del selector de listas de compra y no puede ser el destino de otra pasarela. Para quitar una lista de destino, cambia o elimina antes sus pasarelas.

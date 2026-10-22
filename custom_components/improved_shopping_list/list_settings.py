@@ -48,6 +48,7 @@ def list_options(entry: ConfigEntry) -> dict:
     primary = entry.options.get(CONF_TODO_ENTITY, entry.data[CONF_TODO_ENTITY])
     entities = list(entry.options.get(CONF_TODO_ENTITIES, [primary] if primary else []))
     return {"entities": entities, "primary_entity": primary if primary in entities else next(iter(entities), ""),
+            "gateway_lists": deepcopy(entry.options.get("gateway_lists", [])),
             "appearance": {**DEFAULT_APPEARANCE, **entry.options.get("appearance", {})},
             "stores": {key: {**deepcopy(defaults), "enabled": bool(entry.options.get("stores", {}).get(key, {}).get("enabled", False))} for key, defaults in DEFAULT_STORES.items()},
             "favorite_store": entry.options.get("favorite_store", ""), "price_update_time":entry.options.get("price_update_time", "01:00"),
@@ -99,7 +100,7 @@ class ListSettings:
 
     @property
     def snapshot(self) -> dict:
-        return list_options(self.entry) if self.entry else {"entities": [], "primary_entity": "", "appearance": dict(DEFAULT_APPEARANCE), "stores": deepcopy(DEFAULT_STORES), "favorite_store": "", "price_update_time":self._default_price_time,"price_updates_enabled":True,"price_update_days":1}
+        return list_options(self.entry) if self.entry else {"entities": [], "primary_entity": "", "gateway_lists": [], "appearance": dict(DEFAULT_APPEARANCE), "stores": deepcopy(DEFAULT_STORES), "favorite_store": "", "price_update_time":self._default_price_time,"price_updates_enabled":True,"price_update_days":1}
 
     async def async_toggle_located_store(self, store, enabled):
         """Enable a fixed reference without postal discovery or HTTP requests."""
@@ -184,6 +185,8 @@ class ListSettings:
         entities = current["entities"]
         primary = current["primary_entity"]
         if action == "add":
+            if any(item["entity_id"] == entity_id for item in current["gateway_lists"]):
+                raise ListSettingsError("Esta entidad ya se utiliza como lista pasarela.")
             if not entity_id.startswith("todo.") or self.hass.states.get(entity_id) is None:
                 raise ListSettingsError("Selecciona una entidad todo existente en Home Assistant.")
             if entity_id not in entities:
@@ -191,6 +194,8 @@ class ListSettings:
             if not primary:
                 primary = entity_id
         elif action == "remove":
+            if any(item["target_entity"] == entity_id for item in current["gateway_lists"]):
+                raise ListSettingsError("Cambia primero el destino de las pasarelas vinculadas a esta lista.")
             entities = [entity for entity in entities if entity != entity_id]
             if primary == entity_id:
                 primary = next(iter(entities), "")

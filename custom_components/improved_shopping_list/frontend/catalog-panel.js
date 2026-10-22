@@ -416,6 +416,8 @@ class ImprovedShoppingCatalog extends HTMLElement {
             <isl-icon-picker class="wide"></isl-icon-picker>
             <label class="wide">URL Imagen/Icono<input name="image_url" maxlength="2048" placeholder="https://… o /local/producto.png"></label>
             <div class="wide"><label for="product-category">Categoría</label><div class="product-category-controls"><select id="product-category" name="category"><option value="">Sin categoría</option></select><button id="add-product-category" type="button" aria-label="Nueva categoría" title="Nueva categoría"><ha-icon icon="mdi:plus-thick"></ha-icon></button></div></div>
+            <label class="wide">Etiquetas<input name="tags" maxlength="840" placeholder="Marca, tienda, otros términos…" aria-describedby="product-tags-help"></label>
+            <p id="product-tags-help" class="helper wide">Separa las etiquetas con comas. Hasta 20 etiquetas de 40 caracteres.</p>
           </section>
           <section id="product-additional" class="fields" aria-label="Información adicional" hidden>
             <label>Unidades<input name="purchase_unit" list="purchase-unit-options" maxlength="32" value="uds" required><datalist id="purchase-unit-options">${['uds','kg','g','l','ml','Latas','Paquetes'].map(unit=>`<option value="${unit}"></option>`).join('')}</datalist></label>
@@ -1138,7 +1140,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
   _renderProducts() {
     if (!this._built) return;
     const root = this.shadowRoot;
-    const query = root.querySelector("#catalog-search").value.trim().toLocaleLowerCase("es");
+    const query = productNameKey(root.querySelector("#catalog-search").value);
     const rows = this._productLayout === "rows";
     const grouped = this._productOrder === "categories", grid = root.querySelector("#catalog-grid");
     grid.classList.toggle("rows", rows);
@@ -1153,7 +1155,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
     toggle.setAttribute("aria-label", label); toggle.title = label;
     toggle.querySelector("ha-icon").setAttribute("icon", rows ? "mdi:view-comfy" : "mdi:view-sequential");
     const products = this._catalog.products.filter(product =>
-      [product.name, product.barcode, ...(product.barcodes??[]), ...(product.nfc_tags??[]), product.category, ...product.tags].join(" ").toLocaleLowerCase("es").includes(query))
+      [product.name, product.barcode, ...(product.barcodes??[]), ...(product.nfc_tags??[]), product.category, ...(product.tags??[])].some(value=>productNameKey(value).includes(query)))
       .sort((a,b) => a.name.localeCompare(b.name,"es",{sensitivity:"base"}));
     if (grouped) {
       const categories = new Map(this._catalog.categories.map(category => [normalizedName(category.name),category.name]));
@@ -1444,6 +1446,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
     this._readerActionDraft = {...(product?.reader_actions ?? {})};
     this._readerSignature = null;
     form.reset();
+    form.elements.tags.value = (product?.tags ?? []).join(", ");
     for(const key of ['purchase_unit','unit_quantity','quantity_step'])form.elements[key].value=product?.[key]??(key==='purchase_unit'?'uds':1);
     this._resetNutriscores();
     this._switchProductView("main");
@@ -1482,7 +1485,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
     const root = this.shadowRoot;
     const form = root.querySelector("form");
     const fields = Object.fromEntries(new FormData(form));
-    const product = { ...fields, price: this._editing?.price ?? null, currency: this._editing?.currency ?? "EUR", tags: this._editing?.tags ?? [], icon: this._editing?.icon ?? "", notes: this._editing?.notes ?? "" };
+    const product = { ...fields, price: this._editing?.price ?? null, currency: this._editing?.currency ?? "EUR", tags: fields.tags.split(",").map(tag=>tag.trim()).filter(Boolean), icon: this._editing?.icon ?? "", notes: this._editing?.notes ?? "" };
     product.unit_quantity=Number(fields.unit_quantity);
     product.quantity_step=Number(fields.quantity_step);
     product.store_links = structuredClone(this._storeLinks ?? {});

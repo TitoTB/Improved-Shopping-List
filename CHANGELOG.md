@@ -2,6 +2,8 @@
 
 ## Pendiente de publicación
 
+- Recuperado el campo Etiquetas en Características del producto para marcas, tiendas y otros términos. Búsqueda por etiquetas en catálogo y buscador predictivo de Lista, sin distinguir tildes o mayúsculas.
+
 - Nuevo aviso configurable de productos pendientes de incorporar al catálogo: nombres únicos de las listas y códigos de lectores sin vincular, excluyendo descartes y datos ya incorporados. Seguimiento en segundo plano y protección persistente contra repeticiones.
 
 - Lista y Stock permiten agrupar por categorías del catálogo o mostrar todos los productos. Preferencias independientes, soporte para filas y cuadrícula, grupo final sin categoría y conservación del orden por porcentaje o nombre en Stock. Lista ordena alfabéticamente sus productos.

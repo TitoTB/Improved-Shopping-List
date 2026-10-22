@@ -624,7 +624,7 @@ async function main() {
     assert.equal(await catalog.locator("#product-category").inputValue(), "Lácteos");
     assert.equal(await catalog.getByLabel("Nombre del producto", { exact:true }).inputValue(), "Yogur natural");
     assert.equal(await page.evaluate(() => window.catalogProducts.length), 0);
-    assert.equal(await catalog.getByLabel("Etiquetas", { exact:true }).count(),0);
+    assert.equal(await catalog.getByLabel("Etiquetas", { exact:true }).count(),1);
     assert.equal(await catalog.getByLabel("Icono del producto", { exact:true }).count(),0);
     assert.equal(await catalog.getByLabel("Notas", { exact:true }).count(),0);
     await catalog.getByRole("button",{name:"Automatización",exact:true}).click();
@@ -712,13 +712,15 @@ async function main() {
       const bounds = card.getBoundingClientRect();
       return Math.abs((image.left + image.right) / 2 - (bounds.left + bounds.right) / 2) < 2 && image.bottom <= title.top;
     }));
-    // Earlier catalog data survives when fields are removed from the editor.
+    // Existing tags load in the editor; edited tags support catalog and list searches.
     await page.evaluate(async()=>{
       const product=window.catalogProducts[0];
       await window.testPanel._hass.callWS({type:'improved_shopping_list/catalog/save',product:{...product,icon:'mdi:view-grid',tags:['Legacy'],notes:'Existing note'}});
     });
     await editCatalogProduct(catalog,"Editar Yogur natural");
     assert.equal(await catalog.locator("#product-main").isVisible(),true);
+    assert.equal(await catalog.getByLabel("Etiquetas",{exact:true}).inputValue(),"Legacy");
+    await catalog.getByLabel("Etiquetas",{exact:true}).fill("Danóne, Carrefour, Desayuno");
     await catalog.getByLabel("Nombre del producto", { exact: true }).fill("Yogur sin azúcar");
     assert.equal(await catalog.getByLabel("Icono del producto",{exact:true}).count(),0);
     await catalog.getByRole("button", { name: "Guardar producto", exact: true }).click();
@@ -726,6 +728,22 @@ async function main() {
     await catalog.getByRole("button",{name:"Cambiar a vista de cuadrícula",exact:true}).click();
     assert.equal(await page.evaluate(() => window.catalogProducts.length), 1);
     assert.equal(await productCard.locator(".placeholder ha-icon").getAttribute("icon"), "mdi:view-grid");
+    assert.deepEqual(await page.evaluate(()=>window.catalogProducts[0].tags),['Danóne','Carrefour','Desayuno']);
+    assert.equal(await page.evaluate(()=>window.catalogProducts[0].notes),'Existing note');
+    await catalog.getByLabel('Buscar productos',{exact:true}).fill('DANONE');
+    assert.equal(await catalog.locator('#catalog-grid .product').count(),1);
+    await catalog.getByLabel('Buscar productos',{exact:true}).fill('carrefour');
+    assert.equal(await catalog.locator('#catalog-grid .product').count(),1);
+    await catalog.getByLabel('Buscar productos',{exact:true}).fill('');
+    await page.getByRole('button',{name:'Lista',exact:true}).click();
+    await page.getByRole('combobox',{name:'Añadir producto',exact:true}).fill('danone');
+    await page.getByRole('listbox',{name:'Productos del catálogo',exact:true}).getByRole('option').filter({hasText:'Yogur sin azúcar'}).waitFor();
+    await page.getByRole('combobox',{name:'Añadir producto',exact:true}).fill('');
+    await page.getByRole('button',{name:'Catálogo',exact:true}).click();
+    await editCatalogProduct(catalog,'Editar Yogur sin azúcar');
+    assert.equal(await catalog.getByLabel('Etiquetas',{exact:true}).inputValue(),'Danóne, Carrefour, Desayuno');
+    await catalog.getByRole('dialog',{name:'Editar producto',exact:true}).getByRole('button',{name:'Cerrar ventana',exact:true}).click();
+    await catalog.getByRole('button',{name:'Cambiar a vista de cuadrícula',exact:true}).click();
     await catalog.getByRole("button", { name: "Categorías", exact: true }).click();
     await categories.getByRole("button", { name: "Editar categoría Lácteos", exact: true }).click();
     await categories.getByLabel("Nombre de la categoría", { exact: true }).fill("Lácteos y frescos");
@@ -1088,7 +1106,7 @@ async function main() {
     assert.deepEqual(await suggestions.locator("h2").allTextContents(), ["Arroz", "Cacao"]);
     await suggestions.getByRole("button", { name:"Añadir al catálogo: Cacao", exact:true }).click();
     await suggestionDialog.getByLabel("Categoría", { exact:true }).selectOption("Despensa");
-    assert.equal(await suggestionDialog.getByLabel("Etiquetas", { exact:true }).count(),0);
+    assert.equal(await suggestionDialog.getByLabel("Etiquetas", { exact:true }).count(),1);
     await suggestionPage.evaluate(() => { window.failCatalog=true; });
     await suggestionDialog.getByRole("button", { name:"Guardar producto", exact:true }).click();
     await suggestionDialog.getByRole("alert").filter({ hasText:"No se ha podido guardar" }).waitFor();

@@ -33,6 +33,41 @@ class Todo:
             listener(self.todo_items)
 
 
+async def test_list_purchase_quantity_replenishes_only_existing_stock_and_keeps_receipt_ledger(env):
+    item = await env.stock.async_save(env.item["id"],env.item["revision"],config(env.item,
+        unit="g",mode="manual",quantity=20,refill_quantity=250))
+    env.manager.quantities=SimpleNamespace(value=lambda *_args:{"quantity":300,"unit":"g"})
+    env.todo.todo_items=[TodoItem(uid="buy",summary="Cacao",status=TodoItemStatus.NEEDS_ACTION)]
+    env.todo.publish()
+    env.todo.todo_items[0].status=TodoItemStatus.COMPLETED;env.todo.publish()
+    # Capture the bought amount at completion, before later list/catalog edits.
+    env.manager.quantities=SimpleNamespace(value=lambda *_args:{"quantity":999,"unit":"g"})
+    await env.manager.async_check()
+    assert env.stock.snapshot["items"][0]["quantity"] == 320
+    assert next(iter(env.stock.receipts["purchases"].values()))["quantity"] == 300
+    env.todo.todo_items.append(TodoItem(uid="other",summary="Otro producto",status=TodoItemStatus.NEEDS_ACTION));env.todo.publish()
+    env.todo.todo_items[1].status=TodoItemStatus.COMPLETED;env.todo.publish();await env.manager.async_check()
+    assert len(env.stock.snapshot["items"]) == 1
+
+
+async def test_incompatible_purchase_units_keep_configured_stock_refill(env):
+    await env.stock.async_save(env.item["id"],env.item["revision"],config(env.item,
+        unit="g",mode="manual",quantity=20,refill_quantity=250))
+    env.manager.quantities=SimpleNamespace(value=lambda *_args:{"quantity":2,"unit":"uds"})
+    env.todo.todo_items=[TodoItem(uid="buy",summary="Cacao",status=TodoItemStatus.NEEDS_ACTION)];env.todo.publish()
+    env.todo.todo_items[0].status=TodoItemStatus.COMPLETED;env.todo.publish();await env.manager.async_check()
+    assert env.stock.snapshot["items"][0]["quantity"] == 270
+
+
+async def test_list_purchase_replenishes_manually_added_stock_without_enabling_other_automation(env):
+    assert env.item["configured"] is False
+    env.manager.quantities=SimpleNamespace(value=lambda *_args:{"quantity":3,"unit":"uds"})
+    env.todo.todo_items=[TodoItem(uid="buy",summary="Cacao",status=TodoItemStatus.NEEDS_ACTION)];env.todo.publish()
+    env.todo.todo_items[0].status=TodoItemStatus.COMPLETED;env.todo.publish();await env.manager.async_check()
+    assert env.stock.snapshot["items"][0]["quantity"] == 4
+    assert env.stock.snapshot["items"][0]["configured"] is False
+
+
 def config(item, **overrides):
     fields = ("quantity","unit","mode","days","refill_quantity","reorder_enabled","reorder_at",
         "list_entity","usage_entity","usage_state","usage_amount")

@@ -205,6 +205,7 @@ class ImprovedShoppingSettings extends HTMLElement {
             <div><label for="desktop-columns">Productos por fila (ordenador)</label><select id="desktop-columns" name="columns">${[1,2,3,4,5,6].map(value => `<option value="${value}">${value}</option>`).join("")}</select></div>
             <div><label for="mobile-columns">Productos por fila (móvil)</label><select id="mobile-columns" name="mobile_columns">${[1,2,3,4].map(value => `<option value="${value}">${value}</option>`).join("")}</select></div>
           </div>
+          <div style="margin-top:18px"><label for="quantity-color">Color del indicador de cantidad</label><input id="quantity-color" name="quantity_color" type="color" value="#267052"></div>
           <div class="appearance-actions"><button id="reset-appearance" type="button">Restablecer valores</button><button id="save-appearance" class="primary" type="submit">Guardar personalización</button></div>
         </form>
       </section>
@@ -756,6 +757,7 @@ class ImprovedShoppingSettings extends HTMLElement {
     const form = this.shadowRoot.querySelector("#appearance-form");
     return {
       gradient_start: form.elements.gradient_start.value,
+      quantity_color: form.elements.quantity_color.value,
       gradient_end: form.elements.gradient_end.value,
       completed_gradient_start: form.elements.completed_gradient_start.value,
       completed_gradient_end: form.elements.completed_gradient_end.value,

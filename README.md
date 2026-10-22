@@ -430,3 +430,13 @@ La integración crea un dispositivo Improved Shopping List con quince entidades,
 | Compartir con la comunidad | Sensor binario | Estado del consentimiento; atributo `authorized` para saber si GitHub está autorizado. La activación y autorización se hacen desde Ajustes → Comunidad. |
 
 Los cambios de los controles también se reflejan en el panel y se guardan entre reinicios. Leer las entidades no consulta tiendas ni fuerza actualizaciones de precios. Si la lista principal no está disponible, su contador y estimación aparecen como no disponibles; el resto de datos se mantiene accesible. Al desactivar los precios, la estimación se oculta como no disponible. Sin tickets, las tres entidades de última compra aparecen como desconocidas.
+
+### Cantidades de compra
+
+La ficha del producto, en Información adicional, permite indicar **Unidades**, **Cantidad unitaria** y **Tamaño del paso**. Los valores iniciales son `uds`, `1` y `1`. Por ejemplo, Pavo con `g`, `250` y `50` aparece como **250 g** al incluirlo en la lista; los controles de filas permiten pasar a 300 g o 200 g. Se admiten unidades personalizadas y cantidades positivas de hasta tres decimales.
+
+La cantidad 1 no muestra indicador. Las demás cantidades aparecen en un triángulo en la esquina superior izquierda en cuadrícula, o en el último badge de las filas. El color verde inicial se cambia desde **Ajustes → Personalización → Color del indicador de cantidad**. Los botones + y − solo se muestran en filas; disminuir nunca elimina el producto ni permite una cantidad cero.
+
+Las cantidades se guardan por lista y UID en Home Assistant, se sincronizan entre sesiones de la integración y no se escriben en el nombre o la descripción del proveedor todo. Quitar una entrada de la lista elimina su ajuste local; los productos del catálogo mantienen sus valores predeterminados. Si se cambian las unidades del producto, los ajustes de cantidad con otras unidades no se reinterpretan automáticamente. Estos datos no se envían al diccionario comunitario.
+
+El ticket, los badges de importe y el sensor de próxima compra aplican la proporción entre la cantidad solicitada y la cantidad unitaria del producto al último precio guardado. Al marcar como comprado, solo se repone Stock si el producto ya estaba añadido allí. Cuando coinciden las unidades se suma la cantidad de la lista; si no coinciden se conserva la cantidad de reposición configurada en Stock. Los tickets confirmados siguen teniendo prioridad para evitar reponer dos veces.

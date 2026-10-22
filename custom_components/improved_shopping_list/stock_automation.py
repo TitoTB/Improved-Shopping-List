@@ -73,9 +73,11 @@ class StockAutomation:
                 if (previous.get(uid,{}).get("status") == "needs_action"
                     and item.get("status") == "completed"):
                     for stock in self.stock.snapshot["items"]:
-                        if stock.get("configured") and normalized_name(stock["name"]) == normalized_name(item.get("summary", "")):
+                        if (stock.get("configured") or getattr(self, "quantities", None)) and normalized_name(stock["name"]) == normalized_name(item.get("summary", "")):
+                            quantity = self.quantities.value(entity_id, item) if getattr(self, "quantities", None) else None
                             self._events.append((stock["id"],stock["config_revision"],"purchase",
-                                {"id":str(uuid4()), "at":time.time(), "list_entity":entity_id, "uid":uid}))
+                                {"id":str(uuid4()), "at":time.time(), "list_entity":entity_id, "uid":uid,
+                                 **({"purchase_quantity": quantity["quantity"], "purchase_unit": quantity["unit"]} if quantity else {})}))
         self._queue()
 
     @callback

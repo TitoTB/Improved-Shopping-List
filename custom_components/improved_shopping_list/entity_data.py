@@ -45,7 +45,7 @@ class EntityData:
             return
         self._active = True
         self._stops = [self.managers[key].subscribe(self._changed) for key in
-            ("settings", "catalog", "stock", "readers", "price_manager", "community_sync")]
+            ("settings", "catalog", "stock", "readers", "price_manager", "community_sync", "quantities")]
         self._stops += [self.hass.bus.async_listen("state_changed", self._state_changed),
             async_track_time_interval(self.hass, self._changed, timedelta(minutes=1))]
         self._changed()
@@ -122,7 +122,9 @@ class EntityData:
                     price = Decimal(str(offer["price"]))
                     if not price.is_finite() or price < 0:
                         continue
-                    cents += int((price * 100).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
+                    quantity = self.managers["quantities"].value(self.settings["primary_entity"], item, product)
+                    factor = Decimal(str(quantity["quantity"])) / Decimal(str(quantity["unit_quantity"]))
+                    cents += int((price * factor * 100).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
                 except (KeyError, InvalidOperation, ValueError):
                     continue
                 coverage += 1

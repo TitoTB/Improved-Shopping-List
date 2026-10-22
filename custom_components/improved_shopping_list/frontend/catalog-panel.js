@@ -379,6 +379,9 @@ class ImprovedShoppingCatalog extends HTMLElement {
             <div class="wide"><label for="product-category">Categoría</label><div class="product-category-controls"><select id="product-category" name="category"><option value="">Sin categoría</option></select><button id="add-product-category" type="button" aria-label="Nueva categoría" title="Nueva categoría"><ha-icon icon="mdi:plus-thick"></ha-icon></button></div></div>
           </section>
           <section id="product-additional" class="fields" aria-label="Información adicional" hidden>
+            <label>Unidades<input name="purchase_unit" list="purchase-unit-options" maxlength="32" value="uds" required><datalist id="purchase-unit-options">${['uds','kg','g','l','ml','Latas','Paquetes'].map(unit=>`<option value="${unit}"></option>`).join('')}</datalist></label>
+            <label>Cantidad unitaria<input name="unit_quantity" type="number" min="0.001" max="1000000" step="0.001" value="1" required></label>
+            <label>Tamaño del paso<input name="quantity_step" type="number" min="0.001" max="1000000" step="0.001" value="1" required></label>
             <div class="wide"><h3>Vinculaciones con tiendas</h3><div id="product-store-links"></div><div class="store-link-add"><select id="product-link-store" aria-label="Tienda del producto"></select><input id="product-link-value" aria-label="Enlace o ID del producto" maxlength="2048" placeholder="Enlace o ID del producto"><button id="add-product-store-link" type="button" aria-label="Añadir vinculación"><ha-icon icon="mdi:plus-thick" aria-hidden="true"></ha-icon></button></div></div>
             <div id="product-nutriscore" class="wide" hidden><h3>Nutri-Score</h3><div id="nutriscore-results"></div></div>
             <div id="product-store-prices" class="wide" hidden><h3>Precios de tiendas</h3><div id="store-price-results"></div></div>
@@ -1228,6 +1231,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
     this._readerActionDraft = {...(product?.reader_actions ?? {})};
     this._readerSignature = null;
     form.reset();
+    for(const key of ['purchase_unit','unit_quantity','quantity_step'])form.elements[key].value=product?.[key]??(key==='purchase_unit'?'uds':1);
     this._resetNutriscores();
     this._switchProductView("main");
     form.elements.name.value = suggestedName;
@@ -1266,6 +1270,8 @@ class ImprovedShoppingCatalog extends HTMLElement {
     const form = root.querySelector("form");
     const fields = Object.fromEntries(new FormData(form));
     const product = { ...fields, price: this._editing?.price ?? null, currency: this._editing?.currency ?? "EUR", tags: this._editing?.tags ?? [], icon: this._editing?.icon ?? "", notes: this._editing?.notes ?? "" };
+    product.unit_quantity=Number(fields.unit_quantity);
+    product.quantity_step=Number(fields.quantity_step);
     product.store_links = structuredClone(this._storeLinks ?? {});
     product.barcode = this._productCodes.barcode[0] ?? "";
     product.barcodes = this._productCodes.barcode.slice(1);

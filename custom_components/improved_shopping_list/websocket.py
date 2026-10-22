@@ -39,6 +39,8 @@ def async_register_commands(hass: HomeAssistant) -> None:
     """Register once; commands check that the config entry is still loaded."""
     websocket_api.async_register_command(hass, ws_catalog_get)
     websocket_api.async_register_command(hass, ws_stock_get)
+    for command in (ws_quantities_get, ws_quantities_subscribe, ws_quantities_adjust):
+        websocket_api.async_register_command(hass, command)
     websocket_api.async_register_command(hass, ws_stock_subscribe)
     websocket_api.async_register_command(hass, ws_stock_add)
     websocket_api.async_register_command(hass, ws_stock_adjust)
@@ -84,6 +86,42 @@ def async_register_commands(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_nutriscore)
     websocket_api.async_register_command(hass, ws_logs_get)
     websocket_api.async_register_command(hass, ws_logs_subscribe)
+
+
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/quantities/get"})
+@callback
+def ws_quantities_get(hass, connection, msg):
+    if _catalog(hass, connection, msg):
+        connection.send_result(msg["id"], hass.data[DOMAIN]["quantities"].snapshot)
+
+
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/quantities/subscribe"})
+@callback
+def ws_quantities_subscribe(hass, connection, msg):
+    if not _catalog(hass, connection, msg):
+        return
+    manager = hass.data[DOMAIN]["quantities"]
+    @callback
+    def update():
+        connection.send_event(msg["id"], manager.snapshot)
+    connection.subscriptions[msg["id"]] = manager.subscribe(update)
+    connection.send_result(msg["id"])
+    update()
+
+
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/quantities/adjust",
+    vol.Required("entity_id"): str, vol.Required("uid"): str, vol.Required("direction"): vol.In((-1, 1))})
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_quantities_adjust(hass, connection, msg):
+    if not _catalog(hass, connection, msg):
+        return
+    try:
+        result = await hass.data[DOMAIN]["quantities"].async_adjust(msg["entity_id"], msg["uid"], msg["direction"])
+    except (CatalogError, HomeAssistantError) as err:
+        connection.send_error(msg["id"], "invalid_quantity", str(err))
+    else:
+        connection.send_result(msg["id"], result)
 
 
 @websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/stock/get"})

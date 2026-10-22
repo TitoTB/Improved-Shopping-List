@@ -2,6 +2,8 @@
 
 ## Pendiente de publicación
 
+- Cantidades de compra por entrada y lista: valor predeterminado de 1, unidades, cantidad unitaria y paso configurables en la ficha del catálogo. Triángulo verde personalizable en cuadrícula y badge de cantidad con controles +/− en filas. Las cantidades se guardan localmente sin modificar el nombre ni las notas del proveedor todo, se incluyen en los importes estimados y reponen únicamente los productos ya presentes en Stock cuando coinciden las unidades.
+
 - Quince entidades nativas de Home Assistant: datos de la lista principal y estimación de compra por cobertura de tienda, catálogo, categorías, stock bajo, último ticket, lectores y tiendas. Incluye interruptor, frecuencia y hora para la actualización de precios, y sensor binario del consentimiento comunitario. Se actualizan con datos locales y comparten los mismos ajustes que el panel.
 
 - Listas pasarela en Ajustes → Listas: cada entidad todo envía las nuevas incorporaciones pendientes a una lista de compra vinculada, sin duplicados por acentos o mayúsculas. Permite conservarlas o eliminarlas del origen tras transferirlas, con reintentos, estado persistente y registro en Logs. Los productos anteriores a su configuración no se importan.

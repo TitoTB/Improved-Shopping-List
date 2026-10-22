@@ -1,7 +1,7 @@
 /** Shared list settings; entity contents remain owned by native todo providers. */
 const PREFIX = "improved_shopping_list/settings/";
 
-export const DEFAULT_APPEARANCE = Object.freeze({ gradient_start: "#ee524f", gradient_end: "#b52a27", completed_gradient_start: "#4faba2", completed_gradient_end: "#26857c", columns: 3, mobile_columns: 1 });
+export const DEFAULT_APPEARANCE = Object.freeze({ gradient_start: "#ee524f", gradient_end: "#b52a27", completed_gradient_start: "#4faba2", completed_gradient_end: "#26857c", quantity_color:"#267052", columns: 3, mobile_columns: 1 });
 
 export function gradientTextColor(start, end) {
   // Keep the requested white foreground on the default completed gradient.

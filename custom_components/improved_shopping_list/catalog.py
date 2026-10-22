@@ -18,12 +18,14 @@ from .const import DOMAIN
 from .product_translation import async_translate_name
 from .store_links import normalize_links
 from .community_data import fingerprint
+from .quantity_values import DEFAULT_PURCHASE, normalize_purchase
 
 STORAGE_KEY = f"{DOMAIN}.catalog"
 FIELDS = {
     "id", "revision", "name", "category", "tags", "barcode",
     "price", "currency", "image_url", "icon", "notes",
     "barcodes", "nfc_tags", "reader_actions", "recurrence", "store_links",
+    "purchase_unit", "unit_quantity", "quantity_step",
 }
 READER_ACTIONS = {"none", "add_list", "stock_remove", "stock_add"}
 LEGACY_PRODUCT_FIELDS = {"brand", "format"}
@@ -113,6 +115,10 @@ def normalize_product(data: dict[str, Any]) -> dict[str, Any]:
     }
     if not product["name"]:
         raise CatalogError("El nombre del producto es obligatorio.")
+    try:
+        product.update(normalize_purchase(data))
+    except ValueError as err:
+        raise CatalogError(str(err)) from err
     product["icon"] = _mdi_icon(data.get("icon", ""), optional=True)
     product["barcodes"] = _codes(data, "barcodes", "barcode")
     if product["barcode"]:
@@ -210,6 +216,10 @@ class Catalog:
             # Earlier installations stored category names directly on products.
             # Promote those names without dropping products or their metadata.
             for product in self._products.values():
+                for key, default in DEFAULT_PURCHASE.items():
+                    if key not in product:
+                        product[key] = default
+                        migrated = True
                 links = product.get("store_links")
                 if isinstance(links, dict) and "lidl" in links:
                     del links["lidl"]
@@ -337,6 +347,9 @@ class Catalog:
                 )
             # Older panel sessions must not erase newly introduced reader fields.
             if current:
+                for key, default in DEFAULT_PURCHASE.items():
+                    if key not in data:
+                        product[key] = current.get(key, default)
                 for field in ("barcodes", "nfc_tags", "reader_actions"):
                     if field not in data:
                         product[field] = deepcopy(current.get(field, {} if field == "reader_actions" else []))

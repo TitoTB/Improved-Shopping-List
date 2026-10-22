@@ -266,7 +266,8 @@ class StockManager:
         """Apply observed usage, a purchase, or expiry atomically against current settings."""
         async with self._lock:
             current = self._items.get(item_id)
-            if not current or not current.get("configured") or current.get("config_revision") != config_revision or not self.recurrence_ready(current):
+            list_purchase = action == "purchase" and "purchase_quantity" in (event or {})
+            if not current or not (current.get("configured") or list_purchase) or current.get("config_revision") != config_revision or not self.recurrence_ready(current):
                 return None
             item = deepcopy(current)
             receipts = deepcopy(self.receipts)
@@ -284,9 +285,12 @@ class StockManager:
                     receipts["purchases"][event["id"]] = {**event, "item_id":item_id,
                         "quantity":covered["quantity"], "receipt_id":covered["receipt_id"], "unit":item["unit"]}
                 else:
-                    item["quantity"] = quantity_value(round(before+item["refill_quantity"],3))
+                    refill = item["refill_quantity"]
+                    if event.get("purchase_unit", "").casefold() == item["unit"].casefold() and "purchase_quantity" in event:
+                        refill = quantity_value(event["purchase_quantity"], positive=True)
+                    item["quantity"] = quantity_value(round(before+refill,3))
                     receipts["purchases"][event["id"]] = {**event, "item_id":item_id,
-                        "quantity":item["refill_quantity"], "unit":item["unit"], "receipt_id":""}
+                        "quantity":refill, "unit":item["unit"], "receipt_id":""}
                 if item["mode"] == "perishable":
                     if not covered:
                         item.update(expires_at=event["at"]+item["days"]*DAY,expired=False)

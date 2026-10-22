@@ -116,6 +116,9 @@ async def test_estimate_uses_most_covered_active_store_then_cheapest(env):
     prices._notify()
     assert float(env.state("next_purchase_amount").state) == 0.5
     assert env.state("next_purchase_amount").attributes["store"] == "alcampo"
+    managers["quantities"]._entries = {"todo.main": {"0": {"quantity": 2, "unit": "uds", "step": 1}}}
+    managers["quantities"]._notify()
+    assert float(env.state("next_purchase_amount").state) == .7
     assert env.state("active_stores").state == "2"
     assert env.state("active_stores").attributes["store_names"] == ["Alcampo", "Carrefour"]
     await settings.async_toggle_located_store("alcampo", False)

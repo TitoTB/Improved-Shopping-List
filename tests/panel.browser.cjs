@@ -23,13 +23,15 @@ window.catalogCategories=JSON.parse(localStorage.getItem('category-fixture')??'[
 window.dismissedSuggestions=JSON.parse(localStorage.getItem('dismissed-fixture')??'[]');
 const normalizeName=name=>name.normalize('NFKC').trim().replace(/\\s+/g,' ').toLowerCase();
 const snapshot=()=>({products:structuredClone(window.catalogProducts),dismissed_suggestions:[...window.dismissedSuggestions],categories:window.catalogCategories.map(category=>({...category,product_count:window.catalogProducts.filter(product=>product.category===category.name).length}))});
-const emitCatalog=()=>{
+const emitCatalog=window.emitCatalog=()=>{
   localStorage.setItem('catalog-fixture',JSON.stringify(window.catalogProducts));
   localStorage.setItem('category-fixture',JSON.stringify(window.catalogCategories));
   localStorage.setItem('dismissed-fixture',JSON.stringify(window.dismissedSuggestions));
   for(const listener of listeners.keys())if(listener.catalog)listener.callback(snapshot());
 };
 window.stockItems=JSON.parse(localStorage.getItem('stock-fixture')??'[]');
+window.quantityEntries=JSON.parse(localStorage.getItem('quantity-fixture')??'{}');
+window.emitQuantities=()=>{localStorage.setItem('quantity-fixture',JSON.stringify(window.quantityEntries));for(const listener of listeners.keys())if(listener.quantities)listener.callback({entries:structuredClone(window.quantityEntries)});};
 window.receiptHistory=JSON.parse(localStorage.getItem('receipt-fixture')??'[]');
 window.receiptLinks=[];
 const receiptOptions=()=>({products:[...new Map([{id:'cacao',name:'Seitán',unit:'g',stock_id:'s1',revision:1},...window.catalogProducts.filter(p=>p.id!=='cacao').map(p=>({id:p.id,name:p.name,unit:'uds',stock_id:'',revision:0}))].map(p=>[p.id,p])).values()],purchases:[]});
@@ -58,6 +60,9 @@ const hass={
     'todo.readonly':{entity_id:'todo.readonly',state:'1',attributes:{friendly_name:'Solo lectura',supported_features:0}}
   },
   connection:{subscribeMessage:async(callback,msg)=>{
+    if(msg.type==='improved_shopping_list/quantities/subscribe'){
+      const listener={callback,quantities:true};listeners.set(listener,true);callback({entries:structuredClone(window.quantityEntries)});return()=>listeners.delete(listener);
+    }
     if(msg.type==='improved_shopping_list/receipts/subscribe'){
       const listener={callback,receipts:true};listeners.set(listener,true);callback({receipts:structuredClone(window.receiptHistory)});return()=>listeners.delete(listener);
     }
@@ -94,6 +99,17 @@ const hass={
     return ()=>listeners.delete(listener);
   }},
   callWS:async(msg)=>{
+    if(msg.type==='improved_shopping_list/quantities/get')return {entries:structuredClone(window.quantityEntries)};
+    if(msg.type==='improved_shopping_list/quantities/adjust'){
+      if(window.failQuantities)throw new Error('No se pudo cambiar la cantidad');
+      const item=data[msg.entity_id].find(item=>item.uid===msg.uid);
+      const product=window.catalogProducts.find(product=>normalizeName(product.name)===normalizeName(item.summary));
+      const record=window.quantityEntries[msg.entity_id]?.[msg.uid],unit=product?.purchase_unit??record?.unit??'uds';
+      const current=record&&(!product||record.unit===unit)?record.quantity:product?.unit_quantity??1;
+      const step=product?.quantity_step??record?.step??1,quantity=Math.round((current+msg.direction*step)*1000)/1000;
+      if(quantity<=0)throw new Error('La cantidad debe ser positiva');
+      (window.quantityEntries[msg.entity_id]??={})[msg.uid]={quantity,unit,step};window.emitQuantities();return {entries:structuredClone(window.quantityEntries)};
+    }
     if(msg.type==='improved_shopping_list/logs/get'){if(window.failLogs)throw new Error('Error al cargar logs');return structuredClone(window.logFixture);}
     if(msg.type==='improved_shopping_list/icons/search'){
       (window.iconCalls??=[]).push(msg);
@@ -386,7 +402,7 @@ async function main() {
       return;
     }
     if (pathname === "/") { res.setHeader("content-type", "text/html; charset=utf-8"); res.end(html); return; }
-    if (!["/panel.js", "/purchases-panel.js", "/stock-client.js", "/dialog-controls.js", "/todo-client.js", "/catalog-panel.js", "/catalog-client.js", "/category-panel.js", "/icon-picker.js", "/list-settings-client.js", "/settings-panel.js", "/readers-client.js", "/readers-panel.js", "/product-matching.js", "/product-names.js", "/logs-panel.js", "/logo.png", "/mercadona.png", "/consum.jpg", "/lasirena.jpg", "/eroski.svg", "/dia.png"].includes(pathname)) { res.writeHead(404).end(); return; }
+    if (!["/quantity-client.js", "/panel.js", "/purchases-panel.js", "/stock-client.js", "/dialog-controls.js", "/todo-client.js", "/catalog-panel.js", "/catalog-client.js", "/category-panel.js", "/icon-picker.js", "/list-settings-client.js", "/settings-panel.js", "/readers-client.js", "/readers-panel.js", "/product-matching.js", "/product-names.js", "/logs-panel.js", "/logo.png", "/mercadona.png", "/consum.jpg", "/lasirena.jpg", "/eroski.svg", "/dia.png"].includes(pathname)) { res.writeHead(404).end(); return; }
     res.setHeader("content-type", pathname.endsWith(".svg") ? "image/svg+xml" : pathname.endsWith(".png") ? "image/png" : pathname.endsWith(".jpg") ? "image/jpeg" : "text/javascript; charset=utf-8");
     res.end(await fs.readFile(path.join(root, pathname.slice(1))));
   });
@@ -492,7 +508,7 @@ async function main() {
     await selectList(page, "todo.local");
     await page.locator("#pending").getByText("Detergente", { exact: true }).waitFor();
     assert.equal(await page.locator("#pending").getByText("Cacao puro", { exact: true }).count(), 0);
-    assert.equal(await page.evaluate(() => window.listenerCount()), 5);
+    assert.equal(await page.evaluate(() => window.listenerCount()), 6);
 
     await selectList(page, "todo.readonly");
     await page.locator("#pending").getByText("Lista compartida", { exact: true }).waitFor();
@@ -790,7 +806,7 @@ async function main() {
     assert.match(await page.locator("#pending-total").textContent(),/≈ 2,15/);
     for(const width of [1280,390]){
       await page.setViewportSize({width,height:844});
-      const bounds=await yogurtListCard.locator("button").evaluate(node=>{
+      const bounds=await yogurtListCard.locator("button.item").evaluate(node=>{
         const card=node.getBoundingClientRect(),media=node.querySelector(".product-media").getBoundingClientRect(),
           text=node.querySelector(".item-text").getBoundingClientRect(),meta=node.querySelector(".row-meta").getBoundingClientRect();
         return {wide:card.width>card.height,ordered:media.right<=text.left&&text.right<=meta.left,overflow:node.scrollWidth>node.clientWidth};
@@ -1708,6 +1724,58 @@ async function main() {
     }
     await settingsContext.close();
     // Reader configuration and unknown-code association use the same product form.
+    const quantityContext=await browser.newContext({viewport:{width:1280,height:960}});
+    const quantityPage=await quantityContext.newPage();quantityPage.on('pageerror',error=>errors.push(error.message));
+    await quantityPage.goto(url);
+    await quantityPage.evaluate(async()=>{
+      window.catalogProducts=[{id:'pavo',revision:1,name:'Pavo',category:'',tags:[],notes:'',barcode:'',barcodes:[],nfc_tags:[],reader_actions:{},recurrence:{enabled:false,days:7},store_links:{},price:null,currency:'EUR',purchase_unit:'g',unit_quantity:250,quantity_step:50,image_url:'',icon:'mdi:food-drumstick'}];window.emitCatalog();
+      window.listData['todo.bring']=[{uid:'pavo-entry',summary:'Pavo',status:'needs_action'},{uid:'default-entry',summary:'Sin catálogo',status:'needs_action'}];window.emit('todo.bring');
+      window.listSettings.stores={carrefour:{enabled:true}};window.emitSettings();
+      window.storePriceFixture=[{catalog_product_id:'pavo',store:'carrefour',price:'2.50',currency:'EUR',checked_at:1792490400}];
+      await window.testPanel._refreshRowPrices();
+    });
+    const pavoCard=quantityPage.getByRole('button',{name:'Marcar como comprado: Pavo',exact:true});
+    const pavoRow=pavoCard.locator('..');
+    await pavoCard.locator('.quantity-corner').filter({hasText:'250 g'}).waitFor();
+    assert.equal(await quantityPage.getByRole('button',{name:'Marcar como comprado: Sin catálogo',exact:true}).locator('.quantity-corner').isVisible(),false);
+    assert.equal(await pavoRow.getByRole('button',{name:'Aumentar cantidad: Pavo',exact:true}).isVisible(),false);
+    await quantityPage.screenshot({path:'test-results/purchase-quantity-grid.png',fullPage:true});
+    await quantityPage.locator('#toggle-list-layout').click();
+    await pavoRow.getByRole('button',{name:'Aumentar cantidad: Pavo',exact:true}).click();
+    await pavoCard.locator('.row-quantity').filter({hasText:'300 g'}).waitFor();
+    assert.equal(await pavoCard.getAttribute('aria-pressed'),'false');
+    assert.match(await quantityPage.locator('#pending-total').textContent(),/3,00/);
+    await quantityPage.reload();await pavoCard.locator('.row-quantity').filter({hasText:'300 g'}).waitFor();
+    await quantityPage.getByRole('button',{name:'Catálogo',exact:true}).click();
+    const quantityCatalog=quantityPage.locator('isl-catalog');
+    await quantityCatalog.locator('#toggle-catalog-layout').click();
+    await quantityCatalog.getByRole('button',{name:'Editar Pavo',exact:true}).click();
+    const quantityForm=quantityCatalog.locator('#product-form');
+    await quantityForm.getByRole('button',{name:'Información adicional',exact:true}).click();
+    assert.equal(await quantityForm.getByLabel('Unidades',{exact:true}).inputValue(),'g');
+    assert.equal(await quantityForm.getByLabel('Cantidad unitaria',{exact:true}).inputValue(),'250');
+    await quantityForm.getByLabel('Tamaño del paso',{exact:true}).fill('100');
+    await quantityForm.getByRole('button',{name:'Guardar producto',exact:true}).click();
+    await quantityCatalog.locator('dialog[aria-labelledby="product-dialog-title"]').waitFor({state:'hidden'});
+    await quantityPage.getByRole('button',{name:'Lista',exact:true}).click();
+    await pavoRow.getByRole('button',{name:'Disminuir cantidad: Pavo',exact:true}).click();
+    await pavoCard.locator('.row-quantity').filter({hasText:'200 g'}).waitFor();
+    for(const width of [1280,390,320]){
+      await quantityPage.setViewportSize({width,height:844});
+      await quantityPage.screenshot({path:`test-results/purchase-quantity-rows-${width}.png`});
+      assert.equal(await quantityPage.locator('main').evaluate(node=>node.scrollWidth>innerWidth),false);
+    }
+    await quantityPage.getByRole('button',{name:'Ajustes',exact:true}).click();
+    const quantitySettings=quantityPage.locator('isl-settings');
+    await quantitySettings.getByRole('button',{name:'Personalización',exact:true}).click();
+    await quantitySettings.getByLabel('Color del indicador de cantidad',{exact:true}).evaluate(input=>{input.value='#4caf50';input.dispatchEvent(new Event('input',{bubbles:true}));});
+    await quantitySettings.getByRole('button',{name:'Guardar personalización',exact:true}).click();
+    await quantitySettings.getByRole('status').filter({hasText:'Personalización guardada'}).waitFor();
+    await quantityPage.getByRole('button',{name:'Lista',exact:true}).click();await quantityPage.locator('#toggle-list-layout').click();
+    assert.equal(await pavoCard.locator('.quantity-corner').evaluate(node=>getComputedStyle(node).backgroundColor),'rgb(76, 175, 80)');
+    assert.equal(await pavoCard.locator('.quantity-corner').evaluate(node=>getComputedStyle(node).color),'rgb(255, 255, 255)');
+    await quantityContext.close();
+
     const gatewayContext=await browser.newContext({viewport:{width:390,height:844}});
     const gatewayPage=await gatewayContext.newPage();
     gatewayPage.on('pageerror',error=>errors.push(error.message));

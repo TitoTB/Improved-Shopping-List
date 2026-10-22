@@ -1,4 +1,5 @@
 import { StockSession } from "./stock-client.js?v=0.26.0";
+import { QuantitySession, purchaseQuantity, quantityLabel } from "./quantity-client.js?v=0.26.0";
 import { installDialogCloseButtons } from "./dialog-controls.js?v=0.26.0";
 import { FEATURES, TodoSession, errorMessage, isAvailable, supports } from "./todo-client.js?v=0.26.0";
 import { imageSource, normalizedName, productNameKey, cachedProductPrice } from "./catalog-panel.js?v=0.26.0";
@@ -33,6 +34,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
     this._settings = new ListSettingsSession(() => this._hass, () => this._applySettings());
     this._readers = new ReadersSession(() => this._hass, () => this._renderData());
     this._stock = new StockSession(() => this._hass, () => this._renderData());
+    this._quantities = new QuantitySession(() => this._hass, () => this._renderData());
     this._stockLayout = "grid";
     this._stockView = "stock";
     this._stockSort = "lowest";
@@ -55,6 +57,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
         void this._settings.refresh();
         void this._readers.refresh();
         void this._stock.refresh();
+        void this._quantities.refresh();
         void this._refreshRowPrices();
       }
     };
@@ -79,6 +82,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
       void this._settings.start();
       void this._readers.start();
       void this._stock.start();
+      void this._quantities.start();
       if (this._session.entityId) void this._session.select(this._session.entityId);
     }
     if (changed || previousConnection !== value.connection) this._renderData();
@@ -109,6 +113,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
     this._settings.stop();
     this._readers.stop();
     this._stock.stop();
+    this._quantities.stop();
     this._stopRowPrices();
     this._stopListNutrition();
     this._settingsApplied = false;
@@ -125,6 +130,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
     void this._settings.start();
     void this._readers.start();
     void this._stock.start();
+    void this._quantities.start();
   }
 
   _applySettings() {
@@ -246,6 +252,15 @@ class ImprovedShoppingListPanel extends HTMLElement {
         @container(max-width:140px) { .item .subtitle,.item .description,.item .tags { display:none; } .item .summary { -webkit-line-clamp:2; } }
         .completed .summary { text-decoration:line-through; color:inherit; }
         .row-meta { display:none; }
+        .quantity-corner { position:absolute; top:0; left:0; width:clamp(32px,34cqi,100px); aspect-ratio:1; clip-path:polygon(0 0,100% 0,0 100%); background:var(--isl-quantity-color,#267052); color:#fff; text-align:left; }
+        .quantity-corner span { position:absolute; top:7%; left:7%; max-width:72%; font-size:clamp(7px,5cqi,14px); font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; line-height:1.2; }
+        .quantity-controls { display:none; }
+        .rows li { position:relative; }
+        .rows .quantity-controls { display:flex; flex-direction:column; gap:4px; position:absolute; right:10px; top:50%; transform:translateY(-50%); }
+        .quantity-controls button { display:grid; place-items:center; width:28px; height:28px; padding:0; border:0; border-radius:7px; background:rgba(255,255,255,.2); color:#fff; }
+        .quantity-controls ha-icon { width:18px; height:18px; --mdc-icon-size:18px; }
+        .rows .quantity-corner { display:none; }
+        .row-quantity { display:inline-flex; align-items:center; justify-content:center; border-radius:16px; padding:6px 9px; background:var(--isl-quantity-color,#267052); color:#fff; font-size:12px; font-weight:700; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
         .product-grid.rows { grid-template-columns:minmax(0,1fr); gap:10px; }
         .rows .item { display:grid; grid-template-columns:48px minmax(0,1fr) auto; gap:12px; aspect-ratio:auto; min-height:80px; padding:12px 16px; border-radius:12px; }
         .rows .item .product-media { grid-column:1; grid-row:1; width:48px; height:48px; }
@@ -263,6 +278,8 @@ class ImprovedShoppingListPanel extends HTMLElement {
         .row-nutriscore[data-grade=a] { background:#038141; }.row-nutriscore[data-grade=b] { background:#85bb2f; color:#182b22; }.row-nutriscore[data-grade=c] { background:#fecb02; color:#182b22; }.row-nutriscore[data-grade=d] { background:#ee8100; color:#182b22; }.row-nutriscore[data-grade=e] { background:#e63e11; }
         .row-meta ha-icon { display:flex; align-items:center; justify-content:center; width:18px; height:18px; --mdc-icon-size:18px; flex:none; }
         @media(max-width:540px) { .rows .item { grid-template-columns:36px minmax(0,1fr) auto; gap:8px; padding:10px; }.rows .item .product-media { width:36px; height:36px; }.rows .item .placeholder ha-icon { --mdc-icon-size:32px; }.row-category,.row-price { font-size:11px; padding:5px 7px; }.rows .row-category { width:28px; height:28px; padding:5px; }.rows .row-category span { display:none; }.row-price .store-logo { width:18px; height:18px; }.row-nutriscore { height:26px; min-width:26px; font-size:13px; } }
+        #pending.rows .item,#completed.rows .item { padding-right:52px; }
+        .rows .row-meta { max-width:min(35cqi,280px); }
         .empty { padding:28px 8px; text-align:center; color:var(--secondary-text-color,#63766b); line-height:1.6; }
         .empty strong { display:block; font-size:18px; color:var(--primary-text-color,#20352d); margin-bottom:5px; }
         details { margin-top:24px; }
@@ -611,6 +628,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
     this._ensureRowPrices();
     const appearance = this._settings.appearance;
     this.style.setProperty("--isl-gradient-start", appearance.gradient_start);
+    this.style.setProperty("--isl-quantity-color",appearance.quantity_color??'#267052');
     this.style.setProperty("--isl-gradient-end", appearance.gradient_end);
     this.style.setProperty("--isl-gradient-text", gradientTextColor(appearance.gradient_start, appearance.gradient_end));
     this.style.setProperty("--isl-completed-gradient-start", appearance.completed_gradient_start);
@@ -658,7 +676,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
         : "Añade una lista de la compra desde Ajustes para empezar.";
     const error = root.querySelector("#error");
     if(stockView){status.hidden=!this._stock.loading;status.textContent="Cargando Stock…";}
-    const message = this._actionError || (stockView ? this._stock.error : this._view === "shopping" ? session.error || this._settings.error : "");
+    const message = this._actionError || (stockView ? this._stock.error : this._view === "shopping" ? session.error || this._quantities.error || this._settings.error : "");
     error.hidden = !message;
     error.textContent = message;
     const pending = session.items.filter((item) => item.status !== "completed");
@@ -1037,8 +1055,8 @@ class ImprovedShoppingListPanel extends HTMLElement {
       const lines = sorted.map(item => {
         const product = this._catalogProducts.get(productNameKey(item.summary));
         // Store tickets never substitute manual prices or prices from another shop.
-        const offer = cachedProductPrice(product ? {...product,price:null} : null,prices,store);
-        return {name:item.summary,offer};
+        const offer = this._quantityOffer(item,cachedProductPrice(product ? {...product,price:null} : null,prices,store));
+        return {name:item.summary,offer,quantity:this._purchaseQuantity(item,product)};
       });
       return {store,lines,coverage:lines.filter(line => line.offer).length,cents:lines.reduce((sum,line) => sum + (line.offer ? Math.round(Number(line.offer.price)*100) : 0),0)};
     }).filter(receipt => receipt.coverage).sort((a,b) => b.coverage-a.coverage || a.cents-b.cents || STORE_NAMES[a.store].localeCompare(STORE_NAMES[b.store],"es")).slice(0,4);
@@ -1079,7 +1097,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
     }
     // Retain legacy manual estimates when no enabled shop has a saved price.
     const receipt = selected ?? {lines:[...items].sort((a,b)=>a.summary.localeCompare(b.summary,"es",{sensitivity:"base"})).map(item=>({
-      name:item.summary,offer:this._listPrice(this._catalogProducts.get(productNameKey(item.summary)))
+      name:item.summary,offer:this._quantityOffer(item,this._listPrice(this._catalogProducts.get(productNameKey(item.summary)))),quantity:this._purchaseQuantity(item)
     }))};
     const paper = make("div","receipt-paper");
     paper.append(make("h3","",selected ? STORE_NAMES[selected.store] : "Últimos precios guardados"));
@@ -1108,7 +1126,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
   _pendingTotal(items) {
     const totals = new Map();
     for (const item of items) {
-      const offer = this._listPrice(this._catalogProducts.get(productNameKey(item.summary)));
+      const offer = this._quantityOffer(item,this._listPrice(this._catalogProducts.get(productNameKey(item.summary))));
       if (offer) totals.set(offer.currency,(totals.get(offer.currency) ?? 0) + Math.round(Number(offer.price)*100));
     }
     if (!totals.size) totals.set("EUR",0);
@@ -1117,6 +1135,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
 
   _renderItems(container, items, disabled) {
     const focusedUid = this.shadowRoot.activeElement?.dataset.uid;
+    const focusedDirection=this.shadowRoot.activeElement?.dataset.quantityDirection;
     const nodes = items.map((item, index) => {
       const key = item.uid ?? `missing:${item.status}:${index}`;
       this._usedRows.add(key);
@@ -1145,7 +1164,16 @@ class ImprovedShoppingListPanel extends HTMLElement {
         const metadata = document.createElement("span");
         metadata.className = "row-meta";
         card.append(badge, media, text, tags, metadata);
+        const quantity=document.createElement('span');quantity.className='quantity-corner';quantity.append(document.createElement('span'));card.append(quantity);
         row.append(card);
+        const controls=document.createElement('div');controls.className='quantity-controls';
+        for(const [direction,icon] of [[-1,'mdi:minus'],[1,'mdi:plus']]){
+          const button=document.createElement('button');button.type='button';button.dataset.quantityDirection=String(direction);
+          const symbol=document.createElement('ha-icon');symbol.setAttribute('icon',icon);symbol.setAttribute('aria-hidden','true');button.append(symbol);
+          button.addEventListener('click',()=>{const entity=this._session.entityId,uid=row._item.uid;void this._runAction(()=>this._quantities.adjust(entity,uid,direction),'');});
+          controls.append(button);
+        }
+        row.append(controls);
         this._rows.set(key, row);
       }
       row._item = item;
@@ -1160,6 +1188,16 @@ class ImprovedShoppingListPanel extends HTMLElement {
       const summary = row.querySelector(".summary");
       summary.textContent = item.summary ?? "Producto sin nombre";
       const product = this._catalogProducts.get(productNameKey(item.summary));
+      const purchase=this._purchaseQuantity(item,product);
+      const corner=row.querySelector('.quantity-corner');corner.hidden=purchase.quantity===1;
+      const quantityText=quantityLabel(purchase);corner.firstChild.textContent=quantityText;corner.title=quantityText;
+      for(const button of row.querySelectorAll('.quantity-controls button')){
+        const direction=Number(button.dataset.quantityDirection),next=Math.round((purchase.quantity+direction*purchase.step)*1000)/1000;
+        button.dataset.uid=item.uid??'';
+        button.disabled=disabled||!item.uid||this._hass.user?.is_admin!==true||!this._quantities.loaded||this._quantities.loading||next<=0||next>1000000;
+        button.setAttribute('aria-label',`${direction>0?'Aumentar':'Disminuir'} cantidad: ${item.summary??'Producto'}`);
+        button.title=`${direction>0?'+':'−'} ${new Intl.NumberFormat('es-ES',{maximumFractionDigits:3}).format(purchase.step)} ${purchase.unit}`;
+      }
       const category = this._catalogCategories.get(normalizedName(product?.category));
       const metadata = row.querySelector(".row-meta");
       metadata.replaceChildren();
@@ -1172,7 +1210,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
         const label = document.createElement("span"); label.textContent = category.name;
         categoryTag.append(icon,label); metadata.append(categoryTag);
       }
-      const offer = this._listLayout === "rows" ? this._listPrice(product) : null;
+      const offer = this._listLayout === "rows" ? this._quantityOffer(item,this._listPrice(product)) : null;
       const nutrition = this._listLayout === "rows" ? this._nutritionCodes(product).map(code=>this._nutrition.get(code.padStart(14,"0"))).find(value=>value?.grade) : null;
       if (nutrition) {
         const badge=document.createElement("span");badge.className="row-nutriscore";badge.dataset.grade=nutrition.grade;
@@ -1190,6 +1228,9 @@ class ImprovedShoppingListPanel extends HTMLElement {
         label.textContent = new Intl.NumberFormat("es-ES",{style:"currency",currency:offer.currency}).format(Number(offer.price));
         price.title = offer.store ? `Último precio guardado · ${STORE_NAMES[offer.store] ?? offer.store}` : "Precio manual";
         price.append(label); metadata.append(price);
+      }
+      if(purchase.quantity!==1&&this._listLayout==='rows'){
+        const quantity=document.createElement('span');quantity.className='row-quantity';quantity.textContent=quantityText;quantity.title=quantityText;metadata.append(quantity);
       }
       const badge = row.querySelector(".category-badge");
       badge.hidden = !category;
@@ -1238,9 +1279,19 @@ class ImprovedShoppingListPanel extends HTMLElement {
     });
     container.replaceChildren(...nodes);
     if (focusedUid) {
-      const card = [...container.querySelectorAll("button")].find(button => button.dataset.uid === focusedUid);
+      const card = [...container.querySelectorAll("button")].find(button => button.dataset.uid === focusedUid && button.dataset.quantityDirection===focusedDirection);
       card?.focus({ preventScroll: true });
     }
+  }
+
+  _purchaseQuantity(item,product=this._catalogProducts.get(productNameKey(item.summary))) {
+    return purchaseQuantity(product,this._quantities.entries[this._session.entityId]?.[item.uid]);
+  }
+
+  _quantityOffer(item,offer) {
+    if(!offer)return null;
+    const value=this._purchaseQuantity(item);
+    return {...offer,price:Number(offer.price)*value.quantity/value.unit_quantity};
   }
 
   async _addItem() {

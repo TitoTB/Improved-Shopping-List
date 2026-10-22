@@ -18,6 +18,7 @@ DEFAULT_APPEARANCE = {
     "gradient_start": "#ee524f", "gradient_end": "#b52a27",
     "completed_gradient_start": "#4faba2", "completed_gradient_end": "#26857c",
     "columns": 3, "mobile_columns": 1,
+    "quantity_color": "#267052",
 }
 DEFAULT_STORES = {store: {"enabled": False, **reference_location(store)} for store in REFERENCE_LOCATIONS}
 
@@ -28,7 +29,7 @@ def normalize_appearance(data: dict, *, defaults: dict | None = None) -> dict:
         raise ListSettingsError("La personalización contiene campos no válidos.")
     data = {**(defaults or DEFAULT_APPEARANCE), **data}
     result = {}
-    for key in ("gradient_start", "gradient_end", "completed_gradient_start", "completed_gradient_end"):
+    for key in ("gradient_start", "gradient_end", "completed_gradient_start", "completed_gradient_end", "quantity_color"):
         if not isinstance(data[key], str) or not re.fullmatch(r"#[a-fA-F0-9]{6}", data[key]):
             raise ListSettingsError("Selecciona un color hexadecimal válido, como #ee524f.")
         result[key] = data[key].lower()

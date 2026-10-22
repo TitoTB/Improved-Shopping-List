@@ -277,10 +277,16 @@ class PriceManager:
         self._queue()
 
     def _schedule_due(self, now):
+        _, scheduled=self._schedule_window(now)
         try:
-            return (now.date()-date.fromisoformat(self._data["day"])).days >= self.settings.snapshot.get("price_update_days",1)
+            return (scheduled-date.fromisoformat(self._data["day"])).days >= self.settings.snapshot.get("price_update_days",1)
         except ValueError:
             return True
+
+    def _schedule_window(self, now):
+        hour, minute=map(int,self.settings.snapshot.get("price_update_time","01:00").split(":"))
+        elapsed=(now.hour*60+now.minute-hour*60-minute)%1440
+        return elapsed,(now-timedelta(minutes=elapsed)).date()
 
     @callback
     def _queue(self, *_args):
@@ -547,8 +553,8 @@ class PriceManager:
         community = getattr(self, "community", None)
         if community and self._active:
             current = dt_util.now()
-            hour, minute = map(int, self.settings.snapshot.get("price_update_time", "01:00").split(":"))
-            if self._schedule_due(current) and 0 <= current.hour*60+current.minute-hour*60-minute < 60:
+            elapsed,_=self._schedule_window(current)
+            if self._schedule_due(current) and elapsed < 60:
                 await community.async_prepare_prices()
         async with self._lock:
             if not self._active or not self.hass.data.get(DOMAIN, {}).get("active") or self._preparing:
@@ -558,10 +564,10 @@ class PriceManager:
                 self._notify()
             now = dt_util.now()
             day = now.date().isoformat()
-            hour, minute = map(int, self.settings.snapshot.get("price_update_time", "01:00").split(":"))
-            elapsed = now.hour*60+now.minute-hour*60-minute
-            if (self._schedule_due(now) or self._data["day"] == day and self._data["partial"] and time.time() >= self._data["prepare_retry_at"]) and 0 <= elapsed < 60:
-                await self._prepare(day)
+            elapsed,scheduled=self._schedule_window(now)
+            scheduled_day=scheduled.isoformat()
+            if (self._schedule_due(now) or self._data["day"] == scheduled_day and self._data["partial"] and time.time() >= self._data["prepare_retry_at"]) and elapsed < 60:
+                await self._prepare(scheduled_day)
             if not self._data["pending"]:
                 if self._data.get("batch") and not self._data["batch"].get("logged"):
                     await self._save()

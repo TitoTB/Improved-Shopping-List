@@ -14,8 +14,12 @@ En Información adicional se elige una tienda y se añade el enlace o referencia
 artículo. Sus EAN se conservan como metadatos de tienda; los códigos configurados para
 los lectores no se reasignan automáticamente. El precio manual sigue siendo independiente.
 
-La revisión diaria empieza a las 01:00 por defecto, en la zona horaria de Home Assistant,
-y puede configurarse desde el icono del reloj en Ajustes → Tiendas. Solo entra en la cola lo pendiente en las listas
+La actualización automática se configura desde el icono del reloj en Ajustes → Tiendas.
+La primera hora se asigna aleatoriamente y se guarda, en la zona horaria de Home Assistant;
+las horas ya elegidas se conservan. La frecuencia mínima es un día y puede ampliarse
+hasta 3650 días. Tiendas y diccionario comunitario respetan el periodo configurado.
+Al desactivar la función se detienen las consultas de precios y se ocultan los importes,
+conservando la caché local para una posible reactivación. Solo entra en la cola lo pendiente en las listas
 configuradas, comparando nombres sin diferencias de acentos o mayúsculas. Se deduplican
 referencias compartidas por varias listas y se dejan al menos cinco minutos entre todas
 las peticiones, incluidas redirecciones. La cola y la reserva de peticiones persisten al

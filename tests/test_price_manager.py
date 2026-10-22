@@ -41,6 +41,16 @@ async def test_frequency_survives_restart_and_skips_intermediate_days(env):
     finally:await restored.async_stop()
 
 
+async def test_random_late_hour_recovers_once_after_midnight(env):
+    env.settings.snapshot["price_update_time"]="23:50"
+    env.clock[0]=datetime(2026,10,21,0,10,tzinfo=timezone.utc).timestamp()
+    await env.manager.async_tick()
+    assert len(env.requests)==1 and env.manager._data["day"]=="2026-10-20"
+    env.clock[0]+=60
+    await env.manager.async_tick()
+    assert len(env.requests)==1
+
+
 async def test_disabling_prices_hides_cache_stops_queue_and_blocks_manual_refresh(env):
     await env.manager.async_tick()
     cached=deepcopy(env.manager._data["offers"])

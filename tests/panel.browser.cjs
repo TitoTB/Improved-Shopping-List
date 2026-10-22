@@ -2038,8 +2038,10 @@ async function main() {
     await stockContext.addInitScript(()=>localStorage.setItem('catalog-fixture',JSON.stringify([{id:'stock-cacao',revision:1,name:'Cacao',category:'',tags:[],barcode:'',barcodes:[],nfc_tags:[],image_url:'',icon:'mdi:food',price:null,currency:'EUR'}])));
     const stockPage=await stockContext.newPage();stockPage.on('pageerror',error=>errors.push(error.message));
     await stockPage.goto(url);await stockPage.getByRole('button',{name:'Stock',exact:true}).click();
-    const stockInput=stockPage.getByRole('combobox',{name:'Añadir producto',exact:true});
-    await stockInput.fill('cac');await stockInput.press('ArrowDown');await stockInput.press('Enter');
+    const stockInput=stockPage.locator('#product-input');
+    assert.equal(await stockInput.isVisible(),false);
+    assert.equal(await stockPage.locator('#add-button').isVisible(),false);
+    await stockPage.evaluate(()=>window.testPanel._stock.add('Cacao'));
     const stockCard=stockPage.locator('#stock-items li').filter({hasText:'Cacao'});
     await stockCard.getByLabel('Stock de Cacao: 1 uds',{exact:true}).waitFor();
     assert.equal(await stockPage.locator('#stock-count, #stock-units').count(),0);
@@ -2119,7 +2121,7 @@ async function main() {
     for(let index=0;index<4;index++)await stockCard.getByRole('button',{name:'Quitar una unidad de Cacao',exact:true}).click();
     await stockCard.getByLabel('Stock de Cacao: 0 Latas',{exact:true}).waitFor();
     assert.equal(await stockCard.getByRole('button',{name:'Quitar una unidad de Cacao',exact:true}).isDisabled(),true);
-    await stockInput.fill('Producto sin catálogo');await stockInput.press('Enter');
+    await stockPage.evaluate(()=>window.testPanel._stock.add('Producto sin catálogo'));
     await stockPage.reload();await stockPage.getByRole('button',{name:'Stock',exact:true}).click();
     await stockCard.getByLabel('Stock de Cacao: 0 Latas',{exact:true}).waitFor();
     assert.equal(await stockPage.evaluate(()=>window.stockItems[0].mode),'perishable');

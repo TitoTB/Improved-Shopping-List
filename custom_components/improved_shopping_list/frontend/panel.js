@@ -626,9 +626,10 @@ class ImprovedShoppingListPanel extends HTMLElement {
       ? session.items.filter(item => item.status !== "completed") : [];
     const locked = this._busy || session.loading || !available;
     const stockLocked=this._busy || !this._stock.loaded || this._stock.loading || this._hass.user?.is_admin !== true;
-    root.querySelector("#product-input").disabled = stockView ? stockLocked : locked || !canCreate;
-    root.querySelector("#add-button").disabled = stockView ? stockLocked : locked || !canCreate;
-    root.querySelector("#product-input").placeholder=stockView ? "Busca o añade un producto al stock" : "Busca o añade un producto";
+    root.querySelector("#product-input").closest('.input-wrap').hidden = stockView;
+    root.querySelector("#add-button").hidden = stockView;
+    root.querySelector("#product-input").disabled = stockView || locked || !canCreate;
+    root.querySelector("#add-button").disabled = stockView || locked || !canCreate;
     root.querySelector("#add-button").setAttribute("aria-busy", String(this._busy));
     root.querySelector("#refresh").disabled = session.loading || !session.entityId;
     const capabilityHelp = root.querySelector("#capability-help");
@@ -817,7 +818,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
     const input = root.querySelector("#product-input");
     const list = root.querySelector("#product-suggestions");
     const query = searchText(input.value);
-    const searching = Boolean(query) && ["shopping","stock"].includes(this._view) && !input.disabled &&
+    const searching = Boolean(query) && this._view === "shopping" && !input.disabled &&
       !this._predictionClosed && root.activeElement === input;
     this._predictions = searching ? [...this._catalogProducts.values()]
       .filter(product => [product.name, product.barcode, ...(product.barcodes ?? []), ...(product.nfc_tags ?? []), ...(product.tags ?? [])].some(value => searchText(value).includes(query)))
@@ -1215,10 +1216,9 @@ class ImprovedShoppingListPanel extends HTMLElement {
   async _addItem() {
     const input = this.shadowRoot.querySelector("#product-input");
     const summary = input.value.trim();
-    if (!summary || this._busy) return;
+    if (!summary || this._busy || this._view !== "shopping") return;
     const entityId = this._session.entityId;
-    const stockView=this._view === "stock";
-    const succeeded = await this._runAction(() => stockView ? this._stock.add(summary) : this._session.add(summary), stockView ? "Una unidad añadida a Stock." : "Producto añadido.");
+    const succeeded = await this._runAction(() => this._session.add(summary), "Producto añadido.");
     if (succeeded && entityId === this._session.entityId && input.value.trim() === summary) input.value = "";
     if (this.isConnected && !input.disabled) input.focus();
   }

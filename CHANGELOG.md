@@ -1,5 +1,9 @@
 # Historial de cambios
 
+## Pendiente de publicación
+
+- Lista y Stock ocultan el selector cuando solo hay una lista de compra configurada, sin contar listas pasarela. El botón reaparece al añadir otra lista.
+
 ## 0.27.0 — 2026-10-22
 
 - Revisión de tickets: vinculación en filas compactas con selector de catálogo en popup, creación en verde e ignorado reversible en rojo. Se retiran la ayuda inicial y las cantidades y precios del paso de vinculación.

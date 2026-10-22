@@ -518,7 +518,10 @@ class ImprovedShoppingListPanel extends HTMLElement {
       root.querySelector('.list-option[aria-pressed="true"]')?.focus();
     });
     root.querySelector("#close-list-dialog").addEventListener("click", () => root.querySelector("#list-dialog").close());
-    root.querySelector("#list-dialog").addEventListener("close", () => root.querySelector("#choose-list").focus());
+    root.querySelector("#list-dialog").addEventListener("close", () => {
+      const selector=root.querySelector("#choose-list");
+      (selector.hidden ? root.querySelector(this._view === "stock" ? "#add-stock" : "#product-input") : selector).focus();
+    });
     root.querySelector("#refresh").addEventListener("click", () => {
       this._actionError = "";
       void this._session.refresh();
@@ -606,8 +609,9 @@ class ImprovedShoppingListPanel extends HTMLElement {
     for(const id of ['toggle-stock-sort','choose-list','toggle-list-layout']){
       const button=root.querySelector('#'+id);
       if(button.parentElement!==actions)actions.append(button);
-      button.hidden=stockView&&!stockItemsView;
+      button.hidden=(stockView&&!stockItemsView)||(id==='choose-list'&&this._settings.entities.length===1);
     }
+    if(this._settings.entities.length===1)root.querySelector('#list-dialog').close();
     root.querySelector('#add-stock').hidden=!stockItemsView;
     root.querySelector('#upload-ticket').hidden=!stockView||stockItemsView;
     root.querySelector('#stock-tab').setAttribute('aria-selected',String(this._stockView==='stock'));

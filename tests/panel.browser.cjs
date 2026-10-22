@@ -1882,6 +1882,29 @@ async function main() {
     assert.equal(await gatewayRow.count(),0);
     await gatewayContext.close();
 
+    // Only configured shopping lists count: gateways and other todo entities do not.
+    const singleListContext=await browser.newContext({viewport:{width:390,height:844}});
+    const singleListPage=await singleListContext.newPage();singleListPage.on('pageerror',error=>errors.push(error.message));
+    await singleListPage.goto(url);
+    await singleListPage.evaluate(()=>{
+      window.listSettings.entities=['todo.bring'];window.listSettings.gateway_lists=[{entity_id:'todo.local',target_entity:'todo.bring',remove_after_transfer:true}];window.emitSettings();
+    });
+    assert.equal(await singleListPage.locator('#choose-list').isVisible(),false);
+    await singleListPage.getByRole('button',{name:'Stock',exact:true}).click();
+    assert.equal(await singleListPage.locator('#choose-list').isVisible(),false);
+    await singleListPage.evaluate(()=>{window.listSettings.entities.push('todo.readonly');window.emitSettings();});
+    await singleListPage.locator('#choose-list').waitFor();
+    await singleListPage.getByRole('button',{name:'Seleccionar lista',exact:true}).click();
+    assert.equal(await singleListPage.locator('#list-options .list-option').count(),2);
+    await singleListPage.evaluate(()=>{window.listSettings.entities=['todo.bring'];window.emitSettings();});
+    await singleListPage.locator('#list-dialog').waitFor({state:'hidden'});
+    assert.equal(await singleListPage.locator('#choose-list').isVisible(),false);
+    await singleListPage.getByRole('button',{name:'Lista',exact:true}).click();
+    assert.equal(await singleListPage.locator('#choose-list').isVisible(),false);
+    await singleListPage.evaluate(()=>{window.listSettings.entities.push('todo.readonly');window.emitSettings();});
+    await singleListPage.locator('#choose-list').waitFor();
+    await singleListContext.close();
+
     const readerContext=await browser.newContext({viewport:{width:1280,height:960}});
     const readerPage=await readerContext.newPage();readerPage.on("pageerror",error=>errors.push(error.message));
     await readerPage.clock.install();

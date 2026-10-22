@@ -151,7 +151,7 @@ Este repositorio se instala como repositorio personalizado; no está incluido en
 5. Busca **Improved Shopping List** y selecciona tu lista de la compra predeterminada.
 6. Abre **Improved Shopping List** desde la barra lateral.
 
-Si no tienes ninguna entidad `todo.*`, configura antes Bring!, Shopping List u otra integración que proporcione listas. No necesitas añadir YAML ni recursos de dashboard manualmente.
+Si no tienes ninguna entidad `todo.*`, configura antes Bring!, Shopping List u otra integración que proporcione listas. No necesitas añadir YAML ni recursos de dashboard manualmente. Si solo hay una lista de compra configurada, el botón de seleccionar lista se oculta tanto en Lista como en Stock; las listas pasarela no cuentan. Con varias listas configuradas vuelve a mostrarse automáticamente.
 
 Si el panel no aparece después de instalar, recarga la página o cierra y abre la aplicación de Home Assistant. Tras actualizar, una recarga completa también permite descartar una versión antigua del JavaScript.
 

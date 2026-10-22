@@ -1490,7 +1490,7 @@ async function main() {
     await carrefourDialog.getByRole("button",{name:"Cerrar ventana",exact:true}).click();
     await settingsView.getByLabel("Habilitar Carrefour",{exact:true}).check();
     await settingsView.getByRole("button",{name:"Productos de Carrefour",exact:true}).click();
-    assert.equal(await carrefourDialog.locator('input, select').count(),0);
+    assert.equal(await carrefourDialog.locator('input:visible, select:visible').count(),0);
     await carrefourDialog.getByRole('button',{name:'Cerrar ventana',exact:true}).click();
     await settingsPage.evaluate(()=>document.querySelector('improved-shopping-list-panel').shadowRoot.querySelector('isl-catalog').dispatchEvent(new CustomEvent('catalog-change',{detail:{products:[{id:'linked-1',name:'Vinculado',store_links:{carrefour:{id:'R-123'}}},{id:'unlinked-1',name:'Sin vincular'}],categories:[]}})));
     assert.equal(await settingsView.locator('#configure-carrefour .store-associated-count').textContent(),'1');

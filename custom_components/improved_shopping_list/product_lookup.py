@@ -89,6 +89,20 @@ class ProductLookup:
         entry = self._cache.get(code.zfill(14))
         return bool(entry and entry.get("fields") == FIELDS and entry["expires"] > time.time())
 
+    def nutrition_distribution(self, products):
+        """Count catalog products once using stored hints, without network requests."""
+        counts = dict.fromkeys("abcde", 0)
+        for product in products:
+            for code in dict.fromkeys([product.get("barcode", ""), *product.get("barcodes", [])]):
+                if not is_product_barcode(code):
+                    continue
+                hint = self.cached(code) or {}
+                grade = (hint.get("nutriscore") or {}).get("grade")
+                if grade in counts:
+                    counts[grade] += 1
+                    break
+        return {"counts": counts, "total": sum(counts.values())}
+
     async def async_lookup(self, code):
         if not is_product_barcode(code):
             return {"status": "unsupported"}

@@ -142,3 +142,29 @@ async def test_nutriscore_endpoint_reuses_lookup_and_never_sends_qr_or_nfc(hass,
     assert await hass.config_entries.async_unload(entry.entry_id)
     await client.send_json({"id": 3, "type": f"{DOMAIN}/catalog/nutriscore", "code": CODE})
     assert (await client.receive_json())["error"]["code"] == "not_loaded"
+
+
+async def test_nutrition_distribution_uses_stored_catalog_data_only(hass, hass_ws_client, monkeypatch):
+    entry = MockConfigEntry(domain=DOMAIN, data={CONF_TODO_ENTITY: "todo.bring"})
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    lookup = hass.data[DOMAIN]["readers"].lookup
+    fetch = AsyncMock(side_effect=AssertionError("Statistics must never fetch products"))
+    monkeypatch.setattr(lookup, "_fetch", fetch)
+    lookup._cache[CODE.zfill(14)] = {"expires": 0, "result": {"status": "found", "nutriscore": {"grade": "b"}}}
+    lookup._cache["8410109115543".zfill(14)] = {"expires": 0, "result": {"status": "found", "nutriscore": {"grade": "e"}}}
+    catalog = hass.data[DOMAIN]["catalog"]
+    # Aliases and multiple known codes still count a catalog product only once.
+    await catalog.async_save_product({"name": "Cacao", "barcode": CODE, "barcodes": [CODE.zfill(14), "8410109115543"]})
+    await catalog.async_save_product({"name": "Sin datos", "barcode": "https://example.test/qr"})
+    await catalog.async_save_product({"name": "Sin código"})
+    client = await hass_ws_client(hass)
+    await client.send_json({"id": 1, "type": f"{DOMAIN}/catalog/nutrition_distribution"})
+    result = await client.receive_json()
+    assert result["success"]
+    assert result["result"] == {"counts": {"a": 0, "b": 1, "c": 0, "d": 0, "e": 0}, "total": 1}
+    fetch.assert_not_awaited()
+    assert lookup.nutrition_distribution([])["total"] == 0
+    assert await hass.config_entries.async_unload(entry.entry_id)
+    await client.send_json({"id": 2, "type": f"{DOMAIN}/catalog/nutrition_distribution"})
+    assert (await client.receive_json())["error"]["code"] == "not_loaded"

@@ -2,6 +2,8 @@
 
 ## Pendiente de publicación
 
+- Nutri-Score pasa de criterio de agrupación del catálogo a una vista de Ajustes con gráfica A–E, recuentos y porcentajes. Solo incluye productos con datos guardados, cuenta cada ficha una vez y no genera consultas externas al abrirse.
+
 - Nueva vista Ajustes → Notificaciones: destinos múltiples, título y mensaje personalizables para listas que superen un número de productos pendientes y para productos con stock bajo.
 - Seguimiento por lista, activación opcional, protección contra avisos repetidos y estado persistente tras reinicios.
 

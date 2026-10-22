@@ -11,17 +11,6 @@ export const normalizedName = value => String(value ?? "").normalize("NFKC").tri
 const MONTHS = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
 const STORE_NAMES = {mercadona:"Mercadona",carrefour:"Carrefour",alcampo:"Alcampo",consum:"Consum",lasirena:"La Sirena",eroski:"Eroski",dia:"DIA"};
 
-function nutritionCodes(values) {
-  const seen = new Set();
-  return values.filter(code => {
-    if (typeof code !== "string" || !/^(?:\d{8}|\d{12,14})$/.test(code)) return false;
-    const total = [...code.slice(0,-1)].reverse().reduce((sum,digit,index) => sum + Number(digit)*(index%2 ? 1 : 3),0);
-    const key = code.padStart(14,"0");
-    if ((10-total%10)%10 !== Number(code.at(-1)) || seen.has(key)) return false;
-    seen.add(key); return true;
-  });
-}
-
 export function cachedProductPrice(product, prices = [], favorite = "") {
   if (!product) return null;
   const valid = offer => offer.price != null && offer.price !== "" && Number.isFinite(Number(offer.price)) &&
@@ -84,8 +73,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
     this._productOrder = "alphabetical";
     try { if (localStorage.getItem("isl-catalog-order") === "categories") this._productOrder = "categories"; } catch { /* Storage may be disabled. */ }
     this._groupBy = "category";
-    try { const grouping = localStorage.getItem("isl-catalog-grouping"); if (["nutriscore","linked","suggestions"].includes(grouping)) this._groupBy = grouping; } catch { /* Storage may be disabled. */ }
-    this._groupNutrition = new Map();
+    try { const grouping = localStorage.getItem("isl-catalog-grouping"); if (["linked","suggestions"].includes(grouping)) this._groupBy = grouping; } catch { /* Storage may be disabled. */ }
     this._pendingNames = new Set();
     this._listItems = [];
   }
@@ -97,7 +85,6 @@ class ImprovedShoppingCatalog extends HTMLElement {
     if (previous && previous !== value.connection) {
       this._stopCodeCapture();
       this._started = false;
-      this._groupNutritionToken = null; this._groupNutritionLoading = false; this._groupNutrition.clear();
     }
     this._start();
   }
@@ -164,7 +151,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
   }
 
   disconnectedCallback() {
-    this._active = false; this._groupNutritionToken = null; this._groupNutritionLoading = false;
+    this._active = false;
     this._stopCodeCapture();
     clearInterval(this._seasonTimer);
     this._catalog.stop();
@@ -386,7 +373,6 @@ class ImprovedShoppingCatalog extends HTMLElement {
         <div class="search"><input id="catalog-search" type="search" aria-label="Buscar productos" placeholder="Nombre, código o etiqueta"></div>
         <div class="catalog-product-controls"><button id="new-product" class="primary" type="button" aria-label="Nuevo producto" title="Nuevo producto"><ha-icon icon="mdi:plus-thick" aria-hidden="true"></ha-icon></button><button id="toggle-catalog-order" type="button" aria-label="Agrupar por categorías" title="Agrupar por categorías" aria-pressed="false"><ha-icon icon="mdi:label" aria-hidden="true"></ha-icon></button><button id="configure-catalog-grouping" type="button" aria-label="Cambiar criterio de agrupación" title="Cambiar criterio de agrupación" hidden><ha-icon icon="mdi:tune" aria-hidden="true"></ha-icon></button><button id="toggle-catalog-layout" type="button" aria-label="Cambiar a vista de filas" title="Cambiar a vista de filas"><ha-icon icon="mdi:view-sequential" aria-hidden="true"></ha-icon></button></div>
       </div>
-      <p id="grouping-status" class="count" role="status" hidden>Cargando Nutri-Score…</p>
       <div id="catalog-grid" class="grid"></div>
       <p id="catalog-empty" class="empty" hidden></p>
       </section>
@@ -474,7 +460,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
       </dialog>
       <dialog id="catalog-grouping-dialog" aria-labelledby="catalog-grouping-title">
         <h2 id="catalog-grouping-title">Agrupar productos por</h2>
-        <div class="grouping-options"><button type="button" data-group-by="category" aria-pressed="true"><ha-icon icon="mdi:label" aria-hidden="true"></ha-icon>Categoría</button><button type="button" data-group-by="nutriscore" aria-pressed="false"><ha-icon icon="mdi:nutrition" aria-hidden="true"></ha-icon>Nutri-Score</button><button type="button" data-group-by="linked" aria-pressed="false"><ha-icon icon="mdi:store" aria-hidden="true"></ha-icon>Vinculados</button><button type="button" data-group-by="suggestions" aria-pressed="false"><ha-icon icon="mdi:calendar-star" aria-hidden="true"></ha-icon>Sugerencias</button></div>
+        <div class="grouping-options"><button type="button" data-group-by="category" aria-pressed="true"><ha-icon icon="mdi:label" aria-hidden="true"></ha-icon>Categoría</button><button type="button" data-group-by="linked" aria-pressed="false"><ha-icon icon="mdi:store" aria-hidden="true"></ha-icon>Vinculados</button><button type="button" data-group-by="suggestions" aria-pressed="false"><ha-icon icon="mdi:calendar-star" aria-hidden="true"></ha-icon>Sugerencias</button></div>
       </dialog>`;
     this._built = true;
     const root = this.shadowRoot;
@@ -1157,7 +1143,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
     const grouped = this._productOrder === "categories", grid = root.querySelector("#catalog-grid");
     grid.classList.toggle("rows", rows);
     grid.classList.toggle("grouped", grouped);
-    const orderToggle = root.querySelector("#toggle-catalog-order"), orderLabel = grouped ? "Ordenar alfabéticamente" : this._groupBy === "suggestions" ? "Agrupar por sugerencias" : this._groupBy === "linked" ? "Agrupar por vinculaciones" : this._groupBy === "nutriscore" ? "Agrupar por Nutri-Score" : "Agrupar por categorías";
+    const orderToggle = root.querySelector("#toggle-catalog-order"), orderLabel = grouped ? "Ordenar alfabéticamente" : this._groupBy === "suggestions" ? "Agrupar por sugerencias" : this._groupBy === "linked" ? "Agrupar por vinculaciones" : "Agrupar por categorías";
     root.querySelector("#configure-catalog-grouping").hidden = !grouped;
     for (const button of root.querySelectorAll("[data-group-by]")) button.setAttribute("aria-pressed",String(button.dataset.groupBy === this._groupBy));
     orderToggle.setAttribute("aria-label", orderLabel); orderToggle.title = orderLabel;
@@ -1191,9 +1177,8 @@ class ImprovedShoppingCatalog extends HTMLElement {
           }
           continue;
         }
-        const grade = nutritionCodes([product.barcode,...(product.barcodes??[])]).map(code => this._groupNutrition.get(code.padStart(14,"0"))).find(value => value);
-        const key = this._groupBy === "nutriscore" ? grade || "" : normalizedName(product.category);
-        const name = this._groupBy === "nutriscore" ? (grade ? `Nutri-Score ${grade.toUpperCase()}` : "Sin Nutri-Score") : categories.get(key) || product.category || "Sin categoría";
+        const key = normalizedName(product.category);
+        const name = categories.get(key) || product.category || "Sin categoría";
         if (!groups.has(key)) groups.set(key,{key,name,products:[]});
         groups.get(key).products.push(product);
       }
@@ -1211,39 +1196,6 @@ class ImprovedShoppingCatalog extends HTMLElement {
     empty.textContent = this._catalog.products.length ? "No hay productos que coincidan con estos filtros." : "Tu catálogo empieza aquí. Añade el primer producto para tenerlo a mano en tu próxima compra.";
     this._renderSeasonal();
     this._renderRecipes();
-    void this._loadGroupedNutrition(products);
-  }
-
-  async _loadGroupedNutrition(products) {
-    const status = this.shadowRoot.querySelector("#grouping-status");
-    if (!this._active || !this.isConnected || this._view !== "products" || this._productOrder !== "categories" || this._groupBy !== "nutriscore" || this._catalog.loading || !this._hass) {
-      this._groupNutritionToken = null; this._groupNutritionLoading = false; status.hidden = true;
-      return;
-    }
-    const codes = new Map(products.flatMap(product => nutritionCodes([product.barcode,...(product.barcodes??[])])).map(code => [code.padStart(14,"0"),code]));
-    this._groupNutritionWanted = new Set(codes.keys());
-    if (this._groupNutritionLoading) return;
-    const missing = [...codes].filter(([key]) => !this._groupNutrition.has(key));
-    status.hidden = !missing.length;
-    if (!missing.length) return;
-    const token = this._groupNutritionToken = {};
-    this._groupNutritionLoading = true;
-    try {
-      for (const [key,code] of missing) {
-        if (token !== this._groupNutritionToken || !this.isConnected) return;
-        if (!this._groupNutritionWanted.has(key)) continue;
-        let grade = null;
-        try {
-          const result = await this._hass.callWS({type:"improved_shopping_list/catalog/nutriscore",code});
-          if (/^[a-e]$/.test(result.nutriscore?.grade ?? "")) grade = result.nutriscore.grade;
-        } catch { /* Unavailable optional nutrition belongs in the ungraded group. */ }
-        if (token !== this._groupNutritionToken || !this.isConnected) return;
-        this._groupNutrition.set(key,grade);
-        this._renderProducts();
-      }
-    } finally {
-      if (token === this._groupNutritionToken) { this._groupNutritionLoading = false; if (this.isConnected) this._renderProducts(); }
-    }
   }
 
   _productCard(product) {
@@ -1451,7 +1403,6 @@ class ImprovedShoppingCatalog extends HTMLElement {
         if (generation !== this._nutriGeneration || !root.querySelector("dialog").open || !this.isConnected) return;
         const data = result.nutriscore;
         if (!data || !/^[a-e]$/.test(data.grade)) continue;
-        this._groupNutrition.set(code.padStart(14,"0"),data.grade);
         this._renderProducts();
         this.dispatchEvent(new CustomEvent("product-nutriscore",{detail:{code,nutriscore:data}}));
         const row = document.createElement("div"); row.className = "nutriscore-item";

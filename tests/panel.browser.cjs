@@ -134,6 +134,15 @@ const hass={
       const asset={id:msg.icon_id,url:'/improved_shopping_list_icons/fixture.svg',collection:'Tabler Icons',author:'Paweł Kuna',author_url:'https://github.com/tabler/tabler-icons',license:'MIT',license_url:'https://github.com/tabler/tabler-icons/blob/master/LICENSE',source_url:'https://icon-sets.iconify.design/tabler/milk/'};
       localStorage.setItem('icon-asset-fixture',JSON.stringify(asset));return asset;
     }
+    if(msg.type==='improved_shopping_list/catalog/nutrition_distribution'){
+      if(window.failNutritionDistribution)throw new Error('Disconnected');
+      const counts={a:0,b:0,c:0,d:0,e:0};
+      for(const product of window.catalogProducts){
+        const grade=[product.barcode,...(product.barcodes??[])].map(code=>window.nutriFixture?.[String(code).replace(/^0+/,'')]).find(value=>counts[value?.grade]!=null)?.grade;
+        if(grade)counts[grade]++;
+      }
+      return {counts,total:Object.values(counts).reduce((sum,count)=>sum+count,0)};
+    }
     if(msg.type==='improved_shopping_list/catalog/nutriscore'){
       (window.nutriCalls??=[]).push(msg.code);
       if(window.delayNutriCode===msg.code)await new Promise(resolve=>{window.releaseNutri=resolve;});
@@ -3082,38 +3091,37 @@ async function main() {
     await groupingButton.click();
     const groupingDialog=groupedCatalog.getByRole('dialog',{name:'Agrupar productos por',exact:true});
     assert.equal(await groupingDialog.getByRole('button',{name:'Categoría',exact:true}).getAttribute('aria-pressed'),'true');
-    await groupingDialog.getByRole('button',{name:'Nutri-Score',exact:true}).click();
-    await groupingDialog.waitFor({state:'hidden'});
-    await groupedCatalog.locator('#grouping-status').waitFor({state:'hidden'});
-    assert.deepEqual(await groupedCatalog.locator('.category-group-title').allTextContents(),['Nutri-Score A','Nutri-Score B','Nutri-Score E','Sin Nutri-Score']);
-    assert.deepEqual(await productNames(),['Zanahoria','Arroz','Azúcar','Agua','Patatas']);
-    assert.equal(await groupingPage.evaluate(()=>window.nutriCalls.length),4);
-    assert.ok(await groupedCatalog.locator('.catalog-product-controls').evaluate(node=>{
-      const buttons=[...node.querySelectorAll('button')].map(button=>button.getBoundingClientRect());
-      return buttons.every((rect,index)=>!index||rect.left>=buttons[index-1].right)&&node.scrollWidth<=node.clientWidth+1;
-    }));
-    await groupingPage.screenshot({path:'test-results/catalog-nutriscore-mobile.png',fullPage:true});
+    assert.equal(await groupingDialog.getByRole('button',{name:'Nutri-Score',exact:true}).count(),0);
+    await groupingDialog.getByRole('button',{name:'Cerrar ventana',exact:true}).click();
     await groupedCatalog.getByRole('button',{name:'Cambiar a vista de filas',exact:true}).click();
-    assert.equal(await groupedCatalog.locator('.category-products.rows').count(),4);
-    await groupingButton.click();
-    assert.equal(await groupingDialog.getByRole('button',{name:'Nutri-Score',exact:true}).getAttribute('aria-pressed'),'true');
-    await groupingDialog.getByRole('button',{name:'Categoría',exact:true}).click();
-    assert.deepEqual(await groupedCatalog.locator('.category-group-title').allTextContents(),['Despensa','Verduras','Sin categoría']);
-    await groupingButton.click();
-    await groupingDialog.getByRole('button',{name:'Nutri-Score',exact:true}).click();
-    assert.equal(await groupingPage.evaluate(()=>window.nutriCalls.length),4);
-    await groupedCatalog.getByRole('button',{name:'Ordenar alfabéticamente',exact:true}).click();
-    assert.equal(await groupingButton.isVisible(),false);
-    assert.deepEqual(await productNames(),['Agua','Arroz','Azúcar','Patatas','Zanahoria']);
+    await groupingPage.getByRole('button',{name:'Ajustes',exact:true}).click();
+    const nutritionSettings=groupingPage.locator('isl-settings');
+    await nutritionSettings.getByRole('button',{name:'Nutri-Score',exact:true}).click();
+    await nutritionSettings.locator('#nutrition-total').filter({hasText:'3 productos'}).waitFor();
+    assert.deepEqual(await nutritionSettings.locator('.nutrition-value').allTextContents(),['1 (33,3 %)','1 (33,3 %)','0 (0 %)','0 (0 %)','1 (33,3 %)']);
+    assert.equal(await nutritionSettings.locator('.nutrition-bar').first().evaluate(node=>getComputedStyle(node).backgroundColor),'rgb(3, 129, 65)');
+    assert.equal(await groupingPage.evaluate(()=>window.nutriCalls?.length??0),0);
+    await groupingPage.screenshot({path:'test-results/nutrition-distribution-mobile.png',fullPage:true});
+    for(const width of [320,1280]){await groupingPage.setViewportSize({width,height:844});assert.ok(await nutritionSettings.locator('#settings-nutrition').evaluate(node=>node.scrollWidth<=node.clientWidth+1));}
+    await groupingPage.screenshot({path:'test-results/nutrition-distribution-desktop.png',fullPage:true});
+    await groupingPage.evaluate(()=>{window.nutriFixture={};});
+    await nutritionSettings.getByRole('button',{name:'Listas',exact:true}).click();
+    await nutritionSettings.getByRole('button',{name:'Nutri-Score',exact:true}).click();
+    await nutritionSettings.locator('#nutrition-status').filter({hasText:'Todavía no hay productos'}).waitFor();
+    assert.equal(await nutritionSettings.locator('#nutrition-chart').isVisible(),false);
+    await groupingPage.evaluate(()=>{window.failNutritionDistribution=true;});
+    await nutritionSettings.getByRole('button',{name:'Listas',exact:true}).click();
+    await nutritionSettings.getByRole('button',{name:'Nutri-Score',exact:true}).click();
+    await nutritionSettings.locator('#nutrition-status').filter({hasText:'No se ha podido cargar'}).waitFor();
+    await groupingPage.evaluate(()=>{window.failNutritionDistribution=false;localStorage.setItem('isl-catalog-grouping','nutriscore');});
     await groupingPage.reload();
     await groupingPage.getByRole('button',{name:'Catálogo',exact:true}).click();
-    await groupedCatalog.getByRole('button',{name:'Agrupar por Nutri-Score',exact:true}).waitFor();
-    assert.equal(await groupingButton.isVisible(),false);
-    assert.equal(await groupingPage.evaluate(()=>window.nutriCalls?.length??0),0);
-    await groupedCatalog.getByRole('button',{name:'Agrupar por Nutri-Score',exact:true}).click();
+    await groupedCatalog.locator('.category-group').nth(2).waitFor();
     await groupingButton.click();
-    assert.equal(await groupingDialog.getByRole('button',{name:'Nutri-Score',exact:true}).getAttribute('aria-pressed'),'true');
+    assert.equal(await groupingDialog.getByRole('button',{name:'Categoría',exact:true}).getAttribute('aria-pressed'),'true');
+    assert.equal(await groupingDialog.getByRole('button',{name:'Nutri-Score',exact:true}).count(),0);
     await groupingDialog.getByRole('button',{name:'Cerrar ventana',exact:true}).click();
+    await groupingPage.setViewportSize({width:390,height:844});
     // A linked product belongs to every shop, independently of shop activation or prices.
     await groupingPage.evaluate(async()=>{
       const links={r:{mercadona:'123',carrefour:{url:'https://www.carrefour.es/supermercado/R-123/p'}},a:{carrefour:{id:'456'}},z:{alcampo:'789'}};

@@ -99,7 +99,7 @@ para administradores de Home Assistant.
 - Crear y editar productos en un catálogo local compartido entre los usuarios de Home Assistant, con vistas Productos, Categorías, Recetas, Sugerencias y Nuevos.
 - Asignar categorías, códigos de barras, etiquetas NFC, precios orientativos e imágenes.
 - Buscar, filtrar y añadir productos del catálogo a la lista seleccionada.
-- Agrupar el catálogo por categoría, Nutri-Score o «Vinculados»: un bloque por tienda, con el mismo producto en varias si corresponde, y «No vinculados» al final. Las vinculaciones se muestran aunque la tienda esté desactivada.
+- Agrupar el catálogo por categoría, Sugerencias o «Vinculados»: un bloque por tienda, con el mismo producto en varias si corresponde, y «No vinculados» al final. Las vinculaciones se muestran aunque la tienda esté desactivada.
 
 Cada lista conserva sus datos en su integración original. Las operaciones disponibles dependen de lo que admita ese proveedor. Por ejemplo, una lista de solo lectura se puede consultar, pero sus controles de edición aparecen desactivados. La frecuencia con la que Bring! u otro proveedor recibe cambios de su nube depende de su propia integración.
 
@@ -263,6 +263,12 @@ El diccionario público se consulta una vez al día, sin cuenta y sin actualizar
 Con el consentimiento activado se aportan los datos permitidos de todo el catálogo: nombres, traducciones, EAN, vinculaciones con tiendas, Nutri-Score, precios e iconos admitidos. Las aportaciones son públicas y están asociadas a la cuenta de GitHub, con un lote por cuenta cada 24 horas. Se excluyen listas, stock, NFC, lectores, categorías personales, notas y automatizaciones.
 
 GitHub Actions valida los datos automáticamente: consenso de tres cuentas independientes para los campos confirmados, comprobación de licencias de Iconify y control de variaciones de precios superiores al 50 %. Las preferencias de iconos se cuentan por separado. El mantenedor puede bloquear cuentas y recuperar una versión anterior del diccionario. Consulta [el funcionamiento y la política del catálogo comunitario](community/README.md).
+
+### Nutri-Score del catálogo
+
+**Ajustes → Nutri-Score** muestra una gráfica de barras con los colores A–E, el número de productos y su porcentaje sobre los productos del catálogo con Nutri-Score conocido. Se utilizan exclusivamente los datos guardados de Open Food Facts o del diccionario comunitario; abrir la gráfica no consulta esas fuentes ni actualiza precios. Los productos sin una letra válida no entran en el cálculo. Cada ficha cuenta una sola vez; si tiene varios códigos con Nutri-Score, se toma el primer código con resultado, empezando por su código principal. Al volver a abrir la vista se vuelve a leer la información local disponible. No requiere tarjetas HACS ni librerías gráficas adicionales.
+
+Nutri-Score deja de ser un criterio de «Agrupar productos por» en Catálogo → Productos. Una selección antigua de ese criterio pasa a agrupar por categoría.
 
 ### Nutri-Score en la ficha
 

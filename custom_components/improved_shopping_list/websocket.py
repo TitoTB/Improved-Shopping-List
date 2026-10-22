@@ -90,6 +90,7 @@ def async_register_commands(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_community_status)
     websocket_api.async_register_command(hass, ws_community_sharing)
     websocket_api.async_register_command(hass, ws_nutriscore)
+    websocket_api.async_register_command(hass, ws_nutrition_distribution)
     websocket_api.async_register_command(hass, ws_logs_get)
     websocket_api.async_register_command(hass, ws_logs_subscribe)
 
@@ -358,6 +359,14 @@ async def ws_community_export(hass, connection, msg):
         connection.send_error(msg["id"], "community_export_error", str(err))
     else:
         connection.send_result(msg["id"], result)
+
+
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/catalog/nutrition_distribution"})
+@callback
+def ws_nutrition_distribution(hass, connection, msg):
+    if catalog := _catalog(hass, connection, msg):
+        lookup = hass.data[DOMAIN]["readers"].lookup
+        connection.send_result(msg["id"], lookup.nutrition_distribution(catalog.products))
 
 
 @websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/catalog/nutriscore", vol.Required("code"): str})

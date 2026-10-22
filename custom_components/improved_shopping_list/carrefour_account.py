@@ -52,6 +52,7 @@ class CarrefourAccount:
         self._lock = asyncio.Lock()
         self._sync_lock = asyncio.Lock()
         self._active = False
+        self._restored_session = False
 
     async def async_load(self):
         credentials = await self._credentials_store.async_load()
@@ -64,6 +65,7 @@ class CarrefourAccount:
         data = await self._store.async_load()
         if data and isinstance(data, dict) and isinstance(data.get("login_token"), str):
             self._session = {key: data[key] for key in ("login_token", "jwt", "jwt_until", "device_cookies", "email", "purchase_refs") if key in data}
+            self._restored_session = bool(self._session.get("login_token"))
 
     def start(self):
         self._active = True
@@ -206,6 +208,8 @@ class CarrefourAccount:
                             if cookie and 0 < len(cookie.value) <= 4096 and not any(c in cookie.value for c in "\r\n;"):
                                 self._cookies[name] = cookie.value
             self._check_active()
+            if url.startswith(IDENTITY + "/"):
+                await self._persist_device_cookies()
             if pdf:
                 if not content.startswith(b"%PDF-"):
                     raise CarrefourAccountError("Carrefour no ha devuelto un ticket PDF válido.", stage)
@@ -222,6 +226,13 @@ class CarrefourAccount:
             raise
         except (ValueError, UnicodeError) as err:
             raise CarrefourAccountError("Carrefour ha devuelto una respuesta no reconocida.", stage) from err
+
+    async def _persist_device_cookies(self):
+        """Keep rotated device cookies alongside the durable login token."""
+        if self._session.get("login_token") and self._session.get("device_cookies") != self._cookies:
+            session = {**self._session, "device_cookies":dict(self._cookies)}
+            await self._store.async_save(session)
+            self._session = session
 
     async def _public_config(self):
         if not self._config:
@@ -269,6 +280,7 @@ class CarrefourAccount:
         self._check_active()
         await self._store.async_save(session)
         self._session = session
+        self._restored_session = False
         if credentials is not None:
             await self._credentials_store.async_save(credentials)
             self._credentials = credentials
@@ -375,6 +387,8 @@ class CarrefourAccount:
                     "expiration": "1800", "fields": "data.GR,profile.email,data.DQ,data.acceptedCustomerPolicies,data.ID_ATG"})
             except CarrefourAccountError as err:
                 if err.diagnostics.get("provider_error_code") in (403005, 403006):
+                    self.activity.record("stores.account", "Carrefour: el proveedor ha invalidado la sesión guardada. Es necesario volver a conectar la cuenta.",
+                        source="integration", diagnostics={**err.diagnostics, "restored_after_restart":self._restored_session})
                     await self._store.async_save({})
                     self._session.clear()
                     self._purchases.clear()

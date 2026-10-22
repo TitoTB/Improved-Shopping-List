@@ -351,3 +351,65 @@ async def test_legacy_saved_purchase_is_resolved_by_exact_reference_hash(account
         await account.async_preview_saved("owner","summary")
     with pytest.raises(CarrefourAccountError, match="no tiene"):
         await account.async_preview_saved("owner","missing")
+
+
+async def test_restart_restores_login_and_device_and_renews_only_short_lived_jwt(account,hass):
+    account._http=AsyncMock(return_value={"errorCode":0,"sessionInfo":{"login_token":"PRIVATE_SESSION"}})
+    await account.async_login("owner","test@example.test","PRIVATE_PASSWORD")
+    restored=CarrefourAccount(hass,account.receipts,account.activity)
+    await restored.async_load()
+    restored._config=dict(account._config)
+    restored.start()
+    restored._http=AsyncMock(side_effect=[{"errorCode":0,"id_token":"renewed-token"},{"purchases":[]}])
+    try:
+        assert restored.status("owner")["connected"]
+        await restored.async_purchases("owner",import_summaries=False)
+        first=restored._http.await_args_list[0]
+        assert first.args[1].endswith("/accounts.getJWT")
+        assert first.kwargs["headers"]["Cookie"]=="gmid=test-device"
+        assert first.kwargs["data"]["login_token"]=="PRIVATE_SESSION"
+        assert "password" not in first.kwargs["data"]
+        saved=await restored._store.async_load()
+        assert saved["login_token"]=="PRIVATE_SESSION" and saved["jwt"]=="renewed-token"
+        assert restored.status("owner")["connected"]
+    finally:
+        await restored.async_stop()
+
+
+async def test_rotated_device_cookie_is_persisted_before_restart(account,hass,monkeypatch):
+    from http.cookies import SimpleCookie
+    account._session={"login_token":"PRIVATE_SESSION","device_cookies":{"gmid":"old-device"}}
+    account._cookies={"gmid":"old-device"}
+    class Response:
+        status=200
+        cookies=SimpleCookie("gmid=new-device; Path=/; Secure; HttpOnly")
+        def __init__(self):self.content=self
+        async def __aenter__(self):return self
+        async def __aexit__(self,*_args):pass
+        async def iter_chunked(self,_size):yield b'{"errorCode":0,"id_token":"renewed-token"}'
+    class Session:
+        async def __aenter__(self):return self
+        async def __aexit__(self,*_args):pass
+        def request(self,*_args,**_kwargs):return Response()
+    monkeypatch.setattr("custom_components.improved_shopping_list.carrefour_account.async_create_clientsession",Mock(return_value=Session()))
+    await account._identity("accounts.getJWT",{"login_token":"PRIVATE_SESSION"})
+    await account.async_stop()
+    restored=CarrefourAccount(hass,account.receipts,account.activity)
+    await restored.async_load()
+    restored.start()
+    try:
+        assert restored.status("owner")["connected"]
+        assert restored._cookies["gmid"]=="new-device"
+        assert (await restored._store.async_load())["device_cookies"]["gmid"]=="new-device"
+    finally:
+        await restored.async_stop()
+
+
+async def test_transient_renewal_failure_preserves_saved_session(account):
+    account._session={"login_token":"PRIVATE_SESSION","device_cookies":{"gmid":"test-device"}}
+    await account._store.async_save(account._session)
+    account._http=AsyncMock(side_effect=CarrefourAccountError("HTTP 403","accounts.getJWT",status=403))
+    with pytest.raises(CarrefourAccountError):
+        await account._headers()
+    assert account.status("owner")["connected"]
+    assert (await account._store.async_load())["login_token"]=="PRIVATE_SESSION"

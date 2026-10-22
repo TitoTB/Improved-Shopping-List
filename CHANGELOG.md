@@ -1,5 +1,9 @@
 # Historial de cambios
 
+## Pendiente de publicación
+
+- Carrefour conserva las cookies de dispositivo renovadas junto a la sesión, para restaurarlas tras reiniciar. Las invalidaciones explícitas del proveedor registran el código técnico y si la sesión se había recuperado de disco. Pruebas de renovación del JWT y de conservación ante errores temporales.
+
 ## 0.33.0 — 2026-10-22
 
 - Alcampo incorpora búsqueda optativa por nombres comerciales de otras tiendas y confirmación por EAN exacto, con dos búsquedas y tres candidatos por búsqueda. Vinculaciones manuales conservadas, cola persistente de cinco minutos y pausas crecientes ante bloqueos.

@@ -198,8 +198,8 @@ class ImprovedShoppingListPanel extends HTMLElement {
         .list-totals { display:flex; align-items:center; gap:8px; margin-left:auto; }
         .list-totals .count { white-space:nowrap; }
         button.count { border:0; color:inherit; display:inline-flex; align-items:center; gap:7px; height:34px; }
-        #pending-total[aria-expanded=false] { background:#fff; color:#000; }
-        #pending-count[aria-pressed=false] { background:#ee524f; color:#fff; }
+        #pending-total[aria-expanded=false] { background:#fff; color:#000; font-weight:700; }
+        #pending-count[aria-pressed=false] { background:#ee524f; color:#fff; font-weight:700; }
         .store-logo { width:24px; height:24px; object-fit:contain; background:white; padding:3px; border-radius:50%; flex:none; }
         #receipt { max-width:760px; margin:0 auto; }
         #receipt[hidden], #pending[hidden] { display:none; }

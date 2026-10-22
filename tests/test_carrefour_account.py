@@ -481,3 +481,34 @@ async def test_persistent_login_allows_jwt_renewal_after_half_hour(account, monk
     assert account.status("owner")["connected"]
     assert (await account._store.async_load())["jwt"] == "private-jwt-2"
     assert sum(call.args[1].endswith("/accounts.login") for call in account._http.await_args_list) == 1
+
+
+async def test_detected_purchase_fetches_today_ticket_before_schedule_and_only_once(account):
+    now=dt_util.now()
+    account.settings=SimpleNamespace(snapshot={"price_update_time":"23:59"})
+    account.purchase_detection=SimpleNamespace(pending_for_today=True)
+    account._session={"login_token":"private"}
+    account._options.update(auto_ticket=True,completion_at=time.time())
+    account.async_purchases=AsyncMock(return_value={"purchases":[
+        {"id":"old","purchased_at":(now-timedelta(days=1)).isoformat(),"reviewable":True},
+        {"id":"today","purchased_at":now.isoformat(),"reviewable":True}]})
+    account._purchases["today"]={"id":"today-reference"}
+    account.receipts.account_ticket_available=Mock(return_value=False)
+    account.receipts.async_archive_account_ticket=AsyncMock()
+    account.async_preview=AsyncMock(return_value={"token":"draft"})
+    await account._run_background()
+    account.async_preview.assert_awaited_once_with("automatic_carrefour","today")
+    account.receipts.async_archive_account_ticket.assert_awaited_once()
+    await account._run_background()
+    assert account.async_purchases.await_count==1
+
+
+async def test_detection_never_uses_yesterday_ticket(account):
+    account.settings=SimpleNamespace(snapshot={"price_update_time":"23:59"})
+    account.purchase_detection=SimpleNamespace(pending_for_today=True)
+    account._session={"login_token":"private"}
+    account._options.update(auto_ticket=True,completion_at=time.time())
+    account.async_purchases=AsyncMock(return_value={"purchases":[{"id":"old","purchased_at":(dt_util.now()-timedelta(days=1)).isoformat(),"reviewable":True}]})
+    account.async_preview=AsyncMock()
+    await account._run_background()
+    account.async_preview.assert_not_awaited()

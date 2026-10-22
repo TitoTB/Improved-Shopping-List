@@ -52,6 +52,9 @@ def async_register_commands(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_stock_adjust)
     websocket_api.async_register_command(hass, ws_stock_save)
     websocket_api.async_register_command(hass, ws_stock_remove)
+    websocket_api.async_register_command(hass, ws_purchase_detection_settings)
+    websocket_api.async_register_command(hass, ws_detected_purchase_complete)
+    websocket_api.async_register_command(hass, ws_detected_purchase_discard)
     for command in (ws_receipts_get, ws_receipts_subscribe, ws_receipts_preview, ws_receipts_confirm, ws_receipts_discard, ws_receipts_options, ws_receipts_link, ws_receipts_review_saved):
         websocket_api.async_register_command(hass, command)
     websocket_api.async_register_command(hass, ws_catalog_subscribe)
@@ -1129,3 +1132,34 @@ async def ws_alcampo_options(hass, connection, msg):
         connection.send_result(msg["id"], result)
     except CatalogError as err:
         connection.send_error(msg["id"], err.code, str(err))
+
+
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/settings/purchase_detection", vol.Required("config"):dict})
+@websocket_api.require_admin
+@callback
+def ws_purchase_detection_settings(hass, connection, msg):
+    if not _catalog(hass,connection,msg):
+        return
+    try:
+        result = hass.data[DOMAIN]["settings"].update_purchase_detection(msg["config"])
+    except ListSettingsError as err:
+        connection.send_error(msg["id"],"invalid_purchase_detection",str(err))
+    else:
+        connection.send_result(msg["id"],result)
+
+
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/receipts/complete_detection",
+    vol.Required("receipt_id"):str, vol.Required("store"):str, vol.Required("total"):vol.Any(int,float),
+    vol.Optional("store_name",default=""):str})
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_detected_purchase_complete(hass, connection, msg):
+    await _receipt_operation(hass,connection,msg,lambda manager,owner:manager.async_complete_detected_purchase(
+        msg["receipt_id"],msg["store"],msg["total"],msg["store_name"]))
+
+
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/receipts/discard_detection",vol.Required("receipt_id"):str})
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_detected_purchase_discard(hass, connection, msg):
+    await _receipt_operation(hass,connection,msg,lambda manager,owner:manager.async_discard_detected_purchase(msg["receipt_id"]))

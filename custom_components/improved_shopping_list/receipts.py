@@ -7,6 +7,7 @@ from copy import deepcopy
 from difflib import SequenceMatcher
 from hashlib import sha256
 import time
+import math
 from uuid import uuid4
 
 from homeassistant.util import dt as dt_util
@@ -14,6 +15,7 @@ from homeassistant.util import dt as dt_util
 from .catalog import CatalogError, normalized_name, product_codes
 from .receipt_parser import MAX_PDF_BYTES, extract_receipt, extract_carrefour_account_ticket
 from .stock import DAY, DEFAULT_CONFIG, quantity_value
+from .store_links import STORES
 
 
 def converted_quantity(line, unit):
@@ -43,7 +45,8 @@ class ReceiptManager:
 
     @staticmethod
     def _same_purchase(first, second):
-        if first.get("store") != second.get("store") or abs(first["total"]-second["total"]) > .01:
+        if (type(first.get("total")) not in (int, float) or type(second.get("total")) not in (int, float)
+                or first.get("store") != second.get("store") or abs(first["total"]-second["total"]) > .01):
             return False
         dates = [dt_util.parse_datetime(item["purchased_at"]) for item in (first, second)]
         if not all(dates):
@@ -93,6 +96,99 @@ class ReceiptManager:
             if data != self.stock.receipts:
                 await self.stock._persist(deepcopy(self.stock._items),receipts=data)
         return added
+
+    @staticmethod
+    def _purchase_day(receipt):
+        date = dt_util.parse_datetime(receipt.get("purchased_at", ""))
+        if not date:
+            return None
+        return dt_util.as_local(date if date.tzinfo else date.replace(tzinfo=dt_util.DEFAULT_TIME_ZONE)).date()
+
+    def _detection_matches(self, detected, receipt):
+        day = self._purchase_day(detected)
+        if day is None or day != self._purchase_day(receipt) or receipt.get("detected_purchase"):
+            return False
+        if not detected.get("needs_details") and (detected["store"] != receipt["store"] or
+                abs(detected["total"]-receipt["total"]) > .01):
+            return False
+        completed = detected.get("completed_products", [])
+        ids = {item.get("product_id") for item in completed if item.get("product_id")}
+        names = {normalized_name(item.get("name", "")) for item in completed if normalized_name(item.get("name", ""))}
+        products = {product["id"]:product for product in self.stock.catalog.products}
+        return any(line.get("product_id") and (line.get("matched") or not receipt.get("summary_only")) and
+            (line["product_id"] in ids or normalized_name(products.get(line["product_id"],{}).get("name", "")) in names)
+            for line in receipt.get("lines", []))
+
+    async def async_reconcile_detected_purchases(self):
+        """Replace a detection only when one saved receipt on that day shares a confirmed product."""
+        reconciled = []
+        async with self.stock._lock:
+            data = deepcopy(self.stock.receipts)
+            for detected in list(data["history"].values()):
+                if not detected.get("detected_purchase"):
+                    continue
+                candidates = [receipt for receipt in data["history"].values()
+                    if not receipt.get("detection_id") and self._detection_matches(detected,receipt)]
+                if len(candidates) == 1:
+                    candidate = candidates[0]
+                    candidate["detection_id"] = detected["id"]
+                    data["history"].pop(detected["id"])
+                    reconciled.append(detected["id"])
+            if reconciled:
+                await self.stock._persist(deepcopy(self.stock._items),receipts=data)
+        if reconciled and getattr(self.stock,"activity",None):
+            self.stock.activity.record("purchase.detected.matched", "Compra detectada vinculada a su ticket", source="automatic")
+        return reconciled
+
+    async def async_save_detected_purchase(self, identifier, purchased_at, products):
+        """Save a detection summary only; completion already handled stock replenishment."""
+        async with self.stock._lock:
+            data = deepcopy(self.stock.receipts)
+            previous = data["history"].get(identifier)
+            if previous and not previous.get("detected_purchase"):
+                return None
+            if not previous and len(data["history"]) >= 1000:
+                raise CatalogError("El historial ha alcanzado las 1000 compras.")
+            receipt = previous or {"id":identifier,"digest":identifier,"detected_purchase":True,
+                "needs_details":True,"summary_only":True,"store":"unknown","store_name":"Tienda desconocida",
+                "purchased_at":purchased_at,"currency":"EUR","total":None,"lines":[],"imported_at":time.time()}
+            receipt.update(completed_products=deepcopy(products),article_count=len(products))
+            data["history"][identifier] = receipt
+            if data != self.stock.receipts:
+                await self.stock._persist(deepcopy(self.stock._items),receipts=data)
+            return deepcopy(receipt)
+
+    async def async_complete_detected_purchase(self, identifier, store, total, store_name=""):
+        if (store not in {*STORES,"other"} or type(total) not in (int,float) or
+                not math.isfinite(total) or not 0 <= total <= 1000000 or abs(total-round(total,2)) > .000001):
+            raise CatalogError("Selecciona una tienda e indica un importe válido con hasta dos decimales.")
+        if store == "other":
+            if not isinstance(store_name,str) or not 1 <= len(store_name.strip()) <= 100:
+                raise CatalogError("Indica el nombre de la tienda.")
+            store_name = store_name.strip()
+            store = "other:"+sha256(normalized_name(store_name).encode()).hexdigest()[:16]
+        else:
+            store_name = STORES[store]
+        async with self.stock._lock:
+            data = deepcopy(self.stock.receipts)
+            receipt = data["history"].get(identifier)
+            if not receipt or not receipt.get("detected_purchase"):
+                raise CatalogError("Esta compra detectada ya no está pendiente o se ha sustituido por un ticket.","conflict")
+            receipt.update(store=store,store_name=store_name,total=round(total,2),needs_details=False)
+            await self.stock._persist(deepcopy(self.stock._items),receipts=data)
+        if getattr(self.stock,"activity",None):
+            self.stock.activity.record("purchase.detected.updated","Compra detectada: tienda e importe guardados",source="manual")
+        return deepcopy(receipt)
+
+    async def async_discard_detected_purchase(self, identifier):
+        async with self.stock._lock:
+            data = deepcopy(self.stock.receipts)
+            receipt = data["history"].get(identifier)
+            if not receipt or not receipt.get("detected_purchase"):
+                raise CatalogError("Esta compra detectada ya no está disponible.","conflict")
+            data["history"].pop(identifier)
+            await self.stock._persist(deepcopy(self.stock._items),receipts=data)
+        return {"removed":True}
 
     def account_ticket_available(self, reference):
         key=self._account_key(reference)

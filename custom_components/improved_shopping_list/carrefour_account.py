@@ -147,7 +147,9 @@ class CarrefourAccount:
             if settings is None:
                 return
             now = dt_util.now();day=now.date().isoformat()
-            if now.strftime("%H:%M") < settings.snapshot["price_update_time"]:
+            detection = getattr(self,"purchase_detection",None)
+            detected_today = bool(detection and detection.pending_for_today)
+            if not detected_today and now.strftime("%H:%M") < settings.snapshot["price_update_time"]:
                 return
             completion = self._options["completion_at"]
             if (not self._session.get("login_token") or not self._options["auto_ticket"] or self._options["ticket_day"]==day
@@ -157,7 +159,13 @@ class CarrefourAccount:
             owner="automatic_carrefour"
             try:
                 result=await self.async_purchases(owner)
-                latest=max(result["purchases"],key=lambda purchase:purchase["purchased_at"],default=None)
+                candidates = result["purchases"]
+                if detected_today:
+                    def same_day(purchase):
+                        date = dt_util.parse_datetime(purchase["purchased_at"])
+                        return bool(date and dt_util.as_local(date if date.tzinfo else date.replace(tzinfo=dt_util.DEFAULT_TIME_ZONE)).date() == now.date())
+                    candidates = [purchase for purchase in candidates if same_day(purchase)]
+                latest=max(candidates,key=lambda purchase:purchase["purchased_at"],default=None)
                 if latest and latest["reviewable"]:
                     cached=self._purchases[latest["id"]]
                     if not self.receipts.account_ticket_available(cached["id"]):

@@ -105,6 +105,16 @@ const hass={
     return ()=>listeners.delete(listener);
   }},
   callWS:async(msg)=>{
+    if(msg.type==='improved_shopping_list/settings/purchase_detection'){
+      window.listSettings.purchase_detection=structuredClone(msg.config);window.emitSettings();return structuredClone(window.listSettings);
+    }
+    if(msg.type==='improved_shopping_list/receipts/complete_detection'||msg.type==='improved_shopping_list/receipts/discard_detection'){
+      if(window.failDetectedPurchase)throw new Error('No se pudo guardar la compra');
+      const receipt=window.receiptHistory.find(receipt=>receipt.id===msg.receipt_id);
+      if(msg.type.endsWith('/discard_detection'))window.receiptHistory=window.receiptHistory.filter(receipt=>receipt.id!==msg.receipt_id);
+      else Object.assign(receipt,{store:msg.store==='other'?'other:test':msg.store,store_name:msg.store==='other'?msg.store_name:msg.store,total:msg.total,needs_details:false});
+      localStorage.setItem('receipt-fixture',JSON.stringify(window.receiptHistory));return receipt??{removed:true};
+    }
     if(msg.type==='improved_shopping_list/quantities/get')return {entries:structuredClone(window.quantityEntries)};
     if(msg.type==='improved_shopping_list/quantities/adjust'){
       if(window.failQuantities)throw new Error('No se pudo cambiar la cantidad');
@@ -3672,6 +3682,43 @@ async function main() {
     await login.getByRole('button',{name:'Enviar código',exact:true}).waitFor();
     assert.deepEqual(await accountPage.evaluate(()=>window.lastCfLogin),{username:'test@example.test',password_empty:true,remember:true});
     await accountContext.close();
+    // Unknown detected purchases stay editable and do not contribute invented amounts.
+    const detectedContext=await browser.newContext({viewport:{width:390,height:844}});
+    await detectedContext.addInitScript(()=>localStorage.setItem('receipt-fixture',JSON.stringify([{id:'detected:today',digest:'detection',detected_purchase:true,needs_details:true,summary_only:true,store:'unknown',store_name:'Tienda desconocida',purchased_at:new Date().toISOString(),currency:'EUR',total:null,article_count:6,lines:[],completed_products:[{name:'Cacao'},{name:'Leche'}]}])));
+    const detectedPage=await detectedContext.newPage();detectedPage.on('pageerror',error=>errors.push(error.message));
+    await detectedPage.goto(url);await detectedPage.getByRole('button',{name:'Ajustes',exact:true}).click();
+    const detectionForm=detectedPage.locator('#purchase-detection-form');
+    assert.equal(await detectionForm.getByRole('switch',{name:'Activar detección automática',exact:true}).isChecked(),false);
+    await detectionForm.getByRole('switch',{name:'Activar detección automática',exact:true}).check();
+    await detectionForm.getByLabel('Más de X productos completados en un día',{exact:true}).fill('7');
+    await detectionForm.getByRole('button',{name:'Guardar',exact:true}).click();
+    await detectedPage.waitForFunction(()=>window.listSettings.purchase_detection?.threshold===7);
+    await detectedPage.getByRole('button',{name:'Analítica',exact:true}).click();await detectedPage.getByRole('tab',{name:'Compras',exact:true}).click();
+    const detectedPurchases=detectedPage.locator('isl-purchases');
+    await detectedPurchases.locator('#history .needs-details').waitFor();
+    assert.equal(await detectedPurchases.locator('#history .total').textContent(),'Importe pendiente');
+    assert.equal(await detectedPurchases.locator('.store-segment').count(),0);
+    await detectedPurchases.getByRole('button',{name:'Completar compra detectada',exact:true}).click();
+    const detectedEditor=detectedPurchases.getByRole('dialog',{name:'Compra detectada',exact:true});
+    await detectedEditor.getByLabel('Tienda',{exact:true}).selectOption('other');
+    await detectedEditor.getByLabel('Nombre de la tienda',{exact:true}).fill('Mi tienda');
+    await detectedEditor.getByLabel('Importe total (€)',{exact:true}).fill('42.55');
+    for(const width of [1280,390,320]){await detectedPage.setViewportSize({width,height:844});assert.ok(await detectedEditor.evaluate(dialog=>dialog.scrollWidth<=dialog.clientWidth+1));await detectedPage.screenshot({path:'test-results/detected-purchase-'+width+'.png',fullPage:true});}
+    await detectedPage.evaluate(()=>window.failDetectedPurchase=true);
+    await detectedEditor.getByRole('button',{name:'Guardar',exact:true}).click();
+    await detectedEditor.getByText('No se pudo guardar la compra',{exact:true}).waitFor();
+    assert.equal(await detectedPage.evaluate(()=>window.receiptHistory[0].total),null);
+    await detectedPage.evaluate(()=>window.failDetectedPurchase=false);
+    await detectedEditor.getByRole('button',{name:'Guardar',exact:true}).click();await detectedEditor.waitFor({state:'hidden'});
+    await detectedPurchases.locator('#history .title strong').filter({hasText:'Mi tienda'}).waitFor();
+    assert.match(await detectedPurchases.locator('#history .total').textContent(),/42,55/);
+    assert.equal(await detectedPurchases.locator('.store-segment').getAttribute('data-amount'),'42.55');
+    assert.equal(await detectedPage.evaluate(()=>window.stockItems.length),0);
+    await detectedPurchases.getByRole('button',{name:'Editar compra detectada',exact:true}).click();
+    detectedPage.once('dialog',dialog=>dialog.accept());
+    await detectedEditor.getByRole('button',{name:'Eliminar detección',exact:true}).click();await detectedEditor.waitFor({state:'hidden'});
+    assert.equal(await detectedPage.evaluate(()=>window.receiptHistory.length),0);
+    await detectedContext.close();
     // Logs display live changes as text, filter by origin/type and clean up on navigation.
     await page.setViewportSize({width:1280,height:960});
     await page.evaluate(()=>{

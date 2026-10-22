@@ -72,7 +72,11 @@ class StockAutomation:
             for uid,item in current.items():
                 if (previous.get(uid,{}).get("status") == "needs_action"
                     and item.get("status") == "completed"):
-                    if getattr(self,"carrefour_account",None):
+                    detection = getattr(self,"purchase_detection",None)
+                    if detection and detection.enabled:
+                        quantity = self.quantities.value(entity_id,item) if getattr(self,"quantities",None) else None
+                        detection.note_completion(entity_id,item,quantity)
+                    elif getattr(self,"carrefour_account",None):
                         self.carrefour_account.note_completion()
                     for stock in self.stock.snapshot["items"]:
                         if (stock.get("configured") or getattr(self, "quantities", None)) and normalized_name(stock["name"]) == normalized_name(item.get("summary", "")):

@@ -4,7 +4,7 @@ import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.improved_shopping_list.const import CONF_TODO_ENTITIES, CONF_TODO_ENTITY, DOMAIN
-from custom_components.improved_shopping_list.list_settings import DEFAULT_APPEARANCE, DEFAULT_STORES, ListSettings, ListSettingsError, normalize_appearance
+from custom_components.improved_shopping_list.list_settings import DEFAULT_APPEARANCE, DEFAULT_STORES, DEFAULT_PURCHASE_DETECTION, ListSettings, ListSettingsError, normalize_appearance
 from custom_components.improved_shopping_list import list_settings as settings_module
 from custom_components.improved_shopping_list.stores import StoreError
 from custom_components.improved_shopping_list.notification_settings import DEFAULT_NOTIFICATIONS
@@ -35,21 +35,21 @@ async def test_settings_migrate_persist_remove_and_restore(hass):
     entry.add_to_hass(hass)
     settings = ListSettings(hass)
     settings.attach(entry)
-    assert settings.snapshot == {"entities": ["todo.bring", "todo.local"], "primary_entity": "todo.bring", "gateway_lists": [], "notifications": DEFAULT_NOTIFICATIONS, "appearance": DEFAULT_APPEARANCE, "stores": DEFAULT_STORES, "favorite_store": "", "price_update_time":"01:00","price_updates_enabled":True,"price_update_days":1}
+    assert settings.snapshot == {"entities": ["todo.bring", "todo.local"], "primary_entity": "todo.bring", "gateway_lists": [], "purchase_detection":DEFAULT_PURCHASE_DETECTION, "notifications": DEFAULT_NOTIFICATIONS, "appearance": DEFAULT_APPEARANCE, "stores": DEFAULT_STORES, "favorite_store": "", "price_update_time":"01:00","price_updates_enabled":True,"price_update_days":1}
     settings.update("primary", "todo.local")
     settings.update("remove", "todo.bring")
     assert hass.states.get("todo.bring").state == "1"
     assert entry.options["unrelated"] is True
     restored = ListSettings(hass)
     restored.attach(entry)
-    assert restored.snapshot == {"entities": ["todo.local"], "primary_entity": "todo.local", "gateway_lists": [], "notifications": DEFAULT_NOTIFICATIONS, "appearance": DEFAULT_APPEARANCE, "stores": DEFAULT_STORES, "favorite_store": "", "price_update_time":"01:00","price_updates_enabled":True,"price_update_days":1}
+    assert restored.snapshot == {"entities": ["todo.local"], "primary_entity": "todo.local", "gateway_lists": [], "purchase_detection":DEFAULT_PURCHASE_DETECTION, "notifications": DEFAULT_NOTIFICATIONS, "appearance": DEFAULT_APPEARANCE, "stores": DEFAULT_STORES, "favorite_store": "", "price_update_time":"01:00","price_updates_enabled":True,"price_update_days":1}
     restored.update("add", "todo.bring")
     restored.update("add", "todo.bring")
     assert len(restored.snapshot["entities"]) == 2
     restored.update("remove", "todo.local")
     assert restored.snapshot["primary_entity"] == "todo.bring"
     restored.update("remove", "todo.bring")
-    assert restored.snapshot == {"entities": [], "primary_entity": "", "gateway_lists": [], "notifications": DEFAULT_NOTIFICATIONS, "appearance": DEFAULT_APPEARANCE, "stores": DEFAULT_STORES, "favorite_store": "", "price_update_time":"01:00","price_updates_enabled":True,"price_update_days":1}
+    assert restored.snapshot == {"entities": [], "primary_entity": "", "gateway_lists": [], "purchase_detection":DEFAULT_PURCHASE_DETECTION, "notifications": DEFAULT_NOTIFICATIONS, "appearance": DEFAULT_APPEARANCE, "stores": DEFAULT_STORES, "favorite_store": "", "price_update_time":"01:00","price_updates_enabled":True,"price_update_days":1}
     empty = ListSettings(hass)
     empty.attach(entry)
     assert empty.snapshot == restored.snapshot  # Do not re-add deliberately removed lists on reload.
@@ -181,3 +181,23 @@ async def test_personalization_websocket_push_validation_and_reload(hass, hass_w
     assert await hass.config_entries.async_unload(entry.entry_id)
     assert await hass.config_entries.async_setup(entry.entry_id)
     assert hass.data[DOMAIN]["settings"].snapshot["appearance"] == appearance
+
+
+async def test_purchase_detection_configuration_validation_persistence_and_permissions(hass,hass_ws_client,hass_read_only_user):
+    entry=MockConfigEntry(domain=DOMAIN,data={CONF_TODO_ENTITY:"todo.bring"})
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    writer=await hass_ws_client(hass)
+    await writer.send_json({"id":1,"type":f"{DOMAIN}/settings/purchase_detection","config":{"enabled":True,"threshold":7}})
+    assert (await writer.receive_json())["result"]["purchase_detection"]=={"enabled":True,"threshold":7}
+    for index,value in enumerate((0,1001,True,1.5),start=2):
+        await writer.send_json({"id":index,"type":f"{DOMAIN}/settings/purchase_detection","config":{"enabled":True,"threshold":value}})
+        assert (await writer.receive_json())["error"]["code"]=="invalid_purchase_detection"
+    token=await hass.auth.async_create_refresh_token(hass_read_only_user,client_id="http://test.local")
+    reader=await hass_ws_client(hass,hass.auth.async_create_access_token(token))
+    await reader.send_json({"id":1,"type":f"{DOMAIN}/settings/purchase_detection","config":{"enabled":False,"threshold":2}})
+    assert (await reader.receive_json())["error"]["code"]=="unauthorized"
+    await hass.async_block_till_done()
+    assert await hass.config_entries.async_unload(entry.entry_id)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    assert hass.data[DOMAIN]["settings"].snapshot["purchase_detection"]=={"enabled":True,"threshold":7}

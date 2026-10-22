@@ -23,6 +23,7 @@ DEFAULT_APPEARANCE = {
     "recipe_gradient_start": "#66bb6a", "recipe_gradient_end": "#2e7d32",
     "stock_gradient_start": "#f59a23", "stock_gradient_end": "#c65b0c",
 }
+DEFAULT_PURCHASE_DETECTION = {"enabled":False,"threshold":5}
 DEFAULT_STORES = {store: {"enabled": False, **reference_location(store)} for store in REFERENCE_LOCATIONS}
 
 
@@ -52,6 +53,7 @@ def list_options(entry: ConfigEntry) -> dict:
     primary = entry.options.get(CONF_TODO_ENTITY, entry.data[CONF_TODO_ENTITY])
     entities = list(entry.options.get(CONF_TODO_ENTITIES, [primary] if primary else []))
     return {"entities": entities, "primary_entity": primary if primary in entities else next(iter(entities), ""),
+            "purchase_detection": {**DEFAULT_PURCHASE_DETECTION, **entry.options.get("purchase_detection", {})},
             "gateway_lists": deepcopy(entry.options.get("gateway_lists", [])),
             "notifications": notification_options(entry.options.get("notifications")),
             "appearance": {**DEFAULT_APPEARANCE, **entry.options.get("appearance", {})},
@@ -105,7 +107,7 @@ class ListSettings:
 
     @property
     def snapshot(self) -> dict:
-        return list_options(self.entry) if self.entry else {"entities": [], "primary_entity": "", "gateway_lists": [], "notifications": notification_options(), "appearance": dict(DEFAULT_APPEARANCE), "stores": deepcopy(DEFAULT_STORES), "favorite_store": "", "price_update_time":self._default_price_time,"price_updates_enabled":True,"price_update_days":1}
+        return list_options(self.entry) if self.entry else {"entities": [], "primary_entity": "", "gateway_lists": [], "purchase_detection":dict(DEFAULT_PURCHASE_DETECTION), "notifications": notification_options(), "appearance": dict(DEFAULT_APPEARANCE), "stores": deepcopy(DEFAULT_STORES), "favorite_store": "", "price_update_time":self._default_price_time,"price_updates_enabled":True,"price_update_days":1}
 
     async def async_toggle_located_store(self, store, enabled):
         """Enable a fixed reference without postal discovery or HTTP requests."""
@@ -213,6 +215,15 @@ class ListSettings:
         self.hass.config_entries.async_update_entry(self.entry, options={
             **self.entry.options, CONF_TODO_ENTITIES: entities, CONF_TODO_ENTITY: primary,
         })
+        self.notify()
+        return self.snapshot
+
+    @callback
+    def update_purchase_detection(self, data):
+        if (not self.entry or not isinstance(data,dict) or set(data)!={"enabled","threshold"} or
+                type(data["enabled"]) is not bool or type(data["threshold"]) is not int or not 1 <= data["threshold"] <= 1000):
+            raise ListSettingsError("Indica un umbral entre 1 y 1000 productos.")
+        self.hass.config_entries.async_update_entry(self.entry, options={**self.entry.options,"purchase_detection":dict(data)})
         self.notify()
         return self.snapshot
 

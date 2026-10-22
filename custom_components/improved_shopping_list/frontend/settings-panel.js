@@ -184,6 +184,7 @@ class ImprovedShoppingSettings extends HTMLElement {
         .error { color:var(--error-color,#bd3636); border:1px solid var(--error-color,#bd3636); }
         @media(max-width:540px) { .card { padding:18px 14px; } .add-row { flex-wrap:wrap; } .select-wrap { flex-basis:100%; } .actions { width:100%; } }
         #carrefour-products-view,#alcampo-products-view,#store-products-view,[id$="-products-view"]{display:none!important}#carrefour-dialog>h2{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+      .purchase-detection-settings{margin-top:24px;padding-top:18px;border-top:1px solid var(--divider-color,#dfe7e1)}.detection-row{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-top:16px}.detection-row input[type=number]{width:90px;text-align:center;flex:none}
     </style>
       <div class="settings-heading"><h1>Ajustes</h1>
       <nav class="settings-tabs" aria-label="Vistas de ajustes"><button id="settings-view-lists" aria-label="Listas" aria-pressed="true"><ha-icon icon="mdi:format-list-checks" aria-hidden="true"></ha-icon><span class="tab-label">Listas</span></button><button id="settings-view-appearance" aria-label="Personalización" aria-pressed="false"><ha-icon icon="mdi:palette" aria-hidden="true"></ha-icon><span class="tab-label">Personalización</span></button><button id="settings-view-stores" aria-label="Tiendas" aria-pressed="false"><ha-icon icon="mdi:store" aria-hidden="true"></ha-icon><span class="tab-label">Tiendas</span></button><button id="settings-view-notifications" aria-label="Notificaciones" aria-pressed="false"><ha-icon icon="mdi:bell-outline" aria-hidden="true"></ha-icon><span class="tab-label">Notificaciones</span></button><button id="settings-view-community" aria-label="Comunidad" aria-pressed="false"><ha-icon icon="mdi:account-group" aria-hidden="true"></ha-icon><span class="tab-label">Comunidad</span></button><button id="settings-view-logs" aria-label="Logs" aria-pressed="false"><ha-icon icon="mdi:format-list-group" aria-hidden="true"></ha-icon><span class="tab-label">Logs</span></button></nav></div>
@@ -195,6 +196,7 @@ class ImprovedShoppingSettings extends HTMLElement {
         <div class="add-row"><div class="select-wrap"><label for="todo-entity">Entidad todo</label><select id="todo-entity"></select></div><button id="add-list" class="primary">Añadir lista</button></div>
         <div id="configured-lists" class="lists"></div>
         <p id="settings-empty" hidden>No hay listas añadidas. Añade una entidad todo para empezar.</p>
+        <div class="purchase-detection-settings"><h3>Detección automática de compra</h3><form id="purchase-detection-form"><label class="detection-row" for="purchase-detection-enabled">Activar detección automática<input id="purchase-detection-enabled" class="store-toggle" type="checkbox" role="switch"></label><label class="detection-row" for="purchase-detection-threshold">Más de X productos completados en un día<input id="purchase-detection-threshold" type="number" min="1" max="1000" step="1" value="5" required></label><p class="helper">Se suman todas las listas y se registra una compra por día en Analítica → Compras. Si no se identifica un ticket coincidente, podrás indicar la tienda y el importe. No vuelve a reponer Stock. Para consultar Carrefour, activa «Descargar ticket automáticamente» en su cuenta.</p><div class="appearance-actions"><button class="primary" id="save-purchase-detection" type="submit">Guardar</button></div></form></div>
       </section>
 
       <section id="settings-notifications" hidden><isl-notification-settings></isl-notification-settings></section>
@@ -348,6 +350,8 @@ class ImprovedShoppingSettings extends HTMLElement {
       this._error=""; this._render(); root.querySelector("#price-schedule-dialog").showModal();
     });
     root.querySelector("#price-schedule-form").addEventListener("submit",event=>{event.preventDefault();void this._savePriceSchedule();});
+    root.querySelector('#purchase-detection-form').addEventListener('input',()=>{this._purchaseDetectionDirty=true;this._render();});
+    root.querySelector('#purchase-detection-form').addEventListener('submit',event=>{event.preventDefault();const config={enabled:root.querySelector('#purchase-detection-enabled').checked,threshold:Number(root.querySelector('#purchase-detection-threshold').value)};void this._saveRetailSettings(async()=>{await this._data.settings.savePurchaseDetection(config);this._purchaseDetectionDirty=false;});});
     root.querySelector("#close-prices-progress").addEventListener("click",()=>root.querySelector("#prices-progress-dialog").close());
     root.querySelector("#prices-progress-dialog").addEventListener("close",()=>clearInterval(this._pricesProgressTimer));
     root.querySelector("#alcampo-enabled").addEventListener("change",()=>void this._saveRetailSettings(()=>this._data.settings.setStoreEnabled("alcampo",root.querySelector("#alcampo-enabled").checked)));
@@ -407,6 +411,10 @@ class ImprovedShoppingSettings extends HTMLElement {
     const root = this.shadowRoot;
     const admin = hass?.user?.is_admin === true;
     const locked = !admin || !settings.loaded || settings.loading || this._busy;
+    const detection=settings.purchaseDetection??{enabled:false,threshold:5};
+    if(!this._purchaseDetectionDirty){root.querySelector('#purchase-detection-enabled').checked=detection.enabled;root.querySelector('#purchase-detection-threshold').value=String(detection.threshold);}
+    for(const id of ['purchase-detection-enabled','save-purchase-detection'])root.querySelector('#'+id).disabled=locked;
+    root.querySelector('#purchase-detection-threshold').disabled=locked||!root.querySelector('#purchase-detection-enabled').checked;
     const refresh = root.querySelector("#refresh-all-prices");
     refresh.disabled = locked || !Object.values(settings.stores ?? {}).some(store=>store.enabled);
     refresh.setAttribute("aria-busy",String(Boolean(this._pricesRefreshing)));

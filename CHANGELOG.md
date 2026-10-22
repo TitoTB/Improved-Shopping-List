@@ -2,6 +2,9 @@
 
 ## Pendiente de publicación
 
+- Detección automática de compra configurable en Ajustes → Listas: suma transiciones nuevas de todas las listas, umbral estricto de más de X y una compra por día, con contador persistente y protección ante marcar/desmarcar.
+- Analítica → Compras permite completar tienda e importe de las compras detectadas o descartarlas. La asociación automática exige un ticket del mismo día con productos reconocidos coincidentes; no duplica gastos ni repone stock o actualiza precios por segunda vez.
+
 - Los tickets de la cuenta de Carrefour se leen desde sus artículos estructurados, sin depender del formato del texto impreso ni del PDF. Se validan cantidades, descuentos, total y referencia; se aprovechan EAN válidos y se mantienen la revisión y los controles de duplicados. El texto anterior queda como alternativa para esquemas desconocidos.
 
 - Carrefour muestra la contraseña recordada enmascarada y confirma que se reutilizará al conectar, sin enviarla al navegador. Permite cambiarla o volver a usar la guardada; cambiar de correo o desmarcar Recordar credenciales exige introducir una contraseña.

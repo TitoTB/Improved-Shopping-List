@@ -399,3 +399,16 @@ async def test_carrefour_completion_signal_ignores_baselines_and_repeated_states
     env.todo.todo_items[-1].status=TodoItemStatus.COMPLETED
     env.todo.publish();signal.assert_called_once()
     env.todo.publish();signal.assert_called_once()
+
+
+async def test_detection_observes_only_new_pending_to_completed_entries(env):
+    detection=SimpleNamespace(enabled=True,note_completion=Mock())
+    env.manager.purchase_detection=detection
+    env.manager.carrefour_account=SimpleNamespace(note_completion=Mock())
+    env.todo.todo_items=[TodoItem(uid="old",summary="Cacao",status=TodoItemStatus.COMPLETED)]
+    # Initial/newly seen completed items are not transitions.
+    env.todo.publish();assert detection.note_completion.call_count==0
+    env.todo.todo_items.append(TodoItem(uid="new",summary="Leche",status=TodoItemStatus.NEEDS_ACTION));env.todo.publish()
+    env.todo.todo_items[-1].status=TodoItemStatus.COMPLETED;env.todo.publish()
+    assert detection.note_completion.call_count==1
+    env.manager.carrefour_account.note_completion.assert_not_called()

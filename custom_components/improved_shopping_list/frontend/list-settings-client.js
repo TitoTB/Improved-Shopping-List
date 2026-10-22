@@ -24,6 +24,7 @@ export class ListSettingsSession {
     this.entities = [];
     this.gatewayLists = [];
     this.notifications = {};
+    this.purchaseDetection = {enabled:false,threshold:5};
     this.primary = "";
     this.stores = {};
     this.favoriteStore = "";
@@ -39,6 +40,7 @@ export class ListSettingsSession {
     this.entities = data.entities ?? [];
     this.gatewayLists = data.gateway_lists ?? [];
     this.notifications = data.notifications ?? {};
+    this.purchaseDetection = {enabled:false,threshold:5,...data.purchase_detection};
     this.primary = data.primary_entity ?? "";
     this.stores = data.stores ?? {};
     this.favoriteStore = data.favorite_store ?? "";
@@ -110,6 +112,12 @@ export class ListSettingsSession {
     const generation = this._generation, revision = ++this._revision;
     const data = await this.getHass().callWS({type:`${PREFIX}gateway_remove`, entity_id:entityId});
     if(generation === this._generation && revision === this._revision)this._receive(data);
+  }
+
+  async savePurchaseDetection(config) {
+    const generation=this._generation,revision=++this._revision;
+    const data=await this.getHass().callWS({type:PREFIX+"purchase_detection",config});
+    if(generation===this._generation&&revision===this._revision)this._receive(data);
   }
 
   async saveNotifications(notifications) {

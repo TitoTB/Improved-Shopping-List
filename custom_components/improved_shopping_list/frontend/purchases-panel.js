@@ -13,6 +13,7 @@ const STORE_LOGOS={
   alcampo:'https://almeria.online/wp-content/uploads/2024/09/alcampo-logo.png',
   ...Object.fromEntries(['mercadona','consum','lasirena','eroski','dia'].map(store=>[store,new URL(store+'.'+(['mercadona','dia'].includes(store)?'png':store==='eroski'?'svg':'jpg'),import.meta.url).href]))
 };
+const STORE_NAMES={mercadona:"Mercadona",carrefour:"Carrefour",alcampo:"Alcampo",consum:"Consum",lasirena:"La Sirena",eroski:"Eroski",dia:"DIA"};
 const STORE_COLORS={mercadona:'#29975b',carrefour:'#2388dc',alcampo:'#e15150',consum:'#ef9639',lasirena:'#42b9ca',eroski:'#a968bd',dia:'#e2608c'};
 
 class PurchaseSession extends ListSettingsSession {
@@ -83,6 +84,7 @@ class ImprovedShoppingPurchases extends HTMLElement {
       @media(max-width:750px){.association-row{flex-wrap:wrap;gap:6px}.association-buttons{width:100%;justify-content:flex-end}.association-buttons .small-button{width:30px;height:34px}.association-buttons ha-icon{--mdc-icon-size:20px;width:20px;height:20px}.association-image{width:26px;height:26px}.stock-line-main{grid-template-columns:20px minmax(0,1fr) minmax(0,1.2fr);gap:4px}.stock-line-main .association-image{width:20px;height:20px}.stock-quantity{gap:3px;font-size:.85em}.stock-quantity input{padding-inline:2px;appearance:textfield}.stock-quantity input::-webkit-inner-spin-button,.stock-quantity input::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}.review-line{padding:8px}.association-name strong,.price-label{font-size:.85em}#review-lines,.review-group-content{gap:8px}.review-group-content{padding:0 8px 8px}}
       .review-summary{padding:18px;border:1px solid var(--divider-color,#d9e0dd);border-radius:14px}.purchase-heading{display:flex;align-items:center;gap:12px}.purchase-heading>ha-icon{color:var(--isl-green,#267052);--mdc-icon-size:28px;width:28px;height:28px}.purchase-heading>div{flex:1;min-width:0}.purchase-heading h3{margin:0;font-size:1.1em}.purchase-heading .muted{display:block;font-size:.85em}.purchase-total{font-size:1.25em;white-space:nowrap}.purchase-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:18px 0}.purchase-stats>div{display:flex;flex-direction:column;align-items:center;background:var(--card-background-color,#fff);padding:10px 4px;border-radius:10px}.purchase-stats strong{font-size:1.3em;color:var(--isl-green,#267052)}.purchase-stats span{font-size:.8em}.purchase-summary-line{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--divider-color,#d9e0dd)}.purchase-summary-line>div{min-width:0;overflow-wrap:anywhere}.purchase-summary-line .muted{display:block;font-size:.8em}.purchase-summary-line>span{white-space:nowrap}.review-summary>.totals{font-size:1.1em;border-top:2px dashed var(--divider-color,#d9e0dd);padding-top:14px}.purchase-lines{max-height:40vh;overflow:auto}@media(max-width:550px){#review-steps button{font-size:.7em;padding-inline:2px}.review-summary{padding:12px}.purchase-heading{flex-wrap:wrap;gap:8px}.purchase-total{margin-left:auto}.purchase-stats{gap:4px}.purchase-stats span{font-size:.75em}}
       .ticket{display:flex;align-items:center;gap:12px;min-width:0}.store-image{width:42px;height:42px;object-fit:contain;background:white;border-radius:10px;padding:5px;flex:none}.ticket .title{overflow-wrap:anywhere}.ticket .ticket-open{flex:none;width:40px;height:40px;border:0;border-radius:10px;background:var(--secondary-background-color,#edf2ef);display:grid;place-items:center;padding:0}.ticket-open.reviewed{background:var(--isl-green,#267052);color:white}.ticket-open:focus-visible{outline:3px solid var(--primary-color,#267052);outline-offset:2px}#purchase-detail-info{align-items:center;padding-bottom:12px;border-bottom:1px solid var(--divider-color,#d9e0dd)}#purchase-detail-info .total{margin-left:auto}.spending-chart{background:var(--card-background-color,#fff);padding:18px;border-radius:14px;margin-bottom:16px;min-width:0}.spending-chart h3{margin:0 0 4px;font-size:1.05em}.spending-chart .chart-note{font-size:.8em;opacity:.65;margin:0 0 12px}.chart-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}.chart-navigation{display:flex;align-items:center;gap:6px}.chart-period{font-size:.8em;text-align:center}.chart-navigation button{display:grid;place-items:center;width:32px;height:32px;padding:0;border:0;border-radius:8px;background:var(--secondary-background-color,#edf2ef)}.chart-navigation button ha-icon{--mdc-icon-size:22px}.chart-navigation button:focus-visible{outline:3px solid var(--primary-color,#267052);outline-offset:2px}.chart-scroll{width:100%;min-width:0}.monthly-bars{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));align-items:end;gap:14px;width:100%;padding:8px 0 0;border-bottom:1px solid var(--divider-color,#d9e0dd)}.month-column{min-width:0;text-align:center}.month-total{display:block;font-weight:700;font-size:clamp(.6rem,2vw,.85rem);margin-bottom:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.month-stack{height:130px;display:flex;flex-direction:column;justify-content:end;gap:0;background:repeating-linear-gradient(to top,transparent 0,transparent calc(25% - 1px),var(--divider-color,#d9e0dd) 25%);border-bottom:1px solid var(--divider-color,#d9e0dd)}.store-segment{width:70%;margin-inline:auto;flex:none;min-height:0}.month-label{display:block;font-size:.8em;padding:8px 0}.chart-legend{display:flex;flex-wrap:wrap;gap:10px 16px;margin-top:14px}.chart-key{display:inline-flex;align-items:center;gap:6px;font-size:.8em}.chart-swatch{width:10px;height:10px;border-radius:3px;flex:none}@media(max-width:550px){.ticket{gap:8px}.ticket .store-image{width:34px;height:34px}.ticket .ticket-open{width:32px;height:36px}.ticket .title{font-size:.85em}.ticket .total{font-size:.9em}.spending-chart{padding:14px}.monthly-bars{gap:6px}.month-label{font-size:.7em}.chart-period{font-size:.7em}}
+      #detected-purchase-dialog{width:min(500px,calc(100vw - 24px))}#detected-purchase-form label{margin-top:16px}#detected-products{max-height:25vh;overflow:auto;padding-left:20px}.ticket.needs-details{border:1px dashed var(--secondary-text-color,#64748b)}.ticket .edit-detection{background:#ffb74d;color:#182b22}.actions .danger{background:#d32f2f;color:#fff}
     </style>
     <input id="ticket-file" type="file" accept="application/pdf,.pdf" hidden>
     <p id="message" class="notice" role="status" hidden></p><section id="spending-chart" class="spending-chart" aria-label="Gasto mensual por tienda" hidden></section><div id="history"></div><p id="empty" class="empty" hidden>Todavía no has subido ningún ticket.</p>
@@ -97,9 +99,13 @@ class ImprovedShoppingPurchases extends HTMLElement {
       <p id="association-error" class="notice error" role="alert" hidden></p>
       <div class="actions"><button id="confirm-association" type="submit">Vincular</button></div>
     </form></dialog>
-    <dialog id="purchase-detail" aria-labelledby="purchase-detail-title"><h2 id="purchase-detail-title">Detalle de la compra</h2><div id="purchase-detail-info" class="receipt-info"></div><div id="purchase-detail-lines"></div></dialog>`;
+    <dialog id="purchase-detail" aria-labelledby="purchase-detail-title"><h2 id="purchase-detail-title">Detalle de la compra</h2><div id="purchase-detail-info" class="receipt-info"></div><div id="purchase-detail-lines"></div></dialog><dialog id="detected-purchase-dialog" aria-labelledby="detected-purchase-title"><h2 id="detected-purchase-title">Compra detectada</h2><form id="detected-purchase-form"><p id="detected-date" class="muted"></p><label>Tienda<select id="detected-store" required><option value="">Selecciona una tienda</option><option value="alcampo">Alcampo</option><option value="carrefour">Carrefour</option><option value="consum">Consum</option><option value="dia">DIA</option><option value="eroski">Eroski</option><option value="lasirena">La Sirena</option><option value="mercadona">Mercadona</option><option value="other">Otra tienda</option></select></label><label id="detected-other-label" hidden>Nombre de la tienda<input id="detected-other" maxlength="100"></label><label>Importe total (€)<input id="detected-total" type="number" min="0" max="1000000" step="0.01" required></label><p class="note">Completa los datos de la compra. No se modifican el stock ni los precios de los productos.</p><ul id="detected-products"></ul><p id="detected-error" class="error" role="alert" hidden></p><div class="actions"><button id="discard-detection" class="danger" type="button">Eliminar detección</button><button type="submit">Guardar</button></div></form></dialog>`;
     installDialogCloseButtons(this.shadowRoot);
     const root=this.shadowRoot,dialog=root.querySelector('dialog');
+    root.querySelector('#detected-store').addEventListener('change',()=>this._detectedStoreFields());
+    root.querySelector('#detected-purchase-form').addEventListener('submit',event=>{event.preventDefault();void this._saveDetectedPurchase();});
+    root.querySelector('#discard-detection').addEventListener('click',()=>{if(window.confirm('¿Eliminar esta compra detectada? No se modificará el stock.'))void this._saveDetectedPurchase(true);});
+    root.querySelector('#detected-purchase-dialog').addEventListener('cancel',event=>{if(this._busy)event.preventDefault();});
     root.querySelector('#ticket-file').addEventListener('change',event=>{const file=event.target.files[0];event.target.value='';if(file)void this._upload(file);});
     root.querySelector('#review-form').addEventListener('submit',event=>{event.preventDefault();void this._advance();});
     root.querySelector('#previous-step').addEventListener('click',()=>this._goToStep(this._step-1));
@@ -416,11 +422,30 @@ class ImprovedShoppingPurchases extends HTMLElement {
     empty.textContent=this._session.receipts.length?'No hay compras registradas en este periodo.':'Todavía no has subido ningún ticket.';
     empty.hidden=receipts.length>0||this._session.loading||Boolean(this._session.error);
     root.querySelector('#history').replaceChildren(...receipts.map(receipt=>{
-      const card=node('article','ticket');card.dataset.id=receipt.id;
+      const card=node('article','ticket'+(receipt.needs_details?' needs-details':''));card.dataset.id=receipt.id;
       const title=node('div','title');title.append(node('strong','',receipt.store_name+(receipt.document_type==='invoice'?' · Factura':'')),node('span','muted',documentDate(receipt)+(receipt.article_count==null?'':' · '+receipt.article_count+' artículos')));
       const open=this._button('Ver ticket de '+receipt.store_name+' del '+documentDate(receipt),'mdi:receipt-text',()=>receipt.summary_only?void this._reviewPending(receipt):this._openPurchaseDetail(receipt),'ticket-open'+(!receipt.summary_only?' reviewed':''));
-      card.append(this._storeImage(receipt.store,receipt.store_name),title,node('span','total',money(receipt.total)));if(!receipt.summary_only||receipt.pending_review||(receipt.store==='carrefour'&&receipt.account_key&&receipt.ticket_available!==false))card.append(open);return card;
+      card.append(this._storeImage(receipt.store,receipt.store_name),title,node('span','total',receipt.total==null?'Importe pendiente':money(receipt.total)));if(!receipt.summary_only||receipt.pending_review||(receipt.store==='carrefour'&&receipt.account_key&&receipt.ticket_available!==false))card.append(open);if(receipt.detected_purchase)card.append(this._button(receipt.needs_details?'Completar compra detectada':'Editar compra detectada','mdi:pencil',()=>this._editDetectedPurchase(receipt),'ticket-open edit-detection'));return card;
     }));
+  }
+  _detectedStoreFields(){const root=this.shadowRoot,other=root.querySelector('#detected-store').value==='other';root.querySelector('#detected-other-label').hidden=!other;root.querySelector('#detected-other').required=other;}
+  _editDetectedPurchase(receipt){
+    if(this._busy)return;this._detectedReceipt=receipt.id;const root=this.shadowRoot;
+    root.querySelector('#detected-date').textContent=documentDate(receipt)+' · '+receipt.article_count+' productos completados';
+    root.querySelector('#detected-store').value=receipt.store==='unknown'?'':STORE_NAMES[receipt.store]?receipt.store:'other';
+    root.querySelector('#detected-other').value=receipt.store.startsWith('other:')?receipt.store_name:'';
+    root.querySelector('#detected-total').value=receipt.total==null?'':String(receipt.total);
+    root.querySelector('#detected-products').replaceChildren(...(receipt.completed_products??[]).map(product=>node('li','',product.name)));
+    root.querySelector('#detected-error').hidden=true;this._detectedStoreFields();root.querySelector('#detected-purchase-dialog').showModal();
+  }
+  async _saveDetectedPurchase(discard=false){
+    if(this._busy||!this._detectedReceipt)return;const root=this.shadowRoot;this._setBusy(true);
+    try{
+      await this._hass.callWS({type:'improved_shopping_list/receipts/'+(discard?'discard_detection':'complete_detection'),receipt_id:this._detectedReceipt,
+        ...(discard?{}:{store:root.querySelector('#detected-store').value,total:Number(root.querySelector('#detected-total').value),store_name:root.querySelector('#detected-other').value})});
+      root.querySelector('#detected-purchase-dialog').close();this._detectedReceipt=null;await this._session.refresh();
+    }catch(error){const message=root.querySelector('#detected-error');message.textContent=error.message??'No se ha podido guardar la compra.';message.hidden=false;}
+    finally{this._setBusy(false);}
   }
   async _reviewPending(receipt){
     if(this._busy)return;
@@ -430,6 +455,7 @@ class ImprovedShoppingPurchases extends HTMLElement {
     finally{this._setBusy(false);}
   }
   _storeImage(store,name){
+    if(store==='unknown')return icon('mdi:help-circle-outline');
     if(!STORE_LOGOS[store])return icon('mdi:store');
     const image=node('img','store-image');image.src=STORE_LOGOS[store];image.alt=name;image.loading='lazy';image.referrerPolicy='no-referrer';
     image.addEventListener('error',()=>image.replaceWith(icon('mdi:store')),{once:true});return image;
@@ -456,7 +482,7 @@ class ImprovedShoppingPurchases extends HTMLElement {
       if(!Number.isFinite(when.getTime())||!Number.isFinite(cents)||cents<0)continue;
       const key=when.getFullYear()+'-'+String(when.getMonth()+1).padStart(2,'0');
       if(!months.has(key))months.set(key,{date:new Date(when.getFullYear(),when.getMonth(),1),total:0,stores:new Map()});
-      const month=months.get(key);month.total+=cents;month.stores.set(receipt.store,(month.stores.get(receipt.store)||0)+cents);
+      const month=months.get(key);if(receipt.total==null)continue;month.total+=cents;month.stores.set(receipt.store,(month.stores.get(receipt.store)||0)+cents);
       stores.set(receipt.store,receipt.store_name);
     }
     chart.hidden=!this._history||months.size===0;chart.replaceChildren();if(chart.hidden)return;

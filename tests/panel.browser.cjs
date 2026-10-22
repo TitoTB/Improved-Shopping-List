@@ -2671,6 +2671,7 @@ async function main() {
       await purchasePage.setViewportSize({width,height:844});
       assert.equal(await review.locator('#review-lines').evaluate(el=>getComputedStyle(el).gridTemplateColumns.split(' ').length),2);
       assert.ok(await review.locator('.stock-line-main').evaluateAll(rows=>rows.every(row=>row.scrollWidth<=row.clientWidth+1)));
+      assert.ok(await review.locator('.stock-line-main').evaluateAll(rows=>rows.every(row=>{const name=row.querySelector('.stock-line-name').getBoundingClientRect(),fields=row.querySelector('.stock-quantity').getBoundingClientRect(),quantity=row.querySelector('.stock-quantity input').getBoundingClientRect(),unit=row.querySelector('.stock-quantity').lastElementChild.getBoundingClientRect();return name.right<=fields.left&&Math.abs((name.top+name.bottom-fields.top-fields.bottom)/2)<1&&quantity.right<=unit.left&&Math.abs((quantity.top+quantity.bottom-unit.top-unit.bottom)/2)<1;})));
       assert.ok(await review.evaluate(el=>el.scrollWidth<=el.clientWidth+1));
     }
     await purchasePage.setViewportSize({width:390,height:844});

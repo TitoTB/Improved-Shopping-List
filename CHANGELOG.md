@@ -2,6 +2,8 @@
 
 ## Pendiente de publicación
 
+- Las recetas permiten asignar una imagen mediante URL http/https o ruta local, conservándola al editar. Sus cantidades de ingredientes aparecen centradas horizontalmente.
+
 - Los controles de cantidad con restar y sumar se trasladan de Lista a Catálogo → Productos en filas. Ajustan la cantidad en la lista seleccionada, conservan el paso del producto y se desactivan cuando no está en esa lista. Lista mantiene la cantidad como badge informativo.
 
 - Lista en filas unifica la altura y el radio de los badges; cantidad utiliza el mismo fondo blanco semitransparente que el precio. Las agrupaciones por categoría muestran iconos blancos en Lista y Catálogo.

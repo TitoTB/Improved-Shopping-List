@@ -656,7 +656,10 @@ class ImprovedShoppingCatalog extends HTMLElement {
     const add=element('button','add-product');add.type='button';add.setAttribute('aria-label','Añadir receta '+recipe.name+' a la lista');add.disabled=!this._canAdd||Boolean(this._addingRecipe)||!this._hass?.user?.is_admin;
     add.addEventListener('click',()=>void this._addRecipe(recipe));
     const content=element('div','product-top'),media=element('div','product-media'),icon=element('ha-icon');icon.setAttribute('icon','mdi:chef-hat');icon.setAttribute('aria-hidden','true');
-    const placeholder=element('div','image placeholder');placeholder.append(icon);media.append(placeholder);
+    const placeholder=element('div','image placeholder');placeholder.append(icon);
+    const source=imageSource(recipe.image_url);
+    if(source){const image=element('img','image');image.src=source;image.alt='';image.loading='lazy';image.referrerPolicy='no-referrer';image.addEventListener('error',()=>image.replaceWith(placeholder),{once:true});media.append(image);}
+    else media.append(placeholder);
     const title=element('div','product-name');title.append(element('h2','title',recipe.name));content.append(media,title);
     const actions=element('div','product-controls'),edit=iconButton('mdi:note-edit','Editar receta '+recipe.name,'edit-product');edit.disabled=!this._hass?.user?.is_admin;
     edit.addEventListener('click',()=>this.shadowRoot.querySelector('isl-recipe-editor').open(recipe));actions.append(edit);card.append(add,content,actions);return card;

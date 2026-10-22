@@ -3122,6 +3122,9 @@ async function main() {
     await recipeCatalog.getByRole('button',{name:'Nueva receta',exact:true}).click();
     const recipeDialog=recipeEditor.getByRole('dialog',{name:'Nueva receta',exact:true});
     await recipeDialog.getByLabel('Nombre de la receta',{exact:true}).fill('Desayuno');
+    await recipePage.route('**/local/recipe-test.svg',route=>route.fulfill({contentType:'image/svg+xml',body:'<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><circle cx="32" cy="32" r="30" fill="green"/></svg>'}));
+    await recipeDialog.getByLabel('URL Imagen',{exact:true}).fill('/local/recipe-test.svg');
+
     await recipeDialog.getByLabel('Producto del catálogo',{exact:true}).fill('Cacao');
     await recipeDialog.getByLabel('Producto del catálogo',{exact:true}).press('Enter');
     await recipeDialog.getByLabel('Cantidad de Cacao',{exact:true}).fill('30');
@@ -3129,8 +3132,10 @@ async function main() {
     await recipeDialog.getByRole('button',{name:'Añadir ingrediente',exact:true}).click();
     await recipeDialog.getByLabel('Cantidad de Pavo',{exact:true}).fill('200');
     assert.deepEqual(await recipeDialog.locator('.unit').allTextContents(),['g','g']);
+    assert.equal(await recipeDialog.getByLabel('Cantidad de Cacao',{exact:true}).evaluate(input=>getComputedStyle(input).textAlign),'center');
     await recipeDialog.getByRole('button',{name:'Guardar receta',exact:true}).click();await recipeDialog.waitFor({state:'hidden'});
     const recipeCard=recipeCatalog.locator('#recipe-grid .recipe-card');await recipeCard.waitFor();
+    assert.equal(await recipeCard.locator('img.image').getAttribute('src'),new URL('/local/recipe-test.svg',url).href);
     assert.equal(await recipeCard.evaluate(node=>getComputedStyle(node).backgroundImage),'linear-gradient(rgb(102, 187, 106), rgb(46, 125, 50))');
     await recipeCard.getByRole('button',{name:'Añadir receta Desayuno a la lista',exact:true}).click();
     await recipePage.waitForFunction(()=>window.quantityEntries['todo.bring']?.['cacao-1']?.quantity===130);
@@ -3141,11 +3146,13 @@ async function main() {
     for(const width of [390,320]){await recipePage.setViewportSize({width,height:844});assert.ok(await recipeCard.evaluate(node=>Math.abs(node.getBoundingClientRect().width-node.getBoundingClientRect().height)<1));await recipePage.screenshot({path:'test-results/recipes-'+width+'.png',fullPage:true});}
     await recipeCard.getByRole('button',{name:'Editar receta Desayuno',exact:true}).click();
     const editRecipe=recipeEditor.getByRole('dialog',{name:'Editar receta',exact:true});
+    assert.equal(await editRecipe.getByLabel('URL Imagen',{exact:true}).inputValue(),'/local/recipe-test.svg');
     await editRecipe.getByLabel('Nombre de la receta',{exact:true}).fill('Almuerzo');await editRecipe.getByLabel('Cantidad de Pavo',{exact:true}).fill('300');
     await recipePage.screenshot({path:'test-results/recipe-editor-mobile.png',fullPage:true});
     await editRecipe.getByRole('button',{name:'Guardar receta',exact:true}).click();await editRecipe.waitFor({state:'hidden'});
     await recipePage.reload();await recipePage.getByRole('button',{name:'Catálogo',exact:true}).click();await recipeCatalog.getByRole('button',{name:'Recetas',exact:true}).click();
     await recipeCatalog.getByRole('button',{name:'Editar receta Almuerzo',exact:true}).waitFor();
+    assert.equal(await recipeCard.locator('img.image').getAttribute('src'),new URL('/local/recipe-test.svg',url).href);
     await recipeCatalog.getByRole('button',{name:'Sugerencias',exact:true}).click();await recipeCatalog.getByRole('button',{name:'Nueva categoría de sugerencias',exact:true}).click();
     const groupEditor=recipeCatalog.locator('#recommendation-category-editor'),groupDialog=groupEditor.getByRole('dialog',{name:'Nueva categoría de sugerencias',exact:true});
     await groupDialog.getByLabel('Nombre de la categoría',{exact:true}).fill('Menús');await groupDialog.getByLabel('Receta · Almuerzo',{exact:true}).check();

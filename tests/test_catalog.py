@@ -587,12 +587,13 @@ async def test_recipes_persist_units_months_membership_and_cleanup_without_delet
     catalog = Catalog(hass)
     await catalog.async_load()
     product = await catalog.async_save_product({"name": "Arroz", "purchase_unit": "g", "unit_quantity": 100})
-    recipe = await catalog.async_save_recipe({"name": "Arroz cocido", "ingredients": [{"product_id": product["id"], "quantity": 250}]})
+    recipe = await catalog.async_save_recipe({"name": "Arroz cocido", "image_url": "/local/arroz.png", "ingredients": [{"product_id": product["id"], "quantity": 250}]})
     assert recipe["ingredients"] == [{"product_id": product["id"], "quantity": 250, "unit": "g"}]
     recipe = await catalog.async_set_recipe_season_months(recipe["id"], [1, 12], True)
     group = await catalog.async_save_recommendation_category({"name": "Comidas", "recipe_ids": [recipe["id"]]})
     edited = await catalog.async_save_recipe({"id": recipe["id"], "revision": recipe["revision"], "name": "Arroz blanco", "ingredients": [{"product_id": product["id"], "quantity": 300, "unit": "g"}]})
     assert edited["season_months"] == [1, 12]
+    assert edited["image_url"] == "/local/arroz.png"
     restored = Catalog(hass)
     await restored.async_load()
     assert restored.recipes == [edited]
@@ -647,3 +648,23 @@ async def test_recipe_websocket_save_push_delete(hass, hass_ws_client):
     assert recipe["season_months"] == [6]
     await client.send_json({"id": 3, "type": f"{DOMAIN}/catalog/recipe/delete", "recipe_id": recipe["id"], "revision": recipe["revision"]})
     assert (await client.receive_json())["success"]
+
+
+@pytest.mark.parametrize("image_url", ["javascript:alert(1)", "data:image/svg+xml,test", "//example.com/recipe.png", "https://", "https://example.com/" + "x" * 2048, 12])
+async def test_recipe_image_validation(hass, image_url):
+    catalog = Catalog(hass)
+    await catalog.async_load()
+    product = await catalog.async_save_product({"name": "Arroz"})
+    with pytest.raises(CatalogError):
+        await catalog.async_save_recipe({"name": "Receta", "image_url": image_url, "ingredients": [{"product_id": product["id"], "quantity": 1}]})
+    assert catalog.recipes == []
+
+
+async def test_recipe_image_can_change_and_clear(hass):
+    catalog = Catalog(hass)
+    await catalog.async_load()
+    product = await catalog.async_save_product({"name": "Arroz"})
+    recipe = await catalog.async_save_recipe({"name": "Receta", "image_url": "https://example.com/arroz.png", "ingredients": [{"product_id": product["id"], "quantity": 1}]})
+    assert recipe["image_url"] == "https://example.com/arroz.png"
+    edited = await catalog.async_save_recipe({"id": recipe["id"], "revision": recipe["revision"], "name": recipe["name"], "image_url": "", "ingredients": recipe["ingredients"]})
+    assert edited["image_url"] == ""

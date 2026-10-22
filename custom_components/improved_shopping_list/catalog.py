@@ -170,7 +170,11 @@ def normalize_product(data: dict[str, Any]) -> dict[str, Any]:
             product["price"] = format(rounded, ".2f")
         except InvalidOperation as err:
             raise CatalogError("El precio debe estar entre 0 y 1000000.") from err
-    image = product["image_url"]
+    _validate_image_url(product["image_url"])
+    return product
+
+
+def _validate_image_url(image: str) -> None:
     if image:
         try:
             parsed = urlsplit(image)
@@ -180,7 +184,6 @@ def normalize_product(data: dict[str, Any]) -> dict[str, Any]:
                 raise ValueError
         except ValueError as err:
             raise CatalogError("Utiliza una URL http/https o una ruta local como /local/producto.png.") from err
-    return product
 
 
 class Catalog:
@@ -521,7 +524,7 @@ class Catalog:
         self._notify()
 
     async def async_save_recipe(self, data: dict) -> dict:
-        if not isinstance(data, dict) or set(data) - {"id", "revision", "name", "ingredients"}:
+        if not isinstance(data, dict) or set(data) - {"id", "revision", "name", "ingredients", "image_url"}:
             raise CatalogError("La receta contiene campos no admitidos.")
         name = _text(data, "name", 160)
         ingredients = data.get("ingredients")
@@ -538,6 +541,8 @@ class Catalog:
                 raise CatalogError("Otra sesión ha modificado esta receta. Vuelve a abrirla.", "conflict")
             if any(item["id"] != uid and normalized_name(item["name"]) == normalized_name(name) for item in self._recipes.values()):
                 raise CatalogError("Ya existe una receta con ese nombre.")
+            image_url = _text(data, "image_url", 2048) if "image_url" in data else (current or {}).get("image_url", "")
+            _validate_image_url(image_url)
             normalized, seen, seen_names = [], set(), set()
             for ingredient in ingredients:
                 if not isinstance(ingredient, dict) or set(ingredient) - {"product_id", "quantity", "unit"} or not isinstance(ingredient.get("product_id"), str):
@@ -557,7 +562,7 @@ class Catalog:
                 seen_names.add(normalized_name(product["name"]))
             now = datetime.now(UTC).isoformat()
             recipe = {"id": uid or str(uuid4()), "revision": current["revision"] + 1 if current else 1,
-                      "name": name, "ingredients": normalized, "season_months": list((current or {}).get("season_months", [])),
+                      "name": name, "image_url": image_url, "ingredients": normalized, "season_months": list((current or {}).get("season_months", [])),
                       "created_at": current["created_at"] if current else now, "updated_at": now}
             await self._persist(self._products, self._categories, recipes={**self._recipes, recipe["id"]: recipe})
         self._notify()

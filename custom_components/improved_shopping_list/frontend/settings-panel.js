@@ -64,8 +64,12 @@ class ImprovedShoppingSettings extends HTMLElement {
         button { cursor:pointer; }
         button:disabled,select:disabled,input:disabled { opacity:.5; cursor:default; }
         button:focus-visible,select:focus-visible,input:focus-visible { outline:3px solid var(--primary-color,#267052); outline-offset:3px; }
-        .settings-tabs { display:flex; flex-wrap:wrap; gap:8px; margin:18px 0; }
-        .settings-tabs button { display:inline-flex; align-items:center; justify-content:center; gap:8px; }
+        .settings-heading { display:flex; align-items:center; justify-content:space-between; gap:16px; margin:28px 0 18px; }
+        .settings-heading h1 { flex:none; margin:0; }
+        .settings-tabs { display:flex; flex-wrap:nowrap; min-width:0; gap:6px; margin-left:auto; overflow-x:auto; scrollbar-width:thin; }
+        .settings-tabs button { display:inline-flex; flex:none; align-items:center; justify-content:center; gap:6px; padding:10px; font-size:13px; white-space:nowrap; }
+        @media(max-width:650px) { .settings-heading { gap:8px; }.settings-heading h1 { font-size:26px; }.settings-tabs { gap:4px; }.settings-tabs button { min-width:32px; padding:10px 5px; }.settings-tabs button[aria-pressed=false] .tab-label { display:none; } }
+        @media(max-width:390px) { .settings-heading { gap:6px; }.settings-heading h1 { font-size:22px; }.settings-tabs button { min-width:28px; padding-inline:3px; font-size:12px; }.settings-tabs ha-icon { --mdc-icon-size:18px; width:18px; height:18px; } }
         .settings-tabs ha-icon { --mdc-icon-size:20px; display:flex; align-items:center; justify-content:center; width:20px; height:20px; flex:none; line-height:0; }
         .settings-tabs [aria-pressed=true] { background:var(--secondary-background-color,#edf4ee); font-weight:650; }
         .appearance-fields { display:grid; grid-template-columns:1fr 1fr; gap:18px; }
@@ -155,8 +159,8 @@ class ImprovedShoppingSettings extends HTMLElement {
         .error { color:var(--error-color,#bd3636); border:1px solid var(--error-color,#bd3636); }
         @media(max-width:540px) { .card { padding:18px 14px; } .add-row { flex-wrap:wrap; } .select-wrap { flex-basis:100%; } .actions { width:100%; } }
       </style>
-      <h1>Ajustes</h1>
-      <nav class="settings-tabs" aria-label="Vistas de ajustes"><button id="settings-view-lists" aria-pressed="true"><ha-icon icon="mdi:format-list-checks" aria-hidden="true"></ha-icon>Listas</button><button id="settings-view-appearance" aria-pressed="false"><ha-icon icon="mdi:palette" aria-hidden="true"></ha-icon>Personalización</button><button id="settings-view-stores" aria-pressed="false"><ha-icon icon="mdi:store" aria-hidden="true"></ha-icon>Tiendas</button><button id="settings-view-community" aria-pressed="false"><ha-icon icon="mdi:account-group" aria-hidden="true"></ha-icon>Comunidad</button><button id="settings-view-logs" aria-pressed="false"><ha-icon icon="mdi:format-list-group" aria-hidden="true"></ha-icon>Logs</button></nav>
+      <div class="settings-heading"><h1>Ajustes</h1>
+      <nav class="settings-tabs" aria-label="Vistas de ajustes"><button id="settings-view-lists" aria-label="Listas" aria-pressed="true"><ha-icon icon="mdi:format-list-checks" aria-hidden="true"></ha-icon><span class="tab-label">Listas</span></button><button id="settings-view-appearance" aria-label="Personalización" aria-pressed="false"><ha-icon icon="mdi:palette" aria-hidden="true"></ha-icon><span class="tab-label">Personalización</span></button><button id="settings-view-stores" aria-label="Tiendas" aria-pressed="false"><ha-icon icon="mdi:store" aria-hidden="true"></ha-icon><span class="tab-label">Tiendas</span></button><button id="settings-view-community" aria-label="Comunidad" aria-pressed="false"><ha-icon icon="mdi:account-group" aria-hidden="true"></ha-icon><span class="tab-label">Comunidad</span></button><button id="settings-view-logs" aria-label="Logs" aria-pressed="false"><ha-icon icon="mdi:format-list-group" aria-hidden="true"></ha-icon><span class="tab-label">Logs</span></button></nav></div>
       <div id="settings-error" class="notice error" role="alert" hidden></div>
       <div id="settings-status" class="notice" role="status" hidden></div>
       <p id="admin-help" hidden>Necesitas una cuenta administradora de Home Assistant para modificar estos ajustes.</p>

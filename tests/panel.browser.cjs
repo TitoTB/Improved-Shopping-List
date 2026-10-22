@@ -2832,7 +2832,8 @@ async function main() {
     await linkedSettings.getByLabel('Habilitar Alcampo',{exact:true}).check();
     await linkedSettings.getByRole('button',{name:'Ajustes de Alcampo',exact:true}).click();
     const alcampoDialog=linkedSettings.getByRole('dialog',{name:'Alcampo',exact:true});
-    assert.equal(await alcampoDialog.locator('input,select').count(),0);
+    assert.equal(await alcampoDialog.getByRole('switch').count(),2);
+    assert.equal(await alcampoDialog.getByRole('spinbutton').count(),1);
     await alcampoDialog.getByRole('button',{name:'Cerrar ventana',exact:true}).click();
     assert.equal(await linkedSettings.getByRole('button',{name:'Código postal de las tiendas',exact:true}).count(),0);
     await linksContext.close();

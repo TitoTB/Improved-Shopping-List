@@ -1,5 +1,9 @@
 # Historial de cambios
 
+## Pendiente de publicación
+
+- Stock recupera el botón de añadir manualmente mediante un popup con nombres del catálogo y entrada libre. Retirado el título adicional; las vistas se alinean a la izquierda y sus controles a la derecha en una fila compacta. Subir ticket aparece solo en Últimas compras.
+
 ## 0.25.0
 
 - Stock incluye las vistas Stock y Últimas compras, con subida local de tickets PDF electrónicos de Carrefour y revisión antes de confirmar. El historial conserva fecha, tienda, importe, descuentos generales y detalle de los productos; los escaneos y otros formatos todavía no están disponibles.

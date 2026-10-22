@@ -117,6 +117,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
     this.shadowRoot.querySelector("#list-dialog")?.close();
     this.shadowRoot.querySelector("#stock-remove-dialog")?.close();
     this.shadowRoot.querySelector("#stock-editor-dialog")?.close();
+    this.shadowRoot.querySelector("#stock-add-dialog")?.close();
   }
 
   _ensureStarted() {
@@ -319,12 +320,16 @@ class ImprovedShoppingListPanel extends HTMLElement {
         #save-stock-config { background:var(--isl-green); color:white; border:0; }
         @media(max-width:420px) { .stock-form-fields { grid-template-columns:minmax(0,1fr); } }
         #confirm-stock-remove { background:#d32f2f; color:#fff; border:0; }
-        #stock-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:16px; }
-        #stock-heading h2 { margin:0; } .stock-tabs,.stock-tabs nav { display:flex; align-items:center; gap:8px; }.stock-tabs { margin-left:auto; }
+        #stock-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:16px; }
+        .stock-tabs,.stock-tabs nav,#stock-actions { display:flex; align-items:center; gap:8px; flex:none; }
+        #stock-actions { margin-left:auto; }
         .stock-tabs [role=tab] { display:flex; align-items:center; gap:6px; min-height:42px; padding:8px 10px; border:0; border-radius:10px; background:transparent; color:inherit; }
         .stock-tabs [aria-selected=true] { background:var(--secondary-background-color,#edf4ee); font-weight:700; }
         .stock-tabs ha-icon { --mdc-icon-size:22px; width:22px; height:22px; }
-        @media(max-width:500px) { .stock-tabs,.stock-tabs nav { gap:4px; }.stock-tabs [role=tab] { padding:8px 6px; font-size:13px; } }
+        #stock-add-form label { display:flex; flex-direction:column; gap:8px; }
+        #stock-add-form input { min-height:44px; padding:10px; border:1px solid var(--divider-color,#dfe7e1); border-radius:10px; color:inherit; background:var(--card-background-color,#fff); }
+        #stock-add-submit { background:var(--isl-green); color:white; border:0; }
+        @media(max-width:500px) { #stock-heading { gap:6px; }.stock-tabs,.stock-tabs nav,#stock-actions { gap:4px; }.stock-tabs [role=tab] { padding:8px 4px; font-size:12px; gap:4px; }.stock-tabs [aria-selected=false] span { display:none; }#stock-actions .icon-button { width:38px; height:42px; flex-basis:38px; } }
         @media(max-width:380px) { header { gap:4px; padding:10px 8px; }.brand-logo { width:32px; height:32px; }.menu { width:36px; padding:6px; }.section-nav button { min-width:28px; padding:10px 4px; gap:3px; font-size:12px; }.section-nav ha-icon { --mdc-icon-size:18px; } }
       </style>
       <header>
@@ -341,7 +346,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
       <main>
         <div id="error" class="notice error" role="alert" hidden></div>
         <div id="status" class="notice" role="status" hidden></div>
-        <div id="stock-heading" hidden><h2>Stock</h2><div class="stock-tabs"><nav role="tablist" aria-label="Vistas de Stock"><button id="stock-tab" type="button" role="tab" aria-selected="true" aria-controls="stock-card"><ha-icon icon="mdi:package-variant" aria-hidden="true"></ha-icon>Stock</button><button id="purchases-tab" type="button" role="tab" aria-selected="false" aria-controls="purchase-history"><ha-icon icon="mdi:receipt-text" aria-hidden="true"></ha-icon>Últimas compras</button></nav><button id="upload-ticket" class="icon-button" type="button" aria-label="Subir ticket" title="Subir ticket PDF"><ha-icon icon="mdi:file-upload" aria-hidden="true"></ha-icon></button></div></div>
+        <div id="stock-heading" hidden><nav class="stock-tabs" role="tablist" aria-label="Vistas de Stock"><button id="stock-tab" type="button" role="tab" aria-label="Stock" aria-selected="true" aria-controls="stock-card"><ha-icon icon="mdi:package-variant" aria-hidden="true"></ha-icon><span>Stock</span></button><button id="purchases-tab" type="button" role="tab" aria-label="Últimas compras" aria-selected="false" aria-controls="purchase-history"><ha-icon icon="mdi:receipt-text" aria-hidden="true"></ha-icon><span>Últimas compras</span></button></nav><div id="stock-actions"><button id="add-stock" class="icon-button" type="button" aria-label="Añadir producto al stock" title="Añadir producto al stock"><ha-icon icon="mdi:plus-thick" aria-hidden="true"></ha-icon></button><button id="upload-ticket" class="icon-button" type="button" aria-label="Subir ticket" title="Subir ticket PDF"><ha-icon icon="mdi:file-upload" aria-hidden="true"></ha-icon></button></div></div>
         <section id="list-controls" aria-label="Seleccionar lista y añadir productos">
           <form id="add-form">
             <div class="input-wrap"><label class="sr-only" for="product-input">Añadir producto</label><input id="product-input" type="text" maxlength="255" placeholder="Busca o añade un producto" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="product-suggestions" aria-describedby="predictive-count" required><ul id="product-suggestions" class="predictive-results" role="listbox" aria-label="Productos del catálogo" hidden></ul><span id="predictive-count" class="sr-only" role="status" aria-live="polite"></span></div>
@@ -367,6 +372,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
         </section>
         <section id="stock-card" aria-label="Stock" hidden><ul id="stock-items" class="product-grid" aria-label="Productos en stock"></ul><p id="stock-empty" class="empty" hidden>Añade productos para empezar a controlar tu despensa.</p></section>
         <isl-purchases id="purchase-history" hidden></isl-purchases>
+        <dialog id="stock-add-dialog" aria-labelledby="stock-add-title"><form id="stock-add-form"><h2 id="stock-add-title">Añadir producto al stock</h2><label>Nombre del producto<input name="name" type="text" maxlength="255" list="stock-add-products" autocomplete="off" required></label><datalist id="stock-add-products"></datalist><p id="stock-add-error" class="notice error" role="alert" hidden></p><div class="dialog-actions"><button id="stock-add-submit" type="submit">Añadir</button></div></form></dialog>
         <dialog id="stock-editor-dialog" aria-labelledby="stock-editor-title">
           <form id="stock-editor-form"><h2 id="stock-editor-title">Configurar Stock</h2><p id="stock-editor-error" class="notice error" role="alert" hidden></p>
           <div class="stock-form-fields">
@@ -399,6 +405,9 @@ class ImprovedShoppingListPanel extends HTMLElement {
     this._built = true;
     const root = this.shadowRoot;
     installDialogCloseButtons(root);
+    root.querySelector('#add-stock').addEventListener('click',()=>this._openStockAdd());
+    root.querySelector('#stock-add-form').addEventListener('submit',event=>{event.preventDefault();void this._addStockProduct();});
+    root.querySelector('#stock-add-dialog').addEventListener('cancel',event=>{if(this._busy)event.preventDefault();});
     for(const [id,view] of [['stock-tab','stock'],['purchases-tab','purchases']])root.querySelector('#'+id).addEventListener('click',()=>{this._stockView=view;this._renderData();});
     root.querySelector('#upload-ticket').addEventListener('click',()=>root.querySelector('isl-purchases').chooseFile());
     root.querySelector('isl-purchases').addEventListener('receipt-busy',event=>{this._receiptBusy=event.detail;this._renderData();});
@@ -579,14 +588,22 @@ class ImprovedShoppingListPanel extends HTMLElement {
     const stockItemsView=stockView&&this._stockView==='stock';
     root.querySelector('#stock-heading').hidden=!stockView;
     root.querySelector('#stock-card').hidden=!stockItemsView;
-    root.querySelector('#list-controls').hidden=!(this._view==='shopping'||stockItemsView);
+    root.querySelector('#list-controls').hidden=this._view!=='shopping';
+    const actions=root.querySelector(stockView?'#stock-actions':'#add-form');
+    for(const id of ['toggle-stock-sort','choose-list','toggle-list-layout']){
+      const button=root.querySelector('#'+id);
+      if(button.parentElement!==actions)actions.append(button);
+      button.hidden=stockView&&!stockItemsView;
+    }
+    root.querySelector('#add-stock').hidden=!stockItemsView;
+    root.querySelector('#upload-ticket').hidden=!stockView||stockItemsView;
     root.querySelector('#stock-tab').setAttribute('aria-selected',String(this._stockView==='stock'));
     root.querySelector('#purchases-tab').setAttribute('aria-selected',String(this._stockView==='purchases'));
     root.querySelector('#upload-ticket').disabled=Boolean(this._receiptBusy)||this._hass.user?.is_admin!==true;
     root.querySelector('isl-purchases').hidden=!stockView;
     root.querySelector('isl-purchases').data={hass:this._hass,active:stockView,history:this._stockView==='purchases',pricesEnabled:this._settings.priceUpdatesEnabled!==false};
     const sortButton=root.querySelector("#toggle-stock-sort");
-    sortButton.hidden=!stockView;
+    sortButton.hidden=!stockItemsView;
     const sortLabel=this._stockSort === "alphabetical" ? "Ordenar por menor stock" : "Ordenar alfabéticamente";
     sortButton.title=sortLabel;sortButton.setAttribute("aria-label",sortLabel);
     sortButton.querySelector("ha-icon").setAttribute("icon",this._stockSort === "alphabetical" ? "mdi:sort-numeric-ascending" : "mdi:sort-alphabetical-ascending");
@@ -626,6 +643,9 @@ class ImprovedShoppingListPanel extends HTMLElement {
       ? session.items.filter(item => item.status !== "completed") : [];
     const locked = this._busy || session.loading || !available;
     const stockLocked=this._busy || !this._stock.loaded || this._stock.loading || this._hass.user?.is_admin !== true;
+    root.querySelector('#add-stock').disabled=stockLocked;
+    root.querySelector('#stock-add-submit').disabled=stockLocked;
+    root.querySelector('#stock-add-form').elements.name.disabled=stockLocked;
     root.querySelector("#product-input").closest('.input-wrap').hidden = stockView;
     root.querySelector("#add-button").hidden = stockView;
     root.querySelector("#product-input").disabled = stockView || locked || !canCreate;
@@ -693,6 +713,22 @@ class ImprovedShoppingListPanel extends HTMLElement {
     }
     this._renderStock(stockLocked);
     this._renderPredictions();
+  }
+
+  _openStockAdd() {
+    if(this._busy||!this._stock.loaded||this._hass.user?.is_admin!==true)return;
+    const root=this.shadowRoot,form=root.querySelector('#stock-add-form');
+    form.reset();root.querySelector('#stock-add-error').hidden=true;
+    root.querySelector('#stock-add-products').replaceChildren(...[...this._catalogProducts.values()].map(product=>new Option(product.name,product.name)));
+    root.querySelector('#stock-add-dialog').showModal();form.elements.name.focus();
+  }
+
+  async _addStockProduct() {
+    const root=this.shadowRoot,form=root.querySelector('#stock-add-form'),name=form.elements.name.value.trim();
+    if(!name||this._busy||this._hass.user?.is_admin!==true)return;
+    const success=await this._runAction(()=>this._stock.add(name),'Una unidad añadida a Stock.');
+    if(success)root.querySelector('#stock-add-dialog').close();
+    else {const error=root.querySelector('#stock-add-error');error.textContent=this._actionError;error.hidden=false;}
   }
 
   _renderStock(locked) {

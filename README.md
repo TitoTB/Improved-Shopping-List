@@ -345,8 +345,11 @@ del producto ni provoca consultas repetidas al abrir la interfaz.
 ## Stock de la despensa
 
 **Stock** (`mdi:package-variant`) guarda un inventario común en Home Assistant,
-independiente de las listas de compra. La barra conserva la ordenación, el selector
-de lista y el cambio de vista, sin buscador ni botón de añadir asociado.
+independiente de las listas de compra. Las pestañas Stock y Últimas compras aparecen
+a la izquierda y los controles de la vista a la derecha en la misma fila, sin título
+adicional. Stock conserva la ordenación, el selector de lista y el cambio de vista;
+el botón **+** abre un popup para añadir manualmente un nombre o elegir uno del catálogo,
+sin buscador permanente. Subir ticket aparece únicamente en Últimas compras.
 Las cantidades no bajan de cero. Cada tarjeta utiliza la imagen o
 icono del catálogo cuando existe y un degradado naranja. Los controles rápidos
 para sumar o restar aparecen solo en filas. Se puede alternar entre cuadrícula y filas; la cuadrícula utiliza

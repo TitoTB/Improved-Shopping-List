@@ -3182,11 +3182,11 @@ async function main() {
     await seasonCatalog.locator('#toggle-catalog-order').click();
     await seasonCatalog.getByRole('button',{name:'Cambiar criterio de agrupación',exact:true}).click();
     await seasonCatalog.locator('#catalog-grouping-dialog').getByRole('button',{name:'Sugerencias',exact:true}).click();
-    assert.deepEqual(await seasonCatalog.locator('#catalog-grid .category-group-title').allTextContents(),['Productos de temporada','Sin sugerencias']);
+    assert.deepEqual(await seasonCatalog.locator('#catalog-grid .category-group-title').allTextContents(),['Productos de temporada']);
     await seasonPage.reload();
     await seasonPage.getByRole('button',{name:'Catálogo',exact:true}).click();
-    await seasonCatalog.locator('#catalog-grid .category-group').nth(1).waitFor();
-    assert.deepEqual(await seasonCatalog.locator('#catalog-grid .category-group-title').allTextContents(),['Productos de temporada','Sin sugerencias']);
+    await seasonCatalog.locator('#catalog-grid .category-group').first().waitFor();
+    assert.deepEqual(await seasonCatalog.locator('#catalog-grid .category-group-title').allTextContents(),['Productos de temporada']);
     assert.equal(await seasonPage.evaluate(()=>window.calls.some(call=>/nutriscore|refresh_prices/.test(call.type??''))),false);
     await seasonCatalog.getByRole('button',{name:'Sugerencias',exact:true}).click();
     await seasonCatalog.getByRole('button',{name:'Nueva categoría de sugerencias',exact:true}).click();
@@ -3333,45 +3333,18 @@ async function main() {
     assert.equal(await groupingDialog.getByRole('button',{name:'Nutri-Score',exact:true}).count(),0);
     await groupingDialog.getByRole('button',{name:'Cerrar ventana',exact:true}).click();
     await groupingPage.setViewportSize({width:390,height:844});
-    // A linked product belongs to every shop, independently of shop activation or prices.
-    await groupingPage.evaluate(async()=>{
-      const links={r:{mercadona:'123',carrefour:{url:'https://www.carrefour.es/supermercado/R-123/p'}},a:{carrefour:{id:'456'}},z:{alcampo:'789'}};
-      for(const [id,store_links] of Object.entries(links)){
-        const product=structuredClone(window.catalogProducts.find(product=>product.id===id));
-        await window.testPanel._hass.callWS({type:'improved_shopping_list/catalog/save',product:{...product,store_links}});
-      }
-    });
-    const nutritionBeforeLinks=await groupingPage.evaluate(()=>window.nutriCalls?.length??0);
-    await groupingButton.click();
-    await groupingDialog.getByRole('button',{name:'Vinculados',exact:true}).click();
-    assert.deepEqual(await groupedCatalog.locator('.category-group-title').allTextContents(),['Alcampo','Carrefour','Mercadona','No vinculados']);
-    assert.deepEqual(await productNames(),['Zanahoria','Arroz','Azúcar','Arroz','Agua','Patatas']);
-    assert.equal(await groupedCatalog.locator('.category-products.rows').count(),4);
-    assert.deepEqual(await groupedCatalog.getByRole('region',{name:'No vinculados',exact:true}).locator('.title').allTextContents(),['Agua','Patatas']);
-    await groupedCatalog.getByLabel('Buscar productos',{exact:true}).fill('Arroz');
-    assert.deepEqual(await groupedCatalog.locator('.category-group-title').allTextContents(),['Carrefour','Mercadona']);
-    assert.deepEqual(await productNames(),['Arroz','Arroz']);
-    await groupedCatalog.getByLabel('Buscar productos',{exact:true}).fill('inexistente');
-    assert.equal(await groupedCatalog.locator('.category-group').count(),0);
-    await groupedCatalog.getByLabel('Buscar productos',{exact:true}).fill('');
-    await groupedCatalog.getByRole('region',{name:'Carrefour',exact:true}).getByRole('button',{name:'Añadir Arroz a la lista',exact:true}).click();
-    await groupedCatalog.getByRole('region',{name:'Mercadona',exact:true}).locator('[data-product-id="r"][data-in-list="true"]').waitFor();
-    assert.equal(await groupedCatalog.getByRole('region',{name:'Mercadona',exact:true}).getByRole('button',{name:'Añadir Arroz a la lista',exact:true}).isDisabled(),true);
-    assert.equal(await groupingPage.evaluate(()=>window.listData['todo.bring'].filter(item=>item.summary==='Arroz').length),1);
-    assert.equal(await groupingPage.evaluate(()=>window.nutriCalls?.length??0),nutritionBeforeLinks);
-    await groupedCatalog.getByRole('button',{name:'Cambiar a vista de cuadrícula',exact:true}).click();
-    assert.equal(await groupedCatalog.locator('.category-products.rows').count(),0);
-    await groupingPage.screenshot({path:'test-results/catalog-linked-mobile.png',fullPage:true});
+    // Removed grouping preferences fall back to categories after reloading.
+    await groupingPage.evaluate(()=>localStorage.setItem('isl-catalog-grouping','linked'));
     await groupingPage.reload();
     await groupingPage.getByRole('button',{name:'Catálogo',exact:true}).click();
-    await groupedCatalog.locator('.category-group').nth(3).waitFor();
-    assert.deepEqual(await groupedCatalog.locator('.category-group-title').allTextContents(),['Alcampo','Carrefour','Mercadona','No vinculados']);
+    await groupedCatalog.locator('.category-group').nth(2).waitFor();
     await groupingButton.click();
-    assert.equal(await groupingDialog.getByRole('button',{name:'Vinculados',exact:true}).getAttribute('aria-pressed'),'true');
+    assert.equal(await groupingDialog.getByRole('button',{name:'Vinculados',exact:true}).count(),0);
+    assert.equal(await groupingDialog.getByRole('button',{name:'Categoría',exact:true}).getAttribute('aria-pressed'),'true');
     await groupingDialog.getByRole('button',{name:'Cerrar ventana',exact:true}).click();
     await groupedCatalog.getByRole('button',{name:'Ordenar alfabéticamente',exact:true}).click();
     assert.deepEqual(await productNames(),['Agua','Arroz','Azúcar','Patatas','Zanahoria']);
-    assert.equal(await groupedCatalog.getByRole('button',{name:'Agrupar por vinculaciones',exact:true}).count(),1);
+    assert.equal(await groupedCatalog.getByRole('button',{name:'Agrupar por categorías',exact:true}).count(),1);
     await groupingPage.getByRole('button',{name:'Lista',exact:true}).click();
     await groupingContext.close();
     // Logs display live changes as text, filter by origin/type and clean up on navigation.

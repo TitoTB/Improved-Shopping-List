@@ -2,6 +2,8 @@
 
 ## Pendiente de publicación
 
+- Catálogo elimina el criterio de agrupación «Vinculados» y oculta los productos sin sugerencias al agrupar por Sugerencias.
+
 - Calendario de temporada con botones solo de icono y badges verdes o rojos con el nombre a la izquierda y la imagen a la derecha.
 
 - Catálogo elimina los avisos de éxito en todas sus vistas y en categorías. Se conservan errores, indicadores de carga y mensajes de los lectores al escanear.

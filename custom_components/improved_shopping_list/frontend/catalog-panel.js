@@ -72,7 +72,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
     this._productOrder = "alphabetical";
     try { if (localStorage.getItem("isl-catalog-order") === "categories") this._productOrder = "categories"; } catch { /* Storage may be disabled. */ }
     this._groupBy = "category";
-    try { const grouping = localStorage.getItem("isl-catalog-grouping"); if (["linked","suggestions"].includes(grouping)) this._groupBy = grouping; } catch { /* Storage may be disabled. */ }
+    try { if (localStorage.getItem("isl-catalog-grouping") === "suggestions") this._groupBy = "suggestions"; } catch { /* Storage may be disabled. */ }
     this._pendingNames = new Set();
     this._listItems = [];
   }
@@ -460,7 +460,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
       </dialog>
       <dialog id="catalog-grouping-dialog" aria-labelledby="catalog-grouping-title">
         <h2 id="catalog-grouping-title">Agrupar productos por</h2>
-        <div class="grouping-options"><button type="button" data-group-by="category" aria-pressed="true"><ha-icon icon="mdi:label" aria-hidden="true"></ha-icon>Categoría</button><button type="button" data-group-by="linked" aria-pressed="false"><ha-icon icon="mdi:store" aria-hidden="true"></ha-icon>Vinculados</button><button type="button" data-group-by="suggestions" aria-pressed="false"><ha-icon icon="mdi:calendar-star" aria-hidden="true"></ha-icon>Sugerencias</button></div>
+        <div class="grouping-options"><button type="button" data-group-by="category" aria-pressed="true"><ha-icon icon="mdi:label" aria-hidden="true"></ha-icon>Categoría</button><button type="button" data-group-by="suggestions" aria-pressed="false"><ha-icon icon="mdi:calendar-star" aria-hidden="true"></ha-icon>Sugerencias</button></div>
       </dialog>`;
     this._built = true;
     const root = this.shadowRoot;
@@ -1138,7 +1138,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
     const grouped = this._productOrder === "categories", grid = root.querySelector("#catalog-grid");
     grid.classList.toggle("rows", rows);
     grid.classList.toggle("grouped", grouped);
-    const orderToggle = root.querySelector("#toggle-catalog-order"), orderLabel = grouped ? "Ordenar alfabéticamente" : this._groupBy === "suggestions" ? "Agrupar por sugerencias" : this._groupBy === "linked" ? "Agrupar por vinculaciones" : "Agrupar por categorías";
+    const orderToggle = root.querySelector("#toggle-catalog-order"), orderLabel = grouped ? "Ordenar alfabéticamente" : this._groupBy === "suggestions" ? "Agrupar por sugerencias" : "Agrupar por categorías";
     root.querySelector("#configure-catalog-grouping").hidden = !grouped;
     for (const button of root.querySelectorAll("[data-group-by]")) button.setAttribute("aria-pressed",String(button.dataset.groupBy === this._groupBy));
     orderToggle.setAttribute("aria-label", orderLabel); orderToggle.title = orderLabel;
@@ -1157,18 +1157,9 @@ class ImprovedShoppingCatalog extends HTMLElement {
         if (this._groupBy === "suggestions") {
           const matches = (this._catalog.recommendationCategories ?? []).filter(group=>group.product_ids.includes(product.id)).map(group=>({key:"custom:"+group.id,name:group.name}));
           if ((product.season_months ?? []).includes(this._seasonMonth())) matches.push({key:"season",name:"Productos de temporada"});
-          for (const match of matches.length ? matches : [{key:"",name:"Sin sugerencias"}]) {
+          for (const match of matches) {
             if (!groups.has(match.key)) groups.set(match.key,{...match,products:[]});
             groups.get(match.key).products.push(product);
-          }
-          continue;
-        }
-        if (this._groupBy === "linked") {
-          const stores = Object.entries(product.store_links ?? {}).filter(([store,reference]) =>
-            STORE_NAMES[store] && (typeof reference === "string" ? reference.trim() : reference?.url || reference?.id)).map(([store])=>store);
-          for (const key of stores.length ? stores : [""]) {
-            if (!groups.has(key)) groups.set(key,{key,name:STORE_NAMES[key] ?? "No vinculados",products:[]});
-            groups.get(key).products.push(product);
           }
           continue;
         }
@@ -1187,7 +1178,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
       }));
     } else grid.replaceChildren(...products.map(product => this._productCard(product)));
     const empty = root.querySelector("#catalog-empty");
-    empty.hidden = products.length > 0 || this._catalog.loading || Boolean(this._catalog.error);
+    empty.hidden = grid.childElementCount > 0 || this._catalog.loading || Boolean(this._catalog.error);
     empty.textContent = this._catalog.products.length ? "No hay productos que coincidan con estos filtros." : "Tu catálogo empieza aquí. Añade el primer producto para tenerlo a mano en tu próxima compra.";
     this._renderSeasonal();
     this._renderRecipes();

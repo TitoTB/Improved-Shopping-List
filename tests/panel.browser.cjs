@@ -179,6 +179,7 @@ const hass={
       window.receiptLinks=structuredClone(msg.lines);return receiptOptions();
     }
     if(msg.type.startsWith('improved_shopping_list/carrefour_account/')){
+      window.calls.push({type:msg.type,receipt_id:msg.receipt_id});
       window.cfStatus??={connected:false,verification_required:false,destinations:[],verification_sent:false};
       const action=msg.type.split('/').at(-1);
       if(action==='status')return structuredClone(window.cfStatus);

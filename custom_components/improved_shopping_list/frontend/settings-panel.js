@@ -1,3 +1,4 @@
+import "./alcampo-settings.js?v=0.32.0";
 import "./carrefour-account.js?v=0.32.0";
 import "./logs-panel.js?v=0.32.0";
 import "./notification-settings.js?v=0.32.0";
@@ -281,7 +282,7 @@ class ImprovedShoppingSettings extends HTMLElement {
         <section id="carrefour-products-view"><div id="carrefour-error" class="notice error" role="alert" hidden></div><div id="carrefour-products" class="store-products"></div><p id="carrefour-status" class="store-cache-footer" role="status"></p></section>
 
       </dialog>
-      <dialog id="alcampo-dialog" aria-labelledby="alcampo-title"><h2 id="alcampo-title">Alcampo</h2><section id="alcampo-products-view"><div id="alcampo-products-error" class="notice error" role="alert" hidden></div><div id="alcampo-products" class="store-products"></div><p id="alcampo-status" class="store-cache-footer" role="status"></p></section></dialog>
+      <dialog id="alcampo-dialog" aria-labelledby="alcampo-title"><h2 id="alcampo-title">Alcampo</h2><isl-alcampo-settings></isl-alcampo-settings><section id="alcampo-products-view"><div id="alcampo-products-error" class="notice error" role="alert" hidden></div><div id="alcampo-products" class="store-products"></div><p id="alcampo-status" class="store-cache-footer" role="status"></p></section></dialog>
       <dialog id="store-dialog" aria-labelledby="store-dialog-title">
         <h2 id="store-dialog-title">Mercadona</h2>
 
@@ -369,7 +370,8 @@ class ImprovedShoppingSettings extends HTMLElement {
     root.querySelector("#close-prices-progress").addEventListener("click",()=>root.querySelector("#prices-progress-dialog").close());
     root.querySelector("#prices-progress-dialog").addEventListener("close",()=>clearInterval(this._pricesProgressTimer));
     root.querySelector("#alcampo-enabled").addEventListener("change",()=>void this._saveRetailSettings(()=>this._data.settings.setStoreEnabled("alcampo",root.querySelector("#alcampo-enabled").checked)));
-    root.querySelector("#configure-alcampo").addEventListener("click",()=>{root.querySelector("#alcampo-dialog").showModal();});
+    root.querySelector("#configure-alcampo").addEventListener("click",()=>{root.querySelector("#alcampo-dialog").showModal();const options=root.querySelector("isl-alcampo-settings");options.hass=this._data.hass;void options.activate();});
+    root.querySelector("#alcampo-dialog").addEventListener("close",()=>root.querySelector("isl-alcampo-settings")?.deactivate());
     root.querySelector("#alcampo-dialog").addEventListener("cancel",event=>{if(this._busy)event.preventDefault();});
     const alcampoError=document.createElement("div");alcampoError.id="alcampo-error";alcampoError.className="notice error";alcampoError.setAttribute("role","alert");alcampoError.hidden=true;root.querySelector("#alcampo-title").after(alcampoError);
     for (const [id, view] of [["settings-view-lists", "lists"], ["settings-view-appearance", "appearance"], ["settings-view-community", "community"], ["settings-view-stores", "stores"], ["settings-view-logs", "logs"], ["settings-view-readers","readers"], ["settings-view-notifications","notifications"], ["settings-view-nutrition","nutrition"]]) {

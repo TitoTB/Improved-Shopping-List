@@ -6,7 +6,7 @@ Una interfaz propia para gestionar las listas de la compra que ya tienes integra
 
 Versión actual: **0.32.0**. Interfaz en español, pensada para móvil y ordenador. Requiere **Home Assistant Core 2026.10 o posterior**. La referencia de desarrollo es Core 2026.10.2.
 
-Los precios proceden únicamente de los tickets y facturas del usuario, después de confirmarlos en el asistente de revisión. No se consultan las webs de supermercados ni se utilizan precios públicos o comunitarios. Se conserva el último precio confirmado de cada producto y tienda.
+Los precios proceden de tickets y facturas confirmados por el usuario y, opcionalmente, de Alcampo al activar sus opciones. El catálogo comunitario se dedica exclusivamente a sugerencias de iconos y no proporciona precios. Se conserva el último precio conocido de cada producto y tienda.
 
 El diccionario comunitario sirve exclusivamente para sugerir iconos por nombre o traducción del producto. No intercambia precios, EAN, referencias, Nutri-Score ni documentos de compra.
 
@@ -87,7 +87,7 @@ HACS es el método de instalación y actualización descrito abajo. No se necesi
 | Sugerir iconos y traducir nombres para buscarlos | Iconify y MyMemory | Acceso a Internet; no requiere configurar claves de API. Las traducciones se guardan para reutilizarlas. |
 | Consultar el diccionario comunitario | Archivos públicos del repositorio en GitHub | Acceso a Internet; la consulta pública no requiere una cuenta. |
 | Compartir datos con la comunidad | GitHub y la GitHub App de Improved Shopping List | Activar la opción y autorizar una cuenta de GitHub. La autorización es independiente de HACS: no se reutilizan sus credenciales. |
-| Guardar precios | Tickets y facturas del usuario | Confirmar los precios en el asistente de revisión. No se consultan webs de precios ni el catálogo comunitario. |
+| Guardar precios | Tickets y facturas del usuario; web pública de Alcampo si se habilita | Confirmar los precios del documento o activar las opciones de Alcampo. No requiere otras tarjetas de HACS, n8n ni servicios adicionales. El catálogo comunitario no comparte precios. |
 | Mostrar imágenes remotas y algunos logos de tiendas | El servidor de cada imagen | El navegador necesita poder acceder a la URL. Las imágenes locales y los iconos descargados no dependen de ese servidor para mostrarse. Flaticon no es una API necesaria para la integración. |
 | Usar lectores de códigos o NFC | Un dispositivo ya integrado que exponga la entidad de lectura compatible | Configurar su entidad en Ajustes → Lectores. ESPHome es una opción para el dispositivo, no un requisito de Improved Shopping List. |
 | Descontar stock por consumo registrado | Una entidad de Home Assistant que represente el uso | Seleccionar la entidad y el estado correspondiente. |
@@ -390,3 +390,11 @@ El engranaje de cada tienda abre sus ajustes; se han retirado los listados de pr
 Los iconos comunitarios admiten varias imágenes y términos alternativos. No se intercambian datos comerciales.
 
 En **Compras**, los tickets revisados muestran su botón en verde. Los tickets descargados automáticamente permiten abrir la revisión desde ese botón; cerrar la revisión conserva el ticket pendiente.
+
+### Alcampo: coincidencias y actualización opcional
+
+En Ajustes → Tiendas → Alcampo hay dos opciones independientes, desactivadas inicialmente. Buscar coincidencias recorre los EAN válidos del catálogo que aún no tienen una vinculación con Alcampo. Solo usa nombres comerciales de líneas ya vinculadas y confirmadas en tickets o facturas de otras tiendas o nombres presentes en sus URL oficiales vinculadas; nunca usa el nombre genérico del catálogo. Cuando se añadan nuevos EAN o se disponga de un nombre comercial, el proceso los detectará automáticamente aunque el panel esté cerrado.
+
+Cada EAN permite como máximo dos búsquedas (nombre original y otro nombre comercial o una variante sin puntuación), con hasta tres fichas candidatas por búsqueda. La vinculación automática exige coincidencia exacta del EAN de la ficha. No se sobrescriben vinculaciones manuales. Si faltan nombres comerciales o no se encuentra el producto, puede guardarse la URL oficial de Alcampo en Información adicional → Vinculaciones con tiendas, incluso sin EAN. Los resultados sin coincidencia y el presupuesto consumido sobreviven a los reinicios; no se vuelven a buscar automáticamente.
+
+Actualizar precios cada XX días consulta las referencias vinculadas de todo el catálogo, con 30 días por defecto. Los productos se distribuyen durante el ciclo y comparten con las búsquedas una única cola con al menos cinco minutos entre peticiones. Si la cola supera esa capacidad, el ciclo se prolonga. Las consultas emplean la ubicación fija de Alcampo; la tienda y el interruptor general de precios deben estar habilitados. Los errores y bloqueos se registran en Logs → Tiendas, conservan el último precio y aplican pausas crecientes de hasta 24 horas. No se garantiza que la web permita todas las consultas. Alcampo no recibe credenciales de Carrefour ni interviene en el diccionario comunitario.

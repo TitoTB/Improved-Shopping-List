@@ -418,6 +418,20 @@ class Catalog:
         self._notify()
         return deepcopy(product)
 
+    async def async_bind_alcampo(self, product_id, ean, link):
+        """Bind only a still-scanned exact EAN; never replace a user's binding."""
+        async with self._lock:
+            current = self._products.get(product_id)
+            if not current or ean not in product_codes(current, "barcode") or current.get("store_links", {}).get("alcampo"):
+                return False
+            product = deepcopy(current)
+            product["store_links"] = {**product.get("store_links", {}), "alcampo":link}
+            product["revision"] += 1
+            product["updated_at"] = datetime.now(UTC).isoformat()
+            await self._persist({**self._products, product_id:product}, self._categories)
+        self._notify()
+        return True
+
     async def async_sync_recurrence(self, product_id, revision, recurrence, stamp, anchor):
         """Reconcile a durable pantry edit without translating or changing other fields."""
         async with self._lock:

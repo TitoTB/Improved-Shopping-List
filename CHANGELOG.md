@@ -2,6 +2,9 @@
 
 ## Pendiente de publicación
 
+- Alcampo incorpora búsqueda optativa por nombres comerciales de otras tiendas y confirmación por EAN exacto, con dos búsquedas y tres candidatos por búsqueda. Vinculaciones manuales conservadas, cola persistente de cinco minutos y pausas crecientes ante bloqueos.
+- Alcampo permite distribuir la actualización de todas las referencias vinculadas durante un periodo configurable de 30 días por defecto. Opciones con el estilo de Carrefour; los precios comunitarios siguen deshabilitados.
+
 - Compras muestra seis meses naturales de gasto por defecto, incluido el actual, con columnas repartidas por todo el ancho y flechas para navegar entre periodos de seis meses.
 
 - Los tickets de compras de Carrefour se recuperan desde el icono junto al importe en Stock → Compras; se retira Consultar compras de los ajustes. Las referencias privadas se conservan al reiniciar y los resúmenes antiguos se resuelven contra el historial de la cuenta.

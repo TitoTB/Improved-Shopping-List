@@ -1,4 +1,4 @@
-"""Local purchase prices only. Public providers and community prices are retired."""
+"""Receipt prices plus explicitly enabled Alcampo observations; no community prices."""
 
 from copy import deepcopy
 import time
@@ -53,8 +53,12 @@ class PriceManager:
         if not self.prices_enabled:
             return []
         receipts=getattr(self,"receipts",None)
-        return [{**deepcopy(price),"catalog_product_id":product["id"],"name":product["name"]}
-                for price in receipts.offers_for(product) if price.get("source")=="receipt"] if receipts else []
+        offers = {price["store"]:deepcopy(price) for price in receipts.offers_for(product) if price.get("source")=="receipt"} if receipts else {}
+        alcampo = getattr(self, "alcampo", None)
+        offer = alcampo.offer_for(product) if alcampo else None
+        if offer and ("alcampo" not in offers or offer["checked_at"] > offers["alcampo"]["checked_at"]):
+            offers["alcampo"] = offer
+        return [{**price,"catalog_product_id":product["id"],"name":product["name"]} for price in offers.values()]
 
     def snapshot(self,store=None):
         return {"products":[price for product in self.catalog.products for price in self.prices_for(product) if store is None or price["store"]==store],

@@ -24,6 +24,7 @@ from .stock import StockManager
 from .stock_automation import StockAutomation
 from .receipts import ReceiptManager
 from .carrefour_account import CarrefourAccount
+from .alcampo import AlcampoManager
 from .price_manager import PriceManager, StorePriceView
 from .recurrence import RecurrenceManager
 from .const import (
@@ -71,6 +72,9 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         carrefour_account.settings=settings
         stock_automation.carrefour_account=carrefour_account
         prices.receipts = receipts
+        alcampo = AlcampoManager(hass, catalog, settings, prices, receipts, activity)
+        await alcampo.async_load()
+        prices.alcampo = alcampo
         store_products = StorePriceView(prices, "mercadona")
         recurrence = RecurrenceManager(hass, catalog, settings, activity, readers._operation_lock, stock)
         await recurrence.async_load()
@@ -90,6 +94,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         )
         hass.data[DOMAIN] = {"catalog": catalog, "stock":stock, "receipts":receipts, "stock_automation":stock_automation, "settings": settings, "price_manager":prices, "store_products": store_products, "recurrence": recurrence, "readers": readers, "icons": icons, "community": community, "community_sync": community_sync, "activity": activity, "active": False}
         hass.data[DOMAIN]["carrefour_account"] = carrefour_account
+        hass.data[DOMAIN]["alcampo"] = alcampo
         hass.data[DOMAIN]["gateway_lists"] = gateways
         hass.data[DOMAIN]["quantities"] = quantities
         hass.data[DOMAIN]["entity_data"] = EntityData(hass, hass.data[DOMAIN])
@@ -113,6 +118,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.data[DOMAIN]["recurrence"].start()
     hass.data[DOMAIN]["community_sync"].start()
     hass.data[DOMAIN]["price_manager"].start()
+    hass.data[DOMAIN]["alcampo"].start()
     hass.data[DOMAIN]["entity_data"].start()
     hass.data[DOMAIN]["notifications"].start()
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
@@ -153,6 +159,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     await hass.data[DOMAIN]["community_sync"].async_stop()
     hass.data[DOMAIN]["stock"].stop()
     await hass.data[DOMAIN]["stock_automation"].async_stop()
+    await hass.data[DOMAIN]["alcampo"].async_stop()
     await hass.data[DOMAIN]["price_manager"].async_stop()
     await hass.data[DOMAIN]["recurrence"].async_stop()
     hass.data[DOMAIN]["settings"].detach()

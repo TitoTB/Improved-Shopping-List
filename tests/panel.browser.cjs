@@ -178,6 +178,12 @@ const hass={
       const ids=msg.lines.map(line=>line.product_id).filter(Boolean);if(new Set(ids).size!==ids.length)throw new Error('Dos líneas no pueden vincularse al mismo producto.');
       window.receiptLinks=structuredClone(msg.lines);return receiptOptions();
     }
+    if(msg.type.startsWith('improved_shopping_list/alcampo/')){
+      window.calls.push({type:msg.type});
+      window.alcampoStatus??={search_enabled:false,refresh_enabled:false,days:30};
+      if(msg.type.endsWith('/options'))window.alcampoStatus=structuredClone(msg.options);
+      return structuredClone(window.alcampoStatus);
+    }
     if(msg.type.startsWith('improved_shopping_list/carrefour_account/')){
       window.calls.push({type:msg.type,receipt_id:msg.receipt_id});
       window.cfStatus??={connected:false,verification_required:false,destinations:[],verification_sent:false};
@@ -3490,6 +3496,26 @@ async function main() {
     await suggestionReview.waitFor({state:'hidden'});
     assert.equal(await suggestionReceiptPage.evaluate(()=>window.stockItems.length),0);
     await suggestionReceiptContext.close();
+    // Alcampo options are explicit opt-ins; opening settings does not query the retailer.
+    const alcampoContext=await browser.newContext({viewport:{width:390,height:844}});
+    const alcampoPage=await alcampoContext.newPage();alcampoPage.on('pageerror',error=>errors.push(error.message));
+    await alcampoPage.goto(url);await alcampoPage.getByRole('button',{name:'Ajustes',exact:true}).click();
+    const alcampoSettings=alcampoPage.locator('isl-settings');
+    await alcampoSettings.getByRole('button',{name:'Tiendas',exact:true}).click();
+    await alcampoSettings.getByRole('button',{name:'Ajustes de Alcampo',exact:true}).click();
+    const alcampoOptions=alcampoSettings.locator('isl-alcampo-settings');
+    await alcampoOptions.getByRole('switch',{name:'Buscar coincidencias de productos en su catálogo',exact:true}).waitFor();
+    assert.equal(await alcampoOptions.locator('#days').inputValue(),'30');
+    assert.equal(await alcampoOptions.locator('#search-enabled').isChecked(),false);
+    await alcampoOptions.getByRole('switch',{name:'Buscar coincidencias de productos en su catálogo',exact:true}).check();
+    await alcampoPage.waitForFunction(()=>window.alcampoStatus.search_enabled);
+    await alcampoOptions.getByRole('switch',{name:'Actualizar precios periódicamente',exact:true}).check();
+    await alcampoPage.waitForFunction(()=>window.alcampoStatus.refresh_enabled);
+    await alcampoOptions.locator('#days').fill('45');await alcampoOptions.locator('#days').press('Tab');
+    await alcampoPage.waitForFunction(()=>window.alcampoStatus.days===45);
+    assert.ok(await alcampoOptions.evaluate(el=>el.scrollWidth<=el.clientWidth+1));
+    await alcampoPage.screenshot({path:'test-results/alcampo-options-mobile.png',fullPage:true});
+    await alcampoContext.close();
     // Carrefour account access is entirely manual; tickets open the existing review wizard.
     const accountContext=await browser.newContext({viewport:{width:390,height:844}});
     const accountPage=await accountContext.newPage();accountPage.on('pageerror',error=>errors.push(error.message));

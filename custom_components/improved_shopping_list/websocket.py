@@ -39,7 +39,7 @@ def _catalog(hass: HomeAssistant, connection, msg) -> Catalog | None:
 def async_register_commands(hass: HomeAssistant) -> None:
     """Register once; commands check that the config entry is still loaded."""
     for command in (ws_carrefour_account_status, ws_carrefour_account_login, ws_carrefour_account_send_code,
-                    ws_carrefour_account_verify, ws_carrefour_account_disconnect, ws_carrefour_account_purchases, ws_carrefour_account_sync_history, ws_carrefour_account_options, ws_carrefour_account_preview):
+                    ws_carrefour_account_verify, ws_carrefour_account_disconnect, ws_carrefour_account_purchases, ws_carrefour_account_sync_history, ws_carrefour_account_options, ws_carrefour_account_preview, ws_carrefour_account_preview_saved):
         websocket_api.async_register_command(hass, command)
     websocket_api.async_register_command(hass, ws_catalog_get)
     websocket_api.async_register_command(hass, ws_stock_get)
@@ -1099,3 +1099,11 @@ async def ws_carrefour_account_options(hass, connection, msg):
 @websocket_api.async_response
 async def ws_receipts_review_saved(hass,connection,msg):
     await _receipt_operation(hass,connection,msg,lambda manager,owner:manager.async_review_saved(msg["receipt_id"],owner))
+
+
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/carrefour_account/preview_saved", vol.Required("receipt_id"): str})
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_carrefour_account_preview_saved(hass, connection, msg):
+    await _carrefour_account_operation(hass, connection, msg, "ticket de compra guardada recuperado",
+        lambda manager, owner: manager.async_preview_saved(owner, msg["receipt_id"]))

@@ -182,15 +182,16 @@ const hass={
       window.cfStatus??={connected:false,verification_required:false,destinations:[],verification_sent:false};
       const action=msg.type.split('/').at(-1);
       if(action==='status')return structuredClone(window.cfStatus);
+      if(action==='preview_saved'&&window.failCarrefourAccount)throw new Error('Carrefour ha rechazado el acceso (HTTP 403).');
       if(action==='login'){window.cfStatus={connected:false,verification_required:true,destinations:[{id:'0',label:'a***@example.test'}],verification_sent:false};return structuredClone(window.cfStatus);}
       if(action==='send_code'){window.cfStatus.verification_sent=true;return structuredClone(window.cfStatus);}
       if(action==='verify'){window.cfStatus={connected:true,email:'test@example.test',options:{history_enabled:false,auto_ticket:false,public_prices:false},verification_required:false,destinations:[],verification_sent:false};return structuredClone(window.cfStatus);}
       if(action==='disconnect'){window.cfStatus={connected:false,verification_required:false,destinations:[],verification_sent:false};return structuredClone(window.cfStatus);}
-      if(action==='options'){window.cfStatus.options=structuredClone(msg.options);if(msg.options.history_enabled){for(const [id,total] of [['summary-ticket',5.22],['summary-order',10]])if(!window.receiptHistory.some(r=>r.id===id))window.receiptHistory.push({id,store:'carrefour',store_name:'Carrefour',purchased_at:'2026-10-16T19:59:30',total,article_count:null,lines:[],summary_only:true});localStorage.setItem('receipt-fixture',JSON.stringify(window.receiptHistory));}return structuredClone(window.cfStatus);}
-      if(action==='sync_history'){if(window.failCarrefourAccount)throw new Error('Carrefour ha rechazado el acceso (HTTP 403).');for(const [id,total] of [['summary-ticket',5.22],['summary-order',10]])if(!window.receiptHistory.some(r=>r.id===id))window.receiptHistory.push({id,store:'carrefour',store_name:'Carrefour',purchased_at:'2026-10-16T19:59:30',total,article_count:null,lines:[],summary_only:true});localStorage.setItem('receipt-fixture',JSON.stringify(window.receiptHistory));return {added:2,available:2,complete:true};}
+      if(action==='options'){window.cfStatus.options=structuredClone(msg.options);if(msg.options.history_enabled){for(const [id,total] of [['summary-ticket',5.22],['summary-order',10]])if(!window.receiptHistory.some(r=>r.id===id))window.receiptHistory.push({id,store:'carrefour',store_name:'Carrefour',purchased_at:'2026-10-16T19:59:30',total,article_count:null,lines:[],summary_only:true,account_key:id,ticket_available:id==='summary-ticket'});localStorage.setItem('receipt-fixture',JSON.stringify(window.receiptHistory));}return structuredClone(window.cfStatus);}
+      if(action==='sync_history'){if(window.failCarrefourAccount)throw new Error('Carrefour ha rechazado el acceso (HTTP 403).');for(const [id,total] of [['summary-ticket',5.22],['summary-order',10]])if(!window.receiptHistory.some(r=>r.id===id))window.receiptHistory.push({id,store:'carrefour',store_name:'Carrefour',purchased_at:'2026-10-16T19:59:30',total,article_count:null,lines:[],summary_only:true,account_key:id,ticket_available:id==='summary-ticket'});localStorage.setItem('receipt-fixture',JSON.stringify(window.receiptHistory));return {added:2,available:2,complete:true};}
       if(action==='purchases'){if(window.failCarrefourAccount)throw new Error('Carrefour ha rechazado el acceso (HTTP 403).');return {purchases:[{id:'private-purchase-key',purchased_at:'2026-10-16T19:59:30',amount:5.22,store:'Carrefour de prueba',reviewable:true,kind:'Ticket'},...(msg.cursor?[]:[{id:'online-key',purchased_at:'2026-10-16T19:59:30',amount:10,store:'Carrefour online',reviewable:false,kind:'Pedido online · factura pendiente de soporte'}])],next_cursor:msg.cursor?null:{ticketOffset:10}};}
     }
-    if(msg.type==='improved_shopping_list/receipts/preview'||msg.type==='improved_shopping_list/carrefour_account/preview'){
+    if(msg.type==='improved_shopping_list/receipts/preview'||msg.type==='improved_shopping_list/carrefour_account/preview'||msg.type==='improved_shopping_list/carrefour_account/preview_saved'){
       if(window.receiptHistory.some(receipt=>!receipt.summary_only))throw new Error('Este ticket ya se ha importado.');
       const draft={token:'preview',receipt:{id:'ticket1',store:'carrefour',store_name:'Carrefour',purchased_at:'2026-10-16T19:59:30',total:5.22,subtotal:6.22,discount:1,article_count:4,
         lines:[{id:'0',description:'SEITAN 250 G',count:1,unit_price:2.65,amount:2.65,pack_quantity:250,pack_unit:'g',product_id:'cacao',matched:!window.receiptSuggestionOnly,quantity:250,replenish:false},
@@ -3481,7 +3482,7 @@ async function main() {
     await accountSettings.getByRole('button',{name:'Ajustes de Carrefour',exact:true}).click();
     const account=accountSettings.locator('isl-carrefour-account');
     await account.getByRole('button',{name:'Conectar cuenta',exact:true}).waitFor();
-    assert.equal(await account.getByRole('button',{name:'Consultar compras',exact:true}).isDisabled(),true);
+    assert.equal(await account.getByRole('button',{name:'Consultar compras',exact:true}).count(),0);
     assert.equal(await accountPage.evaluate(()=>window.calls.filter(call=>/carrefour_account\/(login|purchases|preview)/.test(call.type??'')).length),0);
     await account.getByRole('button',{name:'Conectar cuenta',exact:true}).click();
     const login=account.getByRole('dialog',{name:'Conectar cuenta de Carrefour',exact:true});
@@ -3504,37 +3505,30 @@ async function main() {
     assert.equal(await account.locator('#account-email').textContent(),'test@example.test');
     await account.getByRole('switch',{name:'Descargar ticket automáticamente',exact:true}).check();
     assert.equal(await account.getByRole('switch',{name:'Actualizar precios públicos en el catálogo',exact:true}).count(),0);
-    await account.getByRole('button',{name:'Consultar compras',exact:true}).click();
-    const accountPurchases=account.getByRole('dialog',{name:'Compras de Carrefour',exact:true});
-    await accountPurchases.getByRole('button',{name:'Revisar ticket',exact:true}).waitFor();
-    assert.equal(await accountPurchases.locator('.purchase').count(),2);
-    await accountPage.screenshot({path:'test-results/carrefour-account-purchases-mobile.png',fullPage:true});
-    assert.ok(await accountPurchases.evaluate(el=>el.scrollWidth<=el.clientWidth+1));
-    await accountPurchases.getByRole('button',{name:'Revisar ticket',exact:true}).click();
-    const accountReview=accountPage.locator('isl-purchases').getByRole('dialog',{name:'Revisar ticket',exact:true});await accountReview.waitFor();
-    assert.equal(await accountPage.getByRole('button',{name:'Stock',exact:true}).getAttribute('aria-pressed'),'true');
-    assert.equal(await accountPage.evaluate(()=>window.receiptHistory.length),2);
+    await accountSettings.locator('#carrefour-dialog').getByRole('button',{name:'Cerrar ventana',exact:true}).click();
+    await accountPage.getByRole('button',{name:'Stock',exact:true}).click();
     const accountHistory=accountPage.locator('isl-purchases');
+    await accountPage.getByRole('tab',{name:'Compras',exact:true}).click();
+    await accountHistory.locator('#history .ticket').nth(1).waitFor();
     assert.equal(await accountHistory.locator('#history .ticket').count(),2);
-    assert.equal(await accountHistory.locator('#history .ticket-open').count(),0);
+    assert.equal(await accountHistory.locator('#history .ticket-open').count(),1);
     assert.ok((await accountHistory.locator('#history .muted').allTextContents()).every(text=>!text.includes('artículos')));
     assert.equal(await accountHistory.locator('.month-column[data-month="2026-10"]').getAttribute('data-total'),'15.22');
+    await accountHistory.locator('#history .ticket-open').click();
+    const accountReview=accountHistory.getByRole('dialog',{name:'Revisar ticket',exact:true});await accountReview.waitFor();
+    assert.equal(await accountPage.evaluate(()=>window.calls.filter(call=>call.type==='improved_shopping_list/carrefour_account/preview_saved').length),1);
+    assert.equal(await accountPage.evaluate(()=>window.receiptHistory.length),2);
     assert.equal(await accountPage.evaluate(()=>window.stockItems.length),0);
+    await accountPage.screenshot({path:'test-results/carrefour-account-purchases-mobile.png',fullPage:true});
     await accountReview.getByRole('button',{name:'Cerrar ventana',exact:true}).click();
+    await accountPage.evaluate(()=>window.failCarrefourAccount=true);
+    await accountHistory.locator('#history .ticket-open').click();
+    await accountHistory.locator('#message').filter({hasText:'HTTP 403'}).waitFor();
     await accountPage.getByRole('button',{name:'Ajustes',exact:true}).click();
     await accountSettings.getByRole('button',{name:'Ajustes de Carrefour',exact:true}).click();
-    await account.getByRole('button',{name:'Consultar compras',exact:true}).click();await accountPurchases.getByRole('button',{name:'Revisar ticket',exact:true}).waitFor();
-    await accountPurchases.getByRole('button',{name:'Ver más compras',exact:true}).click();
-    await accountPurchases.getByRole('button',{name:'Ver más compras',exact:true}).waitFor({state:'hidden'});
-    assert.equal(await accountPurchases.locator('.purchase').count(),3);
-    await accountPurchases.getByRole('button',{name:'Cerrar ventana',exact:true}).click();
-    await accountPage.evaluate(()=>window.failCarrefourAccount=true);
-    await account.getByRole('button',{name:'Consultar compras',exact:true}).click();
-    await accountPurchases.locator('#purchases-error').filter({hasText:'HTTP 403'}).waitFor();
-    await accountPurchases.getByRole('button',{name:'Cerrar ventana',exact:true}).click();
     await account.getByRole('button',{name:'Desconectar cuenta',exact:true}).click();
     await account.getByRole('button',{name:'Conectar cuenta',exact:true}).waitFor();
-    assert.equal(await account.getByRole('button',{name:'Consultar compras',exact:true}).isDisabled(),true);
+    assert.equal(await account.getByRole('button',{name:'Consultar compras',exact:true}).count(),0);
     await accountContext.close();
     // Logs display live changes as text, filter by origin/type and clean up on navigation.
     await page.setViewportSize({width:1280,height:960});

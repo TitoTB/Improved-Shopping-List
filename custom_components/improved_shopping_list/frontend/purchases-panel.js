@@ -411,14 +411,14 @@ class ImprovedShoppingPurchases extends HTMLElement {
     root.querySelector('#history').replaceChildren(...this._session.receipts.map(receipt=>{
       const card=node('article','ticket');card.dataset.id=receipt.id;
       const title=node('div','title');title.append(node('strong','',receipt.store_name+(receipt.document_type==='invoice'?' · Factura':'')),node('span','muted',documentDate(receipt)+(receipt.article_count==null?'':' · '+receipt.article_count+' artículos')));
-      const open=this._button('Ver ticket de '+receipt.store_name+' del '+documentDate(receipt),'mdi:receipt-text',()=>receipt.pending_review?void this._reviewPending(receipt):this._openPurchaseDetail(receipt),'ticket-open'+(!receipt.summary_only?' reviewed':''));
-      card.append(this._storeImage(receipt.store,receipt.store_name),title,node('span','total',money(receipt.total)));if(!receipt.summary_only||receipt.pending_review)card.append(open);return card;
+      const open=this._button('Ver ticket de '+receipt.store_name+' del '+documentDate(receipt),'mdi:receipt-text',()=>receipt.summary_only?void this._reviewPending(receipt):this._openPurchaseDetail(receipt),'ticket-open'+(!receipt.summary_only?' reviewed':''));
+      card.append(this._storeImage(receipt.store,receipt.store_name),title,node('span','total',money(receipt.total)));if(!receipt.summary_only||receipt.pending_review||(receipt.store==='carrefour'&&receipt.account_key&&receipt.ticket_available!==false))card.append(open);return card;
     }));
   }
   async _reviewPending(receipt){
     if(this._busy)return;
     this._setBusy(true);this._error='';
-    try{const draft=await this._hass.callWS({type:'improved_shopping_list/receipts/review_saved',receipt_id:receipt.id});this._draft=draft;this._buildReview();this.shadowRoot.querySelector('dialog').showModal();}
+    try{const draft=await this._hass.callWS({type:receipt.pending_review?'improved_shopping_list/receipts/review_saved':'improved_shopping_list/carrefour_account/preview_saved',receipt_id:receipt.id});this._draft=draft;this._buildReview();this.shadowRoot.querySelector('dialog').showModal();}
     catch(error){this._error=error.message??'No se ha podido abrir el ticket.';this._render();}
     finally{this._setBusy(false);}
   }

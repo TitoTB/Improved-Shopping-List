@@ -308,3 +308,46 @@ async def test_failed_login_does_not_remember_unverified_password(account):
         await account.async_login("owner", "test@example.test", "PRIVATE_PASSWORD", True)
     assert not account.status("owner")["credentials_saved"]
     assert not await account._credentials_store.async_load()
+
+
+async def test_saved_purchase_ticket_uses_private_reference_after_restart(account, hass):
+    from hashlib import sha256
+    reference = "test-ticket-persistent"
+    key = sha256(("carrefour:"+reference).encode()).hexdigest()
+    account._session = {"login_token":"private","jwt":"private-jwt","jwt_until":time.time()+500}
+    account._http = AsyncMock(return_value={"purchases":[{"purchaseId":reference,"purchaseDate":dt_util.now().isoformat(),"amount":3.75,"orderSource":"TICKET"}]})
+    await account.async_purchases("owner", import_summaries=False)
+    saved = {"id":"summary","account_key":key,"store":"carrefour","summary_only":True,"total":3.75}
+    account.receipts.stock = SimpleNamespace(receipts={"history":{"summary":saved}})
+    restored = CarrefourAccount(hass, account.receipts, account.activity)
+    await restored.async_load()
+    restored._config = dict(account._config)
+    restored.start()
+    restored._http = AsyncMock(return_value=b"%PDF-test")
+    try:
+        assert await restored.async_preview_saved("owner", "summary") == {"token":"draft"}
+        assert restored._http.await_args.args[1] == API+"/md-ticketsAccount-v1/tickets/"+reference+"/pdf"
+        assert restored._http.await_count == 1
+        assert reference not in json.dumps(restored.status("owner"))
+        assert saved == account.receipts.stock.receipts["history"]["summary"]
+    finally:
+        restored.stop()
+
+
+async def test_legacy_saved_purchase_is_resolved_by_exact_reference_hash(account):
+    from hashlib import sha256
+    reference = "legacy-ticket"
+    key = sha256(("carrefour:"+reference).encode()).hexdigest()
+    account._session = {"login_token":"private","jwt":"private-jwt","jwt_until":time.time()+500}
+    account.receipts.stock = SimpleNamespace(receipts={"history":{"summary":{
+        "account_key":key,"store":"carrefour","summary_only":True,"total":3.75}}})
+    row = {"purchaseId":reference,"purchaseDate":dt_util.now().isoformat(),"amount":3.75,"orderSource":"TICKET"}
+    account._http = AsyncMock(side_effect=[{"purchases":[row]},b"%PDF-test"])
+    assert await account.async_preview_saved("owner","summary") == {"token":"draft"}
+    account.receipts.async_import_carrefour_purchases.assert_not_awaited()
+    assert account._http.await_count == 2
+    account._session.clear()
+    with pytest.raises(CarrefourAccountError, match="Conecta tu cuenta"):
+        await account.async_preview_saved("owner","summary")
+    with pytest.raises(CarrefourAccountError, match="no tiene"):
+        await account.async_preview_saved("owner","missing")

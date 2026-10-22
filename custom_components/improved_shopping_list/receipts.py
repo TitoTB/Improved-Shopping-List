@@ -72,7 +72,8 @@ class ReceiptManager:
                 receipt = {"id":"carrefour-account:"+key,"digest":"carrefour-account:"+key,"account_key":key,
                     "summary_only":True,"store":"carrefour","store_name":"Carrefour",
                     "purchased_at":dt_util.as_local(when).isoformat(),"currency":"EUR","total":purchase["amount"],
-                    "article_count":purchase.get("article_count"),"lines":[],"imported_at":time.time()}
+                    "article_count":purchase.get("article_count"),"lines":[],"imported_at":time.time(),
+                    "ticket_available":purchase.get("ticket_available", True)}
                 existing = next((old for old in data["history"].values() if old.get("account_key")==key),None)
                 if existing and (not existing.get("summary_only") or existing.get("pending_review")):
                     continue

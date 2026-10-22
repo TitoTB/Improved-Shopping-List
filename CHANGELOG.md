@@ -2,6 +2,8 @@
 
 ## Pendiente de publicación
 
+- Los tickets de compras de Carrefour se recuperan desde el icono junto al importe en Stock → Compras; se retira Consultar compras de los ajustes. Las referencias privadas se conservan al reiniciar y los resúmenes antiguos se resuelven contra el historial de la cuenta.
+
 - Carrefour: conexión al pie del popup, toggles desactivados con el color predeterminado y descripciones de cada opción. La ventana de conexión usa Correo y permite recordar las credenciales localmente de forma voluntaria.
 
 ## 0.32.0 — 2026-10-22

@@ -3,6 +3,7 @@
 import asyncio
 import base64
 from datetime import timedelta
+from hashlib import sha256
 import json
 import math
 import re
@@ -62,7 +63,7 @@ class CarrefourAccount:
             self._options.update({key:value for key,value in options.items() if key in self._options})
         data = await self._store.async_load()
         if data and isinstance(data, dict) and isinstance(data.get("login_token"), str):
-            self._session = {key: data[key] for key in ("login_token", "jwt", "jwt_until", "device_cookies", "email") if key in data}
+            self._session = {key: data[key] for key in ("login_token", "jwt", "jwt_until", "device_cookies", "email", "purchase_refs") if key in data}
 
     def start(self):
         self._active = True
@@ -416,13 +417,18 @@ class CarrefourAccount:
                 at_utc = dt_util.as_utc(at_date if at_date.tzinfo else at_date.replace(tzinfo=dt_util.DEFAULT_TIME_ZONE))
                 if not now-timedelta(days=365) <= at_utc <= now+timedelta(days=1):
                     continue
-                summaries.append({"purchaseId":identifier,"purchaseDate":at,"amount":amount})
+                supported = purchase.get("orderSource") == "TICKET"
+                summaries.append({"purchaseId":identifier,"purchaseDate":at,"amount":amount,"ticket_available":supported})
+                references = self._session.setdefault("purchase_refs", {})
+                references[sha256(("carrefour:"+identifier).encode()).hexdigest()] = {"id":identifier,"amount":amount,"supported":supported}
                 key = str(uuid4())
                 supported = purchase.get("orderSource") == "TICKET"
                 self._purchases[key] = {"id": identifier, "owner": owner, "expires": time.time()+1800, "supported": supported, "amount": amount}
                 output.append({"id": key, "purchased_at": at, "amount": amount,
                     "store": str(purchase.get("mallName", "Carrefour"))[:150], "reviewable": supported,
                     "kind": "Ticket" if supported else "Pedido online · factura pendiente de soporte"})
+            self._session["purchase_refs"] = dict(list(self._session.get("purchase_refs", {}).items())[-1000:])
+            await self._store.async_save(self._session)
             added = await self.receipts.async_import_carrefour_purchases(summaries) if (self._options["history_enabled"] if import_summaries is None else import_summaries) else 0
             offsets = response.get("offsets", {})
             next_cursor = {key: offsets.get(key, 0) for key in OFFSET_KEYS}
@@ -449,6 +455,48 @@ class CarrefourAccount:
                 seen.add(marker)
                 await asyncio.sleep(1)
             return {"added":added,"available":available,"complete":False}
+
+    async def async_preview_saved(self, owner, receipt_id):
+        """Resolve a locally imported purchase without exposing provider identifiers."""
+        saved = self.receipts.stock.receipts["history"].get(receipt_id)
+        if not saved or saved.get("store") != "carrefour" or not saved.get("summary_only") or not saved.get("account_key"):
+            raise CarrefourAccountError("Esta compra no tiene un ticket pendiente de Carrefour.", "saved_purchase")
+        if not self._session.get("login_token"):
+            raise CarrefourAccountError("Conecta tu cuenta de Carrefour en Ajustes → Tiendas.", "not_connected")
+        def reference():
+            refs = self._session.get("purchase_refs", {})
+            item = refs.get(saved["account_key"]) if isinstance(refs, dict) else None
+            if not isinstance(item, dict):
+                return None
+            identifier = item.get("id")
+            if (not isinstance(identifier, str) or not re.fullmatch(r"[A-Za-z0-9_-]{1,150}", identifier)
+                    or sha256(("carrefour:"+identifier).encode()).hexdigest() != saved["account_key"]
+                    or type(item.get("supported")) is not bool or item.get("amount") != saved["total"]):
+                return None
+            return item
+        purchase = reference()
+        cursor, seen = None, set()
+        for _ in range(100):
+            if purchase:
+                break
+            result = await self.async_purchases(owner, cursor, import_summaries=False)
+            purchase = reference()
+            cursor = result["next_cursor"]
+            if purchase or cursor is None:
+                break
+            marker = tuple(cursor[key] for key in OFFSET_KEYS)
+            if marker in seen:
+                break
+            seen.add(marker)
+            await asyncio.sleep(1)
+        if not purchase:
+            raise CarrefourAccountError("Carrefour ya no ofrece esta compra en el historial de la cuenta conectada.", "purchase_unavailable")
+        key = str(uuid4())
+        self._purchases[key] = {**purchase, "owner":owner, "expires":time.time()+1800}
+        try:
+            return await self.async_preview(owner, key)
+        finally:
+            self._purchases.pop(key, None)
 
     async def async_preview(self, owner, purchase_id):
         async with self._lock:

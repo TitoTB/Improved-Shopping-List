@@ -1,7 +1,7 @@
 """Local receipt extraction. Only recognized formats produce importable purchases."""
 
 from datetime import datetime
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 from hashlib import sha256
 from io import BytesIO
 import re
@@ -77,6 +77,66 @@ def parse_carrefour(text):
         "discount": round(subtotal - total, 2), "total": total, "article_count": int(match[1]), "lines": items}
 
 
+
+def parse_carrefour_invoice(text):
+    """Online Carrefour invoices: PVP is the line total before promotions."""
+    if not re.search(r"C\.?C\.?\s+CARREFOUR|CARREFOUR", text, re.I) or not re.search(r"EAN\s+DESCRIPCI[ÓO]N\s+CANTIDAD\s+PVP", text, re.I):
+        raise CatalogError("No se reconoce el formato de esta factura de Carrefour.")
+    identity = re.search(r"\bFACTURA\s+N[º°OÚU]?[:.]?\s*([A-Z0-9][A-Z0-9/-]{2,60})", text, re.I)
+    date_match = re.search(r"FECHA\s+FACTURA\s*:\s*(\d{2}/\d{2}/\d{4})", text, re.I)
+    if not identity or not date_match:
+        raise CatalogError("No se han podido identificar el número y la fecha de la factura.")
+    try:
+        purchased_at = datetime.strptime(date_match[1], "%d/%m/%Y").isoformat()
+    except ValueError as err:
+        raise CatalogError("La fecha de la factura no es válida.") from err
+    def decimal(value):
+        return Decimal(value.replace(".", "").replace(",", "."))
+    def summary(label, *, optional=False):
+        matches = re.findall(rf"(?m)^\s*{label}\s+(-?{MONEY})\s+EUR\s*$", text, re.I)
+        if len(matches) != 1:
+            if optional and not matches:
+                return Decimal(0)
+            raise CatalogError("No se han podido comprobar los totales de la factura.")
+        return decimal(matches[0])
+    items = []
+    row_pattern = re.compile(rf"^(\d{{8}}|\d{{12,14}})\s+(.+?)\s+(\d+(?:\.\d{{3}})*,\d{{3}})\s+({MONEY})\s+(-?{MONEY})\s+({MONEY})\s+({MONEY})\s+({MONEY})$")
+    for raw in text.splitlines():
+        line = re.sub(r"\s+", " ", raw).strip()
+        if not re.match(r"^\d{8,14}\s", line):
+            continue
+        match = row_pattern.fullmatch(line)
+        if not match:
+            raise CatalogError("Hay una línea de factura cuyo EAN, cantidad o precio no se ha podido leer.")
+        ean, description, count_text, gross_text, discount_text, net_text, base_text, tax_text = match.groups()
+        check = sum(int(digit) * (3 if index % 2 == 0 else 1) for index, digit in enumerate(reversed(ean[:-1])))
+        if (10 - check % 10) % 10 != int(ean[-1]):
+            raise CatalogError("Hay un EAN no válido en la factura. No se ha importado.")
+        count, gross, adjustment, net = map(decimal, (count_text, gross_text, discount_text, net_text))
+        if count <= 0 or count > 1000000 or net > gross or abs(gross + adjustment - net) > Decimal("0.01"):
+            raise CatalogError("Las cantidades, descuentos e importes de la factura no coinciden.")
+        # Prices remain before promotions; a free item must not overwrite its price with zero.
+        unit_price = (gross / count).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        pack = re.search(r"\b(\d+(?:[,.]\d+)?)\s*(KG|GRS?|G|ML|CL|LITROS?|L)\b", description, re.I)
+        items.append({"id":str(len(items)), "description":description, "ean":ean,
+            "count":float(count), "unit_price":float(unit_price), "amount":float(net),
+            "gross_amount":float(gross), "line_discount":float(gross-net),
+            "pack_quantity":float(pack[1].replace(",", ".")) if pack else None,
+            "pack_unit":({"gr":"g", "grs":"g", "litro":"l", "litros":"l"}.get(pack[2].lower(), pack[2].lower()) if pack else "")})
+    if not 1 <= len(items) <= 300:
+        raise CatalogError("No se han podido identificar las líneas de productos de la factura.")
+    subtotal = summary("TOTAL IMPUESTOS INCLUIDOS")
+    shipping = summary("TOTAL GASTOS DE ENV[ÍI]O", optional=True)
+    discount = summary(r"OTROS DESCUENTOS/BONIF\. FACTURA", optional=True)
+    total = summary("TOTAL FACTURA")
+    if min(subtotal,shipping,discount,total) < 0 or abs(sum(Decimal(str(item["amount"])) for item in items)-subtotal) > Decimal("0.02") or abs(subtotal+shipping-discount-total) > Decimal("0.02"):
+        raise CatalogError("El detalle, los gastos de envío y el total de la factura no coinciden. No se ha importado.")
+    return {"store":"carrefour", "store_name":"Carrefour", "document_type":"invoice",
+        "purchased_at":purchased_at, "identity":"invoice:"+identity[1].upper(), "currency":"EUR",
+        "subtotal":float(subtotal), "shipping":float(shipping), "discount":float(discount),
+        "total":float(total), "article_count":sum(item["count"] for item in items), "lines":items}
+
+
 def extract_receipt(content):
     """Run in an executor; never retain the PDF's payment/loyalty/customer data."""
     if not content.startswith(b"%PDF-") or not 0 < len(content) <= MAX_PDF_BYTES:
@@ -96,7 +156,8 @@ def extract_receipt(content):
             raise CatalogError("El ticket contiene demasiado texto.")
         if len(text.strip()) < 20:
             raise CatalogError("El PDF no contiene texto legible. Los tickets escaneados requieren OCR y todavía no están disponibles.")
-        receipt = parse_carrefour(text)
+        invoice = bool(re.search(r"FECHA\s+FACTURA\s*:", text, re.I))
+        receipt = parse_carrefour_invoice(text) if invoice else parse_carrefour(text)
     except CatalogError:
         raise
     except Exception as err:

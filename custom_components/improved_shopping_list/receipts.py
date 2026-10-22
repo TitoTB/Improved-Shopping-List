@@ -10,7 +10,7 @@ from uuid import uuid4
 
 from homeassistant.util import dt as dt_util
 
-from .catalog import CatalogError, normalized_name
+from .catalog import CatalogError, normalized_name, product_codes
 from .receipt_parser import MAX_PDF_BYTES, extract_receipt
 from .stock import DAY, DEFAULT_CONFIG, quantity_value
 
@@ -52,7 +52,7 @@ class ReceiptManager:
             stock = self.stock.item_for(product)
             offers = self.prices.prices_for(product) if hasattr(self.prices,"prices_for") else []
             price = next((offer for offer in offers if offer["store"] == store),None)
-            choices.append({"id":product["id"],"name":product["name"],"image_url":product.get("image_url", ""),"icon":product.get("icon", ""),"unit":stock["unit"] if stock else "uds",
+            choices.append({"id":product["id"],"name":product["name"],"image_url":product.get("image_url", ""),"icon":product.get("icon", ""),"barcodes":product_codes(product, "barcode"),"unit":stock["unit"] if stock else "uds",
                 "stock_id":stock["id"] if stock else "","revision":stock["revision"] if stock else 0,
                 "price":price.get("price") if price else None,"price_date":price.get("checked_at",0) if price else 0})
         return choices
@@ -119,17 +119,21 @@ class ReceiptManager:
         used = set()
         for line in receipt["lines"]:
             alias = self.stock.receipts["aliases"].get(receipt["store"]+":"+normalized_name(line["description"]))
-            product = next((p for p in choices if alias and p["id"] == alias["product_id"]),None)
+            ean = line.get("ean", "")
+            ean_product = next((p for p in choices if ean and any(code.isascii() and code.isdigit() and code.zfill(14) == ean.zfill(14) for code in p["barcodes"])), None)
+            product = ean_product or next((p for p in choices if alias and p["id"] == alias["product_id"]),None)
+            if ean_product and alias and alias["product_id"] != ean_product["id"]:
+                alias = None
             if not product:
                 alias = None
             exact = next((p for p in choices if normalized_name(p["name"]) == normalized_name(line["description"])),None)
             ranked = sorted(choices,key=lambda p:SequenceMatcher(None,normalized_name(p["name"]),normalized_name(line["description"])).ratio(),reverse=True)
             product = product or exact or (ranked[0] if ranked and SequenceMatcher(None,normalized_name(ranked[0]["name"]),normalized_name(line["description"])).ratio() >= .45 else None)
             if product and product["id"] in used:
-                product = alias = exact = None
+                product = alias = exact = ean_product = None
             if product:
                 used.add(product["id"])
-            line.update(product_id=product["id"] if product else "", matched=bool(alias or exact), quantity=None,
+            line.update(product_id=product["id"] if product else "", matched=bool(ean_product or alias or exact), quantity=None,
                 unit=product["unit"] if product else "uds", stock_id=product["stock_id"] if product else "")
             if product:
                 line["quantity"] = (round(alias["per_unit"] * line["count"],3) if alias and alias.get("per_unit") is not None and alias["unit"] == product["unit"]

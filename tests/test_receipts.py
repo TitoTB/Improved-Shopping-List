@@ -16,7 +16,7 @@ from homeassistant.util import dt as dt_util
 
 from custom_components.improved_shopping_list.catalog import Catalog, CatalogError
 from custom_components.improved_shopping_list.const import DOMAIN, CONF_TODO_ENTITY
-from custom_components.improved_shopping_list.receipt_parser import parse_carrefour, extract_receipt
+from custom_components.improved_shopping_list.receipt_parser import parse_carrefour, parse_carrefour_invoice, extract_receipt
 from custom_components.improved_shopping_list.receipts import ReceiptManager, converted_quantity
 from custom_components.improved_shopping_list.stock import StockManager
 
@@ -283,3 +283,73 @@ async def test_receipt_link_choices_include_catalog_image_and_icon(hass):
     product = next(product for product in choices["products"] if product["id"] == env.product["id"])
     assert product["image_url"] == "/local/seitan.png"
     assert product["icon"] == "mdi:food"
+
+
+def invoice_text():
+    date = (dt_util.now()-timedelta(days=1)).strftime('%d/%m/%Y')
+    return f'''Carrefour
+FACTURA Nº: TEST-INVOICE-0001 NOMBRE: PRIVATE_CUSTOMER
+FECHA FACTURA: {date} CIF/NIF: PRIVATE_TAX_ID
+PEDIDO Nº: PRIVATE_ORDER DIRECCIÓN: PRIVATE_ADDRESS
+FECHA PEDIDO: 01/01/2020
+EAN DESCRIPCIÓN CANTIDAD PVP DESCUENTO TOTAL PVP BASE % IVA
+1234567890128 PRODUCTO ALFA 250 G 2,000 6,58 0,00 6,58 5,98 10,00
+4006381333931 PRODUCTO BETA 3,000 9,75 -3,25 6,50 5,37 21,00
+8410109115543 PRODUCTO GAMMA 1,000 2,65 -2,65 0,00 0,00 4,00
+EAN DESCRIPCIÓN CANTIDAD PVP DESCUENTO TOTAL PVP BASE % IVA
+TOTAL IMPUESTOS INCLUIDOS 13,08 EUR
+BASE IMPONIBLE GASTOS DE ENVÍO 3,30 EUR
+IVA GASTOS DE ENVÍO 21,00% 0,69 EUR
+TOTAL GASTOS DE ENVÍO 3,99 EUR
+OTROS DESCUENTOS/BONIF. FACTURA 0,00 EUR
+TOTAL FACTURA 17,07 EUR
+Pago con Tarjeta PRIVATE_PAYMENT
+C.C. CARREFOUR, S.A.
+'''
+
+
+def test_carrefour_invoice_ean_line_prices_promotions_shipping_and_privacy():
+    receipt = parse_carrefour_invoice(invoice_text())
+    assert receipt['document_type'] == 'invoice'
+    assert receipt['subtotal'] == 13.08 and receipt['shipping'] == 3.99 and receipt['total'] == 17.07
+    assert receipt['article_count'] == 6 and len(receipt['lines']) == 3
+    first, promotion, free = receipt['lines']
+    assert first['ean'] == '1234567890128' and first['count'] == 2 and first['unit_price'] == 3.29
+    assert converted_quantity(first, 'g') == 500
+    assert promotion['unit_price'] == 3.25 and promotion['amount'] == 6.5 and promotion['line_discount'] == 3.25
+    assert free['amount'] == 0 and free['unit_price'] == 2.65
+    assert 'PRIVATE_' not in str(receipt)
+    assert receipt['purchased_at'].startswith((dt_util.now()-timedelta(days=1)).strftime('%Y-%m-%d'))
+    assert extract_receipt(pdf_bytes(invoice_text()))['document_type'] == 'invoice'
+
+
+@pytest.mark.parametrize(('before', 'after'), [
+    ('1234567890128', '1234567890129'),
+    ('2,000 6,58', '0,000 6,58'),
+    ('6,50 5,37', '6,61 5,37'),
+    ('TOTAL IMPUESTOS INCLUIDOS 13,08', 'TOTAL IMPUESTOS INCLUIDOS 14,08'),
+    ('TOTAL GASTOS DE ENVÍO 3,99', 'TOTAL GASTOS DE ENVÍO 2,99'),
+    ('TOTAL FACTURA 17,07', 'TOTAL FACTURA 18,07'),
+])
+def test_carrefour_invoice_rejects_unbalanced_or_invalid_lines(before, after):
+    with pytest.raises(CatalogError):
+        parse_carrefour_invoice(invoice_text().replace(before, after))
+
+
+async def test_invoice_matches_saved_ean_confirms_stock_prices_and_duplicate(hass):
+    env = await setup_manager(hass)
+    current = next(p for p in env.stock.catalog.products if p['id'] == env.product['id'])
+    await env.stock.catalog.async_save_product({'id':current['id'], 'revision':current['revision'], 'name':'Seitán', 'barcodes':['01234567890128']})
+    encoded = base64.b64encode(pdf_bytes(invoice_text())).decode()
+    draft = await env.manager.async_preview(encoded, 'owner')
+    first = draft['receipt']['lines'][0]
+    assert first['product_id'] == env.product['id'] and first['matched'] is True
+    assert first['quantity'] == 500 and first['replenish'] is True
+    confirmed = await env.manager.async_confirm(draft['token'], 'owner', selections(draft, env.product, 500), True)
+    assert confirmed['total'] == 17.07 and confirmed['shipping'] == 3.99
+    assert env.stock.snapshot['items'][0]['quantity'] == 520
+    assert env.manager.offers_for(env.product)[0]['price'] == 3.29
+    assert 'PRIVATE_' not in str(env.stock.receipts)
+    # Same invoice identity is rejected even if PDF bytes change.
+    with pytest.raises(CatalogError, match='ya se ha importado'):
+        await env.manager.async_preview(base64.b64encode(pdf_bytes(invoice_text()+'\n')).decode(), 'owner')

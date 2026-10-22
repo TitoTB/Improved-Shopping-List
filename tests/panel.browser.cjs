@@ -185,6 +185,7 @@ const hass={
           {id:'1',description:'FLAUTIN CEREALES',count:2,unit_price:.44,amount:.88,pack_quantity:null,pack_unit:'',product_id:'',quantity:null,replenish:false},
           {id:'2',description:'ANACARDO CRUDO 200',count:1,unit_price:2.69,amount:2.69,pack_quantity:null,pack_unit:'',product_id:'',quantity:null,replenish:false}]},
         ...receiptOptions()};
+      if(window.receiptInvoice){Object.assign(draft.receipt,{id:'invoice1',document_type:'invoice',shipping:3.99,discount:0,total:10.21});Object.assign(draft.receipt.lines[0],{ean:'1234567890128',count:2,gross_amount:5.30,line_discount:2.65,quantity:500});}
       for(const line of draft.receipt.lines){const learned=window.receiptLinks.find(link=>link.id===line.id);if(learned)line.product_id=learned.product_id;}
       window.receiptDraft=structuredClone(draft.receipt);return draft;
     }
@@ -3434,6 +3435,31 @@ async function main() {
     assert.equal(await groupedCatalog.getByRole('button',{name:'Agrupar por categorías',exact:true}).count(),1);
     await groupingPage.getByRole('button',{name:'Lista',exact:true}).click();
     await groupingContext.close();
+    // Invoices reuse the review workflow, preserve EAN and keep delivery out of product prices.
+    const invoiceContext=await browser.newContext({viewport:{width:390,height:844}});
+    const invoicePage=await invoiceContext.newPage();invoicePage.on('pageerror',error=>errors.push(error.message));
+    await invoicePage.addInitScript(()=>{window.receiptInvoice=true;});
+    await invoicePage.goto(url);await invoicePage.getByRole('button',{name:'Stock',exact:true}).click();
+    await invoicePage.getByRole('tab',{name:'Compras',exact:true}).click();
+    const invoicePurchases=invoicePage.locator('isl-purchases');
+    await invoicePurchases.locator('#ticket-file').setInputFiles({name:'factura.pdf',mimeType:'application/pdf',buffer:Buffer.from('%PDF-fixture')});
+    const invoiceReview=invoicePurchases.getByRole('dialog',{name:'Revisar ticket',exact:true});await invoiceReview.waitFor();
+    assert.match(await invoiceReview.locator('#review-summary').textContent(),/Factura/);
+    await invoiceReview.locator('#linked-products-group > summary').click();
+    assert.equal(await invoiceReview.locator('[data-line-id="0"] .receipt-ean').textContent(),'EAN: 1234567890128');
+    await invoiceReview.locator('[data-line-id="1"] .ignore').click();await invoiceReview.locator('[data-line-id="2"] .ignore').click();
+    await invoiceReview.getByRole('button',{name:'Continuar',exact:true}).click();
+    await invoiceReview.getByRole('button',{name:'Continuar',exact:true}).click();
+    assert.match(await invoiceReview.locator('#step-help').textContent(),/antes de descuentos y no incluye el envío/);
+    assert.match(await invoiceReview.locator('[data-line-id="0"] .original').textContent(),/2 × 2,65.*2,65/);
+    await invoiceReview.getByRole('button',{name:'Confirmar compra',exact:true}).click();await invoiceReview.waitFor({state:'hidden'});
+    await invoicePurchases.locator('#history summary').click();
+    assert.match(await invoicePurchases.locator('#history').textContent(),/Gastos de envío/);
+    assert.match(await invoicePurchases.locator('#history').textContent(),/Descuento de línea/);
+    assert.equal(await invoicePage.evaluate(()=>window.receiptHistory[0].lines[0].ean),'1234567890128');
+    await invoicePage.screenshot({path:'test-results/carrefour-invoice-mobile.png',fullPage:true});
+    assert.ok(await invoicePurchases.evaluate(node=>node.scrollWidth<=node.clientWidth+1));
+    await invoiceContext.close();
     // A proposed match is not a linked catalog product until the user confirms it.
     const suggestionReceiptContext=await browser.newContext({viewport:{width:390,height:844}});
     const suggestionReceiptPage=await suggestionReceiptContext.newPage();

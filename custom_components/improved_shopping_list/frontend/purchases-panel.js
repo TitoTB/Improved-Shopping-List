@@ -4,6 +4,8 @@ import { productNameKey } from "./product-names.js?v=0.29.0";
 
 const node=(tag,cls,text)=>{const el=document.createElement(tag);if(cls)el.className=cls;if(text!==undefined)el.textContent=text;return el;};
 const money=value=>new Intl.NumberFormat('es-ES',{style:'currency',currency:'EUR'}).format(value);
+const documentDate=receipt=>receipt.document_type==='invoice'?new Intl.DateTimeFormat('es-ES',{dateStyle:'short'}).format(new Date(receipt.purchased_at)):date(receipt.purchased_at);
+const lineAmounts=line=>`${line.count} × ${money(line.unit_price)}${line.line_discount?' − '+money(line.line_discount):''} = ${money(line.amount)}`;
 const date=value=>new Intl.DateTimeFormat('es-ES',{dateStyle:'short',timeStyle:'short'}).format(new Date(value));
 const icon=name=>{const el=node('ha-icon');el.setAttribute('icon',name);el.setAttribute('aria-hidden','true');return el;};
 
@@ -58,6 +60,7 @@ class ImprovedShoppingPurchases extends HTMLElement {
       @media(max-width:550px){.stock-line{padding:10px}.stock-line-main{grid-template-columns:minmax(0,1fr) 64px 54px;gap:6px}.stock-line-main .small-button{width:34px;height:42px}.stock-line-main input{padding:8px 3px}.stock-line-name{font-size:.85em}.review-group>summary{padding:12px}}
       ha-icon{--mdc-icon-size:22px;width:22px;height:22px;flex:none}#review-summary{margin:12px 0}.note{font-size:.85em;opacity:.7;margin:10px 0}
       .association-image{display:grid;place-items:center;width:32px;height:32px;flex:none}.association-image img{display:block;width:100%;height:100%;object-fit:contain}
+      .receipt-ean{display:block;font-size:12px;opacity:.7;margin-top:4px;overflow-wrap:anywhere}
       .association-row{display:flex;align-items:center;gap:10px;min-width:0}.association-name{flex:1;min-width:0;overflow-wrap:anywhere}.association-name strong{font-size:.95em}.linked-name{font-size:.8em;opacity:.65;margin-left:8px}.association-buttons{display:flex;gap:6px;flex:none;margin-left:auto}
       .small-button.link{background:#2196f3;color:white}.small-button.create{background:var(--isl-green,#267052);color:white}.small-button.ignore{background:transparent;color:inherit;border:0}.small-button.ignore[aria-pressed=true]{background:#d32f2f;color:white}
       #association-dialog{width:min(500px,calc(100vw - 24px))}#association-form label{margin-top:16px}#association-error{margin:12px 0 0}
@@ -109,7 +112,7 @@ class ImprovedShoppingPurchases extends HTMLElement {
   }
   _buildReview(){
     const root=this.shadowRoot,{receipt,products}=this._draft,used=new Set();
-    root.querySelector('#review-summary').replaceChildren(node('strong','',receipt.store_name),node('span','',date(receipt.purchased_at)),node('strong','',money(receipt.total)));
+    root.querySelector('#review-summary').replaceChildren(node('strong','',receipt.store_name+(receipt.document_type==='invoice'?' · Factura':'')),node('span','',documentDate(receipt)),node('strong','',money(receipt.total)));
     this._step=0;
     this._reviewGroups={};
     root.querySelector('#review-lines').replaceChildren();
@@ -166,6 +169,7 @@ class ImprovedShoppingPurchases extends HTMLElement {
       'Marca aquellos productos que quieres añadir al registro de stock.',
       this._pricesEnabled?'Selecciona los productos cuyo precio quieres actualizar en el catálogo, para esta tienda.':'Los precios están desactivados en Ajustes. Puedes confirmar las vinculaciones y la reposición sin guardar precios.'
     ][step];
+    if(step===2&&this._draft.receipt.document_type==='invoice'&&this._pricesEnabled)root.querySelector('#step-help').textContent+=' El precio sugerido es el PVP unitario antes de descuentos y no incluye el envío.';
     root.querySelector('#step-help').hidden=false;
     root.querySelector('#previous-step').hidden=step===0;root.querySelector('#links-only').hidden=step!==0;
     root.querySelector('#previous-step').textContent=step===1?'Volver a vinculación':'Anterior';
@@ -186,7 +190,7 @@ class ImprovedShoppingPurchases extends HTMLElement {
     for(const edit of this._edits){
       const product=this._product(edit);if(step>0&&!product)continue;
       const row=node('div','review-line');row.dataset.lineId=edit.id;
-      if(step===2){const original=node('div','original'),name=node('div','price-product-name');name.append(this._productImage(product),node('strong','',product.name));original.append(name,node('span','',`${edit.line.count} × ${money(edit.line.unit_price)} = ${money(edit.line.amount)}`));row.append(original);}
+      if(step===2){const original=node('div','original'),name=node('div','price-product-name');name.append(this._productImage(product),node('strong','',product.name));original.append(name,node('span','',lineAmounts(edit.line)));row.append(original);}
       if(step===0)this._associationRow(row,edit);
       if(step===1)this._stockRow(row,edit,product);
       if(step===2){
@@ -219,6 +223,7 @@ class ImprovedShoppingPurchases extends HTMLElement {
   _associationRow(row,edit){
     row.classList.add('association-row');
     const name=node('div','association-name');name.append(node('strong','',edit.line.description));
+    if(edit.line.ean)name.append(node('span','receipt-ean','EAN: '+edit.line.ean));
     const product=this._product(edit);
     if(product){
       row.append(this._productImage(product));name.append(node('span','linked-name','→ '+product.name));
@@ -363,11 +368,14 @@ class ImprovedShoppingPurchases extends HTMLElement {
     const expanded=new Set([...root.querySelectorAll('details[open]')].map(el=>el.dataset.id));
     root.querySelector('#history').replaceChildren(...this._session.receipts.map(receipt=>{
       const details=node('details','ticket');details.dataset.id=receipt.id;details.open=expanded.has(receipt.id);
-      const summary=node('summary'),title=node('span','title');title.append(node('strong','',receipt.store_name),node('span','muted',date(receipt.purchased_at)+' · '+receipt.article_count+' artículos'));
+      const summary=node('summary'),title=node('span','title');title.append(node('strong','',receipt.store_name+(receipt.document_type==='invoice'?' · Factura':'')),node('span','muted',documentDate(receipt)+' · '+receipt.article_count+' artículos'));
       summary.append(icon('mdi:receipt-text'),title,node('span','total',money(receipt.total)));details.append(summary);
       for(const line of receipt.lines){const row=node('div','line'),description=node('div');description.append(node('p','',line.description),node('p','muted',`${line.count} × ${money(line.unit_price)}`));
+        if(line.ean)description.append(node('p','muted','EAN: '+line.ean));
+        if(line.line_discount)description.append(node('p','muted','Descuento de línea: −'+money(line.line_discount)));
         if(line.replenished)description.append(node('p','muted',`${line.product_name}: ${line.quantity} ${line.unit} repuestos`));
         row.append(description,node('span','',money(line.amount)));details.append(row);}
+      if(receipt.shipping)details.append(this._totalRow('Gastos de envío',receipt.shipping));
       if(receipt.discount)details.append(this._totalRow('Descuentos generales',-receipt.discount));
       details.append(this._totalRow('Total',receipt.total));return details;
     }));

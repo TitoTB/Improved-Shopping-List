@@ -1,6 +1,6 @@
-/** Five color suggestions and a button cycling through other results. */
+/** Up to six automatic suggestions, with community results first. */
 const PREFIX = "improved_shopping_list/icons/";
-const PAGE_SIZE = 5;
+const SUGGESTION_LIMIT = 6;
 const LOCAL_PREFIX = "/improved_shopping_list_icons/";
 
 function node(tag, text, className) {
@@ -59,11 +59,11 @@ class ImprovedShoppingIconPicker extends HTMLElement {
     this.shadowRoot.innerHTML = `
       <style>
         :host{display:block;min-width:0}*{box-sizing:border-box}[hidden]{display:none!important}
-        button,input{font:inherit;color:inherit}button{cursor:pointer;border:1px solid var(--divider-color,#dfe7e1);border-radius:10px;background:transparent;padding:10px 12px;min-height:44px}
-        button:disabled{opacity:.5;cursor:default}button:focus-visible,input:focus-visible,a:focus-visible{outline:3px solid var(--primary-color,#267052);outline-offset:3px}
-        ha-icon{--mdc-icon-size:20px}h3{margin:0 0 12px;font-size:15px}label{display:block;min-width:0;font-size:13px;font-weight:600}input{display:block;width:100%;margin-top:7px;min-height:46px;border:1px solid var(--divider-color,#dfe7e1);border-radius:10px;padding:10px 12px;background:var(--card-background-color,#fff)}
+        button{font:inherit;color:inherit}button{cursor:pointer;border:1px solid var(--divider-color,#dfe7e1);border-radius:10px;background:transparent;padding:10px 12px;min-height:44px}
+        button:disabled{opacity:.5;cursor:default}button:focus-visible,a:focus-visible{outline:3px solid var(--primary-color,#267052);outline-offset:3px}
+        h3{margin:0 0 12px;font-size:15px}
         .helper,.attribution{font-size:12px;line-height:1.5;color:var(--secondary-text-color,#63766b)}a{color:var(--primary-color,#267052)}
-        #results{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;margin:14px 0;container-type:inline-size}.option{min-width:0;min-height:0;width:100%;padding:clamp(2px,1cqi,6px);display:flex;align-items:center;justify-content:center;aspect-ratio:1;overflow:hidden}.option img{width:min(56px,100%);height:auto;max-height:100%;aspect-ratio:1;object-fit:contain}.option[aria-pressed=true]{border:2px solid var(--primary-color,#267052)}.more{border:1px solid var(--divider-color,#dfe7e1);border-radius:10px;text-decoration:none;color:inherit}.more ha-icon{--mdc-icon-size:clamp(14px,5cqi,28px);width:var(--mdc-icon-size);height:var(--mdc-icon-size);max-width:100%;max-height:100%}.empty{border:1px dashed var(--divider-color,#dfe7e1);border-radius:10px;opacity:.3}.more[aria-disabled=true]{opacity:.4;pointer-events:none}
+        #results{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;margin:14px 0;container-type:inline-size}.option{min-width:0;min-height:0;width:100%;padding:clamp(2px,1cqi,6px);display:flex;align-items:center;justify-content:center;aspect-ratio:1;overflow:hidden}.option img{width:min(56px,100%);height:auto;max-height:100%;aspect-ratio:1;object-fit:contain}.option[aria-pressed=true]{border:2px solid var(--primary-color,#267052)}
         #status{font-size:13px}#status.error{color:var(--error-color,#bd3636)}
         #selected{display:flex;align-items:center;gap:12px;margin-top:12px}#selected img{width:48px;height:48px;object-fit:contain;flex-shrink:0}
         @media(max-width:400px){#results{gap:4px}}
@@ -71,27 +71,9 @@ class ImprovedShoppingIconPicker extends HTMLElement {
       <section aria-label="Iconos sugeridos">
         <h3>Iconos sugeridos</h3>
         <p id="status" role="status" hidden></p><div id="results" aria-label="Iconos sugeridos"></div>
-        <label>Buscar iconos<input id="query" type="search" minlength="2" maxlength="100" placeholder="Puedes escribir otro término"></label>
-        <p class="helper">Las sugerencias se actualizan con el nombre del producto. Pulsa + para ver otras propuestas.</p>
         <div id="selected" hidden></div>
-        <p class="helper">Los iconos sugeridos proceden principalmente de <a href="https://iconify.design/" target="_blank" rel="noopener noreferrer">Iconify</a> y <a href="https://www.flaticon.es/" target="_blank" rel="noopener noreferrer">Flaticon</a>. Se conservarán el autor y la licencia.</p>
       </section>`;
     this._built = true;
-    const root = this.shadowRoot;
-    root.querySelector("#query").addEventListener("keydown", event => {
-      if (event.key === "Enter") { event.preventDefault(); void this._search(); }
-    });
-    root.querySelector("#query").addEventListener("input", () => {
-      this._generation += 1;
-      this._busy = false;
-      this._icons = [];
-      this._hasMore = false;
-      this._searchOptions = {};
-      this._status("");
-      this._renderResults();
-      clearTimeout(this._timer);
-      this._timer = setTimeout(() => void this._search(), 500);
-    });
     this._renderResults();
   }
 
@@ -102,9 +84,8 @@ class ImprovedShoppingIconPicker extends HTMLElement {
     this._generation += 1;
     this._busy = this._importing = false;
     this._icons = [];
-    this._hasMore = false;
     this._searchOptions = this.getSearchOptions?.() ?? {};
-    this.shadowRoot.querySelector("#query").value = query.slice(0, 100);
+    this._query = query.slice(0, 100);
     this._status("");
     this._renderResults();
     this.onBusyChange?.(false);
@@ -120,10 +101,9 @@ class ImprovedShoppingIconPicker extends HTMLElement {
     this._importing = false;
     this.onBusyChange?.(false);
     this._icons = [];
-    this._hasMore = false;
     this._searchOptions = this.getSearchOptions?.() ?? {};
     const query = this.getQuery?.() ?? "";
-    this.shadowRoot.querySelector("#query").value = query.slice(0, 100);
+    this._query = query.slice(0, 100);
     this._status(query.trim().length >= 2 ? "Buscando iconos…" : "Escribe el nombre del producto para ver sugerencias.");
     this._renderResults();
     this._timer = setTimeout(() => void this._search(), 500);
@@ -148,11 +128,9 @@ class ImprovedShoppingIconPicker extends HTMLElement {
   async _search() {
     clearTimeout(this._timer);
     if (!this._active || this._disabled || this._importing || !this._hass) return;
-    const query = this.shadowRoot.querySelector("#query").value.trim();
+    const query = (this._query ?? "").trim();
     const generation = ++this._generation;
     this._icons = [];
-    this._pageStart = 0;
-    this._hasMore = false;
     this._query = query;
     if (query.length < 2) {
       this._busy = false;
@@ -172,12 +150,9 @@ class ImprovedShoppingIconPicker extends HTMLElement {
       if (generation !== this._generation || !this.isConnected) return;
       const ids = new Set(this._icons.map(icon => icon.id));
       this._icons.push(...result.icons.filter(icon => !ids.has(icon.id) && ids.add(icon.id)));
-      this._hasMore = Boolean(result.has_more);
-      this._nextStart = result.next_start;
       this._query = result.query || query;
-      if (result.query) this.shadowRoot.querySelector("#query").value = result.query;
       this._searchOptions = {};
-      this._status(this._icons.length ? "" : "No se han encontrado iconos. Puedes escribir otro término o indicar una URL Imagen/Icono.");
+      this._status(this._icons.length ? "" : "No se han encontrado iconos. Puedes indicar una URL Imagen/Icono.");
       return true;
     } catch (error) {
       if (generation !== this._generation || !this.isConnected) return;
@@ -187,30 +162,9 @@ class ImprovedShoppingIconPicker extends HTMLElement {
     }
   }
 
-  async _more() {
-    if (this._busy || this._disabled || !this._active) return;
-    const generation = this._generation;
-    const next = this._pageStart + PAGE_SIZE;
-    if (next + PAGE_SIZE > this._icons.length && this._hasMore) {
-      if (!await this._load(this._query, this._nextStart, generation) || generation !== this._generation) return;
-    }
-    if (generation !== this._generation || !this._active) return;
-    if (next < this._icons.length) {
-      this._pageStart = next;
-      this._status("");
-    } else if (!this._hasMore && this._icons.length > PAGE_SIZE) {
-      this._pageStart = 0;
-      this._status("");
-    } else this._status("No hay otras propuestas disponibles. Puedes cambiar el término o indicar una URL Imagen/Icono.");
-    this._renderResults();
-  }
-
   _renderResults() {
     const root = this.shadowRoot;
-    const suggestions = Array.from({length:PAGE_SIZE}, (_, index) => {
-      const position = (this._pageStart || 0) + index;
-      const icon = this._icons[this._icons.length >= PAGE_SIZE ? position % this._icons.length : position];
-      if (!icon) { const empty = node("span", undefined, "option empty"); empty.setAttribute("aria-hidden", "true"); return empty; }
+    const suggestions = this._icons.slice(0, SUGGESTION_LIMIT).map(icon => {
       const button = node("button", undefined, "option");
       button.type = "button";
       button.title = `${icon.collection} · ${icon.author} · ${icon.license}`;
@@ -227,21 +181,9 @@ class ImprovedShoppingIconPicker extends HTMLElement {
       button.addEventListener("click", () => void this._select(icon));
       return button;
     });
-    const query = root.querySelector("#query").value.trim();
-    const more = node("button");
-    more.type = "button";
-    more.id = "more-icons";
-    more.className = "option more";
-    more.hidden = this._icons.length === 0;
-    more.title = "Ver otros iconos";
-    more.setAttribute("aria-label", more.title);
-    const plus = node("ha-icon"); plus.setAttribute("icon", "mdi:plus-thick"); plus.setAttribute("aria-hidden", "true"); more.append(plus);
-    more.disabled = query.length < 2 || Boolean(this._busy || this._disabled) || (this._icons.length <= PAGE_SIZE && !this._hasMore);
-    more.addEventListener("click", () => void this._more());
     const results = root.querySelector("#results");
-    results.hidden = this._icons.length === 0;
-    results.replaceChildren(...suggestions, more);
-    root.querySelector("#query").disabled = Boolean(this._importing || this._disabled);
+    results.hidden = suggestions.length === 0;
+    results.replaceChildren(...suggestions);
   }
 
   async _select(icon) {

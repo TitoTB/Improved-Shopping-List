@@ -283,7 +283,7 @@ class CommunitySync:
                     unique[icon["id"]] = icon
         return [{**icon, "id": "shared:"+icon["id"], "label": query, "collection": "Comunidad",
             "preview_url": f"https://api.iconify.design/{icon['id'].replace(':', '/')}.svg?height=96"}
-            for icon in sorted(unique.values(), key=lambda i:(-i.get("selections", i["confirmations"]), -i["confirmations"], i["id"]))[:5]]
+            for icon in sorted(unique.values(), key=lambda i:(-i.get("selections", i["confirmations"]), -i["confirmations"], i["id"]))[:6]]
 
     async def async_import(self, identifier):
         identifier = identifier.removeprefix("shared:")

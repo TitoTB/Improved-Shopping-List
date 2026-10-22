@@ -131,3 +131,24 @@ async def test_suggestions_precede_iconify_and_survive_provider_error(hass, hass
     await client.send_json({"id": 2, "type": f"{DOMAIN}/icons/search", "query": "rice"})
     result = (await client.receive_json())["result"]
     assert result["icons"][0]["id"] == "community:rice" and not result["has_more"]
+
+
+@pytest.mark.parametrize("shared_count", [5, 6])
+async def test_six_suggestions_prioritize_shared_dictionary(hass, hass_ws_client, monkeypatch, shared_count):
+    entry = MockConfigEntry(domain=DOMAIN, data={CONF_TODO_ENTITY: "todo.bring"})
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    shared = [{"id": f"shared:noto:rice-{index}"} for index in range(shared_count)]
+    monkeypatch.setattr(hass.data[DOMAIN]["community_sync"], "suggestions", lambda query: shared)
+    monkeypatch.setattr(hass.data[DOMAIN]["community"], "async_search", AsyncMock(return_value=[]))
+    search = AsyncMock(return_value={"icons": [{"id": "noto:rice"}], "next_start": 32, "has_more": False})
+    monkeypatch.setattr(hass.data[DOMAIN]["icons"], "async_search", search)
+    client = await hass_ws_client(hass)
+    await client.send_json({"id": 1, "type": f"{DOMAIN}/icons/search", "query": "rice"})
+    result = (await client.receive_json())["result"]
+    assert result["icons"][:shared_count] == shared
+    assert len(result["icons"]) == 6
+    if shared_count == 6:
+        search.assert_not_awaited()
+    else:
+        search.assert_awaited_once()

@@ -2,6 +2,8 @@
 
 ## Pendiente de publicación
 
+- Ficha de producto simplificada: hasta seis iconos automáticos con prioridad comunitaria; retirados el buscador, el botón + y los textos de ayuda genéricos.
+
 - Nueva vista Sugerencias en el catálogo: calendario de productos de temporada, asignación a varios meses y eliminación por mes.
 - Sugerencias del mes actual listas para añadir a la compra y nuevo criterio de agrupación Sugerencias.
 

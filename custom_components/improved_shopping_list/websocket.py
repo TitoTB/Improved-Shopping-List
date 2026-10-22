@@ -299,9 +299,9 @@ async def ws_icons_search(hass, connection, msg):
             query = (await catalog.async_icon_query(msg["product_id"], query) if msg.get("product_id")
                      else await async_translate_name(hass, query)) or query
         shared = hass.data[DOMAIN]["community_sync"].suggestions(query[:100])
-        community = shared + (await hass.data[DOMAIN]["community"].async_search(query[:100]) if msg["start"] == 0 and len(shared) < 5 else []) if msg["start"] == 0 else []
+        community = shared + (await hass.data[DOMAIN]["community"].async_search(query[:100]) if msg["start"] == 0 and len(shared) < 6 else []) if msg["start"] == 0 else []
         try:
-            offset = 32 if len(shared) >= 5 else 0
+            offset = 32 if len(shared) >= 6 else 0
             result = ({"icons": [], "next_start": 32, "has_more": True} if offset and msg["start"] == 0 else
                 await hass.data[DOMAIN]["icons"].async_search(query[:100], max(0, msg["start"]-offset)))
             if offset and msg["start"]:

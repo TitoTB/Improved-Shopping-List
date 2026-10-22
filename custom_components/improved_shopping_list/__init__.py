@@ -17,6 +17,7 @@ from .list_settings import ListSettings
 from .readers import ReaderManager
 from .stock import StockManager
 from .stock_automation import StockAutomation
+from .receipts import ReceiptManager
 from .price_manager import PriceManager, StorePriceView
 from .recurrence import RecurrenceManager
 from .const import (
@@ -49,6 +50,8 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         stock_automation = StockAutomation(hass,stock,settings,activity,readers._operation_lock)
         prices = PriceManager(hass, catalog, settings, activity)
         await prices.async_load()
+        receipts = ReceiptManager(hass, stock, stock_automation, prices)
+        prices.receipts = receipts
         store_products = StorePriceView(prices, "mercadona")
         recurrence = RecurrenceManager(hass, catalog, settings, activity, readers._operation_lock, stock)
         await recurrence.async_load()
@@ -66,7 +69,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
             [StaticPathConfig(STATIC_URL, str(Path(__file__).parent / "frontend"), False),
              StaticPathConfig(ICONS_URL, str(icons.directory), True)]
         )
-        hass.data[DOMAIN] = {"catalog": catalog, "stock":stock, "stock_automation":stock_automation, "settings": settings, "price_manager":prices, "store_products": store_products, "recurrence": recurrence, "readers": readers, "icons": icons, "community": community, "community_sync": community_sync, "activity": activity, "active": False}
+        hass.data[DOMAIN] = {"catalog": catalog, "stock":stock, "receipts":receipts, "stock_automation":stock_automation, "settings": settings, "price_manager":prices, "store_products": store_products, "recurrence": recurrence, "readers": readers, "icons": icons, "community": community, "community_sync": community_sync, "activity": activity, "active": False}
         async_register_commands(hass)
     return True
 

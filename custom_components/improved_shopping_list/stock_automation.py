@@ -5,6 +5,7 @@ from collections import deque
 from datetime import timedelta
 import logging
 import time
+from uuid import uuid4
 
 from homeassistant.components.todo import DATA_COMPONENT, serialize_todo_item
 from homeassistant.core import Context, callback
@@ -73,7 +74,8 @@ class StockAutomation:
                     and item.get("status") == "completed"):
                     for stock in self.stock.snapshot["items"]:
                         if stock.get("configured") and normalized_name(stock["name"]) == normalized_name(item.get("summary", "")):
-                            self._events.append((stock["id"],stock["config_revision"],"purchase"))
+                            self._events.append((stock["id"],stock["config_revision"],"purchase",
+                                {"id":str(uuid4()), "at":time.time(), "list_entity":entity_id, "uid":uid}))
         self._queue()
 
     @callback

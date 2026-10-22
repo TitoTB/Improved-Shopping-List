@@ -80,6 +80,7 @@ class StockManager:
         self.hass, self.catalog = hass, catalog
         self._store = Store(hass, 1, f"{DOMAIN}.stock")
         self._items = {}
+        self.receipts = {"history":{}, "aliases":{}, "purchases":{}, "coverage":{}}
         self._lock = Lock()
         self._listeners = set()
         self.activity = None
@@ -126,6 +127,10 @@ class StockManager:
         except CatalogError as err:
             raise CatalogError("No se ha podido leer el stock guardado.", "storage_error") from err
         self._items = {key:{**deepcopy(DEFAULT_CONFIG),**deepcopy(item)} for key,item in items.items()}
+        receipts = data.get("receipts", {})
+        if not isinstance(receipts, dict) or any(not isinstance(receipts.get(key, {}), dict) for key in self.receipts):
+            raise CatalogError("No se ha podido leer el historial de compras.", "storage_error")
+        self.receipts.update(deepcopy(receipts))
 
     def _product(self, item):
         products = self.catalog.products
@@ -161,9 +166,11 @@ class StockManager:
         for listener in tuple(self._listeners):
             listener()
 
-    async def _persist(self, items):
-        await self._store.async_save({"items":items})
+    async def _persist(self, items, *, receipts=None):
+        receipt_data = self.receipts if receipts is None else receipts
+        await self._store.async_save({"items":items, "receipts":receipt_data})
         self._items = items
+        self.receipts = receipt_data
         self._notify()
 
     async def async_add(self, name, *, source="manual"):
@@ -247,28 +254,44 @@ class StockManager:
                 item.update(mode="manual",expires_at=0,expired=False)
             await self._persist({**deepcopy(self._items),item["id"]:item})
 
-    async def async_automatic(self, item_id, config_revision, action):
+    async def async_automatic(self, item_id, config_revision, action, event=None):
         """Apply observed usage, a purchase, or expiry atomically against current settings."""
         async with self._lock:
             current = self._items.get(item_id)
             if not current or not current.get("configured") or current.get("config_revision") != config_revision or not self.recurrence_ready(current):
                 return None
             item = deepcopy(current)
+            receipts = deepcopy(self.receipts)
             before = item["quantity"]
             if action == "purchase":
-                item["quantity"] = quantity_value(round(before+item["refill_quantity"],3))
+                event = event or {"id":str(uuid4()), "at":time.time(), "list_entity":"", "uid":""}
+                if event["id"] in receipts["purchases"]:
+                    return deepcopy(current)
+                coverage_key = event["list_entity"] + ":" + event["uid"]
+                covered = receipts["coverage"].pop(coverage_key, None) if event["uid"] else None
+                if covered and (covered.get("item_id") != item_id or covered.get("unit") != item["unit"]):
+                    covered = None
+                # A confirmed receipt can precede the todo completion notification.
+                if covered:
+                    receipts["purchases"][event["id"]] = {**event, "item_id":item_id,
+                        "quantity":covered["quantity"], "receipt_id":covered["receipt_id"], "unit":item["unit"]}
+                else:
+                    item["quantity"] = quantity_value(round(before+item["refill_quantity"],3))
+                    receipts["purchases"][event["id"]] = {**event, "item_id":item_id,
+                        "quantity":item["refill_quantity"], "unit":item["unit"], "receipt_id":""}
                 if item["mode"] == "perishable":
-                    item.update(expires_at=time.time()+item["days"]*DAY,expired=False)
+                    if not covered:
+                        item.update(expires_at=event["at"]+item["days"]*DAY,expired=False)
             elif action == "usage" and item["mode"] == "usage":
                 item["quantity"] = quantity_value(round(max(0,before-item["usage_amount"]),3))
             elif action == "expire" and item["mode"] == "perishable" and item.get("expires_at",0) and time.time() >= item["expires_at"]:
                 item.update(quantity=0,expires_at=0,expired=True)
             else:
                 return None
-            if item == current:
+            if item == current and receipts == self.receipts:
                 return deepcopy(item)
             item["revision"] += 1
-            await self._persist({**deepcopy(self._items), item_id:item})
+            await self._persist({**deepcopy(self._items), item_id:item}, receipts=receipts)
             if self.activity:
                 verb = {"purchase":"Reposición por compra", "usage":"Consumo registrado", "expire":"Caducidad alcanzada"}[action]
                 self.activity.record(f"stock.{action}",f'{verb}: {item["name"]} · {item["quantity"]} {item["unit"]}',

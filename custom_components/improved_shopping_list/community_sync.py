@@ -321,7 +321,7 @@ class CommunitySync:
                     if item["nutriscore"]:
                         break
             for price in (self.prices.prices_for(product) if self._prices_enabled else []):
-                if (price.get("source") != "community" and price.get("checked_at", 0) >= now-DAY
+                if (price.get("source") not in ("community", "receipt") and price.get("checked_at", 0) >= now-DAY
                     and price["store"] in product.get("store_links", {})):
                     # Include the reference needed to validate a fresh, independently fetched price.
                     item["store_links"][price["store"]] = product["store_links"][price["store"]]

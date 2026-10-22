@@ -54,6 +54,29 @@ actualización puesta en cola de una petición de precio que ya ha comenzado.
 
 ## Qué puedes hacer
 
+Stock incluye las vistas **Stock** y **Últimas compras**, con un botón para subir tickets
+PDF electrónicos de Carrefour (hasta 2 MB y 10 páginas). El documento se lee localmente;
+los escaneos y otros formatos de tienda todavía no están disponibles. Antes de guardar,
+un popup permite asociar cada línea al catálogo y confirmar cantidades en las unidades
+del stock. La similitud de nombres solo propone correspondencias; las asociaciones y
+conversiones confirmadas se recuerdan para próximos tickets.
+
+Últimas compras conserva fecha, tienda, importe, descuentos generales y detalle de
+los tickets confirmados. Subir o cerrar la revisión no modifica el stock. Al confirmar,
+el historial y las cantidades se guardan juntos y se detectan tickets duplicados. Si ya
+se registró una reposición al marcar el producto como comprado, se puede seleccionarla
+para aplicar únicamente la diferencia, conservando consumos posteriores. Si el ticket
+se importa antes, cubre la entrada pendiente correspondiente para que su posterior
+marcado como comprado no vuelva a sumar la reposición predeterminada.
+
+La revisión permite guardar el precio por unidad/envase del ticket como último precio
+conocido de esa tienda, sin sustituir observaciones más recientes ni repartir cupones
+generales entre artículos. No se convierte el precio de un envase a precio por gramo
+por el hecho de llevar el stock en gramos. Los tickets, datos de pago y fidelización
+no se envían al diccionario comunitario; el PDF original no se conserva y del documento
+solo se guardan las líneas de compra y metadatos necesarios. El historial está disponible
+para administradores de Home Assistant.
+
 - Seleccionar cualquier entidad `todo.*` disponible para tu usuario, incluida Bring!, Shopping List u otros proveedores.
 - Consultar productos pendientes y comprados.
 - Pulsar el importe estimado para abrir un ticket por tienda con los precios guardados. Se muestran hasta cuatro tiendas activas, priorizando las que tienen más productos con precio y, en caso de empate, el menor importe conocido. Cada una muestra logo, importe y cobertura. Los productos sin precio se agrupan en un bloque plegado y cuentan como 0; los totales pueden incluir distintas cestas parciales. El badge del número de productos devuelve a la vista habitual.

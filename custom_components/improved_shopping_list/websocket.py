@@ -44,6 +44,8 @@ def async_register_commands(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_stock_adjust)
     websocket_api.async_register_command(hass, ws_stock_save)
     websocket_api.async_register_command(hass, ws_stock_remove)
+    for command in (ws_receipts_get, ws_receipts_subscribe, ws_receipts_preview, ws_receipts_confirm, ws_receipts_discard):
+        websocket_api.async_register_command(hass, command)
     websocket_api.async_register_command(hass, ws_catalog_subscribe)
     websocket_api.async_register_command(hass, ws_catalog_save)
     websocket_api.async_register_command(hass, ws_catalog_delete)
@@ -87,6 +89,64 @@ def async_register_commands(hass: HomeAssistant) -> None:
 def ws_stock_get(hass, connection, msg):
     if _catalog(hass, connection, msg):
         connection.send_result(msg["id"], hass.data[DOMAIN]["stock"].snapshot)
+
+
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/receipts/get"})
+@websocket_api.require_admin
+@callback
+def ws_receipts_get(hass, connection, msg):
+    if _catalog(hass,connection,msg):
+        connection.send_result(msg["id"],hass.data[DOMAIN]["receipts"].snapshot)
+
+
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/receipts/subscribe"})
+@websocket_api.require_admin
+@callback
+def ws_receipts_subscribe(hass, connection, msg):
+    if not _catalog(hass,connection,msg):
+        return
+    data = hass.data[DOMAIN]
+    connection.subscriptions[msg["id"]] = data["stock"].subscribe(lambda:connection.send_event(msg["id"],data["receipts"].snapshot))
+    connection.send_result(msg["id"])
+    connection.send_event(msg["id"],data["receipts"].snapshot)
+
+
+async def _receipt_operation(hass,connection,msg,operation):
+    if not _catalog(hass,connection,msg):
+        return
+    try:
+        result = await operation(hass.data[DOMAIN]["receipts"],connection.user.id)
+    except CatalogError as err:
+        connection.send_error(msg["id"],err.code,str(err))
+    except OSError:
+        connection.send_error(msg["id"],"storage_error","No se ha podido guardar el ticket. No se ha modificado el stock.")
+    else:
+        connection.send_result(msg["id"],result)
+
+
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/receipts/preview",
+    vol.Required("pdf"):vol.All(str,vol.Length(max=2796204))})
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_receipts_preview(hass,connection,msg):
+    await _receipt_operation(hass,connection,msg,lambda manager,owner:manager.async_preview(msg["pdf"],owner))
+
+
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/receipts/confirm",vol.Required("token"):str,
+    vol.Required("lines"):list,vol.Required("update_prices"):bool})
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_receipts_confirm(hass,connection,msg):
+    await _receipt_operation(hass,connection,msg,lambda manager,owner:manager.async_confirm(msg["token"],owner,msg["lines"],msg["update_prices"]))
+
+
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/receipts/discard",vol.Required("token"):str})
+@websocket_api.require_admin
+@callback
+def ws_receipts_discard(hass,connection,msg):
+    if _catalog(hass,connection,msg):
+        hass.data[DOMAIN]["receipts"].discard(msg["token"],connection.user.id)
+        connection.send_result(msg["id"])
 
 
 @websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/stock/subscribe"})

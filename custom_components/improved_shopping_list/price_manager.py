@@ -198,6 +198,12 @@ class PriceManager:
                     prices.append({**deepcopy(price), "catalog_product_id":product.get("id"), "name":product.get("name", ""),
                         "error":self._data["errors"].get(store, "")})
                     break
+        receipts = getattr(self,"receipts",None)
+        for price in receipts.offers_for(product) if receipts else []:
+            previous = next((p for p in prices if p["store"] == price["store"]),None)
+            if previous is None or price["checked_at"] > previous.get("checked_at",0):
+                prices = [p for p in prices if p["store"] != price["store"]]
+                prices.append(price)
         return prices
 
     async def async_apply_revocations(self, revoked):

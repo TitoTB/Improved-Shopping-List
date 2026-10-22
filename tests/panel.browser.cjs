@@ -30,6 +30,7 @@ const emitCatalog=()=>{
   for(const listener of listeners.keys())if(listener.catalog)listener.callback(snapshot());
 };
 window.stockItems=JSON.parse(localStorage.getItem('stock-fixture')??'[]');
+window.receiptHistory=JSON.parse(localStorage.getItem('receipt-fixture')??'[]');
 window.emitStock=()=>{localStorage.setItem('stock-fixture',JSON.stringify(window.stockItems));for(const listener of listeners.keys())if(listener.stock)listener.callback({items:structuredClone(window.stockItems)});};
 window.calls=[];window.fail=false;window.failCatalog=false;
 window.logFixture={entries:[],limit:1000};window.failLogs=false;
@@ -55,6 +56,9 @@ const hass={
     'todo.readonly':{entity_id:'todo.readonly',state:'1',attributes:{friendly_name:'Solo lectura',supported_features:0}}
   },
   connection:{subscribeMessage:async(callback,msg)=>{
+    if(msg.type==='improved_shopping_list/receipts/subscribe'){
+      const listener={callback,receipts:true};listeners.set(listener,true);callback({receipts:structuredClone(window.receiptHistory)});return()=>listeners.delete(listener);
+    }
     if(msg.type==='improved_shopping_list/stock/subscribe'){
       const listener={callback,stock:true};listeners.set(listener,true);callback({items:structuredClone(window.stockItems)});return()=>listeners.delete(listener);
     }
@@ -134,6 +138,22 @@ const hass={
     if(msg.type==='improved_shopping_list/readers/delete'){window.readerFixture.readers=window.readerFixture.readers.filter(reader=>reader.id!==msg.reader_id);window.emitReaders();return null;}
     if(msg.type==='improved_shopping_list/readers/dismiss'){window.readerFixture.pending=window.readerFixture.pending.filter(item=>item.id!==msg.pending_id);window.emitReaders();return null;}
     if(msg.type==='improved_shopping_list/stock/get')return {items:structuredClone(window.stockItems)};
+    if(msg.type==='improved_shopping_list/receipts/get')return {receipts:structuredClone(window.receiptHistory)};
+    if(msg.type==='improved_shopping_list/receipts/discard')return null;
+    if(msg.type==='improved_shopping_list/receipts/preview'){
+      if(window.receiptHistory.length)throw new Error('Este ticket ya se ha importado.');
+      return {token:'preview',receipt:{id:'ticket1',store:'carrefour',store_name:'Carrefour',purchased_at:'2026-10-16T19:59:30',total:5.22,subtotal:6.22,discount:1,article_count:4,
+        lines:[{id:'0',description:'SEITAN 250 G',count:1,unit_price:2.65,amount:2.65,pack_quantity:250,pack_unit:'g',product_id:'cacao',quantity:250,replenish:false},
+          {id:'1',description:'FLAUTIN CEREALES',count:2,unit_price:.44,amount:.88,pack_quantity:null,pack_unit:'',product_id:'',quantity:null,replenish:false},
+          {id:'2',description:'ANACARDO CRUDO 200',count:1,unit_price:2.69,amount:2.69,pack_quantity:null,pack_unit:'',product_id:'',quantity:null,replenish:false}]},
+        products:[{id:'cacao',name:'Seitán',unit:'g',stock_id:'s1',revision:1}],purchases:[]};
+    }
+    if(msg.type==='improved_shopping_list/receipts/confirm'){
+      if(window.failReceipt)throw new Error('No se ha podido guardar el ticket.');
+      const receipt={id:'ticket1',store_name:'Carrefour',purchased_at:'2026-10-16T19:59:30',article_count:4,total:5.22,discount:1,
+        lines:[{description:'SEITAN 250 G',count:1,unit_price:2.65,amount:2.65,product_name:'Seitán',replenished:msg.lines[0].replenish,quantity:msg.lines[0].quantity,unit:'g'}]};
+      window.receiptHistory.push(receipt);localStorage.setItem('receipt-fixture',JSON.stringify(window.receiptHistory));return receipt;
+    }
     if(msg.type.startsWith('improved_shopping_list/stock/')){
       if(window.failStock)throw new Error('No se ha podido guardar el stock');
       if(msg.type.endsWith('/save')){
@@ -340,7 +360,7 @@ async function main() {
       return;
     }
     if (pathname === "/") { res.setHeader("content-type", "text/html; charset=utf-8"); res.end(html); return; }
-    if (!["/panel.js", "/stock-client.js", "/dialog-controls.js", "/todo-client.js", "/catalog-panel.js", "/catalog-client.js", "/category-panel.js", "/icon-picker.js", "/list-settings-client.js", "/settings-panel.js", "/readers-client.js", "/readers-panel.js", "/product-matching.js", "/product-names.js", "/logs-panel.js", "/logo.png", "/mercadona.png", "/consum.jpg", "/lasirena.jpg", "/eroski.svg", "/dia.png"].includes(pathname)) { res.writeHead(404).end(); return; }
+    if (!["/panel.js", "/purchases-panel.js", "/stock-client.js", "/dialog-controls.js", "/todo-client.js", "/catalog-panel.js", "/catalog-client.js", "/category-panel.js", "/icon-picker.js", "/list-settings-client.js", "/settings-panel.js", "/readers-client.js", "/readers-panel.js", "/product-matching.js", "/product-names.js", "/logs-panel.js", "/logo.png", "/mercadona.png", "/consum.jpg", "/lasirena.jpg", "/eroski.svg", "/dia.png"].includes(pathname)) { res.writeHead(404).end(); return; }
     res.setHeader("content-type", pathname.endsWith(".svg") ? "image/svg+xml" : pathname.endsWith(".png") ? "image/png" : pathname.endsWith(".jpg") ? "image/jpeg" : "text/javascript; charset=utf-8");
     res.end(await fs.readFile(path.join(root, pathname.slice(1))));
   });
@@ -390,7 +410,7 @@ async function main() {
       };
       visit(document);
       return dialogs.filter(dialog => dialog.querySelectorAll(".isl-dialog-close[aria-label='Cerrar ventana']").length === 1).length;
-    }), 24);
+    }), 25);
     await page.getByRole("button", { name: "Seleccionar lista", exact: true }).click();
     const listDialog = page.getByRole("dialog", { name: "Seleccionar lista", exact: true });
     assert.equal(await listDialog.getByRole("button", { name: "Compra · Bring!", exact: true }).getAttribute("aria-pressed"), "true");
@@ -2163,6 +2183,41 @@ async function main() {
     await stockNames.first().waitFor();
     assert.deepEqual(await stockNames.allTextContents(),['Cacao','Arroz','Botes']);
     await stockSortContext.close();
+    // Local PDF upload is a preview first; confirmed receipts survive reload and have a detail view.
+    const purchaseContext=await browser.newContext({viewport:{width:390,height:844}});
+    const purchasePage=await purchaseContext.newPage();purchasePage.on('pageerror',error=>errors.push(error.message));
+    await purchasePage.goto(url);await purchasePage.getByRole('button',{name:'Stock',exact:true}).click();
+    await purchasePage.getByRole('tab',{name:'Últimas compras',exact:true}).click();
+    const purchases=purchasePage.locator('isl-purchases');
+    await purchases.getByText('Todavía no has subido ningún ticket.',{exact:true}).waitFor();
+    assert.equal(await purchasePage.locator('#list-controls').isVisible(),false);
+    const ticketFile={name:'ticket.pdf',mimeType:'application/pdf',buffer:Buffer.from('%PDF-fixture')};
+    await purchases.locator('#ticket-file').setInputFiles(ticketFile);
+    const review=purchases.getByRole('dialog',{name:'Revisar ticket',exact:true});await review.waitFor();
+    assert.equal(await purchasePage.evaluate(()=>window.receiptHistory.length),0);
+    assert.equal(await review.locator('.review-line').count(),3);
+    await review.getByRole('button',{name:'Cerrar ventana',exact:true}).click();
+    assert.equal(await purchasePage.evaluate(()=>window.receiptHistory.length),0);
+    await purchases.locator('#ticket-file').setInputFiles(ticketFile);await review.waitFor();
+    await review.locator('.review-line').first().getByLabel('Reponer stock',{exact:true}).check();
+    await purchasePage.evaluate(()=>{window.failReceipt=true;});
+    await review.getByRole('button',{name:'Confirmar compra',exact:true}).click();
+    await review.getByText('No se ha podido guardar el ticket.',{exact:true}).waitFor();
+    assert.equal(await purchasePage.evaluate(()=>window.receiptHistory.length),0);
+    await purchasePage.evaluate(()=>{window.failReceipt=false;});
+    await review.getByRole('button',{name:'Confirmar compra',exact:true}).click();
+    await review.waitFor({state:'hidden'});await purchases.locator('summary').click();
+    await purchases.getByText('Seitán: 250 g repuestos',{exact:true}).waitFor();
+    assert.ok(await purchases.evaluate(el=>el.scrollWidth<=el.clientWidth+1));
+    await purchasePage.screenshot({path:'test-results/purchase-history-mobile.png',fullPage:true});
+    await purchases.locator('#ticket-file').setInputFiles(ticketFile);
+    await purchases.getByText('Este ticket ya se ha importado.',{exact:true}).waitFor();
+    await purchasePage.reload();await purchasePage.getByRole('button',{name:'Stock',exact:true}).click();
+    await purchasePage.getByRole('tab',{name:'Últimas compras',exact:true}).click();
+    await purchases.locator('summary').waitFor();
+    await purchasePage.getByRole('tab',{name:'Stock',exact:true}).click();
+    assert.equal(await purchasePage.locator('#list-controls').isVisible(),true);
+    await purchaseContext.close();
     // Store bindings persist without barcodes; all product-price UI reads use cache.
     const linksContext=await browser.newContext({viewport:{width:390,height:844}});
     const linksPage=await linksContext.newPage();

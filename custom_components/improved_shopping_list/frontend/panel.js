@@ -6,6 +6,7 @@ import { ListSettingsSession, gradientTextColor } from "./list-settings-client.j
 import "./settings-panel.js?v=0.24.0";
 import { ReadersSession } from "./readers-client.js?v=0.24.0";
 import "./readers-panel.js?v=0.24.0";
+import "./purchases-panel.js?v=0.24.0";
 
 const LOGO_URL = new URL("logo.png", import.meta.url).href;
 const STORE_LOGOS = {
@@ -34,6 +35,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
     this._readers = new ReadersSession(() => this._hass, () => this._renderData());
     this._stock = new StockSession(() => this._hass, () => this._renderData());
     this._stockLayout = "grid";
+    this._stockView = "stock";
     this._stockSort = "lowest";
     try { if (localStorage.getItem("isl-stock-layout") === "rows") this._stockLayout = "rows"; } catch { /* Storage disabled. */ }
     try { if (localStorage.getItem("isl-stock-sort") === "alphabetical") this._stockSort = "alphabetical"; } catch { /* Storage disabled. */ }
@@ -317,6 +319,12 @@ class ImprovedShoppingListPanel extends HTMLElement {
         #save-stock-config { background:var(--isl-green); color:white; border:0; }
         @media(max-width:420px) { .stock-form-fields { grid-template-columns:minmax(0,1fr); } }
         #confirm-stock-remove { background:#d32f2f; color:#fff; border:0; }
+        #stock-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:16px; }
+        #stock-heading h2 { margin:0; } .stock-tabs,.stock-tabs nav { display:flex; align-items:center; gap:8px; }.stock-tabs { margin-left:auto; }
+        .stock-tabs [role=tab] { display:flex; align-items:center; gap:6px; min-height:42px; padding:8px 10px; border:0; border-radius:10px; background:transparent; color:inherit; }
+        .stock-tabs [aria-selected=true] { background:var(--secondary-background-color,#edf4ee); font-weight:700; }
+        .stock-tabs ha-icon { --mdc-icon-size:22px; width:22px; height:22px; }
+        @media(max-width:500px) { .stock-tabs,.stock-tabs nav { gap:4px; }.stock-tabs [role=tab] { padding:8px 6px; font-size:13px; } }
         @media(max-width:380px) { header { gap:4px; padding:10px 8px; }.brand-logo { width:32px; height:32px; }.menu { width:36px; padding:6px; }.section-nav button { min-width:28px; padding:10px 4px; gap:3px; font-size:12px; }.section-nav ha-icon { --mdc-icon-size:18px; } }
       </style>
       <header>
@@ -333,6 +341,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
       <main>
         <div id="error" class="notice error" role="alert" hidden></div>
         <div id="status" class="notice" role="status" hidden></div>
+        <div id="stock-heading" hidden><h2>Stock</h2><div class="stock-tabs"><nav role="tablist" aria-label="Vistas de Stock"><button id="stock-tab" type="button" role="tab" aria-selected="true" aria-controls="stock-card"><ha-icon icon="mdi:package-variant" aria-hidden="true"></ha-icon>Stock</button><button id="purchases-tab" type="button" role="tab" aria-selected="false" aria-controls="purchase-history"><ha-icon icon="mdi:receipt-text" aria-hidden="true"></ha-icon>Últimas compras</button></nav><button id="upload-ticket" class="icon-button" type="button" aria-label="Subir ticket" title="Subir ticket PDF"><ha-icon icon="mdi:file-upload" aria-hidden="true"></ha-icon></button></div></div>
         <section id="list-controls" aria-label="Seleccionar lista y añadir productos">
           <form id="add-form">
             <div class="input-wrap"><label class="sr-only" for="product-input">Añadir producto</label><input id="product-input" type="text" maxlength="255" placeholder="Busca o añade un producto" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="product-suggestions" aria-describedby="predictive-count" required><ul id="product-suggestions" class="predictive-results" role="listbox" aria-label="Productos del catálogo" hidden></ul><span id="predictive-count" class="sr-only" role="status" aria-live="polite"></span></div>
@@ -356,7 +365,8 @@ class ImprovedShoppingListPanel extends HTMLElement {
           <div id="empty" class="empty" hidden></div>
           <details id="completed-details"><summary id="completed-summary"><span id="completed-label">Compras recientes</span><button id="clear-completed" type="button"><ha-icon icon="mdi:delete" aria-hidden="true"></ha-icon>Limpiar productos</button></summary><ul id="completed" class="product-grid" aria-label="Compras recientes"></ul></details>
         </section>
-        <section id="stock-card" aria-labelledby="stock-title" hidden><div class="list-header"><h2 id="stock-title">Stock</h2></div><ul id="stock-items" class="product-grid" aria-label="Productos en stock"></ul><p id="stock-empty" class="empty" hidden>Añade productos para empezar a controlar tu despensa.</p></section>
+        <section id="stock-card" aria-label="Stock" hidden><ul id="stock-items" class="product-grid" aria-label="Productos en stock"></ul><p id="stock-empty" class="empty" hidden>Añade productos para empezar a controlar tu despensa.</p></section>
+        <isl-purchases id="purchase-history" hidden></isl-purchases>
         <dialog id="stock-editor-dialog" aria-labelledby="stock-editor-title">
           <form id="stock-editor-form"><h2 id="stock-editor-title">Configurar Stock</h2><p id="stock-editor-error" class="notice error" role="alert" hidden></p>
           <div class="stock-form-fields">
@@ -389,6 +399,10 @@ class ImprovedShoppingListPanel extends HTMLElement {
     this._built = true;
     const root = this.shadowRoot;
     installDialogCloseButtons(root);
+    for(const [id,view] of [['stock-tab','stock'],['purchases-tab','purchases']])root.querySelector('#'+id).addEventListener('click',()=>{this._stockView=view;this._renderData();});
+    root.querySelector('#upload-ticket').addEventListener('click',()=>root.querySelector('isl-purchases').chooseFile());
+    root.querySelector('isl-purchases').addEventListener('receipt-busy',event=>{this._receiptBusy=event.detail;this._renderData();});
+    root.querySelector('isl-purchases').addEventListener('receipt-imported',()=>{this._stockView='purchases';void this._stock.refresh();void this._refreshRowPrices();this._renderData();});
     root.querySelector("#pending-total").addEventListener("click", () => {
       this._ticket = true;
       this._renderData();
@@ -562,6 +576,15 @@ class ImprovedShoppingListPanel extends HTMLElement {
     const root = this.shadowRoot;
     const session = this._session;
     const stockView=this._view === "stock";
+    const stockItemsView=stockView&&this._stockView==='stock';
+    root.querySelector('#stock-heading').hidden=!stockView;
+    root.querySelector('#stock-card').hidden=!stockItemsView;
+    root.querySelector('#list-controls').hidden=!(this._view==='shopping'||stockItemsView);
+    root.querySelector('#stock-tab').setAttribute('aria-selected',String(this._stockView==='stock'));
+    root.querySelector('#purchases-tab').setAttribute('aria-selected',String(this._stockView==='purchases'));
+    root.querySelector('#upload-ticket').disabled=Boolean(this._receiptBusy)||this._hass.user?.is_admin!==true;
+    root.querySelector('isl-purchases').hidden=!stockView;
+    root.querySelector('isl-purchases').data={hass:this._hass,active:stockView,history:this._stockView==='purchases',pricesEnabled:this._settings.priceUpdatesEnabled!==false};
     const sortButton=root.querySelector("#toggle-stock-sort");
     sortButton.hidden=!stockView;
     const sortLabel=this._stockSort === "alphabetical" ? "Ordenar por menor stock" : "Ordenar alfabéticamente";

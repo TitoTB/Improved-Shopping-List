@@ -2298,6 +2298,9 @@ async function main() {
     await receiptProduct.getByLabel('Nombre del producto',{exact:true}).fill('Flautines');
     await receiptProduct.getByRole('button',{name:'Guardar producto',exact:true}).click();
     await receiptProduct.waitFor({state:'hidden'});
+    // Closing the catalog dialog precedes the receipt's asynchronous options refresh.
+    await purchasePage.waitForFunction(()=>window.testPanel.shadowRoot.querySelector('isl-purchases')
+      ?.shadowRoot.querySelector('[data-line-id="1"] input[list]')?.value==='Flautines');
     assert.equal(await cerealLine.getByLabel('Producto para FLAUTIN CEREALES',{exact:true}).inputValue(),'Flautines');
     await review.locator('[data-line-id="2"]').getByLabel('Ignorar esta línea',{exact:true}).check();
     await review.getByRole('button',{name:'Guardar solo vinculaciones',exact:true}).click();

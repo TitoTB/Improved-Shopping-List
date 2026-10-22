@@ -34,9 +34,9 @@ class ImprovedShoppingListPanel extends HTMLElement {
     this._readers = new ReadersSession(() => this._hass, () => this._renderData());
     this._stock = new StockSession(() => this._hass, () => this._renderData());
     this._stockLayout = "grid";
-    this._stockSort = "alphabetical";
+    this._stockSort = "lowest";
     try { if (localStorage.getItem("isl-stock-layout") === "rows") this._stockLayout = "rows"; } catch { /* Storage disabled. */ }
-    try { if (localStorage.getItem("isl-stock-sort") === "lowest") this._stockSort = "lowest"; } catch { /* Storage disabled. */ }
+    try { if (localStorage.getItem("isl-stock-sort") === "alphabetical") this._stockSort = "alphabetical"; } catch { /* Storage disabled. */ }
     this._busy = false;
     this._rows = new Map();
     this._catalogProducts = new Map();
@@ -670,7 +670,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
 
   _renderStock(locked) {
     const root=this.shadowRoot, now=Date.now()/1000, items=[...this._stock.items], grid=root.querySelector("#stock-items");
-    const remaining=item=>item.mode === 'perishable' ? stockRemaining(item,now) : item.quantity;
+    const remaining=item=>stockRemaining(item,now);
     items.sort((a,b)=>(this._stockSort === 'lowest' ? remaining(a)-remaining(b) : 0)||a.name.localeCompare(b.name,'es',{sensitivity:'base'}));
     grid.classList.toggle("rows",this._stockLayout === "rows");
     root.querySelector("#stock-empty").hidden=items.length>0||this._stock.loading||!this._stock.loaded||Boolean(this._stock.error);

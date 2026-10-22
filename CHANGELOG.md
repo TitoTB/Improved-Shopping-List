@@ -2,6 +2,7 @@
 
 ## Pendiente de publicación
 
+- Stock se ordena de menor a mayor porcentaje por defecto. El criterio numérico compara todos los modos respecto a su cantidad de reposición, sin mezclar porcentajes con cantidades absolutas; los empates se resuelven alfabéticamente y se conserva la elección del usuario.
 - En Lista, contador de productos en negrita al mostrar el ticket e importe aproximado en negrita en la vista normal.
 
 ## 0.24.0

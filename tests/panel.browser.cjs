@@ -1999,7 +1999,7 @@ async function main() {
     const stockCard=stockPage.locator('#stock-items li').filter({hasText:'Cacao'});
     await stockCard.getByLabel('Stock de Cacao: 1 uds',{exact:true}).waitFor();
     assert.equal(await stockPage.locator('#stock-count, #stock-units').count(),0);
-    assert.equal(await stockPage.getByRole('button',{name:'Ordenar por menor stock',exact:true}).isVisible(),true);
+    assert.equal(await stockPage.getByRole('button',{name:'Ordenar alfabéticamente',exact:true}).isVisible(),true);
     assert.equal(await stockCard.locator('.stock-controls, .stock-tools').count(),0);
     assert.equal(await stockCard.locator('.item').evaluate(node=>getComputedStyle(node).backgroundImage),'linear-gradient(rgb(245, 154, 35), rgb(198, 91, 12))');
     await selectList(stockPage,'todo.local');
@@ -2087,7 +2087,6 @@ async function main() {
     await stockPage.getByRole('button',{name:'Cambiar a vista de cuadrícula',exact:true}).click();
     assert.equal(await stockCard.locator('.stock-controls, .stock-tools').count(),0);
     await stockPage.screenshot({path:'test-results/stock-grid-mobile.png',fullPage:true});
-    await stockPage.getByRole('button',{name:'Ordenar por menor stock',exact:true}).click();
     assert.deepEqual(await stockPage.locator('#stock-items .summary').allTextContents(),['Cacao','Producto sin catálogo']);
     await stockPage.getByRole('button',{name:'Ordenar alfabéticamente',exact:true}).click();
     // A second item sorts before Cacao alphabetically but after it by remaining stock.
@@ -2114,6 +2113,32 @@ async function main() {
     await stockPage.locator('#stock-items .stock-open').click();
     assert.equal(await stockPage.locator('#save-stock-config').isDisabled(),true);
     await stockContext.close();
+    // Numeric order compares percentages across units and modes, and is the initial default.
+    const stockSortContext=await browser.newContext({viewport:{width:390,height:844}});
+    await stockSortContext.addInitScript(()=>{
+      if(!localStorage.getItem('stock-fixture'))localStorage.setItem('stock-fixture',JSON.stringify([
+        {id:'sort-rice',name:'Arroz',quantity:1,refill_quantity:4,mode:'usage',unit:'kg',revision:1},
+        {id:'sort-cacao',name:'Cacao',quantity:20,refill_quantity:250,mode:'perishable',unit:'g',revision:1},
+        {id:'sort-cans',name:'Botes',quantity:50,refill_quantity:100,mode:'manual',unit:'uds',revision:1}
+      ]));
+    });
+    const stockSortPage=await stockSortContext.newPage();
+    stockSortPage.on('pageerror',error=>errors.push(error.message));
+    await stockSortPage.goto(url);await stockSortPage.getByRole('button',{name:'Stock',exact:true}).click();
+    const stockNames=stockSortPage.locator('#stock-items .summary');
+    await stockNames.first().waitFor();
+    assert.deepEqual(await stockNames.allTextContents(),['Cacao','Arroz','Botes']); // 8 %, 25 %, 50 %.
+    await stockSortPage.getByRole('button',{name:'Ordenar alfabéticamente',exact:true}).click();
+    assert.deepEqual(await stockNames.allTextContents(),['Arroz','Botes','Cacao']);
+    await stockSortPage.reload();await stockSortPage.getByRole('button',{name:'Stock',exact:true}).click();
+    await stockNames.first().waitFor();
+    assert.deepEqual(await stockNames.allTextContents(),['Arroz','Botes','Cacao']);
+    await stockSortPage.getByRole('button',{name:'Ordenar por menor stock',exact:true}).click();
+    assert.deepEqual(await stockNames.allTextContents(),['Cacao','Arroz','Botes']);
+    await stockSortPage.reload();await stockSortPage.getByRole('button',{name:'Stock',exact:true}).click();
+    await stockNames.first().waitFor();
+    assert.deepEqual(await stockNames.allTextContents(),['Cacao','Arroz','Botes']);
+    await stockSortContext.close();
     // Store bindings persist without barcodes; all product-price UI reads use cache.
     const linksContext=await browser.newContext({viewport:{width:390,height:844}});
     const linksPage=await linksContext.newPage();

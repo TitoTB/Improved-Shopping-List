@@ -323,7 +323,7 @@ una coincidencia del catálogo y sumar una unidad con **+**. Repetir un producto
 suma unidades; las cantidades no bajan de cero. Cada tarjeta utiliza la imagen o
 icono del catálogo cuando existe y un degradado naranja. Los controles rápidos
 para sumar o restar aparecen solo en filas. Se puede alternar entre cuadrícula y filas; la cuadrícula utiliza
-el número de columnas configurado en Personalización. El botón de orden permite alternar entre orden alfabético y menor stock, usando el porcentaje restante para los perecederos y la cantidad para los demás.
+el número de columnas configurado en Personalización. El botón de orden permite alternar entre orden alfabético y menor stock. El criterio numérico es el predeterminado y compara todos los productos por porcentaje de stock respecto a su cantidad de reposición, de menor a mayor; los empates se ordenan alfabéticamente. La elección se conserva al recargar.
 
 Al pulsar una tarjeta se abre su ficha: cantidad, unidades (uds, kg, g, l, ml o
 personalizadas, como Latas), cantidad que se suma por compra y umbral opcional

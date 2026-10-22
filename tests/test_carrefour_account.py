@@ -41,6 +41,7 @@ async def test_login_stores_only_session_and_disconnect_forgets_it(account, hass
     restored = CarrefourAccount(hass,account.receipts,account.activity);await restored.async_load()
     assert restored.status("owner")["connected"]
     assert account._http.await_args.kwargs["data"]["password"] == "PRIVATE_PASSWORD"
+    assert account._http.await_args.kwargs["data"]["sessionExpiration"] == "-2"
     await account.async_disconnect("owner")
     assert await account._store.async_load() == {}
     assert not account.status("owner")["connected"]
@@ -77,6 +78,9 @@ async def test_two_factor_is_owner_bound_and_requires_explicit_send(account,kind
     assert not account._pending
     assert account._http.await_args_list[3].args[1] == IDENTITY+"/accounts.tfa."+kind+"."+target_method
     assert "PRIVATE_PASSWORD" not in json.dumps(await account._store.async_load())
+    login = account._http.await_args_list[0].kwargs["data"]
+    finalization = account._http.await_args_list[-1].kwargs["data"]
+    assert login["sessionExpiration"] == finalization["sessionExpiration"] == "-2"
 
 
 async def test_expired_session_requires_manual_reconnect_and_never_retries_password(account):
@@ -446,3 +450,34 @@ async def test_both_ticket_formats_fail_with_safe_diagnostic(account):
     assert error.value.diagnostics["stage"]=="ticket_pdf_fallback"
     assert error.value.diagnostics["detail_format_error"]=="receipt_unrecognized_lines"
     assert "PRIVATE" not in str(error.value.diagnostics)
+
+
+async def test_persistent_login_allows_jwt_renewal_after_half_hour(account, monkeypatch):
+    # Emulate CDC: dynamic sessions (-1) expire after 60s without gltexp.
+    # A cached JWT masks that until its first renewal around half an hour later.
+    now = [1000.0]
+    monkeypatch.setattr("custom_components.improved_shopping_list.carrefour_account.time", SimpleNamespace(time=lambda: now[0]))
+    deadline = [0.0]
+    jwt_requests = []
+
+    async def provider(method, url, **kwargs):
+        fields = kwargs.get("data", {})
+        if url.endswith("/accounts.login"):
+            deadline[0] = now[0] + (60 if fields.get("sessionExpiration") == "-1" else 365 * 86400)
+            return {"errorCode":0, "sessionInfo":{"login_token":"private-session"}}
+        assert url.endswith("/accounts.getJWT")
+        jwt_requests.append(now[0])
+        if now[0] > deadline[0]:
+            return {"errorCode":403005}
+        return {"errorCode":0,"id_token":"private-jwt-"+str(len(jwt_requests))}
+
+    account._http = AsyncMock(side_effect=provider)
+    await account.async_login("owner", "test@example.test", "private-password")
+    first = await account._headers()
+    now[0] += 1801
+    second = await account._headers()
+    assert len(jwt_requests) == 2
+    assert first["Authorization"] != second["Authorization"]
+    assert account.status("owner")["connected"]
+    assert (await account._store.async_load())["jwt"] == "private-jwt-2"
+    assert sum(call.args[1].endswith("/accounts.login") for call in account._http.await_args_list) == 1

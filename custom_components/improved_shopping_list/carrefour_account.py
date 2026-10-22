@@ -23,6 +23,9 @@ from .receipt_parser import MAX_PDF_BYTES
 WEB = "https://www.carrefour.es"
 API = "https://pro.api.carrefour.es"
 IDENTITY = "https://ss-mya-p3.carrefour.es"
+# Persistent session: -1 requires a dynamic expiry cookie and otherwise lasts 60s.
+# SAP CDC may still revoke or shorten the session according to provider policy.
+SESSION_EXPIRATION = "-2"
 OFFSET_KEYS = ("atgfOffset", "atgnfOffset", "currentAtgfOrders", "currentAtgnfOrders", "currentTickets", "ticketOffset")
 
 
@@ -298,7 +301,7 @@ class CarrefourAccount:
             self._pending.pop(owner, None)
             self._login_email = username.strip()
             response = await self._identity("accounts.login", {"loginID": username.strip(), "password": password,
-                "targetEnv": "jssdk", "authMode": "cookie", "loginMode": "standard", "sessionExpiration": "-1",
+                "targetEnv": "jssdk", "authMode": "cookie", "loginMode": "standard", "sessionExpiration": SESSION_EXPIRATION,
                 "include": "profile,data"}, allow_tfa=True)
             if response.get("errorCode") == 403101:
                 reg = response.get("regToken")
@@ -361,7 +364,8 @@ class CarrefourAccount:
                 raise CarrefourAccountError("No se ha podido confirmar el código.", "tfa_code")
             await self._identity("accounts.tfa.finalizeTFA", {"regToken": pending["regToken"],
                 "gigyaAssertion": pending["gigyaAssertion"], "providerAssertion": result["providerAssertion"], "tempDevice": "true"})
-            response = await self._identity("accounts.finalizeRegistration", {"regToken": pending["regToken"], "include": "profile,data"})
+            response = await self._identity("accounts.finalizeRegistration", {"regToken": pending["regToken"],
+                "sessionExpiration": SESSION_EXPIRATION, "include": "profile,data"})
             self._login_email = pending.get("email","")
             await self._save_session(response, pending.get("credentials"))
             return self.status(owner)

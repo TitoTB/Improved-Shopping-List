@@ -1,5 +1,9 @@
 # Historial de cambios
 
+## Pendiente de publicación
+
+- Carrefour solicita sesiones persistentes tanto al conectar como al finalizar la verificación por código. El modo anterior caducaba a los 60 segundos sin cookie dinámica y podía fallar al renovar el JWT unos 30 minutos después. Las sesiones ya invalidadas requieren volver a conectar tras instalar la corrección.
+
 ## 0.34.0 — 2026-10-22
 
 - Nuevo apartado Analítica con Comparativa, Compras y Nutri-score; las dos últimas vistas se trasladan desde Stock y Ajustes sin perder datos.

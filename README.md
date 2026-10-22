@@ -67,7 +67,7 @@ o precios; se puede volver a subir el ticket más adelante.
 
 En Vinculación, las líneas sin asociar aparecen primero y los productos vinculados se reúnen al final en un bloque plegado que permite desplegarlos y editarlos. No se muestra el subtítulo «Vincular productos».
 
-En Stock vienen seleccionados los productos identificados que ya están en el inventario, dentro de otro bloque plegado al final. Las demás líneas aparecen primero, con el icono de stock desmarcado. Cada fila reúne el nombre del ticket y del catálogo, cantidad, unidades y el icono de stock, que se vuelve naranja al seleccionar la reposición. En este paso se omiten el título, la ayuda y los precios de cada línea.
+En Stock vienen seleccionados los productos identificados que ya están en el inventario, dentro de otro bloque plegado al final. Cada producto aparece en un bloque con el nombre del ticket y del catálogo, cantidad y unidades. Pulsar el bloque marca o desmarca la reposición y resalta en naranja los seleccionados; editar la cantidad o las unidades no cambia esa selección. En este paso se omiten los precios de cada línea. Los tres pasos incluyen una breve ayuda. En Precios, los bloques muestran la imagen y el nombre del catálogo; solo se pueden guardar precios de productos vinculados. Las propuestas por similitud deben confirmarse en Vinculación.
 Los demás se pueden incorporar, confirmando cantidades y unidades antes de sumarlas.
 Las conversiones confirmadas se recuerdan para próximos tickets. **Volver a vinculación** conserva la revisión; **Añadir stock y cerrar** confirma la compra y las cantidades elegidas sin actualizar precios. Los botones para guardar y cerrar son verdes y **Continuar** es azul. En Precios se eligen
 individualmente los importes que se quieren guardar, con opción de seleccionar todos,
@@ -478,7 +478,7 @@ Los avisos funcionan con el panel cerrado. Se intenta enviar un aviso por destin
 
 ### Agrupar Lista y Stock por categoría
 
-Lista y Stock incluyen un botón con `mdi:label` para agrupar por categorías del catálogo y otro estado con `mdi:sort-alphabetical-ascending` para mostrar todos los productos sin agrupar. La elección se recuerda por separado en cada apartado y funciona en cuadrícula y filas. Las categorías se ordenan por nombre y «Sin categoría» aparece al final. En Lista, tanto pendientes como compras recientes se ordenan alfabéticamente dentro de cada grupo. En Stock, la agrupación conserva el criterio elegido: alfabético o porcentaje de stock de menor a mayor, también al quitar la agrupación. El botón no aparece en Compras; al utilizarlo desde el ticket de Lista vuelve a la vista habitual.
+Lista incluye un botón con `mdi:label` para agrupar por categorías del catálogo y otro estado con `mdi:sort-alphabetical-ascending` para mostrar todos los productos sin agrupar. Stock utiliza un único botón para recorrer menor stock, alfabético y categorías. La elección se recuerda por separado en cada apartado y funciona en cuadrícula y filas. Las categorías se ordenan por nombre y «Sin categoría» aparece al final. En Lista, tanto pendientes como compras recientes se ordenan alfabéticamente dentro de cada grupo. En Stock, el modo por categorías ordena los productos alfabéticamente dentro de cada grupo. El botón no aparece en Compras; al utilizarlo desde el ticket de Lista vuelve a la vista habitual.
 
 
 ### Avisos de productos nuevos

@@ -44,7 +44,7 @@ class ImprovedShoppingPurchases extends HTMLElement {
       .totals{display:flex;justify-content:space-between;gap:12px;margin-top:14px}.empty{text-align:center;opacity:.7;padding:24px}
       dialog{position:fixed;inset:0;border:0;border-radius:18px;background:var(--card-background-color,#fff);color:inherit;width:min(900px,calc(100vw - 24px));max-height:90vh;padding:24px;overflow:auto}
       dialog::backdrop{background:#0008}h2{font-size:1.25rem;margin:0 40px 16px 0}.receipt-info{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px}
-      #review-lines{display:grid;gap:12px}.review-line{padding:12px;background:var(--secondary-background-color,#f2f4f3);border-radius:10px}
+      #review-lines{display:grid;gap:12px}.review-line{border:1px solid var(--divider-color,#d9e0dd);padding:12px;background:var(--secondary-background-color,#f2f4f3);border-radius:10px}
       #review-steps{list-style:none;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;padding:0;margin:16px 0}#review-steps button{width:100%;padding:10px 6px;border:0;text-align:center;border-radius:8px;font-size:.85em;background:var(--secondary-background-color,#edf2ef)}#review-steps button:disabled{opacity:1;cursor:default}#review-steps button:focus-visible{outline:3px solid var(--primary-color,#267052);outline-offset:2px}#review-steps [data-completed=true]{background:var(--isl-green,#267052);color:white}#review-steps [aria-current=step]{background:#2196f3;color:white;font-weight:700}
       #step-title{margin:18px 0 8px;font-size:1.05em}.association{display:flex;gap:8px;align-items:end}.association label{flex:1}.small-button{display:grid;place-items:center;flex:none;width:42px;height:42px;padding:0;border:0;border-radius:8px;background:var(--primary-color,#267052);color:white}.small-button.clear{background:transparent;color:inherit;border:1px solid var(--divider-color,#d9e0dd)}
       .actions{gap:8px;flex-wrap:wrap}.actions .secondary{background:transparent;color:inherit;border:1px solid var(--divider-color,#d9e0dd)}.previous-price{font-size:.85em;opacity:.7;margin:8px 0}.review-line .check{margin:10px 0}.stock-fields{display:grid;grid-template-columns:minmax(0,2fr) minmax(80px,1fr);gap:10px}.review-summary{line-height:1.6;padding:12px;border-radius:8px;background:var(--secondary-background-color,#edf2ef)}
@@ -54,8 +54,8 @@ class ImprovedShoppingPurchases extends HTMLElement {
       .actions{display:flex;justify-content:flex-end;margin-top:16px}.actions button{border:0;background:#267052;color:white;border-radius:10px;padding:12px 20px}
       .actions #links-only,.actions #stock-only{background:var(--isl-green,#267052);color:white;border:0}.actions .continue{background:#2196f3}
       .review-group{border:1px solid var(--divider-color,#d9e0dd);border-radius:12px;min-width:0}.review-group>summary{justify-content:space-between;padding:14px;font-weight:650}.review-group>summary::before,.review-group[open]>summary::before{content:none}.review-group>summary ha-icon{transition:transform .15s}.review-group[open]>summary ha-icon{transform:rotate(180deg)}.review-group-content{display:grid;gap:10px;padding:0 10px 10px}
-      .stock-line-main{display:grid;grid-template-columns:minmax(0,1fr) 90px 80px 42px;gap:10px;align-items:center;min-width:0}.stock-line-name{min-width:0;overflow-wrap:anywhere}.stock-line-name .linked-name{display:block;margin:4px 0 0}.stock-line-main input{text-align:center}.stock-line-unit{text-align:center;overflow-wrap:anywhere;min-width:0}.small-button.stock-toggle{background:transparent;color:inherit}.small-button.stock-toggle[aria-pressed=true]{background:#ff9800;color:white}
-      @media(max-width:550px){.stock-line{padding:10px}.stock-line-main{grid-template-columns:minmax(0,1fr) 64px 54px 34px;gap:6px}.stock-line-main .small-button{width:34px;height:42px}.stock-line-main input{padding:8px 3px}.stock-line-name{font-size:.85em}.review-group>summary{padding:12px}}
+      .stock-line-main{display:grid;grid-template-columns:minmax(0,1fr) 90px 80px;gap:10px;align-items:center;min-width:0}.stock-line-name{min-width:0;overflow-wrap:anywhere}.stock-line-name .linked-name{display:block;margin:4px 0 0}.stock-line-main input{text-align:center}.stock-line-unit{text-align:center;overflow-wrap:anywhere;min-width:0}.stock-line{position:relative}.stock-line[data-selected=true]{border-color:#ff9800;background:color-mix(in srgb,var(--secondary-background-color,#f2f4f3) 80%,#ff9800)}.stock-select{position:absolute;inset:0;width:100%;height:100%;padding:0;border:0;border-radius:inherit;background:transparent}.stock-select:focus-visible{outline:3px solid #ff9800;outline-offset:-3px}.stock-line-main{position:relative;pointer-events:none}.stock-line-main input{pointer-events:auto}.stock-line input:disabled,.stock-line select:disabled{pointer-events:none}.stock-line .purchase{position:relative;pointer-events:auto}.price-product-name{display:flex;align-items:center;gap:10px;min-width:0;overflow-wrap:anywhere}.original>span{flex:none;text-align:right}
+      @media(max-width:550px){.stock-line{padding:10px}.stock-line-main{grid-template-columns:minmax(0,1fr) 64px 54px;gap:6px}.stock-line-main .small-button{width:34px;height:42px}.stock-line-main input{padding:8px 3px}.stock-line-name{font-size:.85em}.review-group>summary{padding:12px}}
       ha-icon{--mdc-icon-size:22px;width:22px;height:22px;flex:none}#review-summary{margin:12px 0}.note{font-size:.85em;opacity:.7;margin:10px 0}
       .association-image{display:grid;place-items:center;width:32px;height:32px;flex:none}.association-image img{display:block;width:100%;height:100%;object-fit:contain}
       .association-row{display:flex;align-items:center;gap:10px;min-width:0}.association-name{flex:1;min-width:0;overflow-wrap:anywhere}.association-name strong{font-size:.95em}.linked-name{font-size:.8em;opacity:.65;margin-left:8px}.association-buttons{display:flex;gap:6px;flex:none;margin-left:auto}
@@ -114,8 +114,8 @@ class ImprovedShoppingPurchases extends HTMLElement {
     this._reviewGroups={};
     root.querySelector('#review-lines').replaceChildren();
     this._edits=receipt.lines.map(line=>{
-      const product=products.find(p=>p.id===line.product_id&&!used.has(p.id));if(product)used.add(product.id);
-      return {line,id:line.id,product_id:product?.id??'',search:product?.name??'',ignore:false,
+      const candidate=products.find(p=>p.id===line.product_id&&!used.has(p.id)),product=line.matched===false?null:candidate;if(product)used.add(product.id);
+      return {line,id:line.id,product_id:product?.id??'',search:candidate?.name??'',ignore:false,
         replenish:Boolean(product?.stock_id),quantity:product?line.quantity??this._quantity(line,product.unit):null,
         unit:product?.unit??'uds',purchase_id:null,save_price:Boolean(this._pricesEnabled)};
     });
@@ -159,14 +159,14 @@ class ImprovedShoppingPurchases extends HTMLElement {
       if(index===step)button.setAttribute('aria-current','step');else button.removeAttribute('aria-current');
       button.dataset.completed=String(index<step);button.dataset.locked=String(index>=step);button.disabled=this._busy||index>=step;
     });
-    root.querySelector('#step-title').hidden=step!==2;
-    root.querySelector('#step-title').textContent=step===2?'Actualizar precios':'';
+    root.querySelector('#step-title').hidden=true;
+    root.querySelector('#step-title').textContent='';
     root.querySelector('#step-help').textContent=[
-      '',
-      '',
-      this._pricesEnabled?'Selecciona los precios que quieres guardar para esta tienda. Se conserva la fecha de compra y los descuentos generales no se reparten entre productos.':'Los precios están desactivados en Ajustes. Puedes confirmar las vinculaciones y la reposición sin guardar precios.'
+      'Vincula los productos detectados en el ticket con los de tu catálogo. Si no existen, puedes crear un producto nuevo o marcarlos para ignorarlos.',
+      'Marca aquellos productos que quieres añadir al registro de stock.',
+      this._pricesEnabled?'Selecciona los productos cuyo precio quieres actualizar en el catálogo, para esta tienda.':'Los precios están desactivados en Ajustes. Puedes confirmar las vinculaciones y la reposición sin guardar precios.'
     ][step];
-    root.querySelector('#step-help').hidden=step!==2;
+    root.querySelector('#step-help').hidden=false;
     root.querySelector('#previous-step').hidden=step===0;root.querySelector('#links-only').hidden=step!==0;
     root.querySelector('#previous-step').textContent=step===1?'Volver a vinculación':'Anterior';
     root.querySelector('#stock-only').hidden=step!==1;
@@ -179,14 +179,14 @@ class ImprovedShoppingPurchases extends HTMLElement {
     if(grouped){grouped.dataset.group=step===0?'links':'stock';grouped.id=step===0?'linked-products-group':'existing-stock-group';grouped.open=Boolean(this._reviewGroups[grouped.dataset.group]);}
     if(step===2&&this._pricesEnabled){
       const allLabel=node('label','check'),all=node('input');all.type='checkbox';
-      const linked=this._edits.filter(edit=>edit.product_id);all.checked=linked.length>0&&linked.every(edit=>edit.save_price);all.indeterminate=linked.some(edit=>edit.save_price)&&!all.checked;
+      const linked=this._edits.filter(edit=>this._product(edit));all.checked=linked.length>0&&linked.every(edit=>edit.save_price);all.indeterminate=linked.some(edit=>edit.save_price)&&!all.checked;
       all.addEventListener('change',()=>{for(const edit of linked)edit.save_price=all.checked;this._renderStep();});
       allLabel.append(all,document.createTextNode('Seleccionar todos los precios'));container.append(allLabel);
     }
     for(const edit of this._edits){
       const product=this._product(edit);if(step>0&&!product)continue;
       const row=node('div','review-line');row.dataset.lineId=edit.id;
-      if(step===2){const original=node('div','original');original.append(node('strong','',edit.line.description),node('span','',`${edit.line.count} × ${money(edit.line.unit_price)} = ${money(edit.line.amount)}`));row.append(original);}
+      if(step===2){const original=node('div','original'),name=node('div','price-product-name');name.append(this._productImage(product),node('strong','',product.name));original.append(name,node('span','',`${edit.line.count} × ${money(edit.line.unit_price)} = ${money(edit.line.amount)}`));row.append(original);}
       if(step===0)this._associationRow(row,edit);
       if(step===1)this._stockRow(row,edit,product);
       if(step===2){
@@ -209,16 +209,19 @@ class ImprovedShoppingPurchases extends HTMLElement {
     result.replaceChildren(node('strong','','Resumen de la compra'),node('div','',`${this._edits.filter(e=>e.product_id).length} vinculaciones guardadas · ${this._edits.filter(e=>e.product_id&&e.replenish).length} productos para reponer · ${this._edits.filter(e=>e.product_id&&e.save_price&&this._pricesEnabled).length} precios seleccionados`));
     root.querySelectorAll('dialog button,dialog input,dialog select').forEach(el=>{el.disabled=this._busy||el.dataset.locked==='true';});
   }
+  _productImage(product){
+    const media=node('span','association-image'),fallback=icon(product.icon||'mdi:shopping');
+    let source='';try{const url=new URL(product.image_url||'',location.origin);if(product.image_url&&['http:','https:'].includes(url.protocol))source=url.href;}catch{ /* Invalid image uses the product icon. */ }
+    if(source){const image=node('img');image.src=source;image.alt='';image.loading='lazy';image.referrerPolicy='no-referrer';image.addEventListener('error',()=>image.replaceWith(fallback),{once:true});media.append(image);}
+    else media.append(fallback);
+    return media;
+  }
   _associationRow(row,edit){
     row.classList.add('association-row');
     const name=node('div','association-name');name.append(node('strong','',edit.line.description));
     const product=this._product(edit);
     if(product){
-      const media=node('span','association-image'),fallback=icon(product.icon||'mdi:shopping');
-      let source='';try{const url=new URL(product.image_url||'',location.origin);if(product.image_url&&['http:','https:'].includes(url.protocol))source=url.href;}catch{ /* Invalid image uses the product icon. */ }
-      if(source){const image=node('img');image.src=source;image.alt='';image.loading='lazy';image.referrerPolicy='no-referrer';image.addEventListener('error',()=>image.replaceWith(fallback),{once:true});media.append(image);}
-      else media.append(fallback);
-      row.append(media);name.append(node('span','linked-name','→ '+product.name));
+      row.append(this._productImage(product));name.append(node('span','linked-name','→ '+product.name));
     }
     const buttons=node('div','association-buttons');
     const link=this._button('Vincular producto para '+edit.line.description,'mdi:link-variant',()=>this._openAssociation(edit),'small-button link');
@@ -274,12 +277,14 @@ class ImprovedShoppingPurchases extends HTMLElement {
       unit.dataset.locked=String(!edit.replenish);unit.disabled=!edit.replenish;
       unit.addEventListener('change',()=>{edit.unit=unit.value.trim();edit.quantity=this._quantity(edit.line,edit.unit);this._renderStep();});
     }
-    const toggle=this._button((product.stock_id?'Reponer stock: ':'Incluir en Stock: ')+product.name,'mdi:package-variant',()=>{
+    const toggle=node('button','stock-select');toggle.type='button';toggle.setAttribute('aria-label',(product.stock_id?'Reponer stock: ':'Incluir en Stock: ')+product.name);
+    toggle.setAttribute('aria-pressed',String(edit.replenish));row.dataset.selected=String(edit.replenish);
+    toggle.addEventListener('click',()=>{
+      if(this._busy)return;
       edit.replenish=!edit.replenish;this._errorMessage('');this._renderStep();
-      [...this.shadowRoot.querySelectorAll('.review-line')].find(line=>line.dataset.lineId===String(edit.id))?.querySelector('.stock-toggle')?.focus();
-    },'small-button stock-toggle');
-    toggle.setAttribute('aria-pressed',String(edit.replenish));
-    main.append(name,quantity,unit,toggle);row.append(main);
+      [...this.shadowRoot.querySelectorAll('.review-line')].find(line=>line.dataset.lineId===String(edit.id))?.querySelector('.stock-select')?.focus();
+    });
+    main.append(name,quantity,unit);row.append(toggle,main);
     const previous=this._draft.purchases.filter(p=>p.item_id===product.stock_id&&p.unit===product.unit);
     if(previous.length){
       const purchaseLabel=node('label','purchase'),purchase=node('select');purchase.setAttribute('aria-label','Reposición de '+edit.line.description);

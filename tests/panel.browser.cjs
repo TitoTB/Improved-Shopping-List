@@ -181,7 +181,7 @@ const hass={
     if(msg.type==='improved_shopping_list/receipts/preview'){
       if(window.receiptHistory.length)throw new Error('Este ticket ya se ha importado.');
       const draft={token:'preview',receipt:{id:'ticket1',store:'carrefour',store_name:'Carrefour',purchased_at:'2026-10-16T19:59:30',total:5.22,subtotal:6.22,discount:1,article_count:4,
-        lines:[{id:'0',description:'SEITAN 250 G',count:1,unit_price:2.65,amount:2.65,pack_quantity:250,pack_unit:'g',product_id:'cacao',quantity:250,replenish:false},
+        lines:[{id:'0',description:'SEITAN 250 G',count:1,unit_price:2.65,amount:2.65,pack_quantity:250,pack_unit:'g',product_id:'cacao',matched:!window.receiptSuggestionOnly,quantity:250,replenish:false},
           {id:'1',description:'FLAUTIN CEREALES',count:2,unit_price:.44,amount:.88,pack_quantity:null,pack_unit:'',product_id:'',quantity:null,replenish:false},
           {id:'2',description:'ANACARDO CRUDO 200',count:1,unit_price:2.69,amount:2.69,pack_quantity:null,pack_unit:'',product_id:'',quantity:null,replenish:false}]},
         ...receiptOptions()};
@@ -2579,6 +2579,7 @@ async function main() {
     const ticketFile={name:'ticket.pdf',mimeType:'application/pdf',buffer:Buffer.from('%PDF-fixture')};
     await purchases.locator('#ticket-file').setInputFiles(ticketFile);
     const review=purchases.getByRole('dialog',{name:'Revisar ticket',exact:true});await review.waitFor();
+    assert.equal(await review.locator('#step-help').textContent(),'Vincula los productos detectados en el ticket con los de tu catálogo. Si no existen, puedes crear un producto nuevo o marcarlos para ignorarlos.');
     assert.equal(await purchasePage.evaluate(()=>window.receiptHistory.length),0);
     assert.equal(await review.locator('.review-line').count(),3);
     await review.getByRole('button',{name:'Cerrar ventana',exact:true}).click();
@@ -2591,7 +2592,7 @@ async function main() {
     assert.equal(await review.locator('#links-only').evaluate(button=>getComputedStyle(button).backgroundColor),'rgb(38, 112, 82)');
     assert.equal(await review.locator('#confirm-ticket').evaluate(button=>getComputedStyle(button).backgroundColor),'rgb(33, 150, 243)');
     const cerealLine=review.locator('[data-line-id="1"]');
-    assert.equal(await review.locator('#step-help').isVisible(),false);
+    assert.equal(await review.locator('#step-help').textContent(),'Vincula los productos detectados en el ticket con los de tu catálogo. Si no existen, puedes crear un producto nuevo o marcarlos para ignorarlos.');
     assert.equal(await cerealLine.locator('input,.original').count(),0);
     assert.equal(await cerealLine.locator('.link').evaluate(node=>getComputedStyle(node).backgroundColor),'rgb(33, 150, 243)');
     assert.equal(await cerealLine.locator('.create').evaluate(node=>getComputedStyle(node).backgroundColor),'rgb(38, 112, 82)');
@@ -2646,19 +2647,19 @@ async function main() {
     await review.getByRole('button',{name:'Continuar',exact:true}).click();
     await review.locator('#stock-only').waitFor();
     assert.equal(await review.locator('#step-title').isVisible(),false);
-    assert.equal(await review.locator('#step-help').isVisible(),false);
+    assert.equal(await review.locator('#step-help').textContent(),'Marca aquellos productos que quieres añadir al registro de stock.');
     assert.equal(await review.getByRole('button',{name:'Volver a vinculación',exact:true}).isVisible(),true);
     assert.equal(await review.locator('#existing-stock-group').evaluate(group=>group.open),false);
     assert.deepEqual(await review.locator('.review-line').evaluateAll(rows=>rows.map(row=>row.dataset.lineId)),['1','0']);
-    assert.equal(await review.locator('[data-line-id="0"] .stock-toggle').getAttribute('aria-pressed'),'true');
-    assert.equal(await cerealLine.locator('.stock-toggle').getAttribute('aria-pressed'),'false');
+    assert.equal(await review.locator('[data-line-id="0"] .stock-select').getAttribute('aria-pressed'),'true');
+    assert.equal(await cerealLine.locator('.stock-select').getAttribute('aria-pressed'),'false');
     assert.equal(await cerealLine.locator('input[type=checkbox],.original').count(),0);
     assert.equal(await cerealLine.textContent().then(text=>text.includes('€')),false);
     assert.equal(await review.locator('#stock-only').evaluate(button=>getComputedStyle(button).backgroundColor),'rgb(38, 112, 82)');
     assert.equal(await review.locator('#confirm-ticket').evaluate(button=>getComputedStyle(button).backgroundColor),'rgb(33, 150, 243)');
-    await cerealLine.getByRole('button',{name:'Incluir en Stock: Flautines',exact:true}).click();
-    assert.equal(await cerealLine.locator('.stock-toggle').getAttribute('aria-pressed'),'true');
-    assert.equal(await cerealLine.locator('.stock-toggle').evaluate(button=>getComputedStyle(button).backgroundColor),'rgb(255, 152, 0)');
+    await cerealLine.click({position:{x:8,y:8}});
+    assert.equal(await cerealLine.locator('.stock-select').getAttribute('aria-pressed'),'true');
+    assert.equal(await cerealLine.evaluate(row=>getComputedStyle(row).borderColor),'rgb(255, 152, 0)');
     for(const width of [320,390,1280]){await purchasePage.setViewportSize({width,height:844});assert.ok(await cerealLine.locator('.stock-line-main').evaluate(row=>{
       const boxes=[...row.children].map(child=>child.getBoundingClientRect());return boxes.every((box,index)=>!index||box.left>=boxes[index-1].right)&&boxes.every(box=>Math.abs((box.top+box.bottom)/2-(boxes[0].top+boxes[0].bottom)/2)<1)&&row.scrollWidth<=row.clientWidth+1;
     }));}
@@ -2667,7 +2668,7 @@ async function main() {
     await review.getByRole('button',{name:'Volver a vinculación',exact:true}).click();
     assert.equal(await review.locator('#linked-products-group').evaluate(group=>group.open),false);
     await review.getByRole('button',{name:'Continuar',exact:true}).click();
-    assert.equal(await cerealLine.locator('.stock-toggle').getAttribute('aria-pressed'),'true');
+    assert.equal(await cerealLine.locator('.stock-select').getAttribute('aria-pressed'),'true');
     assert.equal(await review.locator('#existing-stock-group').evaluate(group=>group.open),true);
     assert.equal(await review.getByRole('button',{name:'1. Vinculación',exact:true}).evaluate(button=>getComputedStyle(button).backgroundColor),'rgb(38, 112, 82)');
     assert.equal(await review.getByRole('button',{name:'2. Stock',exact:true}).getAttribute('aria-current'),'step');
@@ -2677,11 +2678,16 @@ async function main() {
     assert.equal(await review.getByRole('button',{name:'1. Vinculación',exact:true}).getAttribute('aria-current'),'step');
     await review.getByRole('button',{name:'Continuar',exact:true}).click();
     assert.equal(await cerealLine.getByLabel('Cantidad para FLAUTIN CEREALES',{exact:true}).inputValue(),'2');
-    assert.equal(await cerealLine.locator('.stock-toggle').getAttribute('aria-pressed'),'true');
+    assert.equal(await cerealLine.locator('.stock-select').getAttribute('aria-pressed'),'true');
     assert.equal(await cerealLine.getByLabel('Cantidad para FLAUTIN CEREALES',{exact:true}).inputValue(),'2');
     await purchasePage.screenshot({path:'test-results/receipt-wizard-stock-mobile.png',fullPage:true});
     assert.ok(await review.evaluate(el=>el.scrollWidth<=el.clientWidth+1));
     await review.getByRole('button',{name:'Continuar',exact:true}).click();
+    assert.equal(await review.locator('#step-title').isVisible(),false);
+    assert.equal(await review.locator('#step-help').textContent(),'Selecciona los productos cuyo precio quieres actualizar en el catálogo, para esta tienda.');
+    assert.equal(await review.locator('[data-line-id="2"]').count(),0);
+    assert.equal(await review.locator('[data-line-id="0"] .price-product-name strong').textContent(),'Seitán');
+    assert.equal(await review.locator('[data-line-id="0"] .association-image img').getAttribute('src'),new URL('/local/receipt-seitan.svg',url).href);
     await review.getByLabel('Actualizar precio de Seitán',{exact:true}).uncheck();
     assert.equal(await review.locator('#review-steps [data-completed=true]').count(),2);
     await review.getByRole('button',{name:'2. Stock',exact:true}).focus();
@@ -3428,6 +3434,21 @@ async function main() {
     assert.equal(await groupedCatalog.getByRole('button',{name:'Agrupar por categorías',exact:true}).count(),1);
     await groupingPage.getByRole('button',{name:'Lista',exact:true}).click();
     await groupingContext.close();
+    // A proposed match is not a linked catalog product until the user confirms it.
+    const suggestionReceiptContext=await browser.newContext({viewport:{width:390,height:844}});
+    const suggestionReceiptPage=await suggestionReceiptContext.newPage();
+    await suggestionReceiptPage.addInitScript(()=>{window.receiptSuggestionOnly=true;});
+    await suggestionReceiptPage.goto(url);await suggestionReceiptPage.getByRole('button',{name:'Stock',exact:true}).click();
+    await suggestionReceiptPage.getByRole('tab',{name:'Compras',exact:true}).click();
+    const suggestionPurchase=suggestionReceiptPage.locator('isl-purchases');
+    await suggestionPurchase.locator('#ticket-file').setInputFiles({name:'ticket.pdf',mimeType:'application/pdf',buffer:Buffer.from('%PDF-fixture')});
+    const suggestionReview=suggestionPurchase.getByRole('dialog',{name:'Revisar ticket',exact:true});await suggestionReview.waitFor();
+    assert.equal(await suggestionReview.locator('[data-line-id="0"] .linked-name').count(),0);
+    await suggestionReview.getByRole('button',{name:'Continuar',exact:true}).click();
+    await suggestionReview.locator('#review-error').filter({hasText:'Vincula, crea un producto o marca Ignorar'}).waitFor();
+    assert.equal(await suggestionReview.locator('#review-steps [aria-current=step]').textContent(),'1. Vinculación');
+    assert.equal(await suggestionReceiptPage.evaluate(()=>window.receiptLinks.length),0);
+    await suggestionReceiptContext.close();
     // Logs display live changes as text, filter by origin/type and clean up on navigation.
     await page.setViewportSize({width:1280,height:960});
     await page.evaluate(()=>{

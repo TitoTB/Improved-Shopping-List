@@ -2,6 +2,8 @@
 
 ## Pendiente de publicación
 
+- Revisión de tickets con nuevos textos de ayuda y productos delimitados en bloques. Stock se selecciona pulsando el bloque, sin botón lateral; Precios muestra la imagen y el nombre del catálogo y solo admite productos vinculados. Las coincidencias sugeridas por similitud requieren confirmación en Vinculación.
+
 - Revisión de tickets: Vinculación muestra la imagen del producto del catálogo a la izquierda del nombre original del ticket en las líneas vinculadas, con su icono como alternativa.
 
 - Personalización sitúa los selectores de productos por fila al final del bloque, después de todos los colores y sus vistas previas.

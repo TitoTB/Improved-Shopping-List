@@ -133,7 +133,7 @@ class CarrefourAccount:
                 raise CarrefourAccountError("No se ha podido inicializar el dispositivo de acceso a Carrefour.", "device_bootstrap")
         response = await self._http("POST", IDENTITY + "/" + method,
             headers={"Cookie": "; ".join(name + "=" + value for name, value in self._cookies.items())},
-            data={"APIKey": config["api_key"], "format": "json", "lang": "es", **fields})
+            data={"APIKey": config["api_key"], "format": "json", "lang": "es", "targetEnv": "jssdk", "authMode": "cookie", **fields})
         error = response.get("errorCode")
         if error != 0 and not (allow_tfa and error == 403101):
             if error == 403042:

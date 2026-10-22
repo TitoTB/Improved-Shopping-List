@@ -540,7 +540,9 @@ class CarrefourAccount:
                     # Only unsupported structure: totals, identity and duplicates stay errors.
                     if err.code not in ("receipt_unrecognized_lines", "receipt_detail_format"):
                         raise
-                    fallback = {"detail_format_error":err.code}
+                    fallback = {"detail_format_error":err.code,
+                        "detail_items_count":len(detail["items"]) if isinstance(detail.get("items"), list) else None,
+                        "detail_lines_count":len(detail["lines"]) if isinstance(detail.get("lines"), list) else None}
             try:
                 pdf = await self._http("GET", endpoint + "/pdf", headers=headers, pdf=True)
                 draft = await self.receipts.async_preview(base64.b64encode(pdf).decode(), owner, account_reference=purchase["id"])

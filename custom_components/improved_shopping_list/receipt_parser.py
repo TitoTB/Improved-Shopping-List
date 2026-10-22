@@ -6,6 +6,7 @@ from hashlib import sha256
 from io import BytesIO
 import re
 import math
+import json
 
 from pypdf import PdfReader
 
@@ -172,18 +173,100 @@ def _identify_receipt(receipt, content):
     return receipt
 
 
+def _carrefour_account_items(detail):
+    """Read the observed item schema, independently of the printable till layout."""
+    rows = detail.get("items")
+    if rows is None or rows == []:
+        return None
+    if not isinstance(rows, list) or not 1 <= len(rows) <= 300:
+        raise CatalogError("Carrefour ha devuelto artículos con una estructura no reconocida.", "receipt_detail_format")
+    header = detail.get("header")
+    if not isinstance(header, dict):
+        raise CatalogError("No se han podido comprobar los totales del detalle de Carrefour.")
+
+    def number(value):
+        if type(value) not in (int, float) or not math.isfinite(value) or abs(value) > 1000000:
+            raise CatalogError("Hay una cantidad o un importe no válido en el detalle de Carrefour.")
+        return Decimal(str(value))
+
+    total = number(header.get("netAmount"))
+    adjustment = number(detail.get("totalDiscount", 0))
+    if total < 0 or adjustment > 0:
+        raise CatalogError("Este ticket contiene devoluciones o ajustes que todavía no se admiten.")
+    date = detail.get("date")
+    try:
+        if not isinstance(date, str) or len(date) > 40 or not re.match(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}", date):
+            raise ValueError
+        purchased_at = datetime.fromisoformat(date).isoformat()
+    except ValueError as err:
+        raise CatalogError("La fecha del detalle de Carrefour no es válida.") from err
+    items, subtotal, count = [], Decimal(0), 0
+    for row in rows:
+        if not isinstance(row, dict) or not all(key in row for key in ("description", "numberUnits", "netAmount")):
+            raise CatalogError("Carrefour ha devuelto artículos con una estructura no reconocida.", "receipt_detail_format")
+        description = row["description"]
+        if not isinstance(description, str) or not description.strip() or len(description) > 500:
+            raise CatalogError("La descripción de un artículo de Carrefour no es válida.")
+        description = re.sub(r"\s+", " ", description).strip()
+        quantity, amount = number(row["numberUnits"]), number(row["netAmount"])
+        if quantity <= 0 or amount < 0:
+            raise CatalogError("Los tickets con devoluciones todavía no se admiten.")
+        if quantity != quantity.to_integral_value():
+            raise CatalogError("Carrefour ha devuelto una cantidad cuyo formato todavía no se reconoce.", "receipt_detail_format")
+        quantity = int(quantity)
+        pack = re.search(r"\b(\d+(?:[,.]\d+)?)\s*(KG|GRS?|G|ML|CL|LITROS?|L)\b", description, re.I)
+        item = {"id":str(len(items)), "description":description.strip(), "count":quantity,
+            "amount":float(amount), "unit_price":float((amount/quantity).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)),
+            "pack_quantity":float(pack[1].replace(",", ".")) if pack else None,
+            "pack_unit":({"gr":"g", "grs":"g", "litro":"l", "litros":"l"}.get(pack[2].lower(), pack[2].lower()) if pack else "")}
+        code = row.get("code")
+        if isinstance(code, str) and re.fullmatch(r"\d{8}|\d{12,14}", code, flags=re.ASCII) and not (len(code) == 13 and code.startswith("2")):
+            check = sum(int(digit)*(3 if index%2 == 0 else 1) for index, digit in enumerate(reversed(code[:-1])))
+            if (10-check%10)%10 == int(code[-1]):
+                item["ean"] = code
+        items.append(item)
+        subtotal += amount
+        count += quantity
+    reported_count = number(header.get("numberItems"))
+    if reported_count != count:
+        raise CatalogError("El número de artículos no coincide con el detalle de Carrefour.")
+    if "numberLinesItems" in header and number(header["numberLinesItems"]) != len(items):
+        raise CatalogError("El número de líneas no coincide con el detalle de Carrefour.")
+    if abs(subtotal+adjustment-total) > Decimal("0.02"):
+        raise CatalogError("Los artículos, descuentos y total del detalle de Carrefour no coinciden.")
+    # Only the receipt number is used from printable lines; never customer/payment data.
+    lines = detail.get("lines")
+    text = "\n".join(lines) if isinstance(lines, list) and len(lines) <= 2000 and all(isinstance(line, str) and len(line) <= 2000 for line in lines) else ""
+    identity = re.search(r"\bNRF:\s*([A-Z0-9]{1,60})\b", text[:100000])
+    receipt = {"store":"carrefour", "store_name":"Carrefour", "purchased_at":purchased_at,
+        "identity":identity[1] if identity else "", "currency":"EUR", "subtotal":float(subtotal),
+        "discount":float(-adjustment), "total":float(total), "article_count":count, "lines":items}
+    return receipt
+
+
 def extract_carrefour_account_ticket(detail, reference, expected_total):
-    """Validate the account's printable lines without retaining customer/payment fields."""
+    """Validate structured items or legacy printable lines, without customer/payment fields."""
     if not isinstance(detail, dict) or detail.get("ticketId") != reference:
         raise CatalogError("El detalle de Carrefour no corresponde al ticket seleccionado.")
-    lines, header = detail.get("lines"), detail.get("header")
-    if (not isinstance(lines, list) or not 1 <= len(lines) <= 2000 or
-            any(not isinstance(line, str) or len(line) > 2000 for line in lines)):
-        raise CatalogError("Carrefour no ha devuelto un detalle de ticket válido.", "receipt_detail_format")
-    text = "\n".join(lines)
-    if len(text) > 100000:
-        raise CatalogError("El ticket contiene demasiado texto.")
-    receipt = parse_carrefour(text)
+    receipt = None
+    try:
+        receipt = _carrefour_account_items(detail)
+    except CatalogError as err:
+        # Keep legacy text as an alternative only for an unknown schema, not mismatched amounts.
+        if err.code != "receipt_detail_format":
+            raise
+    header = detail.get("header")
+    if receipt is None:
+        lines = detail.get("lines")
+        if (not isinstance(lines, list) or not 1 <= len(lines) <= 2000 or
+                any(not isinstance(line, str) or len(line) > 2000 for line in lines)):
+            raise CatalogError("Carrefour no ha devuelto un detalle de ticket válido.", "receipt_detail_format")
+        text = "\n".join(lines)
+        if len(text) > 100000:
+            raise CatalogError("El ticket contiene demasiado texto.")
+        receipt = parse_carrefour(text)
+    else:
+        text = json.dumps(receipt, ensure_ascii=False, sort_keys=True)
     reported_total = header.get("netAmount") if isinstance(header, dict) else None
     for amount in (reported_total, expected_total):
         if type(amount) not in (int, float) or not math.isfinite(amount) or abs(receipt["total"] - amount) > .02:

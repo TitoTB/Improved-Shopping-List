@@ -439,3 +439,68 @@ async def test_downloaded_ticket_waits_for_review_and_survives_summary_sync(hass
     assert len(env.manager.snapshot["receipts"])==1
     assert not env.manager.snapshot["receipts"][0].get("pending_review")
     assert env.stock.snapshot["items"][0]["quantity"]==270
+
+
+def structured_account_detail():
+    return {"ticketId":"structured-ticket", "date":parse_carrefour(receipt_text())["purchased_at"],
+        "header":{"netAmount":5.22,"numberItems":4,"numberLinesItems":3}, "totalDiscount":-1,
+        "items":[
+            {"code":"1234567890128","description":"SEITAN 250 G","numberUnits":1,"netAmount":2.65},
+            {"code":"internal-reference","description":"FLAUTIN CEREALES","numberUnits":2,"netAmount":0.88},
+            {"code":"4006381333931","description":"ANACARDO CRUDO 200","numberUnits":1,"netAmount":2.69},
+        ], "lines":["Carrefour", "UNSUPPORTED PRINT LAYOUT", "NRF: TEST0001"],
+        "clientId":"PRIVATE_CUSTOMER", "cardNumber":"PRIVATE_PAYMENT", "auxiliaryData":{"private":"PRIVATE_DATA"}}
+
+
+def test_structured_carrefour_items_work_without_print_layout_and_keep_pdf_identity():
+    detail=structured_account_detail()
+    receipt=extract_carrefour_account_ticket(detail,"structured-ticket",5.22)
+    assert receipt["article_count"]==4 and len(receipt["lines"])==3
+    assert receipt["subtotal"]==6.22 and receipt["discount"]==1 and receipt["total"]==5.22
+    assert receipt["id"]==extract_receipt(pdf_bytes(receipt_text()))["id"]
+    assert receipt["lines"][0]["ean"]=="1234567890128"
+    assert receipt["lines"][1]["unit_price"]==0.44 and "ean" not in receipt["lines"][1]
+    assert receipt["lines"][0]["pack_quantity"]==250 and receipt["lines"][0]["pack_unit"]=="g"
+    assert "PRIVATE" not in str(receipt) and "structured-ticket" not in str(receipt)
+    # Structured items do not require any printable lines.
+    detail.pop("lines")
+    assert extract_carrefour_account_ticket(detail,"structured-ticket",5.22)["total"]==5.22
+
+
+@pytest.mark.parametrize("change",["amount","count","line_count","discount","date","reference","expected_total","negative","bool","nan"])
+def test_structured_carrefour_detail_rejects_inconsistent_data_even_with_valid_printable_ticket(change):
+    detail=structured_account_detail();expected_total=5.22
+    detail["lines"]=receipt_text().splitlines()
+    if change=="amount":detail["items"][0]["netAmount"]=8
+    elif change=="count":detail["header"]["numberItems"]=5
+    elif change=="line_count":detail["header"]["numberLinesItems"]=4
+    elif change=="discount":detail["totalDiscount"]=-2
+    elif change=="date":detail["date"]="2026-99-99T00:00:00"
+    elif change=="reference":detail["ticketId"]="another-ticket"
+    elif change=="expected_total":expected_total=8
+    elif change=="negative":detail["items"][0]["numberUnits"]=-1
+    elif change=="bool":detail["items"][0]["numberUnits"]=True
+    elif change=="nan":detail["items"][0]["netAmount"]=float("nan")
+    with pytest.raises(CatalogError):
+        extract_carrefour_account_ticket(detail,"structured-ticket",expected_total)
+
+
+def test_unknown_structured_schema_retains_legacy_printable_fallback():
+    detail=structured_account_detail();detail["items"]=[{"unknown":"format"}];detail["lines"]=receipt_text().splitlines()
+    assert extract_carrefour_account_ticket(detail,"structured-ticket",5.22)["article_count"]==4
+
+
+async def test_structured_account_preview_matches_ean_and_never_imports_until_confirmation(hass):
+    env=await setup_manager(hass)
+    product=next(p for p in env.stock.catalog.products if p["id"]==env.product["id"])
+    await env.stock.catalog.async_save_product({"id":product["id"],"revision":product["revision"],"name":"Seitán","barcodes":["1234567890128"]})
+    draft=await env.manager.async_preview_carrefour_ticket(structured_account_detail(),"structured-ticket",5.22,"owner")
+    assert draft["receipt"]["lines"][0]["product_id"]==env.product["id"]
+    assert draft["receipt"]["lines"][0]["matched"]
+    assert env.stock.snapshot["items"][0]["quantity"]==20
+    assert env.manager.snapshot["receipts"]==[]
+    await env.manager.async_confirm(draft["token"],"owner",selections(draft,env.product),False)
+    with pytest.raises(CatalogError,match="ya se ha importado"):
+        await env.manager.async_preview_carrefour_ticket(structured_account_detail(),"structured-ticket",5.22,"owner")
+    with pytest.raises(CatalogError,match="ya se ha importado"):
+        await env.manager.async_preview(base64.b64encode(pdf_bytes(receipt_text())).decode(),"owner")

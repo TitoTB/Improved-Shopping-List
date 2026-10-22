@@ -2,6 +2,8 @@
 
 ## Pendiente de publicación
 
+- Carrefour muestra la contraseña recordada enmascarada y confirma que se reutilizará al conectar, sin enviarla al navegador. Permite cambiarla o volver a usar la guardada; cambiar de correo o desmarcar Recordar credenciales exige introducir una contraseña.
+
 - Carrefour solicita sesiones persistentes tanto al conectar como al finalizar la verificación por código. El modo anterior caducaba a los 60 segundos sin cookie dinámica y podía fallar al renovar el JWT unos 30 minutos después. Las sesiones ya invalidadas requieren volver a conectar tras instalar la corrección.
 
 ## 0.34.0 — 2026-10-22

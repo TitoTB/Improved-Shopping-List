@@ -190,10 +190,10 @@ const hass={
       const action=msg.type.split('/').at(-1);
       if(action==='status')return structuredClone(window.cfStatus);
       if(action==='preview_saved'&&window.failCarrefourAccount)throw new Error('Carrefour ha rechazado el acceso (HTTP 403).');
-      if(action==='login'){window.cfStatus={connected:false,verification_required:true,destinations:[{id:'0',label:'a***@example.test'}],verification_sent:false};return structuredClone(window.cfStatus);}
+      if(action==='login'){window.lastCfLogin={username:msg.username,password_empty:msg.password==='',remember:msg.remember_credentials};window.cfPendingEmail=msg.remember_credentials?msg.username:'';window.cfStatus={credentials_saved:Boolean(window.cfRememberedEmail),remembered_email:window.cfRememberedEmail??'',connected:false,verification_required:true,destinations:[{id:'0',label:'a***@example.test'}],verification_sent:false};return structuredClone(window.cfStatus);}
       if(action==='send_code'){window.cfStatus.verification_sent=true;return structuredClone(window.cfStatus);}
-      if(action==='verify'){window.cfStatus={connected:true,email:'test@example.test',options:{history_enabled:false,auto_ticket:false,public_prices:false},verification_required:false,destinations:[],verification_sent:false};return structuredClone(window.cfStatus);}
-      if(action==='disconnect'){window.cfStatus={connected:false,verification_required:false,destinations:[],verification_sent:false};return structuredClone(window.cfStatus);}
+      if(action==='verify'){window.cfRememberedEmail=window.cfPendingEmail;window.cfStatus={credentials_saved:Boolean(window.cfRememberedEmail),remembered_email:window.cfRememberedEmail??'',connected:true,email:'test@example.test',options:{history_enabled:false,auto_ticket:false,public_prices:false},verification_required:false,destinations:[],verification_sent:false};return structuredClone(window.cfStatus);}
+      if(action==='disconnect'){window.cfStatus={credentials_saved:Boolean(window.cfRememberedEmail),remembered_email:window.cfRememberedEmail??'',connected:false,verification_required:false,destinations:[],verification_sent:false};return structuredClone(window.cfStatus);}
       if(action==='options'){window.cfStatus.options=structuredClone(msg.options);if(msg.options.history_enabled){for(const [id,total] of [['summary-ticket',5.22],['summary-order',10]])if(!window.receiptHistory.some(r=>r.id===id))window.receiptHistory.push({id,store:'carrefour',store_name:'Carrefour',purchased_at:'2026-10-16T19:59:30',total,article_count:null,lines:[],summary_only:true,account_key:id,ticket_available:id==='summary-ticket'});localStorage.setItem('receipt-fixture',JSON.stringify(window.receiptHistory));}return structuredClone(window.cfStatus);}
       if(action==='sync_history'){if(window.failCarrefourAccount)throw new Error('Carrefour ha rechazado el acceso (HTTP 403).');for(const [id,total] of [['summary-ticket',5.22],['summary-order',10]])if(!window.receiptHistory.some(r=>r.id===id))window.receiptHistory.push({id,store:'carrefour',store_name:'Carrefour',purchased_at:'2026-10-16T19:59:30',total,article_count:null,lines:[],summary_only:true,account_key:id,ticket_available:id==='summary-ticket'});localStorage.setItem('receipt-fixture',JSON.stringify(window.receiptHistory));return {added:2,available:2,complete:true};}
       if(action==='purchases'){if(window.failCarrefourAccount)throw new Error('Carrefour ha rechazado el acceso (HTTP 403).');return {purchases:[{id:'private-purchase-key',purchased_at:'2026-10-16T19:59:30',amount:5.22,store:'Carrefour de prueba',reviewable:true,kind:'Ticket'},...(msg.cursor?[]:[{id:'online-key',purchased_at:'2026-10-16T19:59:30',amount:10,store:'Carrefour online',reviewable:false,kind:'Pedido online · factura pendiente de soporte'}])],next_cursor:msg.cursor?null:{ticketOffset:10}};}
@@ -3605,7 +3605,9 @@ async function main() {
     await account.getByRole('button',{name:'Conectar cuenta',exact:true}).click();
     const login=account.getByRole('dialog',{name:'Conectar cuenta de Carrefour',exact:true});
     await login.getByLabel('Correo',{exact:true}).fill('test@example.test');
+    assert.equal(await login.getByLabel('Contraseña',{exact:true}).getAttribute('required'),'');
     await login.getByLabel('Contraseña',{exact:true}).fill('test-password');
+    await login.getByLabel('Recordar credenciales',{exact:true}).check();
     await login.getByRole('button',{name:'Conectar',exact:true}).click();
     await login.getByRole('button',{name:'Enviar código',exact:true}).waitFor();
     assert.equal(await login.getByLabel('Contraseña',{exact:true}).inputValue(),'');
@@ -3647,6 +3649,28 @@ async function main() {
     await account.getByRole('button',{name:'Desconectar cuenta',exact:true}).click();
     await account.getByRole('button',{name:'Conectar cuenta',exact:true}).waitFor();
     assert.equal(await account.getByRole('button',{name:'Consultar compras',exact:true}).count(),0);
+    await account.getByRole('button',{name:'Conectar cuenta',exact:true}).click();
+    const rememberedPassword=login.getByLabel('Contraseña',{exact:true});
+    assert.equal(await login.getByLabel('Correo',{exact:true}).inputValue(),'test@example.test');
+    assert.equal(await login.getByLabel('Recordar credenciales',{exact:true}).isChecked(),true);
+    assert.equal(await rememberedPassword.inputValue(),'');
+    assert.equal(await rememberedPassword.getAttribute('placeholder'),'••••••••');
+    assert.equal(await rememberedPassword.evaluate(input=>input.readOnly&&!input.required),true);
+    await login.getByText('Contraseña guardada. Se usará al conectar.',{exact:true}).waitFor();
+    await login.getByRole('button',{name:'Cambiar contraseña',exact:true}).click();
+    assert.equal(await rememberedPassword.evaluate(input=>!input.readOnly&&input.required),true);
+    await login.getByRole('button',{name:'Usar contraseña guardada',exact:true}).click();
+    await login.getByLabel('Recordar credenciales',{exact:true}).uncheck();
+    assert.equal(await rememberedPassword.evaluate(input=>!input.readOnly&&input.required),true);
+    await login.getByLabel('Recordar credenciales',{exact:true}).check();
+    await login.getByLabel('Correo',{exact:true}).fill('another@example.test');
+    assert.equal(await rememberedPassword.evaluate(input=>!input.readOnly&&input.required),true);
+    await login.getByLabel('Correo',{exact:true}).fill('test@example.test');
+    assert.equal(await login.locator('#login-form').evaluate(form=>form.checkValidity()),true);
+    await accountPage.screenshot({path:'test-results/carrefour-remembered-password-mobile.png',fullPage:true});
+    await login.getByRole('button',{name:'Conectar',exact:true}).click();
+    await login.getByRole('button',{name:'Enviar código',exact:true}).waitFor();
+    assert.deepEqual(await accountPage.evaluate(()=>window.lastCfLogin),{username:'test@example.test',password_empty:true,remember:true});
     await accountContext.close();
     // Logs display live changes as text, filter by origin/type and clean up on navigation.
     await page.setViewportSize({width:1280,height:960});

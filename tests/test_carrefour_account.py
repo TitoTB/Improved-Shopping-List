@@ -27,7 +27,7 @@ async def account(hass):
 
 async def test_start_and_status_never_contact_carrefour(account):
     account._http = AsyncMock()
-    assert account.status("owner") == {"connected":False,"email":"","options":{"history_enabled":False,"auto_ticket":False},"verification_required":False,"destinations":[],"verification_sent":False}
+    assert account.status("owner") == {"connected":False,"email":"","credentials_saved":False,"remembered_email":"","options":{"history_enabled":False,"auto_ticket":False},"verification_required":False,"destinations":[],"verification_sent":False}
     account.stop();account.start()
     account._http.assert_not_awaited()
 
@@ -288,6 +288,7 @@ async def test_remembered_credentials_are_opt_in_private_and_reused_only_on_requ
     restored = CarrefourAccount(hass, account.receipts, account.activity)
     await restored.async_load()
     restored.start()
+    restored._config = dict(account._config)
     restored._http = AsyncMock(return_value={"errorCode":0,"sessionInfo":{"login_token":"PRIVATE_SESSION"}})
     try:
         assert restored.status("owner")["credentials_saved"]

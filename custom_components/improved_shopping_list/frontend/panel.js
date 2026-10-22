@@ -302,7 +302,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
         .stock-form-fields .check input { width:20px; height:20px; }
         .stock-expiry-refill { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); align-items:end; gap:14px; }
         .stock-expiry-refill:has(#stock-days-label[hidden]) { grid-template-columns:minmax(0,1fr); }
-        .stock-reorder-row { display:grid; grid-template-columns:minmax(0,1fr) minmax(88px,120px); align-items:center; gap:14px; }
+        .stock-reorder-row { display:grid; grid-template-columns:minmax(0,1fr) 88px; align-items:center; gap:10px; }
         .stock-reorder-row .check { margin:0; }.stock-reorder-row .check input { flex:none; margin:0; }
         .stock-reorder-row:has(#stock-threshold-label[hidden]) { grid-template-columns:minmax(0,1fr); }
         .stock-quantity-editor { display:grid; grid-template-columns:40px minmax(0,1fr) 40px; gap:8px; align-items:end; }
@@ -746,7 +746,8 @@ class ImprovedShoppingListPanel extends HTMLElement {
     const custom=form.elements.unit.value==='custom',usage=form.elements.mode.value==='usage',perishable=form.elements.mode.value==='perishable';
     root.querySelector('#stock-custom-unit-label').hidden=!custom;
     root.querySelector('#stock-days-label').hidden=!perishable;root.querySelector('#stock-usage-fields').hidden=!usage;
-    root.querySelector('#stock-threshold-title').textContent=perishable ? 'Porcentaje mínimo restante (%)' : 'Stock mínimo';
+    root.querySelector('#stock-threshold-title').textContent=perishable ? 'Mínimo (%)' : 'Stock mínimo';
+    form.elements.reorder_at.setAttribute('aria-label',perishable ? 'Porcentaje mínimo restante (%)' : 'Stock mínimo');
     form.elements.reorder_at.max=perishable ? '100' : '1000000';
     root.querySelector('#stock-threshold-label').hidden=!form.elements.reorder_enabled.checked;
     for(const input of form.querySelectorAll('input,select,button'))input.disabled=locked;

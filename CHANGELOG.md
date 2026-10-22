@@ -2,6 +2,8 @@
 
 ## Pendiente de publicación
 
+- Catálogo elimina los avisos de éxito en todas sus vistas y en categorías. Se conservan errores, indicadores de carga y mensajes de los lectores al escanear.
+
 - Revisión de tickets con paso actual azul, pasos completados verdes y navegación a pasos anteriores pulsando su cabecera, sin perder la revisión.
 
 - Asistente de tickets: pendientes primero y bloques plegados para productos vinculados o ya incluidos en Stock. Filas de stock compactas con cantidad, unidades e icono de selección naranja, sin precios ni textos de ayuda. Nuevos botones verdes para guardar vinculaciones o stock y cerrar; Continuar en azul.

@@ -33,7 +33,7 @@ class ImprovedShoppingCategories extends HTMLElement {
         :host { display:block; color:var(--primary-text-color,#20352d); }
         :host([hidden]),[hidden] { display:none !important; }
         :host([embedded]) .toolbar { display:none; }
-        :host([editor-only]) .toolbar,:host([editor-only]) #category-notice,:host([editor-only]) #category-grid,:host([editor-only]) #category-empty { display:none; }
+        :host([editor-only]) .toolbar,:host([editor-only]) #category-grid,:host([editor-only]) #category-empty { display:none; }
         * { box-sizing:border-box; }
         button,input { font:inherit; }
         button { cursor:pointer; min-height:44px; padding:10px 14px; border:1px solid var(--divider-color,#dfe7e1); border-radius:10px; background:transparent; color:inherit; }
@@ -80,7 +80,6 @@ class ImprovedShoppingCategories extends HTMLElement {
         #category-product-options input { width:18px; height:18px; min-height:18px; margin:0; padding:0; flex:none; }
       </style>
       <div class="toolbar"><button id="new-category" class="primary">Nueva categoría</button></div>
-      <div id="category-notice" class="notice" role="status" hidden></div>
       <div id="category-grid" class="grid"></div>
       <p id="category-empty" class="empty">Crea categorías y elige un icono y un color para reconocer tus productos.</p>
       <dialog id="category-dialog" aria-labelledby="category-dialog-title">
@@ -222,12 +221,6 @@ class ImprovedShoppingCategories extends HTMLElement {
     this.shadowRoot.querySelectorAll("dialog button").forEach(button => { button.disabled = value; });
   }
 
-  _notice(text) {
-    const notice = this.shadowRoot.querySelector("#category-notice");
-    notice.textContent = text;
-    notice.hidden = false;
-  }
-
   async _save() {
     if (this._busy) return;
     const root = this.shadowRoot;
@@ -242,7 +235,6 @@ class ImprovedShoppingCategories extends HTMLElement {
     try {
       await this.onSave(category);
       root.querySelector("#category-dialog").close();
-      this._notice("Categoría guardada.");
       if (!this.hasAttribute("editor-only") && !this.hasAttribute("embedded")) root.querySelector("#new-category").focus();
     } catch (error) {
       const notice = root.querySelector("#category-error");
@@ -262,7 +254,6 @@ class ImprovedShoppingCategories extends HTMLElement {
         root.querySelector("#category-dialog").close();
         this._editing = null;
       }
-      this._notice("Categoría eliminada. Sus productos se han conservado.");
     } catch (error) {
       const notice = root.querySelector("#delete-category-error");
       notice.textContent = error.message ?? "No se ha podido eliminar la categoría.";

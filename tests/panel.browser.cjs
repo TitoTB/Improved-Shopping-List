@@ -959,7 +959,7 @@ async function main() {
     await categoryDeleteEditor.getByRole("button", { name: "Eliminar categoría", exact: true }).click();
     await categories.locator('#delete-category-dialog').getByRole("button", { name: "Eliminar categoría", exact: true }).click();
     await categoryDeleteEditor.waitFor({state:'hidden'});
-    await categories.getByRole("status").filter({ hasText: "Categoría eliminada" }).waitFor();
+    assert.equal(await categories.locator("#category-notice").count(),0);
     assert.equal(await page.evaluate(() => window.catalogProducts.length), 1);
     assert.equal(await page.evaluate(() => window.catalogProducts[0].category), "");
     await catalog.getByRole("button", { name: "Productos", exact: true }).click();
@@ -1096,7 +1096,8 @@ async function main() {
     assert.equal(await suggestions.locator("article").count(), 3);
     await suggestionPage.evaluate(() => { window.failCatalog = false; });
     await suggestions.getByRole("button", { name: "Descartar: Leche entera", exact: true }).click();
-    await suggestionCatalog.getByRole("status").filter({ hasText: "Sugerencia descartada" }).waitFor();
+    await suggestions.getByRole("button",{name:"Descartar: Leche entera",exact:true}).waitFor({state:"hidden"});
+    assert.equal(await suggestionCatalog.locator("#catalog-status").isVisible(),false);
     await suggestions.getByRole("button", { name: "Añadir al catálogo: Cacao", exact: true }).click();
     const suggestionDialog = suggestionCatalog.getByRole("dialog", { name:"Nuevo producto", exact:true });
     await suggestionDialog.waitFor();
@@ -1114,7 +1115,8 @@ async function main() {
     assert.equal(await suggestionPage.evaluate(() => window.catalogProducts.length), 0);
     await suggestionPage.evaluate(() => { window.failCatalog=false; });
     await suggestionDialog.getByRole("button", { name:"Guardar producto", exact:true }).click();
-    await suggestionCatalog.getByRole("status").filter({ hasText:"Producto guardado en el catálogo" }).waitFor();
+    await suggestionDialog.waitFor({state:"hidden"});
+    assert.equal(await suggestionCatalog.locator("#catalog-status").isVisible(),false);
     assert.equal(await suggestionPage.evaluate(() => window.catalogProducts[0].category), "Despensa");
     assert.equal(await suggestionPage.evaluate(() => 'brand' in window.catalogProducts[0] || 'format' in window.catalogProducts[0]), false);
     assert.deepEqual(await suggestions.locator("h2").allTextContents(), ["Arroz"]);
@@ -2142,7 +2144,8 @@ async function main() {
     await codeDialog.getByLabel("Cocina",{exact:true}).selectOption("add_list");
     await codeDialog.getByLabel("NFC despensa",{exact:true}).selectOption("stock_remove");
     await codeDialog.getByRole("button",{name:"Guardar producto",exact:true}).click();
-    await readerCatalog.getByRole("status").filter({hasText:"Producto guardado"}).waitFor();
+    await codeDialog.waitFor({state:"hidden"});
+    assert.equal(await readerCatalog.locator("#catalog-status").isVisible(),false);
     assert.equal(await readerCatalog.getByRole("button",{name:"Crear producto con el código 0012345678905",exact:true}).count(),0);
     assert.deepEqual(await readerPage.evaluate(()=>window.catalogProducts[0].barcodes),["https://example.test/cacao","0012345678906"]);
     assert.equal(await readerPage.evaluate(()=>Object.values(window.catalogProducts[0].reader_actions).includes("stock_remove")),true);
@@ -2185,7 +2188,8 @@ async function main() {
     assert.equal(await linkSearch.inputValue(),"Cacao lector");
     await readerPage.evaluate(()=>{window.failCatalog=false;});
     await assignButton.click();
-    await readerCatalog.getByRole("status").filter({hasText:"Código asignado al producto"}).waitFor();
+    await assignDialog.waitFor({state:"hidden"});
+    assert.equal(await readerCatalog.locator("#catalog-status").isVisible(),false);
     assert.equal(await readerPage.evaluate(()=>window.catalogProducts.length),1);
     assert.equal(await readerPage.evaluate(()=>window.catalogProducts[0].nfc_tags.includes('11223344')),true);
     assert.equal(await readerPage.evaluate(()=>Object.values(window.catalogProducts[0].reader_actions).includes('add_list')),true);
@@ -2988,7 +2992,8 @@ async function main() {
     assert.equal(await renamePage.evaluate(()=>window.listData['todo.bring'][0].summary),"Seitan");
     await renamePage.evaluate(()=>{window.fail=false;});
     await renameForm.getByRole("button",{name:"Guardar producto",exact:true}).click();
-    await renameCatalog.getByRole("status").filter({hasText:"nombre actualizado en la lista"}).waitFor();
+    await renameCatalog.locator('dialog[aria-labelledby="product-dialog-title"]').waitFor({state:"hidden"});
+    assert.equal(await renameCatalog.locator("#catalog-status").isVisible(),false);
     assert.equal(await renamePage.evaluate(()=>window.catalogProducts.length),1);
     assert.deepEqual(await renamePage.evaluate(()=>window.listData['todo.bring'].slice(0,2)),[
       {uid:'seitan-1',summary:'Seitán',status:'needs_action',description:'Conservar descripción'},
@@ -3000,7 +3005,8 @@ async function main() {
     await renameSuggestions.getByRole("button",{name:"Añadir al catálogo: Aguacat",exact:true}).click();
     await renameForm.getByLabel("Nombre del producto",{exact:true}).fill("Aguacate");
     await renameForm.getByRole("button",{name:"Guardar producto",exact:true}).click();
-    await renameCatalog.getByRole("status").filter({hasText:"nombre actualizado en la lista"}).waitFor();
+    await renameCatalog.locator('dialog[aria-labelledby="product-dialog-title"]').waitFor({state:"hidden"});
+    assert.equal(await renameCatalog.locator("#catalog-status").isVisible(),false);
     assert.equal(await renamePage.evaluate(()=>window.listData['todo.bring'].find(item=>item.uid==='avocado').summary),"Aguacate");
     assert.equal(await renameSuggestions.locator("h2").count(),0);
     // Later accent/case variants remain associated with the catalog and do not become suggestions.

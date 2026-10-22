@@ -66,7 +66,6 @@ class ImprovedShoppingCatalog extends HTMLElement {
     this.attachShadow({ mode: "open" });
     this._catalog = new CatalogSession(() => this._hass, () => this._render());
     this._canAdd = false;
-    this._notice = "";
     this._view = "products";
     this._productLayout = "grid";
     try { if (localStorage.getItem("isl-catalog-layout") === "rows") this._productLayout = "rows"; } catch { /* Storage may be disabled. */ }
@@ -597,7 +596,6 @@ class ImprovedShoppingCatalog extends HTMLElement {
     root.querySelector("#view-products").setAttribute("aria-pressed", String(view === "products"));
     root.querySelector("#view-categories").setAttribute("aria-pressed", String(view === "categories"));
     root.querySelector("#view-suggestions").setAttribute("aria-pressed", String(view === "suggestions"));
-    this._notice = "";
     this._render();
   }
 
@@ -608,8 +606,8 @@ class ImprovedShoppingCatalog extends HTMLElement {
     error.hidden = !this._catalog.error;
     error.textContent = this._catalog.error;
     const status = root.querySelector("#catalog-status");
-    status.hidden = !this._catalog.loading && (this._view === "products" || !this._notice);
-    status.textContent = this._catalog.loading ? "Cargando catálogo…" : this._notice;
+    status.hidden = !this._catalog.loading;
+    status.textContent = this._catalog.loading ? "Cargando catálogo…" : "";
     const categories = this._catalog.categories.map(category => category.name).sort((a, b) => a.localeCompare(b, "es"));
     const categorySelect = root.querySelector("[name=category]");
     const selectedCategory = categorySelect.value;
@@ -999,7 +997,6 @@ class ImprovedShoppingCatalog extends HTMLElement {
     try {
       await this._catalog.save(product);
       root.querySelector("#link-code-dialog").close();
-      this._notice = "Código asignado al producto.";
     } catch (error) {
       const notice = root.querySelector("#link-code-error");
       notice.textContent = error.message ?? "No se ha podido asignar el código al producto.";
@@ -1119,11 +1116,9 @@ class ImprovedShoppingCatalog extends HTMLElement {
     }
     this._suggestionBusy = true;
     this._suggestionError = "";
-    this._notice = "";
     this._render();
     try {
       await this._catalog.actOnSuggestion(name, action);
-      this._notice = `Sugerencia descartada: ${name}.`;
     } catch (error) {
       this._suggestionError = error.message ?? "No se ha podido guardar el cambio.";
     } finally {
@@ -1282,7 +1277,6 @@ class ImprovedShoppingCatalog extends HTMLElement {
         root.querySelector("#product-form").closest("dialog").close();
         this._editing = null;
       }
-      this._notice = "Producto eliminado del catálogo.";
       this._render();
       root.querySelector("#new-product").focus();
     } catch (error) {
@@ -1502,11 +1496,10 @@ class ImprovedShoppingCatalog extends HTMLElement {
     try {
       const saved = await this._catalog.save(product);
       this._editing = structuredClone(saved);
-      let renamed = 0;
       if (this._listOrigin && saved.name !== this._listOrigin.summary) {
         try {
           if (!this.onRenameSuggestion) throw new Error("No se ha podido conectar con la lista de origen.");
-          renamed = await this.onRenameSuggestion(this._listOrigin, saved.name);
+          await this.onRenameSuggestion(this._listOrigin, saved.name);
         } catch (error) {
           root.querySelector("#product-dialog-title").textContent = "Editar producto";
           throw new Error(`El producto se ha guardado en el catálogo, pero no se ha podido actualizar su nombre en la lista. ${error.message ?? "Inténtalo de nuevo."}`);
@@ -1515,7 +1508,6 @@ class ImprovedShoppingCatalog extends HTMLElement {
       this._listOrigin = null;
       if(this._receiptCreate)this._receiptCreated=structuredClone(saved);
       root.querySelector("dialog").close();
-      this._notice = renamed ? "Producto guardado y nombre actualizado en la lista." : "Producto guardado en el catálogo.";
       this._render();
       root.querySelector(this._view === "suggestions" ? "#view-suggestions" : "#new-product").focus();
     } catch (error) {
@@ -1535,7 +1527,6 @@ class ImprovedShoppingCatalog extends HTMLElement {
   async _addToList(product) {
     if (!this._canAdd || this._adding || !this.onAdd || this._pendingNames.has(productNameKey(product.name))) return;
     this._adding = product.id;
-    this._notice = "";
     this._render();
     try {
       await this.onAdd(product);

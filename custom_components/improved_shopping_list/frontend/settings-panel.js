@@ -90,6 +90,14 @@ class ImprovedShoppingSettings extends HTMLElement {
         .nutrition-track { background:var(--secondary-background-color,#edf4ee); height:28px; border-radius:6px; overflow:hidden; }
         .nutrition-bar { height:100%; border-radius:6px; }
         .nutrition-value { text-align:right; font-size:13px; font-variant-numeric:tabular-nums; }
+        .nutrition-row { cursor:pointer; list-style:none; }
+        .nutrition-row::-webkit-details-marker { display:none; }
+        .nutrition-row::before,.nutrition-group[open]>.nutrition-row::before { content:none; }
+        .nutrition-row:focus-visible { outline:3px solid var(--primary-color,#267052); outline-offset:3px; }
+        .nutrition-value::after { content:" ▾"; }
+        .nutrition-group[open] .nutrition-value::after { content:" ▴"; }
+        .nutrition-products { margin:0 0 20px; padding:0; list-style:none; }
+        .nutrition-products li { padding:10px 12px; border-bottom:1px solid var(--divider-color,#dfe7e1); overflow-wrap:anywhere; }
         @media(max-width:390px) { .nutrition-row { grid-template-columns:30px minmax(0,1fr) 90px; gap:8px; } .nutrition-grade { width:30px; height:30px; } }
         .appearance-fields { display:grid; grid-template-columns:1fr 1fr; gap:18px; }
         .appearance-fields.appearance-colors { grid-template-columns:repeat(4,minmax(0,1fr)); align-items:stretch; }
@@ -200,7 +208,7 @@ class ImprovedShoppingSettings extends HTMLElement {
         <h2 id="nutrition-title">Nutri-Score del catálogo</h2>
         <p>Distribución de los productos con Nutri-Score guardado. Cada producto cuenta una vez; los productos sin Nutri-Score no se incluyen.</p>
         <p id="nutrition-status" role="status"></p>
-        <div id="nutrition-chart" role="img" hidden></div>
+        <div id="nutrition-chart" role="group" hidden></div>
         <p id="nutrition-total" hidden></p>
       </section>
       <section id="settings-notifications" hidden><isl-notification-settings></isl-notification-settings></section>
@@ -404,7 +412,7 @@ class ImprovedShoppingSettings extends HTMLElement {
   _renderNutrition() {
     if(!this._built || !this._data || !this._active || this._view !== 'nutrition')return;
     const root=this.shadowRoot, hass=this._data.hass;
-    const key=JSON.stringify((this._data.products ?? []).map(product=>[product.id,product.barcode,product.barcodes]));
+    const key=JSON.stringify((this._data.products ?? []).map(product=>[product.id,product.name,product.barcode,product.barcodes]));
     if(!hass || (this._nutritionKey===key && this._nutritionConnection===hass.connection))return;
     this._nutritionKey=key;this._nutritionConnection=hass.connection;
     const token=this._nutritionToken={};
@@ -419,16 +427,23 @@ class ImprovedShoppingSettings extends HTMLElement {
       total.textContent=count+' productos con Nutri-Score';
       const colors={a:['#038141','#fff'],b:['#85bb2f','#182b22'],c:['#fecb02','#182b22'],d:['#ee8100','#182b22'],e:['#e63e11','#fff']};
       const labels=[];
+      const expanded=new Set([...chart.querySelectorAll('details[open]')].map(group=>group.dataset.grade));
+      const products=new Map((this._data.products ?? []).map(product=>[product.id,product]));
       chart.replaceChildren(...entries.map(([grade,value])=>{
         const percentage=count ? value/count*100 : 0;
         const label=grade.toUpperCase()+': '+value+' ('+percentage.toLocaleString('es',{maximumFractionDigits:1})+' %)';labels.push(label);
-        const row=document.createElement('div');row.className='nutrition-row';row.dataset.grade=grade;
+        const group=document.createElement('details');group.className='nutrition-group';group.dataset.grade=grade;group.open=expanded.has(grade);
+        const row=document.createElement('summary');row.className='nutrition-row';row.dataset.grade=grade;row.setAttribute('aria-label','Nutri-Score '+label);
         const letter=document.createElement('span');letter.className='nutrition-grade';letter.textContent=grade.toUpperCase();
         letter.style.background=colors[grade][0];letter.style.color=colors[grade][1];
         const track=document.createElement('div');track.className='nutrition-track';
         const bar=document.createElement('div');bar.className='nutrition-bar';bar.style.width=percentage+'%';bar.style.background=colors[grade][0];track.append(bar);
         const text=document.createElement('span');text.className='nutrition-value';text.textContent=value+' ('+percentage.toLocaleString('es',{maximumFractionDigits:1})+' %)';
-        row.append(letter,track,text);return row;
+        const list=document.createElement('ul');list.className='nutrition-products';list.setAttribute('aria-label','Productos Nutri-Score '+grade.toUpperCase());
+        const members=(data.product_ids?.[grade] ?? []).map(id=>products.get(id)).filter(Boolean).sort((a,b)=>a.name.localeCompare(b.name,'es',{sensitivity:'base'}));
+        for(const product of members){const item=document.createElement('li');item.textContent=product.name;list.append(item);}
+        if(!value){const item=document.createElement('li');item.textContent='No hay productos con esta calificación.';list.append(item);}
+        row.append(letter,track,text);group.append(row,list);return group;
       }));
       chart.setAttribute('aria-label','Distribución Nutri-Score: '+labels.join('; '));
     }).catch(()=>{

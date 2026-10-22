@@ -136,12 +136,12 @@ const hass={
     }
     if(msg.type==='improved_shopping_list/catalog/nutrition_distribution'){
       if(window.failNutritionDistribution)throw new Error('Disconnected');
-      const counts={a:0,b:0,c:0,d:0,e:0};
+      const counts={a:0,b:0,c:0,d:0,e:0},product_ids={a:[],b:[],c:[],d:[],e:[]};
       for(const product of window.catalogProducts){
         const grade=[product.barcode,...(product.barcodes??[])].map(code=>window.nutriFixture?.[String(code).replace(/^0+/,'')]).find(value=>counts[value?.grade]!=null)?.grade;
-        if(grade)counts[grade]++;
+        if(grade){counts[grade]++;product_ids[grade].push(product.id);}
       }
-      return {counts,total:Object.values(counts).reduce((sum,count)=>sum+count,0)};
+      return {counts,total:Object.values(counts).reduce((sum,count)=>sum+count,0),product_ids};
     }
     if(msg.type==='improved_shopping_list/catalog/nutriscore'){
       (window.nutriCalls??=[]).push(msg.code);
@@ -3328,6 +3328,18 @@ async function main() {
     await nutritionSettings.locator('#nutrition-total').filter({hasText:'3 productos'}).waitFor();
     assert.deepEqual(await nutritionSettings.locator('.nutrition-value').allTextContents(),['1 (33,3 %)','1 (33,3 %)','0 (0 %)','0 (0 %)','1 (33,3 %)']);
     assert.equal(await nutritionSettings.locator('.nutrition-bar').first().evaluate(node=>getComputedStyle(node).backgroundColor),'rgb(3, 129, 65)');
+    const gradeA=nutritionSettings.locator('.nutrition-group[data-grade="a"]');
+    assert.equal(await gradeA.locator('.nutrition-products').isVisible(),false);
+    await gradeA.locator('summary').click();
+    assert.equal(await gradeA.locator('.nutrition-products').isVisible(),true);
+    assert.deepEqual(await gradeA.locator('li').allTextContents(),['Zanahoria']);
+    const gradeB=nutritionSettings.locator('.nutrition-group[data-grade="b"]');
+    await gradeB.locator('summary').focus();await groupingPage.keyboard.press('Enter');
+    assert.deepEqual(await gradeB.locator('li').allTextContents(),['Arroz']);
+    assert.equal(await gradeB.locator('.nutrition-products').isVisible(),true);
+    await gradeA.locator('summary').click();
+    assert.equal(await gradeA.locator('.nutrition-products').isVisible(),false);
+
     assert.equal(await groupingPage.evaluate(()=>window.nutriCalls?.length??0),0);
     await groupingPage.screenshot({path:'test-results/nutrition-distribution-mobile.png',fullPage:true});
     for(const width of [320,1280]){await groupingPage.setViewportSize({width,height:844});assert.ok(await nutritionSettings.locator('#settings-nutrition').evaluate(node=>node.scrollWidth<=node.clientWidth+1));}

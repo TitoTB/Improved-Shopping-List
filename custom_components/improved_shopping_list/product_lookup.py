@@ -92,6 +92,7 @@ class ProductLookup:
     def nutrition_distribution(self, products):
         """Count catalog products once using stored hints, without network requests."""
         counts = dict.fromkeys("abcde", 0)
+        product_ids = {grade: [] for grade in counts}
         for product in products:
             for code in dict.fromkeys([product.get("barcode", ""), *product.get("barcodes", [])]):
                 if not is_product_barcode(code):
@@ -100,8 +101,9 @@ class ProductLookup:
                 grade = (hint.get("nutriscore") or {}).get("grade")
                 if grade in counts:
                     counts[grade] += 1
+                    product_ids[grade].append(product["id"])
                     break
-        return {"counts": counts, "total": sum(counts.values())}
+        return {"counts": counts, "total": sum(counts.values()), "product_ids": product_ids}
 
     async def async_lookup(self, code):
         if not is_product_barcode(code):

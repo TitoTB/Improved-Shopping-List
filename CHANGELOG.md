@@ -2,6 +2,8 @@
 
 ## Pendiente de publicación
 
+- Ajustes → Nutri-Score permite desplegar cada calificación para consultar sus productos ordenados alfabéticamente, utilizando únicamente los datos guardados.
+
 - Personalización permite guardar los colores inicial y final de Stock, a la izquierda de Recetas, con selectores y vistas previas en paralelo. Los colores también se aplican al progreso del stock, que conserva el aviso rojizo al agotarse.
 
 - Los bloques de recetas y su vista previa en Personalización muestran el texto blanco con cualquier degradado.

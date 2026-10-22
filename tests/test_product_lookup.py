@@ -155,14 +155,14 @@ async def test_nutrition_distribution_uses_stored_catalog_data_only(hass, hass_w
     lookup._cache["8410109115543".zfill(14)] = {"expires": 0, "result": {"status": "found", "nutriscore": {"grade": "e"}}}
     catalog = hass.data[DOMAIN]["catalog"]
     # Aliases and multiple known codes still count a catalog product only once.
-    await catalog.async_save_product({"name": "Cacao", "barcode": CODE, "barcodes": [CODE.zfill(14), "8410109115543"]})
+    cacao = await catalog.async_save_product({"name": "Cacao", "barcode": CODE, "barcodes": [CODE.zfill(14), "8410109115543"]})
     await catalog.async_save_product({"name": "Sin datos", "barcode": "https://example.test/qr"})
     await catalog.async_save_product({"name": "Sin código"})
     client = await hass_ws_client(hass)
     await client.send_json({"id": 1, "type": f"{DOMAIN}/catalog/nutrition_distribution"})
     result = await client.receive_json()
     assert result["success"]
-    assert result["result"] == {"counts": {"a": 0, "b": 1, "c": 0, "d": 0, "e": 0}, "total": 1}
+    assert result["result"] == {"counts": {"a": 0, "b": 1, "c": 0, "d": 0, "e": 0}, "total": 1, "product_ids": {"a": [], "b": [cacao["id"]], "c": [], "d": [], "e": []}}
     fetch.assert_not_awaited()
     assert lookup.nutrition_distribution([])["total"] == 0
     assert await hass.config_entries.async_unload(entry.entry_id)

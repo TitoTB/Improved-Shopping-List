@@ -162,6 +162,32 @@ async def test_import_disk_failure_stale_stock_and_confirmed_alias(hass,monkeypa
     assert next_draft['receipt']['lines'][0]['replenish'] is True
 
 
+async def test_purchase_queued_during_receipt_review_does_not_double_stock(hass):
+    env=await setup_manager(hass);draft=await preview(env)
+    env.automation._events=[(env.item['id'],env.item['config_revision'],'purchase',{'id':'arriving'})]
+    with pytest.raises(CatalogError,match='acaba de registrar'):
+        await env.manager.async_confirm(draft['token'],'owner',selections(draft,env.product),False)
+    assert env.stock.snapshot['items'][0]['quantity']==20
+    assert env.manager.snapshot['receipts']==[]
+
+
+async def test_receipt_prices_only_replace_older_observations_and_respect_disable(hass):
+    from custom_components.improved_shopping_list.price_manager import PriceManager
+    env=await setup_manager(hass);draft=await preview(env)
+    await env.manager.async_confirm(draft['token'],'owner',selections(draft,env.product),True)
+    settings=SimpleNamespace(snapshot={'stores':{'carrefour':{'enabled':True,'sale_point':'005704'}},'price_updates_enabled':True})
+    prices=PriceManager(hass,env.stock.catalog,settings,None);prices.receipts=env.manager
+    assert prices.prices_for(env.product)[0]['source']=='receipt'
+    product={**env.product,'store_links':{'carrefour':{'id':'R-test','url':'https://www.carrefour.es/test'}}}
+    key=prices.key('carrefour',product['store_links']['carrefour'],prices.scope('carrefour'))
+    prices._data['offers'][key]={'store':'carrefour','price':3,'checked_at':datetime.now().timestamp(),'source':'web'}
+    assert prices.prices_for(product)[0]['source']=='web'
+    prices._data['offers'][key]['checked_at']=0
+    assert prices.prices_for(product)[0]['price']==2.65
+    settings.snapshot['price_updates_enabled']=False
+    assert prices.prices_for(product)==[]
+
+
 async def test_receipt_api_is_admin_only_and_inactive_guard(hass,hass_ws_client,hass_read_only_user):
     entry=MockConfigEntry(domain=DOMAIN,data={CONF_TODO_ENTITY:'todo.bring'})
     entry.add_to_hass(hass);assert await hass.config_entries.async_setup(entry.entry_id)

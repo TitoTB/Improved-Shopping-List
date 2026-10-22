@@ -139,6 +139,8 @@ class ReceiptManager:
                         if data["aliases"].get(key,{}).get("product_id") != product["id"]:
                             data["aliases"][key] = {"product_id":product["id"], "per_unit":1, "unit":"uds"}
                 for item_id, group in groups.items():
+                    if any(event[0] == item_id and event[2] == "purchase" for event in getattr(self.automation,"_events",())):
+                        raise CatalogError("Se acaba de registrar una compra de este producto. Vuelve a subir el ticket para conciliarla.", "conflict")
                     item, quantity = items[item_id], group["quantity"]
                     previous = data["purchases"].get(group["purchase_id"]) if group["purchase_id"] else None
                     if group["purchase_id"] and (not previous or previous["item_id"] != item_id or previous.get("receipt_id") or previous.get("unit") != item["unit"]):

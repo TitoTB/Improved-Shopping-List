@@ -156,11 +156,28 @@ async def test_account_websocket_commands_require_admin_and_setup_never_fetches(
     assert await hass.config_entries.async_unload(entry.entry_id)
 
 
-async def test_identity_bootstrap_keeps_provider_device_cookie(account,aioclient_mock):
+async def test_identity_bootstrap_keeps_provider_device_cookie(account,monkeypatch):
+    from http.cookies import SimpleCookie
     account._cookies={}
-    aioclient_mock.post(IDENTITY+"/accounts.webSdkBootstrap",json={"errorCode":0},headers={"Set-Cookie":"gmid=device-issued-by-provider; Path=/; Secure; HttpOnly"})
-    aioclient_mock.post(IDENTITY+"/accounts.login",json={"errorCode":0,"sessionInfo":{"login_token":"session"}})
+    class Response:
+        status=200
+        def __init__(self,data,cookies=""):
+            self.data=json.dumps(data).encode()
+            self.cookies=SimpleCookie(cookies)
+            self.content=self
+        async def __aenter__(self):return self
+        async def __aexit__(self,*_args):pass
+        async def iter_chunked(self,_size):yield self.data
+    class Session:
+        async def __aenter__(self):return self
+        async def __aexit__(self,*_args):pass
+    session=Session()
+    session.request=Mock(side_effect=[
+        Response({"errorCode":0},"gmid=device-issued-by-provider; Path=/; Secure; HttpOnly"),
+        Response({"errorCode":0,"sessionInfo":{"login_token":"session"}}),
+    ])
+    monkeypatch.setattr("custom_components.improved_shopping_list.carrefour_account.async_create_clientsession",Mock(return_value=session))
     result=await account.async_login("owner","test@example.test","password")
-    assert result["connected"] and aioclient_mock.call_count==2
+    assert result["connected"] and session.request.call_count==2
     assert account._cookies["gmid"]=="device-issued-by-provider"
-    assert aioclient_mock.mock_calls[1]["headers"]["Cookie"]=="gmid=device-issued-by-provider"
+    assert session.request.call_args.kwargs["headers"]["Cookie"]=="gmid=device-issued-by-provider"

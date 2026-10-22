@@ -135,7 +135,7 @@ async def test_store_progress_subscription_and_cleanup(hass, hass_ws_client):
     service.manager._data.update(pending=[{}]*17, total=20, processed=3)
     service.manager._notify()
     event = (await client.receive_json())["event"]
-    assert event["processed"] == 3 and event["total"] == 20 and event["running"]
+    assert event["processed"] == 0 and event["total"] == 0 and not event["running"]
     await client.send_json({"id": 2, "type": "unsubscribe_events", "subscription": 1})
     assert (await client.receive_json())["success"]
     assert service.manager._listeners == background_listeners

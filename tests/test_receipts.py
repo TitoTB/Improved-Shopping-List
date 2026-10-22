@@ -180,10 +180,8 @@ async def test_receipt_prices_only_replace_older_observations_and_respect_disabl
     prices=PriceManager(hass,env.stock.catalog,settings,None);prices.receipts=env.manager
     assert prices.prices_for(env.product)[0]['source']=='receipt'
     product={**env.product,'store_links':{'carrefour':{'id':'R-test','url':'https://www.carrefour.es/test'}}}
-    key=prices.key('carrefour',product['store_links']['carrefour'],prices.scope('carrefour'))
-    prices._data['offers'][key]={'store':'carrefour','price':3,'checked_at':datetime.now().timestamp(),'source':'web'}
-    assert prices.prices_for(product)[0]['source']=='web'
-    prices._data['offers'][key]['checked_at']=0
+    prices._data['offers']['retired-web-offer']={'store':'carrefour','price':3,'checked_at':datetime.now().timestamp(),'source':'web'}
+    assert prices.prices_for(product)[0]['source']=='receipt'
     assert prices.prices_for(product)[0]['price']==2.65
     settings.snapshot['price_updates_enabled']=False
     assert prices.prices_for(product)==[]

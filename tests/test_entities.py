@@ -40,9 +40,8 @@ async def env(hass, monkeypatch):
     assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
     managers = hass.data[DOMAIN]
-    monkeypatch.setattr(managers["price_manager"], "_queue", Mock())
     fetch = AsyncMock(side_effect=AssertionError("Sensors must not request prices"))
-    monkeypatch.setattr(managers["price_manager"].sources, "fetch", fetch)
+    monkeypatch.setattr("custom_components.improved_shopping_list.price_sources.PriceSources.fetch", fetch)
     todos = {entity: Todo() for entity in ("todo.main", "todo.other")}
     component = hass.data[DATA_COMPONENT]
     monkeypatch.setattr(component, "get_entity", todos.get)
@@ -95,13 +94,12 @@ async def test_estimate_uses_most_covered_active_store_then_cheapest(env):
             "alcampo": normalize_link("alcampo", identifier)}}))
     for store in ("alcampo", "carrefour"):
         await settings.async_toggle_located_store(store, True)
-    for product in products:
-        link = product["store_links"]["carrefour"]
-        prices._data["offers"][prices.key("carrefour", link, prices.scope("carrefour"))] = {
-            "store": "carrefour", "price": "1.15", "currency": "EUR", "checked_at": 9999999999}
-    product = products[0]; link = product["store_links"]["alcampo"]
-    prices._data["offers"][prices.key("alcampo", link, prices.scope("alcampo"))] = {
-        "store": "alcampo", "price": "0.20", "currency": "EUR", "checked_at": 9999999999}
+    receipt_offers = {
+        products[0]["id"]: [{"store": "carrefour", "price": "1.15", "currency": "EUR", "source": "receipt"},
+                            {"store": "alcampo", "price": "0.20", "currency": "EUR", "source": "receipt"}],
+        products[1]["id"]: [{"store": "carrefour", "price": "1.15", "currency": "EUR", "source": "receipt"}],
+    }
+    prices.receipts = SimpleNamespace(offers_for=lambda product: receipt_offers.get(product["id"], []))
     env.todos["todo.main"].publish("cafe", "Arroz", "Sin precio")
     estimate = env.state("next_purchase_amount")
     assert float(estimate.state) == 2.30 and estimate.attributes["store"] == "carrefour"
@@ -110,9 +108,8 @@ async def test_estimate_uses_most_covered_active_store_then_cheapest(env):
     await settings.async_favorite_store("alcampo")
     assert env.state("default_store").state == "Alcampo"
     assert env.state("next_purchase_amount").attributes["store"] == "carrefour"
-    product = products[1]; link = product["store_links"]["alcampo"]
-    prices._data["offers"][prices.key("alcampo", link, prices.scope("alcampo"))] = {
-        "store": "alcampo", "price": "0.30", "currency": "EUR", "checked_at": 9999999999}
+    receipt_offers[products[1]["id"]].append(
+        {"store": "alcampo", "price": "0.30", "currency": "EUR", "source": "receipt"})
     prices._notify()
     assert float(env.state("next_purchase_amount").state) == 0.5
     assert env.state("next_purchase_amount").attributes["store"] == "alcampo"

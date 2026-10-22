@@ -243,5 +243,3 @@ async def test_community_admin_commands_do_not_expose_credentials_to_other_users
         await client.send_json({"id":i, **command})
         assert (await client.receive_json())["error"]["code"] == "unauthorized"
     assert aioclient_mock.call_count == 0
-
-

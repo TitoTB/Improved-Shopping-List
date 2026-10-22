@@ -25,10 +25,10 @@ class ImprovedShoppingPurchases extends HTMLElement {
     if(value.active&&this._hass.user?.is_admin===true&&(!this._started||changed)){
       this._started=true;void this._session.start();
     }
-    if(!value.active){this._session.stop();this._started=false;this.shadowRoot.querySelector('dialog').close();}
+    if(!value.active){this._session.stop();this._started=false;this.shadowRoot.querySelectorAll('dialog').forEach(dialog=>dialog.close());}
     this._render();
   }
-  disconnectedCallback(){this._session.stop();this._started=false;this.shadowRoot.querySelector('dialog')?.close();}
+  disconnectedCallback(){this._session.stop();this._started=false;this.shadowRoot.querySelectorAll('dialog').forEach(dialog=>dialog.close());}
   chooseFile(){if(!this._busy&&this._hass?.user?.is_admin===true)this.shadowRoot.querySelector('#ticket-file').click();}
   _build(){
     this._built=true;
@@ -53,6 +53,10 @@ class ImprovedShoppingPurchases extends HTMLElement {
       .check{flex-direction:row;align-items:center;margin-top:10px}.check input{width:18px;min-height:18px;flex:none}.purchase{margin-top:10px}
       .actions{display:flex;justify-content:flex-end;margin-top:16px}.actions button{border:0;background:#267052;color:white;border-radius:10px;padding:12px 20px}
       ha-icon{--mdc-icon-size:22px;width:22px;height:22px;flex:none}#review-summary{margin:12px 0}.note{font-size:.85em;opacity:.7;margin:10px 0}
+      .association-row{display:flex;align-items:center;gap:10px;min-width:0}.association-name{flex:1;min-width:0;overflow-wrap:anywhere}.association-name strong{font-size:.95em}.linked-name{font-size:.8em;opacity:.65;margin-left:8px}.association-buttons{display:flex;gap:6px;flex:none;margin-left:auto}
+      .small-button.link{background:#2196f3;color:white}.small-button.create{background:var(--isl-green,#267052);color:white}.small-button.ignore{background:transparent;color:inherit;border:0}.small-button.ignore[aria-pressed=true]{background:#d32f2f;color:white}
+      #association-dialog{width:min(500px,calc(100vw - 24px))}#association-form label{margin-top:16px}#association-error{margin:12px 0 0}
+      @media(max-width:400px){.association-buttons{gap:4px}.association-buttons .small-button{width:34px;height:38px}.association-row{gap:8px}.linked-name{display:block;margin-left:0}}
       @media(max-width:550px){dialog{padding:18px}.fields{grid-template-columns:minmax(0,1fr)}summary{gap:8px}.original{font-size:.9em}.ticket{padding:12px}}
     </style>
     <input id="ticket-file" type="file" accept="application/pdf,.pdf" hidden>
@@ -61,6 +65,12 @@ class ImprovedShoppingPurchases extends HTMLElement {
       <ol id="review-steps"><li>1. Vinculación</li><li>2. Stock</li><li>3. Precios</li></ol><h3 id="step-title"></h3><p id="step-help" class="note"></p>
       <div id="review-lines"></div><div id="review-result" class="review-summary" hidden></div>
       <p id="review-error" class="notice error" role="alert" hidden></p><div class="actions"><button id="links-only" class="secondary" type="button">Guardar solo vinculaciones</button><button id="previous-step" class="secondary" type="button">Anterior</button><button id="confirm-ticket" type="submit">Continuar</button></div>
+    </form></dialog>
+    <dialog id="association-dialog" aria-labelledby="association-title"><form id="association-form">
+      <h2 id="association-title">Vincular producto</h2>
+      <label for="association-search">Producto del catálogo</label><input id="association-search" type="text" list="association-products" maxlength="255" autocomplete="off" required><datalist id="association-products"></datalist>
+      <p id="association-error" class="notice error" role="alert" hidden></p>
+      <div class="actions"><button id="confirm-association" type="submit">Vincular</button></div>
     </form></dialog>`;
     installDialogCloseButtons(this.shadowRoot);
     const root=this.shadowRoot,dialog=root.querySelector('dialog');
@@ -69,7 +79,10 @@ class ImprovedShoppingPurchases extends HTMLElement {
     root.querySelector('#previous-step').addEventListener('click',()=>{if(!this._busy){this._step--;root.querySelector('#review-error').hidden=true;this._renderStep();}});
     root.querySelector('#links-only').addEventListener('click',()=>void this._saveLinks(true));
     dialog.addEventListener('cancel',event=>{if(this._busy)event.preventDefault();});
+    root.querySelector('#association-form').addEventListener('submit',event=>{event.preventDefault();this._confirmAssociation();});
+    root.querySelector('#association-dialog').addEventListener('close',()=>{this._associationEdit=null;});
     dialog.addEventListener('close',()=>{
+      root.querySelector('#association-dialog').close();
       if(this._draft){const token=this._draft.token;this._draft=null;void this._hass.callWS({type:'improved_shopping_list/receipts/discard',token}).catch(()=>{});}
     });
   }
@@ -118,19 +131,13 @@ class ImprovedShoppingPurchases extends HTMLElement {
   _button(name,mdi,action,cls='small-button'){
     const button=node('button',cls);button.type='button';button.title=name;button.setAttribute('aria-label',name);button.append(icon(mdi));button.addEventListener('click',action);return button;
   }
-  _refreshOptions(){
-    for(const edit of this._edits){
-      const list=this.shadowRoot.getElementById('receipt-products-'+edit.id);
-      if(list)list.replaceChildren(...this._draft.products.filter(product=>!this._edits.some(other=>other!==edit&&other.product_id===product.id)).map(p=>new Option(p.name,p.name)));
-    }
-  }
   _chooseProduct(edit,product){
     if(product&&this._edits.some(other=>other!==edit&&other.product_id===product.id)){
-      edit.product_id='';this._errorMessage('Este producto ya está vinculado a otra línea. Libera primero esa vinculación.');this._refreshOptions();return false;
+      edit.product_id='';this._errorMessage('Este producto ya está vinculado a otra línea. Libera primero esa vinculación.');return false;
     }
     const changed=edit.product_id!==(product?.id??'');edit.product_id=product?.id??'';
     if(changed){edit.unit=product?.unit??'uds';edit.quantity=product?this._quantity(edit.line,edit.unit):null;edit.replenish=Boolean(product?.stock_id);edit.purchase_id=null;}
-    this._errorMessage('');this._refreshOptions();return true;
+    this._errorMessage('');return true;
   }
   _renderStep(){
     if(!this._draft)return;
@@ -138,10 +145,11 @@ class ImprovedShoppingPurchases extends HTMLElement {
     root.querySelectorAll('#review-steps li').forEach((li,index)=>{if(index===step)li.setAttribute('aria-current','step');else li.removeAttribute('aria-current');});
     root.querySelector('#step-title').textContent=['Vincular productos','Reponer stock','Actualizar precios'][step];
     root.querySelector('#step-help').textContent=[
-      'Relaciona cada línea con un producto del catálogo, crea uno nuevo o ignórala. Cada producto solo puede aparecer en una línea. Las vinculaciones se guardan al continuar.',
+      '',
       'Los productos que ya están en Stock vienen marcados. Puedes incluir los demás y confirmar la cantidad. Si ya registraste la compra, selecciona la reposición anterior para corregirla.',
       this._pricesEnabled?'Selecciona los precios que quieres guardar para esta tienda. Se conserva la fecha de compra y los descuentos generales no se reparten entre productos.':'Los precios están desactivados en Ajustes. Puedes confirmar las vinculaciones y la reposición sin guardar precios.'
     ][step];
+    root.querySelector('#step-help').hidden=step===0;
     root.querySelector('#previous-step').hidden=step===0;root.querySelector('#links-only').hidden=step!==0;
     root.querySelector('#confirm-ticket').textContent=step===2?'Confirmar compra':'Continuar';
     const container=root.querySelector('#review-lines');container.replaceChildren();
@@ -154,7 +162,7 @@ class ImprovedShoppingPurchases extends HTMLElement {
     for(const edit of this._edits){
       const product=this._product(edit);if(step>0&&!product)continue;
       const row=node('div','review-line');row.dataset.lineId=edit.id;
-      const original=node('div','original');original.append(node('strong','',edit.line.description),node('span','',`${edit.line.count} × ${money(edit.line.unit_price)} = ${money(edit.line.amount)}`));row.append(original);
+      if(step>0){const original=node('div','original');original.append(node('strong','',edit.line.description),node('span','',`${edit.line.count} × ${money(edit.line.unit_price)} = ${money(edit.line.amount)}`));row.append(original);}
       if(step===0)this._associationRow(row,edit);
       if(step===1)this._stockRow(row,edit,product);
       if(step===2){
@@ -167,23 +175,54 @@ class ImprovedShoppingPurchases extends HTMLElement {
       container.append(row);
     }
     if(step>0&&!this._edits.some(edit=>edit.product_id))container.append(node('p','note','No hay productos vinculados en este ticket.'));
-    this._refreshOptions();
+
     const result=root.querySelector('#review-result');result.hidden=step!==2;
     result.replaceChildren(node('strong','','Resumen de la compra'),node('div','',`${this._edits.filter(e=>e.product_id).length} vinculaciones guardadas · ${this._edits.filter(e=>e.product_id&&e.replenish).length} productos para reponer · ${this._edits.filter(e=>e.product_id&&e.save_price&&this._pricesEnabled).length} precios seleccionados`));
     root.querySelectorAll('dialog button,dialog input,dialog select').forEach(el=>{el.disabled=this._busy||el.dataset.locked==='true';});
   }
   _associationRow(row,edit){
-    const fields=node('div','association'),label=node('label','','Producto del catálogo'),search=node('input');
-    search.type='text';search.maxLength=255;search.autocomplete='off';search.value=edit.search;search.setAttribute('list','receipt-products-'+edit.id);search.setAttribute('aria-label','Producto para '+edit.line.description);
-    search.dataset.locked=String(edit.ignore);search.disabled=edit.ignore;
-    search.addEventListener('input',()=>{edit.search=search.value;this._chooseProduct(edit,this._draft.products.find(p=>productNameKey(p.name)===productNameKey(search.value)));});
-    label.append(search);fields.append(label);
-    const create=this._button('Crear producto para '+edit.line.description,'mdi:plus-thick',()=>void this._createProduct(edit));create.dataset.locked=String(edit.ignore);create.disabled=edit.ignore;
-    fields.append(create,this._button('Liberar vinculación de '+edit.line.description,'mdi:close',()=>{edit.product_id='';edit.search='';edit.replenish=false;edit.purchase_id=null;this._renderStep();},'small-button clear'));
-    const list=node('datalist');list.id='receipt-products-'+edit.id;row.append(fields,list);
-    const ignoreLabel=node('label','check'),ignore=node('input');ignore.type='checkbox';ignore.checked=edit.ignore;
-    ignore.addEventListener('change',()=>{edit.ignore=ignore.checked;if(edit.ignore){edit.product_id='';edit.search='';edit.replenish=false;}this._errorMessage('');this._renderStep();});
-    ignoreLabel.append(ignore,document.createTextNode('Ignorar esta línea'));row.append(ignoreLabel);
+    row.classList.add('association-row');
+    const name=node('div','association-name');name.append(node('strong','',edit.line.description));
+    const product=this._product(edit);
+    if(product)name.append(node('span','linked-name','→ '+product.name));
+    const buttons=node('div','association-buttons');
+    const link=this._button('Vincular producto para '+edit.line.description,'mdi:link-variant',()=>this._openAssociation(edit),'small-button link');
+    link.dataset.locked=String(edit.ignore);link.disabled=edit.ignore;link.setAttribute('aria-pressed',String(Boolean(product)));
+    const create=this._button('Crear producto para '+edit.line.description,'mdi:plus-thick',()=>void this._createProduct(edit),'small-button create');
+    create.dataset.locked=String(edit.ignore);create.disabled=edit.ignore;
+    const ignore=this._button('Ignorar '+edit.line.description,'mdi:close',()=>{
+      edit.ignore=!edit.ignore;
+      if(edit.ignore){edit.ignoredProduct=edit.product_id;edit.product_id='';edit.search='';edit.replenish=false;edit.purchase_id=null;}
+      else if(edit.ignoredProduct){
+        const previous=this._draft.products.find(p=>p.id===edit.ignoredProduct);
+        if(previous&&!this._edits.some(other=>other!==edit&&other.product_id===previous.id)&&this._chooseProduct(edit,previous))edit.search=previous.name;
+      }
+      this._errorMessage('');this._renderStep();
+      [...this.shadowRoot.querySelectorAll('.review-line')].find(line=>line.dataset.lineId===String(edit.id))?.querySelector('.ignore')?.focus();
+    },'small-button ignore');
+    ignore.setAttribute('aria-pressed',String(edit.ignore));
+    buttons.append(link,create,ignore);row.append(name,buttons);
+  }
+  _openAssociation(edit){
+    if(this._busy||edit.ignore)return;
+    this._associationEdit=edit;
+    const root=this.shadowRoot;
+    root.querySelector('#association-title').textContent='Vincular '+edit.line.description;
+    const search=root.querySelector('#association-search');search.value=this._product(edit)?.name??'';
+    root.querySelector('#association-products').replaceChildren(...this._draft.products
+      .filter(product=>!this._edits.some(other=>other!==edit&&other.product_id===product.id))
+      .map(product=>new Option(product.name,product.name)));
+    root.querySelector('#association-error').hidden=true;
+    root.querySelector('#association-dialog').showModal();search.focus();
+  }
+  _confirmAssociation(){
+    const edit=this._associationEdit;if(this._busy||!this._draft||!edit)return;
+    const root=this.shadowRoot,search=root.querySelector('#association-search');
+    const product=this._draft.products.find(p=>productNameKey(p.name)===productNameKey(search.value));
+    const error=root.querySelector('#association-error');
+    error.textContent=!product?'Selecciona un producto del catálogo.':this._edits.some(other=>other!==edit&&other.product_id===product.id)?'Este producto ya está vinculado a otra línea. Libera primero esa vinculación.':'';
+    error.hidden=!error.textContent;if(error.textContent)return;
+    if(this._chooseProduct(edit,product)){edit.search=product.name;edit.ignore=false;root.querySelector('#association-dialog').close();this._renderStep();}
   }
   _stockRow(row,edit,product){
     row.append(node('strong','',product.name));

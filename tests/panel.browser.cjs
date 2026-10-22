@@ -518,7 +518,7 @@ async function main() {
       };
       visit(document);
       return dialogs.filter(dialog => dialog.querySelectorAll(".isl-dialog-close[aria-label='Cerrar ventana']").length === 1).length;
-    }), 32);
+    }), 33);
     await page.getByRole("button", { name: "Seleccionar lista", exact: true }).click();
     const listDialog = page.getByRole("dialog", { name: "Seleccionar lista", exact: true });
     assert.equal(await listDialog.getByRole("button", { name: "Compra · Bring!", exact: true }).getAttribute("aria-pressed"), "true");
@@ -2429,9 +2429,18 @@ async function main() {
     await purchases.locator('#ticket-file').setInputFiles(ticketFile);await review.waitFor();
     assert.equal(await review.getByText('Vincular productos',{exact:true}).isVisible(),true);
     const cerealLine=review.locator('[data-line-id="1"]');
-    assert.equal(await cerealLine.locator('datalist option[value="Seitán"]').count(),0);
-    await cerealLine.getByLabel('Producto para FLAUTIN CEREALES',{exact:true}).fill('Seitán');
-    await review.getByText('Este producto ya está vinculado a otra línea. Libera primero esa vinculación.',{exact:true}).waitFor();
+    assert.equal(await review.locator('#step-help').isVisible(),false);
+    assert.equal(await cerealLine.locator('input,.original').count(),0);
+    assert.equal(await cerealLine.locator('.link').evaluate(node=>getComputedStyle(node).backgroundColor),'rgb(33, 150, 243)');
+    assert.equal(await cerealLine.locator('.create').evaluate(node=>getComputedStyle(node).backgroundColor),'rgb(38, 112, 82)');
+    await cerealLine.getByRole('button',{name:'Vincular producto para FLAUTIN CEREALES',exact:true}).click();
+    const association=purchases.locator('#association-dialog');
+    assert.equal(await association.locator('datalist option[value="Seitán"]').count(),0);
+    await association.getByLabel('Producto del catálogo',{exact:true}).fill('Seitán');
+    await association.getByRole('button',{name:'Vincular',exact:true}).click();
+    await association.getByText('Este producto ya está vinculado a otra línea. Libera primero esa vinculación.',{exact:true}).waitFor();
+    await purchasePage.screenshot({path:'test-results/receipt-link-dialog-mobile.png',fullPage:true});
+    await association.getByRole('button',{name:'Cerrar ventana',exact:true}).click();
     await cerealLine.getByRole('button',{name:'Crear producto para FLAUTIN CEREALES',exact:true}).click();
     const receiptProduct=purchasePage.locator('isl-catalog').getByRole('dialog',{name:'Nuevo producto',exact:true});
     await receiptProduct.getByLabel('Nombre del producto',{exact:true}).fill('Flautines');
@@ -2439,17 +2448,31 @@ async function main() {
     await receiptProduct.waitFor({state:'hidden'});
     // Closing the catalog dialog precedes the receipt's asynchronous options refresh.
     await purchasePage.waitForFunction(()=>window.testPanel.shadowRoot.querySelector('isl-purchases')
-      ?.shadowRoot.querySelector('[data-line-id="1"] input[list]')?.value==='Flautines');
-    assert.equal(await cerealLine.getByLabel('Producto para FLAUTIN CEREALES',{exact:true}).inputValue(),'Flautines');
-    await review.locator('[data-line-id="2"]').getByLabel('Ignorar esta línea',{exact:true}).check();
+      ?.shadowRoot.querySelector('[data-line-id="1"] .linked-name')?.textContent==='→ Flautines');
+    assert.equal(await cerealLine.locator('.linked-name').textContent(),'→ Flautines');
+    await review.locator('[data-line-id="2"] .ignore').click();
+    const ignored=review.locator('[data-line-id="2"] .ignore');
+    assert.equal(await ignored.getAttribute('aria-pressed'),'true');
+    assert.equal(await ignored.evaluate(node=>getComputedStyle(node).backgroundColor),'rgb(211, 47, 47)');
+    await ignored.click();assert.equal(await ignored.getAttribute('aria-pressed'),'false');
+    await ignored.click();
+    await cerealLine.getByRole('button',{name:'Vincular producto para FLAUTIN CEREALES',exact:true}).click();
+    await association.getByLabel('Producto del catálogo',{exact:true}).fill('flautines');
+    await association.getByRole('button',{name:'Vincular',exact:true}).click();
+    await association.waitFor({state:'hidden'});
+    assert.equal(await cerealLine.locator('.linked-name').textContent(),'→ Flautines');
+    for(const width of [320,1280]){await purchasePage.setViewportSize({width,height:844});assert.ok(await review.evaluate(dialog=>dialog.scrollWidth<=dialog.clientWidth+1));assert.ok(await cerealLine.evaluate(row=>{const actions=row.querySelector('.association-buttons').getBoundingClientRect(),name=row.querySelector('.association-name').getBoundingClientRect();return name.right<=actions.left&&actions.right<=row.getBoundingClientRect().right;}));}
+    await purchasePage.screenshot({path:'test-results/receipt-link-lines-desktop.png',fullPage:true});
+    await purchasePage.setViewportSize({width:390,height:844});
+    await purchasePage.screenshot({path:'test-results/receipt-link-lines-mobile.png',fullPage:true});
     await review.getByRole('button',{name:'Guardar solo vinculaciones',exact:true}).click();
     await review.waitFor({state:'hidden'});
     assert.equal(await purchasePage.evaluate(()=>window.receiptHistory.length),0);
     assert.equal(await purchasePage.evaluate(()=>window.stockItems.length),0);
     assert.equal(await purchasePage.evaluate(()=>window.receiptLinks.filter(line=>line.product_id).length),2);
     await purchases.locator('#ticket-file').setInputFiles(ticketFile);await review.waitFor();
-    assert.equal(await cerealLine.getByLabel('Producto para FLAUTIN CEREALES',{exact:true}).inputValue(),'Flautines');
-    await review.locator('[data-line-id="2"]').getByLabel('Ignorar esta línea',{exact:true}).check();
+    assert.equal(await cerealLine.locator('.linked-name').textContent(),'→ Flautines');
+    await review.locator('[data-line-id="2"] .ignore').click();
     await review.getByRole('button',{name:'Continuar',exact:true}).click();
     await review.getByText('Reponer stock',{exact:true}).first().waitFor();
     assert.equal(await review.locator('[data-line-id="0"]').getByLabel('Reponer stock',{exact:true}).isChecked(),true);

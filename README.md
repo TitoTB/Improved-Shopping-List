@@ -58,8 +58,7 @@ Stock incluye las vistas **Stock** y **Compras**, con un botón para subir ticke
 PDF electrónicos de Carrefour (hasta 2 MB y 10 páginas). El documento se lee localmente;
 los escaneos y otros formatos de tienda todavía no están disponibles. El popup guía
 la revisión en tres pasos: **Vinculación**, **Stock** y **Precios**. Primero permite
-asociar cada línea al catálogo, abrir la ficha completa para crear un producto o
-ignorarla. Dos líneas del mismo ticket no pueden vincularse al mismo producto;
+asociar cada línea al catálogo desde un popup con buscador, abrir la ficha completa para crear un producto o ignorarla. Las filas muestran el nombre del ticket y tres botones: vincular (azul), crear (verde) e ignorar (X sin fondo que pasa a rojo al activarse y se puede desmarcar). En este paso no se muestran cantidades ni precios. Dos líneas del mismo ticket no pueden vincularse al mismo producto;
 hay que liberar la asociación anterior antes de reutilizarlo. La similitud de nombres
 solo propone correspondencias. Al continuar se guardan las vinculaciones localmente,
 independientemente del stock y sin compartirlas con el diccionario comunitario.

@@ -2,6 +2,8 @@
 
 ## Pendiente de publicación
 
+- Revisión de tickets: vinculación en filas compactas con selector de catálogo en popup, creación en verde e ignorado reversible en rojo. Se retiran la ayuda inicial y las cantidades y precios del paso de vinculación.
+
 - Stock: «Últimas compras» pasa a llamarse «Compras». Los botones de añadir producto y subir ticket usan el mismo fondo verde que el botón de añadir de Lista.
 
 - Nutri-Score pasa de criterio de agrupación del catálogo a una vista de Ajustes con gráfica A–E, recuentos y porcentajes. Solo incluye productos con datos guardados, cuenta cada ficha una vez y no genera consultas externas al abrirse.

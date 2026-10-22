@@ -6,10 +6,8 @@ class ImprovedShoppingReaders extends HTMLElement {
   connectedCallback() {
     if (!this._built) this._build();
     this._render();
-    clearInterval(this._relativeTimer);
-    this._relativeTimer = setInterval(() => this._updateLastUsed(), 30000);
   }
-  disconnectedCallback() { clearInterval(this._relativeTimer); this.shadowRoot.querySelectorAll("dialog").forEach(dialog => dialog.close()); }
+  disconnectedCallback() { this.shadowRoot.querySelectorAll("dialog").forEach(dialog => dialog.close()); }
 
   _build() {
     this.shadowRoot.innerHTML = `
@@ -90,11 +88,10 @@ class ImprovedShoppingReaders extends HTMLElement {
       toggle.checked=this._toggling.get(reader.id)??reader.enabled;toggle.title=toggle.checked?"Desactivar lector":"Activar lector";toggle.disabled=!admin||readers.loading||this._busy||this._toggling.has(reader.id);
       toggle.addEventListener("change",()=>void this._toggleReader(reader,toggle.checked));
       const name=document.createElement("h2");name.textContent=reader.name;
-      const source=document.createElement("p");source.className="source";source.textContent=reader.source==="tag"?reader.device_id:reader.entity_id;
       const last=document.createElement("p");last.className="last";last.dataset.lastUsed=reader.id;last.textContent=this._lastUsed(reader);
       const actions=document.createElement("div");actions.className="actions";
       for(const [text,mdi,style,fn] of [["Ver","mdi:eye-outline","view",()=>this._viewReader(reader)],["Editar","mdi:note-edit","edit",()=>this._open(reader)],["Quitar","mdi:delete","danger",()=>this._confirmRemove(reader)]]){const button=document.createElement("button");button.type="button";button.className=style;button.title=`${text} lector ${reader.name}`;button.setAttribute("aria-label",button.title);button.disabled=(text!=="Ver"&&!admin)||readers.loading||this._busy||this._toggling.has(reader.id);const icon=document.createElement("ha-icon");icon.setAttribute("icon",mdi);icon.setAttribute("aria-hidden","true");button.append(icon);button.addEventListener("click",fn);actions.append(button);}
-      card.append(type,toggle,name,source,last,actions);return card;
+      card.append(type,toggle,name,last,actions);return card;
     }));
     this._renderLiveReading();
   }
@@ -128,20 +125,9 @@ class ImprovedShoppingReaders extends HTMLElement {
 
   _lastUsed(reader) {
     const timestamp=Date.parse(reader.last?.time??"");
-    if(!Number.isFinite(timestamp))return "Sin uso registrado";
-    const seconds=Math.max(0,Math.floor((Date.now()-timestamp)/1000));
-    if(seconds<60)return `Usado hace ${seconds} s`;
-    if(seconds<3600)return `Usado hace ${Math.floor(seconds/60)} min`;
-    if(seconds<86400)return `Usado hace ${Math.floor(seconds/3600)} h`;
-    const days=Math.floor(seconds/86400);return `Usado hace ${days} ${days===1?"día":"días"}`;
-  }
-
-  _updateLastUsed() {
-    const readers=this._data?.readers.readers??[];
-    this.shadowRoot.querySelectorAll("[data-last-used]").forEach(node=>{
-      const reader=readers.find(item=>item.id===node.dataset.lastUsed);
-      if(reader)node.textContent=this._lastUsed(reader);
-    });
+    if(!Number.isFinite(timestamp))return "Último uso: —";
+    const date=new Date(timestamp), pad=value=>String(value).padStart(2,"0");
+    return `Último uso: ${pad(date.getDate())}/${pad(date.getMonth()+1)} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
   }
 
   async _toggleReader(reader,enabled) {

@@ -1676,8 +1676,9 @@ async function main() {
     const nfcReader=readersView.locator("#readers-grid article").filter({hasText:"NFC despensa"});
     assert.equal(await barcodeReader.locator(".reader-type").getAttribute("icon"),"mdi:barcode-scan");
     assert.equal(await nfcReader.locator(".reader-type").getAttribute("icon"),"mdi:nfc-variant");
-    assert.equal(await barcodeReader.locator(".source").textContent(),"sensor.lector_cb_codigo_leido");
-    assert.equal(await nfcReader.locator(".source").textContent(),"nfc-device");
+    assert.equal(await barcodeReader.locator(".source").count(),0);
+    assert.equal(await nfcReader.locator(".source").count(),0);
+    assert.equal(await barcodeReader.locator(".last").textContent(),"Último uso: —");
     assert.deepEqual(await barcodeReader.locator(".actions button").allTextContents(),["","",""]);
     assert.deepEqual(await barcodeReader.locator(".actions ha-icon").evaluateAll(icons=>icons.map(icon=>icon.getAttribute("icon"))),["mdi:eye-outline","mdi:note-edit","mdi:delete"]);
     const viewReader = barcodeReader.getByRole("button",{name:"Ver lector Cocina",exact:true});
@@ -1714,7 +1715,7 @@ async function main() {
     assert.equal(await barcodeReader.locator(".badge").count(),0);
     assert.ok(await barcodeReader.evaluate(card=>{
       const bounds=card.getBoundingClientRect();
-      return ['.reader-type','h2','.source','.actions'].every(selector=>{const rect=card.querySelector(selector).getBoundingClientRect();return Math.abs((rect.left+rect.right)/2-(bounds.left+bounds.right)/2)<1;});
+      return ['.reader-type','h2','.last','.actions'].every(selector=>{const rect=card.querySelector(selector).getBoundingClientRect();return Math.abs((rect.left+rect.right)/2-(bounds.left+bounds.right)/2)<1;});
     }));
     const readerToggle=barcodeReader.getByRole("switch",{name:"Activar lector Cocina",exact:true});
     assert.equal(await readerToggle.isChecked(),true);
@@ -1743,12 +1744,12 @@ async function main() {
     assert.equal(await readerPage.evaluate(()=>window.moreInfoEvents.length),2);
     await readerPage.evaluate(()=>{
       window.testPanel.hass={...window.testPanel._hass,user:{is_admin:true}};
-      window.readerFixture.readers.find(reader=>reader.name==='Cocina').last={time:new Date(Date.now()-125000).toISOString(),code:'secret-code',message:'Añadido a la lista'};window.emitReaders();
+      window.readerFixture.readers.find(reader=>reader.name==='Cocina').last={time:new Date(2026,9,22,7,5).toISOString(),code:'secret-code',message:'Añadido a la lista'};window.emitReaders();
     });
-    assert.equal(await barcodeReader.locator(".last").textContent(),"Usado hace 2 min");
+    assert.equal(await barcodeReader.locator(".last").textContent(),"Último uso: 22/10 07:05");
     assert.equal((await barcodeReader.textContent()).includes("secret-code"),false);
     await readerPage.clock.fastForward(60000);
-    assert.equal(await barcodeReader.locator(".last").textContent(),"Usado hace 3 min");
+    assert.equal(await barcodeReader.locator(".last").textContent(),"Último uso: 22/10 07:05");
     await readerPage.evaluate(()=>{const reader=window.readerFixture.readers[0];window.readerFixture.pending=[{id:'scan-1',kind:'barcode',code:'0012345678905',reader_id:reader.id,reader_name:reader.name,time:new Date().toISOString()}];window.emitReaders();});
     await readerPage.screenshot({path:"test-results/readers-desktop.png",fullPage:true});
     await readerPage.getByRole("button",{name:"Catálogo",exact:true}).click();

@@ -2,6 +2,7 @@
 
 ## Pendiente de publicación
 
+- Lectores oculta la entidad o Device ID en sus tarjetas y muestra el último uso con formato dd/mm hh:mm. Si no existe una lectura registrada, muestra Último uso: —.
 - Stock muestra cantidad y unidades en negrita seguidas del porcentaje entre paréntesis, en texto normal al 50 % de opacidad, en todos los modos de control.
 - Stock se ordena de menor a mayor porcentaje por defecto. El criterio numérico compara todos los modos respecto a su cantidad de reposición, sin mezclar porcentajes con cantidades absolutas; los empates se resuelven alfabéticamente y se conserva la elección del usuario.
 - En Lista, contador de productos en negrita al mostrar el ticket e importe aproximado en negrita en la vista normal.

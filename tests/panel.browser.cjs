@@ -2728,13 +2728,28 @@ async function main() {
     const purchaseDetail=spending.getByRole('dialog',{name:'Detalle de la compra',exact:true});await purchaseDetail.waitFor();
     await purchaseDetail.getByText('Producto j1',{exact:true}).waitFor();
     await purchaseDetail.getByRole('button',{name:'Cerrar ventana',exact:true}).click();
+    assert.equal(await spending.locator('.month-column').count(),6);
+    const defaultMonths=await spendingPage.evaluate(()=>{const now=new Date();return Array.from({length:6},(_,i)=>{const month=new Date(now.getFullYear(),now.getMonth()-5+i,1);return month.getFullYear()+'-'+String(month.getMonth()+1).padStart(2,'0');});});
+    assert.deepEqual(await spending.locator('.month-column').evaluateAll(columns=>columns.map(column=>column.dataset.month)),defaultMonths);
+    const previousPeriod=spending.getByRole('button',{name:'Mostrar seis meses anteriores',exact:true});
+    const nextPeriod=spending.getByRole('button',{name:'Mostrar seis meses siguientes',exact:true});
+    assert.equal(await nextPeriod.isDisabled(),true);
+    while(!await spending.locator('.month-column[data-month="2026-01"]').count())await previousPeriod.click();
     const jan=spending.locator('.month-column[data-month="2026-01"]'),feb=spending.locator('.month-column[data-month="2026-02"]');
     assert.equal(await jan.getAttribute('data-total'),'35.75');assert.equal(await feb.getAttribute('data-total'),'40');
     assert.equal(await jan.locator('[data-store="carrefour"]').getAttribute('data-amount'),'15.75');
     assert.equal(await jan.locator('[data-store="mercadona"]').getAttribute('data-amount'),'20');
     assert.equal(await jan.locator('.store-segment').count(),2);assert.equal(await feb.locator('.store-segment').count(),1);
     assert.match(await jan.getAttribute('aria-label'),/Carrefour.*15,75.*Mercadona.*20,00/);
-    for(const width of [320,390,1280]){await spendingPage.setViewportSize({width,height:844});assert.ok(await spending.evaluate(el=>el.scrollWidth<=el.clientWidth+1));}
+    assert.equal(await previousPeriod.isDisabled(),true);
+    while(!await nextPeriod.isDisabled())await nextPeriod.click();
+    assert.deepEqual(await spending.locator('.month-column').evaluateAll(columns=>columns.map(column=>column.dataset.month)),defaultMonths);
+    for(const width of [320,390,1280]){
+      await spendingPage.setViewportSize({width,height:844});
+      assert.ok(await spending.evaluate(el=>el.scrollWidth<=el.clientWidth+1));
+      assert.ok(await spending.locator('.monthly-bars').evaluate(el=>Math.abs(el.getBoundingClientRect().width-el.parentElement.getBoundingClientRect().width)<1));
+      assert.equal(await spending.locator('.month-column').count(),6);
+    }
     await spendingPage.screenshot({path:'test-results/purchases-monthly-chart-desktop.png',fullPage:true});
     await spendingPage.setViewportSize({width:390,height:844});await spendingPage.screenshot({path:'test-results/purchases-monthly-chart-mobile.png',fullPage:true});
     await firstPurchase.locator('.ticket-open').click();await spendingPage.screenshot({path:'test-results/purchase-detail-mobile.png',fullPage:true});

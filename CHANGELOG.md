@@ -2,6 +2,8 @@
 
 ## Pendiente de publicación
 
+- Compras muestra seis meses naturales de gasto por defecto, incluido el actual, con columnas repartidas por todo el ancho y flechas para navegar entre periodos de seis meses.
+
 - Los tickets de compras de Carrefour se recuperan desde el icono junto al importe en Stock → Compras; se retira Consultar compras de los ajustes. Las referencias privadas se conservan al reiniciar y los resúmenes antiguos se resuelven contra el historial de la cuenta.
 
 - Carrefour: conexión al pie del popup, toggles desactivados con el color predeterminado y descripciones de cada opción. La ventana de conexión usa Correo y permite recordar las credenciales localmente de forma voluntaria.

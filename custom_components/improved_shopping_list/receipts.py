@@ -11,7 +11,7 @@ from uuid import uuid4
 from homeassistant.util import dt as dt_util
 
 from .catalog import CatalogError, normalized_name, product_codes
-from .receipt_parser import MAX_PDF_BYTES, extract_receipt
+from .receipt_parser import MAX_PDF_BYTES, extract_receipt, extract_carrefour_account_ticket
 from .stock import DAY, DEFAULT_CONFIG, quantity_value
 
 
@@ -113,6 +113,16 @@ class ReceiptManager:
             raise CatalogError("Ya se está leyendo un ticket. Espera a que termine.")
         async with self._parse_lock:
             receipt = await self.hass.async_add_executor_job(extract_receipt, content)
+        return await self._prepare_preview(receipt, owner)
+
+    async def async_preview_carrefour_ticket(self, detail, reference, expected_total, owner):
+        if self._parse_lock.locked():
+            raise CatalogError("Ya se está leyendo un ticket. Espera a que termine.")
+        async with self._parse_lock:
+            receipt = await self.hass.async_add_executor_job(extract_carrefour_account_ticket, detail, reference, expected_total)
+        return await self._prepare_preview(receipt, owner)
+
+    async def _prepare_preview(self, receipt, owner):
         self._check_duplicate(receipt)
         await self.automation.async_check()
         choices = self._choices(receipt["store"])

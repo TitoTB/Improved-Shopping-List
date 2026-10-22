@@ -5,6 +5,7 @@ from decimal import Decimal, ROUND_HALF_UP
 from hashlib import sha256
 from io import BytesIO
 import re
+import math
 
 from pypdf import PdfReader
 
@@ -162,6 +163,29 @@ def extract_receipt(content):
         raise
     except Exception as err:
         raise CatalogError("No se ha podido leer el PDF. Comprueba que sea un ticket electrónico válido.") from err
+    return _identify_receipt(receipt, content)
+
+
+def _identify_receipt(receipt, content):
     receipt["digest"] = sha256(content).hexdigest()
     receipt["id"] = sha256((receipt["store"] + ":" + (receipt["identity"] or receipt["purchased_at"] + ":" + str(receipt["total"]) + ":" + str(receipt["lines"]))).encode()).hexdigest()
     return receipt
+
+
+def extract_carrefour_account_ticket(detail, reference, expected_total):
+    """Validate the account's printable lines without retaining customer/payment fields."""
+    if not isinstance(detail, dict) or detail.get("ticketId") != reference:
+        raise CatalogError("El detalle de Carrefour no corresponde al ticket seleccionado.")
+    lines, header = detail.get("lines"), detail.get("header")
+    if (not isinstance(lines, list) or not 1 <= len(lines) <= 2000 or
+            any(not isinstance(line, str) or len(line) > 2000 for line in lines)):
+        raise CatalogError("Carrefour no ha devuelto un detalle de ticket válido.")
+    text = "\n".join(lines)
+    if len(text) > 100000:
+        raise CatalogError("El ticket contiene demasiado texto.")
+    receipt = parse_carrefour(text)
+    reported_total = header.get("netAmount") if isinstance(header, dict) else None
+    for amount in (reported_total, expected_total):
+        if type(amount) not in (int, float) or not math.isfinite(amount) or abs(receipt["total"] - amount) > .02:
+            raise CatalogError("El detalle extraído no coincide con el importe de la compra de Carrefour.")
+    return _identify_receipt(receipt, text.encode("utf-8"))

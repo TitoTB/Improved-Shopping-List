@@ -181,3 +181,33 @@ async def test_identity_bootstrap_keeps_provider_device_cookie(account,monkeypat
     assert result["connected"] and session.request.call_count==2
     assert account._cookies["gmid"]=="device-issued-by-provider"
     assert session.request.call_args.kwargs["headers"]["Cookie"]=="gmid=device-issued-by-provider"
+
+
+@pytest.mark.parametrize("status", [500, 502, 503])
+async def test_pdf_server_error_uses_detail_once_without_reauthenticating(account, status):
+    account._session={"login_token":"private", "jwt":"private-jwt", "jwt_until":time.time()+500}
+    row={"purchaseId":"test-ticket-1", "purchaseDate":dt_util.now().isoformat(), "amount":5.22, "orderSource":"TICKET"}
+    detail={"ticketId":"test-ticket-1", "header":{"netAmount":5.22}, "lines":["private printable lines"]}
+    error=CarrefourAccountError("PDF no disponible", "pdf", status=status)
+    account._http=AsyncMock(side_effect=[{"purchases":[row]}, error, detail])
+    draft={"token":"detail-draft", "receipt":{"lines":[{}]}}
+    account.receipts.async_preview_carrefour_ticket=AsyncMock(return_value=draft)
+    result=await account.async_purchases("owner")
+    assert await account.async_preview("owner",result["purchases"][0]["id"])==draft
+    assert [request.args[1] for request in account._http.await_args_list[1:]]==[
+        API+"/md-ticketsAccount-v1/tickets/test-ticket-1/pdf", API+"/md-ticketsAccount-v1/tickets/test-ticket-1"]
+    account.receipts.async_preview_carrefour_ticket.assert_awaited_once_with(detail,"test-ticket-1",5.22,"owner")
+    account.receipts.async_preview.assert_not_awaited()
+    assert account.activity.record.call_args.kwargs["diagnostics"]=={"pdf_http_status":status,"fallback":"ticket_detail","products":1}
+    assert "private" not in str(account.activity.record.call_args)
+
+
+@pytest.mark.parametrize("status", [401,403,404])
+async def test_pdf_access_errors_never_try_the_detail_endpoint(account,status):
+    account._session={"login_token":"private", "jwt":"private-jwt", "jwt_until":time.time()+500}
+    row={"purchaseId":"test-ticket-1", "purchaseDate":dt_util.now().isoformat(), "amount":5.22, "orderSource":"TICKET"}
+    account._http=AsyncMock(side_effect=[{"purchases":[row]},CarrefourAccountError("Acceso rechazado","pdf",status=status)])
+    result=await account.async_purchases("owner")
+    with pytest.raises(CarrefourAccountError):
+        await account.async_preview("owner",result["purchases"][0]["id"])
+    assert account._http.await_count==2

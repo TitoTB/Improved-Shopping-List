@@ -16,7 +16,7 @@ from homeassistant.util import dt as dt_util
 
 from custom_components.improved_shopping_list.catalog import Catalog, CatalogError
 from custom_components.improved_shopping_list.const import DOMAIN, CONF_TODO_ENTITY
-from custom_components.improved_shopping_list.receipt_parser import parse_carrefour, parse_carrefour_invoice, extract_receipt
+from custom_components.improved_shopping_list.receipt_parser import parse_carrefour, parse_carrefour_invoice, extract_receipt, extract_carrefour_account_ticket
 from custom_components.improved_shopping_list.receipts import ReceiptManager, converted_quantity
 from custom_components.improved_shopping_list.stock import StockManager
 
@@ -353,3 +353,34 @@ async def test_invoice_matches_saved_ean_confirms_stock_prices_and_duplicate(has
     # Same invoice identity is rejected even if PDF bytes change.
     with pytest.raises(CatalogError, match='ya se ha importado'):
         await env.manager.async_preview(base64.b64encode(pdf_bytes(invoice_text()+'\n')).decode(), 'owner')
+
+
+def test_account_ticket_detail_matches_pdf_identity_and_keeps_no_personal_data():
+    text=receipt_text()
+    detail={"ticketId":"test-ticket", "header":{"netAmount":5.22}, "lines":text.splitlines(),
+            "clientId":"PRIVATE_CUSTOMER", "cardNumber":"PRIVATE_PAYMENT"}
+    receipt=extract_carrefour_account_ticket(detail,"test-ticket",5.22)
+    pdf=extract_receipt(pdf_bytes(text))
+    assert receipt["id"]==pdf["id"]
+    assert receipt["lines"]==pdf["lines"]
+    assert receipt["total"]==5.22
+    assert "PRIVATE" not in str(receipt)
+    for bad,reference,total in [({**detail,"ticketId":"other"},"test-ticket",5.22),
+        ({**detail,"header":{"netAmount":8}},"test-ticket",5.22),
+        (detail,"test-ticket",7),({**detail,"lines":[{}]},"test-ticket",5.22),
+        ({**detail,"lines":["x"*2001]},"test-ticket",5.22),
+        ({**detail,"lines":text.replace("SUBTOTAL 6,22","SUBTOTAL 8,00").splitlines()},"test-ticket",5.22)]:
+        with pytest.raises(CatalogError):
+            extract_carrefour_account_ticket(bad,reference,total)
+
+
+async def test_account_ticket_detail_only_previews_and_cannot_reimport_pdf(hass):
+    env=await setup_manager(hass)
+    text=receipt_text()
+    detail={"ticketId":"test-ticket", "header":{"netAmount":5.22}, "lines":text.splitlines()}
+    draft=await env.manager.async_preview_carrefour_ticket(detail,"test-ticket",5.22,"owner")
+    assert env.stock.snapshot["items"][0]["quantity"]==20
+    assert env.manager.snapshot["receipts"]==[]
+    await env.manager.async_confirm(draft["token"],"owner",selections(draft,env.product),False)
+    with pytest.raises(CatalogError,match="ya se ha importado"):
+        await env.manager.async_preview(base64.b64encode(pdf_bytes(text)).decode(),"owner")

@@ -2,6 +2,8 @@
 
 ## Pendiente de publicación
 
+- Cuenta Carrefour: si la descarga del PDF devuelve HTTP 5xx, se consulta el detalle del ticket como alternativa. Se verifican la referencia, las líneas, los artículos y los importes; se conserva la detección de duplicados frente al PDF y la confirmación previa de stock/precios.
+
 - Compras muestra el logo de cada tienda y abre el detalle mediante un botón de ticket junto al total. Un gráfico de barras apiladas resume el gasto mensual por tienda a partir de las compras registradas.
 
 - El asistente de tickets muestra un resumen final después de Precios, con totales y las operaciones seleccionadas, antes de confirmar la compra. Precios permite también «Actualizar precios y cerrar».

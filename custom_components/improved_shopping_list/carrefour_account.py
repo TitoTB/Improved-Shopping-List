@@ -290,7 +290,7 @@ class CarrefourAccount:
                     continue
                 key = str(uuid4())
                 supported = purchase.get("orderSource") == "TICKET"
-                self._purchases[key] = {"id": identifier, "owner": owner, "expires": time.time()+1800, "supported": supported}
+                self._purchases[key] = {"id": identifier, "owner": owner, "expires": time.time()+1800, "supported": supported, "amount": amount}
                 output.append({"id": key, "purchased_at": at, "amount": amount,
                     "store": str(purchase.get("mallName", "Carrefour"))[:150], "reviewable": supported,
                     "kind": "Ticket" if supported else "Pedido online · factura pendiente de soporte"})
@@ -307,6 +307,17 @@ class CarrefourAccount:
                 raise CarrefourAccountError("Vuelve a consultar las compras antes de abrir este ticket.", "purchase_expired")
             if not purchase["supported"]:
                 raise CarrefourAccountError("Las facturas online todavía deben subirse manualmente.", "invoice_unsupported")
-            pdf = await self._http("GET", API + "/md-ticketsAccount-v1/tickets/" + purchase["id"] + "/pdf",
-                                   headers=await self._headers(), pdf=True)
+            headers = await self._headers()
+            endpoint = API + "/md-ticketsAccount-v1/tickets/" + purchase["id"]
+            try:
+                pdf = await self._http("GET", endpoint + "/pdf", headers=headers, pdf=True)
+            except CarrefourAccountError as err:
+                status = err.diagnostics.get("http_status")
+                if not isinstance(status, int) or not 500 <= status <= 599:
+                    raise
+                detail = await self._http("GET", endpoint, headers=headers)
+                draft = await self.receipts.async_preview_carrefour_ticket(detail, purchase["id"], purchase["amount"], owner)
+                self.activity.record("stores.account", "Carrefour: ticket preparado desde el detalle tras un error del PDF",
+                    source="manual", diagnostics={"pdf_http_status": status, "fallback": "ticket_detail", "products": len(draft["receipt"]["lines"])})
+                return draft
             return await self.receipts.async_preview(base64.b64encode(pdf).decode(), owner)

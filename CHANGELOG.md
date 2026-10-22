@@ -2,6 +2,8 @@
 
 ## Pendiente de publicación
 
+- Las recetas esperan la confirmación del proveedor de listas y solicitan refrescos acotados si todavía falta el ingrediente o su identificador, sin repetir la llamada de alta. El diagnóstico identifica el ingrediente, la fase y las comprobaciones realizadas si la receta queda incompleta.
+
 - Lista muestra los nombres de Compras recientes sin tachado, tanto en cuadrícula como en filas.
 
 - El mismo asistente PDF admite facturas online de Carrefour: EAN, cantidades, PVP unitario antes de promociones, descuentos por línea y envío separado. Vinculación por EAN ya registrado en el catálogo, revisión manual del resto y comprobación de totales. El PDF original y los datos de cliente o pago no se conservan.

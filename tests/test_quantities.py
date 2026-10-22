@@ -2,7 +2,7 @@
 
 import asyncio
 from types import SimpleNamespace
-from unittest.mock import Mock
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 from homeassistant.components.todo import DATA_COMPONENT, TodoItem, TodoItemStatus, serialize_todo_item
@@ -177,3 +177,82 @@ async def test_simultaneous_recipe_additions_do_not_lose_quantities(hass, env):
     assert all(not result["error"] for result in results)
     assert env.manager.value("todo.main", item())["quantity"] == 300
     assert len(env.todos["todo.main"].todo_items) == 1
+
+
+@pytest.mark.parametrize("mode", ["create", "restore", "pending_without_uid"])
+async def test_recipe_waits_for_provider_confirmation_without_repeating_writes(hass, env, monkeypatch, mode):
+    monkeypatch.setattr("custom_components.improved_shopping_list.quantities.RECIPE_CONFIRM_DELAYS", (.001, .001))
+    todo = env.todos["todo.main"]
+    initial = todo.todo_items[0]
+    if mode == "create":
+        todo.todo_items = []
+    elif mode == "restore":
+        initial.status = TodoItemStatus.COMPLETED
+    else:
+        initial.uid = None
+    salt = await env.catalog.async_save_product({"name": "Sal"})
+    recipe = await env.catalog.async_save_recipe({"name": "Pavo y sal", "ingredients": [
+        {"product_id": env.product["id"], "quantity": 70}, {"product_id": salt["id"], "quantity": 2}]})
+    writes, refreshes = [], []
+
+    async def write(call):
+        writes.append((call.service, call.data["item"]))
+        if call.data["item"] == "Sal":
+            todo.todo_items.append(TodoItem(uid="salt", summary="Sal", status=TodoItemStatus.NEEDS_ACTION))
+            todo.publish()
+        # The first write succeeds remotely, but its result is not yet visible.
+
+    async def refresh(*, force_refresh):
+        assert force_refresh
+        refreshes.append(True)
+        if len(refreshes) == 2:
+            todo.todo_items = [TodoItem(uid="confirmed", summary="Pavo", status=TodoItemStatus.NEEDS_ACTION)]
+            todo.publish()
+
+    todo.async_update_ha_state = AsyncMock(side_effect=refresh)
+    hass.services.async_register("todo", "add_item", write)
+    hass.services.async_register("todo", "update_item", write)
+    result = await env.manager.async_add_recipe(recipe["id"], recipe["revision"], "todo.main", asyncio.Lock())
+    assert result["error"] == ""
+    assert [value["name"] for value in result["applied"]] == ["Pavo", "Sal"]
+    assert len(refreshes) == 2
+    assert len(writes) == (1 if mode == "pending_without_uid" else 2)
+    expected = 320 if mode == "pending_without_uid" else 70
+    assert env.manager.value("todo.main", {"uid": "confirmed", "summary": "Pavo"})["quantity"] == expected
+    assert env.manager.value("todo.main", {"uid": "salt", "summary": "Sal"})["quantity"] == 2
+    assert env.activity.record.call_args.kwargs["diagnostics"]["confirmations"][0]["confirmed"]
+
+
+async def test_recipe_confirmation_failure_is_bounded_and_identifies_missing_product(hass, env, monkeypatch):
+    monkeypatch.setattr("custom_components.improved_shopping_list.quantities.RECIPE_CONFIRM_DELAYS", (.001, .001))
+    salt = await env.catalog.async_save_product({"name": "Sal"})
+    recipe = await env.catalog.async_save_recipe({"name": "Pavo y sal", "ingredients": [
+        {"product_id": env.product["id"], "quantity": 10}, {"product_id": salt["id"], "quantity": 2}]})
+    add = AsyncMock()
+    env.todos["todo.main"].async_update_ha_state = AsyncMock()
+    hass.services.async_register("todo", "add_item", add)
+    result = await env.manager.async_add_recipe(recipe["id"], recipe["revision"], "todo.main", asyncio.Lock())
+    assert "«Sal»" in result["error"]
+    assert [value["name"] for value in result["applied"]] == ["Pavo"]
+    assert add.await_count == 1
+    assert env.manager.value("todo.main", item())["quantity"] == 260
+    diagnostics = env.activity.record.call_args.kwargs["diagnostics"]
+    assert diagnostics["failed_product"] == "Sal" and diagnostics["stage"] == "confirm"
+    assert diagnostics["confirmations"][0]["reads"] == 3
+    assert not diagnostics["confirmations"][0]["confirmed"]
+
+
+async def test_recipe_stops_confirmation_when_list_is_removed(hass, env, monkeypatch):
+    monkeypatch.setattr("custom_components.improved_shopping_list.quantities.RECIPE_CONFIRM_DELAYS", (.001,))
+    env.todos["todo.main"].todo_items = []
+    recipe = await env.catalog.async_save_recipe({"name": "Pavo", "ingredients": [
+        {"product_id": env.product["id"], "quantity": 10}]})
+    async def add(call):
+        env.manager._active = False
+    refresh = AsyncMock()
+    env.todos["todo.main"].async_update_ha_state = refresh
+    hass.services.async_register("todo", "add_item", add)
+    result = await env.manager.async_add_recipe(recipe["id"], recipe["revision"], "todo.main", asyncio.Lock())
+    assert "no está disponible" in result["error"]
+    assert not result["applied"]
+    refresh.assert_not_awaited()

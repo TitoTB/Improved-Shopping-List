@@ -15,6 +15,10 @@ from .const import DOMAIN
 from .quantity_values import normalize_purchase, positive_quantity, purchase_defaults
 
 
+RECIPE_CONFIRM_DELAYS = (1, 4, 6)
+RECIPE_CONFIRM_TIMEOUT = 30
+
+
 class ListQuantities:
     def __init__(self, hass, catalog, settings, activity):
         self.hass, self.catalog, self.settings, self.activity = hass, catalog, settings, activity
@@ -103,7 +107,8 @@ class ListQuantities:
 
     async def async_add_recipe(self, recipe_id, revision, entity_id, operation_lock):
         """Add physical ingredient quantities, serializing with readers and quantity edits."""
-        applied = []
+        applied, confirmations = [], []
+        stage = "validate"
         async with operation_lock, self._lock:
             recipe = next((item for item in self.catalog.recipes if item["id"] == recipe_id), None)
             if not recipe or recipe["revision"] != revision:
@@ -122,22 +127,59 @@ class ListQuantities:
                 if not self._active or entity_id not in self.settings.snapshot["entities"] or not isinstance(items, list):
                     raise CatalogError("No se ha podido comprobar el contenido de la lista.")
                 return items
+
+            async def confirm_item(product):
+                """Re-read after a write; never repeat an unconfirmed provider mutation."""
+                confirmation = {"product_id": product["id"], "name": product["name"],
+                                "reads": 0, "refreshes": 0, "confirmed": False}
+                confirmations.append(confirmation)
+                try:
+                    async with asyncio.timeout(RECIPE_CONFIRM_TIMEOUT):
+                        for delay in (0, *RECIPE_CONFIRM_DELAYS):
+                            if delay:
+                                await asyncio.sleep(delay)
+                                # get_items only reads HA's cached list. Ask the native entity
+                                # to refresh, respecting its provider/coordinator throttling.
+                                await read_items()  # Recheck availability before refreshing.
+                                component = self.hass.data.get(DATA_COMPONENT)
+                                entity = component.get_entity(entity_id) if component else None
+                                if entity is not None:
+                                    confirmation["refreshes"] += 1
+                                    await entity.async_update_ha_state(force_refresh=True)
+                            items = await read_items()
+                            confirmation["reads"] += 1
+                            matches = [item for item in items if item.get("status") != "completed"
+                                       and normalized_name(item.get("summary", "")) == normalized_name(product["name"])]
+                            item = next((item for item in matches if item.get("uid")), None)
+                            if item:
+                                confirmation["confirmed"] = True
+                                return item
+                except TimeoutError:
+                    confirmation["timed_out"] = True
+                raise CatalogError(f"No se ha podido confirmar «{product['name']}» en la lista tras esperar al proveedor. "
+                                   "Revisa los ingredientes y sus cantidades antes de volver a añadir la receta.")
+
             try:
                 for ingredient in recipe["ingredients"]:
                     product = products[ingredient["product_id"]]
                     current = next((p for p in self.catalog.products if p["id"] == product["id"]), None)
                     if current is None or current["name"] != product["name"] or purchase_defaults(current)["purchase_unit"] != ingredient["unit"]:
                         raise CatalogError("Ha cambiado un ingrediente. Revisa la receta antes de continuar.")
+                    stage = "read"
                     items = await read_items()
                     matches = [item for item in items if normalized_name(item.get("summary", "")) == normalized_name(product["name"])]
                     pending = next((item for item in matches if item.get("status") != "completed"), None)
                     amount = ingredient["quantity"]
                     if pending:
+                        if not pending.get("uid"):
+                            stage = "confirm"
+                            pending = await confirm_item(product)
                         amount = positive_quantity(float(Decimal(str(self.value(entity_id, pending, product)["quantity"])) + Decimal(str(amount))))
                         item = pending
                     else:
                         completed = next((item for item in matches if item.get("uid")), None)
                         features = int(self.hass.states.get(entity_id).attributes.get("supported_features", 0))
+                        stage = "write"
                         if completed and features & 4:
                             await self.hass.services.async_call("todo", "update_item", {"entity_id": entity_id, "item": completed["uid"], "status": "needs_action"}, blocking=True)
                         elif completed:
@@ -146,10 +188,9 @@ class ListQuantities:
                             await self.hass.services.async_call("todo", "add_item", {"entity_id": entity_id, "item": product["name"]}, blocking=True)
                         else:
                             raise CatalogError("La lista no permite añadir ingredientes.")
-                        items = await read_items()
-                        item = next((item for item in items if item.get("status") != "completed" and normalized_name(item.get("summary", "")) == normalized_name(product["name"])), None)
-                    if not item or not item.get("uid"):
-                        raise CatalogError("El proveedor todavía no ha devuelto el identificador del ingrediente. Comprueba la lista antes de reintentar.")
+                        stage = "confirm"
+                        item = await confirm_item(product)
+                    stage = "save_quantity"
                     entries = deepcopy(self._entries)
                     entries.setdefault(entity_id, {})[str(item["uid"])] = {"quantity": amount, "unit": ingredient["unit"], "step": purchase_defaults(product)["quantity_step"]}
                     try:
@@ -162,10 +203,12 @@ class ListQuantities:
             except (CatalogError, HomeAssistantError, OSError, ValueError) as err:
                 error = str(err)
                 self.activity.record("list.recipe", f"Receta incompleta: {recipe['name']}", source="manual", list_entity=entity_id,
-                                     diagnostics={"ingredients": applied, "error": error})
+                                     diagnostics={"ingredients": applied, "error": error, "failed_product": product["name"],
+                                                  "failed_product_id": product["id"], "stage": stage,
+                                                  "confirmations": confirmations})
                 return {"applied": applied, "error": error}
             self.activity.record("list.recipe", f"Receta añadida: {recipe['name']}", source="manual", list_entity=entity_id,
-                                 diagnostics={"ingredients": applied})
+                                 diagnostics={"ingredients": applied, "confirmations": confirmations})
             return {"applied": applied, "error": ""}
 
     @callback

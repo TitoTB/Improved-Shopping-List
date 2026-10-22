@@ -73,7 +73,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
     this._productOrder = "alphabetical";
     try { if (localStorage.getItem("isl-catalog-order") === "categories") this._productOrder = "categories"; } catch { /* Storage may be disabled. */ }
     this._groupBy = "category";
-    try { if (localStorage.getItem("isl-catalog-grouping") === "suggestions") this._groupBy = "suggestions"; } catch { /* Storage may be disabled. */ }
+    try { const saved=localStorage.getItem("isl-catalog-grouping"); if (["suggestions","store"].includes(saved)) this._groupBy = saved; } catch { /* Storage may be disabled. */ }
     this._pendingNames = new Set();
     this._listItems = [];
   }
@@ -113,6 +113,11 @@ class ImprovedShoppingCatalog extends HTMLElement {
     this._active = Boolean(value);
     if (!this._active) this._stopCodeCapture();
     this._renderProducts();
+  }
+  set stores(value) {
+    const key=JSON.stringify(value??{});
+    if(key===this._storesKey)return;
+    this._storesKey=key;this._stores=value??{};this._renderProducts();
   }
   set priceData(value) {
     const key = JSON.stringify(value);
@@ -471,7 +476,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
       </dialog>
       <dialog id="catalog-grouping-dialog" aria-labelledby="catalog-grouping-title">
         <h2 id="catalog-grouping-title">Agrupar productos por</h2>
-        <div class="grouping-options"><button type="button" data-group-by="category" aria-pressed="true"><ha-icon icon="mdi:label" aria-hidden="true"></ha-icon>Categoría</button><button type="button" data-group-by="suggestions" aria-pressed="false"><ha-icon icon="mdi:calendar-star" aria-hidden="true"></ha-icon>Sugerencias</button></div>
+        <div class="grouping-options"><button type="button" data-group-by="category" aria-pressed="true"><ha-icon icon="mdi:label" aria-hidden="true"></ha-icon>Categoría</button><button type="button" data-group-by="suggestions" aria-pressed="false"><ha-icon icon="mdi:calendar-star" aria-hidden="true"></ha-icon>Sugerencias</button><button type="button" data-group-by="store" aria-pressed="false"><ha-icon icon="mdi:store" aria-hidden="true"></ha-icon>Tienda</button></div>
       </dialog>`;
     this._built = true;
     const root = this.shadowRoot;
@@ -1140,12 +1145,12 @@ class ImprovedShoppingCatalog extends HTMLElement {
     const grouped = this._productOrder === "categories", grid = root.querySelector("#catalog-grid");
     grid.classList.toggle("rows", rows);
     grid.classList.toggle("grouped", grouped);
-    const orderToggle = root.querySelector("#toggle-catalog-order"), orderLabel = grouped ? "Ordenar alfabéticamente" : this._groupBy === "suggestions" ? "Agrupar por sugerencias" : "Agrupar por categorías";
+    const orderToggle = root.querySelector("#toggle-catalog-order"), orderLabel = grouped ? "Ordenar alfabéticamente" : this._groupBy === "store" ? "Agrupar por tienda" : this._groupBy === "suggestions" ? "Agrupar por sugerencias" : "Agrupar por categorías";
     root.querySelector("#configure-catalog-grouping").hidden = !grouped;
     for (const button of root.querySelectorAll("[data-group-by]")) button.setAttribute("aria-pressed",String(button.dataset.groupBy === this._groupBy));
     orderToggle.setAttribute("aria-label", orderLabel); orderToggle.title = orderLabel;
     orderToggle.setAttribute("aria-pressed", String(grouped));
-    orderToggle.querySelector("ha-icon").setAttribute("icon", grouped ? "mdi:sort-alphabetical-ascending" : "mdi:label");
+    orderToggle.querySelector("ha-icon").setAttribute("icon", grouped ? "mdi:sort-alphabetical-ascending" : this._groupBy === "store" ? "mdi:store" : "mdi:label");
     const toggle = root.querySelector("#toggle-catalog-layout"), label = rows ? "Cambiar a vista de cuadrícula" : "Cambiar a vista de filas";
     toggle.setAttribute("aria-label", label); toggle.title = label;
     toggle.querySelector("ha-icon").setAttribute("icon", rows ? "mdi:view-comfy" : "mdi:view-sequential");
@@ -1156,6 +1161,15 @@ class ImprovedShoppingCatalog extends HTMLElement {
       const categories = new Map(this._catalog.categories.map(category => [normalizedName(category.name),category.name]));
       const groups = new Map();
       for (const product of products) {
+        if (this._groupBy === "store") {
+          for (const [store,name] of Object.entries(STORE_NAMES)) {
+            const link=product.store_links?.[store];
+            if(!this._stores?.[store]?.enabled||!(typeof link==="string"?link.trim():link?.id||link?.url))continue;
+            if(!groups.has(store))groups.set(store,{key:store,name,products:[]});
+            groups.get(store).products.push(product);
+          }
+          continue;
+        }
         if (this._groupBy === "suggestions") {
           const matches = (this._catalog.recommendationCategories ?? []).filter(group=>group.product_ids.includes(product.id)).map(group=>({key:"custom:"+group.id,name:group.name}));
           if ((product.season_months ?? []).includes(this._seasonMonth())) matches.push({key:"season",name:"Productos de temporada"});
@@ -1180,7 +1194,10 @@ class ImprovedShoppingCatalog extends HTMLElement {
           const category=this._catalog.categories.find(category=>normalizedName(category.name)===group.key);
           const icon=element("ha-icon");icon.setAttribute("icon",category?.icon || "mdi:label-outline");icon.setAttribute("aria-hidden","true");heading.append(icon);
         }
-        heading.append(document.createTextNode(group.name));
+        if(this._groupBy === "store") {
+          const icon=element("ha-icon");icon.setAttribute("icon","mdi:store");icon.setAttribute("aria-hidden","true");heading.append(icon);
+        }
+        heading.append(document.createTextNode(group.name+(this._groupBy === "store"?" ("+group.products.length+")":"")));
         section.append(heading,items);
         return section;
       }));

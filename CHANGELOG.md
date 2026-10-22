@@ -2,6 +2,8 @@
 
 ## Pendiente de publicación
 
+- Catálogo → Productos permite agrupar por Tienda: solo tiendas activas con referencias vinculadas, contador por grupo y productos repetidos en las tiendas correspondientes. La agrupación se conserva al recargar y responde a búsquedas y cambios de tiendas activas.
+
 - Carrefour prioriza el detalle de la cuenta para revisar tickets. Solo descarga el PDF como alternativa ante HTTP 5xx o una estructura no reconocida; las discrepancias de importe, referencia, duplicados y errores de autorización siguen deteniendo la operación.
 
 - Compras filtra sus bloques por los mismos seis meses seleccionados en la gráfica; las flechas actualizan ambos elementos y los periodos sin compras muestran un mensaje específico.

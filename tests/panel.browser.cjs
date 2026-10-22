@@ -3325,6 +3325,45 @@ async function main() {
     assert.deepEqual(await seasonPage.evaluate(()=>window.listData),listBeforeGroupDelete);
     await seasonContext.close();
 
+    // Store grouping uses only active stores with bindings and permits shared products.
+    const storeGroupingContext=await browser.newContext({viewport:{width:390,height:844}});
+    await storeGroupingContext.addInitScript(()=>{
+      localStorage.setItem('catalog-fixture',JSON.stringify([
+        {id:'rice',name:'Arroz',store_links:{alcampo:{id:'10739',url:'https://www.compraonline.alcampo.es/products/producto/10739'},carrefour:{id:'R-prod1',url:'https://www.carrefour.es/supermercado/R-prod1/p'}}},
+        {id:'cocoa',name:'Cacao',store_links:{carrefour:{id:'R-prod2',url:'https://www.carrefour.es/supermercado/R-prod2/p'}}},
+        {id:'juice',name:'Zumo',store_links:{dia:{id:'123',url:'https://www.dia.es/p/123'}}},
+        {id:'bread',name:'Pan',store_links:{}}
+      ].map(product=>({revision:1,category:'',tags:[],price:null,currency:'EUR',barcode:'',barcodes:[],nfc_tags:[],reader_actions:{},image_url:'',icon:'',notes:'',...product}))));
+    });
+    const storeGroupingPage=await storeGroupingContext.newPage();storeGroupingPage.on('pageerror',error=>errors.push(error.message));
+    await storeGroupingPage.goto(url);
+    await storeGroupingPage.evaluate(()=>{window.listSettings.stores={alcampo:{enabled:true},carrefour:{enabled:true},mercadona:{enabled:true},dia:{enabled:false}};window.emitSettings();});
+    await storeGroupingPage.getByRole('button',{name:'Catálogo',exact:true}).click();
+    const storeCatalog=storeGroupingPage.locator('isl-catalog');
+    await storeCatalog.getByRole('button',{name:'Agrupar por categorías',exact:true}).click();
+    await storeCatalog.getByRole('button',{name:'Cambiar criterio de agrupación',exact:true}).click();
+    await storeCatalog.getByRole('dialog',{name:'Agrupar productos por',exact:true}).getByRole('button',{name:'Tienda',exact:true}).click();
+    assert.deepEqual(await storeCatalog.locator('.category-group-title').allTextContents(),['Alcampo (1)','Carrefour (2)']);
+    assert.equal(await storeCatalog.locator('#catalog-grid [data-product-id="rice"]').count(),2);
+    assert.equal(await storeCatalog.locator('#catalog-grid [data-product-id="juice"],#catalog-grid [data-product-id="bread"]').count(),0);
+    assert.deepEqual(await storeCatalog.locator('.category-group[aria-label="Carrefour"] .product .title').allTextContents(),['Arroz','Cacao']);
+    await storeCatalog.locator('#catalog-search').fill('Arroz');
+    assert.deepEqual(await storeCatalog.locator('.category-group-title').allTextContents(),['Alcampo (1)','Carrefour (1)']);
+    await storeGroupingPage.evaluate(()=>{window.listSettings.stores.carrefour.enabled=false;window.emitSettings();});
+    await storeCatalog.locator('.category-group-title').filter({hasText:'Alcampo (1)'}).waitFor();
+    assert.deepEqual(await storeCatalog.locator('.category-group-title').allTextContents(),['Alcampo (1)']);
+    await storeGroupingPage.evaluate(()=>{window.listSettings.stores.carrefour.enabled=true;window.emitSettings();});
+    await storeCatalog.locator('#catalog-search').fill('');
+    await storeCatalog.getByRole('button',{name:'Cambiar a vista de filas',exact:true}).click();
+    assert.equal(await storeCatalog.locator('#catalog-grid .product').count(),3);
+    await storeGroupingPage.reload();await storeGroupingPage.getByRole('button',{name:'Catálogo',exact:true}).click();
+    await storeCatalog.locator('.category-group-title').nth(1).waitFor();
+    assert.deepEqual(await storeCatalog.locator('.category-group-title').allTextContents(),['Alcampo (1)','Carrefour (2)']);
+    assert.equal(await storeCatalog.locator('#catalog-grid').evaluate(el=>el.classList.contains('rows')),true);
+    await storeGroupingPage.screenshot({path:'test-results/catalog-store-groups-mobile.png',fullPage:true});
+    await storeGroupingPage.setViewportSize({width:1280,height:960});
+    assert.ok(await storeCatalog.evaluate(el=>el.scrollWidth<=el.clientWidth+1));
+    await storeGroupingContext.close();
     const groupingContext=await browser.newContext({viewport:{width:1280,height:960}});
     const groupingPage=await groupingContext.newPage();
     groupingPage.on('pageerror',error=>errors.push(error.message));

@@ -684,6 +684,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
     const canCreate = available && supports(state, FEATURES.CREATE);
     const canUpdate = available && supports(state, FEATURES.UPDATE);
     const catalog = root.querySelector("isl-catalog");
+    catalog.stores = this._settings.stores;
     catalog.priceData = {offers:this._settings.priceUpdatesEnabled === false ? [] : this._rowPrices,favorite:this._settings.favoriteStore,enabled:this._settings.priceUpdatesEnabled !== false};
     catalog.hass = this._hass;
     catalog.readerData = this._readers;

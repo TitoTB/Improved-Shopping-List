@@ -310,7 +310,9 @@ class ImprovedShoppingListPanel extends HTMLElement {
         .stock-quantity-editor input,.stock-form-fields select[name=unit] { text-align:center; text-align-last:center; padding-left:24px; padding-right:24px; }
         .stock-quantity-editor input { appearance:textfield; }
         .stock-quantity-editor input::-webkit-inner-spin-button,.stock-quantity-editor input::-webkit-outer-spin-button { -webkit-appearance:none; margin:0; }
-        .stock-form-fields [hidden] { display:none; } #delete-stock-from-editor { margin-right:auto; background:#d32f2f; color:white; border:0; }
+        #stock-editor-form > .dialog-actions { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); }
+        #stock-editor-form > .dialog-actions button { min-width:0; width:100%; }
+        .stock-form-fields [hidden] { display:none; } #delete-stock-from-editor { background:#d32f2f; color:white; border:0; }
         #save-stock-config { background:var(--isl-green); color:white; border:0; }
         @media(max-width:420px) { .stock-form-fields { grid-template-columns:minmax(0,1fr); } }
         #confirm-stock-remove { background:#d32f2f; color:#fff; border:0; }

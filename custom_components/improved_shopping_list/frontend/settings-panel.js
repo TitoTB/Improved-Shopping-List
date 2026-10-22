@@ -87,7 +87,8 @@ class ImprovedShoppingSettings extends HTMLElement {
         .store-row { display:grid; grid-template-columns:56px minmax(0,1fr) auto; gap:8px 12px; align-items:center; }
         .store-row[data-enabled=false] { opacity:.55; }
         .store-row[data-enabled=true] { background:rgba(38,112,82,.10); }
-        #price-schedule-form > label { margin-bottom:12px; }
+        #price-schedule-form .price-config-row { display:grid; grid-template-columns:minmax(0,1fr) minmax(90px,140px); gap:18px; align-items:center; margin:18px 0; }
+        .price-config-row label { margin:0; }.price-config-row input:not([type=checkbox]) { min-width:0; width:100%; }.price-config-row .store-toggle { justify-self:end; }
         #price-update-time { display:block; width:100%; }
         #settings-stores { container-type:inline-size; }
         .stores-grid { display:grid; grid-template-columns:minmax(0,1fr); gap:12px; }
@@ -192,7 +193,7 @@ class ImprovedShoppingSettings extends HTMLElement {
         </form>
       </section>
       <section id="settings-stores" class="card" aria-labelledby="settings-stores-title" hidden>
-        <div class="stores-heading"><h2 id="settings-stores-title">Tiendas</h2><div class="stores-heading-actions"><button id="refresh-all-prices" class="store-refresh" type="button" aria-label="Actualizar ahora" title="Actualizar ahora"><ha-icon icon="mdi:refresh" aria-hidden="true"></ha-icon></button><button id="configure-price-schedule" class="store-refresh" type="button" aria-label="Hora de revisión diaria" title="Hora de revisión diaria"><ha-icon icon="mdi:clock-outline" aria-hidden="true"></ha-icon></button></div></div>
+        <div class="stores-heading"><h2 id="settings-stores-title">Tiendas</h2><div class="stores-heading-actions"><button id="refresh-all-prices" class="store-refresh" type="button" aria-label="Actualizar ahora" title="Actualizar ahora"><ha-icon icon="mdi:refresh" aria-hidden="true"></ha-icon></button><button id="configure-price-schedule" class="store-refresh" type="button" aria-label="Actualización de precios" title="Actualización de precios"><ha-icon icon="mdi:clock-outline" aria-hidden="true"></ha-icon></button></div></div>
         <div class="stores-grid">
         <article class="store-row" id="mercadona-row">
           <img class="store-logo" src="${MERCADONA_LOGO_URL}" alt="Logo de Mercadona" referrerpolicy="no-referrer" loading="lazy" width="56" height="56">
@@ -212,8 +213,11 @@ class ImprovedShoppingSettings extends HTMLElement {
         <div class="appearance-actions"><button id="close-prices-progress" type="button">Cerrar</button></div>
       </dialog>
       <dialog id="price-schedule-dialog" aria-labelledby="price-schedule-title">
-        <h2 id="price-schedule-title">Hora de revisión diaria</h2>
-        <form id="price-schedule-form"><label for="price-update-time">Hora de revisión diaria</label><input id="price-update-time" type="time" value="01:00" required><div id="price-schedule-error" class="notice error" role="alert" hidden></div><div class="appearance-actions"><button id="save-price-update-time" class="primary" type="submit">Guardar horario</button></div></form>
+        <h2 id="price-schedule-title">Actualización de precios</h2>
+        <form id="price-schedule-form">
+          <div class="price-config-row"><label for="price-updates-enabled">Actualización automática de precios</label><input id="price-updates-enabled" class="store-toggle" type="checkbox" role="switch" checked></div>
+          <div class="price-config-row"><label for="price-update-days">Frecuencia de actualización (días)</label><input id="price-update-days" type="number" min="1" max="3650" step="1" value="1" required></div>
+          <div class="price-config-row"><label for="price-update-time">Hora de actualización</label><input id="price-update-time" type="time" required></div><div id="price-schedule-error" class="notice error" role="alert" hidden></div><div class="appearance-actions"><button id="save-price-update-time" class="primary" type="submit">Guardar</button></div></form>
       </dialog>
       <dialog id="carrefour-dialog" aria-labelledby="carrefour-dialog-title">
         <h2 id="carrefour-dialog-title">Carrefour</h2>
@@ -279,7 +283,9 @@ class ImprovedShoppingSettings extends HTMLElement {
       row.querySelector(".store-controls").append(heart);
     }
     root.querySelector("#configure-price-schedule").addEventListener("click",()=>{
-      root.querySelector("#price-update-time").value=this._data.settings.priceUpdateTime ?? "01:00";
+      root.querySelector("#price-update-time").value=this._data.settings.priceUpdateTime ?? "00:00";
+      root.querySelector("#price-update-days").value=this._data.settings.priceUpdateDays ?? 1;
+      root.querySelector("#price-updates-enabled").checked=this._data.settings.priceUpdatesEnabled !== false;
       this._error=""; this._render(); root.querySelector("#price-schedule-dialog").showModal();
     });
     root.querySelector("#price-schedule-form").addEventListener("submit",event=>{event.preventDefault();void this._savePriceSchedule();});
@@ -413,9 +419,16 @@ class ImprovedShoppingSettings extends HTMLElement {
     root.querySelector("#alcampo-error").hidden = !this._error;
     root.querySelector("#save-price-update-time").disabled = locked;
     root.querySelector("#price-update-time").disabled = locked;
+    root.querySelector("#price-update-days").disabled = locked;
+    root.querySelector("#price-updates-enabled").disabled = locked;
+    root.querySelector("#refresh-all-prices").disabled = locked || settings.priceUpdatesEnabled === false;
     root.querySelector("#price-schedule-error").textContent = this._error || "";
     root.querySelector("#price-schedule-error").hidden = !this._error;
-    if(!root.querySelector("#price-schedule-dialog").open)root.querySelector("#price-update-time").value = settings.priceUpdateTime ?? "01:00";
+    if(!root.querySelector("#price-schedule-dialog").open){
+      root.querySelector("#price-update-time").value = settings.priceUpdateTime ?? "00:00";
+      root.querySelector("#price-update-days").value = settings.priceUpdateDays ?? 1;
+      root.querySelector("#price-updates-enabled").checked = settings.priceUpdatesEnabled !== false;
+    }
     root.querySelector("#settings-empty").hidden = settings.entities.length > 0 || settings.loading;
     this._renderRegionalStores(locked);
     this._renderStore();
@@ -495,7 +508,9 @@ class ImprovedShoppingSettings extends HTMLElement {
   async _savePriceSchedule() {
     if(this._busy || this._data.hass?.user?.is_admin!==true)return;
     const connection=this._data.hass.connection, value=this.shadowRoot.querySelector("#price-update-time").value;
-    await this._saveRetailSettings(()=>this._data.settings.savePriceSchedule(value));
+    const root=this.shadowRoot;
+    if(!root.querySelector('#price-schedule-form').reportValidity())return;
+    await this._saveRetailSettings(()=>this._data.settings.savePriceSchedule(value,root.querySelector('#price-updates-enabled').checked,Number(root.querySelector('#price-update-days').value)));
     if(this.isConnected && this._data.hass.connection===connection && !this._error)this.shadowRoot.querySelector("#price-schedule-dialog").close();
   }
 

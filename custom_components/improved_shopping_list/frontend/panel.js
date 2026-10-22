@@ -591,7 +591,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
     const canCreate = available && supports(state, FEATURES.CREATE);
     const canUpdate = available && supports(state, FEATURES.UPDATE);
     const catalog = root.querySelector("isl-catalog");
-    catalog.priceData = {offers:this._rowPrices,favorite:this._settings.favoriteStore};
+    catalog.priceData = {offers:this._settings.priceUpdatesEnabled === false ? [] : this._rowPrices,favorite:this._settings.favoriteStore,enabled:this._settings.priceUpdatesEnabled !== false};
     catalog.hass = this._hass;
     catalog.readerData = this._readers;
     catalog.canAdd = canCreate && !this._busy && !session.loading;
@@ -640,6 +640,8 @@ class ImprovedShoppingListPanel extends HTMLElement {
     if (selectedReceipt) root.querySelector("#pending-total").append(this._storeLogo(selectedReceipt.store));
     root.querySelector("#pending-total").setAttribute("aria-label", `Ver ticket · Importe aproximado de la lista: ${total}${selectedReceipt ? ` · ${STORE_NAMES[selectedReceipt.store]}` : ""}`);
     root.querySelector("#pending-total").setAttribute("aria-expanded", String(this._ticket));
+    root.querySelector("#pending-total").hidden=this._settings.priceUpdatesEnabled === false;
+    if(this._settings.priceUpdatesEnabled === false)this._ticket=false;
     root.querySelector("#pending-count").setAttribute("aria-pressed", String(!this._ticket));
     root.querySelector("#pending").hidden = this._ticket;
     this._renderReceipt(pending, receipts, selectedReceipt);
@@ -918,6 +920,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
   }
 
   _listPrice(product) {
+    if(this._settings.priceUpdatesEnabled === false)return null;
     return cachedProductPrice(product,this._rowPrices,this._settings.favoriteStore);
   }
 
@@ -973,6 +976,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
   }
 
   _storeReceipts(items) {
+    if(this._settings.priceUpdatesEnabled === false)return [];
     const sorted = [...items].sort((a,b) => a.summary.localeCompare(b.summary,"es",{sensitivity:"base"}));
     return Object.keys(STORE_NAMES).filter(store => this._settings.stores[store]?.enabled).map(store => {
       const prices = this._rowPrices.filter(offer => offer.store === store);

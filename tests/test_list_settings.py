@@ -5,30 +5,50 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.improved_shopping_list.const import CONF_TODO_ENTITIES, CONF_TODO_ENTITY, DOMAIN
 from custom_components.improved_shopping_list.list_settings import DEFAULT_APPEARANCE, DEFAULT_STORES, ListSettings, ListSettingsError, normalize_appearance
+from custom_components.improved_shopping_list import list_settings as settings_module
+from custom_components.improved_shopping_list.stores import StoreError
+
+
+async def test_price_preferences_random_once_and_persisted(hass,monkeypatch):
+    monkeypatch.setattr(settings_module,"randbelow",lambda maximum:1439)
+    entry=MockConfigEntry(domain=DOMAIN,data={CONF_TODO_ENTITY:"todo.bring"})
+    entry.add_to_hass(hass)
+    settings=ListSettings(hass);settings.attach(entry)
+    assert settings.snapshot["price_update_time"] == "23:59"
+    settings.update_price_schedule("04:17",False,3)
+    monkeypatch.setattr(settings_module,"randbelow",lambda maximum:0)
+    restored=ListSettings(hass);restored.attach(entry)
+    assert restored.snapshot["price_update_time"] == "04:17"
+    assert restored.snapshot["price_updates_enabled"] is False and restored.snapshot["price_update_days"] == 3
+    for days in (0,-1,True,1.5,3651):
+        with pytest.raises(StoreError):restored.update_price_schedule("04:17",True,days)
+    fresh=MockConfigEntry(domain=DOMAIN,data={CONF_TODO_ENTITY:"todo.other"});fresh.add_to_hass(hass)
+    another=ListSettings(hass);another.attach(fresh)
+    assert another.snapshot["price_update_time"] == "00:00"
 
 
 async def test_settings_migrate_persist_remove_and_restore(hass):
     hass.states.async_set("todo.bring", "1")
     hass.states.async_set("todo.local", "unavailable")
-    entry = MockConfigEntry(domain=DOMAIN, data={CONF_TODO_ENTITY: "todo.bring"}, options={"unrelated": True})
+    entry = MockConfigEntry(domain=DOMAIN, data={CONF_TODO_ENTITY: "todo.bring"}, options={"unrelated": True,"price_update_time":"01:00","price_updates_enabled":True,"price_update_days":1})
     entry.add_to_hass(hass)
     settings = ListSettings(hass)
     settings.attach(entry)
-    assert settings.snapshot == {"entities": ["todo.bring", "todo.local"], "primary_entity": "todo.bring", "appearance": DEFAULT_APPEARANCE, "stores": DEFAULT_STORES, "favorite_store": "", "price_update_time":"01:00"}
+    assert settings.snapshot == {"entities": ["todo.bring", "todo.local"], "primary_entity": "todo.bring", "appearance": DEFAULT_APPEARANCE, "stores": DEFAULT_STORES, "favorite_store": "", "price_update_time":"01:00","price_updates_enabled":True,"price_update_days":1}
     settings.update("primary", "todo.local")
     settings.update("remove", "todo.bring")
     assert hass.states.get("todo.bring").state == "1"
     assert entry.options["unrelated"] is True
     restored = ListSettings(hass)
     restored.attach(entry)
-    assert restored.snapshot == {"entities": ["todo.local"], "primary_entity": "todo.local", "appearance": DEFAULT_APPEARANCE, "stores": DEFAULT_STORES, "favorite_store": "", "price_update_time":"01:00"}
+    assert restored.snapshot == {"entities": ["todo.local"], "primary_entity": "todo.local", "appearance": DEFAULT_APPEARANCE, "stores": DEFAULT_STORES, "favorite_store": "", "price_update_time":"01:00","price_updates_enabled":True,"price_update_days":1}
     restored.update("add", "todo.bring")
     restored.update("add", "todo.bring")
     assert len(restored.snapshot["entities"]) == 2
     restored.update("remove", "todo.local")
     assert restored.snapshot["primary_entity"] == "todo.bring"
     restored.update("remove", "todo.bring")
-    assert restored.snapshot == {"entities": [], "primary_entity": "", "appearance": DEFAULT_APPEARANCE, "stores": DEFAULT_STORES, "favorite_store": "", "price_update_time":"01:00"}
+    assert restored.snapshot == {"entities": [], "primary_entity": "", "appearance": DEFAULT_APPEARANCE, "stores": DEFAULT_STORES, "favorite_store": "", "price_update_time":"01:00","price_updates_enabled":True,"price_update_days":1}
     empty = ListSettings(hass)
     empty.attach(entry)
     assert empty.snapshot == restored.snapshot  # Do not re-add deliberately removed lists on reload.

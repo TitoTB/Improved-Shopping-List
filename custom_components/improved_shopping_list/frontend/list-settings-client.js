@@ -38,7 +38,9 @@ export class ListSettingsSession {
     this.primary = data.primary_entity ?? "";
     this.stores = data.stores ?? {};
     this.favoriteStore = data.favorite_store ?? "";
-    this.priceUpdateTime = data.price_update_time ?? "01:00";
+    this.priceUpdateTime = data.price_update_time ?? "00:00";
+    this.priceUpdatesEnabled = data.price_updates_enabled ?? true;
+    this.priceUpdateDays = data.price_update_days ?? 1;
     this.appearance = { ...DEFAULT_APPEARANCE, ...data.appearance };
     this.loaded = true;
     this.loading = false;
@@ -135,9 +137,9 @@ export class ListSettingsSession {
     if (generation === this._generation && revision === this._revision) this._receive(data);
   }
 
-  async savePriceSchedule(time) {
+  async savePriceSchedule(time,enabled=this.priceUpdatesEnabled,days=this.priceUpdateDays) {
     const generation = this._generation, revision = ++this._revision;
-    const data = await this.getHass().callWS({type:`${PREFIX}price_schedule`,time});
+    const data = await this.getHass().callWS({type:`${PREFIX}price_schedule`,time,enabled,days});
     if (generation === this._generation && revision === this._revision) this._receive(data);
   }
 

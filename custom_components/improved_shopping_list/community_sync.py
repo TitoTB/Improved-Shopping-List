@@ -29,7 +29,7 @@ class CommunitySync:
         self._store = Store(hass, 1, f"{DOMAIN}.community_account", private=True)
         self._cache = Store(hass, 1, f"{DOMAIN}.community_products")
         self._data = {"sharing": False, "credentials": {}, "last_download": 0, "last_upload": 0,
-                      "next_attempt": 0, "next_upload_attempt": 0, "outbox": None, "account": ""}
+                      "next_attempt": 0, "last_download_attempt":0, "next_upload_attempt": 0, "outbox": None, "account": ""}
         self.dictionary = {"schema": SCHEMA, "reference_version": REFERENCE_VERSION, "generated_at": 0, "products": []}
         self._active = False
         self._lock = asyncio.Lock()
@@ -243,6 +243,8 @@ class CommunitySync:
         return result
 
     def price(self, store, link):
+        if not self._prices_enabled:
+            return None
         for item in self.dictionary["products"]:
             for price in item["prices"]:
                 if (price["store"] == store and price["reference_id"] == link["id"] and price["checked_at"] >= time.time()-DAY
@@ -252,9 +254,23 @@ class CommunitySync:
 
     async def async_prepare_prices(self):
         """A store batch first consumes the daily dictionary, without uploading yet."""
-        if time.time() < self._data["last_download"]+DAY or time.time() < self._data["next_attempt"]:
+        if not self._prices_enabled or not self._download_due():
             return
         await self.async_sync(upload=False)
+
+    @property
+    def _prices_enabled(self):
+        settings=getattr(self.prices,"settings",None)
+        return settings.snapshot.get("price_updates_enabled",True) if settings else True
+
+    @property
+    def _period(self):
+        settings=getattr(self.prices,"settings",None)
+        return DAY*(settings.snapshot.get("price_update_days",1) if settings else 1)
+
+    def _download_due(self):
+        attempt=self._data.get("last_download_attempt") or max(0,self._data["next_attempt"]-DAY)
+        return time.time() >= max(self._data["last_download"],attempt)+self._period
 
     def suggestions(self, query):
         matches = [item for item in self.dictionary["products"] if normalized(query) in
@@ -304,7 +320,7 @@ class CommunitySync:
                     item["nutriscore"] = (hint.get("nutriscore") or {}).get("grade", "")
                     if item["nutriscore"]:
                         break
-            for price in self.prices.prices_for(product):
+            for price in (self.prices.prices_for(product) if self._prices_enabled else []):
                 if (price.get("source") != "community" and price.get("checked_at", 0) >= now-DAY
                     and price["store"] in product.get("store_links", {})):
                     # Include the reference needed to validate a fresh, independently fetched price.
@@ -354,16 +370,17 @@ class CommunitySync:
             if not self._active:
                 return
             # Consent sends the current catalog without waiting for a public download or store batch.
-            download_due = not immediate_upload and time.time() >= max(self._data["last_download"]+DAY, self._data["next_attempt"])
+            download_due = not immediate_upload and self._download_due()
             upload_due = (upload and self._data["sharing"] and self._data["credentials"]
                 and (immediate_upload or not self.prices._data["pending"] and not self.prices._preparing)
-                and time.time() >= max(self._data["last_upload"]+DAY, self._data["next_upload_attempt"]))
+                and time.time() >= max(self._data["last_upload"]+self._period, self._data["next_upload_attempt"]))
             if not download_due and not upload_due:
                 return
             self._error = ""
             try:
                 if download_due:
-                    self._data["next_attempt"] = time.time()+DAY
+                    self._data["last_download_attempt"] = time.time()
+                    self._data["next_attempt"] = time.time()+self._period
                     await self._store.async_save(self._data)
                     data = validate_dictionary(await self._request("GET", DATA_URL, limit=16*1024*1024), time.time())
                     await self._cache.async_save(data)

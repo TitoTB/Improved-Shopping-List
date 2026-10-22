@@ -3,6 +3,7 @@
 import asyncio
 from copy import deepcopy
 import re
+from secrets import randbelow
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
@@ -49,7 +50,8 @@ def list_options(entry: ConfigEntry) -> dict:
     return {"entities": entities, "primary_entity": primary if primary in entities else next(iter(entities), ""),
             "appearance": {**DEFAULT_APPEARANCE, **entry.options.get("appearance", {})},
             "stores": {key: {**deepcopy(defaults), "enabled": bool(entry.options.get("stores", {}).get(key, {}).get("enabled", False))} for key, defaults in DEFAULT_STORES.items()},
-            "favorite_store": entry.options.get("favorite_store", ""), "price_update_time":entry.options.get("price_update_time", "01:00")}
+            "favorite_store": entry.options.get("favorite_store", ""), "price_update_time":entry.options.get("price_update_time", "01:00"),
+            "price_updates_enabled":entry.options.get("price_updates_enabled",True), "price_update_days":entry.options.get("price_update_days",1)}
 
 
 class ListSettings:
@@ -61,6 +63,8 @@ class ListSettings:
         self._listeners: set = set()
         self._stores_lock = asyncio.Lock()
         self._generation = 0
+        minute=randbelow(1440)
+        self._default_price_time=f"{minute//60:02d}:{minute%60:02d}"
 
     @callback
     def attach(self, entry: ConfigEntry) -> None:
@@ -73,7 +77,9 @@ class ListSettings:
         if favorite not in stores or not stores[favorite].get("enabled"):
             favorite = next((key for key, value in stores.items() if value.get("enabled")), "")
         options = {key: value for key, value in entry.options.items() if key != "store_postal_code"}
-        options.update(stores=stores, favorite_store=favorite)
+        options.update(stores=stores, favorite_store=favorite,
+            price_update_time=entry.options.get("price_update_time",self._default_price_time),
+            price_updates_enabled=entry.options.get("price_updates_enabled",True),price_update_days=entry.options.get("price_update_days",1))
         if options != dict(entry.options):
             self.hass.config_entries.async_update_entry(entry, options=options)
         if CONF_TODO_ENTITIES not in entry.options:
@@ -93,7 +99,7 @@ class ListSettings:
 
     @property
     def snapshot(self) -> dict:
-        return list_options(self.entry) if self.entry else {"entities": [], "primary_entity": "", "appearance": dict(DEFAULT_APPEARANCE), "stores": deepcopy(DEFAULT_STORES), "favorite_store": "", "price_update_time":"01:00"}
+        return list_options(self.entry) if self.entry else {"entities": [], "primary_entity": "", "appearance": dict(DEFAULT_APPEARANCE), "stores": deepcopy(DEFAULT_STORES), "favorite_store": "", "price_update_time":self._default_price_time,"price_updates_enabled":True,"price_update_days":1}
 
     async def async_toggle_located_store(self, store, enabled):
         """Enable a fixed reference without postal discovery or HTTP requests."""
@@ -148,10 +154,15 @@ class ListSettings:
             raise StoreError("Tienda no compatible.")
         return await self.async_toggle_located_store(store, enabled)
 
-    def update_price_schedule(self, value):
+    def update_price_schedule(self, value, enabled=None, days=None):
         if not self.entry or not re.fullmatch(r"(?:[01][0-9]|2[0-3]):[0-5][0-9]", value):
-            raise StoreError("Selecciona una hora válida para la revisión diaria.")
-        self.hass.config_entries.async_update_entry(self.entry, options={**self.entry.options,"price_update_time":value})
+            raise StoreError("Selecciona una hora válida para la actualización.")
+        enabled=self.snapshot["price_updates_enabled"] if enabled is None else enabled
+        days=self.snapshot["price_update_days"] if days is None else days
+        if type(enabled) is not bool or type(days) is not int or not 1 <= days <= 3650:
+            raise StoreError("Indica una frecuencia de entre 1 y 3650 días.")
+        self.hass.config_entries.async_update_entry(self.entry, options={**self.entry.options,"price_update_time":value,
+            "price_updates_enabled":enabled,"price_update_days":days})
         self.notify()
         return self.snapshot
 

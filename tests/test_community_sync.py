@@ -35,6 +35,34 @@ def credentials():
     return {"access_token": "ghu_PRIVATE_ACCESS", "refresh_token": "ghr_PRIVATE_REFRESH", "expires_in": 28800}
 
 
+async def test_dictionary_honors_configured_period_and_changes(shared):
+    shared.prices.settings=SimpleNamespace(snapshot={"price_update_days":3,"price_updates_enabled":True})
+    service=shared.service
+    service._request=AsyncMock(return_value={"schema":2,"reference_version":1,"generated_at":shared.clock[0],"products":[]})
+    await service.async_sync();assert service._request.await_count==1
+    shared.clock[0]+=module.DAY
+    await service.async_sync();assert service._request.await_count==1
+    shared.clock[0]+=module.DAY
+    shared.prices.settings.snapshot["price_update_days"]=1
+    await service.async_sync();assert service._request.await_count==2
+    shared.prices.settings.snapshot["price_update_days"]=3
+    shared.clock[0]+=module.DAY
+    await service.async_sync();assert service._request.await_count==2
+    shared.clock[0]+=2*module.DAY
+    await service.async_sync();assert service._request.await_count==3
+
+
+async def test_disabled_pricing_does_not_use_or_submit_community_prices(shared):
+    shared.prices.settings=SimpleNamespace(snapshot={"price_update_days":1,"price_updates_enabled":False})
+    shared.catalog.products=[{"name":"Arroz","store_links":{}}]
+    assert shared.service.price("alcampo",{"id":"24097"}) is None
+    assert shared.service.payload()["products"][0]["prices"]==[]
+    shared.prices.prices_for.assert_not_called()
+    shared.service._request=AsyncMock()
+    await shared.service.async_prepare_prices()
+    shared.service._request.assert_not_awaited()
+
+
 @pytest.mark.parametrize("retry_delay", [0,86400])
 async def test_device_authorization_keeps_credentials_on_server_and_honors_poll_interval(shared, monkeypatch, retry_delay):
     service = shared.service

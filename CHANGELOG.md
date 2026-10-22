@@ -2,6 +2,7 @@
 
 ## Pendiente de publicación
 
+- Popup Actualización de precios con interruptor global, frecuencia desde un día y hora inicial aleatoria persistente. Tiendas y diccionario respetan el periodo; desactivarlo detiene consultas de precios y oculta importes sin borrar el historial. Campos en filas con etiqueta izquierda y control derecho, y botón Guardar.
 - Vistas de Ajustes en la misma fila del título, alineadas a la derecha, con navegación compacta y desplazamiento horizontal en pantallas pequeñas.
 - Autorización comunitaria en un popup con código e instrucciones. Activar la casilla abre GitHub automáticamente desde la pulsación, conserva un enlace alternativo y cierra el popup al completar la autorización; puede reabrirse sin reiniciar el código.
 - Lectores oculta la entidad o Device ID en sus tarjetas y muestra el último uso con formato dd/mm hh:mm. Si no existe una lectura registrada, muestra Último uso: —.

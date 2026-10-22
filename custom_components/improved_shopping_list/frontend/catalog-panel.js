@@ -116,6 +116,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
     const key = JSON.stringify(value);
     if (key === this._priceDataKey) return;
     this._priceDataKey = key; this._priceData = value;
+    if(value?.enabled === false){this.shadowRoot.querySelector('#product-store-prices')?.setAttribute('hidden','');this.shadowRoot.querySelector('#store-price-results')?.replaceChildren();}
     this._renderProducts();
   }
   set listEntity(value) { this._listEntity = value; }
@@ -1005,7 +1006,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
     top.append(title);
     if (this._productLayout === "rows") {
       const metadata = element("div","row-meta");
-      const offer = cachedProductPrice(product,this._priceData?.offers,this._priceData?.favorite);
+      const offer = this._priceData?.enabled === false ? null : cachedProductPrice(product,this._priceData?.offers,this._priceData?.favorite);
       if (offer) {
         const badge = element("span","row-price");
         badge.title = offer.store ? `Último precio guardado · ${({mercadona:"Mercadona",carrefour:"Carrefour",alcampo:"Alcampo",consum:"Consum",lasirena:"La Sirena",eroski:"Eroski",dia:"DIA"})[offer.store] ?? offer.store}` : "Precio manual";
@@ -1091,9 +1092,10 @@ class ImprovedShoppingCatalog extends HTMLElement {
     root.querySelector("#store-price-results").replaceChildren();
     root.querySelector("#product-store-prices").hidden = true;
     try {
+      if(this._priceData?.enabled === false)return;
       const linksKey = JSON.stringify(this._storeLinks ?? {});
       const data = await this._hass.callWS({type:"improved_shopping_list/catalog/store_prices",links:this._storeLinks ?? {},codes:this._productCodes?.barcode ?? []});
-      if (generation !== this._nutriGeneration || linksKey !== JSON.stringify(this._storeLinks ?? {}) || !root.querySelector("dialog").open || !this.isConnected) return;
+      if (this._priceData?.enabled === false || generation !== this._nutriGeneration || linksKey !== JSON.stringify(this._storeLinks ?? {}) || !root.querySelector("dialog").open || !this.isConnected) return;
       const names = {mercadona:"Mercadona",carrefour:"Carrefour",alcampo:"Alcampo",consum:"Consum",lasirena:"La Sirena",eroski:"Eroski",dia:"DIA"};
       const rows = data.products.map(product => {
         const row = document.createElement("div"); row.className = "nutriscore-item";

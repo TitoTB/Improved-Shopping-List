@@ -23,6 +23,41 @@ def product(name="Arroz", identifier="24097", store="alcampo"):
     return {"id":name, "name":name,"barcode":"", "barcodes":[], "store_links":{store:normalize_link(store, identifier)}}
 
 
+async def test_frequency_survives_restart_and_skips_intermediate_days(env):
+    env.settings.snapshot["price_update_days"]=3
+    await env.manager.async_tick()
+    assert len(env.requests)==1
+    env.clock[0]+=86400
+    await env.manager.async_tick()
+    assert len(env.requests)==1
+    restored=PriceManager(env.manager.hass,env.catalog,env.settings,env.manager.activity)
+    await restored.async_load();restored._active=True
+    restored.sources.fetch=env.manager.sources.fetch
+    try:
+        env.clock[0]+=86400
+        await restored.async_tick();assert len(env.requests)==1
+        env.clock[0]+=86400
+        await restored.async_tick();assert len(env.requests)==2
+    finally:await restored.async_stop()
+
+
+async def test_disabling_prices_hides_cache_stops_queue_and_blocks_manual_refresh(env):
+    await env.manager.async_tick()
+    cached=deepcopy(env.manager._data["offers"])
+    assert env.manager.prices_for(env.catalog.products[0])
+    await env.manager.async_refresh_store("alcampo")
+    env.settings.snapshot["price_updates_enabled"]=False
+    await env.manager.async_tick()
+    assert env.manager.prices_for(env.catalog.products[0]) == []
+    assert env.manager.snapshot("alcampo")["products"] == []
+    assert not env.manager._data["pending"] and len(env.requests)==1
+    with pytest.raises(ValueError):await env.manager.async_refresh_all()
+    with pytest.raises(ValueError):await env.manager.async_refresh_store("alcampo")
+    assert env.manager._data["offers"]==cached
+    env.settings.snapshot["price_updates_enabled"]=True
+    assert env.manager.prices_for(env.catalog.products[0])
+
+
 @pytest.fixture
 async def env(hass, monkeypatch):
     clock = [datetime(2026, 10, 20, 1, 0, tzinfo=timezone.utc).timestamp()]

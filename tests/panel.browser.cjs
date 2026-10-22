@@ -200,7 +200,7 @@ const hass={
       window.listSettings.favorite_store=msg.store;window.emitSettings();return structuredClone(window.listSettings);
     }
     if(msg.type==='improved_shopping_list/settings/price_schedule'){
-      window.listSettings.price_update_time=msg.time;window.emitSettings();return structuredClone(window.listSettings);
+      window.listSettings.price_update_time=msg.time;window.listSettings.price_updates_enabled=msg.enabled;window.listSettings.price_update_days=msg.days;window.emitSettings();return structuredClone(window.listSettings);
     }
     if(msg.type==='improved_shopping_list/settings/refresh_all_prices'){
       window.calls.push(structuredClone(msg));
@@ -2204,20 +2204,32 @@ async function main() {
     await linksPage.getByRole('button',{name:'Ajustes',exact:true}).click();
     const linkedSettings=linksPage.locator('isl-settings');
     await linkedSettings.getByRole('button',{name:'Tiendas',exact:true}).click();
-    await linkedSettings.getByRole('button',{name:'Hora de revisión diaria',exact:true}).click();
-    const priceScheduleDialog=linkedSettings.getByRole('dialog',{name:'Hora de revisión diaria',exact:true});
+    await linkedSettings.getByRole('button',{name:'Actualización de precios',exact:true}).click();
+    const priceScheduleDialog=linkedSettings.getByRole('dialog',{name:'Actualización de precios',exact:true});
     await priceScheduleDialog.waitFor();
     assert.equal(await priceScheduleDialog.getByRole("button",{name:"Cancelar",exact:true}).count(),0);
-    assert.ok(await priceScheduleDialog.locator("#price-schedule-form").evaluate(node=>{
-      const label=node.querySelector("label").getBoundingClientRect(),input=node.querySelector("input").getBoundingClientRect();
-      return input.top-label.bottom>=12;
-    }));
+    assert.ok(await priceScheduleDialog.locator('.price-config-row').evaluateAll(rows=>rows.every(row=>{
+      const label=row.querySelector('label').getBoundingClientRect(),input=row.querySelector('input').getBoundingClientRect();
+      return label.right<=input.left && input.top<label.bottom && label.top<input.bottom;
+    })));
+    await priceScheduleDialog.getByLabel('Frecuencia de actualización (días)',{exact:true}).fill('3');
     await linkedSettings.locator('#price-update-time').fill('02:30');
-    await linkedSettings.getByRole('button',{name:'Guardar horario',exact:true}).click();
-    await linksPage.waitForFunction(()=>window.listSettings.price_update_time==='02:30');
+    await linkedSettings.getByRole('button',{name:'Guardar',exact:true}).click();
+    await linksPage.waitForFunction(()=>window.listSettings.price_update_time==='02:30' && window.listSettings.price_update_days===3);
     await priceScheduleDialog.waitFor({state:'hidden'});
-    await linkedSettings.getByRole('button',{name:'Hora de revisión diaria',exact:true}).click();
+    await linkedSettings.getByRole('button',{name:'Actualización de precios',exact:true}).click();
     assert.equal(await linkedSettings.locator('#price-update-time').inputValue(),'02:30');
+    assert.equal(await priceScheduleDialog.getByLabel('Frecuencia de actualización (días)',{exact:true}).inputValue(),'3');
+    await priceScheduleDialog.getByRole('switch',{name:'Actualización automática de precios',exact:true}).uncheck();
+    await priceScheduleDialog.getByRole('button',{name:'Guardar',exact:true}).click();
+    await priceScheduleDialog.waitFor({state:'hidden'});
+    assert.equal(await linkedSettings.getByRole('button',{name:'Actualizar ahora',exact:true}).isDisabled(),true);
+    assert.equal(await linksPage.locator('#pending-total').evaluate(node=>node.hidden),true);
+    await linkedSettings.getByRole('button',{name:'Actualización de precios',exact:true}).click();
+    await priceScheduleDialog.getByRole('switch',{name:'Actualización automática de precios',exact:true}).check();
+    await priceScheduleDialog.getByRole('button',{name:'Guardar',exact:true}).click();
+    await priceScheduleDialog.waitFor({state:'hidden'});
+    await linkedSettings.getByRole('button',{name:'Actualización de precios',exact:true}).click();
     await priceScheduleDialog.getByRole('button',{name:'Cerrar ventana',exact:true}).click();
     await linkedSettings.getByLabel('Habilitar Alcampo',{exact:true}).check();
     await linkedSettings.getByRole('button',{name:'Productos de Alcampo',exact:true}).click();

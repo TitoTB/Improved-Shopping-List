@@ -485,14 +485,15 @@ async def ws_store_enabled(hass, connection, msg):
         connection.send_result(msg["id"], result)
 
 
-@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/settings/price_schedule", vol.Required("time"):str})
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/settings/price_schedule", vol.Required("time"):str,
+    vol.Optional("enabled"):bool,vol.Optional("days"):int})
 @websocket_api.require_admin
 @websocket_api.async_response
 async def ws_price_schedule(hass, connection, msg):
     if not _catalog(hass, connection, msg):
         return
     try:
-        result = hass.data[DOMAIN]["settings"].update_price_schedule(msg["time"])
+        result = hass.data[DOMAIN]["settings"].update_price_schedule(msg["time"],msg.get("enabled"),msg.get("days"))
     except StoreError as err:
         connection.send_error(msg["id"], "invalid_schedule", str(err))
     else:

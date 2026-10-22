@@ -2,7 +2,7 @@
 
 import asyncio
 from copy import deepcopy
-from datetime import timedelta
+from datetime import date, timedelta
 import logging
 import re
 from uuid import uuid4
@@ -177,6 +177,8 @@ class PriceManager:
         return links
 
     def prices_for(self, product):
+        if not self.prices_enabled:
+            return []
         prices = []
         links = self.links_for_product(product)
         for store, link in links.items():
@@ -261,7 +263,24 @@ class PriceManager:
             return
         self._active = True
         self._stops = [async_track_time_interval(self.hass, self._queue, timedelta(minutes=1))]
+        if hasattr(self.settings,"subscribe"):
+            self._stops.append(self.settings.subscribe(self._settings_changed))
         self._queue()
+
+    @property
+    def prices_enabled(self):
+        return self.settings.snapshot.get("price_updates_enabled",True)
+
+    @callback
+    def _settings_changed(self):
+        self._notify()
+        self._queue()
+
+    def _schedule_due(self, now):
+        try:
+            return (now.date()-date.fromisoformat(self._data["day"])).days >= self.settings.snapshot.get("price_update_days",1)
+        except ValueError:
+            return True
 
     @callback
     def _queue(self, *_args):
@@ -308,6 +327,8 @@ class PriceManager:
         return names, failures
 
     async def _prepare(self, day):
+        if not self.prices_enabled:
+            return
         if not any(self.settings.snapshot["stores"].get(store, {}).get("enabled") for store in STORES):
             return
         self._begin_batch("automatic")
@@ -370,6 +391,8 @@ class PriceManager:
             raise ValueError(f"No se ha podido resolver la ubicación de {STORES[store]}.")
 
     async def async_refresh_store(self, store):
+        if not self.prices_enabled:
+            raise ValueError("Activa la actualización de precios en Ajustes → Tiendas.")
         try:
             return await self._queue_store(store)
         except (ValueError,OSError) as err:
@@ -387,6 +410,8 @@ class PriceManager:
 
     async def async_refresh_all(self):
         """Prepare one manual batch, including stores whose preparation fails."""
+        if not self.prices_enabled:
+            raise ValueError("Activa la actualización de precios en Ajustes → Tiendas.")
         if not self._active or not self.hass.data.get(DOMAIN,{}).get("active"):
             raise ValueError("La integración no está disponible.")
         if self._data["pending"] or self._preparing:
@@ -425,6 +450,8 @@ class PriceManager:
     async def _queue_store(self, store):
         """Queue a deliberate manual run without bypassing durable HTTP pacing."""
         async with self._lock:
+            if not self.prices_enabled:
+                raise ValueError("La actualización de precios está desactivada.")
             if not self._active or not self.hass.data.get(DOMAIN, {}).get("active"):
                 raise ValueError("La integración no está disponible.")
             if (self._data.get("batch") or {}).get("finished_at") is not None and not self._data["batch"].get("logged"):
@@ -478,7 +505,7 @@ class PriceManager:
                 for product in self.catalog.products))
 
     def _linked_job(self, job):
-        return (self._active and self.hass.data.get(DOMAIN, {}).get("active")
+        return (self.prices_enabled and self._active and self.hass.data.get(DOMAIN, {}).get("active")
             and self.settings.snapshot["stores"].get(job["store"], {}).get("enabled")
             and self.scope(job["store"]) == job["scope"] and any(
                 self.links_for_product(product).get(job["store"]) == job["link"]
@@ -509,11 +536,19 @@ class PriceManager:
         self._notify()
 
     async def async_tick(self):
+        if not self.prices_enabled:
+            async with self._lock:
+                if self._data["pending"] or self._data["partial"]:
+                    self._data["processed"]+=len(self._data["pending"])
+                    self._data.update(pending=[],partial=False)
+                    await self._save()
+                    self._notify()
+            return
         community = getattr(self, "community", None)
         if community and self._active:
             current = dt_util.now()
             hour, minute = map(int, self.settings.snapshot.get("price_update_time", "01:00").split(":"))
-            if 0 <= current.hour*60+current.minute-hour*60-minute < 60:
+            if self._schedule_due(current) and 0 <= current.hour*60+current.minute-hour*60-minute < 60:
                 await community.async_prepare_prices()
         async with self._lock:
             if not self._active or not self.hass.data.get(DOMAIN, {}).get("active") or self._preparing:
@@ -525,7 +560,7 @@ class PriceManager:
             day = now.date().isoformat()
             hour, minute = map(int, self.settings.snapshot.get("price_update_time", "01:00").split(":"))
             elapsed = now.hour*60+now.minute-hour*60-minute
-            if (self._data["day"] != day or self._data["partial"] and time.time() >= self._data["prepare_retry_at"]) and 0 <= elapsed < 60:
+            if (self._schedule_due(now) or self._data["day"] == day and self._data["partial"] and time.time() >= self._data["prepare_retry_at"]) and 0 <= elapsed < 60:
                 await self._prepare(day)
             if not self._data["pending"]:
                 if self._data.get("batch") and not self._data["batch"].get("logged"):

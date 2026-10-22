@@ -223,7 +223,16 @@ class ImprovedShoppingSettings extends HTMLElement {
             <div><label for="mobile-columns">Productos por fila (móvil)</label><select id="mobile-columns" name="mobile_columns">${[1,2,3,4].map(value => `<option value="${value}">${value}</option>`).join("")}</select></div>
           </div>
           <div style="margin-top:18px"><label for="quantity-color">Color del indicador de cantidad</label><input id="quantity-color" name="quantity_color" type="color" value="#267052"></div>
-          <div class="appearance-fields" style="margin-top:18px"><div><label for="recipe-gradient-start">Color inicial de Recetas</label><input id="recipe-gradient-start" name="recipe_gradient_start" type="color" value="#66bb6a"></div><div><label for="recipe-gradient-end">Color final de Recetas</label><input id="recipe-gradient-end" name="recipe_gradient_end" type="color" value="#2e7d32"></div></div><div id="recipe-appearance-preview" class="preview" style="margin-top:18px">Vista previa de receta</div>
+          <div class="appearance-fields appearance-colors" style="margin-top:24px">
+            <div><label for="stock-gradient-start">Color inicial de Stock</label><input id="stock-gradient-start" name="stock_gradient_start" type="color" value="#f59a23"></div>
+            <div><label for="stock-gradient-end">Color final de Stock</label><input id="stock-gradient-end" name="stock_gradient_end" type="color" value="#c65b0c"></div>
+            <div><label for="recipe-gradient-start">Color inicial de Recetas</label><input id="recipe-gradient-start" name="recipe_gradient_start" type="color" value="#66bb6a"></div>
+            <div><label for="recipe-gradient-end">Color final de Recetas</label><input id="recipe-gradient-end" name="recipe_gradient_end" type="color" value="#2e7d32"></div>
+          </div>
+          <div class="appearance-previews">
+            <div id="stock-appearance-preview" class="preview">Vista previa de producto en stock</div>
+            <div id="recipe-appearance-preview" class="preview">Vista previa de receta</div>
+          </div>
           <div class="appearance-actions"><button id="reset-appearance" type="button">Restablecer valores</button><button id="save-appearance" class="primary" type="submit">Guardar personalización</button></div>
         </form>
       </section>
@@ -819,6 +828,8 @@ class ImprovedShoppingSettings extends HTMLElement {
     return {
       gradient_start: form.elements.gradient_start.value,
       quantity_color: form.elements.quantity_color.value,
+      stock_gradient_start: form.elements.stock_gradient_start.value,
+      stock_gradient_end: form.elements.stock_gradient_end.value,
       recipe_gradient_start: form.elements.recipe_gradient_start.value,
       recipe_gradient_end: form.elements.recipe_gradient_end.value,
       gradient_end: form.elements.gradient_end.value,
@@ -834,6 +845,9 @@ class ImprovedShoppingSettings extends HTMLElement {
     const preview = this.shadowRoot.querySelector("#appearance-preview");
     preview.style.background = `linear-gradient(${appearance.gradient_start},${appearance.gradient_end})`;
     preview.style.color = gradientTextColor(appearance.gradient_start, appearance.gradient_end);
+    const stock = this.shadowRoot.querySelector("#stock-appearance-preview");
+    stock.style.background = `linear-gradient(${appearance.stock_gradient_start},${appearance.stock_gradient_end})`;
+    stock.style.color = "#fff";
     const recipe = this.shadowRoot.querySelector("#recipe-appearance-preview");
     recipe.style.background = `linear-gradient(${appearance.recipe_gradient_start},${appearance.recipe_gradient_end})`;
     recipe.style.color = "#fff";

@@ -121,6 +121,7 @@ async def test_settings_cannot_be_changed_by_non_admin(hass, hass_ws_client, has
     {"columns": 0}, {"columns": 7}, {"columns": True}, {"columns": "3"},
     {"mobile_columns": 5}, {"gradient_start": "red;display:none"}, {"gradient_end": "#123"},
     {"completed_gradient_start": "blue"}, {"completed_gradient_end": "#123"},
+    {"stock_gradient_start": "red"}, {"stock_gradient_end": "#123"},
     {"extra": "value"},
 ])
 def test_personalization_validation(changes):
@@ -153,7 +154,7 @@ async def test_legacy_personalization_keeps_colors_and_gains_completed_defaults(
     settings = ListSettings(hass)
     settings.attach(entry)
     assert settings.snapshot["appearance"] == {**DEFAULT_APPEARANCE, **legacy}
-    saved = {**settings.snapshot["appearance"], "completed_gradient_start": "#80cbc4", "completed_gradient_end": "#26a69a"}
+    saved = {**settings.snapshot["appearance"], "completed_gradient_start": "#80cbc4", "completed_gradient_end": "#26a69a", "stock_gradient_start": "#ffcc80", "stock_gradient_end": "#ef6c00"}
     settings.update_appearance(saved)
     settings.update_appearance({**legacy, "columns": 4})  # An older open panel must retain the new colors.
     restored = ListSettings(hass)

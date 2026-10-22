@@ -312,9 +312,9 @@ class ImprovedShoppingListPanel extends HTMLElement {
         @media(max-width:360px) { header { gap:4px; padding:10px 8px; } .brand-logo { width:28px; height:28px; } .menu { width:32px; padding:4px; flex:none; } .section-nav button { min-width:32px; padding:10px 6px; font-size:12px; } }
         .section-nav ha-icon { --mdc-icon-size:20px; width:20px; height:20px; flex:none; }
         @media(max-width:540px) { main { padding:26px 14px 40px; } .card { padding:18px 16px; border-radius:14px; } .primary { padding:10px 14px; } }
-        .stock-item { min-height:132px; background:linear-gradient(#f59a23,#c65b0c); color:#fff; border:0; padding:clamp(4px,4cqi,20px); }
-        .stock-item.stock-progress { isolation:isolate; background:linear-gradient(hsl(var(--stock-hue) 70% 35%),hsl(var(--stock-hue) 80% 25%)); }
-        .stock-item.stock-progress::before { content:""; position:absolute; inset:0; width:var(--stock-remaining); background:linear-gradient(hsl(var(--stock-hue) 92% 55%),hsl(var(--stock-hue) 88% 42%)); pointer-events:none; z-index:-1; }
+        .stock-item { min-height:132px; background:linear-gradient(var(--isl-stock-gradient-start,#f59a23),var(--isl-stock-gradient-end,#c65b0c)); color:#fff; border:0; padding:clamp(4px,4cqi,20px); }
+        .stock-item.stock-progress { isolation:isolate; background:linear-gradient(#0005,#0005),linear-gradient(var(--isl-stock-gradient-start,#f59a23),var(--isl-stock-gradient-end,#c65b0c)); }
+        .stock-item.stock-progress::before { content:""; position:absolute; inset:0; width:var(--stock-remaining); background:linear-gradient(color-mix(in srgb,var(--isl-stock-gradient-start,#f59a23) var(--stock-remaining),#d32f2f),color-mix(in srgb,var(--isl-stock-gradient-end,#c65b0c) var(--stock-remaining),#b52a27)); pointer-events:none; z-index:-1; }
         .stock-life { display:inline; font-weight:400; opacity:.5; white-space:nowrap; }
         .stock-amount { font-weight:750; }
         .stock-item .placeholder { color:inherit; }.stock-item .product-media { width:clamp(18px,26cqi,144px); }
@@ -662,6 +662,8 @@ class ImprovedShoppingListPanel extends HTMLElement {
     this._ensureRowPrices();
     const appearance = this._settings.appearance;
     this.style.setProperty("--isl-gradient-start", appearance.gradient_start);
+    this.style.setProperty("--isl-stock-gradient-start",appearance.stock_gradient_start);
+    this.style.setProperty("--isl-stock-gradient-end",appearance.stock_gradient_end);
     this.style.setProperty("--isl-recipe-gradient-start",appearance.recipe_gradient_start);
     this.style.setProperty("--isl-recipe-gradient-end",appearance.recipe_gradient_end);
     this.style.setProperty("--isl-quantity-color",appearance.quantity_color??'#267052');
@@ -799,7 +801,6 @@ class ImprovedShoppingListPanel extends HTMLElement {
       if(progress) {
         card.classList.add('stock-progress');
         card.style.setProperty('--stock-remaining',percent+'%');
-        card.style.setProperty('--stock-hue',String(10+percent*.25));
       }
       open.type="button";open.setAttribute("aria-label",`Configurar stock de ${item.name}`);open.addEventListener("click",()=>this._openStockEditor(item));
       const media=node("span","product-media"), placeholder=node("span","image placeholder"), icon=node("ha-icon");

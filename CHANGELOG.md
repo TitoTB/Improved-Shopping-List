@@ -2,6 +2,8 @@
 
 ## Pendiente de publicación
 
+- Personalización permite guardar los colores inicial y final de Stock, a la izquierda de Recetas, con selectores y vistas previas en paralelo. Los colores también se aplican al progreso del stock, que conserva el aviso rojizo al agotarse.
+
 - Los bloques de recetas y su vista previa en Personalización muestran el texto blanco con cualquier degradado.
 
 - Ajustes muestra solo el texto de la vista activa; el resto de vistas mantiene únicamente su icono en todos los tamaños de pantalla.

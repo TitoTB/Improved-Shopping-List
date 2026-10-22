@@ -1667,6 +1667,11 @@ async function main() {
     await settingsView.getByLabel("Color final del degradado", { exact: true }).evaluate(input => { input.value="#ffb300";input.dispatchEvent(new Event("input",{bubbles:true})); });
     await settingsView.getByLabel("Color inicial de Comprados", { exact:true }).evaluate(input => { input.value="#80cbc4";input.dispatchEvent(new Event("input",{bubbles:true})); });
     await settingsView.getByLabel("Color final de Comprados", { exact:true }).evaluate(input => { input.value="#26a69a";input.dispatchEvent(new Event("input",{bubbles:true})); });
+    assert.equal(await settingsView.getByLabel('Color inicial de Stock',{exact:true}).inputValue(),'#f59a23');
+    await settingsView.getByLabel('Color inicial de Stock',{exact:true}).evaluate(input=>{input.value='#ffcc80';input.dispatchEvent(new Event('input',{bubbles:true}));});
+    await settingsView.getByLabel('Color final de Stock',{exact:true}).evaluate(input=>{input.value='#ef6c00';input.dispatchEvent(new Event('input',{bubbles:true}));});
+    assert.equal(await settingsView.locator('#stock-appearance-preview').evaluate(node=>getComputedStyle(node).backgroundImage),'linear-gradient(rgb(255, 204, 128), rgb(239, 108, 0))');
+    assert.equal(await settingsView.locator('#recipe-appearance-preview').evaluate(node=>getComputedStyle(node).color),'rgb(255, 255, 255)');
     await settingsView.getByLabel("Productos por fila (ordenador)", { exact: true }).selectOption("4");
     await settingsView.getByLabel("Productos por fila (móvil)", { exact: true }).selectOption("2");
     assert.equal(await settingsView.locator("#appearance-preview").evaluate(node => getComputedStyle(node).color), "rgb(0, 0, 0)");
@@ -1679,6 +1684,18 @@ async function main() {
     await settingsPage.evaluate(() => { window.failSettings=false; });
     await settingsView.getByRole("button", { name: "Guardar personalización", exact: true }).click();
     await settingsView.getByRole("status").filter({ hasText: "Personalización guardada" }).waitFor();
+    assert.equal(await settingsPage.evaluate(()=>window.listSettings.appearance.stock_gradient_start),'#ffcc80');
+    assert.equal(await settingsPage.evaluate(()=>window.testPanel.style.getPropertyValue('--isl-stock-gradient-end')),'#ef6c00');
+    for(const width of [390,1280]) {
+      await settingsPage.setViewportSize({width,height:960});
+      const positions=await settingsView.evaluate(node=>{
+        const bounds=id=>{const box=node.shadowRoot.querySelector(id).getBoundingClientRect();return {x:box.x,y:box.y,width:box.width};};
+        return {stock:bounds('#stock-appearance-preview'),recipe:bounds('#recipe-appearance-preview'),start:bounds('#stock-gradient-start'),end:bounds('#stock-gradient-end'),recipeStart:bounds('#recipe-gradient-start')};
+      });
+      assert.equal(positions.stock.y,positions.recipe.y);assert.ok(positions.stock.x<positions.recipe.x);
+      assert.equal(positions.start.y,positions.recipeStart.y);assert.ok(positions.end.x<positions.recipeStart.x);
+    }
+    await settingsPage.setViewportSize({width:390,height:844});
     await settingsPage.screenshot({ path: "test-results/personalization-mobile.png", fullPage: true });
     await settingsPage.getByRole("button", { name: "Lista", exact: true }).click();
     assert.equal(await settingsPage.locator("#pending").evaluate(node => getComputedStyle(node).gridTemplateColumns.split(" ").length), 2);
@@ -2419,10 +2436,10 @@ async function main() {
       const item=window.stockItems[0];item.quantity=3;item.expires_at=Date.now()/1000+item.days*86400;window.emitStock();
     });
     assert.equal(await stockCard.getByRole('progressbar',{name:'Stock restante'}).getAttribute('aria-valuenow'),'75');
-    const highHue=await stockCard.locator('.item').evaluate(node=>Number(node.style.getPropertyValue('--stock-hue')));
+    const highColor=await stockCard.locator('.item').evaluate(node=>getComputedStyle(node,'::before').backgroundImage);
     await stockPage.evaluate(()=>{window.stockItems[0].quantity=1;window.emitStock();});
     assert.equal(await stockCard.getByRole('progressbar',{name:'Stock restante'}).getAttribute('aria-valuenow'),'25');
-    assert.ok(await stockCard.locator('.item').evaluate(node=>Number(node.style.getPropertyValue('--stock-hue')))<highHue);
+    assert.notEqual(await stockCard.locator('.item').evaluate(node=>getComputedStyle(node,'::before').backgroundImage),highColor);
     await stockPage.evaluate(()=>{Object.assign(window.stockItems[0],{quantity:20,refill_quantity:250,unit:'g'});window.emitStock();});
     assert.equal(await stockCard.getByRole('progressbar',{name:'Stock restante'}).getAttribute('aria-valuenow'),'8');
     await stockPage.screenshot({path:'test-results/stock-perishable-eight-percent.png',fullPage:true});

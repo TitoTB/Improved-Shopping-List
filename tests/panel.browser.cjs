@@ -1368,6 +1368,7 @@ async function main() {
     for(const width of [1280,390,320]){
       await receiptPage.setViewportSize({width,height:844});
       assert.ok(await analytics.evaluate(node=>node.scrollWidth<=node.clientWidth+1));
+      await receiptPage.evaluate(()=>{window.testPanel.scrollTop=0;});
       await receiptPage.screenshot({path:'test-results/analytics-comparison-'+width+'.png',fullPage:true});
     }
     assert.equal(await receiptPage.evaluate(()=>window.calls.some(call=>/refresh_prices|refresh_all_prices/.test(call.type??''))),false);

@@ -1,6 +1,8 @@
 # Historial de cambios
 
-## Pendiente de publicación
+## 0.32.0 — 2026-10-22
+
+- Las tiendas desactivadas muestran el toggle con el color azul grisáceo predeterminado.
 
 - El diccionario comunitario queda reservado a propuestas de iconos por nombres y traducciones; se retiran precios, EAN, referencias y Nutri-Score de envíos, cachés y publicaciones. Se elimina la opción de precios públicos de Carrefour.
 - Los precios de la integración proceden exclusivamente de tickets y facturas confirmados por el usuario; se cancelan las antiguas colas de proveedores públicos y se retiran sus precios de las vistas.

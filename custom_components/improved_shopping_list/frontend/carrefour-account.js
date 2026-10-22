@@ -1,4 +1,4 @@
-import { installDialogCloseButtons } from "./dialog-controls.js?v=0.31.0";
+import { installDialogCloseButtons } from "./dialog-controls.js?v=0.32.0";
 const make=(tag,text)=>{const el=document.createElement(tag);if(text!==undefined)el.textContent=text;return el;};
 const money=value=>new Intl.NumberFormat('es-ES',{style:'currency',currency:'EUR'}).format(value);
 class CarrefourAccountPanel extends HTMLElement {

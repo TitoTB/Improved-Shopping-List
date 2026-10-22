@@ -339,7 +339,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
         #season-current-products:not(:empty) { margin-top:24px; }
         .season-toolbar { display:flex; justify-content:flex-end; margin:20px 0; }
         .season-toolbar button { display:flex; align-items:center; gap:8px; background:#d32f2f; color:#fff; border:0; }
-        .season-toolbar [aria-pressed=true] { background:#d32f2f; color:white; border-color:transparent; }
+        .season-toolbar [aria-pressed=true] { background:#267052; color:white; border-color:transparent; }
         #season-calendar-dialog { width:min(960px,calc(100vw - 32px)); }
         .season-calendar { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; }
         .season-month { border:1px solid var(--divider-color,#dfe7e1); border-radius:12px; padding:12px; min-width:0; }
@@ -348,12 +348,12 @@ class ImprovedShoppingCatalog extends HTMLElement {
         .season-month h3 { font-size:16px; margin:0; }
         .season-month-add { display:grid; place-items:center; width:32px; min-height:32px; padding:0; flex:none; }
         .season-month-products { display:flex; flex-wrap:wrap; gap:10px; }
-        .season-product { display:flex; flex-direction:column; align-items:center; gap:5px; width:66px; padding:0; border:0; font-size:11px; overflow-wrap:anywhere; }
+        .season-product { display:flex; align-items:center; justify-content:space-between; gap:8px; max-width:100%; min-height:36px; padding:5px 8px 5px 12px; border:0; border-radius:20px; background:#267052; color:#fff; font-size:12px; text-align:left; overflow-wrap:anywhere; }
         .season-product:disabled { opacity:1; }
-        .season-product-circle { display:grid; place-items:center; background:#267052; color:#fff; border-radius:50%; width:52px; height:52px; flex:none; padding:9px; }
+        .season-product-circle { display:grid; place-items:center; width:28px; height:28px; flex:none; }
         .season-product-circle img { width:100%; height:100%; object-fit:contain; }
-        .season-product-circle ha-icon { width:30px; height:30px; --mdc-icon-size:30px; }
-        .removing .season-product-circle { background:#d32f2f; }
+        .season-product-circle ha-icon { width:24px; height:24px; --mdc-icon-size:24px; }
+        .removing .season-product { background:#d32f2f; }
         .season-product-label { display:block; margin-top:22px; }
         .season-month-options { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; margin:22px 0; border:1px solid var(--divider-color,#dfe7e1); border-radius:10px; padding:16px; }
         .season-month-options label { display:flex; align-items:center; gap:8px; font-size:14px; }
@@ -447,7 +447,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
       </dialog>
       <dialog id="season-calendar-dialog" aria-labelledby="season-calendar-title">
         <h2 id="season-calendar-title">Productos de temporada</h2>
-        <div class="season-toolbar"><button id="season-delete-mode" type="button" aria-pressed="false"><ha-icon icon="mdi:delete" aria-hidden="true"></ha-icon><span>Eliminar productos</span></button></div>
+        <div class="season-toolbar"><button id="season-delete-mode" type="button" aria-pressed="false" aria-label="Eliminar productos" title="Eliminar productos"><ha-icon icon="mdi:delete" aria-hidden="true"></ha-icon></button></div>
         <div id="season-error" class="notice error" role="alert" hidden></div><div id="season-calendar" class="season-calendar"></div>
       </dialog>
       <dialog id="season-add-dialog" aria-labelledby="season-add-title">
@@ -673,7 +673,10 @@ class ImprovedShoppingCatalog extends HTMLElement {
     const toggle = root.querySelector("#season-delete-mode");
     toggle.setAttribute("aria-pressed", String(Boolean(this._seasonRemoving)));
     toggle.disabled = Boolean(this._seasonBusy) || !this._hass?.user?.is_admin;
-    toggle.querySelector("span").textContent = this._seasonRemoving ? "Terminar de eliminar" : "Eliminar productos";
+    const toggleLabel = this._seasonRemoving ? "Terminar de eliminar" : "Eliminar productos";
+    toggle.setAttribute("aria-label", toggleLabel);
+    toggle.title = toggleLabel;
+    toggle.querySelector("ha-icon").setAttribute("icon", this._seasonRemoving ? "mdi:plus-thick" : "mdi:delete");
     const error = root.querySelector("#season-error");
     error.hidden = !this._seasonError; error.textContent = this._seasonError || "";
     this._renderRecommendationCategories();
@@ -702,7 +705,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
           const image = element("img"); image.src=source; image.alt=""; image.loading="lazy"; image.referrerPolicy="no-referrer";
           image.addEventListener("error",()=>image.replaceWith(icon),{once:true}); circle.append(image);
         } else circle.append(icon);
-        button.append(circle,element("span","",product.name));
+        button.append(element("span","",product.name),circle);
         button.addEventListener("click",()=>void this._removeSeasonal(product.id,number,product._kind)); items.append(button);
       }
       section.append(header,items); return section;

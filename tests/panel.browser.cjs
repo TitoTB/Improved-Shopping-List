@@ -3153,9 +3153,13 @@ async function main() {
     await seasonForm.getByRole('button',{name:'Añadir',exact:true}).click();
     await seasonForm.waitFor({state:'hidden'});
     await calendar.locator('.season-month[data-month="1"] .season-product').waitFor();
-    assert.equal(await calendar.locator('.season-month[data-month="1"] .season-product-circle').evaluate(node=>getComputedStyle(node).backgroundColor),'rgb(38, 112, 82)');
+    assert.equal(await calendar.locator('.season-month[data-month="1"] .season-product').evaluate(node=>getComputedStyle(node).backgroundColor),'rgb(38, 112, 82)');
+    assert.equal(await calendar.locator('.season-month[data-month="1"] .season-product').evaluate(node=>node.firstElementChild.textContent),'Fresas');
+    assert.equal(await calendar.locator('#season-delete-mode').textContent(),'');
     await calendar.getByRole('button',{name:'Eliminar productos',exact:true}).click();
-    assert.equal(await calendar.locator('.season-month[data-month="1"] .season-product-circle').evaluate(node=>getComputedStyle(node).backgroundColor),'rgb(211, 47, 47)');
+    assert.equal(await calendar.locator('.season-month[data-month="1"] .season-product').evaluate(node=>getComputedStyle(node).backgroundColor),'rgb(211, 47, 47)');
+    assert.equal(await calendar.locator('#season-delete-mode').evaluate(node=>getComputedStyle(node).backgroundColor),'rgb(38, 112, 82)');
+    assert.equal(await calendar.locator('#season-delete-mode ha-icon').getAttribute('icon'),'mdi:plus-thick');
     await calendar.getByRole('button',{name:'Eliminar Fresas de Enero',exact:true}).click();
     await seasonPage.waitForFunction(()=>!window.catalogProducts.find(p=>p.name==='Fresas').season_months.includes(1));
     assert.ok(await seasonPage.evaluate(()=>window.catalogProducts.find(p=>p.name==='Fresas').season_months.includes(3)));

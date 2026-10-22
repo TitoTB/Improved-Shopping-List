@@ -2,6 +2,8 @@
 
 ## Pendiente de publicación
 
+- Calendario de temporada con botones solo de icono y badges verdes o rojos con el nombre a la izquierda y la imagen a la derecha.
+
 - Catálogo elimina los avisos de éxito en todas sus vistas y en categorías. Se conservan errores, indicadores de carga y mensajes de los lectores al escanear.
 
 - Revisión de tickets con paso actual azul, pasos completados verdes y navegación a pasos anteriores pulsando su cabecera, sin perder la revisión.

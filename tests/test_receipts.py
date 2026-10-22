@@ -149,8 +149,7 @@ async def test_import_disk_failure_stale_stock_and_confirmed_alias(hass,monkeypa
     monkeypatch.setattr(env.stock._store,'async_save',AsyncMock(side_effect=OSError('disk')))
     with pytest.raises(OSError):
         await env.manager.async_confirm(draft['token'],'owner',selections(draft,env.product),True)
-    assert env.stock.snapshot['items']==before['items'] and env.manager.snapshot['receipts']==[]
-    assert env.stock.snapshot['receipt_stores']=={env.product['id']:['carrefour'],cereal['id']:['carrefour']}
+    assert env.stock.snapshot==before and env.manager.snapshot['receipts']==[]
     monkeypatch.setattr(env.stock._store,'async_save',save)
     await env.stock.async_adjust(env.item['id'],-1)
     with pytest.raises(CatalogError,match='stock ha cambiado'):
@@ -215,7 +214,8 @@ async def test_links_survive_without_stock_prices_or_finishing_the_ticket(hass):
     links=[{'id':line['id'],'product_id':env.product['id'] if index==0 else cereal['id'] if index==1 else ''} for index,line in enumerate(draft['receipt']['lines'])]
     await env.manager.async_link(draft['token'],'owner',links)
     env.manager.discard(draft['token'],'owner')
-    assert env.stock.snapshot==before and env.manager.snapshot['receipts']==[]
+    assert env.stock.snapshot['items']==before['items'] and env.manager.snapshot['receipts']==[]
+    assert env.stock.snapshot['receipt_stores']=={env.product['id']:['carrefour'],cereal['id']:['carrefour']}
     assert env.manager.offers_for(env.product)==[]
     restored=StockManager(hass,env.stock.catalog);await restored.async_load()
     manager=ReceiptManager(hass,restored,env.automation,env.manager.prices)

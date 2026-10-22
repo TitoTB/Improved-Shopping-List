@@ -278,7 +278,7 @@ async def test_catalog_websocket_save_push_get_and_unload(hass, hass_ws_client):
     client = await hass_ws_client(hass)
     await client.send_json({"id": 1, "type": f"{DOMAIN}/catalog/subscribe"})
     assert (await client.receive_json())["success"]
-    assert (await client.receive_json())["event"] == {"products": [], "categories": [], "dismissed_suggestions": []}
+    assert (await client.receive_json())["event"] == {"products": [], "categories": [], "recommendation_categories": [], "dismissed_suggestions": []}
     await client.send_json({"id": 2, "type": f"{DOMAIN}/catalog/save", "product": {"name": "Cacao"}})
     messages = [await client.receive_json(), await client.receive_json()]
     saved = next(message for message in messages if message["id"] == 2)
@@ -286,13 +286,13 @@ async def test_catalog_websocket_save_push_get_and_unload(hass, hass_ws_client):
     product = saved["result"]["product"]
     assert next(message for message in messages if message["id"] == 1)["event"]["products"] == [product]
     await client.send_json({"id": 3, "type": f"{DOMAIN}/catalog/get"})
-    assert (await client.receive_json())["result"] == {"products": [product], "categories": [], "dismissed_suggestions": []}
+    assert (await client.receive_json())["result"] == {"products": [product], "categories": [], "recommendation_categories": [], "dismissed_suggestions": []}
     assert await hass.config_entries.async_unload(entry.entry_id)
     await client.send_json({"id": 4, "type": f"{DOMAIN}/catalog/get"})
     assert (await client.receive_json())["error"]["code"] == "not_loaded"
     assert await hass.config_entries.async_setup(entry.entry_id)
     await client.send_json({"id": 5, "type": f"{DOMAIN}/catalog/get"})
-    assert (await client.receive_json())["result"] == {"products": [product], "categories": [], "dismissed_suggestions": []}
+    assert (await client.receive_json())["result"] == {"products": [product], "categories": [], "recommendation_categories": [], "dismissed_suggestions": []}
     await client.send_json({"id": 6, "type": f"{DOMAIN}/catalog/save", "product": {"name": "Cacao", "price": -1}})
     assert (await client.receive_json())["error"]["code"] == "invalid_product"
     await client.send_json({"id": 7, "type": f"{DOMAIN}/catalog/category/save", "category": {"name": "Despensa", "icon": "mdi:shopping", "color": "#267052"}})
@@ -504,3 +504,80 @@ async def test_seasonal_websocket_updates_subscribers_and_validates_months(hass,
     await client.send_json({"id": 3, "type": f"{DOMAIN}/catalog/season_months",
                             "product_id": product["id"], "months": [False], "enabled": True})
     assert (await client.receive_json())["error"]["code"] == "invalid_product"
+
+
+async def test_recommendation_categories_are_independent_durable_and_allow_multiple_membership(hass):
+    catalog = Catalog(hass)
+    await catalog.async_load()
+    normal = await catalog.async_save_category({"name": "Fruta"})
+    apple = await catalog.async_save_product({"name": "Manzana", "category": normal["name"]})
+    pear = await catalog.async_save_product({"name": "Pera", "category": normal["name"]})
+    first = await catalog.async_save_recommendation_category({"name": "Postres", "icon": "mdi:chef-hat", "color": "#8e44ad", "product_ids": [apple["id"], pear["id"], apple["id"]]})
+    second = await catalog.async_save_recommendation_category({"name": "Merienda", "product_ids": [apple["id"]]})
+    assert len(first["product_ids"]) == 2
+    assert catalog.products[0]["category"] == "Fruta"
+    # Unrelated writes and migrations must retain suggestion groups.
+    await catalog.async_dismiss_suggestion("Pan")
+    renamed = await catalog.async_save_product(editable(apple, name="Manzana roja"))
+    restored = Catalog(hass)
+    await restored.async_load()
+    assert len(restored.snapshot["recommendation_categories"]) == 2
+    current = next(group for group in restored.recommendation_categories if group["id"] == first["id"])
+    assert renamed["id"] in current["product_ids"]
+    updated = await restored.async_save_recommendation_category({"id": current["id"], "revision": current["revision"], "name": "Dulces", "product_ids": [apple["id"]]})
+    with pytest.raises(CatalogError, match="Otra sesión"):
+        await restored.async_delete_recommendation_category(first["id"], first["revision"])
+    await restored.async_delete_recommendation_category(updated["id"], updated["revision"])
+    assert len(restored.products) == 2 and restored.categories[0]["name"] == "Fruta"
+    await restored.async_delete_product(renamed["id"], renamed["revision"])
+    remaining = restored.recommendation_categories[0]
+    assert remaining["id"] == second["id"] and remaining["product_ids"] == []
+    assert remaining["revision"] == second["revision"] + 1
+
+
+@pytest.mark.parametrize("data", [
+    {"name": " "}, {"name": "Productos de temporada"}, {"name": "Grupo", "icon": "javascript:bad"},
+    {"name": "Grupo", "color": "red"}, {"name": "Grupo", "product_ids": ["missing"]},
+    {"name": "Grupo", "product_ids": [True]}, {"name": "Grupo", "unexpected": True},
+])
+async def test_recommendation_category_validation(hass, data):
+    catalog = Catalog(hass)
+    await catalog.async_load()
+    with pytest.raises(CatalogError):
+        await catalog.async_save_recommendation_category(data)
+    assert catalog.recommendation_categories == []
+
+
+async def test_recommendation_category_name_duplicates_and_storage_failures(hass, monkeypatch):
+    catalog = Catalog(hass)
+    await catalog.async_load()
+    first = await catalog.async_save_recommendation_category({"name": "Café"})
+    with pytest.raises(CatalogError, match="Ya existe"):
+        await catalog.async_save_recommendation_category({"name": " CAFE "})
+    before = catalog.snapshot
+    notifications = []
+    catalog.subscribe(lambda: notifications.append(True))
+    monkeypatch.setattr(catalog._store, "async_save", AsyncMock(side_effect=OSError("Disk full")))
+    with pytest.raises(OSError):
+        await catalog.async_save_recommendation_category({"id": first["id"], "revision": first["revision"], "name": "Desayuno"})
+    with pytest.raises(OSError):
+        await catalog.async_delete_recommendation_category(first["id"], first["revision"])
+    assert catalog.snapshot == before and notifications == []
+
+
+async def test_recommendation_category_websocket_push_and_delete(hass, hass_ws_client):
+    entry = MockConfigEntry(domain=DOMAIN, data={CONF_TODO_ENTITY: "todo.bring"})
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    client = await hass_ws_client(hass)
+    await client.send_json({"id": 1, "type": f"{DOMAIN}/catalog/subscribe"})
+    assert (await client.receive_json())["success"]
+    await client.receive_json()
+    await client.send_json({"id": 2, "type": f"{DOMAIN}/catalog/recommendation_category/save", "category": {"name": "Postres"}})
+    messages = [await client.receive_json(), await client.receive_json()]
+    group = next(message for message in messages if message["id"] == 2)["result"]["category"]
+    assert next(message for message in messages if message["id"] == 1)["event"]["recommendation_categories"] == [group]
+    await client.send_json({"id": 3, "type": f"{DOMAIN}/catalog/recommendation_category/delete", "category_id": group["id"], "revision": group["revision"]})
+    messages = [await client.receive_json(), await client.receive_json()]
+    assert next(message for message in messages if message["id"] == 3)["success"]
+    assert next(message for message in messages if message["id"] == 1)["event"]["recommendation_categories"] == []

@@ -20,12 +20,14 @@ const data = {
 const listeners = new Map();
 window.catalogProducts=JSON.parse(localStorage.getItem('catalog-fixture')??'[]');
 window.catalogCategories=JSON.parse(localStorage.getItem('category-fixture')??'[]');
+window.recommendationCategories=JSON.parse(localStorage.getItem('recommendation-fixture')??'[]');
 window.dismissedSuggestions=JSON.parse(localStorage.getItem('dismissed-fixture')??'[]');
 const normalizeName=name=>name.normalize('NFKC').trim().replace(/\\s+/g,' ').toLowerCase();
-const snapshot=()=>({products:structuredClone(window.catalogProducts),dismissed_suggestions:[...window.dismissedSuggestions],categories:window.catalogCategories.map(category=>({...category,product_count:window.catalogProducts.filter(product=>product.category===category.name).length}))});
+const snapshot=()=>({recommendation_categories:structuredClone(window.recommendationCategories),products:structuredClone(window.catalogProducts),dismissed_suggestions:[...window.dismissedSuggestions],categories:window.catalogCategories.map(category=>({...category,product_count:window.catalogProducts.filter(product=>product.category===category.name).length}))});
 const emitCatalog=window.emitCatalog=()=>{
   localStorage.setItem('catalog-fixture',JSON.stringify(window.catalogProducts));
   localStorage.setItem('category-fixture',JSON.stringify(window.catalogCategories));
+  localStorage.setItem('recommendation-fixture',JSON.stringify(window.recommendationCategories));
   localStorage.setItem('dismissed-fixture',JSON.stringify(window.dismissedSuggestions));
   for(const listener of listeners.keys())if(listener.catalog)listener.callback(snapshot());
 };
@@ -317,6 +319,16 @@ const hass={
       window.catalogProducts=window.catalogProducts.map(product=>product.category===category.name?{...product,category:'',revision:product.revision+1}:product);
       window.catalogCategories=window.catalogCategories.filter(item=>item.id!==category.id);emitCatalog();return {};
     }
+    if(msg.type==='improved_shopping_list/catalog/recommendation_category/save'){
+      if(window.failCatalog)throw new Error('No se ha podido guardar la categoría');
+      const previous=window.recommendationCategories.find(group=>group.id===msg.category.id);
+      const category={...msg.category,id:previous?.id??crypto.randomUUID(),revision:(previous?.revision??0)+1};
+      window.recommendationCategories=window.recommendationCategories.filter(group=>group.id!==category.id);window.recommendationCategories.push(category);
+      emitCatalog();return {category};
+    }
+    if(msg.type==='improved_shopping_list/catalog/recommendation_category/delete'){
+      window.recommendationCategories=window.recommendationCategories.filter(group=>group.id!==msg.category_id);emitCatalog();return {};
+    }
     if(msg.type==='improved_shopping_list/catalog/season_months'){
       if(window.failCatalog)throw new Error('No se ha podido guardar la temporada');
       const product=window.catalogProducts.find(product=>product.id===msg.product_id);
@@ -461,7 +473,7 @@ async function main() {
       };
       visit(document);
       return dialogs.filter(dialog => dialog.querySelectorAll(".isl-dialog-close[aria-label='Cerrar ventana']").length === 1).length;
-    }), 28);
+    }), 30);
     await page.getByRole("button", { name: "Seleccionar lista", exact: true }).click();
     const listDialog = page.getByRole("dialog", { name: "Seleccionar lista", exact: true });
     assert.equal(await listDialog.getByRole("button", { name: "Compra · Bring!", exact: true }).getAttribute("aria-pressed"), "true");
@@ -2827,6 +2839,44 @@ async function main() {
     await seasonCatalog.locator('#catalog-grid .category-group').nth(1).waitFor();
     assert.deepEqual(await seasonCatalog.locator('#catalog-grid .category-group-title').allTextContents(),['Productos de temporada','Sin sugerencias']);
     assert.equal(await seasonPage.evaluate(()=>window.calls.some(call=>/nutriscore|refresh_prices/.test(call.type??''))),false);
+    await seasonCatalog.getByRole('button',{name:'Sugerencias',exact:true}).click();
+    await seasonCatalog.getByRole('button',{name:'Nueva categoría de sugerencias',exact:true}).click();
+    const recommendationEditor=seasonCatalog.locator('#recommendation-category-editor');
+    const recommendationDialog=recommendationEditor.getByRole('dialog',{name:'Nueva categoría de sugerencias',exact:true});
+    await recommendationDialog.getByLabel('Nombre de la categoría',{exact:true}).fill('Para cocinar');
+    await recommendationDialog.getByLabel('Icono MDI',{exact:true}).fill('mdi:chef-hat');
+    await recommendationDialog.getByLabel('Color',{exact:true}).fill('#8e44ad');
+    await recommendationDialog.getByLabel('Fresas',{exact:true}).check();
+    await recommendationDialog.getByLabel('Calabaza',{exact:true}).check();
+    await recommendationDialog.getByRole('button',{name:'Guardar categoría',exact:true}).click();
+    await recommendationDialog.waitFor({state:'hidden'});
+    await seasonCatalog.getByRole('button',{name:'Editar categoría de sugerencias Para cocinar',exact:true}).waitFor();
+    assert.equal(await seasonCatalog.locator('.recommendation-icon').evaluate(node=>getComputedStyle(node).backgroundColor),'rgb(142, 68, 173)');
+    assert.equal(await seasonCatalog.locator('.recommendation-products .product').count(),2);
+    await seasonPage.reload();
+    await seasonPage.getByRole('button',{name:'Catálogo',exact:true}).click();
+    await seasonCatalog.locator('#catalog-grid .category-group').nth(1).waitFor();
+    assert.deepEqual(await seasonCatalog.locator('#catalog-grid .category-group-title').allTextContents(),['Para cocinar','Productos de temporada']);
+    assert.equal(await seasonCatalog.locator('#catalog-grid .product[data-product-id="season-0"]').count(),2);
+    await seasonCatalog.getByRole('button',{name:'Sugerencias',exact:true}).click();
+    await seasonCatalog.getByRole('button',{name:'Editar categoría de sugerencias Para cocinar',exact:true}).click();
+    const editRecommendation=recommendationEditor.getByRole('dialog',{name:'Editar categoría de sugerencias',exact:true});
+    await editRecommendation.getByLabel('Buscar productos para asociar',{exact:true}).fill('calabaza');
+    assert.equal(await editRecommendation.locator('#category-product-options label:visible').count(),1);
+    await editRecommendation.getByLabel('Calabaza',{exact:true}).uncheck();
+    await editRecommendation.getByLabel('Nombre de la categoría',{exact:true}).fill('Postres');
+    await editRecommendation.getByRole('button',{name:'Guardar categoría',exact:true}).click();
+    await editRecommendation.waitFor({state:'hidden'});
+    assert.equal(await seasonCatalog.locator('.recommendation-products .product').count(),1);
+    await seasonPage.screenshot({path:'test-results/recommendation-categories-mobile.png',fullPage:true});
+    await seasonCatalog.getByRole('button',{name:'Editar categoría de sugerencias Postres',exact:true}).click();
+    const listBeforeGroupDelete=await seasonPage.evaluate(()=>structuredClone(window.listData));
+    await editRecommendation.getByRole('button',{name:'Eliminar categoría',exact:true}).click();
+    await recommendationEditor.locator('#delete-category-dialog').getByRole('button',{name:'Eliminar categoría',exact:true}).click();
+    await editRecommendation.waitFor({state:'hidden'});
+    assert.equal(await seasonCatalog.locator('.recommendation-products .product').count(),0);
+    assert.equal(await seasonPage.evaluate(()=>window.catalogProducts.length),2);
+    assert.deepEqual(await seasonPage.evaluate(()=>window.listData),listBeforeGroupDelete);
     await seasonContext.close();
 
     const groupingContext=await browser.newContext({viewport:{width:1280,height:960}});

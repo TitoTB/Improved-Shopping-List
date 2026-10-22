@@ -337,6 +337,12 @@ class ImprovedShoppingCatalog extends HTMLElement {
         .code-capture-controls button { display:flex; align-items:center; justify-content:center; gap:6px; min-height:44px; }
         .code-capture-controls ha-icon { width:20px; height:20px; --mdc-icon-size:20px; }
 
+        .recommendation-criteria { display:grid; grid-template-columns:repeat(min(var(--isl-columns,3),5),minmax(0,1fr)); gap:16px; }
+        .recommendation-category-cards { display:contents; }
+        .recommendation-criteria .season-criterion { aspect-ratio:1; flex-direction:column; justify-content:center; text-align:center; min-width:0; overflow-wrap:anywhere; }
+        .recommendation-icon { display:grid; place-items:center; width:56px; height:56px; border-radius:50%; color:#fff; flex:none; }
+        .recommendation-products h2 { display:flex; align-items:center; gap:10px; }
+        @media(max-width:650px) { .recommendation-criteria { grid-template-columns:repeat(min(var(--isl-mobile-columns,1),2),minmax(0,1fr)); } .recommendation-criteria .season-criterion { padding:12px; font-size:13px; } }
         .season-criterion { display:flex; align-items:center; gap:14px; padding:24px; background:var(--card-background-color,#fff); font-weight:650; }
         .season-criterion ha-icon { --mdc-icon-size:32px; width:32px; height:32px; }
         .season-current-title { margin:24px 0 16px; }
@@ -382,10 +388,12 @@ class ImprovedShoppingCatalog extends HTMLElement {
       </section>
       <isl-categories id="catalog-categories" embedded hidden></isl-categories>
       <section id="recommendations-view" hidden>
-        <button id="open-seasonal" class="season-criterion" type="button"><ha-icon icon="mdi:calendar-month" aria-hidden="true"></ha-icon><span>Productos de temporada</span></button>
+        <div class="recommendation-criteria"><button id="open-seasonal" class="season-criterion" type="button"><ha-icon icon="mdi:calendar-month" aria-hidden="true"></ha-icon><span>Productos de temporada</span></button><div id="recommendation-category-cards" class="recommendation-category-cards"></div></div>
         <h2 id="season-current-title" class="season-current-title"></h2>
         <div id="season-current-products" class="grid"></div>
         <p id="season-current-empty" class="helper"></p>
+        <div id="recommendation-category-products"></div>
+        <isl-categories id="recommendation-category-editor" editor-only product-assignment></isl-categories>
       </section>
       <section id="suggestions-view" hidden>
         <p id="suggestions-source" class="helper"></p>
@@ -526,7 +534,11 @@ class ImprovedShoppingCatalog extends HTMLElement {
     root.querySelector("isl-categories").onSave = category => this._catalog.saveCategory(category);
     root.querySelector("isl-categories").onDelete = category => this._catalog.deleteCategory(category);
     root.querySelector("isl-categories").onClose = () => root.querySelector("#new-catalog-category").focus();
-    root.querySelector("#new-catalog-category").addEventListener("click", () => root.querySelector("isl-categories").create());
+    root.querySelector("#new-catalog-category").addEventListener("click", () => root.querySelector(this._view === "recommendations" ? "#recommendation-category-editor" : "#catalog-categories").create());
+    const suggestionEditor = root.querySelector("#recommendation-category-editor");
+    suggestionEditor.onSave = category => this._catalog.saveRecommendationCategory(category);
+    suggestionEditor.onDelete = category => this._catalog.deleteRecommendationCategory(category);
+    suggestionEditor.onClose = () => root.querySelector("#new-catalog-category").focus();
     const categoryEditor = root.querySelector("#product-category-editor");
     categoryEditor.onSave = async category => {
       const saved = await this._catalog.saveCategory(category);
@@ -571,7 +583,10 @@ class ImprovedShoppingCatalog extends HTMLElement {
     const root = this.shadowRoot;
     root.querySelector("#products-view").hidden = view !== "products";
     root.querySelector("#new-product").hidden = view !== "products";
-    root.querySelector("#new-catalog-category").hidden = view !== "categories";
+    root.querySelector("#new-catalog-category").hidden = !["categories","recommendations"].includes(view);
+    root.querySelector("#new-catalog-category").disabled = view === "recommendations" && !this._hass?.user?.is_admin;
+    root.querySelector("#new-catalog-category").setAttribute("aria-label", view === "recommendations" ? "Nueva categoría de sugerencias" : "Nueva categoría");
+    root.querySelector("#new-catalog-category").title = view === "recommendations" ? "Nueva categoría de sugerencias" : "Nueva categoría";
     root.querySelector("isl-categories").hidden = view !== "categories";
     root.querySelector("#recommendations-view").hidden = view !== "recommendations";
     root.querySelector("#view-recommendations").setAttribute("aria-pressed", String(view === "recommendations"));
@@ -630,6 +645,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
     toggle.querySelector("span").textContent = this._seasonRemoving ? "Terminar de eliminar" : "Eliminar productos";
     const error = root.querySelector("#season-error");
     error.hidden = !this._seasonError; error.textContent = this._seasonError || "";
+    this._renderRecommendationCategories();
     const calendar = root.querySelector("#season-calendar");
     const focused = calendar.contains(root.activeElement) ? root.activeElement?.dataset.seasonKey : null;
     calendar.classList.toggle("removing", Boolean(this._seasonRemoving));
@@ -661,6 +677,27 @@ class ImprovedShoppingCatalog extends HTMLElement {
       section.append(header,items); return section;
     }));
     if (focused) [...calendar.querySelectorAll("[data-season-key]")].find(node=>node.dataset.seasonKey===focused)?.focus();
+  }
+
+  _renderRecommendationCategories() {
+    const root = this.shadowRoot, groups = this._catalog.recommendationCategories ?? [];
+    root.querySelector("#recommendation-category-editor").products = this._catalog.products;
+    root.querySelector("#recommendation-category-cards").replaceChildren(...groups.map(group=>{
+      const button = element("button","season-criterion"), badge = element("span","recommendation-icon"), icon = element("ha-icon");
+      button.type="button"; button.setAttribute("aria-label","Editar categoría de sugerencias " + group.name);
+      button.disabled = !this._hass?.user?.is_admin;
+      badge.style.backgroundColor=group.color; icon.setAttribute("icon",group.icon); icon.setAttribute("aria-hidden","true");
+      badge.append(icon); button.append(badge,element("span","",group.name));
+      button.addEventListener("click",()=>root.querySelector("#recommendation-category-editor").edit(group));
+      return button;
+    }));
+    root.querySelector("#recommendation-category-products").replaceChildren(...groups.map(group=>{
+      const section = element("section","recommendation-products"); section.dataset.recommendationId=group.id;
+      const title = element("h2","season-current-title",group.name), grid = element("div","grid");
+      grid.classList.toggle("rows",this._productLayout==="rows");
+      grid.append(...this._catalog.products.filter(product=>group.product_ids.includes(product.id)).map(product=>this._productCard(product)));
+      section.append(title,grid); return section;
+    }));
   }
 
   _openSeasonAdd(month) {
@@ -1084,9 +1121,13 @@ class ImprovedShoppingCatalog extends HTMLElement {
       const groups = new Map();
       for (const product of products) {
         if (this._groupBy === "suggestions") {
-          const key = (product.season_months ?? []).includes(this._seasonMonth()) ? "season" : "";
-          if (!groups.has(key)) groups.set(key,{key,name:key ? "Productos de temporada" : "Sin sugerencias",products:[]});
-          groups.get(key).products.push(product); continue;
+          const matches = (this._catalog.recommendationCategories ?? []).filter(group=>group.product_ids.includes(product.id)).map(group=>({key:"custom:"+group.id,name:group.name}));
+          if ((product.season_months ?? []).includes(this._seasonMonth())) matches.push({key:"season",name:"Productos de temporada"});
+          for (const match of matches.length ? matches : [{key:"",name:"Sin sugerencias"}]) {
+            if (!groups.has(match.key)) groups.set(match.key,{...match,products:[]});
+            groups.get(match.key).products.push(product);
+          }
+          continue;
         }
         if (this._groupBy === "linked") {
           const stores = Object.entries(product.store_links ?? {}).filter(([store,reference]) =>

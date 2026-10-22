@@ -213,9 +213,9 @@ class ActivityLog:
     @callback
     def _catalog_changed(self):
         current = self.catalog.snapshot
-        for field, label in (("products", "Producto"), ("categories", "Categoría")):
-            old = {item["id"]: item for item in self._catalog_state[field]}
-            new = {item["id"]: item for item in current[field]}
+        for field, label in (("products", "Producto"), ("categories", "Categoría"), ("recommendation_categories", "Categoría de sugerencias")):
+            old = {item["id"]: item for item in self._catalog_state.get(field, [])}
+            new = {item["id"]: item for item in current.get(field, [])}
             for uid in dict.fromkeys([*old, *new]):
                 before, after = old.get(uid), new.get(uid)
                 ignored = {"id", "revision", "updated_at", "created_at", "product_count", "name_en", "price_updated_at", "recurrence_started_at"}

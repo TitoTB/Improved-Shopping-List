@@ -14,6 +14,8 @@ class ImprovedShoppingCategories extends HTMLElement {
   }
 
   create() { this._open(); }
+  edit(category) { this._open(category); }
+  set products(value) { this._products = value ?? []; }
 
   connectedCallback() {
     if (!this._built) this._build();
@@ -71,6 +73,10 @@ class ImprovedShoppingCategories extends HTMLElement {
         .category-form-actions button { min-width:0; padding:10px 8px; }
         .category-form-actions #save-category { grid-column:2; }
         @media(max-width:650px) { .grid { grid-template-columns:repeat(min(var(--isl-mobile-columns,1),2),minmax(0,1fr)); } }
+        .product-assignment { border:1px solid var(--divider-color,#dfe7e1); border-radius:10px; margin:20px 0 0; padding:12px; min-width:0; }
+        #category-product-options { max-height:240px; overflow:auto; margin-top:12px; }
+        #category-product-options label { display:flex; align-items:center; gap:10px; margin:0; padding:8px 0; overflow-wrap:anywhere; }
+        #category-product-options input { width:18px; height:18px; min-height:18px; margin:0; padding:0; flex:none; }
       </style>
       <div class="toolbar"><button id="new-category" class="primary">Nueva categoría</button></div>
       <div id="category-notice" class="notice" role="status" hidden></div>
@@ -83,6 +89,7 @@ class ImprovedShoppingCategories extends HTMLElement {
           <label>Nombre de la categoría<input name="name" required maxlength="80"></label>
           <label>Icono MDI<input name="icon" required maxlength="100" pattern="mdi:[a-z0-9]+(-[a-z0-9]+)*" value="mdi:tag" placeholder="mdi:shopping"></label>
           <div class="preview"><label>Color<input name="color" type="color" value="#64748b"></label><span id="category-preview" class="category-icon"><ha-icon icon="mdi:tag"></ha-icon></span></div>
+          <fieldset id="category-products" class="product-assignment" hidden><legend>Productos del catálogo</legend><input id="category-product-search" type="search" aria-label="Buscar productos para asociar" placeholder="Buscar productos"><div id="category-product-options"></div></fieldset>
           <div class="form-actions category-form-actions"><button id="delete-category" class="danger" type="button" hidden>Eliminar categoría</button><button id="save-category" class="primary" type="submit">Guardar categoría</button></div>
         </form>
       </dialog>
@@ -103,6 +110,7 @@ class ImprovedShoppingCategories extends HTMLElement {
     root.querySelector("#category-form").addEventListener("submit", event => { event.preventDefault(); void this._save(); });
     root.querySelector("[name=icon]").addEventListener("input", () => this._preview());
     root.querySelector("[name=color]").addEventListener("input", () => this._preview());
+    root.querySelector("#category-product-search").addEventListener("input", () => this._filterProducts());
     root.querySelectorAll("dialog").forEach(dialog => dialog.addEventListener("cancel", event => { if (this._busy) event.preventDefault(); }));
   }
 
@@ -161,9 +169,28 @@ class ImprovedShoppingCategories extends HTMLElement {
     root.querySelector("#category-dialog-title").textContent = category ? "Editar categoría" : "Nueva categoría";
     root.querySelector("#category-error").hidden = true;
     if (category) for (const key of ["name", "icon", "color"]) form.elements[key].value = category[key];
+    const assignment = this.hasAttribute("product-assignment");
+    root.querySelector("#category-products").hidden = !assignment;
+    if (assignment) {
+      root.querySelector("#category-dialog-title").textContent = category ? "Editar categoría de sugerencias" : "Nueva categoría de sugerencias";
+      const selected = new Set(category?.product_ids ?? []);
+      const options = [...(this._products ?? [])].sort((a,b)=>a.name.localeCompare(b.name,"es",{sensitivity:"base"})).map(product=>{
+        const label = document.createElement("label"), checkbox = document.createElement("input");
+        checkbox.type="checkbox"; checkbox.value=product.id; checkbox.checked=selected.has(product.id);
+        label.dataset.productName = product.name;
+        label.append(checkbox,document.createTextNode(product.name)); return label;
+      });
+      root.querySelector("#category-product-options").replaceChildren(...options);
+    }
     this._preview();
     root.querySelector("#category-dialog").showModal();
     form.elements.name.focus();
+  }
+
+  _filterProducts() {
+    const normalize = value => value.normalize("NFKD").replace(/\p{M}/gu, "").toLocaleLowerCase("es").trim();
+    const query = normalize(this.shadowRoot.querySelector("#category-product-search").value);
+    for (const label of this.shadowRoot.querySelectorAll("#category-product-options label")) label.hidden = !normalize(label.dataset.productName).includes(query);
   }
 
   _preview() {
@@ -178,7 +205,7 @@ class ImprovedShoppingCategories extends HTMLElement {
     if (this._busy) return;
     this._deleting = structuredClone(category);
     const root = this.shadowRoot;
-    root.querySelector("#delete-category-description").textContent = `Se eliminará «${category.name}». Sus productos se conservarán sin categoría.`;
+    root.querySelector("#delete-category-description").textContent = this.hasAttribute("product-assignment") ? `Se eliminará «${category.name}». Sus productos se conservarán en el catálogo.` : `Se eliminará «${category.name}». Sus productos se conservarán sin categoría.`;
     root.querySelector("#delete-category-error").hidden = true;
     root.querySelector("#delete-category-dialog").showModal();
   }
@@ -198,6 +225,7 @@ class ImprovedShoppingCategories extends HTMLElement {
     if (this._busy) return;
     const root = this.shadowRoot;
     const category = Object.fromEntries(new FormData(root.querySelector("form")));
+    if (this.hasAttribute("product-assignment")) category.product_ids = [...root.querySelectorAll("#category-product-options input:checked")].map(input=>input.value);
     if (this._editing) Object.assign(category, { id: this._editing.id, revision: this._editing.revision });
     this._setBusy(true);
     root.querySelector("#category-error").hidden = true;

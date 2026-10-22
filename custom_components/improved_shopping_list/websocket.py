@@ -51,6 +51,8 @@ def async_register_commands(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_catalog_subscribe)
     websocket_api.async_register_command(hass, ws_catalog_save)
     websocket_api.async_register_command(hass, ws_season_months)
+    websocket_api.async_register_command(hass, ws_recommendation_category_save)
+    websocket_api.async_register_command(hass, ws_recommendation_category_delete)
     websocket_api.async_register_command(hass, ws_catalog_delete)
     websocket_api.async_register_command(hass, ws_category_save)
     websocket_api.async_register_command(hass, ws_category_delete)
@@ -754,6 +756,40 @@ async def ws_catalog_save(hass: HomeAssistant, connection, msg: dict[str, Any]) 
         connection.send_error(msg["id"], "storage_error", "No se ha podido guardar el catálogo. Inténtalo de nuevo.")
     else:
         connection.send_result(msg["id"], {"product": product})
+
+
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/catalog/recommendation_category/save",
+    vol.Required("category"): dict})
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_recommendation_category_save(hass, connection, msg):
+    await _recommendation_category_write(hass, connection, msg, False)
+
+
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/catalog/recommendation_category/delete",
+    vol.Required("category_id"): str, vol.Required("revision"): int})
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_recommendation_category_delete(hass, connection, msg):
+    await _recommendation_category_write(hass, connection, msg, True)
+
+
+async def _recommendation_category_write(hass, connection, msg, delete):
+    if not (catalog := _catalog(hass, connection, msg)):
+        return
+    try:
+        if delete:
+            await catalog.async_delete_recommendation_category(msg["category_id"], msg["revision"])
+            result = {}
+        else:
+            result = {"category": await catalog.async_save_recommendation_category(msg["category"])}
+    except CatalogError as err:
+        connection.send_error(msg["id"], err.code, str(err))
+    except (OSError, HomeAssistantError):
+        _LOGGER.exception("Could not persist suggestion category")
+        connection.send_error(msg["id"], "storage_error", "No se ha podido guardar la categoría de sugerencias.")
+    else:
+        connection.send_result(msg["id"], result)
 
 
 @websocket_api.websocket_command({

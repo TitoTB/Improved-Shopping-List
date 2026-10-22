@@ -2,6 +2,8 @@
 
 ## Pendiente de publicación
 
+- Categorías de sugerencias personalizadas con nombre, icono MDI, color y selección de productos del catálogo. Admiten varias asociaciones por producto y aparecen al agrupar por Sugerencias.
+
 - Ficha de producto simplificada: hasta seis iconos automáticos con prioridad comunitaria; retirados el buscador, el botón + y los textos de ayuda genéricos.
 
 - Nueva vista Sugerencias en el catálogo: calendario de productos de temporada, asignación a varios meses y eliminación por mes.

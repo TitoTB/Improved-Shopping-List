@@ -191,6 +191,7 @@ class Catalog:
         self._store = Store(hass, 1, STORAGE_KEY)
         self._products: dict[str, dict[str, Any]] = {}
         self._categories: dict[str, dict[str, Any]] = {}
+        self._recommendation_categories: dict[str, dict[str, Any]] = {}
         self._dismissed_suggestions: set[str] = set()
         self._lock = Lock()
         self._listeners: set = set()
@@ -203,6 +204,10 @@ class Catalog:
             if not isinstance(data, dict) or not isinstance(data.get("products"), dict):
                 raise CatalogError("No se ha podido leer el catálogo guardado.", "storage_error")
             self._products = data["products"]
+            groups = data.get("recommendation_categories", {})
+            if not isinstance(groups, dict) or any(not isinstance(group, dict) or not isinstance(group.get("product_ids", []), list) for group in groups.values()):
+                raise CatalogError("No se han podido leer las categorías de sugerencias.", "storage_error")
+            self._recommendation_categories = deepcopy(groups)
             dismissed = data.get("dismissed_suggestions", [])
             if not isinstance(dismissed, list) or any(not isinstance(name, str) for name in dismissed):
                 raise CatalogError("No se han podido leer las sugerencias descartadas.", "storage_error")
@@ -241,7 +246,8 @@ class Catalog:
                     migrated = True
             if migrated:
                 await self._store.async_save({"products": self._products, "categories": categories,
-                                              "dismissed_suggestions": sorted(self._dismissed_suggestions)})
+                                              "dismissed_suggestions": sorted(self._dismissed_suggestions),
+                                              "recommendation_categories": self._recommendation_categories})
             self._categories = categories
 
     @property
@@ -266,16 +272,29 @@ class Catalog:
         ]
 
     @property
+    def recommendation_categories(self) -> list[dict]:
+        return [{**deepcopy(group), "product_ids": [uid for uid in group["product_ids"] if uid in self._products]}
+                for group in sorted(self._recommendation_categories.values(), key=lambda item: item["name"].casefold())]
+
+    @property
     def snapshot(self) -> dict[str, Any]:
         return {"products": self.products, "categories": self.categories,
+                "recommendation_categories": self.recommendation_categories,
                 "dismissed_suggestions": sorted(self._dismissed_suggestions)}
 
-    async def _persist(self, products, categories, dismissed=None) -> None:
+    async def _persist(self, products, categories, dismissed=None, recommendation_categories=None) -> None:
         """Commit related category and product changes together under the lock."""
         if dismissed is None:
             dismissed = self._dismissed_suggestions
+        groups = deepcopy(self._recommendation_categories if recommendation_categories is None else recommendation_categories)
+        for group in groups.values():
+            members = [uid for uid in group["product_ids"] if uid in products]
+            if members != group["product_ids"]:
+                group.update(product_ids=members, revision=group["revision"] + 1,
+                             updated_at=datetime.now(UTC).isoformat())
         await self._store.async_save({"products": products, "categories": categories,
-                                      "dismissed_suggestions": sorted(dismissed)})
+                                      "dismissed_suggestions": sorted(dismissed), "recommendation_categories": groups})
+        self._recommendation_categories = groups
         self._products = products
         self._categories = categories
         self._dismissed_suggestions = dismissed
@@ -487,6 +506,49 @@ class Catalog:
             if key in self._dismissed_suggestions:
                 return
             await self._persist(self._products, self._categories, self._dismissed_suggestions | {key})
+        self._notify()
+
+    async def async_save_recommendation_category(self, data: dict) -> dict:
+        """Save an independent suggestion group; products can belong to several groups."""
+        if not isinstance(data, dict) or set(data) - CATEGORY_FIELDS - {"product_ids"}:
+            raise CatalogError("La categoría de sugerencias contiene campos no admitidos.")
+        group = normalize_category({key: value for key, value in data.items() if key != "product_ids"})
+        members = data.get("product_ids", [])
+        if not isinstance(members, list) or len(members) > 10000 or any(not isinstance(uid, str) for uid in members):
+            raise CatalogError("Selecciona productos válidos del catálogo.")
+        async with self._lock:
+            uid = data.get("id")
+            if uid is not None and not isinstance(uid, str):
+                raise CatalogError("Identificador de categoría no válido.")
+            current = self._recommendation_categories.get(uid) if uid else None
+            if uid and current is None:
+                raise CatalogError("La categoría de sugerencias ya no existe.", "not_found")
+            if current and data.get("revision") != current["revision"]:
+                raise CatalogError("Otra sesión ha modificado esta categoría. Vuelve a abrirla.", "conflict")
+            if normalized_name(group["name"]) == "productos de temporada" or any(
+                item["id"] != uid and normalized_name(item["name"]) == normalized_name(group["name"])
+                for item in self._recommendation_categories.values()):
+                raise CatalogError("Ya existe una categoría de sugerencias con ese nombre.", "duplicate_category")
+            if any(product_id not in self._products for product_id in members):
+                raise CatalogError("Alguno de los productos ya no existe. Vuelve a abrir la categoría.", "not_found")
+            now = datetime.now(UTC).isoformat()
+            group.update(id=uid or str(uuid4()), revision=current["revision"] + 1 if current else 1,
+                         created_at=current["created_at"] if current else now, updated_at=now,
+                         product_ids=sorted(set(members)))
+            await self._persist(self._products, self._categories,
+                                recommendation_categories={**self._recommendation_categories, group["id"]: group})
+        self._notify()
+        return deepcopy(group)
+
+    async def async_delete_recommendation_category(self, category_id: str, revision: int) -> None:
+        async with self._lock:
+            current = self._recommendation_categories.get(category_id)
+            if current is None:
+                raise CatalogError("La categoría de sugerencias ya no existe.", "not_found")
+            if current["revision"] != revision:
+                raise CatalogError("Otra sesión ha modificado esta categoría. Vuelve a abrirla.", "conflict")
+            await self._persist(self._products, self._categories, recommendation_categories={
+                key: value for key, value in self._recommendation_categories.items() if key != category_id})
         self._notify()
 
     async def async_save_category(self, data: dict[str, Any]) -> dict[str, Any]:

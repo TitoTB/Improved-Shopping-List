@@ -1400,7 +1400,7 @@ async function main() {
       assert.equal(await dialog.locator('.store-view-tabs, .store-configuration').count(),0);
       assert.equal(await dialog.getByRole('button',{name:'Productos',exact:true}).count(),0);
       assert.equal(await dialog.getByRole('button',{name:'Configuración',exact:true}).count(),0);
-      assert.ok(await dialog.locator('section').isVisible());
+      assert.ok(await dialog.locator(':scope > section').isVisible());
       await dialog.getByRole('button',{name:'Cerrar ventana',exact:true}).click();
     }
     // Store references are fixed; no user postcode is requested.

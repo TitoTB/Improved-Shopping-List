@@ -39,22 +39,25 @@ class CarrefourAccount:
         self.hass, self.receipts, self.activity = hass, receipts, activity
         self._store = Store(hass, 1, f"{DOMAIN}.carrefour_account", private=True)
         self._session, self._config, self._pending, self._purchases = {}, {}, {}, {}
+        self._cookies = {}
         self._lock = asyncio.Lock()
         self._active = False
 
     async def async_load(self):
         data = await self._store.async_load()
         if data and isinstance(data, dict) and isinstance(data.get("login_token"), str):
-            self._session = {key: data[key] for key in ("login_token", "jwt", "jwt_until") if key in data}
+            self._session = {key: data[key] for key in ("login_token", "jwt", "jwt_until", "device_cookies") if key in data}
 
     def start(self):
         self._active = True
+        self._cookies = dict(self._session.get("device_cookies", {}))
 
     def stop(self):
         self._active = False
         self._pending.clear()
         self._purchases.clear()
         self._config.clear()
+        self._cookies.clear()
 
     def status(self, owner):
         pending = self._pending.get(owner, {})
@@ -86,6 +89,11 @@ class CarrefourAccount:
                         content.extend(chunk)
                         if len(content) > limit:
                             raise CarrefourAccountError("La respuesta de Carrefour supera el tamaño permitido.", stage)
+                    if url.startswith(IDENTITY + "/"):
+                        for name in ("gmid", "ucid", "hasGmid"):
+                            cookie = response.cookies.get(name)
+                            if cookie and 0 < len(cookie.value) <= 4096 and not any(c in cookie.value for c in "\r\n;"):
+                                self._cookies[name] = cookie.value
             self._check_active()
             if pdf:
                 if not content.startswith(b"%PDF-"):
@@ -118,7 +126,13 @@ class CarrefourAccount:
 
     async def _identity(self, method, fields, *, allow_tfa=False):
         config = await self._public_config()
+        if not self._cookies.get("gmid"):
+            bootstrap = await self._http("POST", IDENTITY + "/accounts.webSdkBootstrap",
+                data={"apiKey": config["api_key"], "format": "json"})
+            if bootstrap.get("errorCode") != 0 or not self._cookies.get("gmid"):
+                raise CarrefourAccountError("No se ha podido inicializar el dispositivo de acceso a Carrefour.", "device_bootstrap")
         response = await self._http("POST", IDENTITY + "/" + method,
+            headers={"Cookie": "; ".join(name + "=" + value for name, value in self._cookies.items())},
             data={"APIKey": config["api_key"], "format": "json", "lang": "es", **fields})
         error = response.get("errorCode")
         if error != 0 and not (allow_tfa and error == 403101):
@@ -137,7 +151,7 @@ class CarrefourAccount:
         token = response.get("sessionInfo", {}).get("login_token")
         if not isinstance(token, str) or not token:
             raise CarrefourAccountError("Carrefour no ha devuelto una sesión utilizable.", "session")
-        session = {"login_token": token}
+        session = {"login_token": token, "device_cookies": dict(self._cookies)}
         self._check_active()
         await self._store.async_save(session)
         self._session = session
@@ -221,6 +235,7 @@ class CarrefourAccount:
         async with self._lock:
             await self._store.async_save({})
             self._session.clear()
+            self._cookies.clear()
             self._pending.clear()
             self._purchases.clear()
             return self.status(owner)

@@ -19,6 +19,7 @@ async def account(hass):
     await manager.async_load()
     manager._config = {"api_key":"public-key", "client_id":"public-client", "client_secret":"public-config-value"}
     manager.start()
+    manager._cookies={"gmid":"test-device"}
     yield manager
     manager.stop()
 
@@ -35,7 +36,7 @@ async def test_login_stores_only_session_and_disconnect_forgets_it(account, hass
     result = await account.async_login("owner","private@example.test","PRIVATE_PASSWORD")
     assert result["connected"] and "PRIVATE" not in json.dumps(result)
     saved = await account._store.async_load()
-    assert saved == {"login_token":"PRIVATE_SESSION"}
+    assert saved == {"login_token":"PRIVATE_SESSION","device_cookies":{"gmid":"test-device"}}
     restored = CarrefourAccount(hass,account.receipts,account.activity);await restored.async_load()
     assert restored.status("owner")["connected"]
     assert account._http.await_args.kwargs["data"]["password"] == "PRIVATE_PASSWORD"
@@ -153,3 +154,13 @@ async def test_account_websocket_commands_require_admin_and_setup_never_fetches(
     await client.close()
     assert aioclient_mock.call_count==0
     assert await hass.config_entries.async_unload(entry.entry_id)
+
+
+async def test_identity_bootstrap_keeps_provider_device_cookie(account,aioclient_mock):
+    account._cookies={}
+    aioclient_mock.post(IDENTITY+"/accounts.webSdkBootstrap",json={"errorCode":0},headers={"Set-Cookie":"gmid=device-issued-by-provider; Path=/; Secure; HttpOnly"})
+    aioclient_mock.post(IDENTITY+"/accounts.login",json={"errorCode":0,"sessionInfo":{"login_token":"session"}})
+    result=await account.async_login("owner","test@example.test","password")
+    assert result["connected"] and aioclient_mock.call_count==2
+    assert account._cookies["gmid"]=="device-issued-by-provider"
+    assert aioclient_mock.mock_calls[1]["headers"]["Cookie"]=="gmid=device-issued-by-provider"

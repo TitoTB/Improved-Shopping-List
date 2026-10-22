@@ -226,10 +226,6 @@ class ImprovedShoppingSettings extends HTMLElement {
             <div id="appearance-preview" class="preview">Vista previa de producto pendiente</div>
             <div id="completed-appearance-preview" class="preview">Vista previa de producto comprado</div>
           </div>
-          <div class="appearance-fields">
-            <div><label for="desktop-columns">Productos por fila (ordenador)</label><select id="desktop-columns" name="columns">${[1,2,3,4,5,6].map(value => `<option value="${value}">${value}</option>`).join("")}</select></div>
-            <div><label for="mobile-columns">Productos por fila (móvil)</label><select id="mobile-columns" name="mobile_columns">${[1,2,3,4].map(value => `<option value="${value}">${value}</option>`).join("")}</select></div>
-          </div>
           <div style="margin-top:18px"><label for="quantity-color">Color del indicador de cantidad</label><input id="quantity-color" name="quantity_color" type="color" value="#267052"></div>
           <div class="appearance-fields appearance-colors" style="margin-top:24px">
             <div><label for="stock-gradient-start">Color inicial de Stock</label><input id="stock-gradient-start" name="stock_gradient_start" type="color" value="#f59a23"></div>
@@ -240,6 +236,10 @@ class ImprovedShoppingSettings extends HTMLElement {
           <div class="appearance-previews">
             <div id="stock-appearance-preview" class="preview">Vista previa de producto en stock</div>
             <div id="recipe-appearance-preview" class="preview">Vista previa de receta</div>
+          </div>
+          <div class="appearance-fields">
+            <div><label for="desktop-columns">Productos por fila (ordenador)</label><select id="desktop-columns" name="columns">${[1,2,3,4,5,6].map(value => `<option value="${value}">${value}</option>`).join("")}</select></div>
+            <div><label for="mobile-columns">Productos por fila (móvil)</label><select id="mobile-columns" name="mobile_columns">${[1,2,3,4].map(value => `<option value="${value}">${value}</option>`).join("")}</select></div>
           </div>
           <div class="appearance-actions"><button id="reset-appearance" type="button">Restablecer valores</button><button id="save-appearance" class="primary" type="submit">Guardar personalización</button></div>
         </form>

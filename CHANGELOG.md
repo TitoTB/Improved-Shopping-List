@@ -2,6 +2,8 @@
 
 ## Pendiente de publicación
 
+- Personalización sitúa los selectores de productos por fila al final del bloque, después de todos los colores y sus vistas previas.
+
 - Stock reúne orden y agrupación en un único botón: menor stock → alfabético → categorías → menor stock. La selección se conserva al recargar y la ordenación de Lista sigue siendo independiente.
 
 - Catálogo → Sugerencias muestra únicamente los bloques de tipos de sugerencias. En el calendario de temporada, los badges llevan la imagen a la izquierda del nombre y al 50 % del tamaño anterior.

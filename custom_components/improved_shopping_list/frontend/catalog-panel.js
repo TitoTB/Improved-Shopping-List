@@ -57,6 +57,19 @@ export function imageSource(value) {
 }
 
 class ImprovedShoppingCatalog extends HTMLElement {
+  createProduct(suggestedName) {
+    if(!this._built||this._saving||this._receiptCreate)throw new Error('Espera a que termine la edición del producto.');
+    this._receiptCreate=true;this._receiptCreated=null;
+    this.hidden=false;this.setAttribute('receipt-editor','');
+    const dialog=this.shadowRoot.querySelector('dialog');
+    return new Promise(resolve=>{
+      dialog.addEventListener('close',()=>{
+        this.removeAttribute('receipt-editor');this.hidden=!this._active;this._receiptCreate=false;
+        resolve(this._receiptCreated);
+      },{once:true});
+      this._openProduct(undefined,suggestedName);
+    });
+  }
   constructor() {
     super();
     this.attachShadow({ mode: "open" });
@@ -162,6 +175,8 @@ class ImprovedShoppingCatalog extends HTMLElement {
     this.shadowRoot.innerHTML = `
       <style>
         :host { display:block; color:var(--primary-text-color,#20352d); }
+        :host([receipt-editor]) { display:contents; }
+        :host([receipt-editor]) > :not(style):not(dialog) { display:none!important; }
         :host([hidden]),[hidden] { display:none !important; }
         * { box-sizing:border-box; }
         button,input,select,textarea { font:inherit; }
@@ -1281,6 +1296,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
         }
       }
       this._listOrigin = null;
+      if(this._receiptCreate)this._receiptCreated=structuredClone(saved);
       root.querySelector("dialog").close();
       this._notice = renamed ? "Producto guardado y nombre actualizado en la lista." : "Producto guardado en el catálogo.";
       this._render();

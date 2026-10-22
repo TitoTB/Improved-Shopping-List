@@ -197,6 +197,9 @@ async def test_receipt_api_is_admin_only_and_inactive_guard(hass,hass_ws_client,
     for i,operation in enumerate(['get','subscribe','preview'],1):
         await client.send_json({'id':i,'type':f'{DOMAIN}/receipts/{operation}',**({'pdf':'invalid'} if operation=='preview' else {})})
         assert (await client.receive_json())['error']['code']=='unauthorized'
+    for i,operation in enumerate(['options','link'],4):
+        await client.send_json({'id':i,'type':f'{DOMAIN}/receipts/{operation}','token':'missing',**({'lines':[]} if operation=='link' else {})})
+        assert (await client.receive_json())['error']['code']=='unauthorized'
     await client.close()
     admin=await hass_ws_client(hass)
     await admin.send_json({'id':1,'type':f'{DOMAIN}/receipts/get'})
@@ -204,3 +207,68 @@ async def test_receipt_api_is_admin_only_and_inactive_guard(hass,hass_ws_client,
     assert await hass.config_entries.async_unload(entry.entry_id)
     await admin.send_json({'id':2,'type':f'{DOMAIN}/receipts/get'})
     assert (await admin.receive_json())['error']['code']=='not_loaded'
+
+
+async def test_links_survive_without_stock_prices_or_finishing_the_ticket(hass):
+    env=await setup_manager(hass)
+    cereal=await env.stock.catalog.async_save_product({'name':'Flautines'})
+    draft=await preview(env);before=deepcopy(env.stock.snapshot)
+    links=[{'id':line['id'],'product_id':env.product['id'] if index==0 else cereal['id'] if index==1 else ''} for index,line in enumerate(draft['receipt']['lines'])]
+    await env.manager.async_link(draft['token'],'owner',links)
+    env.manager.discard(draft['token'],'owner')
+    assert env.stock.snapshot==before and env.manager.snapshot['receipts']==[]
+    assert env.manager.offers_for(env.product)==[]
+    restored=StockManager(hass,env.stock.catalog);await restored.async_load()
+    manager=ReceiptManager(hass,restored,env.automation,env.manager.prices)
+    next_draft=await manager.async_preview(base64.b64encode(pdf_bytes(receipt_text())).decode(),'owner')
+    assert next_draft['receipt']['lines'][1]['product_id']==cereal['id']
+    assert next_draft['receipt']['lines'][1]['replenish'] is False
+    assert next_draft['receipt']['lines'][0]['quantity']==250
+
+
+async def test_product_can_only_be_linked_to_one_line_in_a_ticket(hass):
+    env=await setup_manager(hass);draft=await preview(env)
+    links=[{'id':line['id'],'product_id':env.product['id'] if index<2 else ''} for index,line in enumerate(draft['receipt']['lines'])]
+    before=deepcopy(env.stock.receipts)
+    with pytest.raises(CatalogError,match='Dos líneas'):
+        await env.manager.async_link(draft['token'],'owner',links)
+    edits=[{**line,'replenish':False,'quantity':None,'purchase_id':'','save_price':True} for line in links]
+    with pytest.raises(CatalogError,match='Dos líneas'):
+        await env.manager.async_confirm(draft['token'],'owner',edits,True)
+    assert env.stock.receipts==before
+
+
+async def test_new_stock_and_individually_selected_prices_are_atomic(hass,monkeypatch):
+    env=await setup_manager(hass)
+    cereal=await env.stock.catalog.async_save_product({'name':'Flautines'})
+    nuts=await env.stock.catalog.async_save_product({'name':'Anacardos'})
+    draft=await preview(env)
+    products=[env.product,cereal,nuts]
+    links=[{'id':line['id'],'product_id':products[index]['id']} for index,line in enumerate(draft['receipt']['lines'])]
+    await env.manager.async_link(draft['token'],'owner',links)
+    edits=[{**link,'replenish':index==1,'quantity':2 if index==1 else None,'unit':'uds','purchase_id':'','save_price':index!=1} for index,link in enumerate(links)]
+    before=deepcopy(env.stock.snapshot);save=env.stock._store.async_save
+    monkeypatch.setattr(env.stock._store,'async_save',AsyncMock(side_effect=OSError('disk')))
+    with pytest.raises(OSError):
+        await env.manager.async_confirm(draft['token'],'owner',edits,True)
+    assert env.stock.snapshot==before and env.manager.snapshot['receipts']==[]
+    monkeypatch.setattr(env.stock._store,'async_save',save)
+    await env.manager.async_confirm(draft['token'],'owner',edits,True)
+    item=env.stock.item_for(cereal)
+    assert item['quantity']==2 and item['unit']=='uds' and item['refill_quantity']==2
+    assert env.stock.item_for(env.product)['quantity']==20 and env.stock.item_for(nuts) is None
+    assert env.manager.offers_for(cereal)==[]
+    assert env.manager.offers_for(env.product)[0]['price']==2.65
+    assert env.manager.offers_for(nuts)[0]['price']==2.69
+
+
+async def test_link_step_checks_owner_and_unique_preview_proposals(hass):
+    env=await setup_manager(hass)
+    draft=await preview(env)
+    with pytest.raises(CatalogError,match='caducado'):
+        await env.manager.async_options(draft['token'],'someone-else')
+    links=[{'id':line['id'],'product_id':''} for line in draft['receipt']['lines']]
+    with pytest.raises(CatalogError,match='caducado'):
+        await env.manager.async_link(draft['token'],'someone-else',links)
+    ids=[line['product_id'] for line in draft['receipt']['lines'] if line['product_id']]
+    assert len(ids)==len(set(ids))

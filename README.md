@@ -56,10 +56,23 @@ actualización puesta en cola de una petición de precio que ya ha comenzado.
 
 Stock incluye las vistas **Stock** y **Últimas compras**, con un botón para subir tickets
 PDF electrónicos de Carrefour (hasta 2 MB y 10 páginas). El documento se lee localmente;
-los escaneos y otros formatos de tienda todavía no están disponibles. Antes de guardar,
-un popup permite asociar cada línea al catálogo y confirmar cantidades en las unidades
-del stock. La similitud de nombres solo propone correspondencias; las asociaciones y
-conversiones confirmadas se recuerdan para próximos tickets.
+los escaneos y otros formatos de tienda todavía no están disponibles. El popup guía
+la revisión en tres pasos: **Vinculación**, **Stock** y **Precios**. Primero permite
+asociar cada línea al catálogo, abrir la ficha completa para crear un producto o
+ignorarla. Dos líneas del mismo ticket no pueden vincularse al mismo producto;
+hay que liberar la asociación anterior antes de reutilizarlo. La similitud de nombres
+solo propone correspondencias. Al continuar se guardan las vinculaciones localmente,
+independientemente del stock y sin compartirlas con el diccionario comunitario.
+Guardar solo vinculaciones termina aquí, sin importar la compra ni modificar cantidades
+o precios; se puede volver a subir el ticket más adelante.
+
+En Stock vienen marcados los productos identificados que ya están en el inventario.
+Los demás se pueden incorporar, confirmando cantidades y unidades antes de sumarlas.
+Las conversiones confirmadas se recuerdan para próximos tickets. En Precios se eligen
+individualmente los importes que se quieren guardar, con opción de seleccionar todos,
+y se muestra un resumen antes de confirmar la compra. Las cantidades y el historial
+no cambian hasta esta confirmación final; las vinculaciones del primer paso se conservan
+aunque se cierre la revisión después.
 
 Últimas compras conserva fecha, tienda, importe, descuentos generales y detalle de
 los tickets confirmados. Subir o cerrar la revisión no modifica el stock. Al confirmar,

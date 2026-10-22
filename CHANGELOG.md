@@ -2,6 +2,9 @@
 
 ## Pendiente de publicación
 
+- Asistente de revisión de tickets en tres pasos: vinculación con el catálogo, reposición de stock y selección individual de precios. Permite crear productos con su ficha completa, ignorar líneas y guardar solo vinculaciones locales, independientes del stock y excluidas del diccionario comunitario.
+- Un producto del catálogo solo puede vincularse a una línea del mismo ticket. El buscador excluye los ya asignados y Home Assistant valida la restricción antes de guardar.
+- Los productos identificados que ya están en Stock vienen marcados para reponer; se pueden incorporar otros con cantidades y unidades confirmadas, sin sumar una unidad adicional al crearlos. Se conserva la corrección de reposiciones anteriores y el control de duplicados.
 - Stock recupera el botón de añadir manualmente mediante un popup con nombres del catálogo y entrada libre. Retirado el título adicional; las vistas se alinean a la izquierda y sus controles a la derecha en una fila compacta. Subir ticket aparece solo en Últimas compras.
 
 ## 0.25.0

@@ -44,7 +44,7 @@ def async_register_commands(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_stock_adjust)
     websocket_api.async_register_command(hass, ws_stock_save)
     websocket_api.async_register_command(hass, ws_stock_remove)
-    for command in (ws_receipts_get, ws_receipts_subscribe, ws_receipts_preview, ws_receipts_confirm, ws_receipts_discard):
+    for command in (ws_receipts_get, ws_receipts_subscribe, ws_receipts_preview, ws_receipts_confirm, ws_receipts_discard, ws_receipts_options, ws_receipts_link):
         websocket_api.async_register_command(hass, command)
     websocket_api.async_register_command(hass, ws_catalog_subscribe)
     websocket_api.async_register_command(hass, ws_catalog_save)
@@ -138,6 +138,20 @@ async def ws_receipts_preview(hass,connection,msg):
 @websocket_api.async_response
 async def ws_receipts_confirm(hass,connection,msg):
     await _receipt_operation(hass,connection,msg,lambda manager,owner:manager.async_confirm(msg["token"],owner,msg["lines"],msg["update_prices"]))
+
+
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/receipts/options",vol.Required("token"):str})
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_receipts_options(hass,connection,msg):
+    await _receipt_operation(hass,connection,msg,lambda manager,owner:manager.async_options(msg["token"],owner))
+
+
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/receipts/link",vol.Required("token"):str,vol.Required("lines"):list})
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_receipts_link(hass,connection,msg):
+    await _receipt_operation(hass,connection,msg,lambda manager,owner:manager.async_link(msg["token"],owner,msg["lines"]))
 
 
 @websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/receipts/discard",vol.Required("token"):str})

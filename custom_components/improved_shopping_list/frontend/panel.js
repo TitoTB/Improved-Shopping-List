@@ -412,6 +412,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
     root.querySelector('#upload-ticket').addEventListener('click',()=>root.querySelector('isl-purchases').chooseFile());
     root.querySelector('isl-purchases').addEventListener('receipt-busy',event=>{this._receiptBusy=event.detail;this._renderData();});
     root.querySelector('isl-purchases').addEventListener('receipt-imported',()=>{this._stockView='purchases';void this._stock.refresh();void this._refreshRowPrices();this._renderData();});
+    root.querySelector('isl-purchases').createProduct=name=>root.querySelector('isl-catalog').createProduct(name);
     root.querySelector("#pending-total").addEventListener("click", () => {
       this._ticket = true;
       this._renderData();

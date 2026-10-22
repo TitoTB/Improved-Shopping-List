@@ -31,6 +31,8 @@ const emitCatalog=()=>{
 };
 window.stockItems=JSON.parse(localStorage.getItem('stock-fixture')??'[]');
 window.receiptHistory=JSON.parse(localStorage.getItem('receipt-fixture')??'[]');
+window.receiptLinks=[];
+const receiptOptions=()=>({products:[...new Map([{id:'cacao',name:'Seitán',unit:'g',stock_id:'s1',revision:1},...window.catalogProducts.filter(p=>p.id!=='cacao').map(p=>({id:p.id,name:p.name,unit:'uds',stock_id:'',revision:0}))].map(p=>[p.id,p])).values()],purchases:[]});
 window.emitStock=()=>{localStorage.setItem('stock-fixture',JSON.stringify(window.stockItems));for(const listener of listeners.keys())if(listener.stock)listener.callback({items:structuredClone(window.stockItems)});};
 window.calls=[];window.fail=false;window.failCatalog=false;
 window.logFixture={entries:[],limit:1000};window.failLogs=false;
@@ -140,18 +142,30 @@ const hass={
     if(msg.type==='improved_shopping_list/stock/get')return {items:structuredClone(window.stockItems)};
     if(msg.type==='improved_shopping_list/receipts/get')return {receipts:structuredClone(window.receiptHistory)};
     if(msg.type==='improved_shopping_list/receipts/discard')return null;
+    if(msg.type==='improved_shopping_list/receipts/options')return receiptOptions();
+    if(msg.type==='improved_shopping_list/receipts/link'){
+      const ids=msg.lines.map(line=>line.product_id).filter(Boolean);if(new Set(ids).size!==ids.length)throw new Error('Dos líneas no pueden vincularse al mismo producto.');
+      window.receiptLinks=structuredClone(msg.lines);return receiptOptions();
+    }
     if(msg.type==='improved_shopping_list/receipts/preview'){
       if(window.receiptHistory.length)throw new Error('Este ticket ya se ha importado.');
-      return {token:'preview',receipt:{id:'ticket1',store:'carrefour',store_name:'Carrefour',purchased_at:'2026-10-16T19:59:30',total:5.22,subtotal:6.22,discount:1,article_count:4,
+      const draft={token:'preview',receipt:{id:'ticket1',store:'carrefour',store_name:'Carrefour',purchased_at:'2026-10-16T19:59:30',total:5.22,subtotal:6.22,discount:1,article_count:4,
         lines:[{id:'0',description:'SEITAN 250 G',count:1,unit_price:2.65,amount:2.65,pack_quantity:250,pack_unit:'g',product_id:'cacao',quantity:250,replenish:false},
           {id:'1',description:'FLAUTIN CEREALES',count:2,unit_price:.44,amount:.88,pack_quantity:null,pack_unit:'',product_id:'',quantity:null,replenish:false},
           {id:'2',description:'ANACARDO CRUDO 200',count:1,unit_price:2.69,amount:2.69,pack_quantity:null,pack_unit:'',product_id:'',quantity:null,replenish:false}]},
-        products:[{id:'cacao',name:'Seitán',unit:'g',stock_id:'s1',revision:1}],purchases:[]};
+        ...receiptOptions()};
+      for(const line of draft.receipt.lines){const learned=window.receiptLinks.find(link=>link.id===line.id);if(learned)line.product_id=learned.product_id;}
+      window.receiptDraft=structuredClone(draft.receipt);return draft;
     }
     if(msg.type==='improved_shopping_list/receipts/confirm'){
       if(window.failReceipt)throw new Error('No se ha podido guardar el ticket.');
-      const receipt={id:'ticket1',store_name:'Carrefour',purchased_at:'2026-10-16T19:59:30',article_count:4,total:5.22,discount:1,
-        lines:[{description:'SEITAN 250 G',count:1,unit_price:2.65,amount:2.65,product_name:'Seitán',replenished:msg.lines[0].replenish,quantity:msg.lines[0].quantity,unit:'g'}]};
+      const receipt=structuredClone(window.receiptDraft);
+      for(const [index,line] of receipt.lines.entries()){
+        const edit=msg.lines[index],product=receiptOptions().products.find(p=>p.id===edit.product_id);
+        Object.assign(line,{product_name:product?.name??'',replenished:edit.replenish,quantity:edit.quantity,unit:edit.unit,price_saved:edit.save_price});
+        if(edit.replenish){let stock=window.stockItems.find(item=>item.catalog_product_id===edit.product_id);if(!stock){stock={id:crypto.randomUUID(),catalog_product_id:edit.product_id,name:product.name,quantity:0,unit:edit.unit,revision:0};window.stockItems.push(stock);}stock.quantity+=edit.quantity;stock.revision++;}
+      }
+      window.emitStock();
       window.receiptHistory.push(receipt);localStorage.setItem('receipt-fixture',JSON.stringify(window.receiptHistory));return receipt;
     }
     if(msg.type.startsWith('improved_shopping_list/stock/')){
@@ -2222,7 +2236,37 @@ async function main() {
     await review.getByRole('button',{name:'Cerrar ventana',exact:true}).click();
     assert.equal(await purchasePage.evaluate(()=>window.receiptHistory.length),0);
     await purchases.locator('#ticket-file').setInputFiles(ticketFile);await review.waitFor();
-    await review.locator('.review-line').first().getByLabel('Reponer stock',{exact:true}).check();
+    assert.equal(await review.getByText('Vincular productos',{exact:true}).isVisible(),true);
+    const cerealLine=review.locator('[data-line-id="1"]');
+    assert.equal(await cerealLine.locator('datalist option[value="Seitán"]').count(),0);
+    await cerealLine.getByLabel('Producto para FLAUTIN CEREALES',{exact:true}).fill('Seitán');
+    await review.getByText('Este producto ya está vinculado a otra línea. Libera primero esa vinculación.',{exact:true}).waitFor();
+    await cerealLine.getByRole('button',{name:'Crear producto para FLAUTIN CEREALES',exact:true}).click();
+    const receiptProduct=purchasePage.locator('isl-catalog').getByRole('dialog',{name:'Nuevo producto',exact:true});
+    await receiptProduct.getByLabel('Nombre del producto',{exact:true}).fill('Flautines');
+    await receiptProduct.getByRole('button',{name:'Guardar producto',exact:true}).click();
+    await receiptProduct.waitFor({state:'hidden'});
+    assert.equal(await cerealLine.getByLabel('Producto para FLAUTIN CEREALES',{exact:true}).inputValue(),'Flautines');
+    await review.locator('[data-line-id="2"]').getByLabel('Ignorar esta línea',{exact:true}).check();
+    await review.getByRole('button',{name:'Guardar solo vinculaciones',exact:true}).click();
+    await review.waitFor({state:'hidden'});
+    assert.equal(await purchasePage.evaluate(()=>window.receiptHistory.length),0);
+    assert.equal(await purchasePage.evaluate(()=>window.stockItems.length),0);
+    assert.equal(await purchasePage.evaluate(()=>window.receiptLinks.filter(line=>line.product_id).length),2);
+    await purchases.locator('#ticket-file').setInputFiles(ticketFile);await review.waitFor();
+    assert.equal(await cerealLine.getByLabel('Producto para FLAUTIN CEREALES',{exact:true}).inputValue(),'Flautines');
+    await review.locator('[data-line-id="2"]').getByLabel('Ignorar esta línea',{exact:true}).check();
+    await review.getByRole('button',{name:'Continuar',exact:true}).click();
+    await review.getByText('Reponer stock',{exact:true}).first().waitFor();
+    assert.equal(await review.locator('[data-line-id="0"]').getByLabel('Reponer stock',{exact:true}).isChecked(),true);
+    assert.equal(await cerealLine.getByLabel('Incluir en Stock',{exact:true}).isChecked(),false);
+    await cerealLine.getByLabel('Incluir en Stock',{exact:true}).check();
+    assert.equal(await cerealLine.getByLabel('Cantidad para FLAUTIN CEREALES',{exact:true}).inputValue(),'2');
+    await purchasePage.screenshot({path:'test-results/receipt-wizard-stock-mobile.png',fullPage:true});
+    assert.ok(await review.evaluate(el=>el.scrollWidth<=el.clientWidth+1));
+    await review.getByRole('button',{name:'Continuar',exact:true}).click();
+    await review.getByLabel('Actualizar precio de Seitán',{exact:true}).uncheck();
+    await purchasePage.screenshot({path:'test-results/receipt-wizard-prices-mobile.png',fullPage:true});
     await purchasePage.evaluate(()=>{window.failReceipt=true;});
     await review.getByRole('button',{name:'Confirmar compra',exact:true}).click();
     await review.getByText('No se ha podido guardar el ticket.',{exact:true}).waitFor();
@@ -2230,6 +2274,10 @@ async function main() {
     await purchasePage.evaluate(()=>{window.failReceipt=false;});
     await review.getByRole('button',{name:'Confirmar compra',exact:true}).click();
     await review.waitFor({state:'hidden'});await purchases.locator('summary').click();
+    const confirmed=await purchasePage.evaluate(()=>window.calls.filter(call=>call.type==='improved_shopping_list/receipts/confirm').at(-1));
+    assert.equal(confirmed.lines[0].save_price,false);assert.equal(confirmed.lines[1].save_price,true);
+    assert.equal(confirmed.lines[1].quantity,2);assert.equal(confirmed.lines[1].unit,'uds');
+    assert.equal(await purchasePage.evaluate(()=>window.stockItems.find(item=>item.name==='Flautines').quantity),2);
     await purchases.getByText('Seitán: 250 g repuestos',{exact:true}).waitFor();
     assert.ok(await purchases.evaluate(el=>el.scrollWidth<=el.clientWidth+1));
     await purchasePage.screenshot({path:'test-results/purchase-history-mobile.png',fullPage:true});

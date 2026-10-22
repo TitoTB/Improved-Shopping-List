@@ -105,6 +105,42 @@ Cada lista conserva sus datos en su integración original. Las operaciones dispo
 
 El panel se comunica con Home Assistant usando la sesión del usuario y las APIs nativas. La gestión local no necesita tokens adicionales ni cuentas nuevas; compartir datos con la comunidad requiere autorizar voluntariamente una cuenta de GitHub. Las funciones de consulta de productos e iconos utilizan Open Food Facts e Iconify respectivamente; la gestión de listas y del catálogo funciona sin esos servicios. El JavaScript se sirve localmente y no utiliza un CDN.
 
+## Requisitos y dependencias
+
+**No necesitas instalar otras tarjetas de HACS ni complementos de Home Assistant.** El panel es propio y sus archivos JavaScript y CSS se sirven desde Home Assistant. No requiere Mushroom, button-card, card-mod, browser_mod ni añadir recursos al dashboard.
+
+### Requisitos de instalación
+
+| Dependencia | Para qué se utiliza | Cómo se obtiene |
+| --- | --- | --- |
+| Home Assistant Core **2026.10.0 o posterior** | Ejecutar la integración y su interfaz. La versión de referencia de las pruebas es 2026.10.2. | Tu instalación de Home Assistant; compatible con Home Assistant OS. |
+| Una integración que proporcione entidades `todo.*` | Gestionar las listas de la compra. Puede ser Shopping List de Home Assistant, Bring! u otro proveedor compatible. Las operaciones disponibles dependen de sus capacidades. | Configura el proveedor que prefieras en Home Assistant. Bring! no es obligatorio. |
+| `frontend`, `http`, `panel_custom` y `todo` | Componentes nativos de Home Assistant que utiliza el panel y la gestión de listas. `panel_custom` no es una tarjeta de HACS. | Home Assistant los gestiona automáticamente según `manifest.json`. |
+| `pypdf==6.21.2` | Extraer el texto de los tickets PDF. Es la única librería Python externa declarada por esta integración. | Home Assistant la instala automáticamente al cargar la integración, aunque no utilices tickets. No necesitas ejecutar `pip` ni instalar un complemento. |
+
+HACS es el método de instalación y actualización descrito abajo. No se necesita ningún otro repositorio personalizado para usar la interfaz. La instalación inicial de la librería Python requiere acceso a su servidor de paquetes.
+
+### Funciones opcionales y servicios externos
+
+| Función | Dependencia opcional | Qué necesita el usuario |
+| --- | --- | --- |
+| Identificar códigos de barras y obtener Nutri-Score | Open Food Facts | Acceso a Internet; no requiere clave de API. |
+| Sugerir iconos y traducir nombres para buscarlos | Iconify y MyMemory | Acceso a Internet; no requiere configurar claves de API. Las traducciones se guardan para reutilizarlas. |
+| Consultar el diccionario comunitario | Archivos públicos del repositorio en GitHub | Acceso a Internet; la consulta pública no requiere una cuenta. |
+| Compartir datos con la comunidad | GitHub y la GitHub App de Improved Shopping List | Activar la opción y autorizar una cuenta de GitHub. La autorización es independiente de HACS: no se reutilizan sus credenciales. |
+| Actualizar precios | Webs y endpoints de las tiendas habilitadas | Acceso a Internet y vinculaciones de productos. No requiere n8n, Google Sheets, credenciales de Awin ni otro proyecto de Aguacatec. El acceso puede fallar por cambios o bloqueos de la tienda; se conserva el último precio conocido. |
+| Mostrar imágenes remotas y algunos logos de tiendas | El servidor de cada imagen | El navegador necesita poder acceder a la URL. Las imágenes locales y los iconos descargados no dependen de ese servidor para mostrarse. Flaticon no es una API necesaria para la integración. |
+| Usar lectores de códigos o NFC | Un dispositivo ya integrado que exponga la entidad de lectura compatible | Configurar su entidad en Ajustes → Lectores. ESPHome es una opción para el dispositivo, no un requisito de Improved Shopping List. |
+| Descontar stock por consumo registrado | Una entidad de Home Assistant que represente el uso | Seleccionar la entidad y el estado correspondiente. |
+| Enviar notificaciones | Un destino de notificación configurado en Home Assistant | Seleccionar uno o varios destinos en Ajustes → Notificaciones. Para avisos al móvil puedes usar la aplicación Companion; también se admiten otros proveedores de notificación compatibles. |
+| Importar tickets PDF | La librería `pypdf` indicada arriba | Actualmente admite tickets electrónicos de Carrefour con texto. No necesita OCR, Tesseract ni un servicio externo; los PDF escaneados no están soportados. |
+
+El catálogo, categorías, recetas, sugerencias manuales y stock se guardan en Home Assistant. No necesitan las APIs de productos, iconos o precios para su gestión local. La disponibilidad de las listas depende además de su proveedor: una lista local puede funcionar sin Internet y un proveedor en la nube puede necesitar conexión.
+
+### Dependencias solo de desarrollo
+
+Node.js, npm, Playwright y `@webcomponents/scoped-custom-element-registry` se utilizan para las comprobaciones y pruebas del repositorio. Las dependencias de `requirements_test.txt`, Hassfest y la validación de HACS también son herramientas de desarrollo. **El usuario no debe instalarlas en Home Assistant.** Los iconos de Font Awesome de los botones están incluidos como SVG; no requieren un kit, fuente o script externo.
+
 ## Instalación con HACS
 
 Este repositorio se instala como repositorio personalizado; no está incluido en el catálogo predeterminado de HACS.
@@ -142,7 +178,7 @@ Desde el botón **+** de **Catálogo → Sugerencias** puedes crear categorías 
 
 La vista **Nuevos** (`mdi:creation`) muestra los nombres de productos de la lista seleccionada que aún no están en el catálogo, incluidos los elementos comprados que siguen en la lista. Añadir al catálogo abre el formulario con el nombre ya rellenado, para completar categoría, etiquetas y otros datos antes de guardar. Si corriges el nombre en ese formulario, al guardar se renombra el elemento original de la lista, conservando su estado y demás datos; también se actualizan las variantes equivalentes de esa sugerencia en la misma lista. La lista y los identificadores de origen se conservan aunque cambies de lista mientras está abierta la ficha. Si el proveedor no permite renombrar o falla la operación, la ficha informa del error: el producto queda guardado en el catálogo y puedes reintentar sin crear otra ficha. Cancelar conserva la sugerencia sin crear el producto. También puedes descartar sugerencias sin modificar la lista. Las sugerencias, las coincidencias con el catálogo y los descartes comparan los nombres ignorando tildes, mayúsculas, caracteres Unicode equivalentes y espacios sobrantes. Así, «Seitan», «Seitán» y «SEITÁN» no producen sugerencias distintas; los nombres guardados conservan su escritura original. Los descartes se guardan en Home Assistant, se comparten entre sesiones y listas y se conservan tras reiniciar. Para cambiar la lista de origen, utiliza el selector del apartado Lista.
 
-El precio es manual y orientativo, asociado al producto y la moneda indicados, con su fecha de actualización. Se conserva en la ficha de edición, pero no se muestra en las tarjetas. Todavía no hay comparación de ofertas por supermercado, consulta automática de precios, scrapeo ni importación de PDF. El código de barras se guarda como texto para conservar sus ceros iniciales. Los campos Marca y Formato se han retirado; las instalaciones anteriores eliminan esos campos al cargar el catálogo, conservando los productos y sus códigos.
+Los precios guardados por tienda pueden proceder de las consultas configuradas o de tickets PDF confirmados, con su fecha de actualización. Las consultas externas son opcionales y la lectura del PDF se realiza localmente con `pypdf`. El código de barras se guarda como texto para conservar sus ceros iniciales. Los campos Marca y Formato se han retirado; las instalaciones anteriores eliminan esos campos al cargar el catálogo, conservando los productos y sus códigos.
 
 Las ediciones simultáneas se detectan: si otra sesión ha cambiado una ficha, se pide volver a abrirla antes de guardar. No se borra el catálogo al cambiar de lista ni al recargar la integración. Se conserva también al retirar la integración para permitir reinstalarla; los productos de las listas originales tampoco se eliminan.
 

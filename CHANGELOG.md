@@ -2,6 +2,8 @@
 
 ## Pendiente de publicación
 
+- Espaciado superior unificado: Catálogo y Ajustes dejan de sumar un margen adicional al relleno común de los apartados. Sus cabeceras usan la misma separación inferior que Stock.
+
 - Lista en filas: cantidad, unidades y botones de restar/sumar reunidos en un badge horizontal, con iconos thick. Se mantienen los pasos configurados, permisos y el color personalizable.
 
 - Recuperado el campo Etiquetas en Características del producto para marcas, tiendas y otros términos. Búsqueda por etiquetas en catálogo y buscador predictivo de Lista, sin distinguir tildes o mayúsculas.

@@ -178,7 +178,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
         button { cursor:pointer; }
         button:disabled { opacity:.5; cursor:default; }
         button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible { outline:3px solid var(--primary-color,#267052); outline-offset:3px; }
-        .heading { display:flex; align-items:center; justify-content:space-between; gap:16px; margin:28px 0 12px; }
+        .heading { display:flex; align-items:center; justify-content:space-between; gap:16px; margin:0 0 16px; }
         .heading h1 { flex-shrink:0; }
         .catalog-toolbar { display:flex; align-items:center; gap:12px; min-width:0; margin-left:auto; }
         .catalog-tools { display:flex; align-items:center; gap:8px; flex-shrink:0; margin-left:auto; }

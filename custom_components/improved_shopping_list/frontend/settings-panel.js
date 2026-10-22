@@ -67,7 +67,7 @@ class ImprovedShoppingSettings extends HTMLElement {
         :host { display:block; color:var(--primary-text-color,#20352d); }
         :host([hidden]),[hidden] { display:none !important; }
         * { box-sizing:border-box; }
-        h1 { font-size:32px; letter-spacing:-.03em; margin:28px 0 12px; }
+        h1 { font-size:32px; letter-spacing:-.03em; margin:0; }
         h2 { font-size:20px; margin:0 0 16px; }
         p { color:var(--secondary-text-color,#63766b); line-height:1.6; font-size:13px; }
         .card { padding:22px; border:1px solid var(--divider-color,#dfe7e1); border-radius:16px; background:var(--card-background-color,#fff); margin-top:20px; }
@@ -75,7 +75,7 @@ class ImprovedShoppingSettings extends HTMLElement {
         button { cursor:pointer; }
         button:disabled,select:disabled,input:disabled { opacity:.5; cursor:default; }
         button:focus-visible,select:focus-visible,input:focus-visible { outline:3px solid var(--primary-color,#267052); outline-offset:3px; }
-        .settings-heading { display:flex; align-items:center; justify-content:space-between; gap:16px; margin:28px 0 18px; }
+        .settings-heading { display:flex; align-items:center; justify-content:space-between; gap:16px; margin:0 0 16px; }
         .settings-heading h1 { flex:none; margin:0; }
         .settings-tabs { display:flex; flex-wrap:nowrap; min-width:0; gap:6px; margin-left:auto; overflow-x:auto; scrollbar-width:thin; }
         .settings-tabs button { display:inline-flex; flex:none; align-items:center; justify-content:center; gap:6px; padding:10px; font-size:13px; white-space:nowrap; }

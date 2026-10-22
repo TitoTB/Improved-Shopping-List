@@ -159,6 +159,7 @@ const hass={
     }
     if(msg.type==='improved_shopping_list/receipts/confirm'){
       if(window.failReceipt)throw new Error('No se ha podido guardar el ticket.');
+      window.lastReceiptConfirmation=structuredClone(msg);
       const receipt=structuredClone(window.receiptDraft);
       for(const [index,line] of receipt.lines.entries()){
         const edit=msg.lines[index],product=receiptOptions().products.find(p=>p.id===edit.product_id);
@@ -2274,7 +2275,7 @@ async function main() {
     await purchasePage.evaluate(()=>{window.failReceipt=false;});
     await review.getByRole('button',{name:'Confirmar compra',exact:true}).click();
     await review.waitFor({state:'hidden'});await purchases.locator('summary').click();
-    const confirmed=await purchasePage.evaluate(()=>window.calls.filter(call=>call.type==='improved_shopping_list/receipts/confirm').at(-1));
+    const confirmed=await purchasePage.evaluate(()=>window.lastReceiptConfirmation);
     assert.equal(confirmed.lines[0].save_price,false);assert.equal(confirmed.lines[1].save_price,true);
     assert.equal(confirmed.lines[1].quantity,2);assert.equal(confirmed.lines[1].unit,'uds');
     assert.equal(await purchasePage.evaluate(()=>window.stockItems.find(item=>item.name==='Flautines').quantity),2);

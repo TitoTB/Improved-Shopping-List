@@ -1,6 +1,6 @@
 # Historial de cambios
 
-## Pendiente de publicación
+## 0.26.0
 
 - Asistente de revisión de tickets en tres pasos: vinculación con el catálogo, reposición de stock y selección individual de precios. Permite crear productos con su ficha completa, ignorar líneas y guardar solo vinculaciones locales, independientes del stock y excluidas del diccionario comunitario.
 - Un producto del catálogo solo puede vincularse a una línea del mismo ticket. El buscador excluye los ya asignados y Home Assistant valida la restricción antes de guardar.

@@ -1,4 +1,4 @@
-import { ListSettingsSession } from "./list-settings-client.js?v=0.25.0";
+import { ListSettingsSession } from "./list-settings-client.js?v=0.26.0";
 
 const SOURCES = {manual:"Usuario / API",automatic:"Automático · Home Assistant",reader:"Lector",integration:"Integración",external:"Proveedor externo · origen desconocido",home_assistant:"Home Assistant · origen desconocido"};
 const GROUPS = {stock:"Stock",list:"Listas",catalog:"Catálogo y categorías",reader:"Lectores",settings:"Ajustes",recurrence:"Recurrencias",stores:"Tiendas"};

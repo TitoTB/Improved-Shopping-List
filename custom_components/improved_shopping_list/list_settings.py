@@ -11,6 +11,7 @@ from homeassistant.core import HomeAssistant, callback
 from .const import CONF_TODO_ENTITY, CONF_TODO_ENTITIES
 from .const import DOMAIN
 from .stores import StoreError
+from .notification_settings import notification_options, normalize_notifications
 from .regional_stores import REGIONAL_STORES
 from .store_location import REFERENCE_LOCATIONS, reference_location
 
@@ -51,6 +52,7 @@ def list_options(entry: ConfigEntry) -> dict:
     entities = list(entry.options.get(CONF_TODO_ENTITIES, [primary] if primary else []))
     return {"entities": entities, "primary_entity": primary if primary in entities else next(iter(entities), ""),
             "gateway_lists": deepcopy(entry.options.get("gateway_lists", [])),
+            "notifications": notification_options(entry.options.get("notifications")),
             "appearance": {**DEFAULT_APPEARANCE, **entry.options.get("appearance", {})},
             "stores": {key: {**deepcopy(defaults), "enabled": bool(entry.options.get("stores", {}).get(key, {}).get("enabled", False))} for key, defaults in DEFAULT_STORES.items()},
             "favorite_store": entry.options.get("favorite_store", ""), "price_update_time":entry.options.get("price_update_time", "01:00"),
@@ -102,7 +104,7 @@ class ListSettings:
 
     @property
     def snapshot(self) -> dict:
-        return list_options(self.entry) if self.entry else {"entities": [], "primary_entity": "", "gateway_lists": [], "appearance": dict(DEFAULT_APPEARANCE), "stores": deepcopy(DEFAULT_STORES), "favorite_store": "", "price_update_time":self._default_price_time,"price_updates_enabled":True,"price_update_days":1}
+        return list_options(self.entry) if self.entry else {"entities": [], "primary_entity": "", "gateway_lists": [], "notifications": notification_options(), "appearance": dict(DEFAULT_APPEARANCE), "stores": deepcopy(DEFAULT_STORES), "favorite_store": "", "price_update_time":self._default_price_time,"price_updates_enabled":True,"price_update_days":1}
 
     async def async_toggle_located_store(self, store, enabled):
         """Enable a fixed reference without postal discovery or HTTP requests."""
@@ -210,6 +212,18 @@ class ListSettings:
         self.hass.config_entries.async_update_entry(self.entry, options={
             **self.entry.options, CONF_TODO_ENTITIES: entities, CONF_TODO_ENTITY: primary,
         })
+        self.notify()
+        return self.snapshot
+
+    @callback
+    def update_notifications(self, data: dict) -> dict:
+        if self.entry is None:
+            raise ListSettingsError("La integración no está activa.")
+        try:
+            notifications = normalize_notifications(data)
+        except ValueError as err:
+            raise ListSettingsError(str(err)) from err
+        self.hass.config_entries.async_update_entry(self.entry, options={**self.entry.options, "notifications": notifications})
         self.notify()
         return self.snapshot
 

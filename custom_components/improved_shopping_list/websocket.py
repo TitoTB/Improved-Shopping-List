@@ -65,6 +65,7 @@ def async_register_commands(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_gateway_save)
     websocket_api.async_register_command(hass, ws_gateway_remove)
     websocket_api.async_register_command(hass, ws_personalization)
+    websocket_api.async_register_command(hass, ws_notifications)
     websocket_api.async_register_command(hass, ws_store_update)
     websocket_api.async_register_command(hass, ws_resolve_store)
     websocket_api.async_register_command(hass, ws_store_products)
@@ -510,6 +511,20 @@ async def ws_gateway_remove(hass, connection, msg):
         return
     result = await hass.data[DOMAIN]["gateway_lists"].async_remove(msg["entity_id"])
     connection.send_result(msg["id"], result)
+
+
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/settings/notifications", vol.Required("notifications"): dict})
+@websocket_api.require_admin
+@callback
+def ws_notifications(hass, connection, msg):
+    if not _catalog(hass, connection, msg):
+        return
+    try:
+        result = hass.data[DOMAIN]["settings"].update_notifications(msg["notifications"])
+    except ListSettingsError as err:
+        connection.send_error(msg["id"], "invalid_notifications", str(err))
+    else:
+        connection.send_result(msg["id"], result)
 
 
 @websocket_api.websocket_command({

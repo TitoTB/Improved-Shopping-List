@@ -2,6 +2,9 @@
 
 ## Pendiente de publicación
 
+- Nueva vista Ajustes → Notificaciones: destinos múltiples, título y mensaje personalizables para listas que superen un número de productos pendientes y para productos con stock bajo.
+- Seguimiento por lista, activación opcional, protección contra avisos repetidos y estado persistente tras reinicios.
+
 - Nueva vista Recetas: ingredientes del catálogo con cantidades y unidades; creación, edición y borrado. Al añadir una receta se suman cantidades en las entradas existentes sin duplicarlas.
 - Degradado verde de recetas personalizable y asociaciones con sugerencias manuales y de temporada.
 

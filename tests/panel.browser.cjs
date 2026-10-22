@@ -58,7 +58,9 @@ window.emitSettings=()=>{
 const panel=document.createElement('improved-shopping-list-panel');
 const hass={
   user:{is_admin:true},
+  services:{notify:{mobile_app_one:{name:"Móvil uno"},mobile_app_two:{name:"Móvil dos"},send_message:{name:"Enviar mensaje"},notify:{name:"Genérico"}}},
   states: {
+    'notify.kitchen':{entity_id:'notify.kitchen',state:'unknown',attributes:{friendly_name:'Pantalla cocina'}},
     'todo.bring':{entity_id:'todo.bring',state:'2',attributes:{friendly_name:'Compra · Bring!',supported_features:5}},
     'todo.local':{entity_id:'todo.local',state:'1',attributes:{friendly_name:'Casa',supported_features:5}},
     'todo.readonly':{entity_id:'todo.readonly',state:'1',attributes:{friendly_name:'Solo lectura',supported_features:0}}
@@ -207,6 +209,11 @@ const hass={
       item.quantity=Math.max(0,item.quantity+(msg.delta??1));item.revision++;window.emitStock();return structuredClone(item);
     }
     if(msg.type==='improved_shopping_list/settings/get')return structuredClone(window.listSettings);
+    if(msg.type==='improved_shopping_list/settings/notifications'){
+      if(window.failSettings)throw new Error('No se han podido guardar las notificaciones');
+      for(const rule of Object.values(msg.notifications))if(rule.enabled&&!rule.targets.length)throw new Error('Selecciona al menos un dispositivo');
+      window.listSettings.notifications=structuredClone(msg.notifications);window.emitSettings();return structuredClone(window.listSettings);
+    }
     if(msg.type==='improved_shopping_list/settings/personalization'){
       if(window.failSettings)throw new Error('No se ha podido guardar la personalización');
       window.listSettings.appearance=structuredClone(msg.appearance);window.emitSettings();return structuredClone(window.listSettings);
@@ -452,7 +459,7 @@ async function main() {
       return;
     }
     if (pathname === "/") { res.setHeader("content-type", "text/html; charset=utf-8"); res.end(html); return; }
-    if (!["/recipe-editor.js", "/quantity-client.js", "/panel.js", "/purchases-panel.js", "/stock-client.js", "/dialog-controls.js", "/todo-client.js", "/catalog-panel.js", "/catalog-client.js", "/category-panel.js", "/icon-picker.js", "/list-settings-client.js", "/settings-panel.js", "/readers-client.js", "/readers-panel.js", "/product-matching.js", "/product-names.js", "/logs-panel.js", "/logo.png", "/mercadona.png", "/consum.jpg", "/lasirena.jpg", "/eroski.svg", "/dia.png"].includes(pathname)) { res.writeHead(404).end(); return; }
+    if (!["/notification-settings.js", "/recipe-editor.js", "/quantity-client.js", "/panel.js", "/purchases-panel.js", "/stock-client.js", "/dialog-controls.js", "/todo-client.js", "/catalog-panel.js", "/catalog-client.js", "/category-panel.js", "/icon-picker.js", "/list-settings-client.js", "/settings-panel.js", "/readers-client.js", "/readers-panel.js", "/product-matching.js", "/product-names.js", "/logs-panel.js", "/logo.png", "/mercadona.png", "/consum.jpg", "/lasirena.jpg", "/eroski.svg", "/dia.png"].includes(pathname)) { res.writeHead(404).end(); return; }
     res.setHeader("content-type", pathname.endsWith(".svg") ? "image/svg+xml" : pathname.endsWith(".png") ? "image/png" : pathname.endsWith(".jpg") ? "image/jpeg" : "text/javascript; charset=utf-8");
     res.end(await fs.readFile(path.join(root, pathname.slice(1))));
   });
@@ -2811,6 +2818,38 @@ async function main() {
     assert.equal(await renameSuggestions.locator("h2").count(),0);
     await renameContext.close();
     // Category grouping sorts headings and products, preserves searching, layouts and user preference.
+    const notificationContext=await browser.newContext({viewport:{width:1280,height:960}});
+    const notificationPage=await notificationContext.newPage();notificationPage.on('pageerror',error=>errors.push(error.message));
+    await notificationPage.goto(url);await notificationPage.getByRole('button',{name:'Ajustes',exact:true}).click();
+    const notificationSettings=notificationPage.locator('isl-settings');
+    await notificationSettings.getByRole('button',{name:'Notificaciones',exact:true}).click();
+    const notifications=notificationSettings.locator('isl-notification-settings'),listRule=notifications.locator('[data-rule=shopping_list]'),stockRule=notifications.locator('[data-rule=low_stock]');
+    assert.equal(await notificationSettings.locator('#settings-view-notifications ha-icon').getAttribute('icon'),'mdi:bell-outline');
+    await listRule.getByRole('checkbox',{name:'Activar aviso de Lista de la compra',exact:true}).check();
+    await listRule.getByLabel('Límite de productos de Lista de la compra',{exact:true}).fill('5');
+    await listRule.locator('input[value="service:notify.mobile_app_one"]').check();await listRule.locator('input[value="service:notify.mobile_app_two"]').check();
+    await listRule.getByLabel('Título',{exact:true}).fill('Compra: {lista}');await listRule.getByLabel('Mensaje',{exact:true}).fill('{cantidad} productos: {productos}');
+    await stockRule.getByRole('checkbox',{name:'Activar aviso de Stock bajo',exact:true}).check();await stockRule.getByLabel('Límite de productos de Stock bajo',{exact:true}).fill('0');
+    await stockRule.locator('input[value="entity:notify.kitchen"]').check();
+    assert.equal(await notifications.locator('input[value="service:notify.notify"]').count(),0);
+    await notifications.getByRole('button',{name:'Guardar notificaciones',exact:true}).click();
+    await notificationPage.waitForFunction(()=>window.listSettings.notifications?.shopping_list?.threshold===5);
+    assert.deepEqual(await notificationPage.evaluate(()=>window.listSettings.notifications.shopping_list.targets),['service:notify.mobile_app_two','service:notify.mobile_app_one']);
+    assert.deepEqual(await notificationPage.evaluate(()=>window.listSettings.notifications.low_stock.targets),['entity:notify.kitchen']);
+    await notificationPage.reload();await notificationPage.getByRole('button',{name:'Ajustes',exact:true}).click();await notificationSettings.getByRole('button',{name:'Notificaciones',exact:true}).click();
+    assert.equal(await listRule.getByLabel('Título',{exact:true}).inputValue(),'Compra: {lista}');assert.equal(await listRule.getByLabel('Límite de productos de Lista de la compra',{exact:true}).inputValue(),'5');
+    assert.equal(await listRule.locator('input[value="service:notify.mobile_app_one"]').isChecked(),true);
+    await notificationPage.evaluate(()=>{window.failSettings=true;});await listRule.getByLabel('Mensaje',{exact:true}).fill('Nuevo mensaje');
+    await notifications.getByRole('button',{name:'Guardar notificaciones',exact:true}).click();await notifications.getByRole('alert').filter({hasText:'No se han podido guardar'}).waitFor();
+    assert.equal(await listRule.getByLabel('Mensaje',{exact:true}).inputValue(),'Nuevo mensaje');
+    await notificationPage.evaluate(()=>{window.failSettings=false;});await notifications.getByRole('button',{name:'Guardar notificaciones',exact:true}).click();
+    await notificationPage.waitForFunction(()=>window.listSettings.notifications.shopping_list.message==='Nuevo mensaje');
+    for(const width of [390,320]){await notificationPage.setViewportSize({width,height:844});assert.ok(await notifications.evaluate(node=>node.scrollWidth<=node.clientWidth+1));assert.equal(await notificationSettings.locator('.settings-tabs .tab-label:visible').count(),1);await notificationPage.screenshot({path:'test-results/notifications-'+width+'.png',fullPage:true});}
+    assert.equal(await notificationPage.evaluate(()=>window.calls.some(call=>call.domain==='notify')),false);
+    await notificationPage.evaluate(()=>{window.testPanel.hass={...window.testPanel._hass,user:{is_admin:false}};});
+    assert.equal(await notifications.getByRole('button',{name:'Guardar notificaciones',exact:true}).isDisabled(),true);
+    await notificationContext.close();
+
     const recipeContext=await browser.newContext({viewport:{width:1280,height:960}});
     const recipePage=await recipeContext.newPage();recipePage.on('pageerror',error=>errors.push(error.message));
     await recipePage.addInitScript(()=>{

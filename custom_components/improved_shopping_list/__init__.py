@@ -18,6 +18,7 @@ from .list_settings import ListSettings
 from .gateway_lists import GatewayLists
 from .entity_data import EntityData
 from .quantities import ListQuantities
+from .notifications import NotificationManager
 from .readers import ReaderManager
 from .stock import StockManager
 from .stock_automation import StockAutomation
@@ -55,6 +56,8 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         stock.activity = activity
         quantities = ListQuantities(hass, catalog, settings, activity)
         await quantities.async_load()
+        notifications = NotificationManager(hass, settings, stock, activity)
+        await notifications.async_load()
         gateways = GatewayLists(hass, settings, activity, readers._operation_lock)
         await gateways.async_load()
         stock_automation = StockAutomation(hass,stock,settings,activity,readers._operation_lock)
@@ -84,6 +87,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         hass.data[DOMAIN]["gateway_lists"] = gateways
         hass.data[DOMAIN]["quantities"] = quantities
         hass.data[DOMAIN]["entity_data"] = EntityData(hass, hass.data[DOMAIN])
+        hass.data[DOMAIN]["notifications"] = notifications
         async_register_commands(hass)
     return True
 
@@ -103,6 +107,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.data[DOMAIN]["community_sync"].start()
     hass.data[DOMAIN]["price_manager"].start()
     hass.data[DOMAIN]["entity_data"].start()
+    hass.data[DOMAIN]["notifications"].start()
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     hass.data[DOMAIN]["settings"].notify()
     entry.async_on_unload(entry.add_update_listener(_async_options_updated))
@@ -131,6 +136,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Remove the panel without changing any shopping-list items."""
     if not await hass.config_entries.async_unload_platforms(entry, PLATFORMS):
         return False
+    await hass.data[DOMAIN]["notifications"].async_stop()
     hass.data[DOMAIN]["entity_data"].stop()
     frontend.async_remove_panel(hass, PANEL_PATH)
     hass.data[DOMAIN]["active"] = False

@@ -1,4 +1,5 @@
 import "./logs-panel.js?v=0.26.0";
+import "./notification-settings.js?v=0.26.0";
 import "./readers-panel.js?v=0.26.0";
 import { installDialogCloseButtons } from "./dialog-controls.js?v=0.26.0";
 import { todoEntities, isAvailable } from "./todo-client.js?v=0.26.0";
@@ -80,6 +81,7 @@ class ImprovedShoppingSettings extends HTMLElement {
         .settings-tabs button { display:inline-flex; flex:none; align-items:center; justify-content:center; gap:6px; padding:10px; font-size:13px; white-space:nowrap; }
         @media(max-width:650px) { .settings-heading { gap:8px; }.settings-heading h1 { font-size:26px; }.settings-tabs { gap:4px; }.settings-tabs button { min-width:32px; padding:10px 5px; }.settings-tabs button[aria-pressed=false] .tab-label { display:none; } }
         @media(max-width:390px) { .settings-heading { gap:6px; }.settings-heading h1 { font-size:22px; }.settings-tabs button { min-width:28px; padding-inline:3px; font-size:12px; }.settings-tabs ha-icon { --mdc-icon-size:18px; width:18px; height:18px; } }
+        @media(max-width:360px) { .settings-heading { gap:4px; } .settings-heading h1 { font-size:18px; } .settings-tabs { gap:2px; } .settings-tabs button { min-width:24px; padding-inline:2px; } .settings-tabs ha-icon { --mdc-icon-size:16px; width:16px; height:16px; } }
         .settings-tabs ha-icon { --mdc-icon-size:20px; display:flex; align-items:center; justify-content:center; width:20px; height:20px; flex:none; line-height:0; }
         .settings-tabs [aria-pressed=true] { background:var(--secondary-background-color,#edf4ee); font-weight:650; }
         .appearance-fields { display:grid; grid-template-columns:1fr 1fr; gap:18px; }
@@ -177,7 +179,7 @@ class ImprovedShoppingSettings extends HTMLElement {
         @media(max-width:540px) { .card { padding:18px 14px; } .add-row { flex-wrap:wrap; } .select-wrap { flex-basis:100%; } .actions { width:100%; } }
       </style>
       <div class="settings-heading"><h1>Ajustes</h1>
-      <nav class="settings-tabs" aria-label="Vistas de ajustes"><button id="settings-view-lists" aria-label="Listas" aria-pressed="true"><ha-icon icon="mdi:format-list-checks" aria-hidden="true"></ha-icon><span class="tab-label">Listas</span></button><button id="settings-view-appearance" aria-label="Personalización" aria-pressed="false"><ha-icon icon="mdi:palette" aria-hidden="true"></ha-icon><span class="tab-label">Personalización</span></button><button id="settings-view-stores" aria-label="Tiendas" aria-pressed="false"><ha-icon icon="mdi:store" aria-hidden="true"></ha-icon><span class="tab-label">Tiendas</span></button><button id="settings-view-community" aria-label="Comunidad" aria-pressed="false"><ha-icon icon="mdi:account-group" aria-hidden="true"></ha-icon><span class="tab-label">Comunidad</span></button><button id="settings-view-logs" aria-label="Logs" aria-pressed="false"><ha-icon icon="mdi:format-list-group" aria-hidden="true"></ha-icon><span class="tab-label">Logs</span></button></nav></div>
+      <nav class="settings-tabs" aria-label="Vistas de ajustes"><button id="settings-view-lists" aria-label="Listas" aria-pressed="true"><ha-icon icon="mdi:format-list-checks" aria-hidden="true"></ha-icon><span class="tab-label">Listas</span></button><button id="settings-view-appearance" aria-label="Personalización" aria-pressed="false"><ha-icon icon="mdi:palette" aria-hidden="true"></ha-icon><span class="tab-label">Personalización</span></button><button id="settings-view-stores" aria-label="Tiendas" aria-pressed="false"><ha-icon icon="mdi:store" aria-hidden="true"></ha-icon><span class="tab-label">Tiendas</span></button><button id="settings-view-notifications" aria-label="Notificaciones" aria-pressed="false"><ha-icon icon="mdi:bell-outline" aria-hidden="true"></ha-icon><span class="tab-label">Notificaciones</span></button><button id="settings-view-community" aria-label="Comunidad" aria-pressed="false"><ha-icon icon="mdi:account-group" aria-hidden="true"></ha-icon><span class="tab-label">Comunidad</span></button><button id="settings-view-logs" aria-label="Logs" aria-pressed="false"><ha-icon icon="mdi:format-list-group" aria-hidden="true"></ha-icon><span class="tab-label">Logs</span></button></nav></div>
       <div id="settings-error" class="notice error" role="alert" hidden></div>
       <div id="settings-status" class="notice" role="status" hidden></div>
       <p id="admin-help" hidden>Necesitas una cuenta administradora de Home Assistant para modificar estos ajustes.</p>
@@ -187,6 +189,7 @@ class ImprovedShoppingSettings extends HTMLElement {
         <div id="configured-lists" class="lists"></div>
         <p id="settings-empty" hidden>No hay listas añadidas. Añade una entidad todo para empezar.</p>
       </section>
+      <section id="settings-notifications" hidden><isl-notification-settings></isl-notification-settings></section>
       <section id="settings-appearance" class="card" aria-labelledby="settings-appearance-title" hidden>
         <h2 id="settings-appearance-title">Personalización</h2>
         <p>Personaliza las tarjetas del apartado Lista. Pulsa una tarjeta para marcar o desmarcar su compra.</p>
@@ -334,17 +337,19 @@ class ImprovedShoppingSettings extends HTMLElement {
     root.querySelector("#configure-alcampo").addEventListener("click",()=>{root.querySelector("#alcampo-dialog").showModal();void this._loadAlcampo();});
     root.querySelector("#alcampo-dialog").addEventListener("cancel",event=>{if(this._busy)event.preventDefault();});
     const alcampoError=document.createElement("div");alcampoError.id="alcampo-error";alcampoError.className="notice error";alcampoError.setAttribute("role","alert");alcampoError.hidden=true;root.querySelector("#alcampo-title").after(alcampoError);
-    for (const [id, view] of [["settings-view-lists", "lists"], ["settings-view-appearance", "appearance"], ["settings-view-community", "community"], ["settings-view-stores", "stores"], ["settings-view-logs", "logs"], ["settings-view-readers","readers"]]) {
+    for (const [id, view] of [["settings-view-lists", "lists"], ["settings-view-appearance", "appearance"], ["settings-view-community", "community"], ["settings-view-stores", "stores"], ["settings-view-logs", "logs"], ["settings-view-readers","readers"], ["settings-view-notifications","notifications"]]) {
       root.querySelector(`#${id}`).addEventListener("click", () => {
         this._view = view;
         if(view !== 'community')root.querySelector('#community-authorization').close();
-        for (const section of ["lists", "appearance", "community", "stores", "logs", "readers"]) {
+        for (const section of ["lists", "appearance", "community", "stores", "logs", "readers", "notifications"]) {
           root.querySelector(`#settings-${section}`).hidden = view !== section;
           root.querySelector(`#settings-view-${section}`).setAttribute("aria-pressed", String(view === section));
         }
         this._notice = "";
         this._error = "";
         this._render();
+        const tabs=root.querySelector(".settings-tabs"),bounds=tabs.getBoundingClientRect(),rect=root.querySelector(`#${id}`).getBoundingClientRect();
+        tabs.scrollLeft += rect.left < bounds.left ? rect.left-bounds.left : Math.max(0,rect.right-bounds.right);
       });
     }
     root.querySelector("#carrefour-enabled").addEventListener("change", () => void this._saveRetailSettings(() => this._data.settings.setStoreEnabled("carrefour",root.querySelector("#carrefour-enabled").checked)));
@@ -362,6 +367,7 @@ class ImprovedShoppingSettings extends HTMLElement {
     });
     root.querySelector("#community-sharing").addEventListener("change", () => void this._setCommunity(root.querySelector("#community-sharing").checked));
     root.querySelector("#community-connect").addEventListener("click", () => void this._setCommunity(true));
+    root.querySelector("isl-notification-settings").onSave = config => this.onNotifications(config);
     root.querySelector("#appearance-form").addEventListener("input", () => { this._appearanceDirty = true; this._preview(); });
     root.querySelector("#appearance-form").addEventListener("change", () => { this._appearanceDirty = true; this._preview(); });
     root.querySelector("#appearance-form").addEventListener("submit", event => { event.preventDefault(); void this._saveAppearance(); });
@@ -373,6 +379,7 @@ class ImprovedShoppingSettings extends HTMLElement {
 
   _render() {
     if (!this._built || !this._data) return;
+    this.shadowRoot.querySelector("isl-notification-settings").data = this._data;
     this._syncLogs();
     this._syncReaders();
     const { hass, settings } = this._data;

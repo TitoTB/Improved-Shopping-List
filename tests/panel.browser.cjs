@@ -2528,7 +2528,11 @@ async function main() {
     await review.getByRole('button',{name:'Cerrar ventana',exact:true}).click();
     assert.equal(await purchasePage.evaluate(()=>window.receiptHistory.length),0);
     await purchases.locator('#ticket-file').setInputFiles(ticketFile);await review.waitFor();
-    assert.equal(await review.getByText('Vincular productos',{exact:true}).isVisible(),true);
+    assert.equal(await review.locator('#step-title').isVisible(),false);
+    assert.deepEqual(await review.locator('.review-line').evaluateAll(rows=>rows.map(row=>row.dataset.lineId)),['1','2','0']);
+    assert.equal(await review.locator('#linked-products-group').evaluate(group=>group.open),false);
+    assert.equal(await review.locator('#links-only').evaluate(button=>getComputedStyle(button).backgroundColor),'rgb(38, 112, 82)');
+    assert.equal(await review.locator('#confirm-ticket').evaluate(button=>getComputedStyle(button).backgroundColor),'rgb(33, 150, 243)');
     const cerealLine=review.locator('[data-line-id="1"]');
     assert.equal(await review.locator('#step-help').isVisible(),false);
     assert.equal(await cerealLine.locator('input,.original').count(),0);
@@ -2553,6 +2557,8 @@ async function main() {
     assert.equal(await cerealLine.locator('.linked-name').textContent(),'→ Flautines');
     await review.locator('[data-line-id="2"] .ignore').click();
     const ignored=review.locator('[data-line-id="2"] .ignore');
+    assert.equal(await review.locator('#linked-products-group').evaluate(group=>group.open),false);
+    await review.locator('#linked-products-group > summary').click();
     assert.equal(await ignored.getAttribute('aria-pressed'),'true');
     assert.equal(await ignored.evaluate(node=>getComputedStyle(node).backgroundColor),'rgb(211, 47, 47)');
     await ignored.click();assert.equal(await ignored.getAttribute('aria-pressed'),'false');
@@ -2566,7 +2572,7 @@ async function main() {
     await purchasePage.screenshot({path:'test-results/receipt-link-lines-desktop.png',fullPage:true});
     await purchasePage.setViewportSize({width:390,height:844});
     await purchasePage.screenshot({path:'test-results/receipt-link-lines-mobile.png',fullPage:true});
-    await review.getByRole('button',{name:'Guardar solo vinculaciones',exact:true}).click();
+    await review.getByRole('button',{name:'Guardar vinculaciones y cerrar',exact:true}).click();
     await review.waitFor({state:'hidden'});
     assert.equal(await purchasePage.evaluate(()=>window.receiptHistory.length),0);
     assert.equal(await purchasePage.evaluate(()=>window.stockItems.length),0);
@@ -2575,10 +2581,31 @@ async function main() {
     assert.equal(await cerealLine.locator('.linked-name').textContent(),'→ Flautines');
     await review.locator('[data-line-id="2"] .ignore').click();
     await review.getByRole('button',{name:'Continuar',exact:true}).click();
-    await review.getByText('Reponer stock',{exact:true}).first().waitFor();
-    assert.equal(await review.locator('[data-line-id="0"]').getByLabel('Reponer stock',{exact:true}).isChecked(),true);
-    assert.equal(await cerealLine.getByLabel('Incluir en Stock',{exact:true}).isChecked(),false);
-    await cerealLine.getByLabel('Incluir en Stock',{exact:true}).check();
+    await review.locator('#stock-only').waitFor();
+    assert.equal(await review.locator('#step-title').isVisible(),false);
+    assert.equal(await review.locator('#step-help').isVisible(),false);
+    assert.equal(await review.getByRole('button',{name:'Volver a vinculación',exact:true}).isVisible(),true);
+    assert.equal(await review.locator('#existing-stock-group').evaluate(group=>group.open),false);
+    assert.deepEqual(await review.locator('.review-line').evaluateAll(rows=>rows.map(row=>row.dataset.lineId)),['1','0']);
+    assert.equal(await review.locator('[data-line-id="0"] .stock-toggle').getAttribute('aria-pressed'),'true');
+    assert.equal(await cerealLine.locator('.stock-toggle').getAttribute('aria-pressed'),'false');
+    assert.equal(await cerealLine.locator('input[type=checkbox],.original').count(),0);
+    assert.equal(await cerealLine.textContent().then(text=>text.includes('€')),false);
+    assert.equal(await review.locator('#stock-only').evaluate(button=>getComputedStyle(button).backgroundColor),'rgb(38, 112, 82)');
+    assert.equal(await review.locator('#confirm-ticket').evaluate(button=>getComputedStyle(button).backgroundColor),'rgb(33, 150, 243)');
+    await cerealLine.getByRole('button',{name:'Incluir en Stock: Flautines',exact:true}).click();
+    assert.equal(await cerealLine.locator('.stock-toggle').getAttribute('aria-pressed'),'true');
+    assert.equal(await cerealLine.locator('.stock-toggle').evaluate(button=>getComputedStyle(button).backgroundColor),'rgb(255, 152, 0)');
+    for(const width of [320,390,1280]){await purchasePage.setViewportSize({width,height:844});assert.ok(await cerealLine.locator('.stock-line-main').evaluate(row=>{
+      const boxes=[...row.children].map(child=>child.getBoundingClientRect());return boxes.every((box,index)=>!index||box.left>=boxes[index-1].right)&&boxes.every(box=>Math.abs((box.top+box.bottom)/2-(boxes[0].top+boxes[0].bottom)/2)<1)&&row.scrollWidth<=row.clientWidth+1;
+    }));}
+    await purchasePage.setViewportSize({width:390,height:844});
+    await review.locator('#existing-stock-group > summary').click();
+    await review.getByRole('button',{name:'Volver a vinculación',exact:true}).click();
+    assert.equal(await review.locator('#linked-products-group').evaluate(group=>group.open),false);
+    await review.getByRole('button',{name:'Continuar',exact:true}).click();
+    assert.equal(await cerealLine.locator('.stock-toggle').getAttribute('aria-pressed'),'true');
+    assert.equal(await review.locator('#existing-stock-group').evaluate(group=>group.open),true);
     assert.equal(await cerealLine.getByLabel('Cantidad para FLAUTIN CEREALES',{exact:true}).inputValue(),'2');
     await purchasePage.screenshot({path:'test-results/receipt-wizard-stock-mobile.png',fullPage:true});
     assert.ok(await review.evaluate(el=>el.scrollWidth<=el.clientWidth+1));
@@ -2612,6 +2639,30 @@ async function main() {
     assert.equal(await purchasePage.locator('#product-input').isVisible(),true);
     assert.equal(await purchasePage.getByRole('button',{name:'Seleccionar lista',exact:true}).isVisible(),true);
     await purchaseContext.close();
+    // Finishing at Stock records one purchase and replenishes without saving prices.
+    const stockOnlyContext=await browser.newContext({viewport:{width:390,height:844}});
+    const stockOnlyPage=await stockOnlyContext.newPage();stockOnlyPage.on('pageerror',error=>errors.push(error.message));
+    await stockOnlyPage.goto(url);await stockOnlyPage.getByRole('button',{name:'Stock',exact:true}).click();
+    await stockOnlyPage.getByRole('tab',{name:'Compras',exact:true}).click();
+    const stockOnlyPurchases=stockOnlyPage.locator('isl-purchases');
+    await stockOnlyPurchases.locator('#ticket-file').setInputFiles(ticketFile);
+    const stockOnlyReview=stockOnlyPurchases.getByRole('dialog',{name:'Revisar ticket',exact:true});await stockOnlyReview.waitFor();
+    await stockOnlyReview.locator('[data-line-id="1"] .ignore').click();await stockOnlyReview.locator('[data-line-id="2"] .ignore').click();
+    await stockOnlyReview.getByRole('button',{name:'Continuar',exact:true}).click();
+    assert.equal(await stockOnlyReview.locator('#existing-stock-group').evaluate(group=>group.open),false);
+    await stockOnlyPage.evaluate(()=>{window.failReceipt=true;});
+    await stockOnlyReview.getByRole('button',{name:'Añadir stock y cerrar',exact:true}).click();
+    await stockOnlyReview.locator('#review-error').filter({hasText:'No se ha podido guardar el ticket.'}).waitFor();
+    assert.equal(await stockOnlyPage.evaluate(()=>window.receiptHistory.length),0);
+    await stockOnlyPage.evaluate(()=>{window.failReceipt=false;});
+    await stockOnlyReview.getByRole('button',{name:'Añadir stock y cerrar',exact:true}).click();
+    await stockOnlyReview.waitFor({state:'hidden'});
+    assert.equal(await stockOnlyPage.evaluate(()=>window.lastReceiptConfirmation.update_prices),false);
+    assert.equal(await stockOnlyPage.evaluate(()=>window.lastReceiptConfirmation.lines.some(line=>line.save_price)),false);
+    assert.equal(await stockOnlyPage.evaluate(()=>window.stockItems.find(item=>item.catalog_product_id==='cacao').quantity),250);
+    assert.equal(await stockOnlyPage.evaluate(()=>window.receiptHistory.length),1);
+    await stockOnlyContext.close();
+
     // Store bindings persist without barcodes; all product-price UI reads use cache.
     const linksContext=await browser.newContext({viewport:{width:390,height:844}});
     const linksPage=await linksContext.newPage();

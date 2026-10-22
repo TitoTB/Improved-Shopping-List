@@ -62,12 +62,14 @@ asociar cada línea al catálogo desde un popup con buscador, abrir la ficha com
 hay que liberar la asociación anterior antes de reutilizarlo. La similitud de nombres
 solo propone correspondencias. Al continuar se guardan las vinculaciones localmente,
 independientemente del stock y sin compartirlas con el diccionario comunitario.
-Guardar solo vinculaciones termina aquí, sin importar la compra ni modificar cantidades
+**Guardar vinculaciones y cerrar** termina aquí, sin importar la compra ni modificar cantidades
 o precios; se puede volver a subir el ticket más adelante.
 
-En Stock vienen marcados los productos identificados que ya están en el inventario.
+En Vinculación, las líneas sin asociar aparecen primero y los productos vinculados se reúnen al final en un bloque plegado que permite desplegarlos y editarlos. No se muestra el subtítulo «Vincular productos».
+
+En Stock vienen seleccionados los productos identificados que ya están en el inventario, dentro de otro bloque plegado al final. Las demás líneas aparecen primero, con el icono de stock desmarcado. Cada fila reúne el nombre del ticket y del catálogo, cantidad, unidades y el icono de stock, que se vuelve naranja al seleccionar la reposición. En este paso se omiten el título, la ayuda y los precios de cada línea.
 Los demás se pueden incorporar, confirmando cantidades y unidades antes de sumarlas.
-Las conversiones confirmadas se recuerdan para próximos tickets. En Precios se eligen
+Las conversiones confirmadas se recuerdan para próximos tickets. **Volver a vinculación** conserva la revisión; **Añadir stock y cerrar** confirma la compra y las cantidades elegidas sin actualizar precios. Los botones para guardar y cerrar son verdes y **Continuar** es azul. En Precios se eligen
 individualmente los importes que se quieren guardar, con opción de seleccionar todos,
 y se muestra un resumen antes de confirmar la compra. Las cantidades y el historial
 no cambian hasta esta confirmación final; las vinculaciones del primer paso se conservan

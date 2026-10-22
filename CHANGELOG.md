@@ -2,6 +2,8 @@
 
 ## Pendiente de publicación
 
+- Asistente de tickets: pendientes primero y bloques plegados para productos vinculados o ya incluidos en Stock. Filas de stock compactas con cantidad, unidades e icono de selección naranja, sin precios ni textos de ayuda. Nuevos botones verdes para guardar vinculaciones o stock y cerrar; Continuar en azul.
+
 - Stock y Compras dejan de mostrar confirmaciones de éxito al guardar vinculaciones de tickets; conservan errores e indicadores de carga.
 
 - Catálogo → Sugerencias: retirados el encabezado del mes y el texto de ausencia de productos de temporada al final de la vista.

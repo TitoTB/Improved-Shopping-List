@@ -52,6 +52,10 @@ class ImprovedShoppingPurchases extends HTMLElement {
       label{display:flex;flex-direction:column;gap:5px;font-size:.9em;min-width:0}.quantity{display:flex;align-items:center;gap:8px}.quantity span{white-space:nowrap}
       .check{flex-direction:row;align-items:center;margin-top:10px}.check input{width:18px;min-height:18px;flex:none}.purchase{margin-top:10px}
       .actions{display:flex;justify-content:flex-end;margin-top:16px}.actions button{border:0;background:#267052;color:white;border-radius:10px;padding:12px 20px}
+      .actions #links-only,.actions #stock-only{background:var(--isl-green,#267052);color:white;border:0}.actions .continue{background:#2196f3}
+      .review-group{border:1px solid var(--divider-color,#d9e0dd);border-radius:12px;min-width:0}.review-group>summary{justify-content:space-between;padding:14px;font-weight:650}.review-group>summary::before,.review-group[open]>summary::before{content:none}.review-group>summary ha-icon{transition:transform .15s}.review-group[open]>summary ha-icon{transform:rotate(180deg)}.review-group-content{display:grid;gap:10px;padding:0 10px 10px}
+      .stock-line-main{display:grid;grid-template-columns:minmax(0,1fr) 90px 80px 42px;gap:10px;align-items:center;min-width:0}.stock-line-name{min-width:0;overflow-wrap:anywhere}.stock-line-name .linked-name{display:block;margin:4px 0 0}.stock-line-main input{text-align:center}.stock-line-unit{text-align:center;overflow-wrap:anywhere;min-width:0}.small-button.stock-toggle{background:transparent;color:inherit}.small-button.stock-toggle[aria-pressed=true]{background:#ff9800;color:white}
+      @media(max-width:550px){.stock-line{padding:10px}.stock-line-main{grid-template-columns:minmax(0,1fr) 64px 54px 34px;gap:6px}.stock-line-main .small-button{width:34px;height:42px}.stock-line-main input{padding:8px 3px}.stock-line-name{font-size:.85em}.review-group>summary{padding:12px}}
       ha-icon{--mdc-icon-size:22px;width:22px;height:22px;flex:none}#review-summary{margin:12px 0}.note{font-size:.85em;opacity:.7;margin:10px 0}
       .association-row{display:flex;align-items:center;gap:10px;min-width:0}.association-name{flex:1;min-width:0;overflow-wrap:anywhere}.association-name strong{font-size:.95em}.linked-name{font-size:.8em;opacity:.65;margin-left:8px}.association-buttons{display:flex;gap:6px;flex:none;margin-left:auto}
       .small-button.link{background:#2196f3;color:white}.small-button.create{background:var(--isl-green,#267052);color:white}.small-button.ignore{background:transparent;color:inherit;border:0}.small-button.ignore[aria-pressed=true]{background:#d32f2f;color:white}
@@ -64,7 +68,7 @@ class ImprovedShoppingPurchases extends HTMLElement {
     <dialog aria-labelledby="review-title"><form id="review-form"><h2 id="review-title">Revisar ticket</h2><div id="review-summary" class="receipt-info"></div>
       <ol id="review-steps"><li>1. Vinculación</li><li>2. Stock</li><li>3. Precios</li></ol><h3 id="step-title"></h3><p id="step-help" class="note"></p>
       <div id="review-lines"></div><div id="review-result" class="review-summary" hidden></div>
-      <p id="review-error" class="notice error" role="alert" hidden></p><div class="actions"><button id="links-only" class="secondary" type="button">Guardar solo vinculaciones</button><button id="previous-step" class="secondary" type="button">Anterior</button><button id="confirm-ticket" type="submit">Continuar</button></div>
+      <p id="review-error" class="notice error" role="alert" hidden></p><div class="actions"><button id="previous-step" class="secondary" type="button">Anterior</button><button id="links-only" type="button">Guardar vinculaciones y cerrar</button><button id="stock-only" type="button" hidden>Añadir stock y cerrar</button><button id="confirm-ticket" type="submit">Continuar</button></div>
     </form></dialog>
     <dialog id="association-dialog" aria-labelledby="association-title"><form id="association-form">
       <h2 id="association-title">Vincular producto</h2>
@@ -78,6 +82,7 @@ class ImprovedShoppingPurchases extends HTMLElement {
     root.querySelector('#review-form').addEventListener('submit',event=>{event.preventDefault();void this._advance();});
     root.querySelector('#previous-step').addEventListener('click',()=>{if(!this._busy){this._step--;root.querySelector('#review-error').hidden=true;this._renderStep();}});
     root.querySelector('#links-only').addEventListener('click',()=>void this._saveLinks(true));
+    root.querySelector('#stock-only').addEventListener('click',()=>void this._confirm(false));
     dialog.addEventListener('cancel',event=>{if(this._busy)event.preventDefault();});
     root.querySelector('#association-form').addEventListener('submit',event=>{event.preventDefault();this._confirmAssociation();});
     root.querySelector('#association-dialog').addEventListener('close',()=>{this._associationEdit=null;});
@@ -104,6 +109,8 @@ class ImprovedShoppingPurchases extends HTMLElement {
     const root=this.shadowRoot,{receipt,products}=this._draft,used=new Set();
     root.querySelector('#review-summary').replaceChildren(node('strong','',receipt.store_name),node('span','',date(receipt.purchased_at)),node('strong','',money(receipt.total)));
     this._step=0;
+    this._reviewGroups={};
+    root.querySelector('#review-lines').replaceChildren();
     this._edits=receipt.lines.map(line=>{
       const product=products.find(p=>p.id===line.product_id&&!used.has(p.id));if(product)used.add(product.id);
       return {line,id:line.id,product_id:product?.id??'',search:product?.name??'',ignore:false,
@@ -143,16 +150,24 @@ class ImprovedShoppingPurchases extends HTMLElement {
     if(!this._draft)return;
     const root=this.shadowRoot,step=this._step;
     root.querySelectorAll('#review-steps li').forEach((li,index)=>{if(index===step)li.setAttribute('aria-current','step');else li.removeAttribute('aria-current');});
-    root.querySelector('#step-title').textContent=['Vincular productos','Reponer stock','Actualizar precios'][step];
+    root.querySelector('#step-title').hidden=step!==2;
+    root.querySelector('#step-title').textContent=step===2?'Actualizar precios':'';
     root.querySelector('#step-help').textContent=[
       '',
-      'Los productos que ya están en Stock vienen marcados. Puedes incluir los demás y confirmar la cantidad. Si ya registraste la compra, selecciona la reposición anterior para corregirla.',
+      '',
       this._pricesEnabled?'Selecciona los precios que quieres guardar para esta tienda. Se conserva la fecha de compra y los descuentos generales no se reparten entre productos.':'Los precios están desactivados en Ajustes. Puedes confirmar las vinculaciones y la reposición sin guardar precios.'
     ][step];
-    root.querySelector('#step-help').hidden=step===0;
+    root.querySelector('#step-help').hidden=step!==2;
     root.querySelector('#previous-step').hidden=step===0;root.querySelector('#links-only').hidden=step!==0;
+    root.querySelector('#previous-step').textContent=step===1?'Volver a vinculación':'Anterior';
+    root.querySelector('#stock-only').hidden=step!==1;
     root.querySelector('#confirm-ticket').textContent=step===2?'Confirmar compra':'Continuar';
+    root.querySelector('#confirm-ticket').classList.toggle('continue',step!==2);
+    for(const group of root.querySelectorAll('#review-lines .review-group'))this._reviewGroups[group.dataset.group]=group.open;
     const container=root.querySelector('#review-lines');container.replaceChildren();
+    const grouped=step<2?node('details','review-group'):null;
+    const groupedContent=step<2?node('div','review-group-content'):null;
+    if(grouped){grouped.dataset.group=step===0?'links':'stock';grouped.id=step===0?'linked-products-group':'existing-stock-group';grouped.open=Boolean(this._reviewGroups[grouped.dataset.group]);}
     if(step===2&&this._pricesEnabled){
       const allLabel=node('label','check'),all=node('input');all.type='checkbox';
       const linked=this._edits.filter(edit=>edit.product_id);all.checked=linked.length>0&&linked.every(edit=>edit.save_price);all.indeterminate=linked.some(edit=>edit.save_price)&&!all.checked;
@@ -162,7 +177,7 @@ class ImprovedShoppingPurchases extends HTMLElement {
     for(const edit of this._edits){
       const product=this._product(edit);if(step>0&&!product)continue;
       const row=node('div','review-line');row.dataset.lineId=edit.id;
-      if(step>0){const original=node('div','original');original.append(node('strong','',edit.line.description),node('span','',`${edit.line.count} × ${money(edit.line.unit_price)} = ${money(edit.line.amount)}`));row.append(original);}
+      if(step===2){const original=node('div','original');original.append(node('strong','',edit.line.description),node('span','',`${edit.line.count} × ${money(edit.line.unit_price)} = ${money(edit.line.amount)}`));row.append(original);}
       if(step===0)this._associationRow(row,edit);
       if(step===1)this._stockRow(row,edit,product);
       if(step===2){
@@ -172,7 +187,12 @@ class ImprovedShoppingPurchases extends HTMLElement {
         row.append(node('p','previous-price',product.price!=null?`Precio guardado: ${money(product.price)}${product.price_date?' · '+date(product.price_date*1000):''}`:'Sin precio guardado para esta tienda.'));
         row.append(node('strong','',`Precio del ticket: ${money(edit.line.unit_price)} por unidad/envase`));
       }
-      container.append(row);
+      if(grouped&&(step===0?Boolean(product):Boolean(product?.stock_id)))groupedContent.append(row);
+      else container.append(row);
+    }
+    if(groupedContent?.childElementCount){
+      const summary=node('summary');summary.append(node('span','',(step===0?'Productos vinculados':'Productos en Stock')+' ('+groupedContent.childElementCount+')'),icon('mdi:chevron-down'));
+      grouped.append(summary,groupedContent);container.append(grouped);
     }
     if(step>0&&!this._edits.some(edit=>edit.product_id))container.append(node('p','note','No hay productos vinculados en este ticket.'));
 
@@ -225,17 +245,26 @@ class ImprovedShoppingPurchases extends HTMLElement {
     if(this._chooseProduct(edit,product)){edit.search=product.name;edit.ignore=false;root.querySelector('#association-dialog').close();this._renderStep();}
   }
   _stockRow(row,edit,product){
-    row.append(node('strong','',product.name));
-    const label=node('label','check'),check=node('input');check.type='checkbox';check.checked=edit.replenish;
-    check.addEventListener('change',()=>{edit.replenish=check.checked;this._renderStep();});label.append(check,document.createTextNode(product.stock_id?'Reponer stock':'Incluir en Stock'));row.append(label);
-    const fields=node('div','stock-fields'),quantityLabel=node('label','','Cantidad que se repone'),quantity=node('input');
+    row.classList.add('stock-line');
+    const main=node('div','stock-line-main'),name=node('div','stock-line-name');
+    name.append(node('strong','',edit.line.description),node('span','linked-name','→ '+product.name));
+    const quantity=node('input');
     quantity.type='number';quantity.min='0.001';quantity.max='1000000';quantity.step='0.001';quantity.value=edit.quantity??'';quantity.setAttribute('aria-label','Cantidad para '+edit.line.description);
-    quantity.dataset.locked=String(!edit.replenish);quantity.disabled=!edit.replenish;quantity.addEventListener('input',()=>{edit.quantity=quantity.value===''?null:Number(quantity.value);});quantityLabel.append(quantity);fields.append(quantityLabel);
-    const unitLabel=node('label','','Unidades');
-    if(product.stock_id)unitLabel.append(node('span','',product.unit));
-    else{const unit=node('input');unit.type='text';unit.value=edit.unit;unit.maxLength=32;unit.setAttribute('aria-label','Unidades para '+edit.line.description);unit.dataset.locked=String(!edit.replenish);unit.disabled=!edit.replenish;
-      unit.addEventListener('change',()=>{edit.unit=unit.value.trim();edit.quantity=this._quantity(edit.line,edit.unit);this._renderStep();});unitLabel.append(unit);}
-    fields.append(unitLabel);row.append(fields);
+    quantity.dataset.locked=String(!edit.replenish);quantity.disabled=!edit.replenish;
+    quantity.addEventListener('input',()=>{edit.quantity=quantity.value===''?null:Number(quantity.value);});
+    let unit;
+    if(product.stock_id){unit=node('span','stock-line-unit',product.unit);unit.title='Unidades: '+product.unit;}
+    else{
+      unit=node('input');unit.type='text';unit.value=edit.unit;unit.maxLength=32;unit.setAttribute('aria-label','Unidades para '+edit.line.description);
+      unit.dataset.locked=String(!edit.replenish);unit.disabled=!edit.replenish;
+      unit.addEventListener('change',()=>{edit.unit=unit.value.trim();edit.quantity=this._quantity(edit.line,edit.unit);this._renderStep();});
+    }
+    const toggle=this._button((product.stock_id?'Reponer stock: ':'Incluir en Stock: ')+product.name,'mdi:package-variant',()=>{
+      edit.replenish=!edit.replenish;this._errorMessage('');this._renderStep();
+      [...this.shadowRoot.querySelectorAll('.review-line')].find(line=>line.dataset.lineId===String(edit.id))?.querySelector('.stock-toggle')?.focus();
+    },'small-button stock-toggle');
+    toggle.setAttribute('aria-pressed',String(edit.replenish));
+    main.append(name,quantity,unit,toggle);row.append(main);
     const previous=this._draft.purchases.filter(p=>p.item_id===product.stock_id&&p.unit===product.unit);
     if(previous.length){
       const purchaseLabel=node('label','purchase'),purchase=node('select');purchase.setAttribute('aria-label','Reposición de '+edit.line.description);
@@ -264,13 +293,17 @@ class ImprovedShoppingPurchases extends HTMLElement {
     }
     return true;
   }
+  _revealStockLine(edit){
+    const row=[...this.shadowRoot.querySelectorAll('.review-line')].find(line=>line.dataset.lineId===String(edit.id));
+    const group=row?.closest('.review-group');if(group)group.open=true;
+  }
   _validateStock(){
     for(const edit of this._edits.filter(e=>e.product_id&&e.replenish)){
       if(!Number.isFinite(edit.quantity)||edit.quantity<=0||edit.quantity>1000000||Math.abs(edit.quantity*1000-Math.round(edit.quantity*1000))>.00001||!edit.unit.trim()){
-        this._errorMessage('Indica cantidades válidas, con hasta tres decimales, y sus unidades para todos los productos que se reponen.');return false;
+        this._revealStockLine(edit);this._errorMessage('Indica cantidades válidas, con hasta tres decimales, y sus unidades para todos los productos que se reponen.');return false;
       }
       const product=this._product(edit),previous=this._draft.purchases.filter(p=>p.item_id===product.stock_id&&p.unit===product.unit);
-      if(previous.length&&(edit.purchase_id===null||edit.purchase_id==='__choose__')){this._errorMessage('Indica si cada reposición es una compra nueva o corrige una compra ya registrada.');return false;}
+      if(previous.length&&(edit.purchase_id===null||edit.purchase_id==='__choose__')){this._revealStockLine(edit);this._errorMessage('Indica si cada reposición es una compra nueva o corrige una compra ya registrada.');return false;}
     }
     return true;
   }
@@ -290,12 +323,12 @@ class ImprovedShoppingPurchases extends HTMLElement {
     if(this._step===1){if(this._validateStock()){this._step=2;this._renderStep();}return;}
     await this._confirm();
   }
-  async _confirm(){
+  async _confirm(updatePrices=Boolean(this._pricesEnabled)){
     if(this._busy||!this._draft||!this._validateLinks()||!this._validateStock())return;
     this._setBusy(true);
     try{
-      await this._hass.callWS({type:'improved_shopping_list/receipts/confirm',token:this._draft.token,update_prices:Boolean(this._pricesEnabled),
-        lines:this._edits.map(edit=>({id:edit.id,product_id:edit.product_id,replenish:Boolean(edit.product_id&&edit.replenish),quantity:edit.replenish?edit.quantity:null,unit:edit.unit,purchase_id:edit.purchase_id??'',save_price:Boolean(edit.product_id&&edit.save_price&&this._pricesEnabled)}))});
+      await this._hass.callWS({type:'improved_shopping_list/receipts/confirm',token:this._draft.token,update_prices:Boolean(updatePrices&&this._pricesEnabled),
+        lines:this._edits.map(edit=>({id:edit.id,product_id:edit.product_id,replenish:Boolean(edit.product_id&&edit.replenish),quantity:edit.replenish?edit.quantity:null,unit:edit.unit,purchase_id:edit.purchase_id??'',save_price:Boolean(edit.product_id&&edit.save_price&&updatePrices&&this._pricesEnabled)}))});
       this._draft=null;this.shadowRoot.querySelector('dialog').close();await this._session.refresh();this.dispatchEvent(new CustomEvent('receipt-imported'));
     }catch(error){this._errorMessage(error.message??'No se ha podido guardar el ticket.');}
     finally{this._setBusy(false);}

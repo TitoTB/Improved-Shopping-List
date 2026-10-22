@@ -1,6 +1,8 @@
 # Historial de cambios
 
-## Pendiente de publicación
+## 0.36.0 — 2026-10-22
+
+- Catálogo → Productos, al agrupar por Tienda, incluye también vinculaciones confirmadas en tickets y facturas, aunque no tengan URL ni precio guardado. Recupera las asociaciones existentes y se actualiza al confirmar vínculos, manteniendo solo tiendas activas y sin duplicar productos dentro de cada tienda.
 
 - Analítica → Compras muestra las diez compras más recientes del periodo seleccionado y permite cargar otras diez con «Mostrar más», sin limitar los datos de la gráfica.
 

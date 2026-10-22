@@ -582,3 +582,19 @@ async def test_receipt_quantity_uses_catalog_units_when_not_in_stock(hass):
     draft = await preview(env)
     choice = next(p for p in draft['products'] if p['id'] == product['id'])
     assert choice['stock_id'] == '' and choice['unit'] == 'Latas' and choice['refill_quantity'] == 6
+
+
+async def test_confirmed_ticket_links_push_store_association_without_stock_or_price_update(hass):
+    env=await setup_manager(hass)
+    draft=await preview(env)
+    assert env.stock.snapshot['receipt_stores']=={}
+    notifications=[]
+    stop=env.stock.subscribe(lambda:notifications.append(env.stock.snapshot['receipt_stores']))
+    links=[{'id':line['id'],'product_id':env.product['id'] if index==0 else ''} for index,line in enumerate(draft['receipt']['lines'])]
+    await env.manager.async_link(draft['token'],'owner',links)
+    assert notifications[-1]=={env.product['id']:['carrefour']}
+    assert env.stock.snapshot['items'][0]['quantity']==20
+    assert env.manager.offers_for(env.product)==[]
+    restored=StockManager(hass,env.stock.catalog);await restored.async_load()
+    assert restored.snapshot['receipt_stores']==notifications[-1]
+    stop()

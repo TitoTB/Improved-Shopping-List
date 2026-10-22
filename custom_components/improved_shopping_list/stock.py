@@ -12,6 +12,7 @@ from homeassistant.helpers.storage import Store
 
 from .catalog import CatalogError, normalized_name
 from .const import DOMAIN
+from .store_links import STORES
 
 MAX_QUANTITY = 1000000
 DAY = 86400
@@ -146,13 +147,32 @@ class StockManager:
             (product for product in products if normalized_name(product["name"]) == normalized_name(item["name"])), None)
 
     @property
+    def receipt_stores(self):
+        """Expose confirmed receipt associations without prices or private receipt data."""
+        associations = {}
+        products = {product["id"] for product in self.catalog.products}
+
+        def associate(store, product_id):
+            if store in STORES and product_id in products:
+                associations.setdefault(product_id, set()).add(store)
+
+        for key, alias in self.receipts["aliases"].items():
+            associate(key.split(":", 1)[0], alias.get("product_id", ""))
+        for receipt in self.receipts["history"].values():
+            if receipt.get("summary_only") or receipt.get("pending_review"):
+                continue
+            for line in receipt.get("lines", []):
+                associate(receipt.get("store", ""), line.get("product_id", ""))
+        return {product_id: sorted(stores) for product_id, stores in associations.items()}
+
+    @property
     def snapshot(self):
         items = []
         for item in self._items.values():
             product = self._product(item)
             items.append({**deepcopy(item), "name":product["name"] if product else item["name"],
                 "catalog_product_id":product["id"] if product else ""})
-        return {"items":sorted(items, key=lambda item: normalized_name(item["name"]))}
+        return {"items":sorted(items, key=lambda item: normalized_name(item["name"])), "receipt_stores":self.receipt_stores}
 
     @callback
     def start(self):

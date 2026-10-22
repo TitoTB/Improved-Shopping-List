@@ -1,11 +1,11 @@
-import { purchaseQuantity, quantityLabel } from "./quantity-client.js?v=0.35.0";
-import { installDialogCloseButtons } from "./dialog-controls.js?v=0.35.0";
-import { CatalogSession } from "./catalog-client.js?v=0.35.0";
-import { matchCatalogProducts } from "./product-matching.js?v=0.35.0";
-import "./category-panel.js?v=0.35.0";
-import "./recipe-editor.js?v=0.35.0";
-import "./icon-picker.js?v=0.35.0";
-import { productNameKey } from "./product-names.js?v=0.35.0";
+import { purchaseQuantity, quantityLabel } from "./quantity-client.js?v=0.36.0";
+import { installDialogCloseButtons } from "./dialog-controls.js?v=0.36.0";
+import { CatalogSession } from "./catalog-client.js?v=0.36.0";
+import { matchCatalogProducts } from "./product-matching.js?v=0.36.0";
+import "./category-panel.js?v=0.36.0";
+import "./recipe-editor.js?v=0.36.0";
+import "./icon-picker.js?v=0.36.0";
+import { productNameKey } from "./product-names.js?v=0.36.0";
 export { productNameKey };
 
 export const normalizedName = value => String(value ?? "").normalize("NFKC").trim().replace(/\s+/g, " ").toLocaleLowerCase("es");
@@ -118,6 +118,11 @@ class ImprovedShoppingCatalog extends HTMLElement {
     const key=JSON.stringify(value??{});
     if(key===this._storesKey)return;
     this._storesKey=key;this._stores=value??{};this._renderProducts();
+  }
+  set receiptStores(value) {
+    const key=JSON.stringify(value??{});
+    if(key===this._receiptStoresKey)return;
+    this._receiptStoresKey=key;this._receiptStores=value??{};this._renderProducts();
   }
   set priceData(value) {
     const key = JSON.stringify(value);
@@ -1164,7 +1169,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
         if (this._groupBy === "store") {
           for (const [store,name] of Object.entries(STORE_NAMES)) {
             const link=product.store_links?.[store];
-            if(!this._stores?.[store]?.enabled||!(typeof link==="string"?link.trim():link?.id||link?.url))continue;
+            if(!this._stores?.[store]?.enabled||(!(typeof link==="string"?link.trim():link?.id||link?.url)&&!this._receiptStores?.[product.id]?.includes(store)))continue;
             if(!groups.has(store))groups.set(store,{key:store,name,products:[]});
             groups.get(store).products.push(product);
           }

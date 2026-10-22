@@ -38,8 +38,9 @@ window.quantityEntries=JSON.parse(localStorage.getItem('quantity-fixture')??'{}'
 window.emitQuantities=()=>{localStorage.setItem('quantity-fixture',JSON.stringify(window.quantityEntries));for(const listener of listeners.keys())if(listener.quantities)listener.callback({entries:structuredClone(window.quantityEntries)});};
 window.receiptHistory=JSON.parse(localStorage.getItem('receipt-fixture')??'[]');
 window.receiptLinks=[];
+window.receiptStores=JSON.parse(localStorage.getItem('receipt-stores-fixture')??'{}');
 const receiptOptions=()=>({products:[...new Map([{id:'cacao',name:'Seitán',unit:'g',refill_quantity:175,price:3.80,image_url:'/local/receipt-seitan.svg',icon:'mdi:food',stock_id:'s1',revision:1},...window.catalogProducts.filter(p=>p.id!=='cacao').map(p=>({id:p.id,name:p.name,image_url:p.image_url??'',icon:p.icon??'',unit:'uds',stock_id:'',revision:0}))].map(p=>[p.id,p])).values()],purchases:[]});
-window.emitStock=()=>{localStorage.setItem('stock-fixture',JSON.stringify(window.stockItems));for(const listener of listeners.keys())if(listener.stock)listener.callback({items:structuredClone(window.stockItems)});};
+window.emitStock=()=>{localStorage.setItem('stock-fixture',JSON.stringify(window.stockItems));for(const listener of listeners.keys())if(listener.stock)listener.callback({items:structuredClone(window.stockItems),receipt_stores:structuredClone(window.receiptStores)});};
 window.calls=[];window.fail=false;window.failCatalog=false;
 window.logFixture={entries:[],limit:1000};window.failLogs=false;
 window.emitLogs=()=>{for(const listener of listeners.keys())if(listener.logs)listener.callback(structuredClone(window.logFixture));};
@@ -73,7 +74,7 @@ const hass={
       const listener={callback,receipts:true};listeners.set(listener,true);callback({receipts:structuredClone(window.receiptHistory)});return()=>listeners.delete(listener);
     }
     if(msg.type==='improved_shopping_list/stock/subscribe'){
-      const listener={callback,stock:true};listeners.set(listener,true);callback({items:structuredClone(window.stockItems)});return()=>listeners.delete(listener);
+      const listener={callback,stock:true};listeners.set(listener,true);callback({items:structuredClone(window.stockItems),receipt_stores:structuredClone(window.receiptStores)});return()=>listeners.delete(listener);
     }
     if(msg.type==='improved_shopping_list/settings/store_progress'){
       (window.storeProgressListeners??=new Set()).add(callback);callback(JSON.parse(localStorage.getItem('price-progress-fixture')??'null')??{running:false,last_updated:window.lastPriceUpdateFixture??0});
@@ -180,7 +181,7 @@ const hass={
     }
     if(msg.type==='improved_shopping_list/readers/delete'){window.readerFixture.readers=window.readerFixture.readers.filter(reader=>reader.id!==msg.reader_id);window.emitReaders();return null;}
     if(msg.type==='improved_shopping_list/readers/dismiss'){window.readerFixture.pending=window.readerFixture.pending.filter(item=>item.id!==msg.pending_id);window.emitReaders();return null;}
-    if(msg.type==='improved_shopping_list/stock/get')return {items:structuredClone(window.stockItems)};
+    if(msg.type==='improved_shopping_list/stock/get')return {items:structuredClone(window.stockItems),receipt_stores:structuredClone(window.receiptStores)};
     if(msg.type==='improved_shopping_list/receipts/get')return {receipts:structuredClone(window.receiptHistory)};
     if(msg.type==='improved_shopping_list/receipts/discard')return null;
     if(msg.type==='improved_shopping_list/receipts/options')return receiptOptions();
@@ -3423,6 +3424,17 @@ async function main() {
     await storeGroupingPage.screenshot({path:'test-results/catalog-store-groups-mobile.png',fullPage:true});
     await storeGroupingPage.setViewportSize({width:1280,height:960});
     assert.ok(await storeCatalog.evaluate(el=>el.scrollWidth<=el.clientWidth+1));
+    await storeGroupingPage.evaluate(()=>{window.receiptStores={bread:['carrefour','dia'],rice:['carrefour']};localStorage.setItem('receipt-stores-fixture',JSON.stringify(window.receiptStores));window.emitStock();});
+    assert.deepEqual(await storeCatalog.locator('.category-group-title').allTextContents(),['Alcampo (1)','Carrefour (3)']);
+    assert.equal(await storeCatalog.locator('#catalog-grid [data-product-id="rice"]').count(),2);
+    assert.equal(await storeCatalog.locator('#catalog-grid [data-product-id="bread"]').count(),1);
+    await storeGroupingPage.evaluate(()=>{window.listSettings.price_updates_enabled=false;window.emitSettings();});
+    assert.deepEqual(await storeCatalog.locator('.category-group-title').allTextContents(),['Alcampo (1)','Carrefour (3)']);
+    await storeGroupingPage.reload();await storeGroupingPage.getByRole('button',{name:'Catálogo',exact:true}).click();
+    await storeCatalog.locator('.category-group-title').filter({hasText:'Carrefour (3)'}).waitFor();
+    assert.equal(await storeCatalog.locator('#catalog-grid [data-product-id="bread"]').count(),1);
+    await storeGroupingPage.evaluate(()=>{window.listSettings.stores.carrefour.enabled=false;window.emitSettings();});
+    assert.deepEqual(await storeCatalog.locator('.category-group-title').allTextContents(),['Alcampo (1)']);
     await storeGroupingContext.close();
     const groupingContext=await browser.newContext({viewport:{width:1280,height:960}});
     const groupingPage=await groupingContext.newPage();

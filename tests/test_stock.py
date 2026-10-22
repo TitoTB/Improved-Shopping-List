@@ -68,7 +68,7 @@ async def test_stock_ws_pushes_permissions_and_unload(hass,hass_ws_client,hass_r
     readonly=await hass_ws_client(hass,hass.auth.async_create_access_token(token))
     await readonly.send_json({"id":1,"type":f"{DOMAIN}/stock/subscribe"})
     assert (await readonly.receive_json())["success"] is True
-    assert (await readonly.receive_json())["event"]=={"items":[]}
+    assert (await readonly.receive_json())["event"]=={"items":[],"receipt_stores":{}}
     await readonly.send_json({"id":2,"type":f"{DOMAIN}/stock/add","name":"Cacao"})
     assert (await readonly.receive_json())["error"]["code"]=="unauthorized"
     await readonly.send_json({"id":3,"type":f"{DOMAIN}/stock/save","item_id":"missing","revision":1,"config":{}})
@@ -85,3 +85,23 @@ async def test_stock_ws_pushes_permissions_and_unload(hass,hass_ws_client,hass_r
     assert not hass.data[DOMAIN]["stock"]._listeners
     await client.send_json({"id":3,"type":f"{DOMAIN}/stock/get"})
     assert (await client.receive_json())["error"]["code"]=="not_loaded"
+
+
+async def test_receipt_store_associations_restore_confirmed_history_without_prices_or_web_links(hass):
+    catalog=Catalog(hass);await catalog.async_load()
+    product=await catalog.async_save_product({'name':'Pan'})
+    stock=StockManager(hass,catalog);await stock.async_load()
+    receipts=deepcopy(stock.receipts)
+    receipts['aliases']={'carrefour:pan':{'product_id':product['id']},'unknown:pan':{'product_id':product['id']},'dia:old':{'product_id':'deleted'}}
+    receipts['history']={
+        'confirmed':{'store':'alcampo','lines':[{'product_id':product['id'],'price_saved':False}]},
+        'duplicate':{'store':'carrefour','lines':[{'product_id':product['id'],'price_saved':True}]},
+        'pending':{'store':'mercadona','pending_review':True,'lines':[{'product_id':product['id']}]},
+        'summary':{'store':'dia','summary_only':True,'lines':[{'product_id':product['id']}]}}
+    await stock._persist({},receipts=receipts)
+    assert stock.snapshot['receipt_stores']=={product['id']:['alcampo','carrefour']}
+    assert stock.snapshot['items']==[] and catalog.products[0]['store_links']=={}
+    restored=StockManager(hass,catalog);await restored.async_load()
+    assert restored.snapshot['receipt_stores']==stock.snapshot['receipt_stores']
+    await catalog.async_delete_product(product['id'],product['revision'])
+    assert restored.snapshot['receipt_stores']=={}

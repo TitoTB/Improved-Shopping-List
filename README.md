@@ -4,7 +4,7 @@
 
 Una interfaz propia para gestionar las listas de la compra que ya tienes integradas en Home Assistant.
 
-Versión actual: **0.35.0**. Interfaz en español, pensada para móvil y ordenador. Requiere **Home Assistant Core 2026.10 o posterior**. La referencia de desarrollo es Core 2026.10.2.
+Versión actual: **0.36.0**. Interfaz en español, pensada para móvil y ordenador. Requiere **Home Assistant Core 2026.10 o posterior**. La referencia de desarrollo es Core 2026.10.2.
 
 Los precios proceden de tickets y facturas confirmados por el usuario y, opcionalmente, de Alcampo al activar sus opciones. El catálogo comunitario se dedica exclusivamente a sugerencias de iconos y no proporciona precios. Se conserva el último precio conocido de cada producto y tienda.
 
@@ -27,7 +27,7 @@ En Vinculación, las líneas sin asociar aparecen primero y los productos vincul
 
 En Stock aparecen primero, seleccionados, los productos identificados que ya están en el inventario; los demás productos vinculados se reúnen en un bloque plegado al final. Cada producto aparece en un bloque con el nombre del ticket y del catálogo, con cantidad y unidades a su derecha. Pulsar el bloque marca o desmarca la reposición y resalta en naranja los seleccionados; editar la cantidad o las unidades no cambia esa selección. En este paso se omiten los precios de cada línea. Los tres pasos incluyen una breve ayuda. En Precios, los bloques muestran la imagen y el nombre del catálogo; solo se pueden guardar precios de productos vinculados. Las propuestas por similitud deben confirmarse en Vinculación.
 Los demás se pueden incorporar, confirmando cantidades y unidades antes de sumarlas.
-Las conversiones confirmadas se recuerdan para próximos tickets. **Volver a vinculación** conserva la revisión; **Añadir stock y cerrar** confirma la compra y las cantidades elegidas sin actualizar precios. Los botones para guardar y cerrar son verdes y **Continuar** es azul. En Precios se eligen
+La cantidad inicial de reposición es la configurada en Stock; para productos que todavía no están en Stock se usan la cantidad unitaria y las unidades del catálogo. Puedes editarla antes de confirmar. **Volver a vinculación** conserva la revisión; **Añadir stock y cerrar** confirma la compra y las cantidades elegidas sin actualizar precios. Los botones para guardar y cerrar son verdes y **Continuar** es azul. En Precios se eligen
 individualmente los importes que se quieren guardar, con opción de seleccionar todos,
 y **Continuar** abre el resumen final con el detalle del ticket, total y operaciones seleccionadas. Desde allí, **Confirmar compra** guarda la compra. **Actualizar precios y cerrar** permite confirmar directamente desde Precios con las selecciones de stock y precios realizadas. Las cantidades y el historial
 no cambian hasta esta confirmación final; las vinculaciones del primer paso se conservan
@@ -423,3 +423,5 @@ Una detección se sustituye por un ticket guardado únicamente si pertenece al m
 Con Carrefour conectado y **Descargar ticket automáticamente** activado, se intenta recuperar el último ticket de ese día al superar el umbral, usando el mismo límite de una consulta automática diaria. No se intenta asociar el ticket de un día anterior. Si ya se agotó la consulta, el ticket todavía no está disponible, no coincide o falla la conexión, la compra sigue pendiente de completar manualmente. No requiere nuevas dependencias ni tarjetas de HACS.
 
 Al confirmar la vinculación de una línea de ticket o factura con un producto, su EAN válido se guarda en el catálogo, conservando los códigos anteriores. Consultar o descargar un ticket no añade códigos. Si el EAN ya pertenece a otro producto, hay que revisar la vinculación; no se reasigna automáticamente.
+
+La agrupación por Tienda de Catálogo → Productos incluye las referencias web y las vinculaciones confirmadas en tickets o facturas, aunque no se guarde su precio ni se reponga Stock. Solo muestra tiendas activas y cada producto aparece una vez por tienda. Se aprovechan también las vinculaciones antiguas; las propuestas sin confirmar y los tickets pendientes no crean asociaciones.

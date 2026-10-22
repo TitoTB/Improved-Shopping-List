@@ -1,12 +1,12 @@
-import { ListSettingsSession } from "./list-settings-client.js?v=0.35.0";
+import { ListSettingsSession } from "./list-settings-client.js?v=0.36.0";
 
 export class StockSession extends ListSettingsSession {
   constructor(getHass, onChange) {
     super(getHass,onChange,"improved_shopping_list/stock/");
-    this.items=[];
+    this.items=[];this.receiptStores={};
   }
   _receive(data) {
-    this.items=data.items??[];
+    this.items=data.items??[];this.receiptStores=data.receipt_stores??{};
     this.loaded=true;this.loading=false;this.error="";this.onChange();
   }
   async _write(operation,fields) {

@@ -1,6 +1,8 @@
 # Historial de cambios
 
-## Pendiente de publicación
+## 0.30.0 — 2026-10-22
+
+- Prueba manual de cuenta de Carrefour: conexión y verificación por código, listado paginado de compras y descarga de tickets al asistente de revisión. Sin consultas periódicas ni cambios de stock/precios sin confirmación. Sesiones locales privadas, contraseña no persistida y comandos restringidos a administradores. Las facturas online continúan admitiéndose mediante subida manual de PDF.
 
 - Revisión de tickets: dos productos por fila en Vinculación, Stock y Precios. El nombre del catálogo aparece debajo del nombre del ticket; Stock muestra imágenes y sitúa primero los productos registrados, con el resto plegado en «Productos sin stock registrado». Precios se selecciona pulsando el bloque, con fondo verde y el precio anterior tachado cuando existe.
 

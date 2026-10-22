@@ -11,6 +11,7 @@ from homeassistant.components import websocket_api
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import HomeAssistantError
 
+from .carrefour_account import CarrefourAccountError
 from .catalog import Catalog, CatalogError
 from .const import DOMAIN
 from .list_settings import ListSettingsError
@@ -37,6 +38,9 @@ def _catalog(hass: HomeAssistant, connection, msg) -> Catalog | None:
 @callback
 def async_register_commands(hass: HomeAssistant) -> None:
     """Register once; commands check that the config entry is still loaded."""
+    for command in (ws_carrefour_account_status, ws_carrefour_account_login, ws_carrefour_account_send_code,
+                    ws_carrefour_account_verify, ws_carrefour_account_disconnect, ws_carrefour_account_purchases, ws_carrefour_account_preview):
+        websocket_api.async_register_command(hass, command)
     websocket_api.async_register_command(hass, ws_catalog_get)
     websocket_api.async_register_command(hass, ws_stock_get)
     for command in (ws_quantities_get, ws_quantities_subscribe, ws_quantities_adjust):
@@ -995,3 +999,80 @@ async def ws_community_sharing(hass, connection, msg):
         connection.send_error(msg["id"], "community_error", "No se ha podido guardar o iniciar la autorización comunitaria.")
     else:
         connection.send_result(msg["id"], result)
+
+
+async def _carrefour_account_operation(hass, connection, msg, action, operation):
+    if not _catalog(hass, connection, msg):
+        return
+    data = hass.data[DOMAIN]
+    try:
+        result = await operation(data["carrefour_account"], connection.user.id)
+    except CarrefourAccountError as err:
+        data["activity"].record("stores.account", "Carrefour: " + str(err), source="manual", diagnostics={"action": action, **err.diagnostics})
+        connection.send_error(msg["id"], err.code, str(err))
+    except CatalogError as err:
+        connection.send_error(msg["id"], err.code, str(err))
+    except (OSError, HomeAssistantError):
+        connection.send_error(msg["id"], "storage_error", "No se ha podido guardar la sesión o preparar el ticket de Carrefour.")
+    else:
+        data["activity"].record("stores.account", "Carrefour: " + action, source="manual",
+            diagnostics={"action": action, **({"purchases": len(result["purchases"])} if isinstance(result, dict) and "purchases" in result else {})})
+        connection.send_result(msg["id"], result)
+
+
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/carrefour_account/status"})
+@websocket_api.require_admin
+@callback
+def ws_carrefour_account_status(hass, connection, msg):
+    if _catalog(hass, connection, msg):
+        connection.send_result(msg["id"], hass.data[DOMAIN]["carrefour_account"].status(connection.user.id))
+
+
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/carrefour_account/login",
+    vol.Required("username"): vol.All(str, vol.Length(min=1, max=255)),
+    vol.Required("password"): vol.All(str, vol.Length(min=1, max=255))})
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_carrefour_account_login(hass, connection, msg):
+    await _carrefour_account_operation(hass, connection, msg, "conexión de cuenta solicitada",
+        lambda manager, owner: manager.async_login(owner, msg["username"], msg["password"]))
+
+
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/carrefour_account/send_code", vol.Required("destination"): str})
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_carrefour_account_send_code(hass, connection, msg):
+    await _carrefour_account_operation(hass, connection, msg, "código de verificación solicitado",
+        lambda manager, owner: manager.async_send_code(owner, msg["destination"]))
+
+
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/carrefour_account/verify", vol.Required("code"): vol.All(str, vol.Length(max=10))})
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_carrefour_account_verify(hass, connection, msg):
+    await _carrefour_account_operation(hass, connection, msg, "verificación de cuenta",
+        lambda manager, owner: manager.async_verify(owner, msg["code"]))
+
+
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/carrefour_account/disconnect"})
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_carrefour_account_disconnect(hass, connection, msg):
+    await _carrefour_account_operation(hass, connection, msg, "cuenta desconectada",
+        lambda manager, owner: manager.async_disconnect(owner))
+
+
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/carrefour_account/purchases", vol.Optional("cursor"): dict})
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_carrefour_account_purchases(hass, connection, msg):
+    await _carrefour_account_operation(hass, connection, msg, "consulta manual de compras",
+        lambda manager, owner: manager.async_purchases(owner, msg.get("cursor")))
+
+
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/carrefour_account/preview", vol.Required("purchase_id"): str})
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_carrefour_account_preview(hass, connection, msg):
+    await _carrefour_account_operation(hass, connection, msg, "ticket descargado para revisión",
+        lambda manager, owner: manager.async_preview(owner, msg["purchase_id"]))

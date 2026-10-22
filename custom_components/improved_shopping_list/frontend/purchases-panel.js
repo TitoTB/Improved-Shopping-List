@@ -1,6 +1,6 @@
-import { ListSettingsSession } from "./list-settings-client.js?v=0.29.0";
-import { installDialogCloseButtons } from "./dialog-controls.js?v=0.29.0";
-import { productNameKey } from "./product-names.js?v=0.29.0";
+import { ListSettingsSession } from "./list-settings-client.js?v=0.30.0";
+import { installDialogCloseButtons } from "./dialog-controls.js?v=0.30.0";
+import { productNameKey } from "./product-names.js?v=0.30.0";
 
 const node=(tag,cls,text)=>{const el=document.createElement(tag);if(cls)el.className=cls;if(text!==undefined)el.textContent=text;return el;};
 const money=value=>new Intl.NumberFormat('es-ES',{style:'currency',currency:'EUR'}).format(value);
@@ -30,6 +30,10 @@ class ImprovedShoppingPurchases extends HTMLElement {
     this._render();
   }
   disconnectedCallback(){this._session.stop();this._started=false;this.shadowRoot.querySelectorAll('dialog').forEach(dialog=>dialog.close());}
+  openPreview(draft){
+    if(this._busy||!this._active||this._hass?.user?.is_admin!==true)return false;
+    this._draft=draft;this._error='';this._buildReview();this.shadowRoot.querySelector('dialog').showModal();return true;
+  }
   chooseFile(){if(!this._busy&&this._hass?.user?.is_admin===true)this.shadowRoot.querySelector('#ticket-file').click();}
   _build(){
     this._built=true;

@@ -4,7 +4,7 @@
 
 Una interfaz propia para gestionar las listas de la compra que ya tienes integradas en Home Assistant.
 
-Versión actual: **0.29.0**. Interfaz en español, pensada para móvil y ordenador. Requiere **Home Assistant Core 2026.10 o posterior**. La referencia de desarrollo es Core 2026.10.2.
+Versión actual: **0.30.0**. Interfaz en español, pensada para móvil y ordenador. Requiere **Home Assistant Core 2026.10 o posterior**. La referencia de desarrollo es Core 2026.10.2.
 
 Vinculaciones con Mercadona, Carrefour, Alcampo, Consum, La Sirena, Eroski y DIA, y consultas
 directas desde Home Assistant. Se ha retirado el feed
@@ -494,3 +494,16 @@ En la vista de filas de Lista, cada producto muestra un único badge horizontal 
 
 
 Los pasos de revisión del ticket muestran en azul el paso actual y en verde los anteriores completados. Puedes pulsar un paso anterior, también con teclado, para volver a él conservando vinculaciones, cantidades y selección de precios. Los pasos posteriores se habilitan mediante Continuar y durante el guardado la navegación permanece bloqueada.
+
+
+### Prueba manual de compras de Carrefour
+
+En **Ajustes → Tiendas → Carrefour** (badge de productos) encontrarás **Conectar cuenta** y **Consultar compras**. Solo pueden utilizarlos administradores. Introduce el usuario y la contraseña en el popup de conexión. Si Carrefour solicita una segunda verificación compatible por correo o SMS, elige el destino, pulsa Enviar código e introduce el código recibido. No se intenta resolver CAPTCHA ni se repiten inicios de sesión automáticamente.
+
+**Consultar compras** solicita una página de compras de los últimos 90 días; Ver más compras carga la siguiente. No hay sondeo, tareas programadas ni consultas al arrancar Home Assistant. La conexión a la cuenta es independiente del toggle de precios y de su horario. Los pedidos online se muestran, pero su descarga de factura todavía no está habilitada: esas facturas se pueden seguir subiendo como PDF.
+
+En los tickets disponibles, **Revisar ticket** descarga el PDF y abre Stock → Compras con el asistente existente. Descargar o consultar no registra la compra ni cambia cantidades o precios: debes confirmar el asistente. Se mantiene el control de tickets ya importados. Los documentos no se envían al diccionario comunitario.
+
+La contraseña y los códigos no se guardan. La sesión se conserva localmente en un archivo privado de Home Assistant (`.storage/improved_shopping_list.carrefour_account`); Desconectar cuenta elimina esa sesión local. Los tokens no se entregan al navegador ni aparecen en los diagnósticos de la integración. Carrefour puede exigir conectar de nuevo; los fallos manuales quedan en Ajustes → Logs → Tiendas con la fase y el código técnico, sin credenciales ni contenido del ticket.
+
+Es una función de prueba sobre los servicios que usa la web de Carrefour; la descarga autenticada desde una instalación concreta de Home Assistant puede requerir ajustes si Carrefour cambia su acceso. Utiliza las dependencias ya incluidas (HTTP nativo de Home Assistant y pypdf para PDF); no requiere tarjetas de HACS, un navegador automatizado ni un complemento adicional.

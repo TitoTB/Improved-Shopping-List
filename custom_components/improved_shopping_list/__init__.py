@@ -23,6 +23,7 @@ from .readers import ReaderManager
 from .stock import StockManager
 from .stock_automation import StockAutomation
 from .receipts import ReceiptManager
+from .carrefour_account import CarrefourAccount
 from .price_manager import PriceManager, StorePriceView
 from .recurrence import RecurrenceManager
 from .const import (
@@ -65,6 +66,8 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         prices = PriceManager(hass, catalog, settings, activity)
         await prices.async_load()
         receipts = ReceiptManager(hass, stock, stock_automation, prices)
+        carrefour_account = CarrefourAccount(hass, receipts, activity)
+        await carrefour_account.async_load()
         prices.receipts = receipts
         store_products = StorePriceView(prices, "mercadona")
         recurrence = RecurrenceManager(hass, catalog, settings, activity, readers._operation_lock, stock)
@@ -84,6 +87,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
              StaticPathConfig(ICONS_URL, str(icons.directory), True)]
         )
         hass.data[DOMAIN] = {"catalog": catalog, "stock":stock, "receipts":receipts, "stock_automation":stock_automation, "settings": settings, "price_manager":prices, "store_products": store_products, "recurrence": recurrence, "readers": readers, "icons": icons, "community": community, "community_sync": community_sync, "activity": activity, "active": False}
+        hass.data[DOMAIN]["carrefour_account"] = carrefour_account
         hass.data[DOMAIN]["gateway_lists"] = gateways
         hass.data[DOMAIN]["quantities"] = quantities
         hass.data[DOMAIN]["entity_data"] = EntityData(hass, hass.data[DOMAIN])
@@ -97,6 +101,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.data[DOMAIN]["settings"].attach(entry)
     await _async_register_panel(hass, entry)
     hass.data[DOMAIN]["active"] = True
+    hass.data[DOMAIN]["carrefour_account"].start()
     hass.data[DOMAIN]["activity"].start()
     hass.data[DOMAIN]["quantities"].start()
     hass.data[DOMAIN]["gateway_lists"].start()
@@ -140,6 +145,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.data[DOMAIN]["entity_data"].stop()
     frontend.async_remove_panel(hass, PANEL_PATH)
     hass.data[DOMAIN]["active"] = False
+    hass.data[DOMAIN]["carrefour_account"].stop()
     await hass.data[DOMAIN]["quantities"].async_stop()
     await hass.data[DOMAIN]["gateway_lists"].async_stop()
     await hass.data[DOMAIN]["community_sync"].async_stop()

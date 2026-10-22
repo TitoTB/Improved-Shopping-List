@@ -38,6 +38,12 @@ class ImprovedShoppingListPanel extends HTMLElement {
     this._stockLayout = "grid";
     this._stockView = "stock";
     this._stockSort = "lowest";
+    this._stockGrouped = false;
+    this._listGrouped = false;
+    try {
+      this._stockGrouped = localStorage.getItem("isl-stock-grouped") === "true";
+      this._listGrouped = localStorage.getItem("isl-list-grouped") === "true";
+    } catch { /* Storage disabled. */ }
     try { if (localStorage.getItem("isl-stock-layout") === "rows") this._stockLayout = "rows"; } catch { /* Storage disabled. */ }
     try { if (localStorage.getItem("isl-stock-sort") === "alphabetical") this._stockSort = "alphabetical"; } catch { /* Storage disabled. */ }
     this._busy = false;
@@ -231,6 +237,9 @@ class ImprovedShoppingListPanel extends HTMLElement {
         ul { list-style:none; margin:0; padding:0; }
         #items-card { background:transparent; border:0; padding:0; }
         .product-grid { display:grid; grid-template-columns:repeat(var(--isl-columns,3),minmax(0,1fr)); gap:16px; }
+        .product-group { grid-column:1/-1; min-width:0; }
+        .product-group-heading { display:flex; align-items:center; gap:8px; margin:8px 0 14px; font-size:17px; }
+        .product-group-heading ha-icon { --mdc-icon-size:22px; width:22px; height:22px; flex:none; }
         .product-grid li { min-width:0; container-type:inline-size; }
         .item { position:relative; display:flex; flex-direction:column; align-items:center; justify-content:center; width:100%; aspect-ratio:1; min-width:0; min-height:0; overflow:hidden; gap:clamp(2px,2.5cqi,12px); padding:clamp(4px,5cqi,24px); border:1px solid var(--divider-color,#dfe7e1); border-radius:clamp(6px,6cqi,16px); background:var(--card-background-color,#fff); color:inherit; text-align:center; cursor:pointer; }
         .item.pending { background:linear-gradient(var(--isl-gradient-start,#ee524f),var(--isl-gradient-end,#b52a27)); border-color:var(--isl-gradient-end,#b52a27); color:var(--isl-gradient-text,#fff); }
@@ -346,6 +355,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
         #stock-add-form input { min-height:44px; padding:10px; border:1px solid var(--divider-color,#dfe7e1); border-radius:10px; color:inherit; background:var(--card-background-color,#fff); }
         #stock-add-submit { background:var(--isl-green); color:white; border:0; }
         @media(max-width:500px) { #stock-heading { gap:6px; }.stock-tabs,.stock-tabs nav,#stock-actions { gap:4px; }.stock-tabs [role=tab] { padding:8px 4px; font-size:12px; gap:4px; }.stock-tabs [aria-selected=false] span { display:none; }#stock-actions .icon-button { width:38px; height:42px; flex-basis:38px; } }
+        @media(max-width:360px) { #stock-actions { gap:3px; } #stock-actions .icon-button { width:32px; flex-basis:32px; } #stock-actions .icon-button ha-icon { --mdc-icon-size:20px; } }
         @media(max-width:380px) { header { gap:4px; padding:10px 8px; }.brand-logo { width:32px; height:32px; }.menu { width:36px; padding:6px; }.section-nav button { min-width:28px; padding:10px 4px; gap:3px; font-size:12px; }.section-nav ha-icon { --mdc-icon-size:18px; } }
       </style>
       <header>
@@ -368,6 +378,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
             <button id="add-button" class="icon-button" type="submit" aria-label="Añadir" title="Añadir producto"><ha-icon icon="mdi:plus-thick"></ha-icon></button>
             <button id="toggle-stock-sort" class="icon-button" type="button" aria-label="Ordenar por menor stock" title="Ordenar por menor stock" hidden><ha-icon icon="mdi:sort-numeric-ascending" aria-hidden="true"></ha-icon></button>
             <button id="choose-list" class="icon-button" type="button" aria-label="Seleccionar lista" title="Seleccionar lista" aria-haspopup="dialog" aria-controls="list-dialog"><ha-icon icon="mdi:format-list-checks"></ha-icon></button>
+            <button id="toggle-product-grouping" class="icon-button" type="button" aria-label="Agrupar por categorías" title="Agrupar por categorías" aria-pressed="false"><ha-icon icon="mdi:label" aria-hidden="true"></ha-icon></button>
             <button id="toggle-list-layout" class="icon-button" type="button" aria-label="Cambiar a vista de filas" title="Cambiar a vista de filas"><ha-icon icon="mdi:view-sequential" aria-hidden="true"></ha-icon></button>
           </form>
           <p id="capability-help" class="helper" hidden></p>
@@ -459,6 +470,14 @@ class ImprovedShoppingListPanel extends HTMLElement {
         this._listLayout = this._listLayout === "grid" ? "rows" : "grid";
         try { localStorage.setItem("isl-list-layout", this._listLayout); } catch { /* Storage disabled. */ }
       }
+      this._renderData();
+    });
+    root.querySelector("#toggle-product-grouping").addEventListener("click",()=>{
+      const stock=this._view === "stock";
+      const field=stock ? "_stockGrouped" : "_listGrouped";
+      this[field]=!this[field];
+      if(!stock)this._ticket=false;
+      try { localStorage.setItem(stock ? "isl-stock-grouped" : "isl-list-grouped",String(this[field])); } catch { /* Storage disabled. */ }
       this._renderData();
     });
     root.querySelector("#nav-stock").addEventListener("click",()=>this._switchView("stock"));
@@ -606,12 +625,18 @@ class ImprovedShoppingListPanel extends HTMLElement {
     root.querySelector('#stock-card').hidden=!stockItemsView;
     root.querySelector('#list-controls').hidden=this._view!=='shopping';
     const actions=root.querySelector(stockView?'#stock-actions':'#add-form');
-    for(const id of ['toggle-stock-sort','choose-list','toggle-list-layout']){
+    for(const id of ['toggle-stock-sort','choose-list','toggle-product-grouping','toggle-list-layout']){
       const button=root.querySelector('#'+id);
       if(button.parentElement!==actions)actions.append(button);
       button.hidden=(stockView&&!stockItemsView)||(id==='choose-list'&&this._settings.entities.length===1);
     }
     if(this._settings.entities.length===1)root.querySelector('#list-dialog').close();
+    const grouped=stockView ? this._stockGrouped : this._listGrouped;
+    const groupingButton=root.querySelector('#toggle-product-grouping');
+    const groupingLabel=grouped ? 'Mostrar todos los productos' : 'Agrupar por categorías';
+    groupingButton.title=groupingLabel;groupingButton.setAttribute('aria-label',groupingLabel);
+    groupingButton.setAttribute('aria-pressed',String(grouped));
+    groupingButton.querySelector('ha-icon').setAttribute('icon',grouped ? 'mdi:sort-alphabetical-ascending' : 'mdi:label');
     root.querySelector('#add-stock').hidden=!stockItemsView;
     root.querySelector('#upload-ticket').hidden=!stockView||stockItemsView;
     root.querySelector('#stock-tab').setAttribute('aria-selected',String(this._stockView==='stock'));
@@ -761,7 +786,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
     const focus=root.activeElement, focusedId=focus?.closest?.("[data-stock-id]")?.dataset.stockId, focusedAction=focus?.dataset.stockAction;
     const products=new Map([...this._catalogProducts.values()].map(product=>[product.id,product]));
     const node=(tag,className,text)=>{const element=document.createElement(tag);if(className)element.className=className;if(text!==undefined)element.textContent=text;return element;};
-    grid.replaceChildren(...items.map(item=>{
+    const nodes=items.map(item=>{
       const product=products.get(item.catalog_product_id)??this._catalogProducts.get(productNameKey(item.name));
       const category=this._catalogCategories.get(normalizedName(product?.category));
       const li=node("li");li.dataset.stockId=item.id;
@@ -800,8 +825,9 @@ class ImprovedShoppingListPanel extends HTMLElement {
         card.append(controls);
       }
       li.append(card);return li;
-    }));
-    if(focusedId){const li=[...grid.children].find(item=>item.dataset.stockId===focusedId);const button=(focusedAction ? li?.querySelector(`[data-stock-action="${focusedAction}"]:not([disabled])`) : null)??li?.querySelector("button:not([disabled])");button?.focus({preventScroll:true});}
+    });
+    this._renderProductGroups(grid,nodes,items,item=>products.get(item.catalog_product_id)??this._catalogProducts.get(productNameKey(item.name)),this._stockGrouped,this._stockLayout);
+    if(focusedId){const li=[...grid.querySelectorAll('[data-stock-id]')].find(item=>item.dataset.stockId===focusedId);const button=(focusedAction ? li?.querySelector(`[data-stock-action="${focusedAction}"]:not([disabled])`) : null)??li?.querySelector("button:not([disabled])");button?.focus({preventScroll:true});}
     root.querySelector("#confirm-stock-remove").disabled=this._busy;
     root.querySelector("#cancel-stock-remove").disabled=this._busy;
     if(root.querySelector("#stock-editor-dialog").open)this._updateStockForm();
@@ -1141,7 +1167,28 @@ class ImprovedShoppingListPanel extends HTMLElement {
     return [...totals].map(([currency,cents]) => new Intl.NumberFormat("es-ES",{style:"currency",currency}).format(cents/100)).join(" + ");
   }
 
+  _renderProductGroups(container,nodes,items,productFor,grouped,layout) {
+    if(!grouped){container.replaceChildren(...nodes);return;}
+    const groups=new Map();
+    items.forEach((item,index)=>{
+      const product=productFor(item), key=normalizedName(product?.category);
+      const category=this._catalogCategories.get(key);
+      if(!groups.has(key))groups.set(key,{key,name:category?.name||product?.category||'Sin categoría',category,nodes:[]});
+      groups.get(key).nodes.push(nodes[index]);
+    });
+    container.replaceChildren(...[...groups.values()].sort((a,b)=>Number(!a.key)-Number(!b.key)||a.name.localeCompare(b.name,'es',{sensitivity:'base'})).map(group=>{
+      const section=document.createElement('li');section.className='product-group';section.setAttribute('aria-label',group.name);
+      const heading=document.createElement('h3');heading.className='product-group-heading';
+      const icon=document.createElement('ha-icon');icon.setAttribute('icon',group.category?.icon||'mdi:label-outline');icon.setAttribute('aria-hidden','true');
+      if(group.category?.color)icon.style.color=group.category.color;
+      heading.append(icon,document.createTextNode(group.name));
+      const grid=document.createElement('ul');grid.className='product-grid'+(layout==='rows'?' rows':'');grid.setAttribute('aria-label',group.name);grid.append(...group.nodes);
+      section.append(heading,grid);return section;
+    }));
+  }
+
   _renderItems(container, items, disabled) {
+    items=[...items].sort((a,b)=>(a.summary??'').localeCompare(b.summary??'','es',{sensitivity:'base'}));
     const focusedUid = this.shadowRoot.activeElement?.dataset.uid;
     const focusedDirection=this.shadowRoot.activeElement?.dataset.quantityDirection;
     const nodes = items.map((item, index) => {
@@ -1285,7 +1332,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
       description.hidden = !item.description;
       return row;
     });
-    container.replaceChildren(...nodes);
+    this._renderProductGroups(container,nodes,items,item=>this._catalogProducts.get(productNameKey(item.summary)),this._listGrouped,this._listLayout);
     if (focusedUid) {
       const card = [...container.querySelectorAll("button")].find(button => button.dataset.uid === focusedUid && button.dataset.quantityDirection===focusedDirection);
       card?.focus({ preventScroll: true });

@@ -2,6 +2,8 @@
 
 ## Pendiente de publicación
 
+- Lista y Stock permiten agrupar por categorías del catálogo o mostrar todos los productos. Preferencias independientes, soporte para filas y cuadrícula, grupo final sin categoría y conservación del orden por porcentaje o nombre en Stock. Lista ordena alfabéticamente sus productos.
+
 - Lista y Stock ocultan el selector cuando solo hay una lista de compra configurada, sin contar listas pasarela. El botón reaparece al añadir otra lista.
 
 ## 0.27.0 — 2026-10-22

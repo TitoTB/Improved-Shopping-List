@@ -1905,6 +1905,57 @@ async function main() {
     await singleListPage.locator('#choose-list').waitFor();
     await singleListContext.close();
 
+    const listGroupsContext=await browser.newContext({viewport:{width:320,height:844}});
+    const listGroupsPage=await listGroupsContext.newPage();listGroupsPage.on('pageerror',error=>errors.push(error.message));
+    await listGroupsPage.goto(url);
+    await listGroupsPage.evaluate(()=>{
+      window.catalogCategories=[{id:'d',name:'Despensa',icon:'mdi:food',color:'#ff9800'},{id:'v',name:'Verduras',icon:'mdi:carrot',color:'#4caf50'},{id:'l',name:'Lácteos',icon:'mdi:bottle-soda',color:'#2196f3'}];
+      window.catalogProducts=[{id:'c',name:'Cacao',category:'Despensa'},{id:'a',name:'Arroz',category:'Despensa'},{id:'z',name:'Zanahoria',category:'Verduras'},{id:'l',name:'Leche entera',category:'Lácteos'}].map(product=>({tags:[],barcodes:[],barcode:'',icon:'',image_url:'',nfc_tags:[],reader_actions:{},...product}));window.emitCatalog();
+      window.listData['todo.bring']=[{uid:'z',summary:'Zanahoria',status:'needs_action'},{uid:'c',summary:'Cacao',status:'needs_action'},{uid:'l',summary:'Leche entera',status:'needs_action'},{uid:'u',summary:'Sin ficha',status:'needs_action'},{uid:'a',summary:'Arroz',status:'completed'}];window.emit('todo.bring');
+      window.stockItems=[{id:'c',catalog_product_id:'c',name:'Cacao',quantity:10,refill_quantity:100,unit:'uds',revision:1},{id:'a',catalog_product_id:'a',name:'Arroz',quantity:90,refill_quantity:100,unit:'uds',revision:1},{id:'z',catalog_product_id:'z',name:'Zanahoria',quantity:20,refill_quantity:100,unit:'uds',revision:1},{id:'u',name:'Sin ficha',quantity:5,refill_quantity:100,unit:'uds',revision:1}];window.emitStock();
+    });
+    assert.deepEqual(await listGroupsPage.locator('#pending .summary').allTextContents(),['Cacao','Leche entera','Sin ficha','Zanahoria']);
+    await listGroupsPage.getByRole('button',{name:'Agrupar por categorías',exact:true}).click();
+    assert.deepEqual(await listGroupsPage.locator('#pending .product-group-heading').allTextContents(),['Despensa','Lácteos','Verduras','Sin categoría']);
+    await listGroupsPage.locator('#completed-summary').click();
+    assert.deepEqual(await listGroupsPage.locator('#completed .product-group-heading').allTextContents(),['Despensa']);
+    await listGroupsPage.getByRole('button',{name:'Marcar como comprado: Cacao',exact:true}).click();
+    await listGroupsPage.locator('#completed .summary').filter({hasText:'Cacao'}).waitFor();
+    assert.deepEqual(await listGroupsPage.locator('#completed .summary').allTextContents(),['Arroz','Cacao']);
+    await listGroupsPage.getByRole('button',{name:'Cambiar a vista de filas',exact:true}).click();
+    assert.equal(await listGroupsPage.locator('#pending .product-group > ul.rows').count(),3);
+    assert.ok(await listGroupsPage.locator('#add-form').evaluate(node=>node.scrollWidth<=node.clientWidth+1));
+    await listGroupsPage.screenshot({path:'test-results/list-category-groups-mobile.png',fullPage:true});
+    await listGroupsPage.getByRole('button',{name:'Stock',exact:true}).click();
+    assert.equal(await listGroupsPage.locator('#toggle-product-grouping').getAttribute('aria-pressed'),'false');
+    assert.deepEqual(await listGroupsPage.locator('#stock-items .summary').allTextContents(),['Sin ficha','Cacao','Zanahoria','Arroz']);
+    await listGroupsPage.getByRole('button',{name:'Agrupar por categorías',exact:true}).click();
+    assert.deepEqual(await listGroupsPage.locator('#stock-items .product-group-heading').allTextContents(),['Despensa','Verduras','Sin categoría']);
+    assert.deepEqual(await listGroupsPage.locator('#stock-items .summary').allTextContents(),['Cacao','Arroz','Zanahoria','Sin ficha']);
+    await listGroupsPage.getByRole('button',{name:'Ordenar alfabéticamente',exact:true}).click();
+    assert.deepEqual(await listGroupsPage.locator('#stock-items .summary').allTextContents(),['Arroz','Cacao','Zanahoria','Sin ficha']);
+    await listGroupsPage.getByRole('button',{name:'Cambiar a vista de filas',exact:true}).click();
+    assert.equal(await listGroupsPage.locator('#stock-items .product-group > ul.rows').count(),3);
+    assert.ok(await listGroupsPage.locator('#stock-heading').evaluate(node=>node.scrollWidth<=node.clientWidth+1));
+    await listGroupsPage.screenshot({path:'test-results/stock-category-groups-mobile.png',fullPage:true});
+    await listGroupsPage.getByRole('button',{name:'Mostrar todos los productos',exact:true}).click();
+    assert.deepEqual(await listGroupsPage.locator('#stock-items .summary').allTextContents(),['Arroz','Cacao','Sin ficha','Zanahoria']);
+    await listGroupsPage.getByRole('button',{name:'Ordenar por menor stock',exact:true}).click();
+    assert.deepEqual(await listGroupsPage.locator('#stock-items .summary').allTextContents(),['Sin ficha','Cacao','Zanahoria','Arroz']);
+    await listGroupsPage.getByRole('button',{name:'Agrupar por categorías',exact:true}).click();
+    await listGroupsPage.reload();await listGroupsPage.getByRole('button',{name:'Stock',exact:true}).click();
+    await listGroupsPage.locator('#stock-items .product-group').nth(2).waitFor();
+    assert.deepEqual(await listGroupsPage.locator('#stock-items .summary').allTextContents(),['Cacao','Arroz','Zanahoria','Sin ficha']);
+    await listGroupsPage.setViewportSize({width:1280,height:900});
+    await listGroupsPage.screenshot({path:'test-results/stock-category-groups-desktop.png',fullPage:true});
+    await listGroupsPage.getByRole('button',{name:'Lista',exact:true}).click();
+    assert.equal(await listGroupsPage.locator('#toggle-product-grouping').getAttribute('aria-pressed'),'true');
+    await listGroupsPage.getByRole('button',{name:'Mostrar todos los productos',exact:true}).click();
+    assert.equal(await listGroupsPage.locator('#pending .product-group').count(),0);
+    assert.deepEqual(await listGroupsPage.locator('#pending .summary').allTextContents(),['Cacao','Leche entera']);
+    await listGroupsContext.close();
+
+
     const readerContext=await browser.newContext({viewport:{width:1280,height:960}});
     const readerPage=await readerContext.newPage();readerPage.on("pageerror",error=>errors.push(error.message));
     await readerPage.clock.install();

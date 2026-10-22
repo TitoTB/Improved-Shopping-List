@@ -24,7 +24,7 @@ class PurchaseSession extends ListSettingsSession {
 class ImprovedShoppingPurchases extends HTMLElement {
   constructor(){
     super();this.attachShadow({mode:'open'});
-    this._session=new PurchaseSession(()=>this._hass,()=>this._render());this._busy=false;
+    this._session=new PurchaseSession(()=>this._hass,()=>this._render());this._busy=false;this._visiblePurchases=10;
   }
   set data(value){
     const changed=this._hass?.connection!==value.hass.connection;
@@ -34,7 +34,7 @@ class ImprovedShoppingPurchases extends HTMLElement {
     if(value.active&&this._hass.user?.is_admin===true&&(!this._started||changed)){
       this._started=true;void this._session.start();
     }
-    if(!value.active){this._session.stop();this._started=false;this.shadowRoot.querySelectorAll('dialog').forEach(dialog=>dialog.close());}
+    if(!value.active){this._visiblePurchases=10;this._session.stop();this._started=false;this.shadowRoot.querySelectorAll('dialog').forEach(dialog=>dialog.close());}
     this._render();
   }
   disconnectedCallback(){this._session.stop();this._started=false;this.shadowRoot.querySelectorAll('dialog').forEach(dialog=>dialog.close());}
@@ -50,7 +50,7 @@ class ImprovedShoppingPurchases extends HTMLElement {
       button,input,select{font:inherit;color:inherit}button{cursor:pointer}button:disabled{opacity:.5;cursor:default}
       input,select{width:100%;min-width:0;min-height:42px;border:1px solid var(--divider-color,#d9e0dd);background:var(--card-background-color,#fff);border-radius:8px;padding:8px}
       .notice{padding:12px;border-radius:10px;background:var(--secondary-background-color,#edf2ef)}.error{color:var(--error-color,#d32f2f)}
-      #history{display:grid;gap:12px}.ticket{border-radius:14px;background:var(--card-background-color,#fff);padding:16px}
+      #history{display:grid;gap:12px}#more-purchases{display:block;margin:16px auto 0;padding:12px 20px;border:0;border-radius:10px;background:var(--primary-color,#267052);color:white}#more-purchases:focus-visible{outline:3px solid var(--primary-color,#267052);outline-offset:3px}.ticket{border-radius:14px;background:var(--card-background-color,#fff);padding:16px}
       summary{display:flex;align-items:center;gap:12px;cursor:pointer;list-style:none}summary::before{content:'▸'}details[open]>summary::before{content:'▾'}
       .title{display:flex;flex-direction:column;gap:4px;flex:1;min-width:0}.muted{opacity:.65;font-size:.85em}.total{font-weight:750;white-space:nowrap}
       .line{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;padding:10px 0;border-bottom:1px solid var(--divider-color,#d9e0dd)}.line p{margin:3px 0}
@@ -87,7 +87,7 @@ class ImprovedShoppingPurchases extends HTMLElement {
       #detected-purchase-dialog{width:min(500px,calc(100vw - 24px))}#detected-purchase-form label{margin-top:16px}#detected-products{max-height:25vh;overflow:auto;padding-left:20px}.ticket.needs-details{border:1px dashed var(--secondary-text-color,#64748b)}.ticket .edit-detection{background:#ffb74d;color:#182b22}.actions .danger{background:#d32f2f;color:#fff}
     </style>
     <input id="ticket-file" type="file" accept="application/pdf,.pdf" hidden>
-    <p id="message" class="notice" role="status" hidden></p><section id="spending-chart" class="spending-chart" aria-label="Gasto mensual por tienda" hidden></section><div id="history"></div><p id="empty" class="empty" hidden>Todavía no has subido ningún ticket.</p>
+    <p id="message" class="notice" role="status" hidden></p><section id="spending-chart" class="spending-chart" aria-label="Gasto mensual por tienda" hidden></section><div id="history"></div><button id="more-purchases" type="button" hidden>Mostrar más</button><p id="empty" class="empty" hidden>Todavía no has subido ningún ticket.</p>
     <dialog aria-labelledby="review-title"><form id="review-form"><h2 id="review-title">Revisar ticket</h2><div id="review-summary" class="receipt-info"></div>
       <ol id="review-steps" aria-label="Pasos de revisión del ticket"><li><button type="button">1. Vinculación</button></li><li><button type="button">2. Stock</button></li><li><button type="button">3. Precios</button></li><li><button type="button">4. Resumen</button></li></ol><h3 id="step-title"></h3><p id="step-help" class="note"></p>
       <div id="review-lines"></div><div id="review-result" class="review-summary" hidden></div>
@@ -108,6 +108,7 @@ class ImprovedShoppingPurchases extends HTMLElement {
     root.querySelector('#detected-purchase-dialog').addEventListener('cancel',event=>{if(this._busy)event.preventDefault();});
     root.querySelector('#ticket-file').addEventListener('change',event=>{const file=event.target.files[0];event.target.value='';if(file)void this._upload(file);});
     root.querySelector('#review-form').addEventListener('submit',event=>{event.preventDefault();void this._advance();});
+    root.querySelector('#more-purchases').addEventListener('click',()=>{this._visiblePurchases+=10;this._render();});
     root.querySelector('#previous-step').addEventListener('click',()=>this._goToStep(this._step-1));
     root.querySelectorAll('#review-steps button').forEach((button,index)=>button.addEventListener('click',()=>this._goToStep(index)));
     root.querySelector('#links-only').addEventListener('click',()=>void this._saveLinks(true));
@@ -413,16 +414,20 @@ class ImprovedShoppingPurchases extends HTMLElement {
     message.textContent=text;message.hidden=!text;message.classList.toggle('error',Boolean(this._error||this._session.error));
     root.querySelector('#history').hidden=!this._history;root.querySelector('#empty').hidden=true;
     root.querySelector('#spending-chart').hidden=!this._history||!this._session.receipts.length;
+    root.querySelector('#more-purchases').hidden=true;
     if(!this._history)return;
     const period=this._renderSpendingChart();
+    const periodKey=period?period.start+':'+period.end:'';
+    if(this._purchasePeriod!==periodKey){this._purchasePeriod=periodKey;this._visiblePurchases=10;}
     const receipts=this._session.receipts.filter(receipt=>{
       const date=new Date(receipt.purchased_at),month=date.getFullYear()*12+date.getMonth();
       return period&&month>=period.start&&month<=period.end;
-    });
+    }).sort((a,b)=>new Date(b.purchased_at)-new Date(a.purchased_at));
     const empty=root.querySelector('#empty');
     empty.textContent=this._session.receipts.length?'No hay compras registradas en este periodo.':'Todavía no has subido ningún ticket.';
     empty.hidden=receipts.length>0||this._session.loading||Boolean(this._session.error);
-    root.querySelector('#history').replaceChildren(...receipts.map(receipt=>{
+    root.querySelector('#more-purchases').hidden=receipts.length<=this._visiblePurchases;
+    root.querySelector('#history').replaceChildren(...receipts.slice(0,this._visiblePurchases).map(receipt=>{
       const card=node('article','ticket'+(receipt.needs_details?' needs-details':''));card.dataset.id=receipt.id;
       const title=node('div','title');title.append(node('strong','',receipt.store_name+(receipt.document_type==='invoice'?' · Factura':'')),node('span','muted',documentDate(receipt)+(receipt.article_count==null?'':' · '+receipt.article_count+' artículos')));
       const open=this._button('Ver ticket de '+receipt.store_name+' del '+documentDate(receipt),'mdi:receipt-text',()=>receipt.summary_only?void this._reviewPending(receipt):this._openPurchaseDetail(receipt),'ticket-open'+(!receipt.summary_only?' reviewed':''));

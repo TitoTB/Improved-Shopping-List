@@ -2786,7 +2786,7 @@ async function main() {
     const nextPeriod=spending.getByRole('button',{name:'Mostrar seis meses siguientes',exact:true});
     assert.equal(await nextPeriod.isDisabled(),true);
     while(!await spending.locator('.month-column[data-month="2026-01"]').count())await previousPeriod.click();
-    assert.deepEqual(await spending.locator('#history .ticket').evaluateAll(cards=>cards.map(card=>card.dataset.id)),['before','j1','j2','j3','f1']);
+    assert.deepEqual(await spending.locator('#history .ticket').evaluateAll(cards=>cards.map(card=>card.dataset.id)),['before','f1','j3','j2','j1']);
     const jan=spending.locator('.month-column[data-month="2026-01"]'),feb=spending.locator('.month-column[data-month="2026-02"]');
     assert.equal(await jan.getAttribute('data-total'),'35.75');assert.equal(await feb.getAttribute('data-total'),'40');
     assert.equal(await jan.locator('[data-store="carrefour"]').getAttribute('data-amount'),'15.75');
@@ -2811,6 +2811,22 @@ async function main() {
     await spendingPage.screenshot({path:'test-results/purchases-monthly-chart-desktop.png',fullPage:true});
     await spendingPage.setViewportSize({width:390,height:844});await spendingPage.screenshot({path:'test-results/purchases-monthly-chart-mobile.png',fullPage:true});
     await firstPurchase.locator('.ticket-open').click();await spendingPage.screenshot({path:'test-results/purchase-detail-mobile.png',fullPage:true});
+    await purchaseDetail.getByRole('button',{name:'Cerrar ventana',exact:true}).click();
+    await spending.evaluate(panel=>{
+      const now=Date.now();
+      panel._session.receipts=Array.from({length:23},(_,index)=>({id:'page-'+index,store:'carrefour',store_name:'Carrefour',purchased_at:new Date(now-index*60000).toISOString(),total:1,lines:[]})).reverse();
+      panel._session.receipts.push({id:'old-page',store:'carrefour',store_name:'Carrefour',purchased_at:new Date(new Date().getFullYear()-1,0,1).toISOString(),total:1,lines:[]});
+      panel._render();
+    });
+    const morePurchases=spending.getByRole('button',{name:'Mostrar más',exact:true});
+    assert.equal(await spending.locator('#history .ticket').count(),10);
+    assert.equal(await spending.locator('#history .ticket').first().getAttribute('data-id'),'page-0');
+    await morePurchases.click();assert.equal(await spending.locator('#history .ticket').count(),20);
+    await morePurchases.click();assert.equal(await spending.locator('#history .ticket').count(),23);
+    assert.equal(await morePurchases.isVisible(),false);
+    await previousPeriod.click();assert.equal(await spending.locator('#history .ticket').count(),0);
+    await nextPeriod.click();assert.equal(await spending.locator('#history .ticket').count(),10);
+    assert.equal(await morePurchases.isVisible(),true);
     await spendingContext.close();
 
     // Store bindings persist without barcodes; all product-price UI reads use cache.

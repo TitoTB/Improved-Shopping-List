@@ -2,6 +2,8 @@
 
 ## Pendiente de publicación
 
+- Analítica → Compras muestra las diez compras más recientes del periodo seleccionado y permite cargar otras diez con «Mostrar más», sin limitar los datos de la gráfica.
+
 - La revisión de precios del ticket oculta el precio anterior cuando coincide con el nuevo, y el resumen final muestra «Precios actualizados».
 
 - La revisión del ticket propone como cantidad de reposición la configurada en Stock para cada producto, manteniendo la edición manual. Para productos sin stock usa la cantidad unitaria y las unidades del catálogo.

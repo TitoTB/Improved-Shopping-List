@@ -1,6 +1,6 @@
 # Historial de cambios
 
-## Pendiente de publicación
+## 0.29.0 — 2026-10-22
 
 - Revisión de tickets con nuevos textos de ayuda y productos delimitados en bloques. Stock se selecciona pulsando el bloque, sin botón lateral; Precios muestra la imagen y el nombre del catálogo y solo admite productos vinculados. Las coincidencias sugeridas por similitud requieren confirmación en Vinculación.
 

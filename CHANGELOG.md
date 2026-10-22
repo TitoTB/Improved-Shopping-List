@@ -2,6 +2,8 @@
 
 ## Pendiente de publicación
 
+- Stock y Compras dejan de mostrar confirmaciones de éxito al guardar vinculaciones de tickets; conservan errores e indicadores de carga.
+
 - Catálogo → Sugerencias: retirados el encabezado del mes y el texto de ausencia de productos de temporada al final de la vista.
 
 - Espaciado superior unificado: Catálogo y Ajustes dejan de sumar un margen adicional al relleno común de los apartados. Sus cabeceras usan la misma separación inferior que Stock.

@@ -89,7 +89,7 @@ class ImprovedShoppingPurchases extends HTMLElement {
   _setBusy(busy){this._busy=busy;this.dispatchEvent(new CustomEvent('receipt-busy',{detail:busy}));this.shadowRoot.querySelectorAll('dialog button,dialog input,dialog select').forEach(el=>{el.disabled=busy||el.dataset.locked==='true';});}
   async _upload(file){
     if(this._busy)return;
-    this._error='';this._notice='';
+    this._error='';
     if(!file.name.toLowerCase().endsWith('.pdf')||file.size>2*1024*1024){this._error='Sube un PDF de hasta 2 MB.';this._render();return;}
     this._setBusy(true);this._reading=true;this._render();
     try{
@@ -103,7 +103,7 @@ class ImprovedShoppingPurchases extends HTMLElement {
   _buildReview(){
     const root=this.shadowRoot,{receipt,products}=this._draft,used=new Set();
     root.querySelector('#review-summary').replaceChildren(node('strong','',receipt.store_name),node('span','',date(receipt.purchased_at)),node('strong','',money(receipt.total)));
-    this._step=0;this._notice='';
+    this._step=0;
     this._edits=receipt.lines.map(line=>{
       const product=products.find(p=>p.id===line.product_id&&!used.has(p.id));if(product)used.add(product.id);
       return {line,id:line.id,product_id:product?.id??'',search:product?.name??'',ignore:false,
@@ -279,7 +279,7 @@ class ImprovedShoppingPurchases extends HTMLElement {
     try{
       const options=await this._hass.callWS({type:'improved_shopping_list/receipts/link',token:this._draft.token,lines:this._edits.map(e=>({id:e.id,product_id:e.product_id}))});
       this._updateOptions(options);
-      if(only){this._notice='Vinculaciones guardadas. No se han modificado el stock ni los precios.';this.shadowRoot.querySelector('dialog').close();this._render();}
+      if(only){this.shadowRoot.querySelector('dialog').close();this._render();}
       else{this._step=1;this._renderStep();}
     }catch(error){this._errorMessage(error.message??'No se han podido guardar las vinculaciones.');}
     finally{this._setBusy(false);}
@@ -303,7 +303,7 @@ class ImprovedShoppingPurchases extends HTMLElement {
   _render(){
     if(!this._built)return;
     const root=this.shadowRoot,message=root.querySelector('#message');
-    const text=this._reading?'Leyendo ticket…':this._error||this._notice|| (this._history?this._session.error:'') || (this._history&&this._session.loading?'Cargando últimas compras…':'');
+    const text=this._reading?'Leyendo ticket…':this._error|| (this._history?this._session.error:'') || (this._history&&this._session.loading?'Cargando compras…':'');
     message.textContent=text;message.hidden=!text;message.classList.toggle('error',Boolean(this._error||this._session.error));
     root.querySelector('#history').hidden=!this._history;root.querySelector('#empty').hidden=!this._history||this._session.receipts.length>0||this._session.loading||Boolean(this._session.error);
     if(!this._history)return;

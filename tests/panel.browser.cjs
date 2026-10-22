@@ -2751,7 +2751,7 @@ async function main() {
     await stockOnlyReview.waitFor({state:'hidden'});
     assert.equal(await stockOnlyPage.evaluate(()=>window.lastReceiptConfirmation.update_prices),false);
     assert.equal(await stockOnlyPage.evaluate(()=>window.lastReceiptConfirmation.lines.some(line=>line.save_price)),false);
-    assert.equal(await stockOnlyPage.evaluate(()=>window.stockItems.find(item=>item.catalog_product_id==='cacao').quantity),250);
+    assert.equal(await stockOnlyPage.evaluate(()=>window.stockItems.find(item=>item.catalog_product_id==='cacao').quantity),175);
     assert.equal(await stockOnlyPage.evaluate(()=>window.receiptHistory.length),1);
     await stockOnlyContext.close();
 

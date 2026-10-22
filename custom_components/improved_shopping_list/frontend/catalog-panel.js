@@ -7,6 +7,7 @@ import { productNameKey } from "./product-names.js?v=0.26.0";
 export { productNameKey };
 
 export const normalizedName = value => String(value ?? "").normalize("NFKC").trim().replace(/\s+/g, " ").toLocaleLowerCase("es");
+const MONTHS = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
 const STORE_NAMES = {mercadona:"Mercadona",carrefour:"Carrefour",alcampo:"Alcampo",consum:"Consum",lasirena:"La Sirena",eroski:"Eroski",dia:"DIA"};
 
 function nutritionCodes(values) {
@@ -82,7 +83,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
     this._productOrder = "alphabetical";
     try { if (localStorage.getItem("isl-catalog-order") === "categories") this._productOrder = "categories"; } catch { /* Storage may be disabled. */ }
     this._groupBy = "category";
-    try { const grouping = localStorage.getItem("isl-catalog-grouping"); if (["nutriscore","linked"].includes(grouping)) this._groupBy = grouping; } catch { /* Storage may be disabled. */ }
+    try { const grouping = localStorage.getItem("isl-catalog-grouping"); if (["nutriscore","linked","suggestions"].includes(grouping)) this._groupBy = grouping; } catch { /* Storage may be disabled. */ }
     this._groupNutrition = new Map();
     this._pendingNames = new Set();
     this._listItems = [];
@@ -154,11 +155,17 @@ class ImprovedShoppingCatalog extends HTMLElement {
   connectedCallback() {
     if (!this._built) this._build();
     this._start();
+    this._lastSeasonMonth = this._seasonMonth();
+    this._seasonTimer = setInterval(() => {
+      const month = this._seasonMonth();
+      if (month !== this._lastSeasonMonth) { this._lastSeasonMonth = month; this._renderProducts(); }
+    }, 60000);
   }
 
   disconnectedCallback() {
     this._active = false; this._groupNutritionToken = null; this._groupNutritionLoading = false;
     this._stopCodeCapture();
+    clearInterval(this._seasonTimer);
     this._catalog.stop();
     this._started = false;
     this.shadowRoot.querySelectorAll("dialog").forEach(dialog => dialog.close());
@@ -329,10 +336,36 @@ class ImprovedShoppingCatalog extends HTMLElement {
         .code-capture-controls select { flex:1; min-width:140px; }
         .code-capture-controls button { display:flex; align-items:center; justify-content:center; gap:6px; min-height:44px; }
         .code-capture-controls ha-icon { width:20px; height:20px; --mdc-icon-size:20px; }
+
+        .season-criterion { display:flex; align-items:center; gap:14px; padding:24px; background:var(--card-background-color,#fff); font-weight:650; }
+        .season-criterion ha-icon { --mdc-icon-size:32px; width:32px; height:32px; }
+        .season-current-title { margin:24px 0 16px; }
+        .season-toolbar { display:flex; justify-content:flex-end; margin:20px 0; }
+        .season-toolbar button { display:flex; align-items:center; gap:8px; background:#d32f2f; color:#fff; border:0; }
+        .season-toolbar [aria-pressed=true] { background:#d32f2f; color:white; border-color:transparent; }
+        #season-calendar-dialog { width:min(960px,calc(100vw - 32px)); }
+        .season-calendar { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; }
+        .season-month { border:1px solid var(--divider-color,#dfe7e1); border-radius:12px; padding:12px; min-width:0; }
+        .season-month.current { border-color:var(--primary-color,#267052); }
+        .season-month-heading { display:flex; align-items:center; justify-content:space-between; gap:6px; margin-bottom:12px; }
+        .season-month h3 { font-size:16px; margin:0; }
+        .season-month-add { display:grid; place-items:center; width:32px; min-height:32px; padding:0; }
+        .season-month-products { display:flex; flex-wrap:wrap; gap:10px; }
+        .season-product { display:flex; flex-direction:column; align-items:center; gap:5px; width:66px; padding:0; border:0; font-size:11px; overflow-wrap:anywhere; }
+        .season-product:disabled { opacity:1; }
+        .season-product-circle { display:grid; place-items:center; background:#267052; color:#fff; border-radius:50%; width:52px; height:52px; flex:none; padding:9px; }
+        .season-product-circle img { width:100%; height:100%; object-fit:contain; }
+        .season-product-circle ha-icon { width:30px; height:30px; --mdc-icon-size:30px; }
+        .removing .season-product-circle { background:#d32f2f; }
+        .season-product-label { display:block; margin-top:22px; }
+        .season-month-options { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; margin:22px 0; border:1px solid var(--divider-color,#dfe7e1); border-radius:10px; padding:16px; }
+        .season-month-options label { display:flex; align-items:center; gap:8px; font-size:14px; }
+        .season-month-options input { width:18px; height:18px; margin:0; }
+        @media(max-width:650px) { .season-calendar { grid-template-columns:repeat(2,minmax(0,1fr)); } .season-month-options { grid-template-columns:repeat(2,minmax(0,1fr)); } }
       </style>
       <div class="heading"><h1>Catálogo</h1>
       <div class="catalog-toolbar">
-        <nav class="catalog-tabs" aria-label="Vistas del catálogo"><button id="view-products" aria-label="Productos" aria-pressed="true"><ha-icon icon="mdi:view-grid" aria-hidden="true"></ha-icon><span class="tab-label">Productos</span></button><button id="view-categories" aria-label="Categorías" aria-pressed="false"><ha-icon icon="mdi:label" aria-hidden="true"></ha-icon><span class="tab-label">Categorías</span></button><button id="view-suggestions" aria-label="Nuevos" aria-pressed="false"><ha-icon icon="mdi:creation" aria-hidden="true"></ha-icon><span class="tab-label">Nuevos</span></button></nav>
+        <nav class="catalog-tabs" aria-label="Vistas del catálogo"><button id="view-products" aria-label="Productos" aria-pressed="true"><ha-icon icon="mdi:view-grid" aria-hidden="true"></ha-icon><span class="tab-label">Productos</span></button><button id="view-categories" aria-label="Categorías" aria-pressed="false"><ha-icon icon="mdi:label" aria-hidden="true"></ha-icon><span class="tab-label">Categorías</span></button><button id="view-recommendations" aria-label="Sugerencias" aria-pressed="false"><ha-icon icon="mdi:calendar-star" aria-hidden="true"></ha-icon><span class="tab-label">Sugerencias</span></button><button id="view-suggestions" aria-label="Nuevos" aria-pressed="false"><ha-icon icon="mdi:creation" aria-hidden="true"></ha-icon><span class="tab-label">Nuevos</span></button></nav>
         <div class="catalog-tools"><button id="new-catalog-category" class="primary" type="button" aria-label="Nueva categoría" title="Nueva categoría" hidden><ha-icon icon="mdi:plus-thick"></ha-icon></button></div>
       </div>
       </div>
@@ -348,6 +381,12 @@ class ImprovedShoppingCatalog extends HTMLElement {
       <p id="catalog-empty" class="empty" hidden></p>
       </section>
       <isl-categories id="catalog-categories" embedded hidden></isl-categories>
+      <section id="recommendations-view" hidden>
+        <button id="open-seasonal" class="season-criterion" type="button"><ha-icon icon="mdi:calendar-month" aria-hidden="true"></ha-icon><span>Productos de temporada</span></button>
+        <h2 id="season-current-title" class="season-current-title"></h2>
+        <div id="season-current-products" class="grid"></div>
+        <p id="season-current-empty" class="helper"></p>
+      </section>
       <section id="suggestions-view" hidden>
         <p id="suggestions-source" class="helper"></p>
         <div id="suggestions-error" class="notice error" role="alert" hidden></div>
@@ -406,9 +445,22 @@ class ImprovedShoppingCatalog extends HTMLElement {
         <div id="link-code-search"></div><p id="link-code-selection" class="helper" role="status"></p>
         <div class="form-actions"><button id="cancel-link-code" type="button">Cancelar</button><button id="confirm-link-code" class="primary" type="button" disabled>Asignar</button></div>
       </dialog>
+      <dialog id="season-calendar-dialog" aria-labelledby="season-calendar-title">
+        <h2 id="season-calendar-title">Productos de temporada</h2>
+        <div class="season-toolbar"><button id="season-delete-mode" type="button" aria-pressed="false"><ha-icon icon="mdi:delete" aria-hidden="true"></ha-icon><span>Eliminar productos</span></button></div>
+        <div id="season-error" class="notice error" role="alert" hidden></div><div id="season-calendar" class="season-calendar"></div>
+      </dialog>
+      <dialog id="season-add-dialog" aria-labelledby="season-add-title">
+        <form id="season-add-form"><h2 id="season-add-title">Añadir producto de temporada</h2>
+          <label class="season-product-label">Producto del catálogo<input id="season-product-search" type="search" list="season-product-options" autocomplete="off" required placeholder="Buscar producto"><datalist id="season-product-options"></datalist></label>
+          <fieldset class="season-month-options"><legend>Meses de temporada</legend></fieldset>
+          <div id="season-add-error" class="notice error" role="alert" hidden></div>
+          <div class="form-actions"><button id="season-save" class="primary" type="submit">Añadir</button></div>
+        </form>
+      </dialog>
       <dialog id="catalog-grouping-dialog" aria-labelledby="catalog-grouping-title">
         <h2 id="catalog-grouping-title">Agrupar productos por</h2>
-        <div class="grouping-options"><button type="button" data-group-by="category" aria-pressed="true"><ha-icon icon="mdi:label" aria-hidden="true"></ha-icon>Categoría</button><button type="button" data-group-by="nutriscore" aria-pressed="false"><ha-icon icon="mdi:nutrition" aria-hidden="true"></ha-icon>Nutri-Score</button><button type="button" data-group-by="linked" aria-pressed="false"><ha-icon icon="mdi:store" aria-hidden="true"></ha-icon>Vinculados</button></div>
+        <div class="grouping-options"><button type="button" data-group-by="category" aria-pressed="true"><ha-icon icon="mdi:label" aria-hidden="true"></ha-icon>Categoría</button><button type="button" data-group-by="nutriscore" aria-pressed="false"><ha-icon icon="mdi:nutrition" aria-hidden="true"></ha-icon>Nutri-Score</button><button type="button" data-group-by="linked" aria-pressed="false"><ha-icon icon="mdi:store" aria-hidden="true"></ha-icon>Vinculados</button><button type="button" data-group-by="suggestions" aria-pressed="false"><ha-icon icon="mdi:calendar-star" aria-hidden="true"></ha-icon>Sugerencias</button></div>
       </dialog>`;
     this._built = true;
     const root = this.shadowRoot;
@@ -462,6 +514,14 @@ class ImprovedShoppingCatalog extends HTMLElement {
     root.querySelector("#new-product").addEventListener("click", () => this._openProduct());
     root.querySelector("#view-products").addEventListener("click", () => this._switchView("products"));
     root.querySelector("#view-categories").addEventListener("click", () => this._switchView("categories"));
+    root.querySelector("#view-recommendations").addEventListener("click", () => this._switchView("recommendations"));
+    root.querySelector("#open-seasonal").addEventListener("click", () => {
+      this._seasonRemoving = false; this._seasonError = ""; this._renderSeasonal();
+      root.querySelector("#season-calendar-dialog").showModal();
+    });
+    root.querySelector("#season-delete-mode").addEventListener("click", () => { this._seasonRemoving = !this._seasonRemoving; this._renderSeasonal(); });
+    root.querySelector("#season-add-form").addEventListener("submit", event => { event.preventDefault(); void this._saveSeasonal(); });
+    root.querySelector("#season-add-dialog").addEventListener("cancel", event => { if (this._seasonBusy) event.preventDefault(); });
     root.querySelector("#view-suggestions").addEventListener("click", () => this._switchView("suggestions"));
     root.querySelector("isl-categories").onSave = category => this._catalog.saveCategory(category);
     root.querySelector("isl-categories").onDelete = category => this._catalog.deleteCategory(category);
@@ -513,6 +573,8 @@ class ImprovedShoppingCatalog extends HTMLElement {
     root.querySelector("#new-product").hidden = view !== "products";
     root.querySelector("#new-catalog-category").hidden = view !== "categories";
     root.querySelector("isl-categories").hidden = view !== "categories";
+    root.querySelector("#recommendations-view").hidden = view !== "recommendations";
+    root.querySelector("#view-recommendations").setAttribute("aria-pressed", String(view === "recommendations"));
     root.querySelector("#suggestions-view").hidden = view !== "suggestions";
     root.querySelector("#view-products").setAttribute("aria-pressed", String(view === "products"));
     root.querySelector("#view-categories").setAttribute("aria-pressed", String(view === "categories"));
@@ -543,6 +605,105 @@ class ImprovedShoppingCatalog extends HTMLElement {
     this.dispatchEvent(new CustomEvent("catalog-change", {
       detail: { products: this._catalog.products, categories: this._catalog.categories },
     }));
+  }
+
+  _seasonMonth() {
+    try { return Number(new Intl.DateTimeFormat("en", {month:"numeric", timeZone:this._hass?.config?.time_zone}).format(new Date())); }
+    catch { return new Date().getMonth() + 1; }
+  }
+
+  _renderSeasonal() {
+    if (!this._built) return;
+    const root = this.shadowRoot, month = this._seasonMonth();
+    const products = [...this._catalog.products].sort((a,b)=>a.name.localeCompare(b.name,"es",{sensitivity:"base"}));
+    const current = products.filter(product=>(product.season_months??[]).includes(month));
+    root.querySelector("#season-current-title").textContent = "Productos de temporada · " + MONTHS[month-1];
+    const grid = root.querySelector("#season-current-products");
+    grid.classList.toggle("rows", this._productLayout === "rows");
+    grid.replaceChildren(...current.map(product=>this._productCard(product)));
+    const empty = root.querySelector("#season-current-empty");
+    empty.hidden = current.length > 0;
+    empty.textContent = "No hay productos de temporada para este mes. Puedes asignarlos en el calendario.";
+    const toggle = root.querySelector("#season-delete-mode");
+    toggle.setAttribute("aria-pressed", String(Boolean(this._seasonRemoving)));
+    toggle.disabled = Boolean(this._seasonBusy) || !this._hass?.user?.is_admin;
+    toggle.querySelector("span").textContent = this._seasonRemoving ? "Terminar de eliminar" : "Eliminar productos";
+    const error = root.querySelector("#season-error");
+    error.hidden = !this._seasonError; error.textContent = this._seasonError || "";
+    const calendar = root.querySelector("#season-calendar");
+    const focused = calendar.contains(root.activeElement) ? root.activeElement?.dataset.seasonKey : null;
+    calendar.classList.toggle("removing", Boolean(this._seasonRemoving));
+    calendar.replaceChildren(...MONTHS.map((name,index)=>{
+      const number = index+1, section = element("section","season-month"), header = element("div","season-month-heading");
+      section.dataset.month = number; section.classList.toggle("current", month === number);
+      const add = iconButton("mdi:plus-thick", "Añadir producto a " + name, "season-month-add");
+      add.dataset.seasonKey = "add-" + number;
+      add.disabled = Boolean(this._seasonBusy || this._catalog.loading) || !this._hass?.user?.is_admin || !products.length;
+      add.addEventListener("click",()=>this._openSeasonAdd(number));
+      header.append(element("h3","",name),add);
+      const items = element("div","season-month-products");
+      for (const product of products.filter(product=>(product.season_months??[]).includes(number))) {
+        const button = element("button","season-product"); button.type = "button";
+        button.dataset.seasonKey = product.id + "-" + number;
+        button.setAttribute("aria-label", (this._seasonRemoving ? "Eliminar " : "") + product.name + " de " + name);
+        button.disabled = !this._seasonRemoving || Boolean(this._seasonBusy) || !this._hass?.user?.is_admin;
+        const circle = element("span","season-product-circle"), icon = element("ha-icon");
+        const category = this._catalog.categories.find(item=>normalizedName(item.name)===normalizedName(product.category));
+        icon.setAttribute("icon",product.icon || category?.icon || "mdi:shopping"); icon.setAttribute("aria-hidden","true");
+        const source = imageSource(product.image_url);
+        if (source) {
+          const image = element("img"); image.src=source; image.alt=""; image.loading="lazy"; image.referrerPolicy="no-referrer";
+          image.addEventListener("error",()=>image.replaceWith(icon),{once:true}); circle.append(image);
+        } else circle.append(icon);
+        button.append(circle,element("span","",product.name));
+        button.addEventListener("click",()=>void this._removeSeasonal(product.id,number)); items.append(button);
+      }
+      section.append(header,items); return section;
+    }));
+    if (focused) [...calendar.querySelectorAll("[data-season-key]")].find(node=>node.dataset.seasonKey===focused)?.focus();
+  }
+
+  _openSeasonAdd(month) {
+    const root = this.shadowRoot;
+    root.querySelector("#season-add-form").reset();
+    root.querySelector("#season-add-error").hidden = true;
+    const options = root.querySelector("#season-product-options");
+    options.replaceChildren(...this._catalog.products.map(product=>new Option(product.name,product.name)));
+    const months = root.querySelector(".season-month-options");
+    months.querySelectorAll("label").forEach(label=>label.remove());
+    MONTHS.forEach((name,index)=>{
+      const label = element("label"), checkbox = element("input");
+      checkbox.type="checkbox"; checkbox.name="season_month"; checkbox.value=index+1; checkbox.checked=index+1===month;
+      label.append(checkbox,document.createTextNode(name)); months.append(label);
+    });
+    root.querySelector("#season-add-dialog").showModal(); root.querySelector("#season-product-search").focus();
+  }
+
+  async _saveSeasonal() {
+    if (this._seasonBusy) return;
+    const root = this.shadowRoot, error = root.querySelector("#season-add-error");
+    const name = productNameKey(root.querySelector("#season-product-search").value);
+    const matches = this._catalog.products.filter(product=>productNameKey(product.name)===name);
+    const months = [...root.querySelectorAll('[name="season_month"]:checked')].map(input=>Number(input.value));
+    if (matches.length !== 1 || !months.length) {
+      error.textContent = matches.length !== 1 ? "Selecciona un producto del catálogo." : "Selecciona al menos un mes.";
+      error.hidden = false; return;
+    }
+    this._seasonBusy = true; root.querySelector("#season-save").disabled = true;
+    this._renderSeasonal();
+    try {
+      await this._catalog.setSeasonMonths(matches[0].id,months,true);
+      root.querySelector("#season-add-dialog").close();
+    } catch (err) { error.textContent = err.message || "No se ha podido guardar la temporada."; error.hidden = false; }
+    finally { this._seasonBusy=false; root.querySelector("#season-save").disabled=false; this._renderSeasonal(); }
+  }
+
+  async _removeSeasonal(productId, month) {
+    if (this._seasonBusy || !this._seasonRemoving) return;
+    this._seasonBusy=true; this._seasonError=""; this._renderSeasonal();
+    try { await this._catalog.setSeasonMonths(productId,[month],false); }
+    catch (err) { this._seasonError=err.message || "No se ha podido quitar el producto de este mes."; }
+    finally { this._seasonBusy=false; this._renderSeasonal(); }
   }
 
   _renderSuggestions() {
@@ -906,7 +1067,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
     const grouped = this._productOrder === "categories", grid = root.querySelector("#catalog-grid");
     grid.classList.toggle("rows", rows);
     grid.classList.toggle("grouped", grouped);
-    const orderToggle = root.querySelector("#toggle-catalog-order"), orderLabel = grouped ? "Ordenar alfabéticamente" : this._groupBy === "linked" ? "Agrupar por vinculaciones" : this._groupBy === "nutriscore" ? "Agrupar por Nutri-Score" : "Agrupar por categorías";
+    const orderToggle = root.querySelector("#toggle-catalog-order"), orderLabel = grouped ? "Ordenar alfabéticamente" : this._groupBy === "suggestions" ? "Agrupar por sugerencias" : this._groupBy === "linked" ? "Agrupar por vinculaciones" : this._groupBy === "nutriscore" ? "Agrupar por Nutri-Score" : "Agrupar por categorías";
     root.querySelector("#configure-catalog-grouping").hidden = !grouped;
     for (const button of root.querySelectorAll("[data-group-by]")) button.setAttribute("aria-pressed",String(button.dataset.groupBy === this._groupBy));
     orderToggle.setAttribute("aria-label", orderLabel); orderToggle.title = orderLabel;
@@ -922,6 +1083,11 @@ class ImprovedShoppingCatalog extends HTMLElement {
       const categories = new Map(this._catalog.categories.map(category => [normalizedName(category.name),category.name]));
       const groups = new Map();
       for (const product of products) {
+        if (this._groupBy === "suggestions") {
+          const key = (product.season_months ?? []).includes(this._seasonMonth()) ? "season" : "";
+          if (!groups.has(key)) groups.set(key,{key,name:key ? "Productos de temporada" : "Sin sugerencias",products:[]});
+          groups.get(key).products.push(product); continue;
+        }
         if (this._groupBy === "linked") {
           const stores = Object.entries(product.store_links ?? {}).filter(([store,reference]) =>
             STORE_NAMES[store] && (typeof reference === "string" ? reference.trim() : reference?.url || reference?.id)).map(([store])=>store);
@@ -949,6 +1115,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
     const empty = root.querySelector("#catalog-empty");
     empty.hidden = products.length > 0 || this._catalog.loading || Boolean(this._catalog.error);
     empty.textContent = this._catalog.products.length ? "No hay productos que coincidan con estos filtros." : "Tu catálogo empieza aquí. Añade el primer producto para tenerlo a mano en tu próxima compra.";
+    this._renderSeasonal();
     void this._loadGroupedNutrition(products);
   }
 

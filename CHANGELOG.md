@@ -2,6 +2,9 @@
 
 ## Pendiente de publicación
 
+- Nueva vista Sugerencias en el catálogo: calendario de productos de temporada, asignación a varios meses y eliminación por mes.
+- Sugerencias del mes actual listas para añadir a la compra y nuevo criterio de agrupación Sugerencias.
+
 - Cantidades de compra por entrada y lista: valor predeterminado de 1, unidades, cantidad unitaria y paso configurables en la ficha del catálogo. Triángulo verde personalizable en cuadrícula y badge de cantidad con controles +/− en filas. Las cantidades se guardan localmente sin modificar el nombre ni las notas del proveedor todo, se incluyen en los importes estimados y reponen únicamente los productos ya presentes en Stock cuando coinciden las unidades.
 
 - Quince entidades nativas de Home Assistant: datos de la lista principal y estimación de compra por cobertura de tienda, catálogo, categorías, stock bajo, último ticket, lectores y tiendas. Incluye interruptor, frecuencia y hora para la actualización de precios, y sensor binario del consentimiento comunitario. Se actualizan con datos locales y comparten los mismos ajustes que el panel.

@@ -317,10 +317,19 @@ const hass={
       window.catalogProducts=window.catalogProducts.map(product=>product.category===category.name?{...product,category:'',revision:product.revision+1}:product);
       window.catalogCategories=window.catalogCategories.filter(item=>item.id!==category.id);emitCatalog();return {};
     }
+    if(msg.type==='improved_shopping_list/catalog/season_months'){
+      if(window.failCatalog)throw new Error('No se ha podido guardar la temporada');
+      const product=window.catalogProducts.find(product=>product.id===msg.product_id);
+      if(!product)throw new Error('El producto ya no existe');
+      const months=new Set(product.season_months??[]);
+      for(const month of msg.months)msg.enabled?months.add(month):months.delete(month);
+      product.season_months=[...months].sort((a,b)=>a-b);product.revision++;
+      emitCatalog();return {product:structuredClone(product)};
+    }
     if(msg.type==='improved_shopping_list/catalog/save'){
       if(window.failCatalog)throw new Error('No se ha podido guardar el catálogo');
       const old=window.catalogProducts.find(product=>product.id===msg.product.id);
-      const product={...msg.product,id:old?.id??crypto.randomUUID(),revision:(old?.revision??0)+1,price_updated_at:new Date().toISOString()};
+      const product={...msg.product,season_months:old?.season_months??[],id:old?.id??crypto.randomUUID(),revision:(old?.revision??0)+1,price_updated_at:new Date().toISOString()};
       product.name_en=product.name==='Leche'?'Milk':'';
       delete product.brand;delete product.format;
       window.catalogProducts=window.catalogProducts.filter(item=>item.id!==product.id);window.catalogProducts.push(product);
@@ -452,7 +461,7 @@ async function main() {
       };
       visit(document);
       return dialogs.filter(dialog => dialog.querySelectorAll(".isl-dialog-close[aria-label='Cerrar ventana']").length === 1).length;
-    }), 26);
+    }), 28);
     await page.getByRole("button", { name: "Seleccionar lista", exact: true }).click();
     const listDialog = page.getByRole("dialog", { name: "Seleccionar lista", exact: true });
     assert.equal(await listDialog.getByRole("button", { name: "Compra · Bring!", exact: true }).getAttribute("aria-pressed"), "true");
@@ -919,7 +928,7 @@ async function main() {
             await catalog.locator(`#view-${tab}`).click();
             assert.equal(await catalog.locator(".catalog-tabs .tab-label:visible").count(),1);
             assert.equal(await catalog.locator(`#view-${tab} .tab-label`).isVisible(),true);
-            assert.equal(await catalog.locator(".catalog-tabs ha-icon:visible").count(),3);
+            assert.equal(await catalog.locator(".catalog-tabs ha-icon:visible").count(),4);
             assert.ok(await catalog.locator(".catalog-toolbar").evaluate(toolbar=>{
               const tabs=toolbar.querySelector(".catalog-tabs");
               const bounds=toolbar.getBoundingClientRect();
@@ -945,7 +954,7 @@ async function main() {
     assert.equal(await page.locator(".brand-copy").isVisible(), true);
     assert.equal(await page.locator(".section-nav .nav-label:visible").count(), 4);
     await page.getByRole("button",{name:"Catálogo",exact:true}).click();
-    assert.equal(await catalog.locator(".catalog-tabs .tab-label:visible").count(),3);
+    assert.equal(await catalog.locator(".catalog-tabs .tab-label:visible").count(),4);
     await page.getByRole("button",{name:"Lista",exact:true}).click();
     await page.setViewportSize({ width:390, height:844 });
     await page.getByRole("button", { name: "Abrir menú de Home Assistant" }).click();
@@ -2789,6 +2798,64 @@ async function main() {
     assert.equal(await renameSuggestions.locator("h2").count(),0);
     await renameContext.close();
     // Category grouping sorts headings and products, preserves searching, layouts and user preference.
+    const seasonContext=await browser.newContext({viewport:{width:1280,height:960}});
+    const seasonPage=await seasonContext.newPage();
+    seasonPage.on('pageerror',error=>errors.push(error.message));
+    await seasonPage.addInitScript(()=>{
+      if(localStorage.getItem('season-fixture'))return;
+      localStorage.setItem('season-fixture','1');
+      localStorage.setItem('catalog-fixture',JSON.stringify(['Fresas','Calabaza'].map((name,index)=>({id:'season-'+index,revision:1,name,category:'',tags:[],price:null,currency:'EUR',barcode:'',barcodes:[],nfc_tags:[],reader_actions:{},image_url:'/logo.png',icon:'',notes:''}))));
+    });
+    await seasonPage.goto(url);
+    await seasonPage.getByRole('button',{name:'Catálogo',exact:true}).click();
+    const seasonCatalog=seasonPage.locator('isl-catalog');
+    assert.deepEqual(await seasonCatalog.locator('.catalog-tabs .tab-label').allTextContents(),['Productos','Categorías','Sugerencias','Nuevos']);
+    await seasonCatalog.getByRole('button',{name:'Sugerencias',exact:true}).click();
+    await seasonCatalog.getByRole('button',{name:'Productos de temporada',exact:true}).click();
+    const calendar=seasonCatalog.locator('#season-calendar-dialog');
+    assert.equal(await calendar.locator('.season-month').count(),12);
+    await calendar.getByRole('button',{name:'Añadir producto a Enero',exact:true}).click();
+    const seasonForm=seasonCatalog.locator('#season-add-dialog');
+    await seasonForm.getByLabel('Producto del catálogo',{exact:true}).fill('Fresas');
+    await seasonForm.getByLabel('Marzo',{exact:true}).check();
+    await seasonForm.getByLabel('Diciembre',{exact:true}).check();
+    const currentMonth=await seasonCatalog.evaluate(node=>node._seasonMonth());
+    await seasonForm.locator('input[name=season_month][value="'+currentMonth+'"]').check();
+    await seasonForm.getByRole('button',{name:'Añadir',exact:true}).click();
+    await seasonForm.waitFor({state:'hidden'});
+    await calendar.locator('.season-month[data-month="1"] .season-product').waitFor();
+    assert.equal(await calendar.locator('.season-month[data-month="1"] .season-product-circle').evaluate(node=>getComputedStyle(node).backgroundColor),'rgb(38, 112, 82)');
+    await calendar.getByRole('button',{name:'Eliminar productos',exact:true}).click();
+    assert.equal(await calendar.locator('.season-month[data-month="1"] .season-product-circle').evaluate(node=>getComputedStyle(node).backgroundColor),'rgb(211, 47, 47)');
+    await calendar.getByRole('button',{name:'Eliminar Fresas de Enero',exact:true}).click();
+    await seasonPage.waitForFunction(()=>!window.catalogProducts.find(p=>p.name==='Fresas').season_months.includes(1));
+    assert.ok(await seasonPage.evaluate(()=>window.catalogProducts.find(p=>p.name==='Fresas').season_months.includes(3)));
+    // Add the current month again in case the browser date happens to be January.
+    await seasonPage.evaluate(async month=>window.testPanel._hass.callWS({type:'improved_shopping_list/catalog/season_months',product_id:'season-0',months:[month],enabled:true}),currentMonth);
+    await calendar.getByRole('button',{name:'Cerrar ventana',exact:true}).click();
+    await seasonCatalog.locator('#season-current-products .product').waitFor();
+    await seasonCatalog.locator('#season-current-products').getByRole('button',{name:'Añadir Fresas a la lista',exact:true}).click();
+    await seasonPage.waitForFunction(()=>window.listData['todo.bring'].some(item=>item.summary==='Fresas'));
+    await seasonCatalog.getByRole('button',{name:'Productos de temporada',exact:true}).click();
+    await seasonPage.screenshot({path:'test-results/season-calendar-desktop.png',fullPage:true});
+    for(const width of [390,320]){
+      await seasonPage.setViewportSize({width,height:844});
+      assert.ok(await calendar.evaluate(node=>node.scrollWidth<=node.clientWidth+1));
+      await seasonPage.screenshot({path:'test-results/season-calendar-'+width+'.png',fullPage:true});
+    }
+    await calendar.getByRole('button',{name:'Cerrar ventana',exact:true}).click();
+    await seasonCatalog.getByRole('button',{name:'Productos',exact:true}).click();
+    await seasonCatalog.locator('#toggle-catalog-order').click();
+    await seasonCatalog.getByRole('button',{name:'Cambiar criterio de agrupación',exact:true}).click();
+    await seasonCatalog.locator('#catalog-grouping-dialog').getByRole('button',{name:'Sugerencias',exact:true}).click();
+    assert.deepEqual(await seasonCatalog.locator('#catalog-grid .category-group-title').allTextContents(),['Productos de temporada','Sin sugerencias']);
+    await seasonPage.reload();
+    await seasonPage.getByRole('button',{name:'Catálogo',exact:true}).click();
+    await seasonCatalog.locator('#catalog-grid .category-group').nth(1).waitFor();
+    assert.deepEqual(await seasonCatalog.locator('#catalog-grid .category-group-title').allTextContents(),['Productos de temporada','Sin sugerencias']);
+    assert.equal(await seasonPage.evaluate(()=>window.calls.some(call=>/nutriscore|refresh_prices/.test(call.type??''))),false);
+    await seasonContext.close();
+
     const groupingContext=await browser.newContext({viewport:{width:1280,height:960}});
     const groupingPage=await groupingContext.newPage();
     groupingPage.on('pageerror',error=>errors.push(error.message));

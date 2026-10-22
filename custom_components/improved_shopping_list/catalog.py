@@ -368,6 +368,7 @@ class Catalog:
                 if any(item["id"] != product_id and keys.intersection(code_key(kind, value) for value in product_codes(item, kind) if value)
                        for item in self._products.values()):
                     raise CatalogError("Ya existe un producto con uno de esos códigos.", "duplicate_barcode" if kind == "barcode" else "duplicate_nfc")
+            product["season_months"] = list((current or {}).get("season_months", []))
             # Translation is server-owned metadata; old clients cannot erase it.
             product["community_fields"] = deepcopy((current or {}).get("community_fields", {}))
             community = getattr(self, "community", None)
@@ -422,6 +423,26 @@ class Catalog:
                 "recurrence_started_at":datetime.fromtimestamp(anchor,UTC).isoformat() if recurrence["enabled"] else None,
                 "revision":revision+1, "updated_at":datetime.now(UTC).isoformat()}
             await self._persist({**self._products, product_id:product}, self._categories)
+        self._notify()
+        return deepcopy(product)
+
+    async def async_set_season_months(self, product_id: str, months: list[int], enabled: bool) -> dict:
+        """Atomically associate a product with months without overwriting other edits."""
+        if (not isinstance(months, list) or not 1 <= len(months) <= 12
+            or any(type(month) is not int or not 1 <= month <= 12 for month in months)
+            or type(enabled) is not bool):
+            raise CatalogError("Selecciona uno o varios meses válidos.")
+        async with self._lock:
+            current = self._products.get(product_id)
+            if current is None:
+                raise CatalogError("El producto ya no existe.", "not_found")
+            previous = set(current.get("season_months", []))
+            updated = sorted(previous.union(months) if enabled else previous.difference(months))
+            if updated == sorted(previous):
+                return deepcopy(current)
+            product = {**deepcopy(current), "season_months": updated,
+                       "revision": current["revision"] + 1, "updated_at": datetime.now(UTC).isoformat()}
+            await self._persist({**self._products, product_id: product}, self._categories)
         self._notify()
         return deepcopy(product)
 

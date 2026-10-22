@@ -433,3 +433,74 @@ async def test_category_names_are_unique_and_dangling_assignments_rejected(hass)
         await catalog.async_save_category({"name": "despensa"})
     with pytest.raises(CatalogError, match="categoría ya no existe"):
         await catalog.async_save_product({"name": "Cacao", "category": "Eliminada"})
+
+
+async def test_seasonal_months_are_atomic_durable_and_preserved_by_product_edits(hass, product_translation):
+    catalog = Catalog(hass)
+    await catalog.async_load()
+    product = await catalog.async_save_product({"name": "Fresas"})
+    product_translation.reset_mock()
+    await asyncio.gather(
+        catalog.async_set_season_months(product["id"], [1, 3], True),
+        catalog.async_set_season_months(product["id"], [3, 12], True),
+    )
+    current = catalog.products[0]
+    assert current["season_months"] == [1, 3, 12]
+    revision = current["revision"]
+    same = await catalog.async_set_season_months(product["id"], [3, 3], True)
+    assert same["revision"] == revision
+    removed = await catalog.async_set_season_months(product["id"], [1], False)
+    assert removed["season_months"] == [3, 12]
+    product_translation.assert_not_awaited()
+    edited = await catalog.async_save_product(editable(removed, name="Fresa"))
+    assert edited["season_months"] == [3, 12]
+    restored = Catalog(hass)
+    await restored.async_load()
+    assert restored.products[0]["season_months"] == [3, 12]
+    await restored.async_delete_product(edited["id"], edited["revision"])
+    with pytest.raises(CatalogError, match="ya no existe"):
+        await restored.async_set_season_months(edited["id"], [3], True)
+
+
+@pytest.mark.parametrize("months", [[], [0], [13], [True], [1.0], ["1"], None, list(range(13))])
+async def test_seasonal_month_validation(hass, months):
+    catalog = Catalog(hass)
+    await catalog.async_load()
+    product = await catalog.async_save_product({"name": "Fresas"})
+    with pytest.raises(CatalogError, match="meses válidos"):
+        await catalog.async_set_season_months(product["id"], months, True)
+    assert catalog.products[0]["season_months"] == []
+
+
+async def test_seasonal_storage_failure_does_not_publish_partial_changes(hass, monkeypatch):
+    catalog = Catalog(hass)
+    await catalog.async_load()
+    product = await catalog.async_save_product({"name": "Fresas"})
+    notifications = []
+    catalog.subscribe(lambda: notifications.append(True))
+    before = catalog.snapshot
+    monkeypatch.setattr(catalog._store, "async_save", AsyncMock(side_effect=OSError("Disk full")))
+    with pytest.raises(OSError):
+        await catalog.async_set_season_months(product["id"], [1, 2], True)
+    assert catalog.snapshot == before
+    assert notifications == []
+
+
+async def test_seasonal_websocket_updates_subscribers_and_validates_months(hass, hass_ws_client):
+    entry = MockConfigEntry(domain=DOMAIN, data={CONF_TODO_ENTITY: "todo.bring"})
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    catalog = hass.data[DOMAIN]["catalog"]
+    product = await catalog.async_save_product({"name": "Fresas"})
+    client = await hass_ws_client(hass)
+    await client.send_json({"id": 1, "type": f"{DOMAIN}/catalog/subscribe"})
+    assert (await client.receive_json())["success"]
+    await client.receive_json()
+    await client.send_json({"id": 2, "type": f"{DOMAIN}/catalog/season_months",
+                            "product_id": product["id"], "months": [3, 4], "enabled": True})
+    messages = [await client.receive_json(), await client.receive_json()]
+    assert next(message for message in messages if message["id"] == 2)["result"]["product"]["season_months"] == [3, 4]
+    assert next(message for message in messages if message["id"] == 1)["event"]["products"][0]["season_months"] == [3, 4]
+    await client.send_json({"id": 3, "type": f"{DOMAIN}/catalog/season_months",
+                            "product_id": product["id"], "months": [False], "enabled": True})
+    assert (await client.receive_json())["error"]["code"] == "invalid_product"

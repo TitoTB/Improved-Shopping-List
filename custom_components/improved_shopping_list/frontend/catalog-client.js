@@ -71,6 +71,12 @@ export class CatalogSession {
     return result.product;
   }
 
+  async setSeasonMonths(productId, months, enabled) {
+    const generation = this._generation;
+    await this.getHass().callWS({type: `${PREFIX}season_months`, product_id: productId, months, enabled});
+    if (generation === this._generation) await this.refresh();
+  }
+
   async saveCategory(category) {
     const generation = this._generation;
     const result = await this.getHass().callWS({ type: `${PREFIX}category/save`, category });

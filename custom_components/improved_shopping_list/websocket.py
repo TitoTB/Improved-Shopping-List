@@ -50,6 +50,7 @@ def async_register_commands(hass: HomeAssistant) -> None:
         websocket_api.async_register_command(hass, command)
     websocket_api.async_register_command(hass, ws_catalog_subscribe)
     websocket_api.async_register_command(hass, ws_catalog_save)
+    websocket_api.async_register_command(hass, ws_season_months)
     websocket_api.async_register_command(hass, ws_catalog_delete)
     websocket_api.async_register_command(hass, ws_category_save)
     websocket_api.async_register_command(hass, ws_category_delete)
@@ -751,6 +752,27 @@ async def ws_catalog_save(hass: HomeAssistant, connection, msg: dict[str, Any]) 
     except (OSError, HomeAssistantError):
         _LOGGER.exception("Could not persist catalog product")
         connection.send_error(msg["id"], "storage_error", "No se ha podido guardar el catálogo. Inténtalo de nuevo.")
+    else:
+        connection.send_result(msg["id"], {"product": product})
+
+
+@websocket_api.websocket_command({
+    vol.Required("type"): f"{DOMAIN}/catalog/season_months",
+    vol.Required("product_id"): str, vol.Required("months"): list,
+    vol.Required("enabled"): bool,
+})
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_season_months(hass, connection, msg):
+    if not (catalog := _catalog(hass, connection, msg)):
+        return
+    try:
+        product = await catalog.async_set_season_months(msg["product_id"], msg["months"], msg["enabled"])
+    except CatalogError as err:
+        connection.send_error(msg["id"], err.code, str(err))
+    except (OSError, HomeAssistantError):
+        _LOGGER.exception("Could not persist seasonal products")
+        connection.send_error(msg["id"], "storage_error", "No se han podido guardar los productos de temporada.")
     else:
         connection.send_result(msg["id"], {"product": product})
 

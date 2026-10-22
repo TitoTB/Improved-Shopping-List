@@ -1,6 +1,6 @@
 # Historial de cambios
 
-## Pendiente de publicación
+## 0.33.0 — 2026-10-22
 
 - Alcampo incorpora búsqueda optativa por nombres comerciales de otras tiendas y confirmación por EAN exacto, con dos búsquedas y tres candidatos por búsqueda. Vinculaciones manuales conservadas, cola persistente de cinco minutos y pausas crecientes ante bloqueos.
 - Alcampo permite distribuir la actualización de todas las referencias vinculadas durante un periodo configurable de 30 días por defecto. Opciones con el estilo de Carrefour; los precios comunitarios siguen deshabilitados.

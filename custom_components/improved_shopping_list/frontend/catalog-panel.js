@@ -337,6 +337,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
         .season-criterion { display:flex; align-items:center; gap:14px; padding:24px; background:var(--card-background-color,#fff); font-weight:650; }
         .season-criterion ha-icon { --mdc-icon-size:32px; width:32px; height:32px; }
         .season-current-title { margin:24px 0 16px; }
+        #season-current-products:not(:empty) { margin-top:24px; }
         .season-toolbar { display:flex; justify-content:flex-end; margin:20px 0; }
         .season-toolbar button { display:flex; align-items:center; gap:8px; background:#d32f2f; color:#fff; border:0; }
         .season-toolbar [aria-pressed=true] { background:#d32f2f; color:white; border-color:transparent; }
@@ -380,9 +381,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
       <section id="recipes-view" hidden><div id="recipe-status" class="notice error" role="alert" hidden></div><div id="recipe-grid" class="grid"></div><p id="recipe-empty" class="helper">Crea una receta y selecciona sus ingredientes del catálogo.</p></section>
       <section id="recommendations-view" hidden>
         <div class="recommendation-criteria"><button id="open-seasonal" class="season-criterion" type="button"><ha-icon icon="mdi:calendar-month" aria-hidden="true"></ha-icon><span>Productos de temporada</span></button><div id="recommendation-category-cards" class="recommendation-category-cards"></div></div>
-        <h2 id="season-current-title" class="season-current-title"></h2>
         <div id="season-current-products" class="grid"></div>
-        <p id="season-current-empty" class="helper"></p>
         <div id="recommendation-category-products"></div>
         <isl-categories id="recommendation-category-editor" editor-only product-assignment></isl-categories>
       </section>
@@ -670,13 +669,9 @@ class ImprovedShoppingCatalog extends HTMLElement {
     const root = this.shadowRoot, month = this._seasonMonth();
     const products = this._seasonEntries().sort((a,b)=>a.name.localeCompare(b.name,"es",{sensitivity:"base"}));
     const current = products.filter(product=>(product.season_months??[]).includes(month));
-    root.querySelector("#season-current-title").textContent = "Productos de temporada · " + MONTHS[month-1];
     const grid = root.querySelector("#season-current-products");
     grid.classList.toggle("rows", this._productLayout === "rows");
     grid.replaceChildren(...current.map(product=>product._kind === "recipe" ? this._recipeCard(product) : this._productCard(product)));
-    const empty = root.querySelector("#season-current-empty");
-    empty.hidden = current.length > 0;
-    empty.textContent = "No hay productos de temporada para este mes. Puedes asignarlos en el calendario.";
     const toggle = root.querySelector("#season-delete-mode");
     toggle.setAttribute("aria-pressed", String(Boolean(this._seasonRemoving)));
     toggle.disabled = Boolean(this._seasonBusy) || !this._hass?.user?.is_admin;

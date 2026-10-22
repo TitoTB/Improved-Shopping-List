@@ -2,6 +2,8 @@
 
 ## Pendiente de publicación
 
+- Catálogo → Sugerencias: retirados el encabezado del mes y el texto de ausencia de productos de temporada al final de la vista.
+
 - Espaciado superior unificado: Catálogo y Ajustes dejan de sumar un margen adicional al relleno común de los apartados. Sus cabeceras usan la misma separación inferior que Stock.
 
 - Lista en filas: cantidad, unidades y botones de restar/sumar reunidos en un badge horizontal, con iconos thick. Se mantienen los pasos configurados, permisos y el color personalizable.

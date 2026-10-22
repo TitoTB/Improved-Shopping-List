@@ -2,6 +2,8 @@
 
 ## Pendiente de publicación
 
+- Revisión de tickets: dos productos por fila en Vinculación, Stock y Precios. El nombre del catálogo aparece debajo del nombre del ticket; Stock muestra imágenes y sitúa primero los productos registrados, con el resto plegado en «Productos sin stock registrado». Precios se selecciona pulsando el bloque, con fondo verde y el precio anterior tachado cuando existe.
+
 - Las recetas esperan la confirmación del proveedor de listas y solicitan refrescos acotados si todavía falta el ingrediente o su identificador, sin repetir la llamada de alta. El diagnóstico identifica el ingrediente, la fase y las comprobaciones realizadas si la receta queda incompleta.
 
 - Lista muestra los nombres de Compras recientes sin tachado, tanto en cuadrícula como en filas.

@@ -38,7 +38,7 @@ window.quantityEntries=JSON.parse(localStorage.getItem('quantity-fixture')??'{}'
 window.emitQuantities=()=>{localStorage.setItem('quantity-fixture',JSON.stringify(window.quantityEntries));for(const listener of listeners.keys())if(listener.quantities)listener.callback({entries:structuredClone(window.quantityEntries)});};
 window.receiptHistory=JSON.parse(localStorage.getItem('receipt-fixture')??'[]');
 window.receiptLinks=[];
-const receiptOptions=()=>({products:[...new Map([{id:'cacao',name:'Seitán',unit:'g',image_url:'/local/receipt-seitan.svg',icon:'mdi:food',stock_id:'s1',revision:1},...window.catalogProducts.filter(p=>p.id!=='cacao').map(p=>({id:p.id,name:p.name,image_url:p.image_url??'',icon:p.icon??'',unit:'uds',stock_id:'',revision:0}))].map(p=>[p.id,p])).values()],purchases:[]});
+const receiptOptions=()=>({products:[...new Map([{id:'cacao',name:'Seitán',unit:'g',price:3.80,image_url:'/local/receipt-seitan.svg',icon:'mdi:food',stock_id:'s1',revision:1},...window.catalogProducts.filter(p=>p.id!=='cacao').map(p=>({id:p.id,name:p.name,image_url:p.image_url??'',icon:p.icon??'',unit:'uds',stock_id:'',revision:0}))].map(p=>[p.id,p])).values()],purchases:[]});
 window.emitStock=()=>{localStorage.setItem('stock-fixture',JSON.stringify(window.stockItems));for(const listener of listeners.keys())if(listener.stock)listener.callback({items:structuredClone(window.stockItems)});};
 window.calls=[];window.fail=false;window.failCatalog=false;
 window.logFixture={entries:[],limit:1000};window.failLogs=false;
@@ -2633,7 +2633,7 @@ async function main() {
     await association.getByRole('button',{name:'Vincular',exact:true}).click();
     await association.waitFor({state:'hidden'});
     assert.equal(await cerealLine.locator('.linked-name').textContent(),'→ Flautines');
-    for(const width of [320,1280]){await purchasePage.setViewportSize({width,height:844});assert.ok(await review.evaluate(dialog=>dialog.scrollWidth<=dialog.clientWidth+1));assert.ok(await cerealLine.evaluate(row=>{const actions=row.querySelector('.association-buttons').getBoundingClientRect(),name=row.querySelector('.association-name').getBoundingClientRect();return name.right<=actions.left&&actions.right<=row.getBoundingClientRect().right;}));}
+    for(const width of [320,1280]){await purchasePage.setViewportSize({width,height:844});assert.ok(await review.evaluate(dialog=>dialog.scrollWidth<=dialog.clientWidth+1));assert.ok(await cerealLine.evaluate(row=>{const actions=row.querySelector('.association-buttons').getBoundingClientRect(),name=row.querySelector('.association-name').getBoundingClientRect();return (name.right<=actions.left||name.bottom<=actions.top)&&actions.right<=row.getBoundingClientRect().right&&row.scrollWidth<=row.clientWidth+1;}));}
     await purchasePage.screenshot({path:'test-results/receipt-link-lines-desktop.png',fullPage:true});
     await purchasePage.setViewportSize({width:390,height:844});
     await purchasePage.screenshot({path:'test-results/receipt-link-lines-mobile.png',fullPage:true});
@@ -2650,9 +2650,10 @@ async function main() {
     assert.equal(await review.locator('#step-title').isVisible(),false);
     assert.equal(await review.locator('#step-help').textContent(),'Marca aquellos productos que quieres añadir al registro de stock.');
     assert.equal(await review.getByRole('button',{name:'Volver a vinculación',exact:true}).isVisible(),true);
-    assert.equal(await review.locator('#existing-stock-group').evaluate(group=>group.open),false);
-    assert.deepEqual(await review.locator('.review-line').evaluateAll(rows=>rows.map(row=>row.dataset.lineId)),['1','0']);
+    assert.equal(await review.locator('#unregistered-stock-group').evaluate(group=>group.open),false);
+    assert.deepEqual(await review.locator('.review-line').evaluateAll(rows=>rows.map(row=>row.dataset.lineId)),['0','1']);
     assert.equal(await review.locator('[data-line-id="0"] .stock-select').getAttribute('aria-pressed'),'true');
+    await review.locator('#unregistered-stock-group > summary').click();
     assert.equal(await cerealLine.locator('.stock-select').getAttribute('aria-pressed'),'false');
     assert.equal(await cerealLine.locator('input[type=checkbox],.original').count(),0);
     assert.equal(await cerealLine.textContent().then(text=>text.includes('€')),false);
@@ -2661,16 +2662,19 @@ async function main() {
     await cerealLine.click({position:{x:8,y:8}});
     assert.equal(await cerealLine.locator('.stock-select').getAttribute('aria-pressed'),'true');
     assert.equal(await cerealLine.evaluate(row=>getComputedStyle(row).borderColor),'rgb(255, 152, 0)');
-    for(const width of [320,390,1280]){await purchasePage.setViewportSize({width,height:844});assert.ok(await cerealLine.locator('.stock-line-main').evaluate(row=>{
-      const boxes=[...row.children].map(child=>child.getBoundingClientRect());return boxes.every((box,index)=>!index||box.left>=boxes[index-1].right)&&boxes.every(box=>Math.abs((box.top+box.bottom)/2-(boxes[0].top+boxes[0].bottom)/2)<1)&&row.scrollWidth<=row.clientWidth+1;
-    }));}
+    assert.equal(await review.locator('[data-line-id="0"] .association-image img').getAttribute('src'),new URL('/local/receipt-seitan.svg',url).href);
+    for(const width of [320,390,1280]){
+      await purchasePage.setViewportSize({width,height:844});
+      assert.equal(await review.locator('#review-lines').evaluate(el=>getComputedStyle(el).gridTemplateColumns.split(' ').length),2);
+      assert.ok(await review.locator('.stock-line-main').evaluateAll(rows=>rows.every(row=>row.scrollWidth<=row.clientWidth+1)));
+      assert.ok(await review.evaluate(el=>el.scrollWidth<=el.clientWidth+1));
+    }
     await purchasePage.setViewportSize({width:390,height:844});
-    await review.locator('#existing-stock-group > summary').click();
     await review.getByRole('button',{name:'Volver a vinculación',exact:true}).click();
     assert.equal(await review.locator('#linked-products-group').evaluate(group=>group.open),false);
     await review.getByRole('button',{name:'Continuar',exact:true}).click();
     assert.equal(await cerealLine.locator('.stock-select').getAttribute('aria-pressed'),'true');
-    assert.equal(await review.locator('#existing-stock-group').evaluate(group=>group.open),true);
+    assert.equal(await review.locator('#unregistered-stock-group').evaluate(group=>group.open),true);
     assert.equal(await review.getByRole('button',{name:'1. Vinculación',exact:true}).evaluate(button=>getComputedStyle(button).backgroundColor),'rgb(38, 112, 82)');
     assert.equal(await review.getByRole('button',{name:'2. Stock',exact:true}).getAttribute('aria-current'),'step');
     assert.equal(await review.getByRole('button',{name:'3. Precios',exact:true}).isDisabled(),true);
@@ -2689,13 +2693,26 @@ async function main() {
     assert.equal(await review.locator('[data-line-id="2"]').count(),0);
     assert.equal(await review.locator('[data-line-id="0"] .price-product-name strong').textContent(),'Seitán');
     assert.equal(await review.locator('[data-line-id="0"] .association-image img').getAttribute('src'),new URL('/local/receipt-seitan.svg',url).href);
-    await review.getByLabel('Actualizar precio de Seitán',{exact:true}).uncheck();
+    assert.equal(await review.locator('input[type=checkbox]').count(),1);
+    assert.match(await review.locator('[data-line-id="0"] .price-value').textContent(),/2,65.*3,80/);
+    assert.equal(await review.locator('[data-line-id="0"] .price-value del').count(),1);
+    assert.equal(await cerealLine.locator('.price-value del').count(),0);
+    assert.ok(await review.locator('.select-all-prices').evaluate(el=>Math.abs(el.getBoundingClientRect().right-el.parentElement.getBoundingClientRect().right)<1));
+    const priceToggle=review.getByRole('button',{name:'Guardar precio de Seitán',exact:true});
+    await priceToggle.click();assert.equal(await priceToggle.getAttribute('aria-pressed'),'false');
+    await review.getByLabel('Seleccionar todos los precios',{exact:true}).check();
+    assert.equal(await priceToggle.getAttribute('aria-pressed'),'true');
+    const selectedPriceColor=await review.locator('[data-line-id="0"]').evaluate(el=>getComputedStyle(el).backgroundColor);
+    await priceToggle.click();assert.equal(await priceToggle.getAttribute('aria-pressed'),'false');
+    assert.notEqual(await review.locator('[data-line-id="0"]').evaluate(el=>getComputedStyle(el).backgroundColor),selectedPriceColor);
+    for(const width of [320,390,1280]){await purchasePage.setViewportSize({width,height:844});assert.equal(await review.locator('#review-lines').evaluate(el=>getComputedStyle(el).gridTemplateColumns.split(' ').length),2);assert.ok(await review.evaluate(el=>el.scrollWidth<=el.clientWidth+1));}
+    await purchasePage.setViewportSize({width:390,height:844});
     assert.equal(await review.locator('#review-steps [data-completed=true]').count(),2);
     await review.getByRole('button',{name:'2. Stock',exact:true}).focus();
     await review.getByRole('button',{name:'2. Stock',exact:true}).press('Enter');
     assert.equal(await review.locator('#stock-only').isVisible(),true);
     await review.getByRole('button',{name:'Continuar',exact:true}).click();
-    assert.equal(await review.getByLabel('Actualizar precio de Seitán',{exact:true}).isChecked(),false);
+    assert.equal(await review.getByRole('button',{name:'Guardar precio de Seitán',exact:true}).getAttribute('aria-pressed'),'false');
     await purchasePage.screenshot({path:'test-results/receipt-wizard-prices-mobile.png',fullPage:true});
     await purchasePage.evaluate(()=>{window.failReceipt=true;});
     await review.getByRole('button',{name:'Confirmar compra',exact:true}).click();
@@ -2734,7 +2751,7 @@ async function main() {
     const stockOnlyReview=stockOnlyPurchases.getByRole('dialog',{name:'Revisar ticket',exact:true});await stockOnlyReview.waitFor();
     await stockOnlyReview.locator('[data-line-id="1"] .ignore').click();await stockOnlyReview.locator('[data-line-id="2"] .ignore').click();
     await stockOnlyReview.getByRole('button',{name:'Continuar',exact:true}).click();
-    assert.equal(await stockOnlyReview.locator('#existing-stock-group').evaluate(group=>group.open),false);
+    assert.equal(await stockOnlyReview.locator('#unregistered-stock-group').count(),0);
     await stockOnlyPage.evaluate(()=>{window.failReceipt=true;});
     await stockOnlyReview.getByRole('button',{name:'Añadir stock y cerrar',exact:true}).click();
     await stockOnlyReview.locator('#review-error').filter({hasText:'No se ha podido guardar el ticket.'}).waitFor();
@@ -3451,7 +3468,8 @@ async function main() {
     await invoiceReview.getByRole('button',{name:'Continuar',exact:true}).click();
     await invoiceReview.getByRole('button',{name:'Continuar',exact:true}).click();
     assert.match(await invoiceReview.locator('#step-help').textContent(),/antes de descuentos y no incluye el envío/);
-    assert.match(await invoiceReview.locator('[data-line-id="0"] .original').textContent(),/2 × 2,65.*2,65/);
+    assert.match(await invoiceReview.locator('[data-line-id="0"] .price-value').textContent(),/2,65/);
+    assert.equal(await invoiceReview.locator('[data-line-id="0"] .original').count(),0);
     await invoiceReview.getByRole('button',{name:'Confirmar compra',exact:true}).click();await invoiceReview.waitFor({state:'hidden'});
     await invoicePurchases.locator('#history summary').click();
     assert.match(await invoicePurchases.locator('#history').textContent(),/Gastos de envío/);

@@ -5,7 +5,6 @@ import { productNameKey } from "./product-names.js?v=0.29.0";
 const node=(tag,cls,text)=>{const el=document.createElement(tag);if(cls)el.className=cls;if(text!==undefined)el.textContent=text;return el;};
 const money=value=>new Intl.NumberFormat('es-ES',{style:'currency',currency:'EUR'}).format(value);
 const documentDate=receipt=>receipt.document_type==='invoice'?new Intl.DateTimeFormat('es-ES',{dateStyle:'short'}).format(new Date(receipt.purchased_at)):date(receipt.purchased_at);
-const lineAmounts=line=>`${line.count} × ${money(line.unit_price)}${line.line_discount?' − '+money(line.line_discount):''} = ${money(line.amount)}`;
 const date=value=>new Intl.DateTimeFormat('es-ES',{dateStyle:'short',timeStyle:'short'}).format(new Date(value));
 const icon=name=>{const el=node('ha-icon');el.setAttribute('icon',name);el.setAttribute('aria-hidden','true');return el;};
 
@@ -46,7 +45,7 @@ class ImprovedShoppingPurchases extends HTMLElement {
       .totals{display:flex;justify-content:space-between;gap:12px;margin-top:14px}.empty{text-align:center;opacity:.7;padding:24px}
       dialog{position:fixed;inset:0;border:0;border-radius:18px;background:var(--card-background-color,#fff);color:inherit;width:min(900px,calc(100vw - 24px));max-height:90vh;padding:24px;overflow:auto}
       dialog::backdrop{background:#0008}h2{font-size:1.25rem;margin:0 40px 16px 0}.receipt-info{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px}
-      #review-lines{display:grid;gap:12px}.review-line{border:1px solid var(--divider-color,#d9e0dd);padding:12px;background:var(--secondary-background-color,#f2f4f3);border-radius:10px}
+      #review-lines{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}#review-lines>.review-group,#review-lines>.select-all-prices,#review-lines>.note{grid-column:1/-1}.review-line{min-width:0}.review-line{border:1px solid var(--divider-color,#d9e0dd);padding:12px;background:var(--secondary-background-color,#f2f4f3);border-radius:10px}
       #review-steps{list-style:none;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;padding:0;margin:16px 0}#review-steps button{width:100%;padding:10px 6px;border:0;text-align:center;border-radius:8px;font-size:.85em;background:var(--secondary-background-color,#edf2ef)}#review-steps button:disabled{opacity:1;cursor:default}#review-steps button:focus-visible{outline:3px solid var(--primary-color,#267052);outline-offset:2px}#review-steps [data-completed=true]{background:var(--isl-green,#267052);color:white}#review-steps [aria-current=step]{background:#2196f3;color:white;font-weight:700}
       #step-title{margin:18px 0 8px;font-size:1.05em}.association{display:flex;gap:8px;align-items:end}.association label{flex:1}.small-button{display:grid;place-items:center;flex:none;width:42px;height:42px;padding:0;border:0;border-radius:8px;background:var(--primary-color,#267052);color:white}.small-button.clear{background:transparent;color:inherit;border:1px solid var(--divider-color,#d9e0dd)}
       .actions{gap:8px;flex-wrap:wrap}.actions .secondary{background:transparent;color:inherit;border:1px solid var(--divider-color,#d9e0dd)}.previous-price{font-size:.85em;opacity:.7;margin:8px 0}.review-line .check{margin:10px 0}.stock-fields{display:grid;grid-template-columns:minmax(0,2fr) minmax(80px,1fr);gap:10px}.review-summary{line-height:1.6;padding:12px;border-radius:8px;background:var(--secondary-background-color,#edf2ef)}
@@ -55,17 +54,22 @@ class ImprovedShoppingPurchases extends HTMLElement {
       .check{flex-direction:row;align-items:center;margin-top:10px}.check input{width:18px;min-height:18px;flex:none}.purchase{margin-top:10px}
       .actions{display:flex;justify-content:flex-end;margin-top:16px}.actions button{border:0;background:#267052;color:white;border-radius:10px;padding:12px 20px}
       .actions #links-only,.actions #stock-only{background:var(--isl-green,#267052);color:white;border:0}.actions .continue{background:#2196f3}
-      .review-group{border:1px solid var(--divider-color,#d9e0dd);border-radius:12px;min-width:0}.review-group>summary{justify-content:space-between;padding:14px;font-weight:650}.review-group>summary::before,.review-group[open]>summary::before{content:none}.review-group>summary ha-icon{transition:transform .15s}.review-group[open]>summary ha-icon{transform:rotate(180deg)}.review-group-content{display:grid;gap:10px;padding:0 10px 10px}
+      .review-group{border:1px solid var(--divider-color,#d9e0dd);border-radius:12px;min-width:0}.review-group>summary{justify-content:space-between;padding:14px;font-weight:650}.review-group>summary::before,.review-group[open]>summary::before{content:none}.review-group>summary ha-icon{transition:transform .15s}.review-group[open]>summary ha-icon{transform:rotate(180deg)}.review-group-content{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;padding:0 10px 10px}
       .stock-line-main{display:grid;grid-template-columns:minmax(0,1fr) 90px 80px;gap:10px;align-items:center;min-width:0}.stock-line-name{min-width:0;overflow-wrap:anywhere}.stock-line-name .linked-name{display:block;margin:4px 0 0}.stock-line-main input{text-align:center}.stock-line-unit{text-align:center;overflow-wrap:anywhere;min-width:0}.stock-line{position:relative}.stock-line[data-selected=true]{border-color:#ff9800;background:color-mix(in srgb,var(--secondary-background-color,#f2f4f3) 80%,#ff9800)}.stock-select{position:absolute;inset:0;width:100%;height:100%;padding:0;border:0;border-radius:inherit;background:transparent}.stock-select:focus-visible{outline:3px solid #ff9800;outline-offset:-3px}.stock-line-main{position:relative;pointer-events:none}.stock-line-main input{pointer-events:auto}.stock-line input:disabled,.stock-line select:disabled{pointer-events:none}.stock-line .purchase{position:relative;pointer-events:auto}.price-product-name{display:flex;align-items:center;gap:10px;min-width:0;overflow-wrap:anywhere}.original>span{flex:none;text-align:right}
       @media(max-width:550px){.stock-line{padding:10px}.stock-line-main{grid-template-columns:minmax(0,1fr) 64px 54px;gap:6px}.stock-line-main .small-button{width:34px;height:42px}.stock-line-main input{padding:8px 3px}.stock-line-name{font-size:.85em}.review-group>summary{padding:12px}}
       ha-icon{--mdc-icon-size:22px;width:22px;height:22px;flex:none}#review-summary{margin:12px 0}.note{font-size:.85em;opacity:.7;margin:10px 0}
       .association-image{display:grid;place-items:center;width:32px;height:32px;flex:none}.association-image img{display:block;width:100%;height:100%;object-fit:contain}
       .receipt-ean{display:block;font-size:12px;opacity:.7;margin-top:4px;overflow-wrap:anywhere}
-      .association-row{display:flex;align-items:center;gap:10px;min-width:0}.association-name{flex:1;min-width:0;overflow-wrap:anywhere}.association-name strong{font-size:.95em}.linked-name{font-size:.8em;opacity:.65;margin-left:8px}.association-buttons{display:flex;gap:6px;flex:none;margin-left:auto}
+      .association-row{display:flex;align-items:center;gap:10px;min-width:0}.association-name{flex:1;min-width:0;overflow-wrap:anywhere}.association-name strong{font-size:.95em}.linked-name{display:block;font-size:.8em;opacity:.65;margin:4px 0 0}.association-buttons{display:flex;gap:6px;flex:none;margin-left:auto}
       .small-button.link{background:#2196f3;color:white}.small-button.create{background:var(--isl-green,#267052);color:white}.small-button.ignore{background:transparent;color:inherit;border:0}.small-button.ignore[aria-pressed=true]{background:#d32f2f;color:white}
       #association-dialog{width:min(500px,calc(100vw - 24px))}#association-form label{margin-top:16px}#association-error{margin:12px 0 0}
       @media(max-width:400px){.association-buttons{gap:4px}.association-buttons .small-button{width:34px;height:38px}.association-row{gap:8px}.linked-name{display:block;margin-left:0}}
       @media(max-width:550px){dialog{padding:18px}.fields{grid-template-columns:minmax(0,1fr)}summary{gap:8px}.original{font-size:.9em}.ticket{padding:12px}}
+
+      .stock-line-main{grid-template-columns:32px minmax(0,1fr);gap:10px}.stock-quantity{grid-column:1/-1;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px;align-items:center;min-width:0}.stock-quantity input{width:100%}
+      .select-all-prices{justify-self:end;margin:0 0 4px;text-align:right}
+      .price-line{position:relative}.price-select{position:absolute;inset:0;width:100%;height:100%;border:0;border-radius:inherit;background:transparent;padding:0}.price-select:focus-visible{outline:3px solid var(--isl-green,#267052);outline-offset:-3px}.price-line[data-selected=true]{border-color:var(--isl-green,#267052);background:color-mix(in srgb,var(--secondary-background-color,#f2f4f3) 75%,var(--isl-green,#267052))}.price-product-name{position:relative;pointer-events:none}.price-label{min-width:0}.price-value{margin-top:6px}.price-value del{opacity:.6;font-size:.9em;margin-left:6px}.price-product-name strong{display:block}
+      @media(max-width:750px){.association-row{flex-wrap:wrap;gap:6px}.association-buttons{width:100%;justify-content:flex-end}.association-buttons .small-button{width:30px;height:34px}.association-buttons ha-icon{--mdc-icon-size:20px;width:20px;height:20px}.association-image{width:26px;height:26px}.stock-line-main{grid-template-columns:26px minmax(0,1fr);gap:6px}.review-line{padding:8px}.association-name strong,.price-label{font-size:.85em}#review-lines,.review-group-content{gap:8px}.review-group-content{padding:0 8px 8px}}
     </style>
     <input id="ticket-file" type="file" accept="application/pdf,.pdf" hidden>
     <p id="message" class="notice" role="status" hidden></p><div id="history"></div><p id="empty" class="empty" hidden>Todavía no has subido ningún ticket.</p>
@@ -180,9 +184,9 @@ class ImprovedShoppingPurchases extends HTMLElement {
     const container=root.querySelector('#review-lines');container.replaceChildren();
     const grouped=step<2?node('details','review-group'):null;
     const groupedContent=step<2?node('div','review-group-content'):null;
-    if(grouped){grouped.dataset.group=step===0?'links':'stock';grouped.id=step===0?'linked-products-group':'existing-stock-group';grouped.open=Boolean(this._reviewGroups[grouped.dataset.group]);}
+    if(grouped){grouped.dataset.group=step===0?'links':'stock';grouped.id=step===0?'linked-products-group':'unregistered-stock-group';grouped.open=Boolean(this._reviewGroups[grouped.dataset.group]);}
     if(step===2&&this._pricesEnabled){
-      const allLabel=node('label','check'),all=node('input');all.type='checkbox';
+      const allLabel=node('label','check select-all-prices'),all=node('input');all.type='checkbox';
       const linked=this._edits.filter(edit=>this._product(edit));all.checked=linked.length>0&&linked.every(edit=>edit.save_price);all.indeterminate=linked.some(edit=>edit.save_price)&&!all.checked;
       all.addEventListener('change',()=>{for(const edit of linked)edit.save_price=all.checked;this._renderStep();});
       allLabel.append(all,document.createTextNode('Seleccionar todos los precios'));container.append(allLabel);
@@ -190,21 +194,27 @@ class ImprovedShoppingPurchases extends HTMLElement {
     for(const edit of this._edits){
       const product=this._product(edit);if(step>0&&!product)continue;
       const row=node('div','review-line');row.dataset.lineId=edit.id;
-      if(step===2){const original=node('div','original'),name=node('div','price-product-name');name.append(this._productImage(product),node('strong','',product.name));original.append(name,node('span','',lineAmounts(edit.line)));row.append(original);}
       if(step===0)this._associationRow(row,edit);
       if(step===1)this._stockRow(row,edit,product);
       if(step===2){
-        const label=node('label','check'),check=node('input');check.type='checkbox';check.checked=edit.save_price&&Boolean(this._pricesEnabled);check.dataset.locked=String(!this._pricesEnabled);check.disabled=!this._pricesEnabled;
-        check.addEventListener('change',()=>{edit.save_price=check.checked;this._renderStep();});
-        label.append(check,document.createTextNode('Actualizar precio de '+product.name));row.append(label);
-        row.append(node('p','previous-price',product.price!=null?`Precio guardado: ${money(product.price)}${product.price_date?' · '+date(product.price_date*1000):''}`:'Sin precio guardado para esta tienda.'));
-        row.append(node('strong','',`Precio del ticket: ${money(edit.line.unit_price)} por unidad/envase`));
+        row.classList.add('price-line');
+        const toggle=node('button','price-select');toggle.type='button';toggle.setAttribute('aria-label','Guardar precio de '+product.name);
+        const selected=Boolean(edit.save_price&&this._pricesEnabled);toggle.setAttribute('aria-pressed',String(selected));row.dataset.selected=String(selected);
+        toggle.dataset.locked=String(!this._pricesEnabled);toggle.disabled=!this._pricesEnabled;
+        toggle.addEventListener('click',()=>{
+          if(this._busy||!this._pricesEnabled)return;
+          edit.save_price=!edit.save_price;this._renderStep();
+          [...root.querySelectorAll('.review-line')].find(line=>line.dataset.lineId===String(edit.id))?.querySelector('.price-select')?.focus();
+        });
+        const name=node('div','price-product-name'),label=node('div','price-label'),price=node('div','price-value',money(edit.line.unit_price));
+        if(product.price!=null)price.append(node('del','', '('+money(product.price)+')'));
+        label.append(node('strong','',product.name),price);name.append(this._productImage(product),label);row.append(toggle,name);
       }
-      if(grouped&&(step===0?Boolean(product):Boolean(product?.stock_id)))groupedContent.append(row);
+      if(grouped&&(step===0?Boolean(product):!product?.stock_id))groupedContent.append(row);
       else container.append(row);
     }
     if(groupedContent?.childElementCount){
-      const summary=node('summary');summary.append(node('span','',(step===0?'Productos vinculados':'Productos en Stock')+' ('+groupedContent.childElementCount+')'),icon('mdi:chevron-down'));
+      const summary=node('summary');summary.append(node('span','',(step===0?'Productos vinculados':'Productos sin stock registrado')+' ('+groupedContent.childElementCount+')'),icon('mdi:chevron-down'));
       grouped.append(summary,groupedContent);container.append(grouped);
     }
     if(step>0&&!this._edits.some(edit=>edit.product_id))container.append(node('p','note','No hay productos vinculados en este ticket.'));
@@ -289,7 +299,7 @@ class ImprovedShoppingPurchases extends HTMLElement {
       edit.replenish=!edit.replenish;this._errorMessage('');this._renderStep();
       [...this.shadowRoot.querySelectorAll('.review-line')].find(line=>line.dataset.lineId===String(edit.id))?.querySelector('.stock-select')?.focus();
     });
-    main.append(name,quantity,unit);row.append(toggle,main);
+    const fields=node('div','stock-quantity');fields.append(quantity,unit);main.append(this._productImage(product),name,fields);row.append(toggle,main);
     const previous=this._draft.purchases.filter(p=>p.item_id===product.stock_id&&p.unit===product.unit);
     if(previous.length){
       const purchaseLabel=node('label','purchase'),purchase=node('select');purchase.setAttribute('aria-label','Reposición de '+edit.line.description);

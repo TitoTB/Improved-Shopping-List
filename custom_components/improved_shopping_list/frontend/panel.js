@@ -396,7 +396,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
             <label class="wide" id="stock-custom-unit-label" hidden>Unidad personalizada<input name="custom_unit" maxlength="32" placeholder="Por ejemplo, Latas"></label>
             <label class="wide">Control del stock<select name="mode" aria-label="Control del stock"><option value="manual">Manual / lectores</option><option value="perishable">Perecedero</option><option value="usage">Consumo registrado</option></select></label>
             <div id="stock-usage-fields" class="wide" hidden><div class="stock-form-fields">
-              <label class="wide">Entidad de consumo<input name="usage_entity" list="stock-usage-entities" placeholder="Por ejemplo, binary_sensor.lavadora"><datalist id="stock-usage-entities"></datalist></label>
+              <label class="wide">Entidad de consumo<input name="usage_entity" list="stock-usage-entities" placeholder="Por ejemplo, binary_sensor.lavadora"></label><datalist id="stock-usage-entities"></datalist>
               <label>Estado que representa un uso<input name="usage_state" maxlength="255" placeholder="Por ejemplo, on"></label>
               <label>Cantidad consumida por uso<input name="usage_amount" type="number" min="0.001" max="1000000" step="0.001" required></label>
             </div></div>

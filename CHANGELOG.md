@@ -2,6 +2,8 @@
 
 ## Pendiente de publicación
 
+- Ajustes muestra solo el texto de la vista activa; el resto de vistas mantiene únicamente su icono en todos los tamaños de pantalla.
+
 - Catálogo elimina el criterio de agrupación «Vinculados» y oculta los productos sin sugerencias al agrupar por Sugerencias.
 
 - Calendario de temporada con botones solo de icono y badges verdes o rojos con el nombre a la izquierda y la imagen a la derecha.

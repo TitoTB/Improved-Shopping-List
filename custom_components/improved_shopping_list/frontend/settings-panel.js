@@ -79,7 +79,8 @@ class ImprovedShoppingSettings extends HTMLElement {
         .settings-heading h1 { flex:none; margin:0; }
         .settings-tabs { display:flex; flex-wrap:nowrap; min-width:0; gap:6px; margin-left:auto; overflow-x:auto; scrollbar-width:thin; }
         .settings-tabs button { display:inline-flex; flex:none; align-items:center; justify-content:center; gap:6px; padding:10px; font-size:13px; white-space:nowrap; }
-        @media(max-width:650px) { .settings-heading { gap:8px; }.settings-heading h1 { font-size:26px; }.settings-tabs { gap:4px; }.settings-tabs button { min-width:32px; padding:10px 5px; }.settings-tabs button[aria-pressed=false] .tab-label { display:none; } }
+        .settings-tabs button[aria-pressed=false] .tab-label { display:none; }
+        @media(max-width:650px) { .settings-heading { gap:8px; }.settings-heading h1 { font-size:26px; }.settings-tabs { gap:4px; }.settings-tabs button { min-width:32px; padding:10px 5px; } }
         @media(max-width:390px) { .settings-heading { gap:6px; }.settings-heading h1 { font-size:22px; }.settings-tabs button { min-width:28px; padding-inline:3px; font-size:12px; }.settings-tabs ha-icon { --mdc-icon-size:18px; width:18px; height:18px; } }
         @media(max-width:360px) { .settings-heading { gap:4px; } .settings-heading h1 { font-size:18px; } .settings-tabs { gap:2px; } .settings-tabs button { min-width:24px; padding-inline:2px; } .settings-tabs ha-icon { --mdc-icon-size:16px; width:16px; height:16px; } }
         .settings-tabs ha-icon { --mdc-icon-size:20px; display:flex; align-items:center; justify-content:center; width:20px; height:20px; flex:none; line-height:0; }

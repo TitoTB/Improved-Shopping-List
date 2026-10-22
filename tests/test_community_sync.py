@@ -246,3 +246,15 @@ async def test_community_admin_commands_do_not_expose_credentials_to_other_users
         await client.send_json({"id":i, **command})
         assert (await client.receive_json())["error"]["code"] == "unauthorized"
     assert aioclient_mock.call_count == 0
+
+
+async def test_public_prices_require_exact_unambiguous_ean_not_name_or_reference(shared):
+    service=shared.service;now=shared.clock[0]
+    link={"id":"24097","url":"https://www.compraonline.alcampo.es/products/arroz/24097"}
+    price={"store":"alcampo","reference_id":"24097","price":"1.50","currency":"EUR","checked_at":now}
+    service.dictionary["products"]=[{"name":"Arroz","eans":["01234567890128"],"store_links":{"alcampo":link},"prices":[price]}]
+    assert service.price("alcampo",link) is None
+    assert service.price("alcampo",link,["8410109115543"]) is None
+    assert service.price("alcampo",link,["1234567890128"])["ean"]=="01234567890128"
+    service.dictionary["products"][0]["eans"].append("08410109115543")
+    assert service.price("alcampo",link,["1234567890128"]) is None

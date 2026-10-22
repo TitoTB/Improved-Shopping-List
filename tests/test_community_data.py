@@ -122,6 +122,20 @@ class CommunityProtocolTests(unittest.TestCase):
         p.contribute(state, payload(other), 2, NOW, 2)
         self.assertEqual(len(p.compile_dictionary(state, NOW)["products"]), 2)
 
+    def test_same_reference_different_eans_keeps_distinct_commercial_products(self):
+        state=p.new_registry()
+        first=item();other=item();other["eans"]=["1234567890128"]
+        p.contribute(state,payload(first),1,NOW,1)
+        p.contribute(state,payload(other),2,NOW,2)
+        self.assertEqual(len(p.compile_dictionary(state,NOW)["products"]),2)
+
+    def test_multiple_eans_do_not_publish_prices_or_store_references(self):
+        state=p.new_registry();candidate=item();candidate["eans"].append("1234567890128")
+        for user in range(1,4):p.contribute(state,payload(candidate),user,NOW,user)
+        published=p.compile_dictionary(state,NOW)["products"][0]
+        self.assertEqual(published["prices"],[])
+        self.assertEqual(published["store_links"],{})
+
     def test_large_price_change_waits_for_three_independent_accounts(self):
         state = p.new_registry()
         p.contribute(state, payload(), 1, NOW, 1)

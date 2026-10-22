@@ -39,7 +39,7 @@ def _catalog(hass: HomeAssistant, connection, msg) -> Catalog | None:
 def async_register_commands(hass: HomeAssistant) -> None:
     """Register once; commands check that the config entry is still loaded."""
     for command in (ws_carrefour_account_status, ws_carrefour_account_login, ws_carrefour_account_send_code,
-                    ws_carrefour_account_verify, ws_carrefour_account_disconnect, ws_carrefour_account_purchases, ws_carrefour_account_sync_history, ws_carrefour_account_preview):
+                    ws_carrefour_account_verify, ws_carrefour_account_disconnect, ws_carrefour_account_purchases, ws_carrefour_account_sync_history, ws_carrefour_account_options, ws_carrefour_account_preview):
         websocket_api.async_register_command(hass, command)
     websocket_api.async_register_command(hass, ws_catalog_get)
     websocket_api.async_register_command(hass, ws_stock_get)
@@ -50,7 +50,7 @@ def async_register_commands(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_stock_adjust)
     websocket_api.async_register_command(hass, ws_stock_save)
     websocket_api.async_register_command(hass, ws_stock_remove)
-    for command in (ws_receipts_get, ws_receipts_subscribe, ws_receipts_preview, ws_receipts_confirm, ws_receipts_discard, ws_receipts_options, ws_receipts_link):
+    for command in (ws_receipts_get, ws_receipts_subscribe, ws_receipts_preview, ws_receipts_confirm, ws_receipts_discard, ws_receipts_options, ws_receipts_link, ws_receipts_review_saved):
         websocket_api.async_register_command(hass, command)
     websocket_api.async_register_command(hass, ws_catalog_subscribe)
     websocket_api.async_register_command(hass, ws_catalog_save)
@@ -1084,3 +1084,17 @@ async def ws_carrefour_account_preview(hass, connection, msg):
 async def ws_carrefour_account_sync_history(hass, connection, msg):
     await _carrefour_account_operation(hass, connection, msg, "historial de compras incorporado",
         lambda manager, owner: manager.async_sync_history(owner))
+
+
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/carrefour_account/options",vol.Required("options"):dict})
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_carrefour_account_options(hass, connection, msg):
+    await _carrefour_account_operation(hass,connection,msg,"opciones guardadas",lambda manager,owner:manager.async_options(owner,msg["options"]))
+
+
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/receipts/review_saved",vol.Required("receipt_id"):str})
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_receipts_review_saved(hass,connection,msg):
+    await _receipt_operation(hass,connection,msg,lambda manager,owner:manager.async_review_saved(msg["receipt_id"],owner))

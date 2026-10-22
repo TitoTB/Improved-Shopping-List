@@ -74,7 +74,7 @@ class ReceiptManager:
                     "purchased_at":dt_util.as_local(when).isoformat(),"currency":"EUR","total":purchase["amount"],
                     "article_count":purchase.get("article_count"),"lines":[],"imported_at":time.time()}
                 existing = next((old for old in data["history"].values() if old.get("account_key")==key),None)
-                if existing and not existing.get("summary_only"):
+                if existing and (not existing.get("summary_only") or existing.get("pending_review")):
                     continue
                 if not existing:
                     matches = [old for old in data["history"].values() if not old.get("summary_only") and not old.get("account_key") and self._same_purchase(old,receipt)]
@@ -92,6 +92,36 @@ class ReceiptManager:
             if data != self.stock.receipts:
                 await self.stock._persist(deepcopy(self.stock._items),receipts=data)
         return added
+
+    def account_ticket_available(self, reference):
+        key=self._account_key(reference)
+        return any(old.get("account_key")==key and (old.get("pending_review") or not old.get("summary_only")) for old in self.stock.receipts["history"].values())
+
+    async def async_archive_account_ticket(self, token, owner):
+        draft=self._draft(token,owner)
+        async with self.stock._lock:
+            receipt=deepcopy(draft["receipt"])
+            self._check_duplicate(receipt)
+            data=deepcopy(self.stock.receipts)
+            previous=self._summary_match(receipt,data["history"])
+            if previous:
+                data["history"].pop(previous["id"])
+            if len(data["history"])>=1000:
+                raise CatalogError("El historial ha alcanzado los 1000 tickets.")
+            receipt.update(summary_only=True,pending_review=True,imported_at=time.time())
+            data["history"][receipt["id"]]=receipt
+            await self.stock._persist(deepcopy(self.stock._items),receipts=data)
+            self._drafts.pop(token,None)
+        return deepcopy(receipt)
+
+    async def async_review_saved(self, identifier, owner):
+        saved=self.stock.receipts["history"].get(identifier)
+        if not saved or not saved.get("pending_review"):
+            raise CatalogError("El ticket pendiente ya no está disponible.")
+        receipt=deepcopy(saved)
+        for key in ("summary_only","pending_review","imported_at"):
+            receipt.pop(key,None)
+        return await self._prepare_preview(receipt,owner)
 
     def _check_duplicate(self, receipt):
         if any(not old.get("summary_only") and (old["id"] == receipt["id"] or old["digest"] == receipt["digest"] or

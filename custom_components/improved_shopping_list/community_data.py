@@ -146,8 +146,9 @@ def unpack(manifest, parts):
 
 
 def identities(item):
-    return {*("ean:"+code for code in item["eans"]),
-            *("store:"+store+":"+link["id"] for store, link in item["store_links"].items())}
+    if item["eans"]:
+        return {"ean:"+code for code in item["eans"]}
+    return {"store:"+store+":"+link["id"] for store,link in item["store_links"].items()}
 
 
 def new_registry():
@@ -251,7 +252,7 @@ def contribute(registry, payload, user_id, created, issue_id, *, banned=(), elig
         record.setdefault("choices", {})[choice_id] = choice
         record["votes"][user] = {"choice":choice_id, "eligible":eligible}
         record["identities"] = sorted(set(record["identities"]) | keys)
-        for price in item["prices"]:
+        for price in item["prices"] if len(item["eans"])==1 else []:
             _accept_price(record, price, user, created, eligible, blocked, max_price_variation, outlier_confirmations)
     registry["last_submission"][user] = created
     registry["processed"].append(issue_id)
@@ -270,6 +271,7 @@ def compile_dictionary(registry, now, *, banned=(), icon_metadata=None):
         if not votes:
             continue
         item = {"id": identifier, "confirmed_fields": [], "confirmations": {}, "icons": [], "prices": []}
+        item["terms"] = sorted({vote["item"].get(field,"") for vote in votes if vote["eligible"] for field in ("name","name_en")}-{""})[:100]
         for field in ("name", "name_en", "eans", "nutriscore"):
             candidates = {}
             for vote in votes:
@@ -289,6 +291,8 @@ def compile_dictionary(registry, now, *, banned=(), icon_metadata=None):
         for store in STORES:
             candidates = {}
             for vote in votes:
+                if len(item["eans"])!=1 or vote["item"]["eans"]!=item["eans"]:
+                    continue
                 link = vote["item"]["store_links"].get(store)
                 if link:
                     group = candidates.setdefault(link["id"], {"value": link, "count": 0})
@@ -310,7 +314,8 @@ def compile_dictionary(registry, now, *, banned=(), icon_metadata=None):
                 if len(item["icons"]) == 5:
                     break
         for price in record["prices"].values():
-            if (price["contributor"] not in blocked and price["checked_at"] >= now-DAY
+            observation=record_votes(record).get(price["contributor"],{}).get("item",{})
+            if (len(item["eans"])==1 and observation.get("eans")==item["eans"] and price["contributor"] not in blocked and price["checked_at"] >= now-DAY
                 and item["store_links"].get(price["store"], {}).get("id") == price["reference_id"]
                 and price_fingerprint(price) not in revoked):
                 item["prices"].append({key:value for key,value in price.items() if key not in ("contributor", "received_at")})
@@ -333,6 +338,9 @@ def validate_dictionary(data, now):
         if not isinstance(identifier, str) or not re.fullmatch(r"[a-f0-9]{32}", identifier) or identifier in seen:
             raise ValueError("Identidad comunitaria no válida.")
         seen.add(identifier)
+        terms=item.get("terms",[])
+        if not isinstance(terms,list) or len(terms)>100 or any(not isinstance(term,str) or not term.strip() or len(term)>160 for term in terms):
+            raise ValueError("Términos comunitarios no válidos.")
         # Reuse strict validators; old prices are omitted rather than refreshed by a download.
         item["prices"] = [p for p in item.get("prices", []) if type(p.get("checked_at")) in (int,float) and p["checked_at"] >= now-DAY]
         raw = {key:item.get(key, [] if key in ("eans", "prices") else {} if key == "store_links" else "")

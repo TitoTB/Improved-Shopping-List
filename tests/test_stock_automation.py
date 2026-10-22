@@ -388,3 +388,14 @@ async def test_existing_recurrence_migrates_next_due_and_stale_sync_cannot_overr
     await shared.async_sync_stock()
     item=env.stock.snapshot["items"][0]
     assert item["days"]==8 and item["expires_at"]==env.clock[0]+8*DAY and env.stock.recurrence_ready(item)
+
+
+async def test_carrefour_completion_signal_ignores_baselines_and_repeated_states(env):
+    signal=Mock();env.manager.carrefour_account=SimpleNamespace(note_completion=signal)
+    env.todo.todo_items=[TodoItem(uid="existing",summary="Sin stock",status=TodoItemStatus.COMPLETED)]
+    env.todo.publish();signal.assert_not_called()
+    env.todo.todo_items.append(TodoItem(uid="new",summary="Sin stock",status=TodoItemStatus.NEEDS_ACTION))
+    env.todo.publish();signal.assert_not_called()
+    env.todo.todo_items[-1].status=TodoItemStatus.COMPLETED
+    env.todo.publish();signal.assert_called_once()
+    env.todo.publish();signal.assert_called_once()

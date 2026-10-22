@@ -19,7 +19,7 @@ from .const import DOMAIN
 from .price_sources import PriceError, PriceSources
 from .store_links import STORES, normalize_link
 from .regional_stores import valid_area
-from .community_data import price_fingerprint
+from .community_data import price_fingerprint, ean
 
 INTERVAL = 300
 _LOGGER = logging.getLogger(__name__)
@@ -176,6 +176,42 @@ class PriceManager:
                     break
         return links
 
+    def _community_codes(self, store, link):
+        return [code for product in self.catalog.products if product.get("store_links",{}).get(store,{}).get("id")==link["id"]
+                for code in [product.get("barcode",""),*product.get("barcodes",[])]]
+
+    async def async_public_catalog_prices(self, store):
+        """Fill all catalog prices from exact, unambiguous EAN matches only."""
+        community=getattr(self,"community",None)
+        if not community or not self.prices_enabled:
+            return
+        await community.async_prepare_prices(daily=True)
+        async with self._lock:
+            changed=False
+            for product in self.catalog.products:
+                codes=[product.get("barcode",""),*product.get("barcodes",[])]
+                wanted={ean(code) for code in codes}-{""}
+                for item in community.dictionary["products"]:
+                    if len(item.get("eans",[]))!=1 or not wanted.intersection(item["eans"]):
+                        continue
+                    link=item.get("store_links",{}).get(store)
+                    if not link:
+                        continue
+                    price=community.price(store,link,codes)
+                    if not price:
+                        continue
+                    key=self.key(store,link,self.scope(store))
+                    old=self._data["offers"].get(key)
+                    if old and old.get("checked_at",0)>=price["checked_at"]:
+                        continue
+                    self._data["offers"][key]=price
+                    self._data["legacy_ean"][store+":"+item["eans"][0]]=price
+                    changed=True
+            if changed:
+                await self._store.async_save(deepcopy(self._data))
+        if changed:
+            self._notify()
+
     def prices_for(self, product):
         if not self.prices_enabled:
             return []
@@ -185,7 +221,9 @@ class PriceManager:
             price = self._data["offers"].get(self.key(store, link, self.scope(store)))
             community = getattr(self, "community", None)
             if community and (not price or price.get("checked_at", 0) < time.time()-86400):
-                price = community.price(store, link) or price
+                price = community.price(store, link, [product.get("barcode",""),*product.get("barcodes",[])]) or price
+            if price and price.get("source")=="community" and price.get("ean") not in {ean(code) for code in [product.get("barcode",""),*product.get("barcodes",[])]}:
+                price=None
             if price:
                 prices.append({**deepcopy(price), "catalog_product_id":product.get("id"), "name":product.get("name", ""),
                     "error":self._data["errors"].get(store, "")})
@@ -582,7 +620,7 @@ class PriceManager:
             if time.time() < self._data["next_request"]:
                 first = self._data["pending"][0]
                 community = getattr(self, "community", None)
-                if not community or not community.price(first["store"], first["link"]):
+                if not community or not community.price(first["store"], first["link"], self._community_codes(first["store"],first["link"])):
                     return
             names, failures = await self.pending_names()
             deferred = 0
@@ -611,7 +649,7 @@ class PriceManager:
                 self._configuration = (entry, generation, configuration, job)
                 try:
                     community = getattr(self, "community", None)
-                    shared_price = community.price(store, job["link"]) if community else None
+                    shared_price = community.price(store, job["link"], self._community_codes(store,job["link"])) if community else None
                     local_price = self._data["offers"].get(key)
                     fresh_local = local_price if community and local_price and local_price.get("checked_at", 0) >= time.time()-86400 else None
                     result = shared_price or fresh_local

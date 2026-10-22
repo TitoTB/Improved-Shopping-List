@@ -194,7 +194,8 @@ class ImprovedShoppingSettings extends HTMLElement {
         .notice { padding:12px 14px; border-radius:10px; background:var(--secondary-background-color,#edf4ee); font-size:13px; line-height:1.6; margin:14px 0; }
         .error { color:var(--error-color,#bd3636); border:1px solid var(--error-color,#bd3636); }
         @media(max-width:540px) { .card { padding:18px 14px; } .add-row { flex-wrap:wrap; } .select-wrap { flex-basis:100%; } .actions { width:100%; } }
-      </style>
+        #carrefour-products-view,#alcampo-products-view,#store-products-view,[id$="-products-view"]{display:none!important}#carrefour-dialog>h2{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+    </style>
       <div class="settings-heading"><h1>Ajustes</h1>
       <nav class="settings-tabs" aria-label="Vistas de ajustes"><button id="settings-view-lists" aria-label="Listas" aria-pressed="true"><ha-icon icon="mdi:format-list-checks" aria-hidden="true"></ha-icon><span class="tab-label">Listas</span></button><button id="settings-view-appearance" aria-label="Personalización" aria-pressed="false"><ha-icon icon="mdi:palette" aria-hidden="true"></ha-icon><span class="tab-label">Personalización</span></button><button id="settings-view-stores" aria-label="Tiendas" aria-pressed="false"><ha-icon icon="mdi:store" aria-hidden="true"></ha-icon><span class="tab-label">Tiendas</span></button><button id="settings-view-nutrition" aria-label="Nutri-Score" aria-pressed="false"><ha-icon icon="mdi:nutrition" aria-hidden="true"></ha-icon><span class="tab-label">Nutri-Score</span></button><button id="settings-view-notifications" aria-label="Notificaciones" aria-pressed="false"><ha-icon icon="mdi:bell-outline" aria-hidden="true"></ha-icon><span class="tab-label">Notificaciones</span></button><button id="settings-view-community" aria-label="Comunidad" aria-pressed="false"><ha-icon icon="mdi:account-group" aria-hidden="true"></ha-icon><span class="tab-label">Comunidad</span></button><button id="settings-view-logs" aria-label="Logs" aria-pressed="false"><ha-icon icon="mdi:format-list-group" aria-hidden="true"></ha-icon><span class="tab-label">Logs</span></button></nav></div>
       <div id="settings-error" class="notice error" role="alert" hidden></div>
@@ -252,10 +253,10 @@ class ImprovedShoppingSettings extends HTMLElement {
         <article class="store-row" id="mercadona-row">
           <img class="store-logo" src="${MERCADONA_LOGO_URL}" alt="Logo de Mercadona" referrerpolicy="no-referrer" loading="lazy" width="56" height="56">
           <div class="store-name"><h3>Mercadona</h3></div>
-          <div class="store-controls"><input id="mercadona-enabled" class="store-toggle" type="checkbox" role="switch" aria-label="Habilitar Mercadona"><button id="configure-mercadona" class="store-products-badge" type="button" aria-label="Productos de Mercadona" title="Productos de Mercadona"><span class="store-associated-count">0</span><ha-icon icon="mdi:cart" aria-hidden="true"></ha-icon></button></div>
+          <div class="store-controls"><input id="mercadona-enabled" class="store-toggle" type="checkbox" role="switch" aria-label="Habilitar Mercadona"><button id="configure-mercadona" class="store-cog" type="button" aria-label="Ajustes de Mercadona" title="Ajustes de Mercadona"><ha-icon icon="mdi:cog" aria-hidden="true"></ha-icon></button></div>
         </article>
-        <article class="store-row" id="carrefour-row"><img class="store-logo" src="https://images.seeklogo.com/logo-png/31/2/carrefour-logo-png_seeklogo-318190.png" alt="Logo de Carrefour" referrerpolicy="no-referrer" loading="lazy" width="56" height="56"><div class="store-name"><h3>Carrefour</h3></div><div class="store-controls"><input id="carrefour-enabled" class="store-toggle" type="checkbox" role="switch" aria-label="Habilitar Carrefour"><button id="configure-carrefour" class="store-products-badge" type="button" aria-label="Productos de Carrefour" title="Productos de Carrefour"><span class="store-associated-count">0</span><ha-icon icon="mdi:cart" aria-hidden="true"></ha-icon></button></div></article>
-        <article class="store-row"><img class="store-logo" src="https://almeria.online/wp-content/uploads/2024/09/alcampo-logo.png" alt="Logo de Alcampo" referrerpolicy="no-referrer" loading="lazy" width="56" height="56"><div class="store-name"><h3>Alcampo</h3></div><div class="store-controls"><input id="alcampo-enabled" class="store-toggle" type="checkbox" role="switch" aria-label="Habilitar Alcampo"><button id="configure-alcampo" class="store-products-badge" type="button" aria-label="Productos de Alcampo" title="Productos de Alcampo"><span class="store-associated-count">0</span><ha-icon icon="mdi:cart" aria-hidden="true"></ha-icon></button></div></article>
+        <article class="store-row" id="carrefour-row"><img class="store-logo" src="https://images.seeklogo.com/logo-png/31/2/carrefour-logo-png_seeklogo-318190.png" alt="Logo de Carrefour" referrerpolicy="no-referrer" loading="lazy" width="56" height="56"><div class="store-name"><h3>Carrefour</h3></div><div class="store-controls"><input id="carrefour-enabled" class="store-toggle" type="checkbox" role="switch" aria-label="Habilitar Carrefour"><button id="configure-carrefour" class="store-cog" type="button" aria-label="Ajustes de Carrefour" title="Ajustes de Carrefour"><ha-icon icon="mdi:cog" aria-hidden="true"></ha-icon></button></div></article>
+        <article class="store-row"><img class="store-logo" src="https://almeria.online/wp-content/uploads/2024/09/alcampo-logo.png" alt="Logo de Alcampo" referrerpolicy="no-referrer" loading="lazy" width="56" height="56"><div class="store-name"><h3>Alcampo</h3></div><div class="store-controls"><input id="alcampo-enabled" class="store-toggle" type="checkbox" role="switch" aria-label="Habilitar Alcampo"><button id="configure-alcampo" class="store-cog" type="button" aria-label="Ajustes de Alcampo" title="Ajustes de Alcampo"><ha-icon icon="mdi:cog" aria-hidden="true"></ha-icon></button></div></article>
 
         </div>
         <div class="stores-footer">Última actualización: <time id="stores-last-updated" title="Última actualización correcta de precios">—</time></div>
@@ -367,7 +368,7 @@ class ImprovedShoppingSettings extends HTMLElement {
     root.querySelector("#close-prices-progress").addEventListener("click",()=>root.querySelector("#prices-progress-dialog").close());
     root.querySelector("#prices-progress-dialog").addEventListener("close",()=>clearInterval(this._pricesProgressTimer));
     root.querySelector("#alcampo-enabled").addEventListener("change",()=>void this._saveRetailSettings(()=>this._data.settings.setStoreEnabled("alcampo",root.querySelector("#alcampo-enabled").checked)));
-    root.querySelector("#configure-alcampo").addEventListener("click",()=>{root.querySelector("#alcampo-dialog").showModal();void this._loadAlcampo();});
+    root.querySelector("#configure-alcampo").addEventListener("click",()=>{root.querySelector("#alcampo-dialog").showModal();});
     root.querySelector("#alcampo-dialog").addEventListener("cancel",event=>{if(this._busy)event.preventDefault();});
     const alcampoError=document.createElement("div");alcampoError.id="alcampo-error";alcampoError.className="notice error";alcampoError.setAttribute("role","alert");alcampoError.hidden=true;root.querySelector("#alcampo-title").after(alcampoError);
     for (const [id, view] of [["settings-view-lists", "lists"], ["settings-view-appearance", "appearance"], ["settings-view-community", "community"], ["settings-view-stores", "stores"], ["settings-view-logs", "logs"], ["settings-view-readers","readers"], ["settings-view-notifications","notifications"], ["settings-view-nutrition","nutrition"]]) {
@@ -387,7 +388,7 @@ class ImprovedShoppingSettings extends HTMLElement {
       });
     }
     root.querySelector("#carrefour-enabled").addEventListener("change", () => void this._saveRetailSettings(() => this._data.settings.setStoreEnabled("carrefour",root.querySelector("#carrefour-enabled").checked)));
-    root.querySelector("#configure-carrefour").addEventListener("click", () => { root.querySelector("#carrefour-dialog").showModal(); const account=root.querySelector("isl-carrefour-account");account.hass=this._data.hass;void account.activate(); void this._loadCarrefour(false); });
+    root.querySelector("#configure-carrefour").addEventListener("click", () => { root.querySelector("#carrefour-dialog").showModal(); const account=root.querySelector("isl-carrefour-account");account.hass=this._data.hass;void account.activate(); });
     root.querySelector("#carrefour-dialog").addEventListener("cancel",event=>{if(this._busy)event.preventDefault();});
     root.querySelector("#carrefour-dialog").addEventListener("close", () => { if (!root.querySelector("#carrefour-dialog").open) { this._carrefourGeneration = (this._carrefourGeneration || 0) + 1; this._carrefourLoading = false; root.querySelector("isl-carrefour-account")?.deactivate(); } });
     root.querySelector("#mercadona-enabled").addEventListener("change",()=>void this._saveRetailSettings(()=>this._data.settings.setStoreEnabled("mercadona",root.querySelector("#mercadona-enabled").checked)));
@@ -475,10 +476,6 @@ class ImprovedShoppingSettings extends HTMLElement {
     this._renderGlobalPriceProgress();
     for (const store of ["mercadona", "carrefour", "alcampo", "consum", "lasirena", "eroski", "dia"]) {
       root.querySelector(`#${store}-enabled`).closest(".store-row").dataset.enabled = String(Boolean(settings.stores?.[store]?.enabled));
-      const associated = (this._data.products ?? []).filter(product=>Boolean(product.store_links?.[store])).length;
-      const badge = root.querySelector(`#configure-${store}`);
-      badge.querySelector(".store-associated-count").textContent = String(associated);
-      badge.title = `${associated} productos asociados`;
       const favorite = root.querySelector(`#favorite-${store}`);
       favorite.disabled = locked || !settings.stores?.[store]?.enabled;
       const selected = Boolean(settings.stores?.[store]?.enabled && settings.favoriteStore === store);
@@ -573,7 +570,7 @@ class ImprovedShoppingSettings extends HTMLElement {
     root.querySelector("#configure-mercadona").disabled=!settings.loaded || settings.loading || this._busy;
     root.querySelector("#store-dialog-error").textContent=this._error || "";
     root.querySelector("#store-dialog-error").hidden=!this._error;
-    this._renderStoreProducts();
+
   }
 
   _watchPriceStatus() {
@@ -707,7 +704,7 @@ class ImprovedShoppingSettings extends HTMLElement {
   _buildRegionalStores(root) {
     this._regionalDrafts = {};
     for (const [store,name] of [["consum","Consum"],["lasirena","La Sirena"],["eroski","Eroski"],["dia","DIA"]]) {
-      root.querySelector(".stores-grid").insertAdjacentHTML("beforeend", `<article class="store-row"><img class="store-logo" src="${new URL(`${store}.${store === "dia" ? "png" : store === "eroski" ? "svg" : "jpg"}`,import.meta.url).href}" alt="Logo de ${name}" loading="lazy" width="56" height="56"><div class="store-name"><h3>${name}</h3></div><div class="store-controls"><input id="${store}-enabled" class="store-toggle" type="checkbox" role="switch" aria-label="Habilitar ${name}"><button id="configure-${store}" class="store-products-badge" type="button" aria-label="Productos de ${name}" title="Productos de ${name}"><span class="store-associated-count">0</span><ha-icon icon="mdi:cart" aria-hidden="true"></ha-icon></button></div></article>`);
+      root.querySelector(".stores-grid").insertAdjacentHTML("beforeend", `<article class="store-row"><img class="store-logo" src="${new URL(`${store}.${store === "dia" ? "png" : store === "eroski" ? "svg" : "jpg"}`,import.meta.url).href}" alt="Logo de ${name}" loading="lazy" width="56" height="56"><div class="store-name"><h3>${name}</h3></div><div class="store-controls"><input id="${store}-enabled" class="store-toggle" type="checkbox" role="switch" aria-label="Habilitar ${name}"><button id="configure-${store}" class="store-cog" type="button" aria-label="Ajustes de ${name}" title="Ajustes de ${name}"><ha-icon icon="mdi:cog" aria-hidden="true"></ha-icon></button></div></article>`);
       const container = document.createElement("div");
       container.innerHTML = `<dialog id="${store}-dialog" aria-labelledby="${store}-title"><h2 id="${store}-title">${name}</h2><div id="${store}-error" class="notice error" role="alert" hidden></div><section id="${store}-products-view"><div id="${store}-products" class="store-products"></div><p id="${store}-status" class="store-cache-footer" role="status"></p></section></dialog>`;
       root.append(...container.children);
@@ -726,7 +723,7 @@ class ImprovedShoppingSettings extends HTMLElement {
     this._error = "";
     root.querySelector(`#${store}-dialog`).showModal();
     this._render();
-    void this._loadRegionalProducts(store);
+
   }
 
   _renderRegionalStores(locked) {
@@ -783,7 +780,7 @@ class ImprovedShoppingSettings extends HTMLElement {
     this._error = ""; this._storeDirty = false;
     this._renderStore();
     root.querySelector("#store-dialog").showModal();
-    void this._loadStoreProducts();
+
   }
 
   _renderStoreProducts() {

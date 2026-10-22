@@ -1,5 +1,11 @@
 # Historial de cambios
 
+## Pendiente de publicación
+
+- Ajustes de tiendas mediante engranajes sin contador ni listados; Carrefour incorpora cabecera de cuenta y opciones independientes de historial anual, tickets automáticos pendientes de revisión y precios comunitarios para todo el catálogo.
+- Los tickets automáticos solo se consultan tras completar productos en las listas, como máximo una vez por día; se conservan pendientes sin aplicar stock o precios. Los tickets revisados se muestran en verde y el gráfico mensual es más compacto.
+- Iconos comunitarios con términos alternativos; precios y referencias automáticos restringidos a EAN únicos coincidentes, evitando unir productos comerciales por nombre o referencia de tienda.
+
 ## 0.31.0 — 2026-10-22
 
 - Conectar o consultar la cuenta de Carrefour incorpora las compras disponibles del último año a Compras y al gráfico, sin descargar tickets ni modificar stock o precios. Los recuentos de artículos desconocidos se omiten; revisar posteriormente un ticket sustituye su resumen sin duplicar el gasto.

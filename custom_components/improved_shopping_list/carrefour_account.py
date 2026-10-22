@@ -12,6 +12,7 @@ from uuid import uuid4
 import aiohttp
 from homeassistant.helpers.aiohttp_client import async_create_clientsession
 from homeassistant.helpers.storage import Store
+from homeassistant.helpers.event import async_track_time_interval
 from homeassistant.util import dt as dt_util
 
 from .catalog import CatalogError
@@ -39,22 +40,38 @@ class CarrefourAccount:
         self.hass, self.receipts, self.activity = hass, receipts, activity
         self._store = Store(hass, 1, f"{DOMAIN}.carrefour_account", private=True)
         self._session, self._config, self._pending, self._purchases = {}, {}, {}, {}
+        self._options_store = Store(hass, 1, f"{DOMAIN}.carrefour_options", private=True)
+        self._options = {"history_enabled":False,"auto_ticket":False,"public_prices":False,"completion_at":0,"handled_completion":0,"ticket_day":"","public_day":""}
+        self._background_task, self._timer_stop = None, None
+        self._options_lock = asyncio.Lock()
+        self._saved_options = None
         self._cookies = {}
         self._lock = asyncio.Lock()
         self._sync_lock = asyncio.Lock()
         self._active = False
 
     async def async_load(self):
+        options = await self._options_store.async_load()
+        if isinstance(options,dict):
+            self._options.update({key:value for key,value in options.items() if key in self._options})
         data = await self._store.async_load()
         if data and isinstance(data, dict) and isinstance(data.get("login_token"), str):
-            self._session = {key: data[key] for key in ("login_token", "jwt", "jwt_until", "device_cookies") if key in data}
+            self._session = {key: data[key] for key in ("login_token", "jwt", "jwt_until", "device_cookies", "email") if key in data}
 
     def start(self):
         self._active = True
+        if not self._timer_stop:
+            self._timer_stop = async_track_time_interval(self.hass,self._queue_background,timedelta(minutes=1))
         self._cookies = dict(self._session.get("device_cookies", {}))
+        if getattr(getattr(self,"prices",None),"community",None):
+            self.prices.community.daily_public_prices=self._options["public_prices"]
 
     def stop(self):
         self._active = False
+        if self._timer_stop:
+            self._timer_stop();self._timer_stop=None
+        if self._background_task:
+            self._background_task.cancel()
         self._pending.clear()
         self._purchases.clear()
         self._config.clear()
@@ -62,11 +79,105 @@ class CarrefourAccount:
 
     def status(self, owner):
         pending = self._pending.get(owner, {})
-        return {"connected": bool(self._session.get("login_token")),
+        return {"connected": bool(self._session.get("login_token")), "email":self._email(),
+                "options":{key:self._options[key] for key in ("history_enabled","auto_ticket","public_prices")},
                 "verification_required": pending.get("expires", 0) > time.time(),
                 "destinations": [{"id": str(i), "label": item["label"]} for i, item in enumerate(pending.get("destinations", []))]
                     if pending.get("expires", 0) > time.time() else [],
                 "verification_sent": bool(pending.get("phvToken")) and pending.get("expires", 0) > time.time()}
+
+    def _email(self):
+        value = self._session.get("email", "")
+        if not value and self._session.get("jwt"):
+            try:
+                payload = self._session["jwt"].split(".")[1]
+                claims = json.loads(base64.urlsafe_b64decode(payload+"="*(-len(payload)%4)))
+                value = claims.get("email") or claims.get("profile.email") or claims.get("profile",{}).get("email","")
+            except (ValueError,IndexError,AttributeError,TypeError):
+                value = ""
+        return value if isinstance(value,str) and len(value)<=255 else ""
+
+    async def _save_options(self):
+        async with self._options_lock:
+            payload=dict(self._options)
+            if payload!=self._saved_options:
+                await self._options_store.async_save(payload)
+                self._saved_options=payload
+
+    async def async_options(self, owner, options):
+        if (not isinstance(options,dict) or set(options)!={"history_enabled","auto_ticket","public_prices"}
+                or any(type(value) is not bool for value in options.values())):
+            raise CarrefourAccountError("Las opciones de Carrefour no son válidas.","options")
+        if not self._session.get("login_token") and (options["history_enabled"] or options["auto_ticket"]):
+            raise CarrefourAccountError("Conecta primero tu cuenta de Carrefour.","not_connected")
+        recover = options["history_enabled"] and not self._options["history_enabled"]
+        self._options.update(options)
+        if getattr(getattr(self,"prices",None),"community",None):
+            self.prices.community.daily_public_prices=options["public_prices"]
+        await self._save_options()
+        if recover:
+            await self.async_sync_history(owner)
+        self._queue_background()
+        return self.status(owner)
+
+    def note_completion(self):
+        if not self._active or not self._options["auto_ticket"] or not self._session.get("login_token"):
+            return
+        self._options["completion_at"] = time.time()
+        self._queue_background()
+
+    def _queue_background(self, *_args):
+        if self._active and (self._options["auto_ticket"] or self._options["public_prices"]) and (self._background_task is None or self._background_task.done()):
+            self._background_task = self.hass.async_create_task(self._run_background())
+
+    async def _run_background(self):
+        try:
+            await self._save_options()
+            settings = getattr(self,"settings",None)
+            if settings is None:
+                return
+            now = dt_util.now();day=now.date().isoformat()
+            if now.strftime("%H:%M") < settings.snapshot["price_update_time"]:
+                return
+            if self._options["public_prices"] and self._options["public_day"]!=day:
+                self._options["public_day"]=day;await self._save_options()
+                try:
+                    await self.prices.async_public_catalog_prices("carrefour")
+                except (CatalogError,aiohttp.ClientError,OSError,TimeoutError) as err:
+                    self.activity.record("stores.account","Carrefour: no se han podido actualizar los precios comunitarios",source="automatic",diagnostics={"stage":"public_prices","error_type":type(err).__name__})
+            completion = self._options["completion_at"]
+            if (not self._session.get("login_token") or not self._options["auto_ticket"] or self._options["ticket_day"]==day
+                    or completion<=self._options["handled_completion"]):
+                return
+            self._options["ticket_day"]=day;await self._save_options()
+            owner="automatic_carrefour"
+            try:
+                result=await self.async_purchases(owner)
+                latest=max(result["purchases"],key=lambda purchase:purchase["purchased_at"],default=None)
+                if latest and latest["reviewable"]:
+                    cached=self._purchases[latest["id"]]
+                    if not self.receipts.account_ticket_available(cached["id"]):
+                        draft=await self.async_preview(owner,latest["id"])
+                        if self._active and self._options["auto_ticket"]:
+                            await self.receipts.async_archive_account_ticket(draft["token"],owner)
+                        else:
+                            self.receipts.discard(draft["token"],owner)
+                    self.activity.record("stores.account","Carrefour: última compra disponible para revisar",source="automatic")
+                elif latest:
+                    self.activity.record("stores.account","Carrefour: la factura online debe subirse manualmente",source="automatic")
+                self._options["handled_completion"]=completion;await self._save_options()
+            except CatalogError as err:
+                self.activity.record("stores.account","Carrefour: no se ha podido recuperar automáticamente el ticket",source="automatic",diagnostics=getattr(err,"diagnostics",{"stage":"ticket_preview"}))
+        except asyncio.CancelledError:
+            raise
+        except (OSError,aiohttp.ClientError,TimeoutError):
+            self.activity.record("stores.account","Carrefour: no se ha podido guardar la revisión automática",source="automatic")
+
+    async def async_stop(self):
+        task=self._background_task
+        self.stop()
+        if task:
+            await asyncio.gather(task,return_exceptions=True)
 
     def _check_active(self):
         if not self._active:
@@ -153,6 +264,9 @@ class CarrefourAccount:
         if not isinstance(token, str) or not token:
             raise CarrefourAccountError("Carrefour no ha devuelto una sesión utilizable.", "session")
         session = {"login_token": token, "device_cookies": dict(self._cookies)}
+        email=response.get("profile",{}).get("email") or getattr(self,"_login_email","")
+        if isinstance(email,str) and len(email)<=255:
+            session["email"]=email
         self._check_active()
         await self._store.async_save(session)
         self._session = session
@@ -164,6 +278,7 @@ class CarrefourAccount:
             if not username.strip() or not password:
                 raise CarrefourAccountError("Indica usuario y contraseña de Carrefour.", "login")
             self._pending.pop(owner, None)
+            self._login_email = username.strip()
             response = await self._identity("accounts.login", {"loginID": username.strip(), "password": password,
                 "targetEnv": "jssdk", "authMode": "cookie", "loginMode": "standard", "sessionExpiration": "-1",
                 "include": "profile,data"}, allow_tfa=True)
@@ -185,7 +300,7 @@ class CarrefourAccount:
                 if not assertion or not destinations:
                     raise CarrefourAccountError("No se ha encontrado un destino verificado para enviar el código.", "tfa_destination")
                 self._pending[owner] = {"regToken": reg, "gigyaAssertion": assertion, "kind": kind,
-                    "destinations": destinations, "expires": time.time() + 600}
+                    "destinations": destinations, "expires": time.time() + 600, "email":username.strip()}
             else:
                 await self._save_session(response)
             return self.status(owner)
@@ -229,10 +344,13 @@ class CarrefourAccount:
             await self._identity("accounts.tfa.finalizeTFA", {"regToken": pending["regToken"],
                 "gigyaAssertion": pending["gigyaAssertion"], "providerAssertion": result["providerAssertion"], "tempDevice": "true"})
             response = await self._identity("accounts.finalizeRegistration", {"regToken": pending["regToken"], "include": "profile,data"})
+            self._login_email = pending.get("email","")
             await self._save_session(response)
             return self.status(owner)
 
     async def async_disconnect(self, owner):
+        self._options.update(history_enabled=False,auto_ticket=False)
+        await self._save_options()
         async with self._lock:
             await self._store.async_save({})
             self._session.clear()
@@ -264,7 +382,7 @@ class CarrefourAccount:
         return {"Authorization": "Bearer " + token, "Cookie": "C4SSO_session=" + token,
             "x-ibm-client-id": config["client_id"], "x-ibm-client-secret": config["client_secret"], "requestOrigin": "MYA"}
 
-    async def async_purchases(self, owner, cursor=None):
+    async def async_purchases(self, owner, cursor=None, *, import_summaries=None):
         async with self._lock:
             if cursor is not None and (not isinstance(cursor, dict) or set(cursor) != set(OFFSET_KEYS) or
                     any(type(v) is not int or not 0 <= v <= 100000 for v in cursor.values())):
@@ -300,7 +418,7 @@ class CarrefourAccount:
                 output.append({"id": key, "purchased_at": at, "amount": amount,
                     "store": str(purchase.get("mallName", "Carrefour"))[:150], "reviewable": supported,
                     "kind": "Ticket" if supported else "Pedido online · factura pendiente de soporte"})
-            added = await self.receipts.async_import_carrefour_purchases(summaries)
+            added = await self.receipts.async_import_carrefour_purchases(summaries) if (self._options["history_enabled"] if import_summaries is None else import_summaries) else 0
             offsets = response.get("offsets", {})
             next_cursor = {key: offsets.get(key, 0) for key in OFFSET_KEYS}
             if not purchases or next_cursor == (cursor or dict.fromkeys(OFFSET_KEYS, 0)) or any(type(v) is not int or not 0 <= v <= 100000 for v in next_cursor.values()):
@@ -314,7 +432,7 @@ class CarrefourAccount:
         async with self._sync_lock:
             cursor, added, available, seen = None, 0, 0, set()
             for _ in range(100):
-                result = await self.async_purchases(owner,cursor)
+                result = await self.async_purchases(owner,cursor,import_summaries=True)
                 added += result["added"]
                 available += len(result["purchases"])
                 cursor = result["next_cursor"]

@@ -226,11 +226,10 @@ class CommunitySync:
         codes = {ean(code)} if code else {ean(c) for c in [product.get("barcode", ""), *product.get("barcodes", [])]} if product else set()
         codes.discard("")
         links = (product or {}).get("store_links", {})
-        matches = [item for item in self.dictionary["products"] if codes.intersection(item.get("eans", [])) or any(
-            item.get("store_links", {}).get(store, {}).get("id") == link["id"] for store, link in links.items())]
+        matches = [item for item in self.dictionary["products"] if codes.intersection(item.get("eans", []))]
         if not matches and query:
             matches = [item for item in self.dictionary["products"] if normalized(query) in
-                (normalized(item.get("name", "")), normalized(item.get("name_en", "")))]
+                {normalized(term) for term in [item.get("name",""),item.get("name_en",""),*item.get("terms",[])]}]
         return deepcopy(matches[0]) if len(matches) == 1 else None
 
     def product_hint(self, code):
@@ -242,19 +241,22 @@ class CommunitySync:
             result["nutriscore"] = {"grade": item["nutriscore"], "checked_at": self.dictionary["generated_at"], "source": "community"}
         return result
 
-    def price(self, store, link):
+    def price(self, store, link, codes=()):
         if not self._prices_enabled:
             return None
+        wanted={ean(code) for code in codes}-{""}
         for item in self.dictionary["products"]:
+            if len(item.get("eans",[]))!=1 or not wanted.intersection(item.get("eans", [])):
+                continue
             for price in item["prices"]:
                 if (price["store"] == store and price["reference_id"] == link["id"] and price["checked_at"] >= time.time()-DAY
                     and price_fingerprint(price) not in self.dictionary.get("revoked_prices", [])):
-                    return {**deepcopy(price), "store": store, "url": link["url"], "source": "community", "scope": scope(store)}
+                    return {**deepcopy(price), "store": store, "url": link["url"], "source": "community", "scope": scope(store), "ean":item["eans"][0]}
         return None
 
-    async def async_prepare_prices(self):
+    async def async_prepare_prices(self, *, daily=False):
         """A store batch first consumes the daily dictionary, without uploading yet."""
-        if not self._prices_enabled or not self._download_due():
+        if not self._prices_enabled or not (time.time() >= max(self._data["last_download"],self._data.get("last_download_attempt",0))+DAY if daily else self._download_due()):
             return
         await self.async_sync(upload=False)
 
@@ -265,6 +267,8 @@ class CommunitySync:
 
     @property
     def _period(self):
+        if getattr(self,"daily_public_prices",False):
+            return DAY
         settings=getattr(self.prices,"settings",None)
         return DAY*(settings.snapshot.get("price_update_days",1) if settings else 1)
 
@@ -274,7 +278,7 @@ class CommunitySync:
 
     def suggestions(self, query):
         matches = [item for item in self.dictionary["products"] if normalized(query) in
-            (normalized(item.get("name", "")), normalized(item.get("name_en", "")))]
+            {normalized(term) for term in [item.get("name",""),item.get("name_en",""),*item.get("terms",[])]}]
         unique = {}
         for item in matches:
             for icon in item["icons"]:

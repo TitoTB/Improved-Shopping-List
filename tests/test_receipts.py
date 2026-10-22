@@ -423,3 +423,21 @@ async def test_summary_sync_after_review_does_not_duplicate_existing_purchase(ha
     assert len(env.manager.snapshot["receipts"])==1
     assert env.stock.snapshot["items"][0]["quantity"]==270
     assert env.manager.snapshot["receipts"][0]["account_key"]==env.manager._account_key("account-id")
+
+
+async def test_downloaded_ticket_waits_for_review_and_survives_summary_sync(hass):
+    env=await setup_manager(hass)
+    draft=await env.manager.async_preview(base64.b64encode(pdf_bytes(receipt_text())).decode(),"automatic_carrefour",account_reference="account-ticket")
+    saved=await env.manager.async_archive_account_ticket(draft["token"],"automatic_carrefour")
+    assert saved["pending_review"] and saved["summary_only"]
+    assert env.stock.snapshot["items"][0]["quantity"]==20
+    assert env.manager.offers_for(env.product)==[]
+    await env.manager.async_import_carrefour_purchases([{"purchaseId":"account-ticket","purchaseDate":saved["purchased_at"],"amount":saved["total"]}])
+    assert env.manager.snapshot["receipts"][0]["pending_review"]
+    assert env.manager.account_ticket_available("account-ticket")
+    reviewed=await env.manager.async_review_saved(saved["id"],"owner")
+    assert not reviewed["receipt"].get("summary_only")
+    await env.manager.async_confirm(reviewed["token"],"owner",selections(reviewed,env.product),False)
+    assert len(env.manager.snapshot["receipts"])==1
+    assert not env.manager.snapshot["receipts"][0].get("pending_review")
+    assert env.stock.snapshot["items"][0]["quantity"]==270

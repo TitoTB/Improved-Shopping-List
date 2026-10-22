@@ -68,6 +68,9 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         receipts = ReceiptManager(hass, stock, stock_automation, prices)
         carrefour_account = CarrefourAccount(hass, receipts, activity)
         await carrefour_account.async_load()
+        carrefour_account.settings=settings
+        carrefour_account.prices=prices
+        stock_automation.carrefour_account=carrefour_account
         prices.receipts = receipts
         store_products = StorePriceView(prices, "mercadona")
         recurrence = RecurrenceManager(hass, catalog, settings, activity, readers._operation_lock, stock)
@@ -145,7 +148,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.data[DOMAIN]["entity_data"].stop()
     frontend.async_remove_panel(hass, PANEL_PATH)
     hass.data[DOMAIN]["active"] = False
-    hass.data[DOMAIN]["carrefour_account"].stop()
+    await hass.data[DOMAIN]["carrefour_account"].async_stop()
     await hass.data[DOMAIN]["quantities"].async_stop()
     await hass.data[DOMAIN]["gateway_lists"].async_stop()
     await hass.data[DOMAIN]["community_sync"].async_stop()

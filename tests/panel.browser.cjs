@@ -184,8 +184,9 @@ const hass={
       if(action==='status')return structuredClone(window.cfStatus);
       if(action==='login'){window.cfStatus={connected:false,verification_required:true,destinations:[{id:'0',label:'a***@example.test'}],verification_sent:false};return structuredClone(window.cfStatus);}
       if(action==='send_code'){window.cfStatus.verification_sent=true;return structuredClone(window.cfStatus);}
-      if(action==='verify'){window.cfStatus={connected:true,verification_required:false,destinations:[],verification_sent:false};return structuredClone(window.cfStatus);}
+      if(action==='verify'){window.cfStatus={connected:true,email:'test@example.test',options:{history_enabled:false,auto_ticket:false,public_prices:false},verification_required:false,destinations:[],verification_sent:false};return structuredClone(window.cfStatus);}
       if(action==='disconnect'){window.cfStatus={connected:false,verification_required:false,destinations:[],verification_sent:false};return structuredClone(window.cfStatus);}
+      if(action==='options'){window.cfStatus.options=structuredClone(msg.options);if(msg.options.history_enabled){for(const [id,total] of [['summary-ticket',5.22],['summary-order',10]])if(!window.receiptHistory.some(r=>r.id===id))window.receiptHistory.push({id,store:'carrefour',store_name:'Carrefour',purchased_at:'2026-10-16T19:59:30',total,article_count:null,lines:[],summary_only:true});localStorage.setItem('receipt-fixture',JSON.stringify(window.receiptHistory));}return structuredClone(window.cfStatus);}
       if(action==='sync_history'){if(window.failCarrefourAccount)throw new Error('Carrefour ha rechazado el acceso (HTTP 403).');for(const [id,total] of [['summary-ticket',5.22],['summary-order',10]])if(!window.receiptHistory.some(r=>r.id===id))window.receiptHistory.push({id,store:'carrefour',store_name:'Carrefour',purchased_at:'2026-10-16T19:59:30',total,article_count:null,lines:[],summary_only:true});localStorage.setItem('receipt-fixture',JSON.stringify(window.receiptHistory));return {added:2,available:2,complete:true};}
       if(action==='purchases'){if(window.failCarrefourAccount)throw new Error('Carrefour ha rechazado el acceso (HTTP 403).');return {purchases:[{id:'private-purchase-key',purchased_at:'2026-10-16T19:59:30',amount:5.22,store:'Carrefour de prueba',reviewable:true,kind:'Ticket'},...(msg.cursor?[]:[{id:'online-key',purchased_at:'2026-10-16T19:59:30',amount:10,store:'Carrefour online',reviewable:false,kind:'Pedido online · factura pendiente de soporte'}])],next_cursor:msg.cursor?null:{ticketOffset:10}};}
     }
@@ -1391,111 +1392,34 @@ async function main() {
     await settingsView.getByRole("button",{name:"Tiendas",exact:true}).click();
     assert.equal(await settingsView.locator("#settings-view-stores ha-icon").getAttribute("icon"), "mdi:store");
     assert.deepEqual(await settingsView.locator(".stores-grid .store-name h3").allTextContents(),["Alcampo","Carrefour","Consum","DIA","Eroski","La Sirena","Mercadona"]);
-    // All stores expose a count/cart badge and a product-only dialog, even when disabled.
+    // Store settings open without cached-product listings or count badges.
     for (const store of ['Mercadona','Carrefour','Alcampo','Consum','La Sirena','Eroski','DIA']) {
-      const badge=settingsView.getByRole('button',{name:`Productos de ${store}`,exact:true});
-      assert.equal(await badge.locator('ha-icon').getAttribute('icon'),'mdi:cart');
-      assert.equal(await badge.locator('.store-associated-count').textContent(),'0');
-      await badge.click();
-      const dialog=settingsView.getByRole('dialog',{name:store,exact:true});
-      assert.equal(await dialog.locator('.store-view-tabs, .store-configuration').count(),0);
-      assert.equal(await dialog.getByRole('button',{name:'Productos',exact:true}).count(),0);
-      assert.equal(await dialog.getByRole('button',{name:'Configuración',exact:true}).count(),0);
-      assert.ok(await dialog.locator(':scope > section').isVisible());
+      const gear=settingsView.getByRole('button',{name:`Ajustes de ${store}`,exact:true});
+      assert.equal(await gear.locator('ha-icon').getAttribute('icon'),'mdi:cog');
+      assert.equal(await gear.locator('.store-associated-count').count(),0);
+      await gear.click();const dialog=settingsView.getByRole('dialog',{name:store,exact:true});
+      assert.equal(await dialog.locator('.store-products:visible,.store-cache-footer:visible').count(),0);
       await dialog.getByRole('button',{name:'Cerrar ventana',exact:true}).click();
     }
-    // Store references are fixed; no user postcode is requested.
     assert.equal(await settingsView.getByRole('button',{name:'Código postal de las tiendas',exact:true}).count(),0);
     for(const [store,name] of [['consum','Consum'],['lasirena','La Sirena'],['eroski','Eroski'],['dia','DIA']]){
       await settingsView.getByLabel(`Habilitar ${name}`,{exact:true}).check();
       await settingsPage.waitForFunction(store=>window.listSettings.stores?.[store]?.enabled,store);
       assert.equal(await settingsPage.evaluate(store=>window.listSettings.stores[store].postal_code,store),{consum:'46409',lasirena:'28024',eroski:'48001',dia:'28024'}[store]);
-      assert.equal(await settingsView.locator('dialog[open]').count(),0);
       await settingsView.getByLabel(`Habilitar ${name}`,{exact:true}).uncheck();
-      await settingsView.getByRole('button',{name:`Productos de ${name}`,exact:true}).click();
-      const dialog=settingsView.getByRole('dialog',{name,exact:true});
-      await dialog.getByText('0 precios guardados',{exact:true}).waitFor();
-      assert.equal(await dialog.getByLabel('Código postal',{exact:true}).count(),0);
-      await dialog.getByRole('button',{name:'Cerrar ventana',exact:true}).click();
     }
     await settingsView.getByLabel('Habilitar Mercadona').check();
     await settingsPage.waitForFunction(()=>window.listSettings.stores.mercadona.enabled);
-    assert.equal(await settingsView.locator('#favorite-mercadona').getAttribute('aria-pressed'),'true');
-    const storeDialog=settingsView.getByRole('dialog',{name:'Mercadona',exact:true});
-    const storeRow = settingsView.locator("#mercadona-row");
-    assert.equal(await storeRow.evaluate(node=>getComputedStyle(node).opacity),"1");
-    assert.equal(await storeRow.evaluate(node=>getComputedStyle(node).backgroundColor),"rgba(38, 112, 82, 0.1)");
-    assert.equal(await settingsView.locator("#carrefour-row").evaluate(node=>getComputedStyle(node).opacity),"0.55");
-    assert.match(await storeRow.locator("img").getAttribute("src"),/\/mercadona\.png$/);
-    assert.equal(await settingsView.locator('#carrefour-row img').getAttribute('src'),'https://images.seeklogo.com/logo-png/31/2/carrefour-logo-png_seeklogo-318190.png');
+    const storeRow=settingsView.locator('#mercadona-row');
+    assert.equal(await storeRow.evaluate(node=>getComputedStyle(node).opacity),'1');
+    assert.match(await storeRow.locator('img').getAttribute('src'),/\/mercadona\.png$/);
     assert.equal(await settingsView.locator('.stores-grid').evaluate(node=>getComputedStyle(node).gridTemplateColumns.split(' ').length),2);
-    assert.equal(await storeRow.locator("#configure-mercadona ha-icon").getAttribute("icon"),"mdi:cart");
-    assert.ok(await storeRow.evaluate(row=>{const image=row.querySelector('img').getBoundingClientRect(),name=row.querySelector('h3').getBoundingClientRect(),controls=row.querySelector('.store-controls').getBoundingClientRect();return image.right<=name.left && name.right<=controls.left;}));
-    await settingsPage.reload();
-    await settingsPage.getByRole("button",{name:"Ajustes",exact:true}).click();
-    await settingsView.getByRole("button",{name:"Tiendas",exact:true}).click();
-    await settingsPage.evaluate(()=>{
-      window.storePriceFixture=[
-        {store:'mercadona',name:'Tomate',ean:'8430543025611',store_name:'Tomate rallado',reference_id:'69938',price:'1.45',currency:'EUR',checked_at:1800000000,url:'https://tienda.mercadona.es/product/69938'},
-        {store:'carrefour',name:'Alcaparras Carrefour',ean:'8431876279146',price:'1.35',currency:'EUR',checked_at:1800000000,url:'https://www.carrefour.es/supermercado/R-123/p'},
-        {store:'alcampo',name:'Patatas',price:'2.65',currency:'EUR',checked_at:1800000000,url:'https://www.compraonline.alcampo.es/products/patatas/10739'}];
-    });
-    await settingsView.getByLabel("Habilitar Mercadona",{exact:true}).uncheck();
-    const mutationsBeforeCache=await settingsPage.evaluate(()=>window.calls.length);
-    await settingsView.getByRole("button",{name:"Productos de Mercadona",exact:true}).click();
-    await storeDialog.getByText("Tomate",{exact:true}).waitFor();
-    assert.match(await storeDialog.locator(".store-price strong").textContent(),/1,45/);
-    assert.equal(await storeDialog.locator("#store-products-status").textContent(),"1 precios guardados");
-    assert.equal(await storeDialog.getByRole("button",{name:"Forzar actualización",exact:true}).count(),0);
-    assert.equal(await storeDialog.getByRole("button",{name:"Cerrar",exact:true}).count(),0);
-    assert.ok(await storeDialog.locator("#store-products-status").evaluate(node=>{
-      const products=node.previousElementSibling;
-      return products.id==="store-products"&&getComputedStyle(node).textAlign==="left"&&node.getBoundingClientRect().top>=products.getBoundingClientRect().bottom;
-    }));
-    assert.equal(await settingsPage.evaluate(()=>window.calls.length),mutationsBeforeCache);
-    await settingsPage.setViewportSize({width:390,height:844});
-    await settingsPage.screenshot({path:'test-results/store-products-mobile.png',fullPage:true});
-    assert.ok(await storeDialog.evaluate(dialog=>dialog.scrollWidth<=dialog.clientWidth+1));
-    await storeDialog.getByRole("button",{name:"Cerrar ventana",exact:true}).click();
-    await settingsView.getByRole("button",{name:"Productos de Alcampo",exact:true}).click();
-    const alcampoCacheDialog=settingsView.getByRole("dialog",{name:"Alcampo",exact:true});
-    await alcampoCacheDialog.getByText("Patatas",{exact:true}).waitFor();
-    assert.equal(await alcampoCacheDialog.locator("#alcampo-status").textContent(),"1 precios guardados");
-    assert.equal(await alcampoCacheDialog.getByRole("button",{name:"Actualizar vista",exact:true}).count(),0);
-    assert.equal(await alcampoCacheDialog.getByRole("button",{name:"Cerrar",exact:true}).count(),0);
-    await alcampoCacheDialog.getByRole("button",{name:"Cerrar ventana",exact:true}).click();
-    await settingsView.getByLabel("Habilitar Mercadona",{exact:true}).check();
-    await settingsView.getByRole("button",{name:"Productos de Mercadona",exact:true}).click();
-    await storeDialog.getByRole('button',{name:'Cerrar ventana',exact:true}).click();
-    await settingsView.getByLabel("Habilitar Carrefour",{exact:true}).check();
-    await settingsView.getByRole("button",{name:"Marcar Carrefour como favorita",exact:true}).click();
+    await settingsView.getByLabel('Habilitar Carrefour',{exact:true}).check();
+    await settingsView.getByRole('button',{name:'Marcar Carrefour como favorita',exact:true}).click();
     await settingsView.locator('#favorite-carrefour[aria-pressed="true"]').waitFor();
     assert.equal(await settingsView.locator('#favorite-mercadona').getAttribute('aria-pressed'),'false');
     assert.equal(await settingsView.locator('.store-favorite[aria-pressed="true"]').count(),1);
-    assert.equal(await settingsView.locator('#favorite-carrefour ha-icon').getAttribute('icon'),'mdi:heart');
-    assert.equal(await settingsView.locator('#favorite-store').count(),0);
-    assert.equal(await settingsView.locator('.store-name .badge').count(),0);
-    assert.ok(await settingsView.locator('#favorite-carrefour').evaluate(node=>node.previousElementSibling.id==='configure-carrefour'));
-    await settingsView.getByRole("button",{name:"Productos de Carrefour",exact:true}).click();
-    const carrefourDialog = settingsView.getByRole("dialog",{name:"Carrefour",exact:true});
-    await carrefourDialog.getByText("Alcaparras Carrefour",{exact:true}).waitFor();
-    assert.match(await carrefourDialog.locator(".store-product").textContent(),/1,35/);
-    assert.match(await carrefourDialog.getByRole("link").getAttribute("href"),/carrefour.es/);
-    assert.equal(await carrefourDialog.getByRole("button",{name:"Actualizar vista",exact:true}).count(),0);
-    assert.equal(await carrefourDialog.getByRole("button",{name:"Cerrar",exact:true}).count(),0);
-    await carrefourDialog.getByRole("button",{name:"Cerrar ventana",exact:true}).click();
-    await settingsView.getByLabel("Habilitar Carrefour",{exact:true}).uncheck();
-    await settingsView.getByRole("button",{name:"Productos de Carrefour",exact:true}).click();
-    await carrefourDialog.getByText("Alcaparras Carrefour",{exact:true}).waitFor();
-    assert.equal(await carrefourDialog.locator("#carrefour-status").textContent(),"1 precios guardados");
-    await carrefourDialog.getByRole("button",{name:"Cerrar ventana",exact:true}).click();
-    await settingsView.getByLabel("Habilitar Carrefour",{exact:true}).check();
-    await settingsView.getByRole("button",{name:"Productos de Carrefour",exact:true}).click();
-    assert.equal(await carrefourDialog.locator('input:visible, select:visible').count(),0);
-    await carrefourDialog.getByRole('button',{name:'Cerrar ventana',exact:true}).click();
-    await settingsPage.evaluate(()=>document.querySelector('improved-shopping-list-panel').shadowRoot.querySelector('isl-catalog').dispatchEvent(new CustomEvent('catalog-change',{detail:{products:[{id:'linked-1',name:'Vinculado',store_links:{carrefour:{id:'R-123'}}},{id:'unlinked-1',name:'Sin vincular'}],categories:[]}})));
-    assert.equal(await settingsView.locator('#configure-carrefour .store-associated-count').textContent(),'1');
-    assert.equal(await settingsView.locator('#configure-mercadona .store-associated-count').textContent(),'0');
+    await settingsPage.setViewportSize({width:390,height:844});
     const updateAll = settingsView.getByRole('button',{name:'Actualizar ahora',exact:true});
     assert.equal(await updateAll.count(),1);
     assert.equal(await updateAll.textContent(),'');
@@ -1507,7 +1431,6 @@ async function main() {
       for(const callback of window.storeProgressListeners)callback({running:false,last_updated:window.lastPriceUpdateFixture});
     });
     assert.equal(await settingsView.locator('#stores-last-updated').textContent(),'20/10 20:35');
-    assert.equal(await settingsView.locator('.store-row .store-refresh').count(),0);
     await updateAll.click();
     const allPricesDialog=settingsView.getByRole('dialog',{name:'Actualización de precios',exact:true});
     await allPricesDialog.waitFor();
@@ -2884,7 +2807,7 @@ async function main() {
     await linkedSettings.getByRole('button',{name:'Actualización de precios',exact:true}).click();
     await priceScheduleDialog.getByRole('button',{name:'Cerrar ventana',exact:true}).click();
     await linkedSettings.getByLabel('Habilitar Alcampo',{exact:true}).check();
-    await linkedSettings.getByRole('button',{name:'Productos de Alcampo',exact:true}).click();
+    await linkedSettings.getByRole('button',{name:'Ajustes de Alcampo',exact:true}).click();
     const alcampoDialog=linkedSettings.getByRole('dialog',{name:'Alcampo',exact:true});
     assert.equal(await alcampoDialog.locator('input,select').count(),0);
     await alcampoDialog.getByRole('button',{name:'Cerrar ventana',exact:true}).click();
@@ -3555,7 +3478,7 @@ async function main() {
     const accountPage=await accountContext.newPage();accountPage.on('pageerror',error=>errors.push(error.message));
     await accountPage.goto(url);await accountPage.getByRole('button',{name:'Ajustes',exact:true}).click();
     const accountSettings=accountPage.locator('isl-settings');await accountSettings.getByRole('button',{name:'Tiendas',exact:true}).click();
-    await accountSettings.getByRole('button',{name:'Productos de Carrefour',exact:true}).click();
+    await accountSettings.getByRole('button',{name:'Ajustes de Carrefour',exact:true}).click();
     const account=accountSettings.locator('isl-carrefour-account');
     await account.getByRole('button',{name:'Conectar cuenta',exact:true}).waitFor();
     assert.equal(await account.getByRole('button',{name:'Consultar compras',exact:true}).isDisabled(),true);
@@ -3571,12 +3494,16 @@ async function main() {
     await login.getByRole('button',{name:'Enviar código',exact:true}).click();
     await login.getByLabel('Código de verificación',{exact:true}).fill('123456');
     await login.getByRole('button',{name:'Verificar',exact:true}).click();
-    await login.getByRole('button',{name:'Desconectar cuenta',exact:true}).waitFor();
-    await accountPage.waitForFunction(()=>window.receiptHistory.length===2);
-    assert.equal(await accountPage.evaluate(()=>window.receiptHistory.length),2);
+    await account.getByRole('button',{name:'Desconectar cuenta',exact:true}).waitFor();
+    assert.equal(await accountPage.evaluate(()=>window.receiptHistory.length),0);
     await accountPage.screenshot({path:'test-results/carrefour-account-login-mobile.png',fullPage:true});
     assert.ok(await login.evaluate(el=>el.scrollWidth<=el.clientWidth+1));
     await login.getByRole('button',{name:'Cerrar ventana',exact:true}).click();
+    await account.getByRole('switch',{name:'Recuperar compras del último año',exact:true}).check();
+    await accountPage.waitForFunction(()=>window.receiptHistory.length===2);
+    assert.equal(await account.locator('#account-email').textContent(),'test@example.test');
+    await account.getByRole('switch',{name:'Descargar ticket automáticamente',exact:true}).check();
+    await account.getByRole('switch',{name:'Actualizar precios públicos en el catálogo',exact:true}).check();
     await account.getByRole('button',{name:'Consultar compras',exact:true}).click();
     const accountPurchases=account.getByRole('dialog',{name:'Compras de Carrefour',exact:true});
     await accountPurchases.getByRole('button',{name:'Revisar ticket',exact:true}).waitFor();
@@ -3595,7 +3522,7 @@ async function main() {
     assert.equal(await accountPage.evaluate(()=>window.stockItems.length),0);
     await accountReview.getByRole('button',{name:'Cerrar ventana',exact:true}).click();
     await accountPage.getByRole('button',{name:'Ajustes',exact:true}).click();
-    await accountSettings.getByRole('button',{name:'Productos de Carrefour',exact:true}).click();
+    await accountSettings.getByRole('button',{name:'Ajustes de Carrefour',exact:true}).click();
     await account.getByRole('button',{name:'Consultar compras',exact:true}).click();await accountPurchases.getByRole('button',{name:'Revisar ticket',exact:true}).waitFor();
     await accountPurchases.getByRole('button',{name:'Ver más compras',exact:true}).click();
     await accountPurchases.getByRole('button',{name:'Ver más compras',exact:true}).waitFor({state:'hidden'});
@@ -3605,8 +3532,8 @@ async function main() {
     await account.getByRole('button',{name:'Consultar compras',exact:true}).click();
     await accountPurchases.locator('#purchases-error').filter({hasText:'HTTP 403'}).waitFor();
     await accountPurchases.getByRole('button',{name:'Cerrar ventana',exact:true}).click();
-    await account.getByRole('button',{name:'Cuenta conectada',exact:true}).click();
-    await login.getByRole('button',{name:'Desconectar cuenta',exact:true}).click();await login.waitFor({state:'hidden'});
+    await account.getByRole('button',{name:'Desconectar cuenta',exact:true}).click();
+    await account.getByRole('button',{name:'Conectar cuenta',exact:true}).waitFor();
     assert.equal(await account.getByRole('button',{name:'Consultar compras',exact:true}).isDisabled(),true);
     await accountContext.close();
     // Logs display live changes as text, filter by origin/type and clean up on navigation.

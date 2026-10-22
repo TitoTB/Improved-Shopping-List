@@ -27,7 +27,7 @@ async def account(hass):
 
 async def test_start_and_status_never_contact_carrefour(account):
     account._http = AsyncMock()
-    assert account.status("owner") == {"connected":False,"verification_required":False,"destinations":[],"verification_sent":False}
+    assert account.status("owner") == {"connected":False,"email":"","options":{"history_enabled":False,"auto_ticket":False,"public_prices":False},"verification_required":False,"destinations":[],"verification_sent":False}
     account.stop();account.start()
     account._http.assert_not_awaited()
 
@@ -37,7 +37,7 @@ async def test_login_stores_only_session_and_disconnect_forgets_it(account, hass
     result = await account.async_login("owner","private@example.test","PRIVATE_PASSWORD")
     assert result["connected"] and "PRIVATE" not in json.dumps(result)
     saved = await account._store.async_load()
-    assert saved == {"login_token":"PRIVATE_SESSION","device_cookies":{"gmid":"test-device"}}
+    assert saved == {"login_token":"PRIVATE_SESSION","device_cookies":{"gmid":"test-device"},"email":"private@example.test"}
     restored = CarrefourAccount(hass,account.receipts,account.activity);await restored.async_load()
     assert restored.status("owner")["connected"]
     assert account._http.await_args.kwargs["data"]["password"] == "PRIVATE_PASSWORD"
@@ -148,7 +148,7 @@ async def test_account_websocket_commands_require_admin_and_setup_never_fetches(
     token=await hass.auth.async_create_refresh_token(hass_read_only_user,client_id="http://test.local")
     client=await hass_ws_client(hass,hass.auth.async_create_access_token(token))
     actions=[("status",{}),("login",{"username":"test","password":"secret"}),("send_code",{"destination":"0"}),
-        ("verify",{"code":"123456"}),("disconnect",{}),("purchases",{}),("sync_history",{}),("preview",{"purchase_id":"id"})]
+        ("verify",{"code":"123456"}),("disconnect",{}),("purchases",{}),("sync_history",{}),("options",{"options":{}}),("preview",{"purchase_id":"id"})]
     for i,(action,fields) in enumerate(actions,1):
         await client.send_json({"id":i,"type":f"{DOMAIN}/carrefour_account/"+action,**fields})
         assert (await client.receive_json())["error"]["code"]=="unauthorized"
@@ -230,3 +230,49 @@ async def test_history_sync_reads_all_pages_of_last_year_and_imports_only_summar
     assert (dt_util.utcnow()-dt_util.parse_datetime(first["from"])).days==365
     assert [[row["purchaseId"] for row in call.args[0]] for call in account.receipts.async_import_carrefour_purchases.await_args_list]==[["a"],["b"]]
     account.receipts.async_preview.assert_not_awaited()
+
+
+async def test_carrefour_options_require_connection_except_public_prices(account):
+    account._queue_background=Mock()
+    with pytest.raises(CarrefourAccountError,match="Conecta"):
+        await account.async_options("owner",{"history_enabled":True,"auto_ticket":False,"public_prices":False})
+    status=await account.async_options("owner",{"history_enabled":False,"auto_ticket":False,"public_prices":True})
+    assert status["options"]["public_prices"] and not status["connected"]
+    account._session={"login_token":"private","email":"account@example.test"}
+    account.async_sync_history=AsyncMock()
+    status=await account.async_options("owner",{"history_enabled":True,"auto_ticket":False,"public_prices":True})
+    account.async_sync_history.assert_awaited_once_with("owner")
+    assert status["email"]=="account@example.test"
+    await account.async_disconnect("owner")
+    assert account.status("owner")["options"]=={"history_enabled":False,"auto_ticket":False,"public_prices":True}
+
+
+async def test_automatic_download_requires_completion_and_runs_once_per_day(account):
+    account._session={"login_token":"private"}
+    account.settings=SimpleNamespace(snapshot={"price_update_time":"00:00"})
+    account._options["auto_ticket"]=True
+    account.async_purchases=AsyncMock(return_value={"purchases":[{"id":"key","purchased_at":dt_util.now().isoformat(),"reviewable":True}]})
+    account._purchases={"key":{"id":"real-ticket"}}
+    account.async_preview=AsyncMock(return_value={"token":"draft"})
+    account.receipts.account_ticket_available=Mock(return_value=False)
+    account.receipts.async_archive_account_ticket=AsyncMock()
+    await account._run_background()
+    account.async_purchases.assert_not_awaited()
+    account._options["completion_at"]=time.time()
+    await account._run_background()
+    account.receipts.async_archive_account_ticket.assert_awaited_once_with("draft","automatic_carrefour")
+    account._options["completion_at"]+=1
+    await account._run_background()
+    account.async_purchases.assert_awaited_once()
+    account.receipts.async_preview.assert_not_awaited()
+
+
+async def test_completions_are_ignored_until_automatic_download_is_enabled(account):
+    account._session={"login_token":"private"}
+    account._queue_background=Mock()
+    account.note_completion()
+    assert account._options["completion_at"]==0
+    account._options["auto_ticket"]=True
+    account.note_completion()
+    assert account._options["completion_at"]>0
+    account._queue_background.assert_called_once()

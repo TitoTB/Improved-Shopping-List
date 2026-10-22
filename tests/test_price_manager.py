@@ -228,10 +228,11 @@ async def test_pending_union_deduplicates_and_reads_do_not_fetch(env):
 
 
 async def test_fresh_community_price_avoids_store_http_and_keeps_original_age(env):
+    env.catalog.products[0]["barcode"]="1234567890128"
     original = env.clock[0]-3600
     shared = {"store":"alcampo", "reference_id":"24097", "url":normalize_link("alcampo","24097")["url"],
-        "price":"1.99", "currency":"EUR", "checked_at":original, "source":"community"}
-    env.manager.community = SimpleNamespace(price=lambda store,link:deepcopy(shared) if store=="alcampo" and link["id"]=="24097" else None,
+        "price":"1.99", "currency":"EUR", "checked_at":original, "source":"community", "ean":"01234567890128"}
+    env.manager.community = SimpleNamespace(price=lambda store,link,codes=():deepcopy(shared) if store=="alcampo" and link["id"]=="24097" else None,
         async_prepare_prices=AsyncMock())
     env.manager.sources.fetch = AsyncMock(side_effect=AssertionError("No store request for a fresh shared price"))
     await env.manager.async_tick()
@@ -809,3 +810,20 @@ async def test_refresh_all_can_reopen_progress_while_http_request_holds_queue_lo
     finally:
         resume.set();await task
     assert len(env.requests)==1
+
+
+async def test_public_catalog_update_fills_missing_prices_by_exact_ean_only(env):
+    linked=product("Sin precio")
+    linked["barcode"]="1234567890128"
+    unlinked=product("Sin enlace");unlinked["store_links"]={};unlinked["barcode"]="1234567890128"
+    missing=product("Sin EAN");missing["store_links"]={}
+    env.catalog.products=[linked,unlinked,missing]
+    link=normalize_link("alcampo","24097")
+    shared={"store":"alcampo","reference_id":"24097","url":link["url"],"price":"1.99","currency":"EUR","checked_at":env.clock[0],"source":"community","ean":"01234567890128"}
+    env.manager.community=SimpleNamespace(dictionary={"products":[{"eans":["01234567890128"],"store_links":{"alcampo":link}}]},
+        async_prepare_prices=AsyncMock(),price=lambda store,link,codes:deepcopy(shared))
+    await env.manager.async_public_catalog_prices("alcampo")
+    assert env.manager.prices_for(linked)[0]["price"]=="1.99"
+    assert env.manager.prices_for(unlinked)[0]["price"]=="1.99"
+    assert env.manager.prices_for(missing)==[]
+    assert env.requests==[]

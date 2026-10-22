@@ -2,6 +2,8 @@
 
 ## Pendiente de publicación
 
+- El asistente de tickets muestra un resumen final después de Precios, con totales y las operaciones seleccionadas, antes de confirmar la compra. Precios permite también «Actualizar precios y cerrar».
+
 - Revisión de tickets, paso Stock: cantidad y unidades alineadas a la derecha del nombre en la misma fila, también en móvil.
 
 - Revisión de tickets: las líneas sin vincular a un producto del catálogo se ignoran al continuar o guardar; se elimina el botón de ignorar y se simplifica el texto de ayuda.

@@ -57,8 +57,8 @@ actualización puesta en cola de una petición de precio que ya ha comenzado.
 Stock incluye las vistas **Stock** y **Compras**, con un botón para subir tickets
 PDF electrónicos de Carrefour, tanto tickets como facturas online con tabla de EAN (hasta 2 MB y 10 páginas). El documento se lee localmente;
 los escaneos y otros formatos de tienda todavía no están disponibles. El popup guía
-la revisión en tres pasos: **Vinculación**, **Stock** y **Precios**. Primero permite
-asociar cada línea al catálogo desde un popup con buscador, abrir la ficha completa para crear un producto o ignorarla. Las filas muestran el nombre del ticket y tres botones: vincular (azul), crear (verde) e ignorar (X sin fondo que pasa a rojo al activarse y se puede desmarcar). En este paso no se muestran cantidades ni precios. Dos líneas del mismo ticket no pueden vincularse al mismo producto;
+la revisión con **Vinculación**, **Stock**, **Precios** y un **Resumen** final. Primero permite
+asociar cada línea al catálogo desde un popup con buscador o abrir la ficha completa para crear un producto. Las líneas sin vincular se ignoran automáticamente. Las filas muestran el nombre del ticket y dos botones: vincular (azul) y crear (verde). En este paso no se muestran cantidades ni precios. Dos líneas del mismo ticket no pueden vincularse al mismo producto;
 hay que liberar la asociación anterior antes de reutilizarlo. La similitud de nombres
 solo propone correspondencias. Al continuar se guardan las vinculaciones localmente,
 independientemente del stock y sin compartirlas con el diccionario comunitario.
@@ -67,11 +67,11 @@ o precios; se puede volver a subir el ticket más adelante.
 
 En Vinculación, las líneas sin asociar aparecen primero y los productos vinculados se reúnen al final en un bloque plegado que permite desplegarlos y editarlos. No se muestra el subtítulo «Vincular productos».
 
-En Stock vienen seleccionados los productos identificados que ya están en el inventario, dentro de otro bloque plegado al final. Cada producto aparece en un bloque con el nombre del ticket y del catálogo, cantidad y unidades. Pulsar el bloque marca o desmarca la reposición y resalta en naranja los seleccionados; editar la cantidad o las unidades no cambia esa selección. En este paso se omiten los precios de cada línea. Los tres pasos incluyen una breve ayuda. En Precios, los bloques muestran la imagen y el nombre del catálogo; solo se pueden guardar precios de productos vinculados. Las propuestas por similitud deben confirmarse en Vinculación.
+En Stock aparecen primero, seleccionados, los productos identificados que ya están en el inventario; los demás productos vinculados se reúnen en un bloque plegado al final. Cada producto aparece en un bloque con el nombre del ticket y del catálogo, con cantidad y unidades a su derecha. Pulsar el bloque marca o desmarca la reposición y resalta en naranja los seleccionados; editar la cantidad o las unidades no cambia esa selección. En este paso se omiten los precios de cada línea. Los tres pasos incluyen una breve ayuda. En Precios, los bloques muestran la imagen y el nombre del catálogo; solo se pueden guardar precios de productos vinculados. Las propuestas por similitud deben confirmarse en Vinculación.
 Los demás se pueden incorporar, confirmando cantidades y unidades antes de sumarlas.
 Las conversiones confirmadas se recuerdan para próximos tickets. **Volver a vinculación** conserva la revisión; **Añadir stock y cerrar** confirma la compra y las cantidades elegidas sin actualizar precios. Los botones para guardar y cerrar son verdes y **Continuar** es azul. En Precios se eligen
 individualmente los importes que se quieren guardar, con opción de seleccionar todos,
-y se muestra un resumen antes de confirmar la compra. Las cantidades y el historial
+y **Continuar** abre el resumen final con el detalle del ticket, total y operaciones seleccionadas. Desde allí, **Confirmar compra** guarda la compra. **Actualizar precios y cerrar** permite confirmar directamente desde Precios con las selecciones de stock y precios realizadas. Las cantidades y el historial
 no cambian hasta esta confirmación final; las vinculaciones del primer paso se conservan
 aunque se cierre la revisión después.
 

@@ -2719,6 +2719,19 @@ async function main() {
     await review.getByRole('button',{name:'Continuar',exact:true}).click();
     assert.equal(await review.getByRole('button',{name:'Guardar precio de Seitán',exact:true}).getAttribute('aria-pressed'),'false');
     await purchasePage.screenshot({path:'test-results/receipt-wizard-prices-mobile.png',fullPage:true});
+    assert.equal(await review.locator('#review-result').isVisible(),false);
+    assert.equal(await review.getByRole('button',{name:'Actualizar precios y cerrar',exact:true}).isVisible(),true);
+    await review.getByRole('button',{name:'Continuar',exact:true}).click();
+    assert.equal(await review.locator('#review-result').isVisible(),true);
+    assert.equal(await review.locator('#review-lines').isVisible(),false);
+    assert.equal(await review.locator('#review-steps [data-completed=true]').count(),3);
+    assert.equal(await purchasePage.evaluate(()=>window.receiptHistory.length),0);
+    await review.getByRole('button',{name:'3. Precios',exact:true}).click();
+    assert.equal(await review.getByRole('button',{name:'Guardar precio de Seitán',exact:true}).getAttribute('aria-pressed'),'false');
+    await review.getByRole('button',{name:'Continuar',exact:true}).click();
+    for(const width of [320,390,1280]){await purchasePage.setViewportSize({width,height:844});assert.ok(await review.evaluate(el=>el.scrollWidth<=el.clientWidth+1));}
+    await purchasePage.setViewportSize({width:390,height:844});
+    await purchasePage.screenshot({path:'test-results/receipt-wizard-summary-mobile.png',fullPage:true});
     await purchasePage.evaluate(()=>{window.failReceipt=true;});
     await review.getByRole('button',{name:'Confirmar compra',exact:true}).click();
     await review.getByText('No se ha podido guardar el ticket.',{exact:true}).waitFor();
@@ -3473,7 +3486,8 @@ async function main() {
     assert.match(await invoiceReview.locator('#step-help').textContent(),/antes de descuentos y no incluye el envío/);
     assert.match(await invoiceReview.locator('[data-line-id="0"] .price-value').textContent(),/2,65/);
     assert.equal(await invoiceReview.locator('[data-line-id="0"] .original').count(),0);
-    await invoiceReview.getByRole('button',{name:'Confirmar compra',exact:true}).click();await invoiceReview.waitFor({state:'hidden'});
+    assert.equal(await invoiceReview.locator('#review-result').isVisible(),false);
+    await invoiceReview.getByRole('button',{name:'Actualizar precios y cerrar',exact:true}).click();await invoiceReview.waitFor({state:'hidden'});
     await invoicePurchases.locator('#history summary').click();
     assert.match(await invoicePurchases.locator('#history').textContent(),/Gastos de envío/);
     assert.match(await invoicePurchases.locator('#history').textContent(),/Descuento de línea/);
@@ -3496,8 +3510,9 @@ async function main() {
     assert.equal(await suggestionReview.locator('.review-line').count(),0);
     assert.ok(await suggestionReceiptPage.evaluate(()=>window.receiptLinks.length>0&&window.receiptLinks.every(line=>!line.product_id)));
     await suggestionReview.getByRole('button',{name:'Continuar',exact:true}).click();
-    await suggestionReview.getByRole('button',{name:'Confirmar compra',exact:true}).waitFor();
     assert.equal(await suggestionReview.locator('.price-select').count(),0);
+    await suggestionReview.getByRole('button',{name:'Continuar',exact:true}).click();
+    await suggestionReview.getByRole('button',{name:'Confirmar compra',exact:true}).waitFor();
     await suggestionReview.getByRole('button',{name:'Confirmar compra',exact:true}).click();
     await suggestionReview.waitFor({state:'hidden'});
     assert.equal(await suggestionReceiptPage.evaluate(()=>window.stockItems.length),0);

@@ -50,14 +50,14 @@ class ImprovedShoppingPurchases extends HTMLElement {
       dialog{position:fixed;inset:0;border:0;border-radius:18px;background:var(--card-background-color,#fff);color:inherit;width:min(900px,calc(100vw - 24px));max-height:90vh;padding:24px;overflow:auto}
       dialog::backdrop{background:#0008}h2{font-size:1.25rem;margin:0 40px 16px 0}.receipt-info{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px}
       #review-lines{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}#review-lines>.review-group,#review-lines>.select-all-prices,#review-lines>.note{grid-column:1/-1}.review-line{min-width:0}.review-line{border:1px solid var(--divider-color,#d9e0dd);padding:12px;background:var(--secondary-background-color,#f2f4f3);border-radius:10px}
-      #review-steps{list-style:none;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;padding:0;margin:16px 0}#review-steps button{width:100%;padding:10px 6px;border:0;text-align:center;border-radius:8px;font-size:.85em;background:var(--secondary-background-color,#edf2ef)}#review-steps button:disabled{opacity:1;cursor:default}#review-steps button:focus-visible{outline:3px solid var(--primary-color,#267052);outline-offset:2px}#review-steps [data-completed=true]{background:var(--isl-green,#267052);color:white}#review-steps [aria-current=step]{background:#2196f3;color:white;font-weight:700}
+      #review-steps{list-style:none;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;padding:0;margin:16px 0}#review-steps button{width:100%;padding:10px 6px;border:0;text-align:center;border-radius:8px;font-size:.85em;background:var(--secondary-background-color,#edf2ef)}#review-steps button:disabled{opacity:1;cursor:default}#review-steps button:focus-visible{outline:3px solid var(--primary-color,#267052);outline-offset:2px}#review-steps [data-completed=true]{background:var(--isl-green,#267052);color:white}#review-steps [aria-current=step]{background:#2196f3;color:white;font-weight:700}
       #step-title{margin:18px 0 8px;font-size:1.05em}.association{display:flex;gap:8px;align-items:end}.association label{flex:1}.small-button{display:grid;place-items:center;flex:none;width:42px;height:42px;padding:0;border:0;border-radius:8px;background:var(--primary-color,#267052);color:white}.small-button.clear{background:transparent;color:inherit;border:1px solid var(--divider-color,#d9e0dd)}
       .actions{gap:8px;flex-wrap:wrap}.actions .secondary{background:transparent;color:inherit;border:1px solid var(--divider-color,#d9e0dd)}.previous-price{font-size:.85em;opacity:.7;margin:8px 0}.review-line .check{margin:10px 0}.stock-fields{display:grid;grid-template-columns:minmax(0,2fr) minmax(80px,1fr);gap:10px}.review-summary{line-height:1.6;padding:12px;border-radius:8px;background:var(--secondary-background-color,#edf2ef)}
       .original{display:flex;justify-content:space-between;gap:12px;margin-bottom:10px}.fields{display:grid;grid-template-columns:minmax(0,2fr) minmax(100px,1fr);gap:10px}
       label{display:flex;flex-direction:column;gap:5px;font-size:.9em;min-width:0}.quantity{display:flex;align-items:center;gap:8px}.quantity span{white-space:nowrap}
       .check{flex-direction:row;align-items:center;margin-top:10px}.check input{width:18px;min-height:18px;flex:none}.purchase{margin-top:10px}
       .actions{display:flex;justify-content:flex-end;margin-top:16px}.actions button{border:0;background:#267052;color:white;border-radius:10px;padding:12px 20px}
-      .actions #links-only,.actions #stock-only{background:var(--isl-green,#267052);color:white;border:0}.actions .continue{background:#2196f3}
+      .actions #links-only,.actions #stock-only,.actions #prices-only{background:var(--isl-green,#267052);color:white;border:0}.actions .continue{background:#2196f3}
       .review-group{border:1px solid var(--divider-color,#d9e0dd);border-radius:12px;min-width:0}.review-group>summary{justify-content:space-between;padding:14px;font-weight:650}.review-group>summary::before,.review-group[open]>summary::before{content:none}.review-group>summary ha-icon{transition:transform .15s}.review-group[open]>summary ha-icon{transform:rotate(180deg)}.review-group-content{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;padding:0 10px 10px}
       .stock-line-main{display:grid;grid-template-columns:minmax(0,1fr) 90px 80px;gap:10px;align-items:center;min-width:0}.stock-line-name{min-width:0;overflow-wrap:anywhere}.stock-line-name .linked-name{display:block;margin:4px 0 0}.stock-line-main input{text-align:center}.stock-line-unit{text-align:center;overflow-wrap:anywhere;min-width:0}.stock-line{position:relative}.stock-line[data-selected=true]{border-color:#ff9800;background:color-mix(in srgb,var(--secondary-background-color,#f2f4f3) 80%,#ff9800)}.stock-select{position:absolute;inset:0;width:100%;height:100%;padding:0;border:0;border-radius:inherit;background:transparent}.stock-select:focus-visible{outline:3px solid #ff9800;outline-offset:-3px}.stock-line-main{position:relative;pointer-events:none}.stock-line-main input{pointer-events:auto}.stock-line input:disabled,.stock-line select:disabled{pointer-events:none}.stock-line .purchase{position:relative;pointer-events:auto}.price-product-name{display:flex;align-items:center;gap:10px;min-width:0;overflow-wrap:anywhere}.original>span{flex:none;text-align:right}
       @media(max-width:550px){.stock-line{padding:10px}.stock-line-main{grid-template-columns:minmax(0,1fr) 64px 54px;gap:6px}.stock-line-main .small-button{width:34px;height:42px}.stock-line-main input{padding:8px 3px}.stock-line-name{font-size:.85em}.review-group>summary{padding:12px}}
@@ -74,13 +74,14 @@ class ImprovedShoppingPurchases extends HTMLElement {
       .select-all-prices{justify-self:end;margin:0 0 4px;text-align:right}
       .price-line{position:relative}.price-select{position:absolute;inset:0;width:100%;height:100%;border:0;border-radius:inherit;background:transparent;padding:0}.price-select:focus-visible{outline:3px solid var(--isl-green,#267052);outline-offset:-3px}.price-line[data-selected=true]{border-color:var(--isl-green,#267052);background:color-mix(in srgb,var(--secondary-background-color,#f2f4f3) 75%,var(--isl-green,#267052))}.price-product-name{position:relative;pointer-events:none}.price-label{min-width:0}.price-value{margin-top:6px}.price-value del{opacity:.6;font-size:.9em;margin-left:6px}.price-product-name strong{display:block}
       @media(max-width:750px){.association-row{flex-wrap:wrap;gap:6px}.association-buttons{width:100%;justify-content:flex-end}.association-buttons .small-button{width:30px;height:34px}.association-buttons ha-icon{--mdc-icon-size:20px;width:20px;height:20px}.association-image{width:26px;height:26px}.stock-line-main{grid-template-columns:20px minmax(0,1fr) minmax(0,1.2fr);gap:4px}.stock-line-main .association-image{width:20px;height:20px}.stock-quantity{gap:3px;font-size:.85em}.stock-quantity input{padding-inline:2px;appearance:textfield}.stock-quantity input::-webkit-inner-spin-button,.stock-quantity input::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}.review-line{padding:8px}.association-name strong,.price-label{font-size:.85em}#review-lines,.review-group-content{gap:8px}.review-group-content{padding:0 8px 8px}}
+      .review-summary{padding:18px;border:1px solid var(--divider-color,#d9e0dd);border-radius:14px}.purchase-heading{display:flex;align-items:center;gap:12px}.purchase-heading>ha-icon{color:var(--isl-green,#267052);--mdc-icon-size:28px;width:28px;height:28px}.purchase-heading>div{flex:1;min-width:0}.purchase-heading h3{margin:0;font-size:1.1em}.purchase-heading .muted{display:block;font-size:.85em}.purchase-total{font-size:1.25em;white-space:nowrap}.purchase-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:18px 0}.purchase-stats>div{display:flex;flex-direction:column;align-items:center;background:var(--card-background-color,#fff);padding:10px 4px;border-radius:10px}.purchase-stats strong{font-size:1.3em;color:var(--isl-green,#267052)}.purchase-stats span{font-size:.8em}.purchase-summary-line{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--divider-color,#d9e0dd)}.purchase-summary-line>div{min-width:0;overflow-wrap:anywhere}.purchase-summary-line .muted{display:block;font-size:.8em}.purchase-summary-line>span{white-space:nowrap}.review-summary>.totals{font-size:1.1em;border-top:2px dashed var(--divider-color,#d9e0dd);padding-top:14px}.purchase-lines{max-height:40vh;overflow:auto}@media(max-width:550px){#review-steps button{font-size:.7em;padding-inline:2px}.review-summary{padding:12px}.purchase-heading{flex-wrap:wrap;gap:8px}.purchase-total{margin-left:auto}.purchase-stats{gap:4px}.purchase-stats span{font-size:.75em}}
     </style>
     <input id="ticket-file" type="file" accept="application/pdf,.pdf" hidden>
     <p id="message" class="notice" role="status" hidden></p><div id="history"></div><p id="empty" class="empty" hidden>Todavía no has subido ningún ticket.</p>
     <dialog aria-labelledby="review-title"><form id="review-form"><h2 id="review-title">Revisar ticket</h2><div id="review-summary" class="receipt-info"></div>
-      <ol id="review-steps" aria-label="Pasos de revisión del ticket"><li><button type="button">1. Vinculación</button></li><li><button type="button">2. Stock</button></li><li><button type="button">3. Precios</button></li></ol><h3 id="step-title"></h3><p id="step-help" class="note"></p>
+      <ol id="review-steps" aria-label="Pasos de revisión del ticket"><li><button type="button">1. Vinculación</button></li><li><button type="button">2. Stock</button></li><li><button type="button">3. Precios</button></li><li><button type="button">4. Resumen</button></li></ol><h3 id="step-title"></h3><p id="step-help" class="note"></p>
       <div id="review-lines"></div><div id="review-result" class="review-summary" hidden></div>
-      <p id="review-error" class="notice error" role="alert" hidden></p><div class="actions"><button id="previous-step" class="secondary" type="button">Anterior</button><button id="links-only" type="button">Guardar vinculaciones y cerrar</button><button id="stock-only" type="button" hidden>Añadir stock y cerrar</button><button id="confirm-ticket" type="submit">Continuar</button></div>
+      <p id="review-error" class="notice error" role="alert" hidden></p><div class="actions"><button id="previous-step" class="secondary" type="button">Anterior</button><button id="links-only" type="button">Guardar vinculaciones y cerrar</button><button id="stock-only" type="button" hidden>Añadir stock y cerrar</button><button id="prices-only" type="button" hidden>Actualizar precios y cerrar</button><button id="confirm-ticket" type="submit">Continuar</button></div>
     </form></dialog>
     <dialog id="association-dialog" aria-labelledby="association-title"><form id="association-form">
       <h2 id="association-title">Vincular producto</h2>
@@ -96,6 +97,7 @@ class ImprovedShoppingPurchases extends HTMLElement {
     root.querySelectorAll('#review-steps button').forEach((button,index)=>button.addEventListener('click',()=>this._goToStep(index)));
     root.querySelector('#links-only').addEventListener('click',()=>void this._saveLinks(true));
     root.querySelector('#stock-only').addEventListener('click',()=>void this._confirm(false));
+    root.querySelector('#prices-only').addEventListener('click',()=>void this._confirm());
     dialog.addEventListener('cancel',event=>{if(this._busy)event.preventDefault();});
     root.querySelector('#association-form').addEventListener('submit',event=>{event.preventDefault();this._confirmAssociation();});
     root.querySelector('#association-dialog').addEventListener('close',()=>{this._associationEdit=null;});
@@ -178,14 +180,16 @@ class ImprovedShoppingPurchases extends HTMLElement {
       this._pricesEnabled?'Selecciona los productos cuyo precio quieres actualizar en el catálogo, para esta tienda.':'Los precios están desactivados en Ajustes. Puedes confirmar las vinculaciones y la reposición sin guardar precios.'
     ][step];
     if(step===2&&this._draft.receipt.document_type==='invoice'&&this._pricesEnabled)root.querySelector('#step-help').textContent+=' El precio sugerido es el PVP unitario antes de descuentos y no incluye el envío.';
-    root.querySelector('#step-help').hidden=false;
+    root.querySelector('#step-help').hidden=step===3;
+    root.querySelector('#review-summary').hidden=step===3;
     root.querySelector('#previous-step').hidden=step===0;root.querySelector('#links-only').hidden=step!==0;
     root.querySelector('#previous-step').textContent=step===1?'Volver a vinculación':'Anterior';
     root.querySelector('#stock-only').hidden=step!==1;
-    root.querySelector('#confirm-ticket').textContent=step===2?'Confirmar compra':'Continuar';
-    root.querySelector('#confirm-ticket').classList.toggle('continue',step!==2);
+    root.querySelector('#prices-only').hidden=step!==2||!this._pricesEnabled;
+    root.querySelector('#confirm-ticket').textContent=step===3?'Confirmar compra':'Continuar';
+    root.querySelector('#confirm-ticket').classList.toggle('continue',step!==3);
     for(const group of root.querySelectorAll('#review-lines .review-group'))this._reviewGroups[group.dataset.group]=group.open;
-    const container=root.querySelector('#review-lines');container.replaceChildren();
+    const container=root.querySelector('#review-lines');container.replaceChildren();container.hidden=step===3;
     const grouped=step<2?node('details','review-group'):null;
     const groupedContent=step<2?node('div','review-group-content'):null;
     if(grouped){grouped.dataset.group=step===0?'links':'stock';grouped.id=step===0?'linked-products-group':'unregistered-stock-group';grouped.open=Boolean(this._reviewGroups[grouped.dataset.group]);}
@@ -195,7 +199,7 @@ class ImprovedShoppingPurchases extends HTMLElement {
       all.addEventListener('change',()=>{for(const edit of linked)edit.save_price=all.checked;this._renderStep();});
       allLabel.append(all,document.createTextNode('Seleccionar todos los precios'));container.append(allLabel);
     }
-    for(const edit of this._edits){
+    for(const edit of step===3?[]:this._edits){
       const product=this._product(edit);if(step>0&&!product)continue;
       const row=node('div','review-line');row.dataset.lineId=edit.id;
       if(step===0)this._associationRow(row,edit);
@@ -223,9 +227,35 @@ class ImprovedShoppingPurchases extends HTMLElement {
     }
     if(step>0&&!this._edits.some(edit=>edit.product_id))container.append(node('p','note','No hay productos vinculados en este ticket.'));
 
-    const result=root.querySelector('#review-result');result.hidden=step!==2;
-    result.replaceChildren(node('strong','','Resumen de la compra'),node('div','',`${this._edits.filter(e=>e.product_id).length} vinculaciones guardadas · ${this._edits.filter(e=>e.product_id&&e.replenish).length} productos para reponer · ${this._edits.filter(e=>e.product_id&&e.save_price&&this._pricesEnabled).length} precios seleccionados`));
+    const result=root.querySelector('#review-result');result.hidden=step!==3;
+    if(step===3)this._renderPurchaseSummary(result);
     root.querySelectorAll('dialog button,dialog input,dialog select').forEach(el=>{el.disabled=this._busy||el.dataset.locked==='true';});
+  }
+  _renderPurchaseSummary(result){
+    const receipt=this._draft.receipt;
+    const heading=node('div','purchase-heading'),identity=node('div');
+    identity.append(node('h3','','Resumen de la compra'),node('span','muted',receipt.store_name+' · '+documentDate(receipt)));
+    heading.append(icon('mdi:receipt-check'),identity,node('strong','purchase-total',money(receipt.total)));
+    const stats=node('div','purchase-stats');
+    for(const [label,value] of [
+      ['Vinculados',this._edits.filter(e=>e.product_id).length],
+      ['Para reponer',this._edits.filter(e=>e.product_id&&e.replenish).length],
+      ['Precios',this._edits.filter(e=>e.product_id&&e.save_price&&this._pricesEnabled).length]
+    ]){const stat=node('div');stat.append(node('strong','',value),node('span','',label));stats.append(stat);}
+    const lines=node('div','purchase-lines');
+    for(const edit of this._edits){
+      const product=this._product(edit),line=node('div','purchase-summary-line'),detail=node('div');
+      detail.append(node('strong','',product?.name||edit.line.description));
+      const actions=[];
+      if(product&&edit.replenish)actions.push('Stock: +'+edit.quantity+' '+edit.unit);
+      if(product&&edit.save_price&&this._pricesEnabled)actions.push('Precio: '+money(edit.line.unit_price));
+      if(!product)actions.push('Sin vincular');
+      if(actions.length)detail.append(node('span','muted',actions.join(' · ')));
+      line.append(detail,node('span','',money(edit.line.amount)));lines.append(line);
+    }
+    if(receipt.shipping)lines.append(this._totalRow('Gastos de envío',receipt.shipping));
+    if(receipt.discount)lines.append(this._totalRow('Descuentos generales',-receipt.discount));
+    result.replaceChildren(heading,stats,lines,this._totalRow('Total de la compra',receipt.total));
   }
   _productImage(product){
     const media=node('span','association-image'),fallback=icon(product.icon||'mdi:shopping');
@@ -347,6 +377,7 @@ class ImprovedShoppingPurchases extends HTMLElement {
     if(this._busy||!this._draft)return;this._errorMessage('');
     if(this._step===0){await this._saveLinks();return;}
     if(this._step===1){if(this._validateStock()){this._step=2;this._renderStep();}return;}
+    if(this._step===2){this._step=3;this._renderStep();return;}
     await this._confirm();
   }
   async _confirm(updatePrices=Boolean(this._pricesEnabled)){

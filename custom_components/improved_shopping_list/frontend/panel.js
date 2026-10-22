@@ -21,8 +21,8 @@ const STORE_NAMES = {mercadona:"Mercadona",carrefour:"Carrefour",alcampo:"Alcamp
 const searchText = value => normalizedName(value).normalize("NFD").replace(/\p{M}/gu, "");
 const stockRemaining = (item, now=Date.now()/1000) => {
   if (item.quantity <= 0 || item.expired) return 0;
-  if (!item.expires_at) return 100;
-  return Math.max(0,Math.min(100,(item.expires_at-now)/((item.days??7)*86400)*100));
+  if (item.expires_at && item.expires_at <= now) return 0;
+  return Math.max(0,Math.min(100,item.quantity/(item.refill_quantity??1)*100));
 };
 
 class ImprovedShoppingListPanel extends HTMLElement {
@@ -300,6 +300,11 @@ class ImprovedShoppingListPanel extends HTMLElement {
         .stock-form-fields input:not([type=checkbox]),.stock-form-fields select { display:block; width:100%; min-width:0; height:44px; margin-top:8px; padding:8px 10px; border:1px solid var(--divider-color,#dfe7e1); border-radius:10px; color:inherit; background:var(--card-background-color,#fff); }
         .stock-form-fields .wide { grid-column:1/-1; }.stock-form-fields .check { display:flex; align-items:center; gap:10px; }
         .stock-form-fields .check input { width:20px; height:20px; }
+        .stock-expiry-refill { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); align-items:end; gap:14px; }
+        .stock-expiry-refill:has(#stock-days-label[hidden]) { grid-template-columns:minmax(0,1fr); }
+        .stock-reorder-row { display:grid; grid-template-columns:minmax(0,1fr) minmax(88px,120px); align-items:center; gap:14px; }
+        .stock-reorder-row .check { margin:0; }.stock-reorder-row .check input { flex:none; margin:0; }
+        .stock-reorder-row:has(#stock-threshold-label[hidden]) { grid-template-columns:minmax(0,1fr); }
         .stock-quantity-editor { display:grid; grid-template-columns:40px minmax(0,1fr) 40px; gap:8px; align-items:end; }
         .stock-quantity-editor button { width:40px; height:44px; padding:0; display:grid; place-items:center; border:0; border-radius:10px; }
         .stock-quantity-editor input,.stock-form-fields select[name=unit] { text-align:center; text-align-last:center; padding-left:24px; padding-right:24px; }
@@ -356,15 +361,19 @@ class ImprovedShoppingListPanel extends HTMLElement {
             <label>Unidades<select name="unit" aria-label="Unidades"><option value="uds">uds</option><option value="kg">kg</option><option value="g">g</option><option value="l">l</option><option value="ml">ml</option><option value="custom">Personalizadas</option></select></label>
             <label class="wide" id="stock-custom-unit-label" hidden>Unidad personalizada<input name="custom_unit" maxlength="32" placeholder="Por ejemplo, Latas"></label>
             <label class="wide">Control del stock<select name="mode" aria-label="Control del stock"><option value="manual">Manual / lectores</option><option value="perishable">Perecedero</option><option value="usage">Consumo registrado en Home Assistant</option></select></label>
-            <label id="stock-days-label" class="wide" hidden>Caduca cada cuántos días desde la compra<input name="days" type="number" min="1" max="3650" step="1" required></label>
             <div id="stock-usage-fields" class="wide" hidden><div class="stock-form-fields">
               <label class="wide">Entidad de consumo<input name="usage_entity" list="stock-usage-entities" placeholder="Por ejemplo, binary_sensor.lavadora"><datalist id="stock-usage-entities"></datalist></label>
               <label>Estado que representa un uso<input name="usage_state" maxlength="255" placeholder="Por ejemplo, on"></label>
               <label>Cantidad consumida por uso<input name="usage_amount" type="number" min="0.001" max="1000000" step="0.001" required></label>
             </div></div>
-            <label class="wide">Cantidad que se suma al marcarlo como comprado<input name="refill_quantity" type="number" min="0.001" max="1000000" step="0.001" required></label>
-            <label class="wide check"><input name="reorder_enabled" type="checkbox">Añadir a la lista cuando el stock llegue al mínimo</label>
-            <label id="stock-threshold-label" hidden><span id="stock-threshold-title">Stock mínimo</span><input name="reorder_at" type="number" min="0" max="1000000" step="0.001" required></label>
+            <div class="stock-expiry-refill wide">
+              <label id="stock-days-label" hidden>Caduca cada cuántos días desde la compra<input name="days" type="number" min="1" max="3650" step="1" required></label>
+              <label>Cantidad que se suma al marcarlo como comprado<input name="refill_quantity" type="number" min="0.001" max="1000000" step="0.001" required></label>
+            </div>
+            <div class="stock-reorder-row wide">
+              <label class="check"><input name="reorder_enabled" type="checkbox">Añadir a la lista cuando el stock llegue al mínimo</label>
+              <label id="stock-threshold-label" hidden><span id="stock-threshold-title">Stock mínimo</span><input name="reorder_at" type="number" min="0" max="1000000" step="0.001" required></label>
+            </div>
             <label id="stock-target-label" class="wide">Lista para reponer<select name="list_entity" aria-label="Lista para reponer"></select></label>
           </div><div class="dialog-actions"><button id="delete-stock-from-editor" type="button">Eliminar producto del stock</button><button id="save-stock-config" type="submit">Guardar</button></div></form>
         </dialog>
@@ -692,7 +701,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
       quantity.setAttribute('aria-label',`Stock de ${item.name}: ${item.quantity} ${item.unit??'uds'}`);
       if(item.mode === 'perishable'){
         const life=node('span','stock-life',`${Math.round(percent)} %`);
-        life.setAttribute('role','progressbar');life.setAttribute('aria-label','Periodo restante');
+        life.setAttribute('role','progressbar');life.setAttribute('aria-label','Stock restante');
         life.setAttribute('aria-valuemin','0');life.setAttribute('aria-valuemax','100');life.setAttribute('aria-valuenow',String(Math.round(percent)));
         quantity.append(life);
       }

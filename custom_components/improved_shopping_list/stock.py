@@ -67,13 +67,12 @@ def stock_config(data):
 
 
 def remaining_percentage(item, now=None):
-    """Remaining shelf life; an empty or expired product always has zero stock."""
+    """Stock as a fraction of one refill; expiry independently invalidates it."""
     if item.get("quantity",0) <= 0 or item.get("expired"):
         return 0
-    if not item.get("expires_at"):
-        return 100
-    remaining = item["expires_at"] - (time.time() if now is None else now)
-    return max(0,min(100,remaining / (item["days"]*DAY) * 100))
+    if item.get("expires_at") and item["expires_at"] <= (time.time() if now is None else now):
+        return 0
+    return max(0,min(100,item["quantity"] / item.get("refill_quantity",1) * 100))
 
 
 class StockManager:

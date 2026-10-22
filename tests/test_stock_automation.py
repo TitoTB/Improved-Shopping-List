@@ -103,24 +103,25 @@ async def test_perishable_expires_reorders_and_purchase_refills_once(env):
 
 async def test_perishable_percentage_reorders_before_expiry_and_survives_restart(env):
     item = await env.stock.async_save(env.item["id"],env.item["revision"],config(env.item,
-        mode="perishable",days=4,quantity=3,reorder_enabled=True,reorder_at=900,
-        reorder_percent=25,list_entity="todo.main",refill_quantity=4))
+        mode="perishable",days=4,quantity=250,reorder_enabled=True,reorder_at=900,
+        reorder_percent=25,list_entity="todo.main",refill_quantity=250))
     assert stock_module.remaining_percentage(item,env.clock[0]) == 100
     env.clock[0] += 2*DAY
-    assert stock_module.remaining_percentage(item,env.clock[0]) == 50
+    assert stock_module.remaining_percentage(item,env.clock[0]) == 100
     await env.manager.async_check()
     assert env.calls == []  # The manual quantity threshold is irrelevant for perishables.
+    item=await env.stock.async_save(item["id"],item["revision"],config(item,quantity=20,reorder_percent=25))
+    assert stock_module.remaining_percentage(item,env.clock[0]) == 8
     restored=StockManager(env.stock.hass,env.stock.catalog);await restored.async_load()
     assert restored.snapshot["items"][0]["reorder_percent"] == 25
-    env.clock[0] += DAY
     await env.manager.async_check()
-    assert len(env.calls) == 1 and env.stock.snapshot["items"][0]["quantity"] == 3
+    assert len(env.calls) == 1 and env.stock.snapshot["items"][0]["quantity"] == 20
     await env.manager.async_check()
     assert len(env.calls) == 1
     env.todo.todo_items[0].status=TodoItemStatus.COMPLETED;env.todo.publish()
     await env.manager.async_check()
     bought=env.stock.snapshot["items"][0]
-    assert bought["quantity"] == 7 and stock_module.remaining_percentage(bought,env.clock[0]) == 100
+    assert bought["quantity"] == 270 and stock_module.remaining_percentage(bought,env.clock[0]) == 100
     env.clock[0] += 4*DAY
     await env.manager.async_check()
     expired=env.stock.snapshot["items"][0]

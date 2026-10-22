@@ -2,6 +2,7 @@
 
 ## Pendiente de publicación
 
+- Porcentaje de Stock perecedero calculado como cantidad actual / cantidad de reposición (20 g de 250 g = 8 %), también para el mínimo de compra y la ordenación. La caducidad conserva su plazo independiente y pone el stock a cero al vencer. Caducidad y reposición comparten fila; la casilla y su mínimo también, incluido en móvil.
 - En el ticket, cada tienda muestra el importe en negrita y el contador de productos entre paréntesis con un 60 % de opacidad.
 
 ## 0.23.0

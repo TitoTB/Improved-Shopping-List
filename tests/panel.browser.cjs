@@ -2033,18 +2033,30 @@ async function main() {
     for(const width of [390,320]){
       await stockPage.setViewportSize({width,height:844});
       assert.ok(await stockEditor.evaluate(dialog=>dialog.scrollWidth<=dialog.clientWidth+1));
+      assert.ok(await stockForm.locator('.stock-expiry-refill').evaluate(row=>{
+        const [days,refill]=row.querySelectorAll('input');
+        return Math.abs(days.getBoundingClientRect().top-refill.getBoundingClientRect().top)<1;
+      }));
+      assert.ok(await stockForm.locator('.stock-reorder-row').evaluate(row=>{
+        const [check,minimum]=row.querySelectorAll('label');
+        return check.getBoundingClientRect().right<=minimum.getBoundingClientRect().left && Math.abs(check.getBoundingClientRect().top+check.getBoundingClientRect().height/2-minimum.getBoundingClientRect().top-minimum.getBoundingClientRect().height/2)<1;
+      }));
       await stockPage.screenshot({path:'test-results/stock-editor-'+width+'.png',fullPage:true});
     }
     await stockForm.getByRole('button',{name:'Guardar',exact:true}).click();await stockEditor.waitFor({state:'hidden'});
     assert.equal(await stockPage.evaluate(()=>window.stockItems[0].reorder_percent),25);
     await stockPage.evaluate(()=>{
-      const item=window.stockItems[0];item.expires_at=Date.now()/1000+item.days*86400*.75;window.emitStock();
+      const item=window.stockItems[0];item.quantity=3;item.expires_at=Date.now()/1000+item.days*86400;window.emitStock();
     });
-    assert.equal(await stockCard.getByRole('progressbar',{name:'Periodo restante'}).getAttribute('aria-valuenow'),'75');
+    assert.equal(await stockCard.getByRole('progressbar',{name:'Stock restante'}).getAttribute('aria-valuenow'),'75');
     const highHue=await stockCard.locator('.item').evaluate(node=>Number(node.style.getPropertyValue('--stock-hue')));
-    await stockPage.evaluate(()=>{const item=window.stockItems[0];item.expires_at=Date.now()/1000+item.days*86400*.25;window.emitStock();});
-    assert.equal(await stockCard.getByRole('progressbar',{name:'Periodo restante'}).getAttribute('aria-valuenow'),'25');
+    await stockPage.evaluate(()=>{window.stockItems[0].quantity=1;window.emitStock();});
+    assert.equal(await stockCard.getByRole('progressbar',{name:'Stock restante'}).getAttribute('aria-valuenow'),'25');
     assert.ok(await stockCard.locator('.item').evaluate(node=>Number(node.style.getPropertyValue('--stock-hue')))<highHue);
+    await stockPage.evaluate(()=>{Object.assign(window.stockItems[0],{quantity:20,refill_quantity:250,unit:'g'});window.emitStock();});
+    assert.equal(await stockCard.getByRole('progressbar',{name:'Stock restante'}).getAttribute('aria-valuenow'),'8');
+    await stockPage.screenshot({path:'test-results/stock-perishable-eight-percent.png',fullPage:true});
+    await stockPage.evaluate(()=>{Object.assign(window.stockItems[0],{quantity:2.5,refill_quantity:4,unit:'Latas'});window.emitStock();});
     await stockPage.getByRole('button',{name:'Cambiar a vista de filas',exact:true}).click();
     assert.ok(await stockCard.evaluate(card=>{
       const open=card.querySelector('.stock-open').getBoundingClientRect(),controls=card.querySelector('.stock-controls').getBoundingClientRect();
@@ -2082,7 +2094,7 @@ async function main() {
     assert.deepEqual(await stockPage.locator('#stock-items .summary').allTextContents(),['Cacao','Arroz']);
     await stockPage.reload();await stockPage.getByRole('button',{name:'Stock',exact:true}).click();
     assert.equal(await stockPage.getByRole('button',{name:'Ordenar alfabéticamente',exact:true}).isVisible(),true);
-    assert.equal(await stockCard.getByRole('progressbar',{name:'Periodo restante'}).getAttribute('aria-valuenow'),'0');
+    assert.equal(await stockCard.getByRole('progressbar',{name:'Stock restante'}).getAttribute('aria-valuenow'),'0');
     await stockCard.getByRole('button',{name:'Configurar stock de Cacao',exact:true}).click();
     await stockForm.getByRole('button',{name:'Eliminar producto del stock',exact:true}).click();
     const stockDelete=stockPage.getByRole('dialog',{name:'Eliminar de Stock',exact:true});

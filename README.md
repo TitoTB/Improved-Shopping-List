@@ -336,7 +336,7 @@ pide confirmación y conserva catálogo y listas. Los productos con cero permane
 
 Hay tres tipos de control: **Manual / lectores**, **Perecedero** y **Consumo
 registrado en Home Assistant**. Los perecederos pasan a cero cuando se cumplen
-los días desde la última compra y se añaden a la lista aunque quedase stock. Su fondo muestra el porcentaje de tiempo restante, desde el 100 % hasta el 0 %, cambiando de naranja a rojizo. El umbral opcional de reposición se configura como porcentaje restante; en los otros modos se expresa en unidades. El indicador también muestra 0 % cuando no quedan unidades.
+los días desde la última compra y se añaden a la lista aunque quedase stock. Su fondo muestra la cantidad actual como porcentaje de la reposición configurada: 20 g de 250 g son un 8 %. El indicador está limitado al 100 % y cambia de naranja a rojizo al bajar. El umbral opcional de reposición usa ese mismo porcentaje; en los otros modos se expresa en unidades. La caducidad es independiente del porcentaje y pone el stock a cero al vencer el plazo.
 El consumo registrado descuenta la cantidad indicada cada vez que una entidad
 entra en el estado configurado, por ejemplo al pasar una lavadora a `on`.
 Las actualizaciones de atributos, el arranque y la recuperación desde

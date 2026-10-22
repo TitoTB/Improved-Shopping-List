@@ -1,6 +1,6 @@
 # Historial de cambios
 
-## Pendiente de publicación
+## 0.24.0
 
 - Activar Compartir mis datos solicita el envío inmediato del catálogo tras autorizar GitHub, aunque haya una revisión de precios en curso. Conserva el límite de un lote cada 24 horas y las pausas de reintento; las activaciones simultáneas se agrupan sin perder la solicitud.
 - Consumo registrado muestra la barra de progreso en sus tarjetas, con la cantidad de reposición como 100 %, y simplifica su nombre en el selector de la ficha.

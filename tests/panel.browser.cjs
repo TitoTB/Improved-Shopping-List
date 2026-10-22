@@ -1745,7 +1745,14 @@ async function main() {
     await pavoCard.locator('.row-quantity').filter({hasText:'300 g'}).waitFor();
     assert.equal(await pavoCard.getAttribute('aria-pressed'),'false');
     assert.match(await quantityPage.locator('#pending-total').textContent(),/3,00/);
-    await quantityPage.reload();await pavoCard.locator('.row-quantity').filter({hasText:'300 g'}).waitFor();
+    await quantityPage.reload();
+    // The simulated native provider lives in page memory; restore its unchanged entries.
+    await quantityPage.evaluate(async()=>{
+      window.listData['todo.bring']=[{uid:'pavo-entry',summary:'Pavo',status:'needs_action'},{uid:'default-entry',summary:'Sin catálogo',status:'needs_action'}];window.emit('todo.bring');
+      window.storePriceFixture=[{catalog_product_id:'pavo',store:'carrefour',price:'2.50',currency:'EUR',checked_at:1792490400}];
+      await window.testPanel._refreshRowPrices();
+    });
+    await pavoCard.locator('.row-quantity').filter({hasText:'300 g'}).waitFor();
     await quantityPage.getByRole('button',{name:'Catálogo',exact:true}).click();
     const quantityCatalog=quantityPage.locator('isl-catalog');
     await quantityCatalog.locator('#toggle-catalog-layout').click();

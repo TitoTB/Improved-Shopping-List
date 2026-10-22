@@ -186,10 +186,11 @@ const hass={
       if(action==='send_code'){window.cfStatus.verification_sent=true;return structuredClone(window.cfStatus);}
       if(action==='verify'){window.cfStatus={connected:true,verification_required:false,destinations:[],verification_sent:false};return structuredClone(window.cfStatus);}
       if(action==='disconnect'){window.cfStatus={connected:false,verification_required:false,destinations:[],verification_sent:false};return structuredClone(window.cfStatus);}
+      if(action==='sync_history'){if(window.failCarrefourAccount)throw new Error('Carrefour ha rechazado el acceso (HTTP 403).');for(const [id,total] of [['summary-ticket',5.22],['summary-order',10]])if(!window.receiptHistory.some(r=>r.id===id))window.receiptHistory.push({id,store:'carrefour',store_name:'Carrefour',purchased_at:'2026-10-16T19:59:30',total,article_count:null,lines:[],summary_only:true});localStorage.setItem('receipt-fixture',JSON.stringify(window.receiptHistory));return {added:2,available:2,complete:true};}
       if(action==='purchases'){if(window.failCarrefourAccount)throw new Error('Carrefour ha rechazado el acceso (HTTP 403).');return {purchases:[{id:'private-purchase-key',purchased_at:'2026-10-16T19:59:30',amount:5.22,store:'Carrefour de prueba',reviewable:true,kind:'Ticket'},...(msg.cursor?[]:[{id:'online-key',purchased_at:'2026-10-16T19:59:30',amount:10,store:'Carrefour online',reviewable:false,kind:'Pedido online · factura pendiente de soporte'}])],next_cursor:msg.cursor?null:{ticketOffset:10}};}
     }
     if(msg.type==='improved_shopping_list/receipts/preview'||msg.type==='improved_shopping_list/carrefour_account/preview'){
-      if(window.receiptHistory.length)throw new Error('Este ticket ya se ha importado.');
+      if(window.receiptHistory.some(receipt=>!receipt.summary_only))throw new Error('Este ticket ya se ha importado.');
       const draft={token:'preview',receipt:{id:'ticket1',store:'carrefour',store_name:'Carrefour',purchased_at:'2026-10-16T19:59:30',total:5.22,subtotal:6.22,discount:1,article_count:4,
         lines:[{id:'0',description:'SEITAN 250 G',count:1,unit_price:2.65,amount:2.65,pack_quantity:250,pack_unit:'g',product_id:'cacao',matched:!window.receiptSuggestionOnly,quantity:250,replenish:false},
           {id:'1',description:'FLAUTIN CEREALES',count:2,unit_price:.44,amount:.88,pack_quantity:null,pack_unit:'',product_id:'',quantity:null,replenish:false},
@@ -3571,6 +3572,8 @@ async function main() {
     await login.getByLabel('Código de verificación',{exact:true}).fill('123456');
     await login.getByRole('button',{name:'Verificar',exact:true}).click();
     await login.getByRole('button',{name:'Desconectar cuenta',exact:true}).waitFor();
+    await accountPage.waitForFunction(()=>window.calls.some(call=>call.type==='improved_shopping_list/carrefour_account/sync_history'));
+    assert.equal(await accountPage.evaluate(()=>window.receiptHistory.length),2);
     await accountPage.screenshot({path:'test-results/carrefour-account-login-mobile.png',fullPage:true});
     assert.ok(await login.evaluate(el=>el.scrollWidth<=el.clientWidth+1));
     await login.getByRole('button',{name:'Cerrar ventana',exact:true}).click();
@@ -3583,7 +3586,12 @@ async function main() {
     await accountPurchases.getByRole('button',{name:'Revisar ticket',exact:true}).click();
     const accountReview=accountPage.locator('isl-purchases').getByRole('dialog',{name:'Revisar ticket',exact:true});await accountReview.waitFor();
     assert.equal(await accountPage.getByRole('button',{name:'Stock',exact:true}).getAttribute('aria-pressed'),'true');
-    assert.equal(await accountPage.evaluate(()=>window.receiptHistory.length),0);
+    assert.equal(await accountPage.evaluate(()=>window.receiptHistory.length),2);
+    const accountHistory=accountPage.locator('isl-purchases');
+    assert.equal(await accountHistory.locator('#history .ticket').count(),2);
+    assert.equal(await accountHistory.locator('#history .ticket-open').count(),0);
+    assert.ok((await accountHistory.locator('#history .muted').allTextContents()).every(text=>!text.includes('artículos')));
+    assert.equal(await accountHistory.locator('.month-column[data-month="2026-10"]').getAttribute('data-total'),'15.22');
     assert.equal(await accountPage.evaluate(()=>window.stockItems.length),0);
     await accountReview.getByRole('button',{name:'Cerrar ventana',exact:true}).click();
     await accountPage.getByRole('button',{name:'Ajustes',exact:true}).click();

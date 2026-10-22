@@ -2,6 +2,7 @@
 import base64
 import json
 import time
+from datetime import timedelta
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock
 
@@ -15,7 +16,7 @@ from custom_components.improved_shopping_list.const import DOMAIN, CONF_TODO_ENT
 
 @pytest.fixture
 async def account(hass):
-    manager = CarrefourAccount(hass, SimpleNamespace(async_preview=AsyncMock(return_value={"token":"draft"})), SimpleNamespace(record=Mock()))
+    manager = CarrefourAccount(hass, SimpleNamespace(async_preview=AsyncMock(return_value={"token":"draft"}),async_import_carrefour_purchases=AsyncMock(return_value=0)), SimpleNamespace(record=Mock()))
     await manager.async_load()
     manager._config = {"api_key":"public-key", "client_id":"public-client", "client_secret":"public-config-value"}
     manager.start()
@@ -147,7 +148,7 @@ async def test_account_websocket_commands_require_admin_and_setup_never_fetches(
     token=await hass.auth.async_create_refresh_token(hass_read_only_user,client_id="http://test.local")
     client=await hass_ws_client(hass,hass.auth.async_create_access_token(token))
     actions=[("status",{}),("login",{"username":"test","password":"secret"}),("send_code",{"destination":"0"}),
-        ("verify",{"code":"123456"}),("disconnect",{}),("purchases",{}),("preview",{"purchase_id":"id"})]
+        ("verify",{"code":"123456"}),("disconnect",{}),("purchases",{}),("sync_history",{}),("preview",{"purchase_id":"id"})]
     for i,(action,fields) in enumerate(actions,1):
         await client.send_json({"id":i,"type":f"{DOMAIN}/carrefour_account/"+action,**fields})
         assert (await client.receive_json())["error"]["code"]=="unauthorized"
@@ -211,3 +212,21 @@ async def test_pdf_access_errors_never_try_the_detail_endpoint(account,status):
     with pytest.raises(CarrefourAccountError):
         await account.async_preview("owner",result["purchases"][0]["id"])
     assert account._http.await_count==2
+
+
+async def test_history_sync_reads_all_pages_of_last_year_and_imports_only_summaries(account):
+    account._session={"login_token":"private","jwt":"private-jwt","jwt_until":time.time()+500}
+    cursor=dict.fromkeys(OFFSET_KEYS,0);cursor["ticketOffset"]=10
+    def row(identifier, days):
+        return {"purchaseId":identifier,"purchaseDate":(dt_util.now()-timedelta(days=days)).isoformat(),"amount":5.22,"orderSource":"TICKET"}
+    account._http=AsyncMock(side_effect=[{"purchases":[row("a",300)],"offsets":cursor},
+                                        {"purchases":[row("b",10),row("too-old",400)],"offsets":cursor}])
+    account.receipts.async_import_carrefour_purchases.side_effect=[1,1]
+    result=await account.async_sync_history("owner")
+    assert result=={"added":2,"available":2,"complete":True}
+    assert account._http.await_count==2
+    assert all(request.args[1]==API+"/md-purchasesAccount-v1/purchases" for request in account._http.await_args_list)
+    first=account._http.await_args_list[0].kwargs["params"]
+    assert (dt_util.utcnow()-dt_util.parse_datetime(first["from"])).days==365
+    assert [[row["purchaseId"] for row in call.args[0]] for call in account.receipts.async_import_carrefour_purchases.await_args_list]==[["a"],["b"]]
+    account.receipts.async_preview.assert_not_awaited()

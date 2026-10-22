@@ -5,6 +5,7 @@ import base64
 import binascii
 from copy import deepcopy
 from difflib import SequenceMatcher
+from hashlib import sha256
 import time
 from uuid import uuid4
 
@@ -36,8 +37,63 @@ class ReceiptManager:
         return {"receipts":sorted(deepcopy(list(self.stock.receipts["history"].values())),
             key=lambda receipt:receipt["purchased_at"], reverse=True)}
 
+    @staticmethod
+    def _account_key(reference):
+        return sha256(("carrefour:"+reference).encode()).hexdigest()
+
+    @staticmethod
+    def _same_purchase(first, second):
+        if first.get("store") != second.get("store") or abs(first["total"]-second["total"]) > .01:
+            return False
+        dates = [dt_util.parse_datetime(item["purchased_at"]) for item in (first, second)]
+        if not all(dates):
+            return False
+        # The printed ticket can omit seconds. Require the same local minute.
+        local = [dt_util.as_local(value if value.tzinfo else value.replace(tzinfo=dt_util.DEFAULT_TIME_ZONE)) for value in dates]
+        return local[0].replace(second=0,microsecond=0)==local[1].replace(second=0,microsecond=0)
+
+    def _summary_match(self, receipt, history=None):
+        history = self.stock.receipts["history"] if history is None else history
+        candidates = [old for old in history.values() if old.get("summary_only") and
+            ((receipt.get("account_key") and old.get("account_key")==receipt["account_key"]) or
+             (not receipt.get("account_key") and self._same_purchase(old,receipt)))]
+        return candidates[0] if len(candidates)==1 else None
+
+    async def async_import_carrefour_purchases(self, purchases):
+        """Store account summaries only: never replenish stock or generate prices."""
+        added = 0
+        async with self.stock._lock:
+            data = deepcopy(self.stock.receipts)
+            for purchase in purchases:
+                key = self._account_key(purchase["purchaseId"])
+                when = dt_util.parse_datetime(purchase["purchaseDate"])
+                receipt = {"id":"carrefour-account:"+key,"digest":"carrefour-account:"+key,"account_key":key,
+                    "summary_only":True,"store":"carrefour","store_name":"Carrefour",
+                    "purchased_at":dt_util.as_local(when).isoformat(),"currency":"EUR","total":purchase["amount"],
+                    "article_count":purchase.get("article_count"),"lines":[],"imported_at":time.time()}
+                existing = next((old for old in data["history"].values() if old.get("account_key")==key),None)
+                if existing and not existing.get("summary_only"):
+                    continue
+                if not existing:
+                    matches = [old for old in data["history"].values() if not old.get("summary_only") and not old.get("account_key") and self._same_purchase(old,receipt)]
+                    if len(matches)==1:
+                        matches[0]["account_key"]=key
+                        continue
+                    if len(data["history"]) >= 1000:
+                        continue
+                    added += 1
+                if existing:
+                    receipt["imported_at"] = existing["imported_at"]
+                    if receipt["article_count"] is None:
+                        receipt["article_count"] = existing.get("article_count")
+                data["history"][receipt["id"]] = receipt
+            if data != self.stock.receipts:
+                await self.stock._persist(deepcopy(self.stock._items),receipts=data)
+        return added
+
     def _check_duplicate(self, receipt):
-        if any(old["id"] == receipt["id"] or old["digest"] == receipt["digest"] for old in self.stock.receipts["history"].values()):
+        if any(not old.get("summary_only") and (old["id"] == receipt["id"] or old["digest"] == receipt["digest"] or
+                (receipt.get("account_key") and old.get("account_key")==receipt["account_key"])) for old in self.stock.receipts["history"].values()):
             raise CatalogError("Este ticket ya se ha importado. Puedes consultarlo en Últimas compras.", "duplicate")
 
     def _draft(self, token, owner):
@@ -102,7 +158,7 @@ class ReceiptManager:
             await self.stock._persist(deepcopy(self.stock._items),receipts=data)
         return await self.async_options(token,owner)
 
-    async def async_preview(self, encoded, owner):
+    async def async_preview(self, encoded, owner, *, account_reference=None):
         if len(encoded) > (MAX_PDF_BYTES + 2) // 3 * 4:
             raise CatalogError("Sube un PDF de hasta 2 MB.")
         try:
@@ -113,6 +169,8 @@ class ReceiptManager:
             raise CatalogError("Ya se está leyendo un ticket. Espera a que termine.")
         async with self._parse_lock:
             receipt = await self.hass.async_add_executor_job(extract_receipt, content)
+        if account_reference:
+            receipt["account_key"] = self._account_key(account_reference)
         return await self._prepare_preview(receipt, owner)
 
     async def async_preview_carrefour_ticket(self, detail, reference, expected_total, owner):
@@ -120,9 +178,13 @@ class ReceiptManager:
             raise CatalogError("Ya se está leyendo un ticket. Espera a que termine.")
         async with self._parse_lock:
             receipt = await self.hass.async_add_executor_job(extract_carrefour_account_ticket, detail, reference, expected_total)
+        receipt["account_key"] = self._account_key(reference)
         return await self._prepare_preview(receipt, owner)
 
     async def _prepare_preview(self, receipt, owner):
+        summary = self._summary_match(receipt)
+        if summary:
+            receipt["account_key"] = summary["account_key"]
         self._check_duplicate(receipt)
         await self.automation.async_check()
         choices = self._choices(receipt["store"])
@@ -172,6 +234,9 @@ class ReceiptManager:
                 receipt = deepcopy(draft["receipt"])
                 self._check_duplicate(receipt)
                 data, items = deepcopy(self.stock.receipts), deepcopy(self.stock._items)
+                summary = self._summary_match(receipt,data["history"])
+                if summary:
+                    data["history"].pop(summary["id"])
                 if len(data["history"]) >= 1000:
                     raise CatalogError("El historial ha alcanzado los 1000 tickets.")
                 groups = {}

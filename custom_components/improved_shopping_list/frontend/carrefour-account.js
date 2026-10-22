@@ -29,7 +29,7 @@ class CarrefourAccountPanel extends HTMLElement {
       <section id="verification" hidden><p>Carrefour solicita una verificación adicional.</p><label>Enviar código a<select id="destination"></select></label><div class="actions"><button id="send-code" type="button">Enviar código</button></div><form id="verify-form" hidden><label>Código de verificación<input id="code" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{4,10}" maxlength="10" required></label><div class="actions"><button class="primary" type="submit">Verificar</button></div></form></section>
       <p id="login-error" class="error" role="alert" hidden></p><p id="login-status" role="status"></p><div class="actions"><button id="disconnect" type="button" class="danger" hidden>Desconectar cuenta</button></div>
     </dialog>
-    <dialog id="purchases-dialog" aria-labelledby="purchases-title"><h2 id="purchases-title">Compras de Carrefour</h2><p class="note">Últimos 90 días. Abre un ticket para revisarlo antes de modificar stock o precios.</p><p id="purchases-status" role="status"></p><p id="purchases-error" class="error" role="alert" hidden></p><div id="purchase-list"></div><div class="actions"><button id="more" type="button" hidden>Ver más compras</button></div></dialog>`;
+    <dialog id="purchases-dialog" aria-labelledby="purchases-title"><h2 id="purchases-title">Compras de Carrefour</h2><p class="note">Último año disponible, incorporado a Stock → Compras. Revisa un ticket solo si quieres modificar stock o precios.</p><p id="purchases-status" role="status"></p><p id="purchases-error" class="error" role="alert" hidden></p><div id="purchase-list"></div><div class="actions"><button id="more" type="button" hidden>Ver más compras</button></div></dialog>`;
     const r=this.shadowRoot;installDialogCloseButtons(r);
     r.querySelectorAll('dialog').forEach(d=>d.addEventListener('cancel',e=>{if(this._busy)e.preventDefault();}));
     r.querySelector('#login-dialog').addEventListener('close',()=>{r.querySelector('#password').value='';r.querySelector('#code').value='';});
@@ -43,13 +43,13 @@ class CarrefourAccountPanel extends HTMLElement {
   }
   async _action(action,fields){
     if(this._busy)return;const generation=this._generation;this._busy=true;this._error='';this._render();
-    try{const status=await this._call(action,fields);if(generation!==this._generation)return;this._status=status;if(action==='disconnect'){this._purchases=[];this.shadowRoot.querySelector('#login-dialog').close();}}
+    try{const status=await this._call(action,fields);if(generation!==this._generation)return;this._status=status;if(status.connected&&['login','verify'].includes(action)){this._syncing=true;this._render();try{await this._call('sync_history');}finally{this._syncing=false;}}if(action==='disconnect'){this._purchases=[];this.shadowRoot.querySelector('#login-dialog').close();}}
     catch(error){if(generation===this._generation)this._error=error.message??'No se ha podido conectar con Carrefour.';}
     finally{if(generation===this._generation){this._busy=false;this._render();}}
   }
   async _loadPurchases(cursor){
     if(this._busy)return;const generation=this._generation;this._busy=true;this._error='';this._render();
-    try{const result=await this._call('purchases',cursor?{cursor}:{});if(generation!==this._generation)return;this._purchases=[...(this._purchases??[]),...result.purchases];this._cursor=result.next_cursor;}
+    try{if(!cursor){this._syncing=true;this._render();try{await this._call('sync_history');}finally{this._syncing=false;}}const result=await this._call('purchases',cursor?{cursor}:{});if(generation!==this._generation)return;this._purchases=[...(this._purchases??[]),...result.purchases];this._cursor=result.next_cursor;}
     catch(error){if(generation===this._generation){this._error=error.message??'No se han podido consultar las compras.';try{const status=await this._call('status');if(generation===this._generation)this._status=status;}catch{ /* Keep the original query error. */ }}}
     finally{if(generation===this._generation){this._busy=false;this._render();}}
   }
@@ -64,9 +64,9 @@ class CarrefourAccountPanel extends HTMLElement {
     r.querySelectorAll('button,input,select').forEach(el=>el.disabled=locked);r.querySelector('#connect').textContent=s.connected?'Cuenta conectada':'Conectar cuenta';r.querySelector('#purchases').disabled=locked||!s.connected;
     r.querySelector('#login-form').hidden=Boolean(s.connected||s.verification_required);r.querySelector('#verification').hidden=!s.verification_required;r.querySelector('#verify-form').hidden=!s.verification_sent;r.querySelector('#disconnect').hidden=!s.connected;
     const destination=r.querySelector('#destination'),old=destination.value;destination.replaceChildren(...(s.destinations??[]).map(item=>new Option(item.label,item.id)));if([...destination.options].some(o=>o.value===old))destination.value=old;
-    r.querySelector('#login-status').textContent=this._busy?'Conectando con Carrefour…':s.connected?'Cuenta conectada. Puedes consultar las compras manualmente.':s.verification_sent?'Código solicitado. Introduce el código recibido.':'';
+    r.querySelector('#login-status').textContent=this._syncing?'Incorporando el historial del último año…':this._busy?'Conectando con Carrefour…':s.connected?'Cuenta conectada. Puedes consultar las compras manualmente.':s.verification_sent?'Código solicitado. Introduce el código recibido.':'';
     for(const id of ['status-error','login-error','purchases-error']){r.querySelector('#'+id).textContent=this._error||'';r.querySelector('#'+id).hidden=!this._error;}
-    r.querySelector('#purchases-status').textContent=this._busy?'Consultando Carrefour…':this._purchases?.length?'':'No se han encontrado compras en este periodo.';r.querySelector('#more').hidden=!this._cursor;
+    r.querySelector('#purchases-status').textContent=this._syncing?'Incorporando el historial del último año…':this._busy?'Consultando Carrefour…':this._purchases?.length?'':'No se han encontrado compras en este periodo.';r.querySelector('#more').hidden=!this._cursor;
     r.querySelector('#purchase-list').replaceChildren(...(this._purchases??[]).map(purchase=>{const row=make('article');row.className='purchase';const copy=make('div');copy.className='purchase-copy';copy.append(make('strong',purchase.store),make('span',new Intl.DateTimeFormat('es-ES',{dateStyle:'short',timeStyle:'short'}).format(new Date(purchase.purchased_at))),make('span',purchase.kind));const end=make('div');end.append(make('strong',money(purchase.amount)));if(purchase.reviewable){const button=make('button','Revisar ticket');button.type='button';button.disabled=locked;button.addEventListener('click',()=>void this._review(purchase));end.append(button);}row.append(copy,end);return row;}));
   }
 }

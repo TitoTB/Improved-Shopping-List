@@ -41,6 +41,7 @@ class CarrefourAccount:
         self._session, self._config, self._pending, self._purchases = {}, {}, {}, {}
         self._cookies = {}
         self._lock = asyncio.Lock()
+        self._sync_lock = asyncio.Lock()
         self._active = False
 
     async def async_load(self):
@@ -269,7 +270,7 @@ class CarrefourAccount:
                     any(type(v) is not int or not 0 <= v <= 100000 for v in cursor.values())):
                 raise CarrefourAccountError("La página de compras no es válida.", "pagination")
             now = dt_util.utcnow()
-            params = {"from": (now-timedelta(days=90)).isoformat(timespec="milliseconds").replace("+00:00", "Z"),
+            params = {"from": (now-timedelta(days=365)).isoformat(timespec="milliseconds").replace("+00:00", "Z"),
                       "to": (now+timedelta(days=1)).isoformat(timespec="milliseconds").replace("+00:00", "Z"),
                       "count": 10, **(cursor or dict.fromkeys(OFFSET_KEYS, 0))}
             response = await self._http("GET", API + "/md-purchasesAccount-v1/purchases", params=params, headers=await self._headers())
@@ -279,26 +280,52 @@ class CarrefourAccount:
             self._purchases = {key: value for key, value in self._purchases.items() if value["expires"] > time.time()}
             if len(self._purchases) > 500:
                 self._purchases.clear()
-            output = []
+            output, summaries = [], []
             for purchase in purchases:
                 if not isinstance(purchase, dict):
                     continue
                 identifier, amount, at = purchase.get("purchaseId"), purchase.get("amount"), purchase.get("purchaseDate")
                 if not isinstance(identifier, str) or not re.fullmatch(r"[A-Za-z0-9_-]{1,150}", identifier):
                     continue
-                if type(amount) not in (int, float) or not math.isfinite(amount) or not isinstance(at, str) or not dt_util.parse_datetime(at):
+                if type(amount) not in (int, float) or not math.isfinite(amount) or amount < 0 or not isinstance(at, str) or not dt_util.parse_datetime(at):
                     continue
+                at_date = dt_util.parse_datetime(at)
+                at_utc = dt_util.as_utc(at_date if at_date.tzinfo else at_date.replace(tzinfo=dt_util.DEFAULT_TIME_ZONE))
+                if not now-timedelta(days=365) <= at_utc <= now+timedelta(days=1):
+                    continue
+                summaries.append({"purchaseId":identifier,"purchaseDate":at,"amount":amount})
                 key = str(uuid4())
                 supported = purchase.get("orderSource") == "TICKET"
                 self._purchases[key] = {"id": identifier, "owner": owner, "expires": time.time()+1800, "supported": supported, "amount": amount}
                 output.append({"id": key, "purchased_at": at, "amount": amount,
                     "store": str(purchase.get("mallName", "Carrefour"))[:150], "reviewable": supported,
                     "kind": "Ticket" if supported else "Pedido online · factura pendiente de soporte"})
+            added = await self.receipts.async_import_carrefour_purchases(summaries)
             offsets = response.get("offsets", {})
             next_cursor = {key: offsets.get(key, 0) for key in OFFSET_KEYS}
             if not purchases or next_cursor == (cursor or dict.fromkeys(OFFSET_KEYS, 0)) or any(type(v) is not int or not 0 <= v <= 100000 for v in next_cursor.values()):
                 next_cursor = None
-            return {"purchases": output, "next_cursor": next_cursor}
+            return {"purchases": output, "next_cursor": next_cursor, "added":added}
+
+    async def async_sync_history(self, owner):
+        """Manual one-year import of summaries only; never download tickets."""
+        if self._sync_lock.locked():
+            raise CarrefourAccountError("Ya se está incorporando el historial de Carrefour.", "history_sync")
+        async with self._sync_lock:
+            cursor, added, available, seen = None, 0, 0, set()
+            for _ in range(100):
+                result = await self.async_purchases(owner,cursor)
+                added += result["added"]
+                available += len(result["purchases"])
+                cursor = result["next_cursor"]
+                if cursor is None:
+                    return {"added":added,"available":available,"complete":True}
+                marker = tuple(cursor[key] for key in OFFSET_KEYS)
+                if marker in seen:
+                    raise CarrefourAccountError("Carrefour ha repetido una página del historial. Las compras ya incorporadas se conservan.", "history_pagination")
+                seen.add(marker)
+                await asyncio.sleep(1)
+            return {"added":added,"available":available,"complete":False}
 
     async def async_preview(self, owner, purchase_id):
         async with self._lock:
@@ -320,4 +347,4 @@ class CarrefourAccount:
                 self.activity.record("stores.account", "Carrefour: ticket preparado desde el detalle tras un error del PDF",
                     source="manual", diagnostics={"pdf_http_status": status, "fallback": "ticket_detail", "products": len(draft["receipt"]["lines"])})
                 return draft
-            return await self.receipts.async_preview(base64.b64encode(pdf).decode(), owner)
+            return await self.receipts.async_preview(base64.b64encode(pdf).decode(), owner, account_reference=purchase["id"])

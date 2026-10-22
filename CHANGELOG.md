@@ -2,6 +2,8 @@
 
 ## Pendiente de publicación
 
+- Conectar o consultar la cuenta de Carrefour incorpora las compras disponibles del último año a Compras y al gráfico, sin descargar tickets ni modificar stock o precios. Los recuentos de artículos desconocidos se omiten; revisar posteriormente un ticket sustituye su resumen sin duplicar el gasto.
+
 - Cuenta Carrefour: si la descarga del PDF devuelve HTTP 5xx, se consulta el detalle del ticket como alternativa. Se verifican la referencia, las líneas, los artículos y los importes; se conserva la detección de duplicados frente al PDF y la confirmación previa de stock/precios.
 
 - Compras muestra el logo de cada tienda y abre el detalle mediante un botón de ticket junto al total. Un gráfico de barras apiladas resume el gasto mensual por tienda a partir de las compras registradas.

@@ -410,9 +410,9 @@ class ImprovedShoppingPurchases extends HTMLElement {
     this._renderSpendingChart();
     root.querySelector('#history').replaceChildren(...this._session.receipts.map(receipt=>{
       const card=node('article','ticket');card.dataset.id=receipt.id;
-      const title=node('div','title');title.append(node('strong','',receipt.store_name+(receipt.document_type==='invoice'?' · Factura':'')),node('span','muted',documentDate(receipt)+' · '+receipt.article_count+' artículos'));
+      const title=node('div','title');title.append(node('strong','',receipt.store_name+(receipt.document_type==='invoice'?' · Factura':'')),node('span','muted',documentDate(receipt)+(receipt.article_count==null?'':' · '+receipt.article_count+' artículos')));
       const open=this._button('Ver ticket de '+receipt.store_name+' del '+documentDate(receipt),'mdi:receipt-text',()=>this._openPurchaseDetail(receipt),'ticket-open');
-      card.append(this._storeImage(receipt.store,receipt.store_name),title,node('span','total',money(receipt.total)),open);return card;
+      card.append(this._storeImage(receipt.store,receipt.store_name),title,node('span','total',money(receipt.total)));if(!receipt.summary_only)card.append(open);return card;
     }));
   }
   _storeImage(store,name){

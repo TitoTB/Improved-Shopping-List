@@ -384,3 +384,42 @@ async def test_account_ticket_detail_only_previews_and_cannot_reimport_pdf(hass)
     await env.manager.async_confirm(draft["token"],"owner",selections(draft,env.product),False)
     with pytest.raises(CatalogError,match="ya se ha importado"):
         await env.manager.async_preview(base64.b64encode(pdf_bytes(text)).decode(),"owner")
+
+
+async def test_account_summaries_persist_without_stock_prices_and_upgrade_once(hass):
+    env=await setup_manager(hass)
+    text=receipt_text()
+    parsed=parse_carrefour(text)
+    purchase={"purchaseId":"private-account-reference","purchaseDate":parsed["purchased_at"],"amount":5.22}
+    assert await env.manager.async_import_carrefour_purchases([purchase])==1
+    assert await env.manager.async_import_carrefour_purchases([purchase])==0
+    basic=env.manager.snapshot["receipts"]
+    assert len(basic)==1 and basic[0]["summary_only"]
+    assert basic[0]["article_count"] is None and basic[0]["lines"]==[]
+    assert "private-account-reference" not in str(env.stock.receipts)
+    assert env.stock.snapshot["items"][0]["quantity"]==20
+    assert env.manager.offers_for(env.product)==[]
+    reloaded=StockManager(hass,env.stock.catalog);await reloaded.async_load()
+    assert reloaded.receipts["history"]==env.stock.receipts["history"]
+    # A manually uploaded PDF upgrades the summary by date/amount; it is not a duplicate.
+    draft=await env.manager.async_preview(base64.b64encode(pdf_bytes(text)).decode(),"owner")
+    assert len(env.manager.snapshot["receipts"])==1
+    confirmed=await env.manager.async_confirm(draft["token"],"owner",selections(draft,env.product),False)
+    assert not confirmed.get("summary_only") and confirmed["article_count"]==4
+    assert len(env.manager.snapshot["receipts"])==1
+    assert env.stock.snapshot["items"][0]["quantity"]==270
+    assert await env.manager.async_import_carrefour_purchases([purchase])==0
+    assert len(env.manager.snapshot["receipts"])==1
+    with pytest.raises(CatalogError,match="ya se ha importado"):
+        await env.manager.async_preview(base64.b64encode(pdf_bytes(text)).decode(),"owner",account_reference=purchase["purchaseId"])
+
+
+async def test_summary_sync_after_review_does_not_duplicate_existing_purchase(hass):
+    env=await setup_manager(hass)
+    draft=await preview(env)
+    receipt=await env.manager.async_confirm(draft["token"],"owner",selections(draft,env.product),False)
+    purchase={"purchaseId":"account-id","purchaseDate":receipt["purchased_at"],"amount":receipt["total"]}
+    assert await env.manager.async_import_carrefour_purchases([purchase])==0
+    assert len(env.manager.snapshot["receipts"])==1
+    assert env.stock.snapshot["items"][0]["quantity"]==270
+    assert env.manager.snapshot["receipts"][0]["account_key"]==env.manager._account_key("account-id")

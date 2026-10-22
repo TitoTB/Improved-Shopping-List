@@ -342,7 +342,7 @@ async def test_invoice_matches_saved_ean_confirms_stock_prices_and_duplicate(has
     draft = await env.manager.async_preview(encoded, 'owner')
     first = draft['receipt']['lines'][0]
     assert first['product_id'] == env.product['id'] and first['matched'] is True
-    assert first['quantity'] == 500 and first['replenish'] is True
+    assert first['quantity'] == 250 and first['replenish'] is True
     confirmed = await env.manager.async_confirm(draft['token'], 'owner', selections(draft, env.product, 500), True)
     assert confirmed['total'] == 17.07 and confirmed['shipping'] == 3.99
     assert env.stock.snapshot['items'][0]['quantity'] == 520
@@ -557,3 +557,28 @@ async def test_receipt_ean_equivalence_invalid_codes_and_storage_failure(hass, m
     with pytest.raises(OSError):
         await catalog.async_bind_receipt_eans([(env.product['id'],'4006381333931')])
     assert catalog.products == before
+
+
+async def test_receipt_quantity_uses_stock_refill_not_ticket_or_learned_pack(hass):
+    env = await setup_manager(hass)
+    item = env.stock._items[env.item['id']]
+    item['refill_quantity'] = 175
+    draft = await env.manager.async_preview(base64.b64encode(pdf_bytes(invoice_text())).decode(), 'owner')
+    choice = next(p for p in draft['products'] if p['id'] == env.product['id'])
+    assert choice['refill_quantity'] == 175 and choice['unit'] == 'g'
+    links = [{'id':line['id'], 'product_id':env.product['id'] if index == 0 else ''} for index,line in enumerate(draft['receipt']['lines'])]
+    options = await env.manager.async_link(draft['token'], 'owner', links)
+    assert next(p for p in options['products'] if p['id'] == env.product['id'])['refill_quantity'] == 175
+    env.manager.discard(draft['token'], 'owner')
+    again = await env.manager.async_preview(base64.b64encode(pdf_bytes(invoice_text())).decode(), 'owner')
+    assert again['receipt']['lines'][0]['quantity'] == 175  # Invoice detects 500 g; default remains 175 g.
+    await env.manager.async_confirm(again['token'], 'owner', selections(again, env.product, 200), False)
+    assert env.stock.item_for(env.product)['quantity'] == 220  # User can override the default.
+
+
+async def test_receipt_quantity_uses_catalog_units_when_not_in_stock(hass):
+    env = await setup_manager(hass)
+    product = await env.stock.catalog.async_save_product({'name':'Nuevo', 'purchase_unit':'Latas', 'unit_quantity':6})
+    draft = await preview(env)
+    choice = next(p for p in draft['products'] if p['id'] == product['id'])
+    assert choice['stock_id'] == '' and choice['unit'] == 'Latas' and choice['refill_quantity'] == 6

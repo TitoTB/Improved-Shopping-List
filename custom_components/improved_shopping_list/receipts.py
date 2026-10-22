@@ -16,6 +16,7 @@ from .catalog import CatalogError, normalized_name, product_codes
 from .receipt_parser import MAX_PDF_BYTES, extract_receipt, extract_carrefour_account_ticket
 from .stock import DAY, DEFAULT_CONFIG, quantity_value
 from .store_links import STORES
+from .quantity_values import purchase_defaults
 
 
 def converted_quantity(line, unit):
@@ -243,9 +244,11 @@ class ReceiptManager:
         choices = []
         for product in self.stock.catalog.products:
             stock = self.stock.item_for(product)
+            defaults = purchase_defaults(product)
             offers = self.prices.prices_for(product) if hasattr(self.prices,"prices_for") else []
             price = next((offer for offer in offers if offer["store"] == store),None)
-            choices.append({"id":product["id"],"name":product["name"],"image_url":product.get("image_url", ""),"icon":product.get("icon", ""),"barcodes":product_codes(product, "barcode"),"unit":stock["unit"] if stock else "uds",
+            choices.append({"id":product["id"],"name":product["name"],"image_url":product.get("image_url", ""),"icon":product.get("icon", ""),"barcodes":product_codes(product, "barcode"),"unit":stock["unit"] if stock else defaults["purchase_unit"],
+                "refill_quantity":stock["refill_quantity"] if stock else defaults["unit_quantity"],
                 "stock_id":stock["id"] if stock else "","revision":stock["revision"] if stock else 0,
                 "price":price.get("price") if price else None,"price_date":price.get("checked_at",0) if price else 0})
         return choices
@@ -346,8 +349,7 @@ class ReceiptManager:
             line.update(product_id=product["id"] if product else "", matched=bool(ean_product or alias or exact), quantity=None,
                 unit=product["unit"] if product else "uds", stock_id=product["stock_id"] if product else "")
             if product:
-                line["quantity"] = (round(alias["per_unit"] * line["count"],3) if alias and alias.get("per_unit") is not None and alias["unit"] == product["unit"]
-                    else converted_quantity(line,product["unit"]))
+                line["quantity"] = product["refill_quantity"]
             line["replenish"] = bool(line["matched"] and line["stock_id"] and line["quantity"] is not None)
         token = str(uuid4())
         self._drafts = {key:value for key,value in self._drafts.items() if value["expires"] > time.time()}

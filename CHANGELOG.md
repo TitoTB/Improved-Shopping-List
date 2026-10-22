@@ -1,5 +1,9 @@
 # Historial de cambios
 
+## Pendiente de publicación
+
+- La revisión del ticket propone como cantidad de reposición la configurada en Stock para cada producto, manteniendo la edición manual. Para productos sin stock usa la cantidad unitaria y las unidades del catálogo.
+
 ## 0.35.0 — 2026-10-22
 
 - Al confirmar las vinculaciones de tickets y facturas se incorporan los EAN válidos al producto del catálogo, conservando sus códigos anteriores. Se comprueban equivalencias GTIN y conflictos entre productos, sin guardar códigos al descargar o previsualizar.

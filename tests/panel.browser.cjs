@@ -38,7 +38,7 @@ window.quantityEntries=JSON.parse(localStorage.getItem('quantity-fixture')??'{}'
 window.emitQuantities=()=>{localStorage.setItem('quantity-fixture',JSON.stringify(window.quantityEntries));for(const listener of listeners.keys())if(listener.quantities)listener.callback({entries:structuredClone(window.quantityEntries)});};
 window.receiptHistory=JSON.parse(localStorage.getItem('receipt-fixture')??'[]');
 window.receiptLinks=[];
-const receiptOptions=()=>({products:[...new Map([{id:'cacao',name:'Seitán',unit:'g',price:3.80,image_url:'/local/receipt-seitan.svg',icon:'mdi:food',stock_id:'s1',revision:1},...window.catalogProducts.filter(p=>p.id!=='cacao').map(p=>({id:p.id,name:p.name,image_url:p.image_url??'',icon:p.icon??'',unit:'uds',stock_id:'',revision:0}))].map(p=>[p.id,p])).values()],purchases:[]});
+const receiptOptions=()=>({products:[...new Map([{id:'cacao',name:'Seitán',unit:'g',refill_quantity:175,price:3.80,image_url:'/local/receipt-seitan.svg',icon:'mdi:food',stock_id:'s1',revision:1},...window.catalogProducts.filter(p=>p.id!=='cacao').map(p=>({id:p.id,name:p.name,image_url:p.image_url??'',icon:p.icon??'',unit:'uds',stock_id:'',revision:0}))].map(p=>[p.id,p])).values()],purchases:[]});
 window.emitStock=()=>{localStorage.setItem('stock-fixture',JSON.stringify(window.stockItems));for(const listener of listeners.keys())if(listener.stock)listener.callback({items:structuredClone(window.stockItems)});};
 window.calls=[];window.fail=false;window.failCatalog=false;
 window.logFixture={entries:[],limit:1000};window.failLogs=false;
@@ -2653,6 +2653,9 @@ async function main() {
     assert.equal(await review.getByRole('button',{name:'1. Vinculación',exact:true}).evaluate(button=>getComputedStyle(button).backgroundColor),'rgb(38, 112, 82)');
     assert.equal(await review.getByRole('button',{name:'2. Stock',exact:true}).getAttribute('aria-current'),'step');
     assert.equal(await review.getByRole('button',{name:'3. Precios',exact:true}).isDisabled(),true);
+    const defaultRefill=review.locator('[data-line-id="0"] input[type="number"]');
+    assert.equal(await defaultRefill.inputValue(),'175');
+    await defaultRefill.evaluate(input=>{input.value='250';input.dispatchEvent(new Event('input',{bubbles:true}));});
     await review.getByRole('button',{name:'1. Vinculación',exact:true}).click();
     assert.equal(await review.locator('#links-only').isVisible(),true);
     assert.equal(await review.getByRole('button',{name:'1. Vinculación',exact:true}).getAttribute('aria-current'),'step');

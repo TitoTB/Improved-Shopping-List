@@ -144,11 +144,12 @@ class ImprovedShoppingPurchases extends HTMLElement {
     this._edits=receipt.lines.map(line=>{
       const candidate=products.find(p=>p.id===line.product_id&&!used.has(p.id)),product=line.matched===false?null:candidate;if(product)used.add(product.id);
       return {line,id:line.id,product_id:product?.id??'',search:candidate?.name??'',
-        replenish:Boolean(product?.stock_id),quantity:product?line.quantity??this._quantity(line,product.unit):null,
+        replenish:Boolean(product?.stock_id),quantity:product?this._defaultQuantity(line,product):null,
         unit:product?.unit??'uds',purchase_id:null,save_price:Boolean(this._pricesEnabled)};
     });
     root.querySelector('#review-error').hidden=true;this._renderStep();
   }
+  _defaultQuantity(line,product){return product.refill_quantity??this._quantity(line,product.unit);}
   _quantity(line,unit){
     if(unit==='uds')return line.count;
     const scales={g:['mass',1],kg:['mass',1000],ml:['volume',1],cl:['volume',10],l:['volume',1000]},source=scales[line.pack_unit],target=scales[unit];
@@ -159,7 +160,7 @@ class ImprovedShoppingPurchases extends HTMLElement {
     for(const edit of this._edits){
       const before=this._product(edit),after=options.products.find(p=>p.id===edit.product_id);
       if(after&&before&&(before.unit!==after.unit||before.stock_id!==after.stock_id)){
-        edit.unit=after.unit;edit.quantity=this._quantity(edit.line,after.unit);edit.replenish=Boolean(after.stock_id);edit.purchase_id=null;
+        edit.unit=after.unit;edit.quantity=this._defaultQuantity(edit.line,after);edit.replenish=Boolean(after.stock_id);edit.purchase_id=null;
       }
     }
     Object.assign(this._draft,options);
@@ -173,7 +174,7 @@ class ImprovedShoppingPurchases extends HTMLElement {
       edit.product_id='';this._errorMessage('Este producto ya está vinculado a otra línea. Libera primero esa vinculación.');return false;
     }
     const changed=edit.product_id!==(product?.id??'');edit.product_id=product?.id??'';
-    if(changed){edit.unit=product?.unit??'uds';edit.quantity=product?this._quantity(edit.line,edit.unit):null;edit.replenish=Boolean(product?.stock_id);edit.purchase_id=null;}
+    if(changed){edit.unit=product?.unit??'uds';edit.quantity=product?this._defaultQuantity(edit.line,product):null;edit.replenish=Boolean(product?.stock_id);edit.purchase_id=null;}
     this._errorMessage('');return true;
   }
   _goToStep(step){

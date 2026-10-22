@@ -529,7 +529,7 @@ async function main() {
       };
       visit(document);
       return dialogs.filter(dialog => dialog.querySelectorAll(".isl-dialog-close[aria-label='Cerrar ventana']").length === 1).length;
-    }), 33);
+    }), 34);
     await page.getByRole("button", { name: "Seleccionar lista", exact: true }).click();
     const listDialog = page.getByRole("dialog", { name: "Seleccionar lista", exact: true });
     assert.equal(await listDialog.getByRole("button", { name: "Compra · Bring!", exact: true }).getAttribute("aria-pressed"), "true");
@@ -2738,7 +2738,7 @@ async function main() {
     assert.equal(await purchasePage.evaluate(()=>window.receiptHistory.length),0);
     await purchasePage.evaluate(()=>{window.failReceipt=false;});
     await review.getByRole('button',{name:'Confirmar compra',exact:true}).click();
-    await review.waitFor({state:'hidden'});await purchases.locator('summary').click();
+    await review.waitFor({state:'hidden'});await purchases.locator('#history .ticket-open').click();
     const confirmed=await purchasePage.evaluate(()=>window.lastReceiptConfirmation);
     assert.equal(confirmed.lines[0].save_price,false);assert.equal(confirmed.lines[1].save_price,true);
     assert.equal(confirmed.lines[1].quantity,2);assert.equal(confirmed.lines[1].unit,'uds');
@@ -2750,7 +2750,7 @@ async function main() {
     await purchases.getByText('Este ticket ya se ha importado.',{exact:true}).waitFor();
     await purchasePage.reload();await purchasePage.getByRole('button',{name:'Stock',exact:true}).click();
     await purchasePage.getByRole('tab',{name:'Compras',exact:true}).click();
-    await purchases.locator('summary').waitFor();
+    await purchases.locator('#history .ticket-open').waitFor();
     await purchasePage.getByRole('tab',{name:'Stock',exact:true}).click();
     assert.equal(await purchasePage.locator('#list-controls').isVisible(),false);
     assert.equal(await purchasePage.getByRole('button',{name:'Subir ticket',exact:true}).isVisible(),false);
@@ -2781,6 +2781,38 @@ async function main() {
     assert.equal(await stockOnlyPage.evaluate(()=>window.stockItems.find(item=>item.catalog_product_id==='cacao').quantity),250);
     assert.equal(await stockOnlyPage.evaluate(()=>window.receiptHistory.length),1);
     await stockOnlyContext.close();
+
+    // Purchase history uses a ticket button for details and stacks monthly spend by store.
+    const spendingContext=await browser.newContext({viewport:{width:390,height:844}});
+    await spendingContext.route('https://images.seeklogo.com/**',route=>route.fulfill({contentType:'image/svg+xml',body:'<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32"><circle cx="16" cy="16" r="14" fill="blue"/></svg>'}));
+    const spendingPage=await spendingContext.newPage();spendingPage.on('pageerror',error=>errors.push(error.message));
+    await spendingPage.addInitScript(()=>{
+      const receipts=[['j1','carrefour','Carrefour','2026-01-10T12:00:00',10.25],['j2','mercadona','Mercadona','2026-01-15T12:00:00',20],['j3','carrefour','Carrefour','2026-01-20T12:00:00',5.5],['f1','mercadona','Mercadona','2026-02-15T12:00:00',40]];
+      localStorage.setItem('receipt-fixture',JSON.stringify(receipts.map(([id,store,store_name,purchased_at,total])=>({id,store,store_name,purchased_at,total,article_count:1,lines:[{description:'Producto '+id,count:1,unit_price:total,amount:total}]}))));
+    });
+    await spendingPage.goto(url);await spendingPage.getByRole('button',{name:'Stock',exact:true}).click();await spendingPage.getByRole('tab',{name:'Compras',exact:true}).click();
+    const spending=spendingPage.locator('isl-purchases');await spending.locator('#history .ticket').first().waitFor();
+    assert.equal(await spending.locator('#history details,#history summary').count(),0);
+    assert.equal(await spending.locator('#history .ticket').count(),4);
+    const firstPurchase=spending.locator('#history .ticket').first();
+    assert.match(await firstPurchase.locator('.store-image').getAttribute('src'),/carrefour-logo/);
+    assert.ok(await firstPurchase.evaluate(card=>card.querySelector('.total').getBoundingClientRect().right<=card.querySelector('.ticket-open').getBoundingClientRect().left));
+    await firstPurchase.locator('.title').click();assert.equal(await spending.locator('#purchase-detail').isVisible(),false);
+    await firstPurchase.locator('.ticket-open').focus();await firstPurchase.locator('.ticket-open').press('Enter');
+    const purchaseDetail=spending.getByRole('dialog',{name:'Detalle de la compra',exact:true});await purchaseDetail.waitFor();
+    await purchaseDetail.getByText('Producto j1',{exact:true}).waitFor();
+    await purchaseDetail.getByRole('button',{name:'Cerrar ventana',exact:true}).click();
+    const jan=spending.locator('.month-column[data-month="2026-01"]'),feb=spending.locator('.month-column[data-month="2026-02"]');
+    assert.equal(await jan.getAttribute('data-total'),'35.75');assert.equal(await feb.getAttribute('data-total'),'40');
+    assert.equal(await jan.locator('[data-store="carrefour"]').getAttribute('data-amount'),'15.75');
+    assert.equal(await jan.locator('[data-store="mercadona"]').getAttribute('data-amount'),'20');
+    assert.equal(await jan.locator('.store-segment').count(),2);assert.equal(await feb.locator('.store-segment').count(),1);
+    assert.match(await jan.getAttribute('aria-label'),/Carrefour.*15,75.*Mercadona.*20,00/);
+    for(const width of [320,390,1280]){await spendingPage.setViewportSize({width,height:844});assert.ok(await spending.evaluate(el=>el.scrollWidth<=el.clientWidth+1));}
+    await spendingPage.screenshot({path:'test-results/purchases-monthly-chart-desktop.png',fullPage:true});
+    await spendingPage.setViewportSize({width:390,height:844});await spendingPage.screenshot({path:'test-results/purchases-monthly-chart-mobile.png',fullPage:true});
+    await firstPurchase.locator('.ticket-open').click();await spendingPage.screenshot({path:'test-results/purchase-detail-mobile.png',fullPage:true});
+    await spendingContext.close();
 
     // Store bindings persist without barcodes; all product-price UI reads use cache.
     const linksContext=await browser.newContext({viewport:{width:390,height:844}});
@@ -3488,9 +3520,9 @@ async function main() {
     assert.equal(await invoiceReview.locator('[data-line-id="0"] .original').count(),0);
     assert.equal(await invoiceReview.locator('#review-result').isVisible(),false);
     await invoiceReview.getByRole('button',{name:'Actualizar precios y cerrar',exact:true}).click();await invoiceReview.waitFor({state:'hidden'});
-    await invoicePurchases.locator('#history summary').click();
-    assert.match(await invoicePurchases.locator('#history').textContent(),/Gastos de envío/);
-    assert.match(await invoicePurchases.locator('#history').textContent(),/Descuento de línea/);
+    await invoicePurchases.locator('#history .ticket-open').click();
+    assert.match(await invoicePurchases.locator('#purchase-detail').textContent(),/Gastos de envío/);
+    assert.match(await invoicePurchases.locator('#purchase-detail').textContent(),/Descuento de línea/);
     assert.equal(await invoicePage.evaluate(()=>window.receiptHistory[0].lines[0].ean),'1234567890128');
     await invoicePage.screenshot({path:'test-results/carrefour-invoice-mobile.png',fullPage:true});
     assert.ok(await invoicePurchases.evaluate(node=>node.scrollWidth<=node.clientWidth+1));

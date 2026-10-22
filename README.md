@@ -54,7 +54,7 @@ actualización puesta en cola de una petición de precio que ya ha comenzado.
 
 ## Qué puedes hacer
 
-Stock incluye las vistas **Stock** y **Compras**, con un botón para subir tickets
+Stock incluye las vistas **Stock** y **Compras**. Compras muestra el logo de la tienda y un botón de ticket junto al importe para abrir el detalle en un popup. Encima del historial, un gráfico de barras apiladas suma los importes de las compras registradas por mes y tienda, sin dependencias de tarjetas externas. Incluye un botón para subir tickets
 PDF electrónicos de Carrefour, tanto tickets como facturas online con tabla de EAN (hasta 2 MB y 10 páginas). El documento se lee localmente;
 los escaneos y otros formatos de tienda todavía no están disponibles. El popup guía
 la revisión con **Vinculación**, **Stock**, **Precios** y un **Resumen** final. Primero permite

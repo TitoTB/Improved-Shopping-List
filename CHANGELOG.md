@@ -2,6 +2,8 @@
 
 ## Pendiente de publicación
 
+- Compras muestra el logo de cada tienda y abre el detalle mediante un botón de ticket junto al total. Un gráfico de barras apiladas resume el gasto mensual por tienda a partir de las compras registradas.
+
 - El asistente de tickets muestra un resumen final después de Precios, con totales y las operaciones seleccionadas, antes de confirmar la compra. Precios permite también «Actualizar precios y cerrar».
 
 - Revisión de tickets, paso Stock: cantidad y unidades alineadas a la derecha del nombre en la misma fila, también en móvil.

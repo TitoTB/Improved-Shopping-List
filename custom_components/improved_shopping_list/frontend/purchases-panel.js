@@ -8,6 +8,13 @@ const documentDate=receipt=>receipt.document_type==='invoice'?new Intl.DateTimeF
 const date=value=>new Intl.DateTimeFormat('es-ES',{dateStyle:'short',timeStyle:'short'}).format(new Date(value));
 const icon=name=>{const el=node('ha-icon');el.setAttribute('icon',name);el.setAttribute('aria-hidden','true');return el;};
 
+const STORE_LOGOS={
+  carrefour:'https://images.seeklogo.com/logo-png/31/2/carrefour-logo-png_seeklogo-318190.png',
+  alcampo:'https://almeria.online/wp-content/uploads/2024/09/alcampo-logo.png',
+  ...Object.fromEntries(['mercadona','consum','lasirena','eroski','dia'].map(store=>[store,new URL(store+'.'+(['mercadona','dia'].includes(store)?'png':store==='eroski'?'svg':'jpg'),import.meta.url).href]))
+};
+const STORE_COLORS={mercadona:'#29975b',carrefour:'#2388dc',alcampo:'#e15150',consum:'#ef9639',lasirena:'#42b9ca',eroski:'#a968bd',dia:'#e2608c'};
+
 class PurchaseSession extends ListSettingsSession {
   constructor(getHass,onChange){super(getHass,onChange,'improved_shopping_list/receipts/');this.receipts=[];}
   _receive(data){this.receipts=data.receipts??[];this.loaded=true;this.loading=false;this.error='';this.onChange();}
@@ -75,9 +82,10 @@ class ImprovedShoppingPurchases extends HTMLElement {
       .price-line{position:relative}.price-select{position:absolute;inset:0;width:100%;height:100%;border:0;border-radius:inherit;background:transparent;padding:0}.price-select:focus-visible{outline:3px solid var(--isl-green,#267052);outline-offset:-3px}.price-line[data-selected=true]{border-color:var(--isl-green,#267052);background:color-mix(in srgb,var(--secondary-background-color,#f2f4f3) 75%,var(--isl-green,#267052))}.price-product-name{position:relative;pointer-events:none}.price-label{min-width:0}.price-value{margin-top:6px}.price-value del{opacity:.6;font-size:.9em;margin-left:6px}.price-product-name strong{display:block}
       @media(max-width:750px){.association-row{flex-wrap:wrap;gap:6px}.association-buttons{width:100%;justify-content:flex-end}.association-buttons .small-button{width:30px;height:34px}.association-buttons ha-icon{--mdc-icon-size:20px;width:20px;height:20px}.association-image{width:26px;height:26px}.stock-line-main{grid-template-columns:20px minmax(0,1fr) minmax(0,1.2fr);gap:4px}.stock-line-main .association-image{width:20px;height:20px}.stock-quantity{gap:3px;font-size:.85em}.stock-quantity input{padding-inline:2px;appearance:textfield}.stock-quantity input::-webkit-inner-spin-button,.stock-quantity input::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}.review-line{padding:8px}.association-name strong,.price-label{font-size:.85em}#review-lines,.review-group-content{gap:8px}.review-group-content{padding:0 8px 8px}}
       .review-summary{padding:18px;border:1px solid var(--divider-color,#d9e0dd);border-radius:14px}.purchase-heading{display:flex;align-items:center;gap:12px}.purchase-heading>ha-icon{color:var(--isl-green,#267052);--mdc-icon-size:28px;width:28px;height:28px}.purchase-heading>div{flex:1;min-width:0}.purchase-heading h3{margin:0;font-size:1.1em}.purchase-heading .muted{display:block;font-size:.85em}.purchase-total{font-size:1.25em;white-space:nowrap}.purchase-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:18px 0}.purchase-stats>div{display:flex;flex-direction:column;align-items:center;background:var(--card-background-color,#fff);padding:10px 4px;border-radius:10px}.purchase-stats strong{font-size:1.3em;color:var(--isl-green,#267052)}.purchase-stats span{font-size:.8em}.purchase-summary-line{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--divider-color,#d9e0dd)}.purchase-summary-line>div{min-width:0;overflow-wrap:anywhere}.purchase-summary-line .muted{display:block;font-size:.8em}.purchase-summary-line>span{white-space:nowrap}.review-summary>.totals{font-size:1.1em;border-top:2px dashed var(--divider-color,#d9e0dd);padding-top:14px}.purchase-lines{max-height:40vh;overflow:auto}@media(max-width:550px){#review-steps button{font-size:.7em;padding-inline:2px}.review-summary{padding:12px}.purchase-heading{flex-wrap:wrap;gap:8px}.purchase-total{margin-left:auto}.purchase-stats{gap:4px}.purchase-stats span{font-size:.75em}}
+      .ticket{display:flex;align-items:center;gap:12px;min-width:0}.store-image{width:42px;height:42px;object-fit:contain;background:white;border-radius:10px;padding:5px;flex:none}.ticket .title{overflow-wrap:anywhere}.ticket .ticket-open{flex:none;width:40px;height:40px;border:0;border-radius:10px;background:var(--secondary-background-color,#edf2ef);display:grid;place-items:center;padding:0}.ticket-open:focus-visible{outline:3px solid var(--primary-color,#267052);outline-offset:2px}#purchase-detail-info{align-items:center;padding-bottom:12px;border-bottom:1px solid var(--divider-color,#d9e0dd)}#purchase-detail-info .total{margin-left:auto}.spending-chart{background:var(--card-background-color,#fff);padding:18px;border-radius:14px;margin-bottom:16px;min-width:0}.spending-chart h3{margin:0 0 4px;font-size:1.05em}.spending-chart .chart-note{font-size:.8em;opacity:.65;margin:0 0 12px}.chart-scroll{overflow-x:auto;overscroll-behavior-inline:contain}.monthly-bars{display:flex;align-items:end;gap:14px;min-width:100%;width:max-content;padding:8px 4px 0;border-bottom:1px solid var(--divider-color,#d9e0dd)}.month-column{width:90px;flex:none;text-align:center}.month-total{display:block;font-weight:700;font-size:.85em;margin-bottom:8px;white-space:nowrap}.month-stack{height:190px;display:flex;flex-direction:column;justify-content:end;gap:0;background:repeating-linear-gradient(to top,transparent 0,transparent calc(25% - 1px),var(--divider-color,#d9e0dd) 25%);border-bottom:1px solid var(--divider-color,#d9e0dd)}.store-segment{width:70%;margin-inline:auto;flex:none;min-height:0}.month-label{display:block;font-size:.8em;padding:8px 0}.chart-legend{display:flex;flex-wrap:wrap;gap:10px 16px;margin-top:14px}.chart-key{display:inline-flex;align-items:center;gap:6px;font-size:.8em}.chart-swatch{width:10px;height:10px;border-radius:3px;flex:none}@media(max-width:550px){.ticket{gap:8px}.ticket .store-image{width:34px;height:34px}.ticket .ticket-open{width:32px;height:36px}.ticket .title{font-size:.85em}.ticket .total{font-size:.9em}.spending-chart{padding:14px}.month-column{width:74px}.monthly-bars{gap:10px}}
     </style>
     <input id="ticket-file" type="file" accept="application/pdf,.pdf" hidden>
-    <p id="message" class="notice" role="status" hidden></p><div id="history"></div><p id="empty" class="empty" hidden>Todavía no has subido ningún ticket.</p>
+    <p id="message" class="notice" role="status" hidden></p><section id="spending-chart" class="spending-chart" aria-label="Gasto mensual por tienda" hidden></section><div id="history"></div><p id="empty" class="empty" hidden>Todavía no has subido ningún ticket.</p>
     <dialog aria-labelledby="review-title"><form id="review-form"><h2 id="review-title">Revisar ticket</h2><div id="review-summary" class="receipt-info"></div>
       <ol id="review-steps" aria-label="Pasos de revisión del ticket"><li><button type="button">1. Vinculación</button></li><li><button type="button">2. Stock</button></li><li><button type="button">3. Precios</button></li><li><button type="button">4. Resumen</button></li></ol><h3 id="step-title"></h3><p id="step-help" class="note"></p>
       <div id="review-lines"></div><div id="review-result" class="review-summary" hidden></div>
@@ -88,7 +96,8 @@ class ImprovedShoppingPurchases extends HTMLElement {
       <label for="association-search">Producto del catálogo</label><input id="association-search" type="text" list="association-products" maxlength="255" autocomplete="off" required><datalist id="association-products"></datalist>
       <p id="association-error" class="notice error" role="alert" hidden></p>
       <div class="actions"><button id="confirm-association" type="submit">Vincular</button></div>
-    </form></dialog>`;
+    </form></dialog>
+    <dialog id="purchase-detail" aria-labelledby="purchase-detail-title"><h2 id="purchase-detail-title">Detalle de la compra</h2><div id="purchase-detail-info" class="receipt-info"></div><div id="purchase-detail-lines"></div></dialog>`;
     installDialogCloseButtons(this.shadowRoot);
     const root=this.shadowRoot,dialog=root.querySelector('dialog');
     root.querySelector('#ticket-file').addEventListener('change',event=>{const file=event.target.files[0];event.target.value='';if(file)void this._upload(file);});
@@ -396,21 +405,64 @@ class ImprovedShoppingPurchases extends HTMLElement {
     const text=this._reading?'Leyendo ticket…':this._error|| (this._history?this._session.error:'') || (this._history&&this._session.loading?'Cargando compras…':'');
     message.textContent=text;message.hidden=!text;message.classList.toggle('error',Boolean(this._error||this._session.error));
     root.querySelector('#history').hidden=!this._history;root.querySelector('#empty').hidden=!this._history||this._session.receipts.length>0||this._session.loading||Boolean(this._session.error);
+    root.querySelector('#spending-chart').hidden=!this._history||!this._session.receipts.length;
     if(!this._history)return;
-    const expanded=new Set([...root.querySelectorAll('details[open]')].map(el=>el.dataset.id));
+    this._renderSpendingChart();
     root.querySelector('#history').replaceChildren(...this._session.receipts.map(receipt=>{
-      const details=node('details','ticket');details.dataset.id=receipt.id;details.open=expanded.has(receipt.id);
-      const summary=node('summary'),title=node('span','title');title.append(node('strong','',receipt.store_name+(receipt.document_type==='invoice'?' · Factura':'')),node('span','muted',documentDate(receipt)+' · '+receipt.article_count+' artículos'));
-      summary.append(icon('mdi:receipt-text'),title,node('span','total',money(receipt.total)));details.append(summary);
-      for(const line of receipt.lines){const row=node('div','line'),description=node('div');description.append(node('p','',line.description),node('p','muted',`${line.count} × ${money(line.unit_price)}`));
-        if(line.ean)description.append(node('p','muted','EAN: '+line.ean));
-        if(line.line_discount)description.append(node('p','muted','Descuento de línea: −'+money(line.line_discount)));
-        if(line.replenished)description.append(node('p','muted',`${line.product_name}: ${line.quantity} ${line.unit} repuestos`));
-        row.append(description,node('span','',money(line.amount)));details.append(row);}
-      if(receipt.shipping)details.append(this._totalRow('Gastos de envío',receipt.shipping));
-      if(receipt.discount)details.append(this._totalRow('Descuentos generales',-receipt.discount));
-      details.append(this._totalRow('Total',receipt.total));return details;
+      const card=node('article','ticket');card.dataset.id=receipt.id;
+      const title=node('div','title');title.append(node('strong','',receipt.store_name+(receipt.document_type==='invoice'?' · Factura':'')),node('span','muted',documentDate(receipt)+' · '+receipt.article_count+' artículos'));
+      const open=this._button('Ver ticket de '+receipt.store_name+' del '+documentDate(receipt),'mdi:receipt-text',()=>this._openPurchaseDetail(receipt),'ticket-open');
+      card.append(this._storeImage(receipt.store,receipt.store_name),title,node('span','total',money(receipt.total)),open);return card;
     }));
+  }
+  _storeImage(store,name){
+    if(!STORE_LOGOS[store])return icon('mdi:store');
+    const image=node('img','store-image');image.src=STORE_LOGOS[store];image.alt=name;image.loading='lazy';image.referrerPolicy='no-referrer';
+    image.addEventListener('error',()=>image.replaceWith(icon('mdi:store')),{once:true});return image;
+  }
+  _openPurchaseDetail(receipt){
+    const root=this.shadowRoot;
+    root.querySelector('#purchase-detail-info').replaceChildren(this._storeImage(receipt.store,receipt.store_name),node('strong','',receipt.store_name),node('span','muted',documentDate(receipt)),node('strong','total',money(receipt.total)));
+    const container=root.querySelector('#purchase-detail-lines');container.replaceChildren();
+    for(const line of receipt.lines){
+      const row=node('div','line'),description=node('div');description.append(node('p','',line.description),node('p','muted',line.count+' × '+money(line.unit_price)));
+      if(line.ean)description.append(node('p','muted','EAN: '+line.ean));
+      if(line.line_discount)description.append(node('p','muted','Descuento de línea: −'+money(line.line_discount)));
+      if(line.replenished)description.append(node('p','muted',line.product_name+': '+line.quantity+' '+line.unit+' repuestos'));
+      row.append(description,node('span','',money(line.amount)));container.append(row);
+    }
+    if(receipt.shipping)container.append(this._totalRow('Gastos de envío',receipt.shipping));
+    if(receipt.discount)container.append(this._totalRow('Descuentos generales',-receipt.discount));
+    container.append(this._totalRow('Total',receipt.total));root.querySelector('#purchase-detail').showModal();
+  }
+  _renderSpendingChart(){
+    const chart=this.shadowRoot.querySelector('#spending-chart'),months=new Map(),stores=new Map();
+    for(const receipt of this._session.receipts){
+      const when=new Date(receipt.purchased_at),cents=Math.round(Number(receipt.total)*100);
+      if(!Number.isFinite(when.getTime())||!Number.isFinite(cents)||cents<0)continue;
+      const key=when.getFullYear()+'-'+String(when.getMonth()+1).padStart(2,'0');
+      if(!months.has(key))months.set(key,{date:new Date(when.getFullYear(),when.getMonth(),1),total:0,stores:new Map()});
+      const month=months.get(key);month.total+=cents;month.stores.set(receipt.store,(month.stores.get(receipt.store)||0)+cents);
+      stores.set(receipt.store,receipt.store_name);
+    }
+    chart.hidden=!this._history||months.size===0;chart.replaceChildren();if(chart.hidden)return;
+    const sortedStores=[...stores].sort((a,b)=>a[1].localeCompare(b[1],'es'));
+    const palette=['#607d8b','#9e8048','#6978c8'];
+    const colors=new Map(sortedStores.map(([store],index)=>[store,STORE_COLORS[store]||palette[index%palette.length]]));
+    const bars=node('div','monthly-bars'),scroll=node('div','chart-scroll');scroll.tabIndex=0;scroll.setAttribute('aria-label','Importes mensuales; desplaza para ver más meses');
+    const maximum=Math.max(1,...[...months.values()].map(month=>month.total));
+    for(const [key,month] of [...months].sort((a,b)=>a[0].localeCompare(b[0]))){
+      const label=new Intl.DateTimeFormat('es-ES',{month:'short',year:'2-digit'}).format(month.date),column=node('div','month-column');column.dataset.month=key;column.dataset.total=String(month.total/100);
+      const stack=node('div','month-stack'),descriptions=[];
+      for(const [store,name] of sortedStores){
+        const amount=month.stores.get(store)||0;if(!amount)continue;
+        const segment=node('div','store-segment');segment.dataset.store=store;segment.dataset.amount=String(amount/100);segment.style.height=(amount/maximum*100)+'%';segment.style.background=colors.get(store);segment.title=name+': '+money(amount/100);stack.append(segment);descriptions.push(segment.title);
+      }
+      column.setAttribute('role','img');column.setAttribute('aria-label',label+': '+money(month.total/100)+'. '+descriptions.join('; '));column.append(node('span','month-total',money(month.total/100)),stack,node('span','month-label',label));bars.append(column);
+    }
+    const legend=node('div','chart-legend');
+    for(const [store,name] of sortedStores){const key=node('span','chart-key'),swatch=node('span','chart-swatch');swatch.style.background=colors.get(store);key.append(swatch,document.createTextNode(name));legend.append(key);}
+    scroll.append(bars);chart.append(node('h3','','Gasto mensual'),node('p','chart-note','Importes de las compras registradas, por tienda'),scroll,legend);
   }
   _totalRow(label,value){const row=node('div','totals');row.append(node('span','',label),node('strong','',money(value)));return row;}
 }

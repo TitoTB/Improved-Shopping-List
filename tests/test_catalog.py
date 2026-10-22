@@ -286,13 +286,13 @@ async def test_catalog_websocket_save_push_get_and_unload(hass, hass_ws_client):
     product = saved["result"]["product"]
     assert next(message for message in messages if message["id"] == 1)["event"]["products"] == [product]
     await client.send_json({"id": 3, "type": f"{DOMAIN}/catalog/get"})
-    assert (await client.receive_json())["result"] == {"products": [product], "categories": [], "recommendation_categories": [], "dismissed_suggestions": []}
+    assert (await client.receive_json())["result"] == {"products": [product], "categories": [], "recommendation_categories": [], "recipes": [], "dismissed_suggestions": []}
     assert await hass.config_entries.async_unload(entry.entry_id)
     await client.send_json({"id": 4, "type": f"{DOMAIN}/catalog/get"})
     assert (await client.receive_json())["error"]["code"] == "not_loaded"
     assert await hass.config_entries.async_setup(entry.entry_id)
     await client.send_json({"id": 5, "type": f"{DOMAIN}/catalog/get"})
-    assert (await client.receive_json())["result"] == {"products": [product], "categories": [], "recommendation_categories": [], "dismissed_suggestions": []}
+    assert (await client.receive_json())["result"] == {"products": [product], "categories": [], "recommendation_categories": [], "recipes": [], "dismissed_suggestions": []}
     await client.send_json({"id": 6, "type": f"{DOMAIN}/catalog/save", "product": {"name": "Cacao", "price": -1}})
     assert (await client.receive_json())["error"]["code"] == "invalid_product"
     await client.send_json({"id": 7, "type": f"{DOMAIN}/catalog/category/save", "category": {"name": "Despensa", "icon": "mdi:shopping", "color": "#267052"}})

@@ -1,6 +1,6 @@
 # Historial de cambios
 
-## Pendiente de publicación
+## 0.31.0 — 2026-10-22
 
 - Conectar o consultar la cuenta de Carrefour incorpora las compras disponibles del último año a Compras y al gráfico, sin descargar tickets ni modificar stock o precios. Los recuentos de artículos desconocidos se omiten; revisar posteriormente un ticket sustituye su resumen sin duplicar el gasto.
 

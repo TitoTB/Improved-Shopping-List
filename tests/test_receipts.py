@@ -272,3 +272,14 @@ async def test_link_step_checks_owner_and_unique_preview_proposals(hass):
         await env.manager.async_link(draft['token'],'someone-else',links)
     ids=[line['product_id'] for line in draft['receipt']['lines'] if line['product_id']]
     assert len(ids)==len(set(ids))
+
+
+async def test_receipt_link_choices_include_catalog_image_and_icon(hass):
+    env = await setup_manager(hass)
+    current = next(product for product in env.stock.catalog.products if product["id"] == env.product["id"])
+    await env.stock.catalog.async_save_product({"id": current["id"], "revision": current["revision"], "name": "Seitán", "image_url": "/local/seitan.png", "icon": "mdi:food"})
+    draft = await preview(env)
+    choices = await env.manager.async_options(draft["token"], "owner")
+    product = next(product for product in choices["products"] if product["id"] == env.product["id"])
+    assert product["image_url"] == "/local/seitan.png"
+    assert product["icon"] == "mdi:food"

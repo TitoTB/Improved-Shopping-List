@@ -57,6 +57,7 @@ class ImprovedShoppingPurchases extends HTMLElement {
       .stock-line-main{display:grid;grid-template-columns:minmax(0,1fr) 90px 80px 42px;gap:10px;align-items:center;min-width:0}.stock-line-name{min-width:0;overflow-wrap:anywhere}.stock-line-name .linked-name{display:block;margin:4px 0 0}.stock-line-main input{text-align:center}.stock-line-unit{text-align:center;overflow-wrap:anywhere;min-width:0}.small-button.stock-toggle{background:transparent;color:inherit}.small-button.stock-toggle[aria-pressed=true]{background:#ff9800;color:white}
       @media(max-width:550px){.stock-line{padding:10px}.stock-line-main{grid-template-columns:minmax(0,1fr) 64px 54px 34px;gap:6px}.stock-line-main .small-button{width:34px;height:42px}.stock-line-main input{padding:8px 3px}.stock-line-name{font-size:.85em}.review-group>summary{padding:12px}}
       ha-icon{--mdc-icon-size:22px;width:22px;height:22px;flex:none}#review-summary{margin:12px 0}.note{font-size:.85em;opacity:.7;margin:10px 0}
+      .association-image{display:grid;place-items:center;width:32px;height:32px;flex:none}.association-image img{display:block;width:100%;height:100%;object-fit:contain}
       .association-row{display:flex;align-items:center;gap:10px;min-width:0}.association-name{flex:1;min-width:0;overflow-wrap:anywhere}.association-name strong{font-size:.95em}.linked-name{font-size:.8em;opacity:.65;margin-left:8px}.association-buttons{display:flex;gap:6px;flex:none;margin-left:auto}
       .small-button.link{background:#2196f3;color:white}.small-button.create{background:var(--isl-green,#267052);color:white}.small-button.ignore{background:transparent;color:inherit;border:0}.small-button.ignore[aria-pressed=true]{background:#d32f2f;color:white}
       #association-dialog{width:min(500px,calc(100vw - 24px))}#association-form label{margin-top:16px}#association-error{margin:12px 0 0}
@@ -212,7 +213,13 @@ class ImprovedShoppingPurchases extends HTMLElement {
     row.classList.add('association-row');
     const name=node('div','association-name');name.append(node('strong','',edit.line.description));
     const product=this._product(edit);
-    if(product)name.append(node('span','linked-name','→ '+product.name));
+    if(product){
+      const media=node('span','association-image'),fallback=icon(product.icon||'mdi:shopping');
+      let source='';try{const url=new URL(product.image_url||'',location.origin);if(product.image_url&&['http:','https:'].includes(url.protocol))source=url.href;}catch{ /* Invalid image uses the product icon. */ }
+      if(source){const image=node('img');image.src=source;image.alt='';image.loading='lazy';image.referrerPolicy='no-referrer';image.addEventListener('error',()=>image.replaceWith(fallback),{once:true});media.append(image);}
+      else media.append(fallback);
+      row.append(media);name.append(node('span','linked-name','→ '+product.name));
+    }
     const buttons=node('div','association-buttons');
     const link=this._button('Vincular producto para '+edit.line.description,'mdi:link-variant',()=>this._openAssociation(edit),'small-button link');
     link.dataset.locked=String(edit.ignore);link.disabled=edit.ignore;link.setAttribute('aria-pressed',String(Boolean(product)));

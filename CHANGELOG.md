@@ -2,6 +2,8 @@
 
 ## Pendiente de publicación
 
+- Revisión de tickets: Vinculación muestra la imagen del producto del catálogo a la izquierda del nombre original del ticket en las líneas vinculadas, con su icono como alternativa.
+
 - Personalización sitúa los selectores de productos por fila al final del bloque, después de todos los colores y sus vistas previas.
 
 - Stock reúne orden y agrupación en un único botón: menor stock → alfabético → categorías → menor stock. La selección se conserva al recargar y la ordenación de Lista sigue siendo independiente.

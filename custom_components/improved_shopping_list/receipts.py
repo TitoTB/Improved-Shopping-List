@@ -52,7 +52,7 @@ class ReceiptManager:
             stock = self.stock.item_for(product)
             offers = self.prices.prices_for(product) if hasattr(self.prices,"prices_for") else []
             price = next((offer for offer in offers if offer["store"] == store),None)
-            choices.append({"id":product["id"],"name":product["name"],"unit":stock["unit"] if stock else "uds",
+            choices.append({"id":product["id"],"name":product["name"],"image_url":product.get("image_url", ""),"icon":product.get("icon", ""),"unit":stock["unit"] if stock else "uds",
                 "stock_id":stock["id"] if stock else "","revision":stock["revision"] if stock else 0,
                 "price":price.get("price") if price else None,"price_date":price.get("checked_at",0) if price else 0})
         return choices

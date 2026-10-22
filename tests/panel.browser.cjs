@@ -38,7 +38,7 @@ window.quantityEntries=JSON.parse(localStorage.getItem('quantity-fixture')??'{}'
 window.emitQuantities=()=>{localStorage.setItem('quantity-fixture',JSON.stringify(window.quantityEntries));for(const listener of listeners.keys())if(listener.quantities)listener.callback({entries:structuredClone(window.quantityEntries)});};
 window.receiptHistory=JSON.parse(localStorage.getItem('receipt-fixture')??'[]');
 window.receiptLinks=[];
-const receiptOptions=()=>({products:[...new Map([{id:'cacao',name:'Seitán',unit:'g',stock_id:'s1',revision:1},...window.catalogProducts.filter(p=>p.id!=='cacao').map(p=>({id:p.id,name:p.name,unit:'uds',stock_id:'',revision:0}))].map(p=>[p.id,p])).values()],purchases:[]});
+const receiptOptions=()=>({products:[...new Map([{id:'cacao',name:'Seitán',unit:'g',image_url:'/local/receipt-seitan.svg',icon:'mdi:food',stock_id:'s1',revision:1},...window.catalogProducts.filter(p=>p.id!=='cacao').map(p=>({id:p.id,name:p.name,image_url:p.image_url??'',icon:p.icon??'',unit:'uds',stock_id:'',revision:0}))].map(p=>[p.id,p])).values()],purchases:[]});
 window.emitStock=()=>{localStorage.setItem('stock-fixture',JSON.stringify(window.stockItems));for(const listener of listeners.keys())if(listener.stock)listener.callback({items:structuredClone(window.stockItems)});};
 window.calls=[];window.fail=false;window.failCatalog=false;
 window.logFixture={entries:[],limit:1000};window.failLogs=false;
@@ -2567,6 +2567,7 @@ async function main() {
     // Local PDF upload is a preview first; confirmed receipts survive reload and have a detail view.
     const purchaseContext=await browser.newContext({viewport:{width:390,height:844}});
     const purchasePage=await purchaseContext.newPage();purchasePage.on('pageerror',error=>errors.push(error.message));
+    await purchasePage.route('**/local/receipt-seitan.svg',route=>route.fulfill({contentType:'image/svg+xml',body:'<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32"><circle cx="16" cy="16" r="15" fill="green"/></svg>'}));
     await purchasePage.goto(url);await purchasePage.getByRole('button',{name:'Stock',exact:true}).click();
     await purchasePage.getByRole('tab',{name:'Compras',exact:true}).click();
     const purchases=purchasePage.locator('isl-purchases');
@@ -2615,6 +2616,12 @@ async function main() {
     const ignored=review.locator('[data-line-id="2"] .ignore');
     assert.equal(await review.locator('#linked-products-group').evaluate(group=>group.open),false);
     await review.locator('#linked-products-group > summary').click();
+    const linkedReceiptLine=review.locator('[data-line-id="0"]');
+    await linkedReceiptLine.locator('.association-image img').waitFor();
+    assert.equal(await linkedReceiptLine.locator('.association-image img').getAttribute('src'),new URL('/local/receipt-seitan.svg',url).href);
+    assert.ok(await linkedReceiptLine.evaluate(row=>row.querySelector('.association-image').getBoundingClientRect().right<=row.querySelector('.association-name').getBoundingClientRect().left));
+    assert.equal(await review.locator('[data-line-id="2"] .association-image').count(),0);
+
     assert.equal(await ignored.getAttribute('aria-pressed'),'true');
     assert.equal(await ignored.evaluate(node=>getComputedStyle(node).backgroundColor),'rgb(211, 47, 47)');
     await ignored.click();assert.equal(await ignored.getAttribute('aria-pressed'),'false');

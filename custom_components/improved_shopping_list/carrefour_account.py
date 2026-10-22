@@ -1,4 +1,4 @@
-"""Manual Carrefour account access. No polling, passwords or receipts are persisted here."""
+"""Carrefour sessions and optional locally remembered credentials."""
 
 import asyncio
 import base64
@@ -40,6 +40,8 @@ class CarrefourAccount:
         self.hass, self.receipts, self.activity = hass, receipts, activity
         self._store = Store(hass, 1, f"{DOMAIN}.carrefour_account", private=True)
         self._session, self._config, self._pending, self._purchases = {}, {}, {}, {}
+        self._credentials_store = Store(hass, 1, f"{DOMAIN}.carrefour_credentials", private=True)
+        self._credentials = {}
         self._options_store = Store(hass, 1, f"{DOMAIN}.carrefour_options", private=True)
         self._options = {"history_enabled":False,"auto_ticket":False,"completion_at":0,"handled_completion":0,"ticket_day":""}
         self._background_task, self._timer_stop = None, None
@@ -51,6 +53,10 @@ class CarrefourAccount:
         self._active = False
 
     async def async_load(self):
+        credentials = await self._credentials_store.async_load()
+        if (isinstance(credentials, dict) and all(isinstance(credentials.get(key), str)
+                and 0 < len(credentials[key]) <= 255 for key in ("username", "password"))):
+            self._credentials = {key: credentials[key] for key in ("username", "password")}
         options = await self._options_store.async_load()
         if isinstance(options,dict):
             self._options.update({key:value for key,value in options.items() if key in self._options})
@@ -78,6 +84,7 @@ class CarrefourAccount:
     def status(self, owner):
         pending = self._pending.get(owner, {})
         return {"connected": bool(self._session.get("login_token")), "email":self._email(),
+                "credentials_saved":bool(self._credentials), "remembered_email":self._credentials.get("username",""),
                 "options":{key:self._options[key] for key in ("history_enabled","auto_ticket")},
                 "verification_required": pending.get("expires", 0) > time.time(),
                 "destinations": [{"id": str(i), "label": item["label"]} for i, item in enumerate(pending.get("destinations", []))]
@@ -250,7 +257,7 @@ class CarrefourAccount:
             raise CarrefourAccountError(message, method, error_code=error)
         return response
 
-    async def _save_session(self, response):
+    async def _save_session(self, response, credentials=None):
         token = response.get("sessionInfo", {}).get("login_token")
         if not isinstance(token, str) or not token:
             raise CarrefourAccountError("Carrefour no ha devuelto una sesión utilizable.", "session")
@@ -261,13 +268,20 @@ class CarrefourAccount:
         self._check_active()
         await self._store.async_save(session)
         self._session = session
+        if credentials is not None:
+            await self._credentials_store.async_save(credentials)
+            self._credentials = credentials
         self._purchases.clear()
         self._pending.clear()
 
-    async def async_login(self, owner, username, password):
+    async def async_login(self, owner, username, password, remember_credentials=False):
         async with self._lock:
-            if not username.strip() or not password:
-                raise CarrefourAccountError("Indica usuario y contraseña de Carrefour.", "login")
+            username = username.strip()
+            if remember_credentials and not password and username == self._credentials.get("username"):
+                password = self._credentials.get("password", "")
+            credentials = {"username": username, "password": password} if remember_credentials else {}
+            if not username or not password:
+                raise CarrefourAccountError("Indica correo y contraseña de Carrefour.", "login")
             self._pending.pop(owner, None)
             self._login_email = username.strip()
             response = await self._identity("accounts.login", {"loginID": username.strip(), "password": password,
@@ -291,9 +305,9 @@ class CarrefourAccount:
                 if not assertion or not destinations:
                     raise CarrefourAccountError("No se ha encontrado un destino verificado para enviar el código.", "tfa_destination")
                 self._pending[owner] = {"regToken": reg, "gigyaAssertion": assertion, "kind": kind,
-                    "destinations": destinations, "expires": time.time() + 600, "email":username.strip()}
+                    "destinations": destinations, "expires": time.time() + 600, "email":username.strip(), "credentials":credentials}
             else:
-                await self._save_session(response)
+                await self._save_session(response, credentials)
             return self.status(owner)
 
     def _challenge(self, owner):
@@ -336,7 +350,7 @@ class CarrefourAccount:
                 "gigyaAssertion": pending["gigyaAssertion"], "providerAssertion": result["providerAssertion"], "tempDevice": "true"})
             response = await self._identity("accounts.finalizeRegistration", {"regToken": pending["regToken"], "include": "profile,data"})
             self._login_email = pending.get("email","")
-            await self._save_session(response)
+            await self._save_session(response, pending.get("credentials"))
             return self.status(owner)
 
     async def async_disconnect(self, owner):

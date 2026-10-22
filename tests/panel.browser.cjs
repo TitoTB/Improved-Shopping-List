@@ -3485,7 +3485,7 @@ async function main() {
     assert.equal(await accountPage.evaluate(()=>window.calls.filter(call=>/carrefour_account\/(login|purchases|preview)/.test(call.type??'')).length),0);
     await account.getByRole('button',{name:'Conectar cuenta',exact:true}).click();
     const login=account.getByRole('dialog',{name:'Conectar cuenta de Carrefour',exact:true});
-    await login.getByLabel('Usuario de Carrefour',{exact:true}).fill('test@example.test');
+    await login.getByLabel('Correo',{exact:true}).fill('test@example.test');
     await login.getByLabel('Contraseña',{exact:true}).fill('test-password');
     await login.getByRole('button',{name:'Conectar',exact:true}).click();
     await login.getByRole('button',{name:'Enviar código',exact:true}).waitFor();

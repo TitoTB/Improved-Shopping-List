@@ -276,3 +276,33 @@ async def test_completions_are_ignored_until_automatic_download_is_enabled(accou
     account.note_completion()
     assert account._options["completion_at"]>0
     account._queue_background.assert_called_once()
+
+
+async def test_remembered_credentials_are_opt_in_private_and_reused_only_on_request(account, hass):
+    account._http = AsyncMock(return_value={"errorCode":0,"sessionInfo":{"login_token":"PRIVATE_SESSION"}})
+    status = await account.async_login("owner", "test@example.test", "PRIVATE_PASSWORD", True)
+    assert status["credentials_saved"] and status["remembered_email"] == "test@example.test"
+    assert "PRIVATE" not in json.dumps(status)
+    assert await account._credentials_store.async_load() == {"username":"test@example.test","password":"PRIVATE_PASSWORD"}
+    await account.async_disconnect("owner")
+    restored = CarrefourAccount(hass, account.receipts, account.activity)
+    await restored.async_load()
+    restored.start()
+    restored._http = AsyncMock(return_value={"errorCode":0,"sessionInfo":{"login_token":"PRIVATE_SESSION"}})
+    try:
+        assert restored.status("owner")["credentials_saved"]
+        await restored.async_login("owner", "test@example.test", "", True)
+        assert restored._http.await_args.kwargs["data"]["password"] == "PRIVATE_PASSWORD"
+        await restored.async_login("owner", "test@example.test", "OTHER_PASSWORD", False)
+        assert not restored.status("owner")["credentials_saved"]
+        assert await restored._credentials_store.async_load() == {}
+    finally:
+        restored.stop()
+
+
+async def test_failed_login_does_not_remember_unverified_password(account):
+    account._http = AsyncMock(return_value={"errorCode":403000})
+    with pytest.raises(CarrefourAccountError):
+        await account.async_login("owner", "test@example.test", "PRIVATE_PASSWORD", True)
+    assert not account.status("owner")["credentials_saved"]
+    assert not await account._credentials_store.async_load()

@@ -1,5 +1,9 @@
 # Historial de cambios
 
+## Pendiente de publicación
+
+- Carrefour: conexión al pie del popup, toggles desactivados con el color predeterminado y descripciones de cada opción. La ventana de conexión usa Correo y permite recordar las credenciales localmente de forma voluntaria.
+
 ## 0.32.0 — 2026-10-22
 
 - Las tiendas desactivadas muestran el toggle con el color azul grisáceo predeterminado.

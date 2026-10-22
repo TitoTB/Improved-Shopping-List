@@ -1030,12 +1030,13 @@ def ws_carrefour_account_status(hass, connection, msg):
 
 @websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/carrefour_account/login",
     vol.Required("username"): vol.All(str, vol.Length(min=1, max=255)),
-    vol.Required("password"): vol.All(str, vol.Length(min=1, max=255))})
+    vol.Required("password"): vol.All(str, vol.Length(max=255)),
+    vol.Optional("remember_credentials", default=False): bool})
 @websocket_api.require_admin
 @websocket_api.async_response
 async def ws_carrefour_account_login(hass, connection, msg):
     await _carrefour_account_operation(hass, connection, msg, "conexión de cuenta solicitada",
-        lambda manager, owner: manager.async_login(owner, msg["username"], msg["password"]))
+        lambda manager, owner: manager.async_login(owner, msg["username"], msg["password"], msg["remember_credentials"]))
 
 
 @websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/carrefour_account/send_code", vol.Required("destination"): str})

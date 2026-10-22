@@ -324,7 +324,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
         .code-capture-controls button { display:flex; align-items:center; justify-content:center; gap:6px; min-height:44px; }
         .code-capture-controls ha-icon { width:20px; height:20px; --mdc-icon-size:20px; }
 
-        .recipe-card { background:linear-gradient(var(--isl-recipe-gradient-start,#66bb6a),var(--isl-recipe-gradient-end,#2e7d32)); color:var(--isl-recipe-gradient-text,#fff); }
+        .recipe-card { background:linear-gradient(var(--isl-recipe-gradient-start,#66bb6a),var(--isl-recipe-gradient-end,#2e7d32)); color:#fff; }
         .recipe-card .title,.recipe-card .placeholder { color:inherit; }
         .recipe-card .product-controls { display:flex; }
         .recommendation-criteria { display:grid; grid-template-columns:repeat(min(var(--isl-columns,3),5),minmax(0,1fr)); gap:16px; }

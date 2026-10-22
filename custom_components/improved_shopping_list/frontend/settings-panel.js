@@ -836,7 +836,7 @@ class ImprovedShoppingSettings extends HTMLElement {
     preview.style.color = gradientTextColor(appearance.gradient_start, appearance.gradient_end);
     const recipe = this.shadowRoot.querySelector("#recipe-appearance-preview");
     recipe.style.background = `linear-gradient(${appearance.recipe_gradient_start},${appearance.recipe_gradient_end})`;
-    recipe.style.color = gradientTextColor(appearance.recipe_gradient_start,appearance.recipe_gradient_end);
+    recipe.style.color = "#fff";
     const completed = this.shadowRoot.querySelector("#completed-appearance-preview");
     completed.style.background = `linear-gradient(${appearance.completed_gradient_start},${appearance.completed_gradient_end})`;
     completed.style.color = gradientTextColor(appearance.completed_gradient_start, appearance.completed_gradient_end);

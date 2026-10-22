@@ -2,6 +2,8 @@
 
 ## Pendiente de publicación
 
+- Los bloques de recetas y su vista previa en Personalización muestran el texto blanco con cualquier degradado.
+
 - Ajustes muestra solo el texto de la vista activa; el resto de vistas mantiene únicamente su icono en todos los tamaños de pantalla.
 
 - Catálogo elimina el criterio de agrupación «Vinculados» y oculta los productos sin sugerencias al agrupar por Sugerencias.

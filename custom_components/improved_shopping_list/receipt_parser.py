@@ -50,7 +50,7 @@ def parse_carrefour(text):
         elif line and not re.search(r"CARREFOUR|CIF:|TEL[FÉE]|\*{3}", line, re.I):
             pending = line
     if not items or subtotal is None or len(items) > 300:
-        raise CatalogError("No se han podido identificar las líneas de compra de este ticket.")
+        raise CatalogError("No se han podido identificar las líneas de compra de este ticket.", "receipt_unrecognized_lines")
     if abs(round(sum(item["amount"] for item in items), 2) - subtotal) > .02:
         raise CatalogError("El detalle extraído no coincide con el subtotal. No se ha importado el ticket.")
     match = re.search(rf"(\d+)\s+ART\.\s+TOTAL A PAGAR\s*:\s*({MONEY})", text, re.I)

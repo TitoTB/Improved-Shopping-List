@@ -521,15 +521,30 @@ class CarrefourAccount:
                 raise CarrefourAccountError("Las facturas online todavía deben subirse manualmente.", "invoice_unsupported")
             headers = await self._headers()
             endpoint = API + "/md-ticketsAccount-v1/tickets/" + purchase["id"]
+            fallback = {}
             try:
                 pdf = await self._http("GET", endpoint + "/pdf", headers=headers, pdf=True)
+                try:
+                    return await self.receipts.async_preview(base64.b64encode(pdf).decode(), owner, account_reference=purchase["id"])
+                except CatalogError as err:
+                    # Only unsupported line layout: duplicates, totals and conflicts remain errors.
+                    if err.code != "receipt_unrecognized_lines":
+                        raise
+                    fallback = {"pdf_format_error":err.code}
             except CarrefourAccountError as err:
                 status = err.diagnostics.get("http_status")
                 if not isinstance(status, int) or not 500 <= status <= 599:
                     raise
-                detail = await self._http("GET", endpoint, headers=headers)
+                fallback = {"pdf_http_status":status}
+            detail = await self._http("GET", endpoint, headers=headers)
+            try:
                 draft = await self.receipts.async_preview_carrefour_ticket(detail, purchase["id"], purchase["amount"], owner)
-                self.activity.record("stores.account", "Carrefour: ticket preparado desde el detalle tras un error del PDF",
-                    source="manual", diagnostics={"pdf_http_status": status, "fallback": "ticket_detail", "products": len(draft["receipt"]["lines"])})
-                return draft
-            return await self.receipts.async_preview(base64.b64encode(pdf).decode(), owner, account_reference=purchase["id"])
+            except CatalogError as err:
+                error = CarrefourAccountError(
+                    "No se ha podido leer el detalle de este ticket de Carrefour. Consulta la información técnica en Logs → Tiendas.",
+                    "ticket_detail_parse")
+                error.diagnostics.update({**fallback, "fallback":"ticket_detail", "detail_error":err.code})
+                raise error from err
+            self.activity.record("stores.account", "Carrefour: ticket preparado desde el detalle alternativo",
+                source="manual", diagnostics={**fallback, "fallback":"ticket_detail", "products":len(draft["receipt"]["lines"])})
+            return draft

@@ -413,3 +413,43 @@ async def test_transient_renewal_failure_preserves_saved_session(account):
         await account._headers()
     assert account.status("owner")["connected"]
     assert (await account._store.async_load())["login_token"]=="PRIVATE_SESSION"
+
+
+async def test_unrecognized_pdf_lines_use_verified_account_detail(account):
+    from custom_components.improved_shopping_list.catalog import CatalogError
+    account._session={"login_token":"private","jwt":"private-jwt","jwt_until":time.time()+500}
+    account._purchases["key"]={"id":"test-ticket","owner":"owner","expires":time.time()+500,"supported":True,"amount":5.22}
+    detail={"ticketId":"test-ticket","header":{"netAmount":5.22},"lines":["printable detail"]}
+    account._http=AsyncMock(side_effect=[b"%PDF-test",detail])
+    account.receipts.async_preview=AsyncMock(side_effect=CatalogError("No lines","receipt_unrecognized_lines"))
+    draft={"token":"draft","receipt":{"lines":[{"id":"0"}]}}
+    account.receipts.async_preview_carrefour_ticket=AsyncMock(return_value=draft)
+    assert await account.async_preview("owner","key")==draft
+    account.receipts.async_preview_carrefour_ticket.assert_awaited_once_with(detail,"test-ticket",5.22,"owner")
+    assert account.activity.record.call_args.kwargs["diagnostics"]["pdf_format_error"]=="receipt_unrecognized_lines"
+
+
+@pytest.mark.parametrize("code",["duplicate","conflict","invalid"])
+async def test_other_pdf_validation_failures_do_not_use_fallback(account,code):
+    from custom_components.improved_shopping_list.catalog import CatalogError
+    account._session={"login_token":"private","jwt":"private-jwt","jwt_until":time.time()+500}
+    account._purchases["key"]={"id":"test-ticket","owner":"owner","expires":time.time()+500,"supported":True,"amount":5.22}
+    account._http=AsyncMock(return_value=b"%PDF-test")
+    account.receipts.async_preview=AsyncMock(side_effect=CatalogError("Invalid total or duplicate",code))
+    with pytest.raises(CatalogError):
+        await account.async_preview("owner","key")
+    assert account._http.await_count==1
+
+
+async def test_both_ticket_formats_fail_with_safe_diagnostic(account):
+    from custom_components.improved_shopping_list.catalog import CatalogError
+    account._session={"login_token":"private","jwt":"private-jwt","jwt_until":time.time()+500}
+    account._purchases["key"]={"id":"test-ticket","owner":"owner","expires":time.time()+500,"supported":True,"amount":5.22}
+    account._http=AsyncMock(side_effect=[b"%PDF-test",{"private_customer":"PRIVATE_DATA"}])
+    account.receipts.async_preview=AsyncMock(side_effect=CatalogError("No lines","receipt_unrecognized_lines"))
+    account.receipts.async_preview_carrefour_ticket=AsyncMock(side_effect=CatalogError("No lines","receipt_unrecognized_lines"))
+    with pytest.raises(CarrefourAccountError) as error:
+        await account.async_preview("owner","key")
+    assert error.value.diagnostics["stage"]=="ticket_detail_parse"
+    assert error.value.diagnostics["detail_error"]=="receipt_unrecognized_lines"
+    assert "PRIVATE" not in str(error.value.diagnostics)

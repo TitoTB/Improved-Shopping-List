@@ -5,20 +5,87 @@
       "user": {
         "title": "Improved Shopping List",
         "description": "Choose an existing to-do list. You can switch lists in the panel. If none appear, first set up Shopping List, Bring! or another to-do integration.",
-        "data": {"todo_entity": "Default shopping list"}
+        "data": {
+          "todo_entity": "Default shopping list"
+        }
       }
     },
-    "error": {"invalid_entity": "Select an existing to-do entity."},
-    "abort": {"already_configured": "Already configured. Use Configure to change the default list."}
+    "error": {
+      "invalid_entity": "Select an existing to-do entity."
+    },
+    "abort": {
+      "already_configured": "Already configured. Use Configure to change the default list."
+    }
   },
   "options": {
     "step": {
       "init": {
         "title": "Default shopping list",
         "description": "Choose the list that opens by default in the panel.",
-        "data": {"todo_entity": "To-do list"}
+        "data": {
+          "todo_entity": "To-do list"
+        }
       }
     },
-    "error": {"invalid_entity": "Select an existing to-do entity."}
+    "error": {
+      "invalid_entity": "Select an existing to-do entity."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "shopping_list_products": {
+        "name": "Shopping list products"
+      },
+      "next_purchase_amount": {
+        "name": "Estimated next purchase amount"
+      },
+      "catalog_products": {
+        "name": "Catalog products"
+      },
+      "catalog_categories": {
+        "name": "Catalog categories"
+      },
+      "low_stock_products": {
+        "name": "Low stock products"
+      },
+      "last_purchase_date": {
+        "name": "Last purchase date"
+      },
+      "last_purchase_amount": {
+        "name": "Last purchase amount"
+      },
+      "last_purchase_store": {
+        "name": "Last purchase store"
+      },
+      "active_readers": {
+        "name": "Active readers"
+      },
+      "default_store": {
+        "name": "Default store"
+      },
+      "active_stores": {
+        "name": "Active stores"
+      }
+    },
+    "binary_sensor": {
+      "community_sharing": {
+        "name": "Share with the community"
+      }
+    },
+    "switch": {
+      "price_updates": {
+        "name": "Automatic price updates"
+      }
+    },
+    "number": {
+      "price_update_days": {
+        "name": "Price update frequency"
+      }
+    },
+    "time": {
+      "price_update_time": {
+        "name": "Price update time"
+      }
+    }
   }
 }

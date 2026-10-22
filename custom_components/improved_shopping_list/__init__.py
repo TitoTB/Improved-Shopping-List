@@ -5,6 +5,7 @@ from pathlib import Path
 from homeassistant.components import frontend, panel_custom
 from homeassistant.components.http import StaticPathConfig
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.typing import ConfigType
 
@@ -15,6 +16,7 @@ from .community_sync import CommunitySync
 from .icons import ICONS_URL, IconLibrary
 from .list_settings import ListSettings
 from .gateway_lists import GatewayLists
+from .entity_data import EntityData
 from .readers import ReaderManager
 from .stock import StockManager
 from .stock_automation import StockAutomation
@@ -31,6 +33,8 @@ from .const import (
     VERSION,
 )
 from .websocket import async_register_commands
+
+PLATFORMS = [Platform.SENSOR, Platform.BINARY_SENSOR, Platform.SWITCH, Platform.NUMBER, Platform.TIME]
 
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
@@ -74,6 +78,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         )
         hass.data[DOMAIN] = {"catalog": catalog, "stock":stock, "receipts":receipts, "stock_automation":stock_automation, "settings": settings, "price_manager":prices, "store_products": store_products, "recurrence": recurrence, "readers": readers, "icons": icons, "community": community, "community_sync": community_sync, "activity": activity, "active": False}
         hass.data[DOMAIN]["gateway_lists"] = gateways
+        hass.data[DOMAIN]["entity_data"] = EntityData(hass, hass.data[DOMAIN])
         async_register_commands(hass)
     return True
 
@@ -91,6 +96,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.data[DOMAIN]["recurrence"].start()
     hass.data[DOMAIN]["community_sync"].start()
     hass.data[DOMAIN]["price_manager"].start()
+    hass.data[DOMAIN]["entity_data"].start()
+    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     hass.data[DOMAIN]["settings"].notify()
     entry.async_on_unload(entry.add_update_listener(_async_options_updated))
     return True
@@ -116,6 +123,9 @@ async def _async_register_panel(hass: HomeAssistant, entry: ConfigEntry) -> None
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Remove the panel without changing any shopping-list items."""
+    if not await hass.config_entries.async_unload_platforms(entry, PLATFORMS):
+        return False
+    hass.data[DOMAIN]["entity_data"].stop()
     frontend.async_remove_panel(hass, PANEL_PATH)
     hass.data[DOMAIN]["active"] = False
     await hass.data[DOMAIN]["gateway_lists"].async_stop()

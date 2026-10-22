@@ -406,3 +406,27 @@ disponible para las demás cuentas autenticadas.
 En **Ajustes → Listas**, añade una entidad `todo` como pasarela y selecciona su lista de compra de destino. Por ejemplo, un asistente de voz puede escribir en la pasarela y la integración trasladará los productos nuevos a Bring. Cada pasarela tiene un destino propio y puede conservar los productos o eliminarlos después de transferirlos. Si el producto ya está pendiente en destino, no se duplica; las comparaciones ignoran acentos, mayúsculas y espacios. Si solo existe como completado, se recupera como pendiente cuando el proveedor lo permite.
 
 El contenido anterior a la configuración no se transfiere. Las pasarelas funcionan con la interfaz cerrada, guardan su estado entre reinicios y reintentan las transferencias fallidas sin eliminar el origen antes de tiempo. Las incidencias y transferencias aparecen en **Ajustes → Logs → Listas pasarela**. Una pasarela queda fuera del selector de listas de compra y no puede ser el destino de otra pasarela. Para quitar una lista de destino, cambia o elimina antes sus pasarelas.
+
+### Entidades de Home Assistant
+
+La integración crea un dispositivo Improved Shopping List con quince entidades, disponibles para paneles y automatizaciones. Los nombres se traducen al idioma de Home Assistant y sus identificadores permanecen estables entre reinicios.
+
+| Entidad | Tipo | Criterio |
+| --- | --- | --- |
+| Productos en la lista de la compra | Sensor | Productos pendientes de la lista principal; excluye completados y pasarelas. |
+| Importe aproximado de la próxima compra | Sensor monetario (EUR) | Últimos precios guardados de la tienda activa con más productos con precio. En empate, el menor importe. Sin precio cuenta como cero. Los atributos indican tienda y cobertura. |
+| Productos en el catálogo | Sensor | Total del catálogo compartido. |
+| Categorías en el catálogo | Sensor | Total de categorías. |
+| Productos con stock bajo | Sensor | Mismo criterio que la reposición: mínimo alcanzado según unidades/porcentaje configurado, o producto caducado. |
+| Fecha de la última compra | Sensor de fecha y hora | Fecha real del ticket más reciente, aunque se haya importado después un ticket anterior. |
+| Importe de la última compra | Sensor monetario | Total del último ticket, con su moneda. |
+| Tienda de la última compra | Sensor | Tienda del último ticket. |
+| Lectores activos | Sensor | Lectores habilitados. |
+| Tienda predeterminada | Sensor | Tienda marcada como favorita. |
+| Tiendas activas | Sensor | Número de tiendas habilitadas; atributos `stores` y `store_names` con identificadores y nombres. |
+| Actualización automática de precios | Interruptor | Activa o desactiva los precios, igual que el panel. |
+| Frecuencia de actualización de precios | Número | Entre 1 y 3650 días enteros. |
+| Hora de actualización de precios | Hora | Hora local de Home Assistant, con precisión de minutos. |
+| Compartir con la comunidad | Sensor binario | Estado del consentimiento; atributo `authorized` para saber si GitHub está autorizado. La activación y autorización se hacen desde Ajustes → Comunidad. |
+
+Los cambios de los controles también se reflejan en el panel y se guardan entre reinicios. Leer las entidades no consulta tiendas ni fuerza actualizaciones de precios. Si la lista principal no está disponible, su contador y estimación aparecen como no disponibles; el resto de datos se mantiene accesible. Al desactivar los precios, la estimación se oculta como no disponible. Sin tickets, las tres entidades de última compra aparecen como desconocidas.

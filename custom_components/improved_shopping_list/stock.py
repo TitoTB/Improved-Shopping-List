@@ -75,6 +75,14 @@ def remaining_percentage(item, now=None):
     return max(0,min(100,item["quantity"] / item.get("refill_quantity",1) * 100))
 
 
+def stock_needs_reorder(item, now=None):
+    """Shared low-stock threshold used by automation and dashboard sensors."""
+    return item.get("configured") and (item.get("expired") or
+        item.get("reorder_enabled") and (
+            remaining_percentage(item, now) <= item.get("reorder_percent", 0)
+            if item.get("mode") == "perishable" else item["quantity"] <= item["reorder_at"]))
+
+
 class StockManager:
     def __init__(self, hass, catalog):
         self.hass, self.catalog = hass, catalog

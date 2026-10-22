@@ -5,20 +5,87 @@
       "user": {
         "title": "Improved Shopping List",
         "description": "Selecciona una lista de tareas existente. Podrás cambiar de lista desde el panel. Si no aparece ninguna, configura antes Shopping List, Bring! u otra integración de listas.",
-        "data": {"todo_entity": "Lista de la compra predeterminada"}
+        "data": {
+          "todo_entity": "Lista de la compra predeterminada"
+        }
       }
     },
-    "error": {"invalid_entity": "Selecciona una entidad de tipo todo existente."},
-    "abort": {"already_configured": "Ya está configurada. Usa Configurar para cambiar la lista predeterminada."}
+    "error": {
+      "invalid_entity": "Selecciona una entidad de tipo todo existente."
+    },
+    "abort": {
+      "already_configured": "Ya está configurada. Usa Configurar para cambiar la lista predeterminada."
+    }
   },
   "options": {
     "step": {
       "init": {
         "title": "Lista de la compra predeterminada",
         "description": "Selecciona la lista que se abrirá por defecto en el panel.",
-        "data": {"todo_entity": "Lista de tareas"}
+        "data": {
+          "todo_entity": "Lista de tareas"
+        }
       }
     },
-    "error": {"invalid_entity": "Selecciona una entidad de tipo todo existente."}
+    "error": {
+      "invalid_entity": "Selecciona una entidad de tipo todo existente."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "shopping_list_products": {
+        "name": "Productos en la lista de la compra"
+      },
+      "next_purchase_amount": {
+        "name": "Importe aproximado de la próxima compra"
+      },
+      "catalog_products": {
+        "name": "Productos en el catálogo"
+      },
+      "catalog_categories": {
+        "name": "Categorías en el catálogo"
+      },
+      "low_stock_products": {
+        "name": "Productos con stock bajo"
+      },
+      "last_purchase_date": {
+        "name": "Fecha de la última compra"
+      },
+      "last_purchase_amount": {
+        "name": "Importe de la última compra"
+      },
+      "last_purchase_store": {
+        "name": "Tienda de la última compra"
+      },
+      "active_readers": {
+        "name": "Lectores activos"
+      },
+      "default_store": {
+        "name": "Tienda predeterminada"
+      },
+      "active_stores": {
+        "name": "Tiendas activas"
+      }
+    },
+    "binary_sensor": {
+      "community_sharing": {
+        "name": "Compartir con la comunidad"
+      }
+    },
+    "switch": {
+      "price_updates": {
+        "name": "Actualización automática de precios"
+      }
+    },
+    "number": {
+      "price_update_days": {
+        "name": "Frecuencia de actualización de precios"
+      }
+    },
+    "time": {
+      "price_update_time": {
+        "name": "Hora de actualización de precios"
+      }
+    }
   }
 }

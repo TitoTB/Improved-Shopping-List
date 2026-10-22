@@ -2590,7 +2590,7 @@ async function main() {
     const ticketFile={name:'ticket.pdf',mimeType:'application/pdf',buffer:Buffer.from('%PDF-fixture')};
     await purchases.locator('#ticket-file').setInputFiles(ticketFile);
     const review=purchases.getByRole('dialog',{name:'Revisar ticket',exact:true});await review.waitFor();
-    assert.equal(await review.locator('#step-help').textContent(),'Vincula los productos detectados en el ticket con los de tu catálogo. Si no existen, puedes crear un producto nuevo o marcarlos para ignorarlos.');
+    assert.equal(await review.locator('#step-help').textContent(),'Vincula los productos detectados en el ticket con los de tu catálogo. Si no existen, puedes crear un producto nuevo o simplemente ignorarlos.');
     assert.equal(await purchasePage.evaluate(()=>window.receiptHistory.length),0);
     assert.equal(await review.locator('.review-line').count(),3);
     await review.getByRole('button',{name:'Cerrar ventana',exact:true}).click();
@@ -2603,7 +2603,7 @@ async function main() {
     assert.equal(await review.locator('#links-only').evaluate(button=>getComputedStyle(button).backgroundColor),'rgb(38, 112, 82)');
     assert.equal(await review.locator('#confirm-ticket').evaluate(button=>getComputedStyle(button).backgroundColor),'rgb(33, 150, 243)');
     const cerealLine=review.locator('[data-line-id="1"]');
-    assert.equal(await review.locator('#step-help').textContent(),'Vincula los productos detectados en el ticket con los de tu catálogo. Si no existen, puedes crear un producto nuevo o marcarlos para ignorarlos.');
+    assert.equal(await review.locator('#step-help').textContent(),'Vincula los productos detectados en el ticket con los de tu catálogo. Si no existen, puedes crear un producto nuevo o simplemente ignorarlos.');
     assert.equal(await cerealLine.locator('input,.original').count(),0);
     assert.equal(await cerealLine.locator('.link').evaluate(node=>getComputedStyle(node).backgroundColor),'rgb(33, 150, 243)');
     assert.equal(await cerealLine.locator('.create').evaluate(node=>getComputedStyle(node).backgroundColor),'rgb(38, 112, 82)');
@@ -2624,8 +2624,7 @@ async function main() {
     await purchasePage.waitForFunction(()=>window.testPanel.shadowRoot.querySelector('isl-purchases')
       ?.shadowRoot.querySelector('[data-line-id="1"] .linked-name')?.textContent==='→ Flautines');
     assert.equal(await cerealLine.locator('.linked-name').textContent(),'→ Flautines');
-    await review.locator('[data-line-id="2"] .ignore').click();
-    const ignored=review.locator('[data-line-id="2"] .ignore');
+    assert.equal(await review.locator('.ignore').count(),0);
     assert.equal(await review.locator('#linked-products-group').evaluate(group=>group.open),false);
     await review.locator('#linked-products-group > summary').click();
     const linkedReceiptLine=review.locator('[data-line-id="0"]');
@@ -2634,10 +2633,6 @@ async function main() {
     assert.ok(await linkedReceiptLine.evaluate(row=>row.querySelector('.association-image').getBoundingClientRect().right<=row.querySelector('.association-name').getBoundingClientRect().left));
     assert.equal(await review.locator('[data-line-id="2"] .association-image').count(),0);
 
-    assert.equal(await ignored.getAttribute('aria-pressed'),'true');
-    assert.equal(await ignored.evaluate(node=>getComputedStyle(node).backgroundColor),'rgb(211, 47, 47)');
-    await ignored.click();assert.equal(await ignored.getAttribute('aria-pressed'),'false');
-    await ignored.click();
     await cerealLine.getByRole('button',{name:'Vincular producto para FLAUTIN CEREALES',exact:true}).click();
     await association.getByLabel('Producto del catálogo',{exact:true}).fill('flautines');
     await association.getByRole('button',{name:'Vincular',exact:true}).click();
@@ -2654,7 +2649,6 @@ async function main() {
     assert.equal(await purchasePage.evaluate(()=>window.receiptLinks.filter(line=>line.product_id).length),2);
     await purchases.locator('#ticket-file').setInputFiles(ticketFile);await review.waitFor();
     assert.equal(await cerealLine.locator('.linked-name').textContent(),'→ Flautines');
-    await review.locator('[data-line-id="2"] .ignore').click();
     await review.getByRole('button',{name:'Continuar',exact:true}).click();
     await review.locator('#stock-only').waitFor();
     assert.equal(await review.locator('#step-title').isVisible(),false);
@@ -2759,7 +2753,6 @@ async function main() {
     const stockOnlyPurchases=stockOnlyPage.locator('isl-purchases');
     await stockOnlyPurchases.locator('#ticket-file').setInputFiles(ticketFile);
     const stockOnlyReview=stockOnlyPurchases.getByRole('dialog',{name:'Revisar ticket',exact:true});await stockOnlyReview.waitFor();
-    await stockOnlyReview.locator('[data-line-id="1"] .ignore').click();await stockOnlyReview.locator('[data-line-id="2"] .ignore').click();
     await stockOnlyReview.getByRole('button',{name:'Continuar',exact:true}).click();
     assert.equal(await stockOnlyReview.locator('#unregistered-stock-group').count(),0);
     await stockOnlyPage.evaluate(()=>{window.failReceipt=true;});
@@ -3474,7 +3467,6 @@ async function main() {
     assert.match(await invoiceReview.locator('#review-summary').textContent(),/Factura/);
     await invoiceReview.locator('#linked-products-group > summary').click();
     assert.equal(await invoiceReview.locator('[data-line-id="0"] .receipt-ean').textContent(),'EAN: 1234567890128');
-    await invoiceReview.locator('[data-line-id="1"] .ignore').click();await invoiceReview.locator('[data-line-id="2"] .ignore').click();
     await invoiceReview.getByRole('button',{name:'Continuar',exact:true}).click();
     await invoiceReview.getByRole('button',{name:'Continuar',exact:true}).click();
     assert.match(await invoiceReview.locator('#step-help').textContent(),/antes de descuentos y no incluye el envío/);
@@ -3499,9 +3491,15 @@ async function main() {
     const suggestionReview=suggestionPurchase.getByRole('dialog',{name:'Revisar ticket',exact:true});await suggestionReview.waitFor();
     assert.equal(await suggestionReview.locator('[data-line-id="0"] .linked-name').count(),0);
     await suggestionReview.getByRole('button',{name:'Continuar',exact:true}).click();
-    await suggestionReview.locator('#review-error').filter({hasText:'Vincula, crea un producto o marca Ignorar'}).waitFor();
-    assert.equal(await suggestionReview.locator('#review-steps [aria-current=step]').textContent(),'1. Vinculación');
-    assert.equal(await suggestionReceiptPage.evaluate(()=>window.receiptLinks.length),0);
+    await suggestionReview.locator('#stock-only').waitFor();
+    assert.equal(await suggestionReview.locator('.review-line').count(),0);
+    assert.ok(await suggestionReceiptPage.evaluate(()=>window.receiptLinks.length>0&&window.receiptLinks.every(line=>!line.product_id)));
+    await suggestionReview.getByRole('button',{name:'Continuar',exact:true}).click();
+    await suggestionReview.getByRole('button',{name:'Confirmar compra',exact:true}).waitFor();
+    assert.equal(await suggestionReview.locator('.price-select').count(),0);
+    await suggestionReview.getByRole('button',{name:'Confirmar compra',exact:true}).click();
+    await suggestionReview.waitFor({state:'hidden'});
+    assert.equal(await suggestionReceiptPage.evaluate(()=>window.stockItems.length),0);
     await suggestionReceiptContext.close();
     // Carrefour account access is entirely manual; tickets open the existing review wizard.
     const accountContext=await browser.newContext({viewport:{width:390,height:844}});

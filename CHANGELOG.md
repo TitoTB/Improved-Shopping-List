@@ -1,5 +1,9 @@
 # Historial de cambios
 
+## Pendiente de publicación
+
+- Revisión de tickets: las líneas sin vincular a un producto del catálogo se ignoran al continuar o guardar; se elimina el botón de ignorar y se simplifica el texto de ayuda.
+
 ## 0.30.0 — 2026-10-22
 
 - Prueba manual de cuenta de Carrefour: conexión y verificación por código, listado paginado de compras y descarga de tickets al asistente de revisión. Sin consultas periódicas ni cambios de stock/precios sin confirmación. Sesiones locales privadas, contraseña no persistida y comandos restringidos a administradores. Las facturas online continúan admitiéndose mediante subida manual de PDF.

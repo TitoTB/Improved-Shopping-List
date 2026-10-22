@@ -65,7 +65,7 @@ class ImprovedShoppingPurchases extends HTMLElement {
       .association-image{display:grid;place-items:center;width:32px;height:32px;flex:none}.association-image img{display:block;width:100%;height:100%;object-fit:contain}
       .receipt-ean{display:block;font-size:12px;opacity:.7;margin-top:4px;overflow-wrap:anywhere}
       .association-row{display:flex;align-items:center;gap:10px;min-width:0}.association-name{flex:1;min-width:0;overflow-wrap:anywhere}.association-name strong{font-size:.95em}.linked-name{display:block;font-size:.8em;opacity:.65;margin:4px 0 0}.association-buttons{display:flex;gap:6px;flex:none;margin-left:auto}
-      .small-button.link{background:#2196f3;color:white}.small-button.create{background:var(--isl-green,#267052);color:white}.small-button.ignore{background:transparent;color:inherit;border:0}.small-button.ignore[aria-pressed=true]{background:#d32f2f;color:white}
+      .small-button.link{background:#2196f3;color:white}.small-button.create{background:var(--isl-green,#267052);color:white}
       #association-dialog{width:min(500px,calc(100vw - 24px))}#association-form label{margin-top:16px}#association-error{margin:12px 0 0}
       @media(max-width:400px){.association-buttons{gap:4px}.association-buttons .small-button{width:34px;height:38px}.association-row{gap:8px}.linked-name{display:block;margin-left:0}}
       @media(max-width:550px){dialog{padding:18px}.fields{grid-template-columns:minmax(0,1fr)}summary{gap:8px}.original{font-size:.9em}.ticket{padding:12px}}
@@ -126,7 +126,7 @@ class ImprovedShoppingPurchases extends HTMLElement {
     root.querySelector('#review-lines').replaceChildren();
     this._edits=receipt.lines.map(line=>{
       const candidate=products.find(p=>p.id===line.product_id&&!used.has(p.id)),product=line.matched===false?null:candidate;if(product)used.add(product.id);
-      return {line,id:line.id,product_id:product?.id??'',search:candidate?.name??'',ignore:false,
+      return {line,id:line.id,product_id:product?.id??'',search:candidate?.name??'',
         replenish:Boolean(product?.stock_id),quantity:product?line.quantity??this._quantity(line,product.unit):null,
         unit:product?.unit??'uds',purchase_id:null,save_price:Boolean(this._pricesEnabled)};
     });
@@ -173,7 +173,7 @@ class ImprovedShoppingPurchases extends HTMLElement {
     root.querySelector('#step-title').hidden=true;
     root.querySelector('#step-title').textContent='';
     root.querySelector('#step-help').textContent=[
-      'Vincula los productos detectados en el ticket con los de tu catálogo. Si no existen, puedes crear un producto nuevo o marcarlos para ignorarlos.',
+      'Vincula los productos detectados en el ticket con los de tu catálogo. Si no existen, puedes crear un producto nuevo o simplemente ignorarlos.',
       'Marca aquellos productos que quieres añadir al registro de stock.',
       this._pricesEnabled?'Selecciona los productos cuyo precio quieres actualizar en el catálogo, para esta tienda.':'Los precios están desactivados en Ajustes. Puedes confirmar las vinculaciones y la reposición sin guardar precios.'
     ][step];
@@ -244,24 +244,12 @@ class ImprovedShoppingPurchases extends HTMLElement {
     }
     const buttons=node('div','association-buttons');
     const link=this._button('Vincular producto para '+edit.line.description,'mdi:link-variant',()=>this._openAssociation(edit),'small-button link');
-    link.dataset.locked=String(edit.ignore);link.disabled=edit.ignore;link.setAttribute('aria-pressed',String(Boolean(product)));
+    link.setAttribute('aria-pressed',String(Boolean(product)));
     const create=this._button('Crear producto para '+edit.line.description,'mdi:plus-thick',()=>void this._createProduct(edit),'small-button create');
-    create.dataset.locked=String(edit.ignore);create.disabled=edit.ignore;
-    const ignore=this._button('Ignorar '+edit.line.description,'mdi:close',()=>{
-      edit.ignore=!edit.ignore;
-      if(edit.ignore){edit.ignoredProduct=edit.product_id;edit.product_id='';edit.search='';edit.replenish=false;edit.purchase_id=null;}
-      else if(edit.ignoredProduct){
-        const previous=this._draft.products.find(p=>p.id===edit.ignoredProduct);
-        if(previous&&!this._edits.some(other=>other!==edit&&other.product_id===previous.id)&&this._chooseProduct(edit,previous))edit.search=previous.name;
-      }
-      this._errorMessage('');this._renderStep();
-      [...this.shadowRoot.querySelectorAll('.review-line')].find(line=>line.dataset.lineId===String(edit.id))?.querySelector('.ignore')?.focus();
-    },'small-button ignore');
-    ignore.setAttribute('aria-pressed',String(edit.ignore));
-    buttons.append(link,create,ignore);row.append(name,buttons);
+    buttons.append(link,create);row.append(name,buttons);
   }
   _openAssociation(edit){
-    if(this._busy||edit.ignore)return;
+    if(this._busy)return;
     this._associationEdit=edit;
     const root=this.shadowRoot;
     root.querySelector('#association-title').textContent='Vincular '+edit.line.description;
@@ -279,7 +267,7 @@ class ImprovedShoppingPurchases extends HTMLElement {
     const error=root.querySelector('#association-error');
     error.textContent=!product?'Selecciona un producto del catálogo.':this._edits.some(other=>other!==edit&&other.product_id===product.id)?'Este producto ya está vinculado a otra línea. Libera primero esa vinculación.':'';
     error.hidden=!error.textContent;if(error.textContent)return;
-    if(this._chooseProduct(edit,product)){edit.search=product.name;edit.ignore=false;root.querySelector('#association-dialog').close();this._renderStep();}
+    if(this._chooseProduct(edit,product)){edit.search=product.name;root.querySelector('#association-dialog').close();this._renderStep();}
   }
   _stockRow(row,edit,product){
     row.classList.add('stock-line');
@@ -318,7 +306,7 @@ class ImprovedShoppingPurchases extends HTMLElement {
       if(!this.createProduct)throw new Error('No se ha podido abrir la ficha del producto.');
       const product=await this.createProduct(edit.search||edit.line.description);if(!product||!this._draft)return;
       const options=await this._hass.callWS({type:'improved_shopping_list/receipts/options',token:this._draft.token});this._updateOptions(options);
-      if(this._chooseProduct(edit,this._draft.products.find(p=>p.id===product.id))){edit.search=product.name;edit.ignore=false;}
+      if(this._chooseProduct(edit,this._draft.products.find(p=>p.id===product.id))){edit.search=product.name;}
       this._renderStep();
     }catch(error){this._errorMessage(error.message??'No se ha podido crear el producto.');}
     finally{this._setBusy(false);}
@@ -326,7 +314,6 @@ class ImprovedShoppingPurchases extends HTMLElement {
   _validateLinks(){
     const seen=new Set();
     for(const edit of this._edits){
-      if(!edit.product_id&&!edit.ignore){this._errorMessage('Vincula, crea un producto o marca Ignorar en cada línea del ticket.');return false;}
       if(edit.product_id&&seen.has(edit.product_id)){this._errorMessage('Dos líneas del mismo ticket no pueden vincularse al mismo producto.');return false;}
       if(edit.product_id)seen.add(edit.product_id);
     }

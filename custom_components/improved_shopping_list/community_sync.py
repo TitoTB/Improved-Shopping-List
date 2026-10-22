@@ -35,6 +35,7 @@ class CommunitySync:
         self._lock = asyncio.Lock()
         self._auth = None
         self._task = None
+        self._upload_requested = False
         self._device = None
         self._listeners = set()
         self._stop = None
@@ -79,12 +80,24 @@ class CommunitySync:
         self._stop = async_track_time_interval(self.hass, self._queue, timedelta(minutes=15))
         # First periodic tick downloads data; setup itself never requires GitHub.
 
-    def _queue(self, *_args):
-        if self._active and (self._task is None or self._task.done()):
-            self._task = self.hass.async_create_background_task(self.async_sync(), "Shopping community daily sync")
+    def _queue(self, *_args, immediate_upload=False):
+        if not self._active:
+            return
+        self._upload_requested |= immediate_upload
+        if self._task is None or self._task.done():
+            self._task = self.hass.async_create_background_task(self._sync_queued(), "Shopping community daily sync")
+
+    async def _sync_queued(self):
+        while self._active:
+            immediate = self._upload_requested
+            self._upload_requested = False
+            await self.async_sync(immediate_upload=immediate)
+            if not self._upload_requested:
+                return
 
     async def async_stop(self):
         self._active = False
+        self._upload_requested = False
         self._generation += 1
         if self._stop:
             self._stop(); self._stop = None
@@ -126,6 +139,7 @@ class CommunitySync:
                 self._task.cancel()
                 await asyncio.gather(self._task, return_exceptions=True)
             self._device = None
+            self._upload_requested = False
             self._data.update(sharing=False, credentials={}, account="", outbox=None)
             self._error = ""
             await self._store.async_save(self._data)
@@ -135,6 +149,7 @@ class CommunitySync:
             self._data["sharing"] = True
             await self._store.async_save(self._data)
             self._notify()
+            self._queue(immediate_upload=True)
             return self.snapshot
         if self._auth and not self._auth.done():
             return self.snapshot
@@ -175,9 +190,8 @@ class CommunitySync:
                 if generation != self._generation or not self._active:
                     return
                 self._data.update(credentials=credentials, account=user["login"])
-                self._data["next_upload_attempt"] = 0
                 await self._store.async_save(self._data)
-                self._queue()
+                self._queue(immediate_upload=True)
                 return
             raise CommunityError("El código de autorización ha caducado. Activa de nuevo Compartir mis datos.")
         except (CommunityError, ClientError, TimeoutError, ValueError, OSError):
@@ -335,13 +349,14 @@ class CommunitySync:
         self._data.update(last_upload=time.time(), outbox=None)
         await self._store.async_save(self._data)
 
-    async def async_sync(self, *, upload=True):
+    async def async_sync(self, *, upload=True, immediate_upload=False):
         async with self._lock:
             if not self._active:
                 return
-            download_due = time.time() >= max(self._data["last_download"]+DAY, self._data["next_attempt"])
+            # Consent sends the current catalog without waiting for a public download or store batch.
+            download_due = not immediate_upload and time.time() >= max(self._data["last_download"]+DAY, self._data["next_attempt"])
             upload_due = (upload and self._data["sharing"] and self._data["credentials"]
-                and not self.prices._data["pending"] and not self.prices._preparing
+                and (immediate_upload or not self.prices._data["pending"] and not self.prices._preparing)
                 and time.time() >= max(self._data["last_upload"]+DAY, self._data["next_upload_attempt"]))
             if not download_due and not upload_due:
                 return

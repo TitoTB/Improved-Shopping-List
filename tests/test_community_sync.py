@@ -35,8 +35,11 @@ def credentials():
     return {"access_token": "ghu_PRIVATE_ACCESS", "refresh_token": "ghr_PRIVATE_REFRESH", "expires_in": 28800}
 
 
-async def test_device_authorization_keeps_credentials_on_server_and_honors_poll_interval(shared, monkeypatch):
+@pytest.mark.parametrize("retry_delay", [0,86400])
+async def test_device_authorization_keeps_credentials_on_server_and_honors_poll_interval(shared, monkeypatch, retry_delay):
     service = shared.service
+    retry_at=shared.clock[0]+retry_delay
+    service._data["next_upload_attempt"]=retry_at
     device = {"device_code": "PRIVATE_DEVICE", "user_code": "ABCD-EFGH", "interval": 5, "expires_in": 900}
     service._request = AsyncMock(side_effect=[device, {"error":"authorization_pending"}, {"error":"slow_down"}, credentials(), {"login":"tester", "id":123}])
     service._queue = Mock()
@@ -56,7 +59,66 @@ async def test_device_authorization_keeps_credentials_on_server_and_honors_poll_
     assert service._data["credentials"]["access_token"] == "ghu_PRIVATE_ACCESS"
     assert service._request.await_args_list[0].kwargs["data"]["client_id"] == CLIENT_ID
     assert all("client_secret" not in call.kwargs.get("data", {}) for call in service._request.await_args_list)
-    service._queue.assert_called_once()
+    service._queue.assert_called_once_with(immediate_upload=True)
+    assert service._data["next_upload_attempt"] == retry_at
+
+
+async def test_enabling_sharing_uploads_now_despite_store_batch_and_keeps_daily_limit(shared):
+    service=shared.service
+    service._data.update(credentials={**credentials(),"expires_at":shared.clock[0]+1000},account="tester")
+    shared.prices._data["pending"]=[{"reference":"pending"}]
+    shared.prices._preparing=1
+    posts=[]
+    async def request(method,url,**kwargs):
+        assert url != DATA_URL  # An immediate contribution does not consume another public read.
+        if method == "GET":return []
+        posts.append(url)
+        return {"number":17}
+    service._request=AsyncMock(side_effect=request)
+    await service.async_sharing(True)
+    await service._task
+    assert service._data["last_upload"] == shared.clock[0]
+    assert len(posts) == 2  # One batch: manifest issue and its data fragment.
+    calls=service._request.await_count
+    await service.async_sharing(False)
+    service._data.update(credentials={**credentials(),"expires_at":shared.clock[0]+1000},account="tester")
+    await service.async_sharing(True)
+    await service._task
+    assert service._request.await_count == calls
+    shared.clock[0]+=module.DAY
+    service._data["credentials"]["expires_at"]=shared.clock[0]+1000
+    await service.async_sharing(True)
+    await service._task
+    assert len(posts) == 4
+
+
+async def test_activation_during_existing_sync_is_not_lost_or_duplicated(shared):
+    service=shared.service
+    gate=asyncio.Event()
+    started=asyncio.Event()
+    calls=[]
+    async def sync(**kwargs):
+        calls.append(kwargs)
+        if len(calls) == 1:
+            started.set()
+            await gate.wait()
+    service.async_sync=AsyncMock(side_effect=sync)
+    service._queue()
+    await started.wait()
+    service._queue(immediate_upload=True)
+    service._queue(immediate_upload=True)
+    gate.set()
+    await service._task
+    assert calls == [{"immediate_upload":False},{"immediate_upload":True}]
+
+
+async def test_immediate_activation_preserves_retry_pause(shared):
+    service=shared.service
+    service._data.update(credentials=credentials(),account="tester",next_upload_attempt=shared.clock[0]+module.DAY)
+    service._request=AsyncMock(side_effect=AssertionError("No request during retry pause"))
+    await service.async_sharing(True)
+    await service._task
+    service._request.assert_not_awaited()
 
 
 async def test_disable_cancels_authorization_and_forgets_local_credentials(shared):

@@ -2,6 +2,7 @@
 
 ## Pendiente de publicación
 
+- Activar Compartir mis datos solicita el envío inmediato del catálogo tras autorizar GitHub, aunque haya una revisión de precios en curso. Conserva el límite de un lote cada 24 horas y las pausas de reintento; las activaciones simultáneas se agrupan sin perder la solicitud.
 - Consumo registrado muestra la barra de progreso en sus tarjetas, con la cantidad de reposición como 100 %, y simplifica su nombre en el selector de la ficha.
 - Los botones Eliminar producto del stock y Guardar comparten el ancho del pie de su ficha a partes iguales, también en móvil.
 - Porcentaje de Stock perecedero calculado como cantidad actual / cantidad de reposición (20 g de 250 g = 8 %), también para el mínimo de compra y la ordenación. La caducidad conserva su plazo independiente y pone el stock a cero al vencer. Caducidad y reposición comparten fila; la casilla y su mínimo también, incluido en móvil.

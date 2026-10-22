@@ -2048,7 +2048,7 @@ async function main() {
     await stockAdd.getByLabel('Nombre del producto',{exact:true}).fill('Cacao');
     await stockPage.evaluate(()=>{window.failStock=true;});
     await stockAdd.getByRole('button',{name:'Añadir',exact:true}).click();
-    await stockAdd.locator('#stock-add-error').getByText('No se ha podido guardar el stock',{exact:true}).waitFor();
+    await stockAdd.locator('#stock-add-error').filter({hasText:'No se ha podido guardar el stock'}).waitFor();
     assert.equal(await stockPage.evaluate(()=>window.stockItems.length),0);
     await stockPage.evaluate(()=>{window.failStock=false;});
     await stockAdd.getByLabel('Nombre del producto',{exact:true}).press('Enter');

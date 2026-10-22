@@ -1,6 +1,6 @@
 # Historial de cambios
 
-## Pendiente de publicación
+## 0.28.0 — 2026-10-22
 
 - Ajustes → Nutri-Score permite desplegar cada calificación para consultar sus productos ordenados alfabéticamente, utilizando únicamente los datos guardados.
 

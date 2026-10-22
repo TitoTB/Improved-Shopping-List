@@ -1730,7 +1730,8 @@ async function main() {
     await gatewayPage.reload();
     await gatewayPage.getByRole('button',{name:'Ajustes',exact:true}).click();
     await gatewayRow.waitFor();
-    await gatewayPage.screenshot({path:'test-results/gateway-lists-mobile.png',fullPage:true});
+    await gatewaySettings.locator('#configured-gateways').scrollIntoViewIfNeeded();
+    await gatewayPage.screenshot({path:'test-results/gateway-lists-mobile.png'});
     assert.equal(await gatewaySettings.evaluate(node=>node.scrollWidth>innerWidth),false);
     await gatewayRow.getByRole('button',{name:'Quitar pasarela: Casa',exact:true}).click();
     await gatewayRow.waitFor({state:'hidden'});

@@ -149,6 +149,13 @@ class GatewayLists:
                 if item["status"] == "needs_action" and (old is None or old["status"] == "completed"):
                     if normalized_name(item["summary"]):
                         state["pending"][uid] = {"name": item["summary"], "delivered": False}
+                pending = state["pending"].get(uid)
+                if pending and pending["name"] != item["summary"]:
+                    # A correction before delivery follows the new name. Once delivered,
+                    # never delete a source entry the user has repurposed meanwhile.
+                    state["pending"].pop(uid)
+                    if not pending["delivered"] and normalized_name(item["summary"]):
+                        state["pending"][uid] = {"name": item["summary"], "delivered": False}
             state["seen"] = current
             # Removed/completed entries are no longer requests to forward.
             state["pending"] = {uid: pending for uid, pending in state["pending"].items()

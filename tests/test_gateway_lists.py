@@ -200,6 +200,18 @@ async def test_live_subscription_runs_without_frontend(env, monkeypatch):
     assert [item.summary for item in env.todos["todo.main"].todo_items] == ["Cacao"]
 
 
+async def test_corrected_new_item_uses_current_name_and_old_items_are_ignored(env):
+    voice = env.todos["todo.voice"]
+    voice.add("old", "Anterior")
+    await env.manager.async_configure("todo.voice", "todo.main", False)
+    voice.add("new", "Cao")
+    voice.todo_items[0].summary = "Anterior corregido"
+    voice.todo_items[1].summary = "Cacao"
+    voice.publish()
+    await env.manager.async_check()
+    assert [item.summary for item in env.todos["todo.main"].todo_items] == ["Cacao"]
+
+
 async def test_unavailable_destination_retries_and_capabilities_are_checked(env, hass):
     await env.manager.async_configure("todo.voice", "todo.main", True)
     hass.states.async_set("todo.main", "unavailable", {"supported_features": 7})

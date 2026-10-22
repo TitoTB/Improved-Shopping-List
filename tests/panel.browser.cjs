@@ -2674,6 +2674,9 @@ async function main() {
     assert.equal(await review.locator('input[type=checkbox]').count(),1);
     assert.match(await review.locator('[data-line-id="0"] .price-value').textContent(),/2,65.*3,80/);
     assert.equal(await review.locator('[data-line-id="0"] .price-value del').count(),1);
+    await purchases.evaluate(panel=>{panel._draft.products.find(p=>p.id==='cacao').price=2.65;panel._renderStep();});
+    assert.equal(await review.locator('[data-line-id="0"] .price-value del').count(),0);
+    await purchases.evaluate(panel=>{panel._draft.products.find(p=>p.id==='cacao').price=3.80;panel._renderStep();});
     assert.equal(await cerealLine.locator('.price-value del').count(),0);
     assert.ok(await review.locator('.select-all-prices').evaluate(el=>Math.abs(el.getBoundingClientRect().right-el.parentElement.getBoundingClientRect().right)<1));
     const priceToggle=review.getByRole('button',{name:'Guardar precio de Seitán',exact:true});

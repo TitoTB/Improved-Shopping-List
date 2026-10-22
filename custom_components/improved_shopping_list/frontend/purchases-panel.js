@@ -231,7 +231,7 @@ class ImprovedShoppingPurchases extends HTMLElement {
           [...root.querySelectorAll('.review-line')].find(line=>line.dataset.lineId===String(edit.id))?.querySelector('.price-select')?.focus();
         });
         const name=node('div','price-product-name'),label=node('div','price-label'),price=node('div','price-value',money(edit.line.unit_price));
-        if(product.price!=null)price.append(node('del','', '('+money(product.price)+')'));
+        if(product.price!=null&&Math.round(product.price*100)!==Math.round(edit.line.unit_price*100))price.append(node('del','', '('+money(product.price)+')'));
         label.append(node('strong','',product.name),price);name.append(this._productImage(product),label);row.append(toggle,name);
       }
       if(grouped&&(step===0?Boolean(product):!product?.stock_id))groupedContent.append(row);
@@ -256,7 +256,7 @@ class ImprovedShoppingPurchases extends HTMLElement {
     for(const [label,value] of [
       ['Vinculados',this._edits.filter(e=>e.product_id).length],
       ['Para reponer',this._edits.filter(e=>e.product_id&&e.replenish).length],
-      ['Precios',this._edits.filter(e=>e.product_id&&e.save_price&&this._pricesEnabled).length]
+      ['Precios actualizados',this._edits.filter(e=>e.product_id&&e.save_price&&this._pricesEnabled).length]
     ]){const stat=node('div');stat.append(node('strong','',value),node('span','',label));stats.append(stat);}
     const lines=node('div','purchase-lines');
     for(const edit of this._edits){

@@ -2,6 +2,8 @@
 
 ## Pendiente de publicación
 
+- Lista en filas: cantidad, unidades y botones de restar/sumar reunidos en un badge horizontal, con iconos thick. Se mantienen los pasos configurados, permisos y el color personalizable.
+
 - Recuperado el campo Etiquetas en Características del producto para marcas, tiendas y otros términos. Búsqueda por etiquetas en catálogo y buscador predictivo de Lista, sin distinguir tildes o mayúsculas.
 
 - Nuevo aviso configurable de productos pendientes de incorporar al catálogo: nombres únicos de las listas y códigos de lectores sin vincular, excluyendo descartes y datos ya incorporados. Seguimiento en segundo plano y protección persistente contra repeticiones.

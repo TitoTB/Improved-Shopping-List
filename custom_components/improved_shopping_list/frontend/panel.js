@@ -265,11 +265,16 @@ class ImprovedShoppingListPanel extends HTMLElement {
         .quantity-corner span { position:absolute; top:7%; left:7%; max-width:72%; font-size:clamp(7px,5cqi,14px); font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; line-height:1.2; }
         .quantity-controls { display:none; }
         .rows li { position:relative; }
-        .rows .quantity-controls { display:flex; flex-direction:column; gap:4px; position:absolute; right:10px; top:50%; transform:translateY(-50%); }
-        .quantity-controls button { display:grid; place-items:center; width:28px; height:28px; padding:0; border:0; border-radius:7px; background:rgba(255,255,255,.2); color:#fff; }
+        .rows .quantity-controls { display:inline-flex; flex-direction:row; align-items:center; gap:5px; margin-right:10px; padding:3px; }
+        .quantity-controls button { display:grid; place-items:center; flex:none; width:28px; height:28px; padding:0; border:0; border-radius:12px; background:transparent; color:#fff; }
         .quantity-controls ha-icon { width:18px; height:18px; --mdc-icon-size:18px; }
         .rows .quantity-corner { display:none; }
-        .row-quantity { display:inline-flex; align-items:center; justify-content:center; border-radius:16px; padding:6px 9px; background:var(--isl-quantity-color,#267052); color:#fff; font-size:12px; font-weight:700; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .row-quantity { justify-content:center; border-radius:18px; background:var(--isl-quantity-color,#267052); color:#fff; font-size:12px; font-weight:700; min-width:0; max-width:100%; white-space:nowrap; }
+        .quantity-value { min-width:0; max-width:16ch; overflow:hidden; text-overflow:ellipsis; }
+        .rows .list-product-row { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; border-radius:12px; background:linear-gradient(var(--isl-gradient-start,#ee524f),var(--isl-gradient-end,#b52a27)); color:var(--isl-gradient-text,#fff); border:1px solid var(--isl-gradient-end,#b52a27); }
+        .rows .list-product-row.list-completed { background:linear-gradient(var(--isl-completed-gradient-start,#4faba2),var(--isl-completed-gradient-end,#26857c)); color:var(--isl-completed-gradient-text,#fff); border-color:var(--isl-completed-gradient-end,#26857c); }
+        .rows .list-product-row > .item { background:transparent; color:inherit; border:0; }
+        @media(max-width:540px) { .quantity-value { max-width:9ch; } .rows .quantity-controls { gap:3px; margin-right:7px; } }
         .product-grid.rows { grid-template-columns:minmax(0,1fr); gap:10px; }
         .rows .item { display:grid; grid-template-columns:48px minmax(0,1fr) auto; gap:12px; aspect-ratio:auto; min-height:80px; padding:12px 16px; border-radius:12px; }
         .rows .item .product-media { grid-column:1; grid-row:1; width:48px; height:48px; }
@@ -287,7 +292,6 @@ class ImprovedShoppingListPanel extends HTMLElement {
         .row-nutriscore[data-grade=a] { background:#038141; }.row-nutriscore[data-grade=b] { background:#85bb2f; color:#182b22; }.row-nutriscore[data-grade=c] { background:#fecb02; color:#182b22; }.row-nutriscore[data-grade=d] { background:#ee8100; color:#182b22; }.row-nutriscore[data-grade=e] { background:#e63e11; }
         .row-meta ha-icon { display:flex; align-items:center; justify-content:center; width:18px; height:18px; --mdc-icon-size:18px; flex:none; }
         @media(max-width:540px) { .rows .item { grid-template-columns:36px minmax(0,1fr) auto; gap:8px; padding:10px; }.rows .item .product-media { width:36px; height:36px; }.rows .item .placeholder ha-icon { --mdc-icon-size:32px; }.row-category,.row-price { font-size:11px; padding:5px 7px; }.rows .row-category { width:28px; height:28px; padding:5px; }.rows .row-category span { display:none; }.row-price .store-logo { width:18px; height:18px; }.row-nutriscore { height:26px; min-width:26px; font-size:13px; } }
-        #pending.rows .item,#completed.rows .item { padding-right:52px; }
         .rows .row-meta { max-width:min(35cqi,280px); }
         .empty { padding:28px 8px; text-align:center; color:var(--secondary-text-color,#63766b); line-height:1.6; }
         .empty strong { display:block; font-size:18px; color:var(--primary-text-color,#20352d); margin-bottom:5px; }
@@ -1197,6 +1201,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
       let row = this._rows.get(key);
       if (!row) {
         row = document.createElement("li");
+        row.className = "list-product-row";
         const card = document.createElement("button");
         card.type = "button";
         const media = document.createElement("span");
@@ -1221,11 +1226,13 @@ class ImprovedShoppingListPanel extends HTMLElement {
         card.append(badge, media, text, tags, metadata);
         const quantity=document.createElement('span');quantity.className='quantity-corner';quantity.append(document.createElement('span'));card.append(quantity);
         row.append(card);
-        const controls=document.createElement('div');controls.className='quantity-controls';
-        for(const [direction,icon] of [[-1,'mdi:minus'],[1,'mdi:plus']]){
+        const controls=document.createElement('div');controls.className='quantity-controls row-quantity';controls.setAttribute('role','group');
+        const value=document.createElement('span');value.className='quantity-value';
+        for(const [direction,icon] of [[-1,'mdi:minus-thick'],[1,'mdi:plus-thick']]){
           const button=document.createElement('button');button.type='button';button.dataset.quantityDirection=String(direction);
           const symbol=document.createElement('ha-icon');symbol.setAttribute('icon',icon);symbol.setAttribute('aria-hidden','true');button.append(symbol);
           button.addEventListener('click',()=>{const entity=this._session.entityId,uid=row._item.uid;void this._runAction(()=>this._quantities.adjust(entity,uid,direction),'');});
+          if(direction>0)controls.append(value);
           controls.append(button);
         }
         row.append(controls);
@@ -1234,6 +1241,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
       row._item = item;
       const card = row.querySelector("button");
       const completed = item.status === "completed";
+      row.classList.toggle('list-completed',completed);
       card.className = `item ${completed ? "completed" : "pending"}`;
       card.disabled = disabled || !item.uid;
       card.dataset.uid = item.uid ?? "";
@@ -1246,6 +1254,9 @@ class ImprovedShoppingListPanel extends HTMLElement {
       const purchase=this._purchaseQuantity(item,product);
       const corner=row.querySelector('.quantity-corner');corner.hidden=purchase.quantity===1;
       const quantityText=quantityLabel(purchase);corner.firstChild.textContent=quantityText;corner.title=quantityText;
+      row.querySelector('.quantity-value').textContent=quantityText;
+      row.querySelector('.quantity-controls').setAttribute('aria-label',`Cantidad de ${item.summary??'Producto'}`);
+      row.querySelector('.quantity-value').title=quantityText;
       for(const button of row.querySelectorAll('.quantity-controls button')){
         const direction=Number(button.dataset.quantityDirection),next=Math.round((purchase.quantity+direction*purchase.step)*1000)/1000;
         button.dataset.uid=item.uid??'';
@@ -1283,9 +1294,6 @@ class ImprovedShoppingListPanel extends HTMLElement {
         label.textContent = new Intl.NumberFormat("es-ES",{style:"currency",currency:offer.currency}).format(Number(offer.price));
         price.title = offer.store ? `Último precio guardado · ${STORE_NAMES[offer.store] ?? offer.store}` : "Precio manual";
         price.append(label); metadata.append(price);
-      }
-      if(purchase.quantity!==1&&this._listLayout==='rows'){
-        const quantity=document.createElement('span');quantity.className='row-quantity';quantity.textContent=quantityText;quantity.title=quantityText;metadata.append(quantity);
       }
       const badge = row.querySelector(".category-badge");
       badge.hidden = !category;

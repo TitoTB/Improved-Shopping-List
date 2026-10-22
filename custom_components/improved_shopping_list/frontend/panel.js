@@ -283,14 +283,15 @@ class ImprovedShoppingListPanel extends HTMLElement {
         .stock-item { min-height:132px; background:linear-gradient(#f59a23,#c65b0c); color:#fff; border:0; padding:clamp(4px,4cqi,20px); }
         .stock-item.stock-progress { isolation:isolate; background:linear-gradient(hsl(var(--stock-hue) 70% 35%),hsl(var(--stock-hue) 80% 25%)); }
         .stock-item.stock-progress::before { content:""; position:absolute; inset:0; width:var(--stock-remaining); background:linear-gradient(hsl(var(--stock-hue) 92% 55%),hsl(var(--stock-hue) 88% 42%)); pointer-events:none; z-index:-1; }
-        .stock-life { display:block; font-size:12px; font-weight:500; margin-top:4px; }
+        .stock-life { display:inline; font-weight:400; opacity:.5; white-space:nowrap; }
+        .stock-amount { font-weight:750; }
         .stock-item .placeholder { color:inherit; }.stock-item .product-media { width:clamp(18px,26cqi,144px); }
         .stock-item .summary { -webkit-line-clamp:2; }
         .stock-open { display:flex; flex-direction:column; align-items:center; justify-content:center; flex:1; gap:8px; min-width:0; width:100%; padding:0; border:0; background:transparent; color:inherit; cursor:pointer; }
         .stock-controls { display:flex; align-items:center; justify-content:center; gap:6px; flex:none; }
         .stock-controls button { display:grid; place-items:center; width:28px; height:28px; padding:0; border:0; border-radius:8px; background:rgba(255,255,255,.24); color:inherit; }
         .stock-controls ha-icon { width:20px; height:20px; --mdc-icon-size:20px; }
-        .stock-quantity { font-weight:750; font-size:clamp(12px,10cqi,24px); font-variant-numeric:tabular-nums; }
+        .stock-quantity { font-weight:400; font-size:clamp(12px,10cqi,24px); font-variant-numeric:tabular-nums; }
         .rows .stock-item { display:flex; flex-direction:row; min-height:80px; gap:12px; }
         .rows .stock-open { display:grid; grid-template-columns:48px minmax(0,1fr) auto; gap:12px; text-align:left; }
         .rows .stock-item .product-media { width:48px; height:48px; }.rows .stock-quantity { font-size:16px; white-space:nowrap; }
@@ -700,14 +701,15 @@ class ImprovedShoppingListPanel extends HTMLElement {
         const result=node("button");result.type="button";result.dataset.stockAction=action;result.setAttribute("aria-label",label);result.title=label;result.disabled=disabled;
         const glyph=node("ha-icon");glyph.setAttribute("icon",mdi);glyph.setAttribute("aria-hidden","true");result.append(glyph);result.addEventListener("click",callback);return result;
       };
-      const quantity=node("span","stock-quantity",new Intl.NumberFormat('es-ES',{maximumFractionDigits:3}).format(item.quantity)+' '+(item.unit??'uds'));
+      const quantity=node("span","stock-quantity");
+      quantity.append(node("strong","stock-amount",new Intl.NumberFormat('es-ES',{maximumFractionDigits:3}).format(item.quantity)+' '+(item.unit??'uds')),document.createTextNode(' '));
       quantity.setAttribute('aria-label',`Stock de ${item.name}: ${item.quantity} ${item.unit??'uds'}`);
+      const life=node('span','stock-life',`(${Math.round(percent)}%)`);
       if(progress){
-        const life=node('span','stock-life',`${Math.round(percent)} %`);
         life.setAttribute('role','progressbar');life.setAttribute('aria-label','Stock restante');
         life.setAttribute('aria-valuemin','0');life.setAttribute('aria-valuemax','100');life.setAttribute('aria-valuenow',String(Math.round(percent)));
-        quantity.append(life);
       }
+      quantity.append(life);
       open.append(media,text,quantity);card.append(open);
       if(this._stockLayout==='rows'){
         const controls=node('div','stock-controls');

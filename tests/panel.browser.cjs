@@ -924,7 +924,7 @@ async function main() {
         assert.equal(await page.locator(".section-nav .nav-label:visible").count(), 1);
         assert.equal(await page.locator(`#nav-${view} .nav-label`).isVisible(), true);
         if (view === "catalog") {
-          for (const tab of ["products","categories","suggestions"]) {
+          for (const tab of ["products","categories","recommendations","suggestions"]) {
             await catalog.locator(`#view-${tab}`).click();
             assert.equal(await catalog.locator(".catalog-tabs .tab-label:visible").count(),1);
             assert.equal(await catalog.locator(`#view-${tab} .tab-label`).isVisible(),true);

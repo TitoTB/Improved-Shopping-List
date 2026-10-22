@@ -6,8 +6,6 @@
 
 - Compras filtra sus bloques por los mismos seis meses seleccionados en la gráfica; las flechas actualizan ambos elementos y los periodos sin compras muestran un mensaje específico.
 
-- Carrefour intenta el detalle alternativo cuando un PDF no permite identificar sus líneas, además de ante HTTP 5xx. Los errores de totales, duplicados o conflictos no activan esa alternativa; si tampoco se reconoce el detalle, se registra la fase sin datos del ticket.
-
 - Carrefour conserva las cookies de dispositivo renovadas junto a la sesión, para restaurarlas tras reiniciar. Las invalidaciones explícitas del proveedor registran el código técnico y si la sesión se había recuperado de disco. Pruebas de renovación del JWT y de conservación ante errores temporales.
 
 ## 0.33.0 — 2026-10-22

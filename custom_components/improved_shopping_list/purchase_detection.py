@@ -98,7 +98,7 @@ class PurchaseDetection:
                     "receipt_id":"detected:"+day})
                 if len(record["entries"]) < 2500:
                     record["entries"].setdefault(key,product)
-            cutoff = (dt_util.now().date()-timedelta(days=7)).isoformat()
+            cutoff = (dt_util.now().date()-timedelta(days=6)).isoformat()
             days = {day:value for day,value in days.items() if day >= cutoff}
             if days != self._days:
                 await self._store.async_save({"days":days})

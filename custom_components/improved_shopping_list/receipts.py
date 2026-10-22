@@ -175,6 +175,14 @@ class ReceiptManager:
             if not receipt or not receipt.get("detected_purchase"):
                 raise CatalogError("Esta compra detectada ya no está pendiente o se ha sustituido por un ticket.","conflict")
             receipt.update(store=store,store_name=store_name,total=round(total,2),needs_details=False)
+            # This is explicit user confirmation, not an automatic product inference.
+            matches = [other for other in data["history"].values() if not other.get("detected_purchase") and
+                other.get("store")==store and type(other.get("total")) in (int,float) and
+                abs(other["total"]-receipt["total"]) <= .01 and self._purchase_day(other)==self._purchase_day(receipt)]
+            if len(matches)==1 and not matches[0].get("detection_id"):
+                matches[0]["detection_id"]=identifier
+                data["history"].pop(identifier)
+                receipt=matches[0]
             await self.stock._persist(deepcopy(self.stock._items),receipts=data)
         if getattr(self.stock,"activity",None):
             self.stock.activity.record("purchase.detected.updated","Compra detectada: tienda e importe guardados",source="manual")

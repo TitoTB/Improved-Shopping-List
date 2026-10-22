@@ -142,3 +142,15 @@ async def test_ambiguous_receipts_or_conflicting_manual_details_stay_unidentifie
     env.stock.receipts["history"].pop("second")
     await env.receipts.async_complete_detected_purchase(identifier,"alcampo",20)
     await env.manager.async_check();assert identifier in env.stock.receipts["history"]
+
+
+async def test_user_confirmed_store_and_amount_reconcile_one_existing_summary_without_duplicate_expense(env):
+    for uid in "abc":complete(env,uid)
+    await env.manager.async_check();identifier=next(iter(env.stock.receipts["history"]))
+    summary=ticket(env,"summary",lines=[])
+    env.stock.receipts["history"]["summary"]=summary
+    result=await env.receipts.async_complete_detected_purchase(identifier,"carrefour",20)
+    assert result["id"]=="summary" and result["detection_id"]==identifier
+    assert len(env.stock.receipts["history"])==1
+    complete(env,"d");await env.manager.async_check()
+    assert len(env.stock.receipts["history"])==1

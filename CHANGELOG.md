@@ -1,6 +1,9 @@
 # Historial de cambios
 
-## Pendiente de publicación
+## 0.34.0 — 2026-10-22
+
+- Nuevo apartado Analítica con Comparativa, Compras y Nutri-score; las dos últimas vistas se trasladan desde Stock y Ajustes sin perder datos.
+- Comparación local de precios por producto y tienda, cobertura, cesta completa, productos comunes y compra repartida. Respeta cantidades y monedas; los precios desconocidos no cuentan como gratis.
 
 - Catálogo → Productos permite agrupar por Tienda: solo tiendas activas con referencias vinculadas, contador por grupo y productos repetidos en las tiendas correspondientes. La agrupación se conserva al recargar y responde a búsquedas y cambios de tiendas activas.
 

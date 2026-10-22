@@ -4,7 +4,7 @@
 
 Una interfaz propia para gestionar las listas de la compra que ya tienes integradas en Home Assistant.
 
-Versión actual: **0.33.0**. Interfaz en español, pensada para móvil y ordenador. Requiere **Home Assistant Core 2026.10 o posterior**. La referencia de desarrollo es Core 2026.10.2.
+Versión actual: **0.34.0**. Interfaz en español, pensada para móvil y ordenador. Requiere **Home Assistant Core 2026.10 o posterior**. La referencia de desarrollo es Core 2026.10.2.
 
 Los precios proceden de tickets y facturas confirmados por el usuario y, opcionalmente, de Alcampo al activar sus opciones. El catálogo comunitario se dedica exclusivamente a sugerencias de iconos y no proporciona precios. Se conserva el último precio conocido de cada producto y tienda.
 
@@ -12,7 +12,7 @@ El diccionario comunitario sirve exclusivamente para sugerir iconos por nombre o
 
 ## Qué puedes hacer
 
-Stock incluye las vistas **Stock** y **Compras**. Compras muestra el logo de la tienda y un botón de ticket junto al importe para abrir el detalle en un popup. Encima del historial, un gráfico de barras apiladas suma los importes de las compras registradas por mes y tienda, sin dependencias de tarjetas externas. Incluye un botón para subir tickets
+El apartado **Analítica** incluye **Comparativa**, **Compras** y **Nutri-score**. Compras muestra el logo de la tienda y un botón de ticket junto al importe para abrir el detalle en un popup. Encima del historial, un gráfico de barras apiladas suma los importes de las compras registradas por mes y tienda, sin dependencias de tarjetas externas. Incluye un botón para subir tickets
 PDF electrónicos de Carrefour, tanto tickets como facturas online con tabla de EAN (hasta 2 MB y 10 páginas). El documento se lee localmente;
 los escaneos y otros formatos de tienda todavía no están disponibles. El popup guía
 la revisión con **Vinculación**, **Stock**, **Precios** y un **Resumen** final. Primero permite
@@ -225,9 +225,19 @@ La consulta pública de iconos se realiza una vez al día, sin cuenta y sin actu
 
 Consulta [la política y administración del diccionario de iconos](community/README.md).
 
+## Analítica
+
+El apartado **Analítica** (`mdi:chart-box`) reúne tres vistas:
+
+- **Comparativa**: selecciona una lista y compara sus productos pendientes entre las tiendas activas con precios guardados. Muestra cobertura, totales parciales o completos, la cesta completa más barata cuando puede determinarse y una clasificación sobre los mismos productos comunes. La tabla destaca los mínimos por producto e indica cuándo se guardó cada precio. La propuesta de compra repartida distribuye los productos con precio entre las tiendas más baratas; el ahorro solo se calcula frente a una tienda que cubra esos mismos productos. Las monedas se comparan por separado y los desconocidos no se tratan como gratis. Aplica las cantidades solicitadas de la lista. Las vinculaciones de una ficha genérica pueden corresponder a marcas o formatos distintos; deben revisarse antes de interpretar la diferencia como ahorro.
+- **Compras**: historial, gráfico de gasto por periodos y subida/revisión de tickets, trasladados desde Stock sin modificar las compras guardadas.
+- **Nutri-score**: distribución A–E del catálogo, trasladada desde Ajustes, con productos desplegables por letra.
+
+Abrir Comparativa no actualiza precios ni consulta las webs de tiendas: usa los datos locales disponibles. No requiere nuevas tarjetas HACS, servicios ni bibliotecas. Los gastos de envío, desplazamientos y descuentos no registrados no se incluyen.
+
 ### Nutri-Score del catálogo
 
-**Ajustes → Nutri-Score** muestra una gráfica de barras con los colores A–E, el número de productos y su porcentaje sobre los productos del catálogo con Nutri-Score conocido. Se utilizan exclusivamente los datos guardados de Open Food Facts; abrir la gráfica no consulta esas fuentes ni actualiza precios. Los productos sin una letra válida no entran en el cálculo. Cada ficha cuenta una sola vez; si tiene varios códigos con Nutri-Score, se toma el primer código con resultado, empezando por su código principal. Al volver a abrir la vista se vuelve a leer la información local disponible. No requiere tarjetas HACS ni librerías gráficas adicionales.
+**Analítica → Nutri-Score** muestra una gráfica de barras con los colores A–E, el número de productos y su porcentaje sobre los productos del catálogo con Nutri-Score conocido. Se utilizan exclusivamente los datos guardados de Open Food Facts; abrir la gráfica no consulta esas fuentes ni actualiza precios. Los productos sin una letra válida no entran en el cálculo. Cada ficha cuenta una sola vez; si tiene varios códigos con Nutri-Score, se toma el primer código con resultado, empezando por su código principal. Al volver a abrir la vista se vuelve a leer la información local disponible. No requiere tarjetas HACS ni librerías gráficas adicionales.
 
 Nutri-Score deja de ser un criterio de «Agrupar productos por» en Catálogo → Productos. Una selección antigua de ese criterio pasa a agrupar por categoría.
 
@@ -258,9 +268,7 @@ El paso **Precios** del asistente permite elegir los importes que se guardan par
 ## Stock de la despensa
 
 **Stock** (`mdi:package-variant`) guarda un inventario común en Home Assistant,
-independiente de las listas de compra. Las pestañas Stock y Compras aparecen
-a la izquierda y los controles de la vista a la derecha en la misma fila, sin título
-adicional. Stock conserva la ordenación, el selector de lista y el cambio de vista;
+independiente de las listas de compra. El historial y la subida de tickets están en **Analítica → Compras**. Stock conserva la ordenación, el selector de lista y el cambio de vista;
 el botón **+** abre un popup para añadir manualmente un nombre o elegir uno del catálogo,
 sin buscador permanente. Subir ticket aparece únicamente en Compras.
 Las cantidades no bajan de cero. Cada tarjeta utiliza la imagen o
@@ -367,11 +375,11 @@ Los pasos de revisión del ticket muestran en azul el paso actual y en verde los
 
 ### Prueba manual de compras de Carrefour
 
-En **Ajustes → Tiendas → Carrefour** (engranaje) encontrarás **Conectar cuenta**. Para revisar un ticket, ve a **Stock → Compras** y pulsa el icono de ticket a la derecha del importe. Solo pueden realizar estas operaciones administradores. Introduce el correo y la contraseña en el popup de conexión. Si Carrefour solicita una segunda verificación compatible por correo o SMS, elige el destino, pulsa Enviar código e introduce el código recibido. No se intenta resolver CAPTCHA ni se repiten inicios de sesión automáticamente.
+En **Ajustes → Tiendas → Carrefour** (engranaje) encontrarás **Conectar cuenta**. Para revisar un ticket, ve a **Analítica → Compras** y pulsa el icono de ticket a la derecha del importe. Solo pueden realizar estas operaciones administradores. Introduce el correo y la contraseña en el popup de conexión. Si Carrefour solicita una segunda verificación compatible por correo o SMS, elige el destino, pulsa Enviar código e introduce el código recibido. No se intenta resolver CAPTCHA ni se repiten inicios de sesión automáticamente.
 
-En **Stock → Compras**, el icono a la derecha del importe descarga el ticket de Carrefour y abre el asistente de revisión. Si ya está descargado y pendiente, abre el documento guardado; si ya se ha revisado, el icono verde muestra su detalle. No se aplican cambios en stock o precios al abrirlo. Las facturas de pedidos online siguen admitiéndose por subida manual de PDF.
+En **Analítica → Compras**, el icono a la derecha del importe descarga el ticket de Carrefour y abre el asistente de revisión. Si ya está descargado y pendiente, abre el documento guardado; si ya se ha revisado, el icono verde muestra su detalle. No se aplican cambios en stock o precios al abrirlo. Las facturas de pedidos online siguen admitiéndose por subida manual de PDF.
 
-En **Ajustes → Tiendas → Carrefour**, conecta la cuenta y activa **Recuperar compras del último año** para recorrer las páginas disponibles y guardar los resúmenes en **Stock → Compras**, alimentando el gráfico mensual. Solo se incorporan tienda, fecha e importe; el número de artículos se omite cuando no está disponible. No se descargan detalles ni se modifican stock o precios. Si después revisas el ticket, su detalle sustituye el resumen sin duplicar el gasto. La recuperación del año se hace al activar su opción.
+En **Ajustes → Tiendas → Carrefour**, conecta la cuenta y activa **Recuperar compras del último año** para recorrer las páginas disponibles y guardar los resúmenes en **Analítica → Compras**, alimentando el gráfico mensual. Solo se incorporan tienda, fecha e importe; el número de artículos se omite cuando no está disponible. No se descargan detalles ni se modifican stock o precios. Si después revisas el ticket, su detalle sustituye el resumen sin duplicar el gasto. La recuperación del año se hace al activar su opción.
 
 Al pulsar el icono de un ticket se consulta primero el detalle de la cuenta y se comprueban su referencia, subtotal, artículos e importe antes de abrir la revisión. El PDF queda como alternativa si el detalle devuelve HTTP 5xx o un formato no reconocido. Se conserva la detección de duplicados entre ambos formatos. Descargar o consultar no registra la compra ni cambia cantidades o precios: debes confirmar el asistente. Se mantiene el control de tickets ya importados. Los documentos no se envían al diccionario comunitario.
 

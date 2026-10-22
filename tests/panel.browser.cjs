@@ -489,7 +489,7 @@ async function main() {
       return;
     }
     if (pathname === "/") { res.setHeader("content-type", "text/html; charset=utf-8"); res.end(html); return; }
-    if (!["/alcampo-settings.js", "/carrefour-account.js", "/notification-settings.js", "/recipe-editor.js", "/quantity-client.js", "/panel.js", "/purchases-panel.js", "/stock-client.js", "/dialog-controls.js", "/todo-client.js", "/catalog-panel.js", "/catalog-client.js", "/category-panel.js", "/icon-picker.js", "/list-settings-client.js", "/settings-panel.js", "/readers-client.js", "/readers-panel.js", "/product-matching.js", "/product-names.js", "/logs-panel.js", "/logo.png", "/mercadona.png", "/consum.jpg", "/lasirena.jpg", "/eroski.svg", "/dia.png"].includes(pathname)) { res.writeHead(404).end(); return; }
+    if (!["/analytics-panel.js", "/alcampo-settings.js", "/carrefour-account.js", "/notification-settings.js", "/recipe-editor.js", "/quantity-client.js", "/panel.js", "/purchases-panel.js", "/stock-client.js", "/dialog-controls.js", "/todo-client.js", "/catalog-panel.js", "/catalog-client.js", "/category-panel.js", "/icon-picker.js", "/list-settings-client.js", "/settings-panel.js", "/readers-client.js", "/readers-panel.js", "/product-matching.js", "/product-names.js", "/logs-panel.js", "/logo.png", "/mercadona.png", "/consum.jpg", "/lasirena.jpg", "/eroski.svg", "/dia.png"].includes(pathname)) { res.writeHead(404).end(); return; }
     res.setHeader("content-type", pathname.endsWith(".svg") ? "image/svg+xml" : pathname.endsWith(".png") ? "image/png" : pathname.endsWith(".jpg") ? "image/jpeg" : "text/javascript; charset=utf-8");
     res.end(await fs.readFile(path.join(root, pathname.slice(1))));
   });
@@ -1056,7 +1056,7 @@ async function main() {
     }
     await page.setViewportSize({ width:1280, height:960 });
     assert.equal(await page.locator(".brand-copy").isVisible(), true);
-    assert.equal(await page.locator(".section-nav .nav-label:visible").count(), 4);
+    assert.equal(await page.locator(".section-nav .nav-label:visible").count(), 5);
     await page.getByRole("button",{name:"Catálogo",exact:true}).click();
     assert.equal(await catalog.locator(".catalog-tabs .tab-label:visible").count(),5);
     await page.getByRole("button",{name:"Lista",exact:true}).click();
@@ -1346,6 +1346,33 @@ async function main() {
       await receiptPage.screenshot({path:`test-results/list-receipt-four-stores-${width}.png`,fullPage:true});
     }
     assert.equal(await receiptPage.evaluate(()=>window.calls.some(call=>/refresh_prices|refresh_all_prices|settings\/store_products/.test(call.type??''))),false);
+    await selectList(receiptPage,'todo.bring');
+    await receiptPage.evaluate(async()=>{
+      const panel=window.testPanel,stores=['carrefour','alcampo','consum','eroski','lasirena'];
+      await panel._session.setCompleted(panel._session.items.find(item=>item.summary==='Cacao'),false);
+      panel._settings.stores=Object.fromEntries(stores.map(store=>[store,{enabled:true}]));
+      panel._rowPrices=stores.flatMap((store,index)=>[{catalog_product_id:'ticket-cacao',store,price:10-index,currency:'EUR',checked_at:1800000000},...(index===0?[{catalog_product_id:'ticket-milk',store,price:20,currency:'EUR',checked_at:1800000000}]:[])]);
+      panel._renderData();
+    });
+    await receiptPage.getByRole('button',{name:'Analítica',exact:true}).click();
+    const analytics=receiptPage.locator('isl-analytics');
+    await analytics.locator('.shop').nth(4).waitFor();
+    assert.equal(await analytics.locator('.shop').count(),5);
+    assert.equal(await analytics.getByText('Cesta completa más barata',{exact:true}).count(),1);
+    assert.equal(await analytics.locator('tbody tr').count(),2);
+    assert.deepEqual(await analytics.locator('tbody th').evaluateAll(nodes=>nodes.map(node=>node.firstChild.textContent)),['Cacao','Leche entera']);
+    assert.equal(await analytics.locator('.common-ranking .best').count(),1);
+    assert.equal(await analytics.locator('tbody .best').count(),2);
+    await analytics.locator('.split summary').click();
+    assert.match(await analytics.locator('.split').textContent(),/4,00/);
+    for(const width of [1280,390,320]){
+      await receiptPage.setViewportSize({width,height:844});
+      assert.ok(await analytics.evaluate(node=>node.scrollWidth<=node.clientWidth+1));
+      await receiptPage.screenshot({path:'test-results/analytics-comparison-'+width+'.png',fullPage:true});
+    }
+    assert.equal(await receiptPage.evaluate(()=>window.calls.some(call=>/refresh_prices|refresh_all_prices/.test(call.type??''))),false);
+    await analytics.getByLabel('Lista para comparar',{exact:true}).selectOption('todo.local');
+    await analytics.getByText('No hay precios guardados para los productos de esta lista en las tiendas activas.',{exact:true}).waitFor();
     await receiptContext.close();
     const resumeContext=await browser.newContext({viewport:{width:390,height:844}});
     await resumeContext.addInitScript(()=>{
@@ -2512,7 +2539,7 @@ async function main() {
     const purchasePage=await purchaseContext.newPage();purchasePage.on('pageerror',error=>errors.push(error.message));
     await purchasePage.route('**/local/receipt-seitan.svg',route=>route.fulfill({contentType:'image/svg+xml',body:'<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32"><circle cx="16" cy="16" r="15" fill="green"/></svg>'}));
     await purchasePage.goto(url);await purchasePage.getByRole('button',{name:'Stock',exact:true}).click();
-    await purchasePage.getByRole('tab',{name:'Compras',exact:true}).click();
+    await purchasePage.getByRole('button',{name:'Analítica',exact:true}).click();await purchasePage.getByRole('tab',{name:'Compras',exact:true}).click();
     const purchases=purchasePage.locator('isl-purchases');
     await purchases.getByText('Todavía no has subido ningún ticket.',{exact:true}).waitFor();
     assert.equal(await purchasePage.locator('#list-controls').isVisible(),false);
@@ -2681,9 +2708,9 @@ async function main() {
     await purchases.locator('#ticket-file').setInputFiles(ticketFile);
     await purchases.getByText('Este ticket ya se ha importado.',{exact:true}).waitFor();
     await purchasePage.reload();await purchasePage.getByRole('button',{name:'Stock',exact:true}).click();
-    await purchasePage.getByRole('tab',{name:'Compras',exact:true}).click();
+    await purchasePage.getByRole('button',{name:'Analítica',exact:true}).click();await purchasePage.getByRole('tab',{name:'Compras',exact:true}).click();
     await purchases.locator('#history .ticket-open').waitFor();
-    await purchasePage.getByRole('tab',{name:'Stock',exact:true}).click();
+    await purchasePage.getByRole('button',{name:'Stock',exact:true}).click();
     assert.equal(await purchasePage.locator('#list-controls').isVisible(),false);
     assert.equal(await purchasePage.getByRole('button',{name:'Subir ticket',exact:true}).isVisible(),false);
     assert.equal(await purchasePage.getByRole('button',{name:'Añadir producto al stock',exact:true}).isVisible(),true);
@@ -2695,7 +2722,7 @@ async function main() {
     const stockOnlyContext=await browser.newContext({viewport:{width:390,height:844}});
     const stockOnlyPage=await stockOnlyContext.newPage();stockOnlyPage.on('pageerror',error=>errors.push(error.message));
     await stockOnlyPage.goto(url);await stockOnlyPage.getByRole('button',{name:'Stock',exact:true}).click();
-    await stockOnlyPage.getByRole('tab',{name:'Compras',exact:true}).click();
+    await stockOnlyPage.getByRole('button',{name:'Analítica',exact:true}).click();await stockOnlyPage.getByRole('tab',{name:'Compras',exact:true}).click();
     const stockOnlyPurchases=stockOnlyPage.locator('isl-purchases');
     await stockOnlyPurchases.locator('#ticket-file').setInputFiles(ticketFile);
     const stockOnlyReview=stockOnlyPurchases.getByRole('dialog',{name:'Revisar ticket',exact:true});await stockOnlyReview.waitFor();
@@ -2723,7 +2750,7 @@ async function main() {
       const receipts=[['recent','carrefour','Carrefour',now.toISOString(),9],['start','carrefour','Carrefour',first.toISOString(),2],['before','carrefour','Carrefour',before.toISOString(),3],['older','carrefour','Carrefour','2025-01-10T12:00:00',4],['j1','carrefour','Carrefour','2026-01-10T12:00:00',10.25],['j2','mercadona','Mercadona','2026-01-15T12:00:00',20],['j3','carrefour','Carrefour','2026-01-20T12:00:00',5.5],['f1','mercadona','Mercadona','2026-02-15T12:00:00',40]];
       localStorage.setItem('receipt-fixture',JSON.stringify(receipts.map(([id,store,store_name,purchased_at,total])=>({id,store,store_name,purchased_at,total,article_count:1,lines:[{description:'Producto '+id,count:1,unit_price:total,amount:total}]}))));
     });
-    await spendingPage.goto(url);await spendingPage.getByRole('button',{name:'Stock',exact:true}).click();await spendingPage.getByRole('tab',{name:'Compras',exact:true}).click();
+    await spendingPage.goto(url);await spendingPage.getByRole('button',{name:'Stock',exact:true}).click();await spendingPage.getByRole('button',{name:'Analítica',exact:true}).click();await spendingPage.getByRole('tab',{name:'Compras',exact:true}).click();
     const spending=spendingPage.locator('isl-purchases');await spending.locator('#history .ticket').first().waitFor();
     assert.equal(await spending.locator('#history details,#history summary').count(),0);
     assert.deepEqual(await spending.locator('#history .ticket').evaluateAll(cards=>cards.map(card=>card.dataset.id)),['recent','start']);
@@ -3442,9 +3469,9 @@ async function main() {
     assert.equal(await groupingDialog.getByRole('button',{name:'Nutri-Score',exact:true}).count(),0);
     await groupingDialog.getByRole('button',{name:'Cerrar ventana',exact:true}).click();
     await groupedCatalog.getByRole('button',{name:'Cambiar a vista de filas',exact:true}).click();
-    await groupingPage.getByRole('button',{name:'Ajustes',exact:true}).click();
-    const nutritionSettings=groupingPage.locator('isl-settings');
-    await nutritionSettings.getByRole('button',{name:'Nutri-Score',exact:true}).click();
+    await groupingPage.getByRole('button',{name:'Analítica',exact:true}).click();
+    const nutritionSettings=groupingPage.locator('isl-analytics');
+    await groupingPage.getByRole('tab',{name:'Nutri-Score',exact:true}).click();
     await nutritionSettings.locator('#nutrition-total').filter({hasText:'3 productos'}).waitFor();
     assert.deepEqual(await nutritionSettings.locator('.nutrition-value').allTextContents(),['1 (33,3 %)','1 (33,3 %)','0 (0 %)','0 (0 %)','1 (33,3 %)']);
     assert.equal(await nutritionSettings.locator('.nutrition-bar').first().evaluate(node=>getComputedStyle(node).backgroundColor),'rgb(3, 129, 65)');
@@ -3462,16 +3489,16 @@ async function main() {
 
     assert.equal(await groupingPage.evaluate(()=>window.nutriCalls?.length??0),0);
     await groupingPage.screenshot({path:'test-results/nutrition-distribution-mobile.png',fullPage:true});
-    for(const width of [320,1280]){await groupingPage.setViewportSize({width,height:844});assert.ok(await nutritionSettings.locator('#settings-nutrition').evaluate(node=>node.scrollWidth<=node.clientWidth+1));}
+    for(const width of [320,1280]){await groupingPage.setViewportSize({width,height:844});assert.ok(await nutritionSettings.locator('#analytics-nutrition').evaluate(node=>node.scrollWidth<=node.clientWidth+1));}
     await groupingPage.screenshot({path:'test-results/nutrition-distribution-desktop.png',fullPage:true});
     await groupingPage.evaluate(()=>{window.nutriFixture={};});
-    await nutritionSettings.getByRole('button',{name:'Listas',exact:true}).click();
-    await nutritionSettings.getByRole('button',{name:'Nutri-Score',exact:true}).click();
+    await groupingPage.getByRole('tab',{name:'Comparativa',exact:true}).click();
+    await groupingPage.getByRole('tab',{name:'Nutri-Score',exact:true}).click();
     await nutritionSettings.locator('#nutrition-status').filter({hasText:'Todavía no hay productos'}).waitFor();
     assert.equal(await nutritionSettings.locator('#nutrition-chart').isVisible(),false);
     await groupingPage.evaluate(()=>{window.failNutritionDistribution=true;});
-    await nutritionSettings.getByRole('button',{name:'Listas',exact:true}).click();
-    await nutritionSettings.getByRole('button',{name:'Nutri-Score',exact:true}).click();
+    await groupingPage.getByRole('tab',{name:'Comparativa',exact:true}).click();
+    await groupingPage.getByRole('tab',{name:'Nutri-Score',exact:true}).click();
     await nutritionSettings.locator('#nutrition-status').filter({hasText:'No se ha podido cargar'}).waitFor();
     await groupingPage.evaluate(()=>{window.failNutritionDistribution=false;localStorage.setItem('isl-catalog-grouping','nutriscore');});
     await groupingPage.reload();
@@ -3501,7 +3528,7 @@ async function main() {
     const invoicePage=await invoiceContext.newPage();invoicePage.on('pageerror',error=>errors.push(error.message));
     await invoicePage.addInitScript(()=>{window.receiptInvoice=true;});
     await invoicePage.goto(url);await invoicePage.getByRole('button',{name:'Stock',exact:true}).click();
-    await invoicePage.getByRole('tab',{name:'Compras',exact:true}).click();
+    await invoicePage.getByRole('button',{name:'Analítica',exact:true}).click();await invoicePage.getByRole('tab',{name:'Compras',exact:true}).click();
     const invoicePurchases=invoicePage.locator('isl-purchases');
     await invoicePurchases.locator('#ticket-file').setInputFiles({name:'factura.pdf',mimeType:'application/pdf',buffer:Buffer.from('%PDF-fixture')});
     const invoiceReview=invoicePurchases.getByRole('dialog',{name:'Revisar ticket',exact:true});await invoiceReview.waitFor();
@@ -3527,7 +3554,7 @@ async function main() {
     const suggestionReceiptPage=await suggestionReceiptContext.newPage();
     await suggestionReceiptPage.addInitScript(()=>{window.receiptSuggestionOnly=true;});
     await suggestionReceiptPage.goto(url);await suggestionReceiptPage.getByRole('button',{name:'Stock',exact:true}).click();
-    await suggestionReceiptPage.getByRole('tab',{name:'Compras',exact:true}).click();
+    await suggestionReceiptPage.getByRole('button',{name:'Analítica',exact:true}).click();await suggestionReceiptPage.getByRole('tab',{name:'Compras',exact:true}).click();
     const suggestionPurchase=suggestionReceiptPage.locator('isl-purchases');
     await suggestionPurchase.locator('#ticket-file').setInputFiles({name:'ticket.pdf',mimeType:'application/pdf',buffer:Buffer.from('%PDF-fixture')});
     const suggestionReview=suggestionPurchase.getByRole('dialog',{name:'Revisar ticket',exact:true});await suggestionReview.waitFor();
@@ -3598,7 +3625,7 @@ async function main() {
     await accountSettings.locator('#carrefour-dialog').getByRole('button',{name:'Cerrar ventana',exact:true}).click();
     await accountPage.getByRole('button',{name:'Stock',exact:true}).click();
     const accountHistory=accountPage.locator('isl-purchases');
-    await accountPage.getByRole('tab',{name:'Compras',exact:true}).click();
+    await accountPage.getByRole('button',{name:'Analítica',exact:true}).click();await accountPage.getByRole('tab',{name:'Compras',exact:true}).click();
     await accountHistory.locator('#history .ticket').nth(1).waitFor();
     assert.equal(await accountHistory.locator('#history .ticket').count(),2);
     assert.equal(await accountHistory.locator('#history .ticket-open').count(),1);

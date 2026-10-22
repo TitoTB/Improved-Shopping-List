@@ -1,11 +1,11 @@
-import "./alcampo-settings.js?v=0.33.0";
-import "./carrefour-account.js?v=0.33.0";
-import "./logs-panel.js?v=0.33.0";
-import "./notification-settings.js?v=0.33.0";
-import "./readers-panel.js?v=0.33.0";
-import { installDialogCloseButtons } from "./dialog-controls.js?v=0.33.0";
-import { todoEntities, isAvailable } from "./todo-client.js?v=0.33.0";
-import { DEFAULT_APPEARANCE, gradientTextColor } from "./list-settings-client.js?v=0.33.0";
+import "./alcampo-settings.js?v=0.34.0";
+import "./carrefour-account.js?v=0.34.0";
+import "./logs-panel.js?v=0.34.0";
+import "./notification-settings.js?v=0.34.0";
+import "./readers-panel.js?v=0.34.0";
+import { installDialogCloseButtons } from "./dialog-controls.js?v=0.34.0";
+import { todoEntities, isAvailable } from "./todo-client.js?v=0.34.0";
+import { DEFAULT_APPEARANCE, gradientTextColor } from "./list-settings-client.js?v=0.34.0";
 
 const MERCADONA_LOGO_URL = new URL("mercadona.png", import.meta.url).href;
 
@@ -26,7 +26,7 @@ class ImprovedShoppingSettings extends HTMLElement {
   set data(value) { this._data = value; this._render(); }
   set hass(value) { if(this._data){this._data={...this._data,hass:value};this._syncReaders();} }
 
-  set active(value) { const entering=Boolean(value)&&!this._active; this._active = Boolean(value); if(entering)this._nutritionKey=null; if(!this._active){this.shadowRoot.querySelector('#community-authorization')?.close();this.shadowRoot.querySelector('#carrefour-dialog')?.close();this.shadowRoot.querySelector('isl-carrefour-account')?.deactivate();} this._syncLogs(); this._syncReaders(); this._renderNutrition(); }
+  set active(value) { this._active = Boolean(value); if(!this._active){this.shadowRoot.querySelector('#community-authorization')?.close();this.shadowRoot.querySelector('#carrefour-dialog')?.close();this.shadowRoot.querySelector('isl-carrefour-account')?.deactivate();} this._syncLogs(); this._syncReaders(); }
 
   _syncReaders() {
     const readers=this.shadowRoot.querySelector('isl-readers');
@@ -88,20 +88,7 @@ class ImprovedShoppingSettings extends HTMLElement {
         @media(max-width:360px) { .settings-heading { gap:4px; } .settings-heading h1 { font-size:18px; } .settings-tabs { gap:2px; } .settings-tabs button { min-width:24px; padding-inline:2px; } .settings-tabs ha-icon { --mdc-icon-size:16px; width:16px; height:16px; } }
         .settings-tabs ha-icon { --mdc-icon-size:20px; display:flex; align-items:center; justify-content:center; width:20px; height:20px; flex:none; line-height:0; }
         .settings-tabs [aria-pressed=true] { background:var(--secondary-background-color,#edf4ee); font-weight:650; }
-        .nutrition-row { display:grid; grid-template-columns:36px minmax(0,1fr) 105px; align-items:center; gap:12px; margin:18px 0; }
-        .nutrition-grade { display:grid; place-items:center; width:36px; height:36px; border-radius:9px; font-weight:750; }
-        .nutrition-track { background:var(--secondary-background-color,#edf4ee); height:28px; border-radius:6px; overflow:hidden; }
-        .nutrition-bar { height:100%; border-radius:6px; }
-        .nutrition-value { text-align:right; font-size:13px; font-variant-numeric:tabular-nums; }
-        .nutrition-row { cursor:pointer; list-style:none; }
-        .nutrition-row::-webkit-details-marker { display:none; }
-        .nutrition-row::before,.nutrition-group[open]>.nutrition-row::before { content:none; }
-        .nutrition-row:focus-visible { outline:3px solid var(--primary-color,#267052); outline-offset:3px; }
-        .nutrition-value::after { content:" ▾"; }
-        .nutrition-group[open] .nutrition-value::after { content:" ▴"; }
-        .nutrition-products { margin:0 0 20px; padding:0; list-style:none; }
-        .nutrition-products li { padding:10px 12px; border-bottom:1px solid var(--divider-color,#dfe7e1); overflow-wrap:anywhere; }
-        @media(max-width:390px) { .nutrition-row { grid-template-columns:30px minmax(0,1fr) 90px; gap:8px; } .nutrition-grade { width:30px; height:30px; } }
+
         .appearance-fields { display:grid; grid-template-columns:1fr 1fr; gap:18px; }
         .appearance-fields.appearance-colors { grid-template-columns:repeat(4,minmax(0,1fr)); align-items:stretch; }
         .appearance-colors > div { min-width:0; display:flex; flex-direction:column; justify-content:flex-end; gap:6px; }
@@ -199,7 +186,7 @@ class ImprovedShoppingSettings extends HTMLElement {
         #carrefour-products-view,#alcampo-products-view,#store-products-view,[id$="-products-view"]{display:none!important}#carrefour-dialog>h2{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
     </style>
       <div class="settings-heading"><h1>Ajustes</h1>
-      <nav class="settings-tabs" aria-label="Vistas de ajustes"><button id="settings-view-lists" aria-label="Listas" aria-pressed="true"><ha-icon icon="mdi:format-list-checks" aria-hidden="true"></ha-icon><span class="tab-label">Listas</span></button><button id="settings-view-appearance" aria-label="Personalización" aria-pressed="false"><ha-icon icon="mdi:palette" aria-hidden="true"></ha-icon><span class="tab-label">Personalización</span></button><button id="settings-view-stores" aria-label="Tiendas" aria-pressed="false"><ha-icon icon="mdi:store" aria-hidden="true"></ha-icon><span class="tab-label">Tiendas</span></button><button id="settings-view-nutrition" aria-label="Nutri-Score" aria-pressed="false"><ha-icon icon="mdi:nutrition" aria-hidden="true"></ha-icon><span class="tab-label">Nutri-Score</span></button><button id="settings-view-notifications" aria-label="Notificaciones" aria-pressed="false"><ha-icon icon="mdi:bell-outline" aria-hidden="true"></ha-icon><span class="tab-label">Notificaciones</span></button><button id="settings-view-community" aria-label="Comunidad" aria-pressed="false"><ha-icon icon="mdi:account-group" aria-hidden="true"></ha-icon><span class="tab-label">Comunidad</span></button><button id="settings-view-logs" aria-label="Logs" aria-pressed="false"><ha-icon icon="mdi:format-list-group" aria-hidden="true"></ha-icon><span class="tab-label">Logs</span></button></nav></div>
+      <nav class="settings-tabs" aria-label="Vistas de ajustes"><button id="settings-view-lists" aria-label="Listas" aria-pressed="true"><ha-icon icon="mdi:format-list-checks" aria-hidden="true"></ha-icon><span class="tab-label">Listas</span></button><button id="settings-view-appearance" aria-label="Personalización" aria-pressed="false"><ha-icon icon="mdi:palette" aria-hidden="true"></ha-icon><span class="tab-label">Personalización</span></button><button id="settings-view-stores" aria-label="Tiendas" aria-pressed="false"><ha-icon icon="mdi:store" aria-hidden="true"></ha-icon><span class="tab-label">Tiendas</span></button><button id="settings-view-notifications" aria-label="Notificaciones" aria-pressed="false"><ha-icon icon="mdi:bell-outline" aria-hidden="true"></ha-icon><span class="tab-label">Notificaciones</span></button><button id="settings-view-community" aria-label="Comunidad" aria-pressed="false"><ha-icon icon="mdi:account-group" aria-hidden="true"></ha-icon><span class="tab-label">Comunidad</span></button><button id="settings-view-logs" aria-label="Logs" aria-pressed="false"><ha-icon icon="mdi:format-list-group" aria-hidden="true"></ha-icon><span class="tab-label">Logs</span></button></nav></div>
       <div id="settings-error" class="notice error" role="alert" hidden></div>
       <div id="settings-status" class="notice" role="status" hidden></div>
       <p id="admin-help" hidden>Necesitas una cuenta administradora de Home Assistant para modificar estos ajustes.</p>
@@ -209,13 +196,7 @@ class ImprovedShoppingSettings extends HTMLElement {
         <div id="configured-lists" class="lists"></div>
         <p id="settings-empty" hidden>No hay listas añadidas. Añade una entidad todo para empezar.</p>
       </section>
-      <section id="settings-nutrition" class="card" aria-labelledby="nutrition-title" hidden>
-        <h2 id="nutrition-title">Nutri-Score del catálogo</h2>
-        <p>Distribución de los productos con Nutri-Score guardado. Cada producto cuenta una vez; los productos sin Nutri-Score no se incluyen.</p>
-        <p id="nutrition-status" role="status"></p>
-        <div id="nutrition-chart" role="group" hidden></div>
-        <p id="nutrition-total" hidden></p>
-      </section>
+
       <section id="settings-notifications" hidden><isl-notification-settings></isl-notification-settings></section>
       <section id="settings-appearance" class="card" aria-labelledby="settings-appearance-title" hidden>
         <h2 id="settings-appearance-title">Personalización</h2>
@@ -374,12 +355,12 @@ class ImprovedShoppingSettings extends HTMLElement {
     root.querySelector("#alcampo-dialog").addEventListener("close",()=>root.querySelector("isl-alcampo-settings")?.deactivate());
     root.querySelector("#alcampo-dialog").addEventListener("cancel",event=>{if(this._busy)event.preventDefault();});
     const alcampoError=document.createElement("div");alcampoError.id="alcampo-error";alcampoError.className="notice error";alcampoError.setAttribute("role","alert");alcampoError.hidden=true;root.querySelector("#alcampo-title").after(alcampoError);
-    for (const [id, view] of [["settings-view-lists", "lists"], ["settings-view-appearance", "appearance"], ["settings-view-community", "community"], ["settings-view-stores", "stores"], ["settings-view-logs", "logs"], ["settings-view-readers","readers"], ["settings-view-notifications","notifications"], ["settings-view-nutrition","nutrition"]]) {
+    for (const [id, view] of [["settings-view-lists", "lists"], ["settings-view-appearance", "appearance"], ["settings-view-community", "community"], ["settings-view-stores", "stores"], ["settings-view-logs", "logs"], ["settings-view-readers","readers"], ["settings-view-notifications","notifications"]]) {
       root.querySelector(`#${id}`).addEventListener("click", () => {
         this._view = view;
         if(view === "nutrition")this._nutritionKey=null;
         if(view !== 'community')root.querySelector('#community-authorization').close();
-        for (const section of ["lists", "appearance", "community", "stores", "logs", "readers", "notifications", "nutrition"]) {
+        for (const section of ["lists", "appearance", "community", "stores", "logs", "readers", "notifications"]) {
           root.querySelector(`#settings-${section}`).hidden = view !== section;
           root.querySelector(`#settings-view-${section}`).setAttribute("aria-pressed", String(view === section));
         }
@@ -415,56 +396,13 @@ class ImprovedShoppingSettings extends HTMLElement {
     });
   }
 
-  _renderNutrition() {
-    if(!this._built || !this._data || !this._active || this._view !== 'nutrition')return;
-    const root=this.shadowRoot, hass=this._data.hass;
-    const key=JSON.stringify((this._data.products ?? []).map(product=>[product.id,product.name,product.barcode,product.barcodes]));
-    if(!hass || (this._nutritionKey===key && this._nutritionConnection===hass.connection))return;
-    this._nutritionKey=key;this._nutritionConnection=hass.connection;
-    const token=this._nutritionToken={};
-    const status=root.querySelector('#nutrition-status'),chart=root.querySelector('#nutrition-chart'),total=root.querySelector('#nutrition-total');
-    status.hidden=false;status.textContent='Cargando Nutri-Score guardado…';chart.hidden=true;total.hidden=true;
-    void hass.callWS({type:'improved_shopping_list/catalog/nutrition_distribution'}).then(data=>{
-      if(token!==this._nutritionToken || !this.isConnected)return;
-      const entries=Object.entries(data.counts),count=data.total;
-      status.hidden=Boolean(count);
-      status.textContent=count ? '' : 'Todavía no hay productos con Nutri-Score guardado en el catálogo.';
-      chart.hidden=!count;total.hidden=!count;
-      total.textContent=count+' productos con Nutri-Score';
-      const colors={a:['#038141','#fff'],b:['#85bb2f','#182b22'],c:['#fecb02','#182b22'],d:['#ee8100','#182b22'],e:['#e63e11','#fff']};
-      const labels=[];
-      const expanded=new Set([...chart.querySelectorAll('details[open]')].map(group=>group.dataset.grade));
-      const products=new Map((this._data.products ?? []).map(product=>[product.id,product]));
-      chart.replaceChildren(...entries.map(([grade,value])=>{
-        const percentage=count ? value/count*100 : 0;
-        const label=grade.toUpperCase()+': '+value+' ('+percentage.toLocaleString('es',{maximumFractionDigits:1})+' %)';labels.push(label);
-        const group=document.createElement('details');group.className='nutrition-group';group.dataset.grade=grade;group.open=expanded.has(grade);
-        const row=document.createElement('summary');row.className='nutrition-row';row.dataset.grade=grade;row.setAttribute('aria-label','Nutri-Score '+label);
-        const letter=document.createElement('span');letter.className='nutrition-grade';letter.textContent=grade.toUpperCase();
-        letter.style.background=colors[grade][0];letter.style.color=colors[grade][1];
-        const track=document.createElement('div');track.className='nutrition-track';
-        const bar=document.createElement('div');bar.className='nutrition-bar';bar.style.width=percentage+'%';bar.style.background=colors[grade][0];track.append(bar);
-        const text=document.createElement('span');text.className='nutrition-value';text.textContent=value+' ('+percentage.toLocaleString('es',{maximumFractionDigits:1})+' %)';
-        const list=document.createElement('ul');list.className='nutrition-products';list.setAttribute('aria-label','Productos Nutri-Score '+grade.toUpperCase());
-        const members=(data.product_ids?.[grade] ?? []).map(id=>products.get(id)).filter(Boolean).sort((a,b)=>a.name.localeCompare(b.name,'es',{sensitivity:'base'}));
-        for(const product of members){const item=document.createElement('li');item.textContent=product.name;list.append(item);}
-        if(!value){const item=document.createElement('li');item.textContent='No hay productos con esta calificación.';list.append(item);}
-        row.append(letter,track,text);group.append(row,list);return group;
-      }));
-      chart.setAttribute('aria-label','Distribución Nutri-Score: '+labels.join('; '));
-    }).catch(()=>{
-      if(token!==this._nutritionToken || !this.isConnected)return;
-      status.hidden=false;status.textContent='No se ha podido cargar el Nutri-Score guardado. Vuelve a abrir esta vista para reintentarlo.';
-      this._nutritionKey=null;
-    });
-  }
 
   _render() {
     if (!this._built || !this._data) return;
     this.shadowRoot.querySelector("isl-notification-settings").data = this._data;
     this._syncLogs();
     this._syncReaders();
-    this._renderNutrition();
+
     const { hass, settings } = this._data;
     const root = this.shadowRoot;
     const admin = hass?.user?.is_admin === true;

@@ -349,7 +349,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
         .season-month.current { border-color:var(--primary-color,#267052); }
         .season-month-heading { display:flex; align-items:center; justify-content:space-between; gap:6px; margin-bottom:12px; }
         .season-month h3 { font-size:16px; margin:0; }
-        .season-month-add { display:grid; place-items:center; width:32px; min-height:32px; padding:0; }
+        .season-month-add { display:grid; place-items:center; width:32px; min-height:32px; padding:0; flex:none; }
         .season-month-products { display:flex; flex-wrap:wrap; gap:10px; }
         .season-product { display:flex; flex-direction:column; align-items:center; gap:5px; width:66px; padding:0; border:0; font-size:11px; overflow-wrap:anywhere; }
         .season-product:disabled { opacity:1; }
@@ -361,7 +361,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
         .season-month-options { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; margin:22px 0; border:1px solid var(--divider-color,#dfe7e1); border-radius:10px; padding:16px; }
         .season-month-options label { display:flex; align-items:center; gap:8px; font-size:14px; }
         .season-month-options input { width:18px; height:18px; margin:0; }
-        @media(max-width:650px) { .season-calendar { grid-template-columns:repeat(2,minmax(0,1fr)); } .season-month-options { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+        @media(max-width:650px) { .season-calendar { grid-template-columns:repeat(2,minmax(0,1fr)); } .season-month-heading { flex-wrap:wrap; } .season-month h3 { flex:1 0 100%; font-size:14px; } .season-month-add { margin-left:auto; } .season-month-options { grid-template-columns:repeat(2,minmax(0,1fr)); } }
       </style>
       <div class="heading"><h1>Catálogo</h1>
       <div class="catalog-toolbar">
@@ -452,7 +452,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
       </dialog>
       <dialog id="season-add-dialog" aria-labelledby="season-add-title">
         <form id="season-add-form"><h2 id="season-add-title">Añadir producto de temporada</h2>
-          <label class="season-product-label">Producto del catálogo<input id="season-product-search" type="search" list="season-product-options" autocomplete="off" required placeholder="Buscar producto"><datalist id="season-product-options"></datalist></label>
+          <label class="season-product-label">Producto del catálogo<input id="season-product-search" type="search" list="season-product-options" autocomplete="off" required placeholder="Buscar producto"></label><datalist id="season-product-options"></datalist>
           <fieldset class="season-month-options"><legend>Meses de temporada</legend></fieldset>
           <div id="season-add-error" class="notice error" role="alert" hidden></div>
           <div class="form-actions"><button id="season-save" class="primary" type="submit">Añadir</button></div>

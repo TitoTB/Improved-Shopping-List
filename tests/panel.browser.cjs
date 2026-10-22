@@ -2841,6 +2841,7 @@ async function main() {
     for(const width of [390,320]){
       await seasonPage.setViewportSize({width,height:844});
       assert.ok(await calendar.evaluate(node=>node.scrollWidth<=node.clientWidth+1));
+      assert.ok(await calendar.locator(".season-month-add").evaluateAll(buttons=>buttons.every(button=>button.getBoundingClientRect().width>=30)));
       await seasonPage.screenshot({path:'test-results/season-calendar-'+width+'.png',fullPage:true});
     }
     await calendar.getByRole('button',{name:'Cerrar ventana',exact:true}).click();

@@ -487,3 +487,6 @@ El límite inicial es 0: se avisa a partir de la primera propuesta si activas la
 
 
 En la vista de filas de Lista, cada producto muestra un único badge horizontal de cantidad: restar (`mdi:minus-thick`), cantidad con sus unidades y sumar (`mdi:plus-thick`). También muestra «1 uds» cuando corresponde, para poder ajustar la cantidad desde ese mismo control. El badge usa el color configurable del indicador de cantidad. Los botones respetan el paso del producto y los permisos, no marcan el producto como comprado y solo aparecen en filas; la cuadrícula conserva su triángulo de cantidad.
+
+
+Los pasos de revisión del ticket muestran en azul el paso actual y en verde los anteriores completados. Puedes pulsar un paso anterior, también con teclado, para volver a él conservando vinculaciones, cantidades y selección de precios. Los pasos posteriores se habilitan mediante Continuar y durante el guardado la navegación permanece bloqueada.

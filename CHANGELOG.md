@@ -2,6 +2,8 @@
 
 ## Pendiente de publicación
 
+- Revisión de tickets con paso actual azul, pasos completados verdes y navegación a pasos anteriores pulsando su cabecera, sin perder la revisión.
+
 - Asistente de tickets: pendientes primero y bloques plegados para productos vinculados o ya incluidos en Stock. Filas de stock compactas con cantidad, unidades e icono de selección naranja, sin precios ni textos de ayuda. Nuevos botones verdes para guardar vinculaciones o stock y cerrar; Continuar en azul.
 
 - Stock y Compras dejan de mostrar confirmaciones de éxito al guardar vinculaciones de tickets; conservan errores e indicadores de carga.

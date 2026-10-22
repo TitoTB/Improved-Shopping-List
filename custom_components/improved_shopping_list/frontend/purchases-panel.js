@@ -45,7 +45,7 @@ class ImprovedShoppingPurchases extends HTMLElement {
       dialog{position:fixed;inset:0;border:0;border-radius:18px;background:var(--card-background-color,#fff);color:inherit;width:min(900px,calc(100vw - 24px));max-height:90vh;padding:24px;overflow:auto}
       dialog::backdrop{background:#0008}h2{font-size:1.25rem;margin:0 40px 16px 0}.receipt-info{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px}
       #review-lines{display:grid;gap:12px}.review-line{padding:12px;background:var(--secondary-background-color,#f2f4f3);border-radius:10px}
-      #review-steps{list-style:none;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;padding:0;margin:16px 0}#review-steps li{padding:10px 6px;text-align:center;border-radius:8px;font-size:.85em;background:var(--secondary-background-color,#edf2ef)}#review-steps [aria-current=step]{background:#267052;color:white;font-weight:700}
+      #review-steps{list-style:none;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;padding:0;margin:16px 0}#review-steps button{width:100%;padding:10px 6px;border:0;text-align:center;border-radius:8px;font-size:.85em;background:var(--secondary-background-color,#edf2ef)}#review-steps button:disabled{opacity:1;cursor:default}#review-steps button:focus-visible{outline:3px solid var(--primary-color,#267052);outline-offset:2px}#review-steps [data-completed=true]{background:var(--isl-green,#267052);color:white}#review-steps [aria-current=step]{background:#2196f3;color:white;font-weight:700}
       #step-title{margin:18px 0 8px;font-size:1.05em}.association{display:flex;gap:8px;align-items:end}.association label{flex:1}.small-button{display:grid;place-items:center;flex:none;width:42px;height:42px;padding:0;border:0;border-radius:8px;background:var(--primary-color,#267052);color:white}.small-button.clear{background:transparent;color:inherit;border:1px solid var(--divider-color,#d9e0dd)}
       .actions{gap:8px;flex-wrap:wrap}.actions .secondary{background:transparent;color:inherit;border:1px solid var(--divider-color,#d9e0dd)}.previous-price{font-size:.85em;opacity:.7;margin:8px 0}.review-line .check{margin:10px 0}.stock-fields{display:grid;grid-template-columns:minmax(0,2fr) minmax(80px,1fr);gap:10px}.review-summary{line-height:1.6;padding:12px;border-radius:8px;background:var(--secondary-background-color,#edf2ef)}
       .original{display:flex;justify-content:space-between;gap:12px;margin-bottom:10px}.fields{display:grid;grid-template-columns:minmax(0,2fr) minmax(100px,1fr);gap:10px}
@@ -66,7 +66,7 @@ class ImprovedShoppingPurchases extends HTMLElement {
     <input id="ticket-file" type="file" accept="application/pdf,.pdf" hidden>
     <p id="message" class="notice" role="status" hidden></p><div id="history"></div><p id="empty" class="empty" hidden>Todavía no has subido ningún ticket.</p>
     <dialog aria-labelledby="review-title"><form id="review-form"><h2 id="review-title">Revisar ticket</h2><div id="review-summary" class="receipt-info"></div>
-      <ol id="review-steps"><li>1. Vinculación</li><li>2. Stock</li><li>3. Precios</li></ol><h3 id="step-title"></h3><p id="step-help" class="note"></p>
+      <ol id="review-steps" aria-label="Pasos de revisión del ticket"><li><button type="button">1. Vinculación</button></li><li><button type="button">2. Stock</button></li><li><button type="button">3. Precios</button></li></ol><h3 id="step-title"></h3><p id="step-help" class="note"></p>
       <div id="review-lines"></div><div id="review-result" class="review-summary" hidden></div>
       <p id="review-error" class="notice error" role="alert" hidden></p><div class="actions"><button id="previous-step" class="secondary" type="button">Anterior</button><button id="links-only" type="button">Guardar vinculaciones y cerrar</button><button id="stock-only" type="button" hidden>Añadir stock y cerrar</button><button id="confirm-ticket" type="submit">Continuar</button></div>
     </form></dialog>
@@ -80,7 +80,8 @@ class ImprovedShoppingPurchases extends HTMLElement {
     const root=this.shadowRoot,dialog=root.querySelector('dialog');
     root.querySelector('#ticket-file').addEventListener('change',event=>{const file=event.target.files[0];event.target.value='';if(file)void this._upload(file);});
     root.querySelector('#review-form').addEventListener('submit',event=>{event.preventDefault();void this._advance();});
-    root.querySelector('#previous-step').addEventListener('click',()=>{if(!this._busy){this._step--;root.querySelector('#review-error').hidden=true;this._renderStep();}});
+    root.querySelector('#previous-step').addEventListener('click',()=>this._goToStep(this._step-1));
+    root.querySelectorAll('#review-steps button').forEach((button,index)=>button.addEventListener('click',()=>this._goToStep(index)));
     root.querySelector('#links-only').addEventListener('click',()=>void this._saveLinks(true));
     root.querySelector('#stock-only').addEventListener('click',()=>void this._confirm(false));
     dialog.addEventListener('cancel',event=>{if(this._busy)event.preventDefault();});
@@ -146,10 +147,17 @@ class ImprovedShoppingPurchases extends HTMLElement {
     if(changed){edit.unit=product?.unit??'uds';edit.quantity=product?this._quantity(edit.line,edit.unit):null;edit.replenish=Boolean(product?.stock_id);edit.purchase_id=null;}
     this._errorMessage('');return true;
   }
+  _goToStep(step){
+    if(this._busy||!this._draft||!Number.isInteger(step)||step<0||step>=this._step)return;
+    this._step=step;this._errorMessage('');this._renderStep();
+  }
   _renderStep(){
     if(!this._draft)return;
     const root=this.shadowRoot,step=this._step;
-    root.querySelectorAll('#review-steps li').forEach((li,index)=>{if(index===step)li.setAttribute('aria-current','step');else li.removeAttribute('aria-current');});
+    root.querySelectorAll('#review-steps button').forEach((button,index)=>{
+      if(index===step)button.setAttribute('aria-current','step');else button.removeAttribute('aria-current');
+      button.dataset.completed=String(index<step);button.dataset.locked=String(index>=step);button.disabled=this._busy||index>=step;
+    });
     root.querySelector('#step-title').hidden=step!==2;
     root.querySelector('#step-title').textContent=step===2?'Actualizar precios':'';
     root.querySelector('#step-help').textContent=[

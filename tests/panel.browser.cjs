@@ -2412,7 +2412,7 @@ async function main() {
     const purchaseContext=await browser.newContext({viewport:{width:390,height:844}});
     const purchasePage=await purchaseContext.newPage();purchasePage.on('pageerror',error=>errors.push(error.message));
     await purchasePage.goto(url);await purchasePage.getByRole('button',{name:'Stock',exact:true}).click();
-    await purchasePage.getByRole('tab',{name:'Últimas compras',exact:true}).click();
+    await purchasePage.getByRole('tab',{name:'Compras',exact:true}).click();
     const purchases=purchasePage.locator('isl-purchases');
     await purchases.getByText('Todavía no has subido ningún ticket.',{exact:true}).waitFor();
     assert.equal(await purchasePage.locator('#list-controls').isVisible(),false);
@@ -2478,7 +2478,7 @@ async function main() {
     await purchases.locator('#ticket-file').setInputFiles(ticketFile);
     await purchases.getByText('Este ticket ya se ha importado.',{exact:true}).waitFor();
     await purchasePage.reload();await purchasePage.getByRole('button',{name:'Stock',exact:true}).click();
-    await purchasePage.getByRole('tab',{name:'Últimas compras',exact:true}).click();
+    await purchasePage.getByRole('tab',{name:'Compras',exact:true}).click();
     await purchases.locator('summary').waitFor();
     await purchasePage.getByRole('tab',{name:'Stock',exact:true}).click();
     assert.equal(await purchasePage.locator('#list-controls').isVisible(),false);

@@ -54,7 +54,7 @@ actualización puesta en cola de una petición de precio que ya ha comenzado.
 
 ## Qué puedes hacer
 
-Stock incluye las vistas **Stock** y **Últimas compras**, con un botón para subir tickets
+Stock incluye las vistas **Stock** y **Compras**, con un botón para subir tickets
 PDF electrónicos de Carrefour (hasta 2 MB y 10 páginas). El documento se lee localmente;
 los escaneos y otros formatos de tienda todavía no están disponibles. El popup guía
 la revisión en tres pasos: **Vinculación**, **Stock** y **Precios**. Primero permite
@@ -74,7 +74,7 @@ y se muestra un resumen antes de confirmar la compra. Las cantidades y el histor
 no cambian hasta esta confirmación final; las vinculaciones del primer paso se conservan
 aunque se cierre la revisión después.
 
-Últimas compras conserva fecha, tienda, importe, descuentos generales y detalle de
+Compras conserva fecha, tienda, importe, descuentos generales y detalle de
 los tickets confirmados. Subir o cerrar la revisión no modifica el stock. Al confirmar,
 el historial y las cantidades se guardan juntos y se detectan tickets duplicados. Si ya
 se registró una reposición al marcar el producto como comprado, se puede seleccionarla
@@ -384,11 +384,11 @@ del producto ni provoca consultas repetidas al abrir la interfaz.
 ## Stock de la despensa
 
 **Stock** (`mdi:package-variant`) guarda un inventario común en Home Assistant,
-independiente de las listas de compra. Las pestañas Stock y Últimas compras aparecen
+independiente de las listas de compra. Las pestañas Stock y Compras aparecen
 a la izquierda y los controles de la vista a la derecha en la misma fila, sin título
 adicional. Stock conserva la ordenación, el selector de lista y el cambio de vista;
 el botón **+** abre un popup para añadir manualmente un nombre o elegir uno del catálogo,
-sin buscador permanente. Subir ticket aparece únicamente en Últimas compras.
+sin buscador permanente. Subir ticket aparece únicamente en Compras.
 Las cantidades no bajan de cero. Cada tarjeta utiliza la imagen o
 icono del catálogo cuando existe y un degradado naranja. Los controles rápidos
 para sumar o restar aparecen solo en filas. Se puede alternar entre cuadrícula y filas; la cuadrícula utiliza

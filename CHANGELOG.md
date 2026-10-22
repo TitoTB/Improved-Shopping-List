@@ -2,6 +2,8 @@
 
 ## Pendiente de publicación
 
+- Stock: «Últimas compras» pasa a llamarse «Compras». Los botones de añadir producto y subir ticket usan el mismo fondo verde que el botón de añadir de Lista.
+
 - Nutri-Score pasa de criterio de agrupación del catálogo a una vista de Ajustes con gráfica A–E, recuentos y porcentajes. Solo incluye productos con datos guardados, cuenta cada ficha una vez y no genera consultas externas al abrirse.
 
 - Nueva vista Ajustes → Notificaciones: destinos múltiples, título y mensaje personalizables para listas que superen un número de productos pendientes y para productos con stock bajo.

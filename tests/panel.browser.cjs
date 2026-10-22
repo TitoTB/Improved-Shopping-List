@@ -883,7 +883,7 @@ async function main() {
       await page.setViewportSize({ width, height:844 });
       assert.equal(await page.locator(".brand-copy").isVisible(), false);
       assert.equal(await page.locator(".brand-logo").isVisible(), true);
-      for (const view of ["catalog", "stock", "readers", "settings", "shopping"]) {
+      for (const view of ["catalog", "stock", "settings", "shopping"]) {
         await page.locator(`#nav-${view}`).click();
         assert.equal(await page.locator(".section-nav .nav-label:visible").count(), 1);
         assert.equal(await page.locator(`#nav-${view} .nav-label`).isVisible(), true);

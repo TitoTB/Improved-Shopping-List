@@ -390,7 +390,7 @@ async function main() {
       };
       visit(document);
       return dialogs.filter(dialog => dialog.querySelectorAll(".isl-dialog-close[aria-label='Cerrar ventana']").length === 1).length;
-    }), 23);
+    }), 24);
     await page.getByRole("button", { name: "Seleccionar lista", exact: true }).click();
     const listDialog = page.getByRole("dialog", { name: "Seleccionar lista", exact: true });
     assert.equal(await listDialog.getByRole("button", { name: "Compra · Bring!", exact: true }).getAttribute("aria-pressed"), "true");
@@ -1414,11 +1414,34 @@ async function main() {
     }
     const sharing=settingsView.getByLabel('Compartir mis datos de productos',{exact:true});
     assert.equal(await sharing.isChecked(),false);
+    await settingsPage.context().route('https://github.com/login/device',route=>route.fulfill({contentType:'text/html',body:'<title>GitHub authorization</title>'}));
+    const githubPopup=settingsPage.waitForEvent('popup');
     await settingsView.locator('.community-share span').click();
+    const githubPage=await githubPopup;
+    await githubPage.waitForURL('https://github.com/login/device');
+    assert.equal(await githubPage.evaluate(()=>window.opener===null),true);
+    await githubPage.close();
+    const communityDialog=settingsView.getByRole('dialog',{name:'Autorizar en GitHub',exact:true});
+    await communityDialog.waitFor();
     await settingsView.getByText('ABCD-EFGH',{exact:true}).waitFor();
     const authorize=settingsView.getByRole('link',{name:'Autorizar en GitHub',exact:true});
     assert.equal(await authorize.getAttribute('href'),'https://github.com/login/device');
     assert.equal(await authorize.getAttribute('target'),'_blank');
+    assert.equal(await settingsView.locator('#community-connection').isVisible(),false);
+    await settingsPage.screenshot({path:'test-results/community-authorization-mobile.png',fullPage:true});
+    await communityDialog.getByRole('button',{name:'Cerrar ventana',exact:true}).click();
+    await settingsPage.evaluate(()=>window.testPanel.shadowRoot.querySelector('isl-settings')._renderCommunity());
+    assert.equal(await communityDialog.isVisible(),false);
+    const reopenGithub=settingsPage.waitForEvent('popup');
+    await settingsView.getByRole('button',{name:'Ver autorización',exact:true}).click();
+    const reopened=await reopenGithub;await reopened.close();
+    await communityDialog.waitFor();
+    await settingsPage.evaluate(()=>{
+      window.communityFixture={sharing:true,connected:true,account:'tester',authorization:null};
+      const settings=window.testPanel.shadowRoot.querySelector('isl-settings');
+      settings._communityState=window.communityFixture;settings._renderCommunity();
+    });
+    await communityDialog.waitFor({state:'hidden'});
     await sharing.uncheck();
     await settingsView.locator('#community-authorization').waitFor({state:'hidden'});
     assert.equal(await settingsPage.evaluate(()=>window.communityFixture.sharing),false);

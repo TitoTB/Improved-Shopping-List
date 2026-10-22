@@ -21,7 +21,7 @@ class ImprovedShoppingSettings extends HTMLElement {
 
   set data(value) { this._data = value; this._render(); }
 
-  set active(value) { this._active = Boolean(value); this._syncLogs(); }
+  set active(value) { this._active = Boolean(value); if(!this._active)this.shadowRoot.querySelector('#community-authorization')?.close(); this._syncLogs(); }
 
   _syncLogs() {
     const logs = this.shadowRoot.querySelector("isl-logs");
@@ -44,6 +44,7 @@ class ImprovedShoppingSettings extends HTMLElement {
     this.shadowRoot.querySelector("#price-schedule-dialog")?.close();
     this._priceStatusToken = null; this._priceStatusConnection = null; this._stopPriceStatus?.(); this._stopPriceStatus = null;
     clearTimeout(this._communityTimer); this._communityGeneration = (this._communityGeneration || 0) + 1;
+    this.shadowRoot.querySelector('#community-authorization')?.close();
     this._productsLoading = false; this._productsGeneration = (this._productsGeneration || 0) + 1;
     this._carrefourGeneration = (this._carrefourGeneration || 0) + 1; this._carrefourLoading = false; this._alcampoGeneration = (this._alcampoGeneration || 0) + 1;
     this.shadowRoot.querySelector("#alcampo-dialog")?.close(); this.shadowRoot.querySelector("#carrefour-dialog")?.close(); this.shadowRoot.querySelector("#store-dialog")?.close();
@@ -237,7 +238,16 @@ class ImprovedShoppingSettings extends HTMLElement {
         </div>
         <div class="community-sharing">
           <p id="community-connection" role="status"></p>
-          <div id="community-authorization" hidden><p>Abre GitHub e introduce este código: <strong id="community-user-code"></strong></p><a href="https://github.com/login/device" target="_blank" rel="noopener noreferrer">Autorizar en GitHub</a></div>
+          <dialog id="community-authorization" aria-labelledby="community-auth-title">
+            <h2 id="community-auth-title">Autorizar en GitHub</h2>
+            <p id="community-auth-status" role="status"></p>
+            <div id="community-auth-fields" hidden>
+              <p>Introduce este código en GitHub: <strong id="community-user-code"></strong></p>
+              <p>Confirma la autorización de la aplicación en GitHub. La espera no se completa sola: después de autorizarla, Home Assistant lo detectará y enviará el catálogo si corresponde.</p>
+              <p>GitHub se abre en otra pestaña. Si tu navegador lo ha bloqueado o necesitas abrirlo de nuevo:</p>
+              <a href="https://github.com/login/device" target="_blank" rel="noopener noreferrer">Autorizar en GitHub</a>
+            </div>
+          </dialog>
           <button id="community-connect" type="button" hidden>Conectar con GitHub</button>
         </div>
         <div class="community-export"><p>Este proyecto ha sido desarrollado por la <a href="https://t.me/aguacatec_es/3" target="_blank" rel="noopener noreferrer">comunidad de Aguacatec</a>. Si tienes cualquier duda o sugerencia para mejorar la integración puedes unirte a través de Telegram.</p><a class="community-action community-join" href="https://t.me/aguacatec_es/3" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 496 512" aria-hidden="true" focusable="false"><!--! Font Awesome Free 6.7.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2024 Fonticons, Inc. --><path d="M248,8C111.033,8,0,119.033,0,256S111.033,504,248,504,496,392.967,496,256,384.967,8,248,8ZM362.952,176.66c-3.732,39.215-19.881,134.378-28.1,178.3-3.476,18.584-10.322,24.816-16.948,25.425-14.4,1.326-25.338-9.517-39.287-18.661-21.827-14.308-34.158-23.215-55.346-37.177-24.485-16.135-8.612-25,5.342-39.5,3.652-3.793,67.107-61.51,68.335-66.746.153-.655.3-3.1-1.154-4.384s-3.59-.849-5.135-.5q-3.283.746-104.608,69.142-14.845,10.194-26.894,9.934c-8.855-.191-25.888-5.006-38.551-9.123-15.531-5.048-27.875-7.717-26.8-16.291q.84-6.7,18.45-13.7,108.446-47.248,144.628-62.3c68.872-28.647,83.183-33.623,92.511-33.789,2.052-.034,6.639.474,9.61,2.885a10.452,10.452,0,0,1,3.53,6.716A43.765,43.765,0,0,1,362.952,176.66Z"/></svg>Unirme a la comunidad</a></div>
@@ -278,6 +288,7 @@ class ImprovedShoppingSettings extends HTMLElement {
     for (const [id, view] of [["settings-view-lists", "lists"], ["settings-view-appearance", "appearance"], ["settings-view-community", "community"], ["settings-view-stores", "stores"], ["settings-view-logs", "logs"]]) {
       root.querySelector(`#${id}`).addEventListener("click", () => {
         this._view = view;
+        if(view !== 'community')root.querySelector('#community-authorization').close();
         for (const section of ["lists", "appearance", "community", "stores", "logs"]) {
           root.querySelector(`#settings-${section}`).hidden = view !== section;
           root.querySelector(`#settings-view-${section}`).setAttribute("aria-pressed", String(view === section));
@@ -711,10 +722,19 @@ class ImprovedShoppingSettings extends HTMLElement {
     root.querySelector("#community-sharing").disabled=!admin || Boolean(this._communityBusy);
     if(state){
       root.querySelector("#community-sharing").checked=Boolean(state.sharing);
-      root.querySelector("#community-authorization").hidden=!state.authorization;
+      const authorization=state.authorization, dialog=root.querySelector('#community-authorization');
+      root.querySelector('#community-auth-fields').hidden=!authorization;
+      root.querySelector('#community-auth-status').textContent=this._communityError || state.error || (authorization ? 'Completa la autorización en la pestaña de GitHub.' : 'La autorización no se ha completado. Cierra esta ventana y vuelve a conectar con GitHub.');
       root.querySelector("#community-user-code").textContent=state.authorization?.user_code ?? "";
-      root.querySelector("#community-connect").hidden=!state.sharing || state.connected || Boolean(state.authorization);
+      if(authorization && this._view === 'community' && !this.hidden && this.isConnected && this._communityShownCode !== authorization.user_code){
+        this._communityShownCode=authorization.user_code;
+        if(!dialog.open)dialog.showModal();
+      }
+      if(!authorization && (state.connected || !state.sharing))dialog.close();
+      root.querySelector("#community-connect").hidden=!state.sharing || state.connected;
+      root.querySelector("#community-connect").textContent=authorization ? 'Ver autorización' : 'Conectar con GitHub';
       root.querySelector("#community-connect").disabled=!admin || Boolean(this._communityBusy);
+      root.querySelector("#community-connection").hidden=Boolean(authorization);
       root.querySelector("#community-connection").textContent=this._communityError || state.error || (state.authorization ? "Esperando autorización de GitHub…" : state.connected ? `Conectado como ${state.account}. Sincronización automática cada 24 horas.` : state.sharing ? "Conecta con GitHub para completar la activación." : "Compartir está desactivado. La consulta del diccionario no requiere una cuenta.");
     }
     if(this.isConnected && this._view === "community" && admin && !this._communityTimer && !this._communityLoading){
@@ -735,6 +755,11 @@ class ImprovedShoppingSettings extends HTMLElement {
 
   async _setCommunity(enabled) {
     if(this._communityBusy || this._data?.hass?.user?.is_admin !== true)return;
+    if(enabled && !this._communityState?.connected){
+      // Open during the click, before awaiting the API, so browsers retain user activation.
+      window.open('https://github.com/login/device','_blank','noopener,noreferrer');
+      this._communityShownCode=null;
+    }
     this._communityGeneration=(this._communityGeneration || 0)+1;
     this._communityError="";
     this._communityBusy=true; this._renderCommunity();

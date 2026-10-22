@@ -360,7 +360,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
         @media(max-width:360px) { #stock-actions { gap:3px; } #stock-actions .icon-button { width:32px; flex-basis:32px; } #stock-actions .icon-button ha-icon { --mdc-icon-size:20px; } }
         @media(max-width:380px) { header { gap:4px; padding:10px 8px; }.brand-logo { width:32px; height:32px; }.menu { width:36px; padding:6px; }.section-nav button { min-width:28px; padding:10px 4px; gap:3px; font-size:12px; }.section-nav ha-icon { --mdc-icon-size:18px; } }
         #analytics-heading { display:flex;align-items:center;gap:12px;margin-bottom:22px;flex-wrap:wrap; } #analytics-heading[hidden] { display:none; } #analytics-heading nav { margin-left:auto; }
-        @media(max-width:650px){#analytics-heading .stock-tabs [aria-selected=false] span{display:none;}header{flex-wrap:wrap}.section-nav{max-width:100%}}
+        @media(max-width:650px){#analytics-heading .stock-tabs [aria-selected=false] span{display:none;}.section-nav{max-width:100%}.section-nav button{min-width:28px;padding:10px 4px;font-size:12px}}
       </style>
       <header>
         <button class="menu" aria-label="Abrir menú de Home Assistant"><ha-icon icon="mdi:menu"></ha-icon></button>

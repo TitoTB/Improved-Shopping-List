@@ -1920,7 +1920,7 @@ async function main() {
     await listGroupsPage.locator('#completed-summary').click();
     assert.deepEqual(await listGroupsPage.locator('#completed .product-group-heading').allTextContents(),['Despensa']);
     await listGroupsPage.getByRole('button',{name:'Marcar como comprado: Cacao',exact:true}).click();
-    await listGroupsPage.locator('#completed .summary').filter({hasText:'Cacao'}).waitFor();
+    await listGroupsPage.locator('#completed .summary').filter({hasText:'Cacao'}).waitFor({state:'attached'});
     assert.deepEqual(await listGroupsPage.locator('#completed .summary').allTextContents(),['Arroz','Cacao']);
     await listGroupsPage.getByRole('button',{name:'Cambiar a vista de filas',exact:true}).click();
     assert.equal(await listGroupsPage.locator('#pending .product-group > ul.rows').count(),3);

@@ -3572,7 +3572,7 @@ async function main() {
     await login.getByLabel('Código de verificación',{exact:true}).fill('123456');
     await login.getByRole('button',{name:'Verificar',exact:true}).click();
     await login.getByRole('button',{name:'Desconectar cuenta',exact:true}).waitFor();
-    await accountPage.waitForFunction(()=>window.calls.some(call=>call.type==='improved_shopping_list/carrefour_account/sync_history'));
+    await accountPage.waitForFunction(()=>window.receiptHistory.length===2);
     assert.equal(await accountPage.evaluate(()=>window.receiptHistory.length),2);
     await accountPage.screenshot({path:'test-results/carrefour-account-login-mobile.png',fullPage:true});
     assert.ok(await login.evaluate(el=>el.scrollWidth<=el.clientWidth+1));

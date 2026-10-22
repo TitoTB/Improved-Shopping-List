@@ -67,6 +67,8 @@ class ReceiptManager:
             for purchase in purchases:
                 key = self._account_key(purchase["purchaseId"])
                 when = dt_util.parse_datetime(purchase["purchaseDate"])
+                if when.tzinfo is None:
+                    when = when.replace(tzinfo=dt_util.DEFAULT_TIME_ZONE)
                 receipt = {"id":"carrefour-account:"+key,"digest":"carrefour-account:"+key,"account_key":key,
                     "summary_only":True,"store":"carrefour","store_name":"Carrefour",
                     "purchased_at":dt_util.as_local(when).isoformat(),"currency":"EUR","total":purchase["amount"],

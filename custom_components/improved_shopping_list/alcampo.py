@@ -300,6 +300,7 @@ class AlcampoManager:
                     if offer and offer.get("ean") == ean:
                         if await self.catalog.async_bind_alcampo(product["id"], ean, normalize_link("alcampo", identifier)):
                             await self._remember(offer)
+                            self._data["due"][product["id"]+":"+identifier] = time.time()+self._data["days"]*DAY
                             self.activity.record("stores.matched", "Alcampo: producto vinculado por EAN exacto",
                                 source="integration", product=product["name"], code=ean,
                                 diagnostics={"reference_id":identifier})

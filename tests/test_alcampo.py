@@ -184,3 +184,16 @@ def test_linked_commercial_names_use_only_official_product_slugs():
         "alcampo":normalize_link("alcampo","10739"),"consum":normalize_link("consum","123")}}
     assert linked_commercial_names(product) == ["anacardo crudo original carrefour 200 g"]
     assert linked_commercial_names({"store_links":{"carrefour":normalize_link("carrefour","R-prod123")}}) == []
+
+
+async def test_new_match_does_not_immediately_fetch_the_same_price_again(env):
+    manager=env.manager
+    await manager.async_options({"search_enabled":True,"refresh_enabled":True,"days":30})
+    manager._active=True
+    await manager.async_tick()
+    env.clock[0]+=REQUEST_INTERVAL
+    await manager.async_tick()
+    assert manager._fetch.await_count == 1
+    env.clock[0]+=REQUEST_INTERVAL
+    await manager.async_tick()
+    assert manager._fetch.await_count == 1

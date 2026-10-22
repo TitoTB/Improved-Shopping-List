@@ -260,7 +260,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
         .tag { padding:2px 5px; border-radius:20px; font-size:clamp(7px,4cqi,11px); background:var(--secondary-background-color,#edf4ee); max-width:100%; overflow-wrap:anywhere; }
         .description { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; overflow:hidden; color:var(--secondary-text-color,#63766b); font-size:clamp(7px,4cqi,12px); white-space:pre-wrap; }
         @container(max-width:140px) { .item .subtitle,.item .description,.item .tags { display:none; } .item .summary { -webkit-line-clamp:2; } }
-        .completed .summary { text-decoration:line-through; color:inherit; }
+        .completed .summary { text-decoration:none; color:inherit; }
         .row-meta { display:none; }
         .quantity-corner { position:absolute; top:0; left:0; width:clamp(32px,34cqi,100px); aspect-ratio:1; clip-path:polygon(0 0,100% 0,0 100%); background:var(--isl-quantity-color,#267052); color:#fff; text-align:left; }
         .quantity-corner span { position:absolute; top:7%; left:7%; max-width:72%; font-size:clamp(7px,5cqi,14px); font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; line-height:1.2; }

@@ -2,6 +2,8 @@
 
 ## Pendiente de publicación
 
+- Lista muestra los nombres de Compras recientes sin tachado, tanto en cuadrícula como en filas.
+
 - El mismo asistente PDF admite facturas online de Carrefour: EAN, cantidades, PVP unitario antes de promociones, descuentos por línea y envío separado. Vinculación por EAN ya registrado en el catálogo, revisión manual del resto y comprobación de totales. El PDF original y los datos de cliente o pago no se conservan.
 
 ## 0.29.0 — 2026-10-22

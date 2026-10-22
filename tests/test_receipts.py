@@ -12,6 +12,7 @@ import pytest
 from pypdf import PdfWriter
 from pypdf.generic import DictionaryObject, NameObject, DecodedStreamObject
 from pytest_homeassistant_custom_component.common import MockConfigEntry
+from homeassistant.util import dt as dt_util
 
 from custom_components.improved_shopping_list.catalog import Catalog, CatalogError
 from custom_components.improved_shopping_list.const import DOMAIN, CONF_TODO_ENTITY
@@ -21,7 +22,7 @@ from custom_components.improved_shopping_list.stock import StockManager
 
 
 def receipt_text():
-    date = (datetime.now()-timedelta(hours=2)).strftime('%d/%m/%Y %H:%M:%S')
+    date = (dt_util.now()-timedelta(hours=2)).strftime('%d/%m/%Y %H:%M:%S')
     return f'''Centros Comerciales Carrefour S.A
 SEITAN 250 G 2,65
 FLAUTIN CEREALES

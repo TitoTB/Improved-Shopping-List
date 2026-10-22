@@ -929,14 +929,12 @@ async function main() {
             assert.equal(await catalog.locator(".catalog-tabs .tab-label:visible").count(),1);
             assert.equal(await catalog.locator(`#view-${tab} .tab-label`).isVisible(),true);
             assert.equal(await catalog.locator(".catalog-tabs ha-icon:visible").count(),4);
-            assert.ok(await catalog.locator(".catalog-toolbar").evaluate(toolbar=>{
+            const tabLayout = await catalog.locator(".catalog-toolbar").evaluate(toolbar=>{
               const tabs=toolbar.querySelector(".catalog-tabs");
               const bounds=toolbar.getBoundingClientRect();
-              return tabs.scrollWidth<=tabs.clientWidth+1 && [...toolbar.querySelectorAll("button")].filter(button=>button.getClientRects().length).every(button=>{
-                const rect=button.getBoundingClientRect();
-                return rect.left>=bounds.left && rect.right<=bounds.right+1;
-              });
-            }),`Compact catalog tabs fit at ${width}px with ${tab} active`);
+              return {scroll:tabs.scrollWidth,client:tabs.clientWidth,left:bounds.left,right:bounds.right,buttons:[...toolbar.querySelectorAll("button")].filter(button=>button.getClientRects().length).map(button=>{const rect=button.getBoundingClientRect();return {id:button.id,left:rect.left,right:rect.right};})};
+            });
+            assert.ok(tabLayout.scroll<=tabLayout.client+1 && tabLayout.buttons.every(button=>button.left>=tabLayout.left-1 && button.right<=tabLayout.right+1),`Compact catalog tabs fit at ${width}px with ${tab} active: ${JSON.stringify(tabLayout)}`);
           }
           await catalog.locator("#view-products").click();
         }

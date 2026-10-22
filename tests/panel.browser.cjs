@@ -3157,14 +3157,14 @@ async function main() {
     const groupEditor=recipeCatalog.locator('#recommendation-category-editor'),groupDialog=groupEditor.getByRole('dialog',{name:'Nueva categoría de sugerencias',exact:true});
     await groupDialog.getByLabel('Nombre de la categoría',{exact:true}).fill('Menús');await groupDialog.getByLabel('Receta · Almuerzo',{exact:true}).check();
     await groupDialog.getByRole('button',{name:'Guardar categoría',exact:true}).click();await groupDialog.waitFor({state:'hidden'});
-    assert.equal(await recipeCatalog.locator('.recommendation-products .recipe-card').count(),1);
+    assert.equal(await recipeCatalog.locator('.recommendation-products .recipe-card').count(),0);
     await recipeCatalog.getByRole('button',{name:'Productos de temporada',exact:true}).click();
     await recipeCatalog.getByRole('button',{name:'Añadir producto a Enero',exact:true}).click();
     const seasonRecipe=recipeCatalog.locator('#season-add-dialog');await seasonRecipe.getByLabel('Producto o receta del catálogo',{exact:true}).fill('Receta · Almuerzo');
     const recipeMonth=await recipeCatalog.evaluate(node=>node._seasonMonth());await seasonRecipe.locator('input[name=season_month][value="'+recipeMonth+'"]').check();
     await seasonRecipe.getByRole('button',{name:'Añadir',exact:true}).click();await seasonRecipe.waitFor({state:'hidden'});
     await recipeCatalog.locator('#season-calendar-dialog').getByRole('button',{name:'Cerrar ventana',exact:true}).click();
-    assert.equal(await recipeCatalog.locator('#season-current-products .recipe-card').count(),1);
+    assert.equal(await recipeCatalog.locator('#season-current-products .recipe-card').count(),0);
     await recipePage.getByRole('button',{name:'Ajustes',exact:true}).click();const recipeSettings=recipePage.locator('isl-settings');
     await recipeSettings.getByRole('button',{name:'Personalización',exact:true}).click();await recipeSettings.getByLabel('Color inicial de Recetas',{exact:true}).fill('#a5d6a7');
     await recipeSettings.getByLabel('Color final de Recetas',{exact:true}).fill('#1b5e20');await recipeSettings.getByRole('button',{name:'Guardar personalización',exact:true}).click();
@@ -3203,7 +3203,8 @@ async function main() {
     await seasonForm.waitFor({state:'hidden'});
     await calendar.locator('.season-month[data-month="1"] .season-product').waitFor();
     assert.equal(await calendar.locator('.season-month[data-month="1"] .season-product').evaluate(node=>getComputedStyle(node).backgroundColor),'rgb(38, 112, 82)');
-    assert.equal(await calendar.locator('.season-month[data-month="1"] .season-product').evaluate(node=>node.firstElementChild.textContent),'Fresas');
+    assert.equal(await calendar.locator('.season-month[data-month="1"] .season-product').evaluate(node=>node.lastElementChild.textContent),'Fresas');
+    assert.equal(await calendar.locator('.season-month[data-month="1"] .season-product-circle').evaluate(node=>node.getBoundingClientRect().width),14);
     assert.equal(await calendar.locator('#season-delete-mode').textContent(),'');
     await calendar.getByRole('button',{name:'Eliminar productos',exact:true}).click();
     assert.equal(await calendar.locator('.season-month[data-month="1"] .season-product').evaluate(node=>getComputedStyle(node).backgroundColor),'rgb(211, 47, 47)');
@@ -3215,9 +3216,11 @@ async function main() {
     // Add the current month again in case the browser date happens to be January.
     await seasonPage.evaluate(async month=>window.testPanel._hass.callWS({type:'improved_shopping_list/catalog/season_months',product_id:'season-0',months:[month],enabled:true}),currentMonth);
     await calendar.getByRole('button',{name:'Cerrar ventana',exact:true}).click();
-    await seasonCatalog.locator('#season-current-products .product').waitFor();
-    await seasonCatalog.locator('#season-current-products').getByRole('button',{name:'Añadir Fresas a la lista',exact:true}).click();
+    assert.equal(await seasonCatalog.locator('#recommendations-view .product,#recommendations-view .recipe-card').count(),0);
+    await seasonCatalog.getByRole('button',{name:'Productos',exact:true}).click();
+    await seasonCatalog.locator('#catalog-grid').getByRole('button',{name:'Añadir Fresas a la lista',exact:true}).click();
     await seasonPage.waitForFunction(()=>window.listData['todo.bring'].some(item=>item.summary==='Fresas'));
+    await seasonCatalog.getByRole('button',{name:'Sugerencias',exact:true}).click();
     await seasonCatalog.getByRole('button',{name:'Productos de temporada',exact:true}).click();
     await seasonPage.screenshot({path:'test-results/season-calendar-desktop.png',fullPage:true});
     for(const width of [390,320]){
@@ -3250,7 +3253,7 @@ async function main() {
     await recommendationDialog.waitFor({state:'hidden'});
     await seasonCatalog.getByRole('button',{name:'Editar categoría de sugerencias Para cocinar',exact:true}).waitFor();
     assert.equal(await seasonCatalog.locator('.recommendation-icon').evaluate(node=>getComputedStyle(node).backgroundColor),'rgb(142, 68, 173)');
-    assert.equal(await seasonCatalog.locator('.recommendation-products .product').count(),2);
+    assert.equal(await seasonCatalog.locator('#recommendations-view .product').count(),0);
     await seasonPage.reload();
     await seasonPage.getByRole('button',{name:'Catálogo',exact:true}).click();
     await seasonCatalog.locator('#catalog-grid .category-group').nth(1).waitFor();
@@ -3265,7 +3268,7 @@ async function main() {
     await editRecommendation.getByLabel('Nombre de la categoría',{exact:true}).fill('Postres');
     await editRecommendation.getByRole('button',{name:'Guardar categoría',exact:true}).click();
     await editRecommendation.waitFor({state:'hidden'});
-    assert.equal(await seasonCatalog.locator('.recommendation-products .product').count(),1);
+    assert.equal(await seasonCatalog.locator('#recommendations-view .product').count(),0);
     await seasonPage.screenshot({path:'test-results/recommendation-categories-mobile.png',fullPage:true});
     await seasonCatalog.getByRole('button',{name:'Editar categoría de sugerencias Postres',exact:true}).click();
     const listBeforeGroupDelete=await seasonPage.evaluate(()=>structuredClone(window.listData));

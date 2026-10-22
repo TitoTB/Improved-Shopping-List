@@ -350,8 +350,6 @@ class ImprovedShoppingCatalog extends HTMLElement {
         @media(max-width:650px) { .recommendation-criteria { grid-template-columns:repeat(min(var(--isl-mobile-columns,1),2),minmax(0,1fr)); } .recommendation-criteria .season-criterion { padding:12px; font-size:13px; } }
         .season-criterion { display:flex; align-items:center; gap:14px; padding:24px; background:var(--card-background-color,#fff); font-weight:650; }
         .season-criterion ha-icon { --mdc-icon-size:32px; width:32px; height:32px; }
-        .season-current-title { margin:24px 0 16px; }
-        #season-current-products:not(:empty) { margin-top:24px; }
         .season-toolbar { display:flex; justify-content:flex-end; margin:20px 0; }
         .season-toolbar button { display:flex; align-items:center; gap:8px; background:#d32f2f; color:#fff; border:0; }
         .season-toolbar [aria-pressed=true] { background:#267052; color:white; border-color:transparent; }
@@ -363,11 +361,11 @@ class ImprovedShoppingCatalog extends HTMLElement {
         .season-month h3 { font-size:16px; margin:0; }
         .season-month-add { display:grid; place-items:center; width:32px; min-height:32px; padding:0; flex:none; }
         .season-month-products { display:flex; flex-wrap:wrap; gap:10px; }
-        .season-product { display:flex; align-items:center; justify-content:space-between; gap:8px; max-width:100%; min-height:36px; padding:5px 8px 5px 12px; border:0; border-radius:20px; background:#267052; color:#fff; font-size:12px; text-align:left; overflow-wrap:anywhere; }
+        .season-product { display:flex; align-items:center; justify-content:flex-start; gap:8px; max-width:100%; min-height:36px; padding:5px 12px 5px 8px; border:0; border-radius:20px; background:#267052; color:#fff; font-size:12px; text-align:left; overflow-wrap:anywhere; }
         .season-product:disabled { opacity:1; }
-        .season-product-circle { display:grid; place-items:center; width:28px; height:28px; flex:none; }
+        .season-product-circle { display:grid; place-items:center; width:14px; height:14px; flex:none; }
         .season-product-circle img { width:100%; height:100%; object-fit:contain; }
-        .season-product-circle ha-icon { width:24px; height:24px; --mdc-icon-size:24px; }
+        .season-product-circle ha-icon { width:12px; height:12px; --mdc-icon-size:12px; }
         .removing .season-product { background:#d32f2f; }
         .season-product-label { display:block; margin-top:22px; }
         .season-month-options { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; margin:22px 0; border:1px solid var(--divider-color,#dfe7e1); border-radius:10px; padding:16px; }
@@ -395,8 +393,6 @@ class ImprovedShoppingCatalog extends HTMLElement {
       <section id="recipes-view" hidden><div id="recipe-status" class="notice error" role="alert" hidden></div><div id="recipe-grid" class="grid"></div><p id="recipe-empty" class="helper">Crea una receta y selecciona sus ingredientes del catálogo.</p></section>
       <section id="recommendations-view" hidden>
         <div class="recommendation-criteria"><button id="open-seasonal" class="season-criterion" type="button"><ha-icon icon="mdi:calendar-month" aria-hidden="true"></ha-icon><span>Productos de temporada</span></button><div id="recommendation-category-cards" class="recommendation-category-cards"></div></div>
-        <div id="season-current-products" class="grid"></div>
-        <div id="recommendation-category-products"></div>
         <isl-categories id="recommendation-category-editor" editor-only product-assignment></isl-categories>
       </section>
       <section id="suggestions-view" hidden>
@@ -684,10 +680,6 @@ class ImprovedShoppingCatalog extends HTMLElement {
     if (!this._built) return;
     const root = this.shadowRoot, month = this._seasonMonth();
     const products = this._seasonEntries().sort((a,b)=>a.name.localeCompare(b.name,"es",{sensitivity:"base"}));
-    const current = products.filter(product=>(product.season_months??[]).includes(month));
-    const grid = root.querySelector("#season-current-products");
-    grid.classList.toggle("rows", this._productLayout === "rows");
-    grid.replaceChildren(...current.map(product=>product._kind === "recipe" ? this._recipeCard(product) : this._productCard(product)));
     const toggle = root.querySelector("#season-delete-mode");
     toggle.setAttribute("aria-pressed", String(Boolean(this._seasonRemoving)));
     toggle.disabled = Boolean(this._seasonBusy) || !this._hass?.user?.is_admin;
@@ -723,7 +715,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
           const image = element("img"); image.src=source; image.alt=""; image.loading="lazy"; image.referrerPolicy="no-referrer";
           image.addEventListener("error",()=>image.replaceWith(icon),{once:true}); circle.append(image);
         } else circle.append(icon);
-        button.append(element("span","",product.name),circle);
+        button.append(circle,element("span","",product.name));
         button.addEventListener("click",()=>void this._removeSeasonal(product.id,number,product._kind)); items.append(button);
       }
       section.append(header,items); return section;
@@ -743,14 +735,6 @@ class ImprovedShoppingCatalog extends HTMLElement {
       badge.append(icon); button.append(badge,element("span","",group.name));
       button.addEventListener("click",()=>root.querySelector("#recommendation-category-editor").edit(group));
       return button;
-    }));
-    root.querySelector("#recommendation-category-products").replaceChildren(...groups.map(group=>{
-      const section = element("section","recommendation-products"); section.dataset.recommendationId=group.id;
-      const title = element("h2","season-current-title",group.name), grid = element("div","grid");
-      grid.classList.toggle("rows",this._productLayout==="rows");
-      grid.append(...this._catalog.products.filter(product=>group.product_ids.includes(product.id)).map(product=>this._productCard(product)));
-      grid.append(...(this._catalog.recipes ?? []).filter(recipe=>(group.recipe_ids ?? []).includes(recipe.id)).map(recipe=>this._recipeCard(recipe)));
-      section.append(title,grid); return section;
     }));
   }
 

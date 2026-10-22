@@ -2,6 +2,8 @@
 
 ## Pendiente de publicación
 
+- Catálogo → Sugerencias muestra únicamente los bloques de tipos de sugerencias. En el calendario de temporada, los badges llevan la imagen a la izquierda del nombre y al 50 % del tamaño anterior.
+
 - Las recetas permiten asignar una imagen mediante URL http/https o ruta local, conservándola al editar. Sus cantidades de ingredientes aparecen centradas horizontalmente.
 
 - Los controles de cantidad con restar y sumar se trasladan de Lista a Catálogo → Productos en filas. Ajustan la cantidad en la lista seleccionada, conservan el paso del producto y se desactivan cuando no está en esa lista. Lista mantiene la cantidad como badge informativo.

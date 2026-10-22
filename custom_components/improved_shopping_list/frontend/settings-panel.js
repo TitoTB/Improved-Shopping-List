@@ -1,4 +1,5 @@
 import "./logs-panel.js?v=0.26.0";
+import "./readers-panel.js?v=0.26.0";
 import { installDialogCloseButtons } from "./dialog-controls.js?v=0.26.0";
 import { todoEntities, isAvailable } from "./todo-client.js?v=0.26.0";
 import { DEFAULT_APPEARANCE, gradientTextColor } from "./list-settings-client.js?v=0.26.0";
@@ -20,8 +21,17 @@ class ImprovedShoppingSettings extends HTMLElement {
   }
 
   set data(value) { this._data = value; this._render(); }
+  set hass(value) { if(this._data){this._data={...this._data,hass:value};this._syncReaders();} }
 
-  set active(value) { this._active = Boolean(value); if(!this._active)this.shadowRoot.querySelector('#community-authorization')?.close(); this._syncLogs(); }
+  set active(value) { this._active = Boolean(value); if(!this._active)this.shadowRoot.querySelector('#community-authorization')?.close(); this._syncLogs(); this._syncReaders(); }
+
+  _syncReaders() {
+    const readers=this.shadowRoot.querySelector('isl-readers');
+    if(!readers)return;
+    const active=Boolean(this._active&&this._view==='readers'&&this.isConnected);
+    readers.active=active;
+    if(active&&this._data?.readers)readers.data={hass:this._data.hass,settings:this._data.settings,readers:this._data.readers};
+  }
 
   _syncLogs() {
     const logs = this.shadowRoot.querySelector("isl-logs");
@@ -238,6 +248,7 @@ class ImprovedShoppingSettings extends HTMLElement {
 
       </dialog>
       <section id="settings-logs" class="card" aria-label="Logs" hidden><isl-logs></isl-logs></section>
+      <section id="settings-readers" class="card" aria-label="Lectores" hidden><isl-readers></isl-readers></section>
       <section id="settings-community" class="card" aria-labelledby="settings-community-title" hidden>
         <h2 id="settings-community-title">Comunidad</h2>
         <div class="community-export">
@@ -267,6 +278,10 @@ class ImprovedShoppingSettings extends HTMLElement {
       if (entity) void this._act("add", entity);
     });
     const root = this.shadowRoot;
+    const readersTab=document.createElement('button');
+    readersTab.id='settings-view-readers';readersTab.type='button';readersTab.setAttribute('aria-label','Lectores');readersTab.setAttribute('aria-pressed','false');
+    readersTab.innerHTML='<ha-icon icon="mdi:barcode-scan" aria-hidden="true"></ha-icon><span class="tab-label">Lectores</span>';
+    root.querySelector('#settings-view-community').before(readersTab);
     this._buildRegionalStores(root);
     installDialogCloseButtons(root);
     root.querySelector("#refresh-all-prices").addEventListener("click",()=>void this._refreshPricesNow());
@@ -295,11 +310,11 @@ class ImprovedShoppingSettings extends HTMLElement {
     root.querySelector("#configure-alcampo").addEventListener("click",()=>{root.querySelector("#alcampo-dialog").showModal();void this._loadAlcampo();});
     root.querySelector("#alcampo-dialog").addEventListener("cancel",event=>{if(this._busy)event.preventDefault();});
     const alcampoError=document.createElement("div");alcampoError.id="alcampo-error";alcampoError.className="notice error";alcampoError.setAttribute("role","alert");alcampoError.hidden=true;root.querySelector("#alcampo-title").after(alcampoError);
-    for (const [id, view] of [["settings-view-lists", "lists"], ["settings-view-appearance", "appearance"], ["settings-view-community", "community"], ["settings-view-stores", "stores"], ["settings-view-logs", "logs"]]) {
+    for (const [id, view] of [["settings-view-lists", "lists"], ["settings-view-appearance", "appearance"], ["settings-view-community", "community"], ["settings-view-stores", "stores"], ["settings-view-logs", "logs"], ["settings-view-readers","readers"]]) {
       root.querySelector(`#${id}`).addEventListener("click", () => {
         this._view = view;
         if(view !== 'community')root.querySelector('#community-authorization').close();
-        for (const section of ["lists", "appearance", "community", "stores", "logs"]) {
+        for (const section of ["lists", "appearance", "community", "stores", "logs", "readers"]) {
           root.querySelector(`#settings-${section}`).hidden = view !== section;
           root.querySelector(`#settings-view-${section}`).setAttribute("aria-pressed", String(view === section));
         }
@@ -335,6 +350,7 @@ class ImprovedShoppingSettings extends HTMLElement {
   _render() {
     if (!this._built || !this._data) return;
     this._syncLogs();
+    this._syncReaders();
     const { hass, settings } = this._data;
     const root = this.shadowRoot;
     const admin = hass?.user?.is_admin === true;

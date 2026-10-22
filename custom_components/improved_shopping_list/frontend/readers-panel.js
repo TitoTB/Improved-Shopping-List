@@ -3,6 +3,11 @@ import { installDialogCloseButtons } from "./dialog-controls.js?v=0.26.0";
 class ImprovedShoppingReaders extends HTMLElement {
   constructor() { super(); this.attachShadow({mode:"open"}); this._toggling = new Map(); }
   set data(value) { this._data = value; this._render(); }
+  set active(value) {
+    if(this._active===Boolean(value))return;
+    this._active=Boolean(value);
+    if(!this._active)this.shadowRoot.querySelectorAll('dialog').forEach(dialog=>dialog.close());
+  }
   connectedCallback() {
     if (!this._built) this._build();
     this._render();
@@ -13,7 +18,7 @@ class ImprovedShoppingReaders extends HTMLElement {
     this.shadowRoot.innerHTML = `
       <style>
         :host{display:block;color:var(--primary-text-color,#20352d)}:host([hidden]),[hidden]{display:none!important}*{box-sizing:border-box}
-        h1{font-size:32px;margin:28px 0 12px;letter-spacing:-.03em}h2{font-size:18px;margin:0;overflow-wrap:anywhere}
+        .heading h2{font-size:20px;margin:0}h2{font-size:18px;margin:0;overflow-wrap:anywhere}
         p{font-size:13px;line-height:1.6;color:var(--secondary-text-color,#63766b)}button,input,select{font:inherit;color:inherit}
         button{cursor:pointer;padding:10px 14px;min-height:44px;border:1px solid var(--divider-color,#dfe7e1);border-radius:10px;background:transparent}
         button:disabled,input:disabled,select:disabled{opacity:.5;cursor:default}button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid var(--primary-color,#267052);outline-offset:3px}
@@ -29,7 +34,7 @@ class ImprovedShoppingReaders extends HTMLElement {
         .live-reading{display:grid;grid-template-columns:auto minmax(0,1fr);gap:12px 18px;font-size:14px}.live-reading dt{font-weight:600}.live-reading dd{margin:0;white-space:pre-wrap;overflow-wrap:anywhere}
         @media(max-width:650px){.grid{grid-template-columns:1fr}.fields{grid-template-columns:1fr}dialog{padding:20px}}
       </style>
-      <div class="heading"><h1>Lectores</h1><div class="heading-tools"><button id="new-reader" class="primary icon-button" type="button" aria-label="Añadir lector" title="Añadir lector"><ha-icon icon="mdi:plus-thick" aria-hidden="true"></ha-icon></button></div></div>
+      <div class="heading"><h2>Lectores</h2><div class="heading-tools"><button id="new-reader" class="primary icon-button" type="button" aria-label="Añadir lector" title="Añadir lector"><ha-icon icon="mdi:plus-thick" aria-hidden="true"></ha-icon></button></div></div>
       <div id="readers-error" class="notice error" role="alert" hidden></div><div id="readers-status" class="notice" role="status" hidden></div>
       <p id="readers-admin" hidden>Solo los administradores pueden configurar lectores.</p>
       <div id="readers-grid" class="grid"></div><p id="readers-empty" hidden>Añade tu primer lector de códigos de barras, QR o NFC.</p>

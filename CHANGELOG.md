@@ -1,5 +1,9 @@
 # Historial de cambios
 
+## Pendiente de publicación
+
+- Lectores pasa de la navegación principal a una vista de Ajustes, con el mismo icono y controles de configuración, activación y lectura en directo. La gestión de lectores en segundo plano se mantiene activa.
+
 ## 0.26.0
 
 - Asistente de revisión de tickets en tres pasos: vinculación con el catálogo, reposición de stock y selección individual de precios. Permite crear productos con su ficha completa, ignorar líneas y guardar solo vinculaciones locales, independientes del stock y excluidas del diccionario comunitario.

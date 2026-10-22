@@ -916,7 +916,7 @@ async function main() {
     }
     await page.setViewportSize({ width:1280, height:960 });
     assert.equal(await page.locator(".brand-copy").isVisible(), true);
-    assert.equal(await page.locator(".section-nav .nav-label:visible").count(), 5);
+    assert.equal(await page.locator(".section-nav .nav-label:visible").count(), 4);
     await page.getByRole("button",{name:"Catálogo",exact:true}).click();
     assert.equal(await catalog.locator(".catalog-tabs .tab-label:visible").count(),3);
     await page.getByRole("button",{name:"Lista",exact:true}).click();
@@ -1701,9 +1701,11 @@ async function main() {
     await readerPage.clock.install();
     await readerPage.goto(url);
     await readerPage.evaluate(()=>{const panel=window.testPanel;panel.hass={...panel._hass,states:{...panel._hass.states,'sensor.lector_cb_codigo_leido':{entity_id:'sensor.lector_cb_codigo_leido',state:'',attributes:{friendly_name:'Código leído'}}}};});
-    await readerPage.getByRole("button",{name:"Lectores",exact:true}).click();
-    assert.equal(await readerPage.locator("#nav-readers ha-icon").getAttribute("icon"),"mdi:barcode-scan");
-    const readersView=readerPage.locator("isl-readers");
+    await readerPage.getByRole("button",{name:"Ajustes",exact:true}).click();
+    await readerPage.locator("isl-settings").getByRole("button",{name:"Lectores",exact:true}).click();
+    assert.equal(await readerPage.locator("isl-settings #settings-view-readers ha-icon").getAttribute("icon"),"mdi:barcode-scan");
+    assert.equal(await readerPage.locator("#nav-readers").count(),0);
+    const readersView=readerPage.locator("isl-settings isl-readers");
     assert.equal(await readersView.getByText("Los lectores funcionan aunque esta interfaz esté cerrada. Configura los códigos y la acción de cada lector en la ficha del producto.",{exact:true}).count(),0);
     assert.equal(await readersView.locator("#new-reader").textContent(),"");
     assert.equal(await readersView.locator("#new-reader ha-icon").getAttribute("icon"),"mdi:plus-thick");
@@ -1975,7 +1977,8 @@ async function main() {
     assert.equal(await codeDialog.getByLabel("Nombre del producto",{exact:true}).inputValue(),"");
     assert.deepEqual(await codeDialog.locator("#barcode-code-list .code-value").allTextContents(),["3017620422003"]);
     await codeDialog.getByRole("button",{name:"Cerrar ventana",exact:true}).click();
-    await readerPage.getByRole("button",{name:"Lectores",exact:true}).click();
+    await readerPage.getByRole("button",{name:"Ajustes",exact:true}).click();
+    await readerPage.locator("isl-settings").getByRole("button",{name:"Lectores",exact:true}).click();
     await readersView.getByRole("button",{name:"Editar lector Cocina",exact:true}).click();
     const editReader=readersView.getByRole("dialog",{name:"Editar lector",exact:true});
     await editReader.getByLabel("Antirrepetición (segundos)",{exact:true}).fill("90");
@@ -1986,7 +1989,8 @@ async function main() {
     await readerPage.screenshot({path:"test-results/readers-mobile.png",fullPage:true});
     assert.equal(await readerPage.locator("main").evaluate(node=>node.scrollWidth>innerWidth),false);
     await readerPage.reload();
-    await readerPage.getByRole("button",{name:"Lectores",exact:true}).click();
+    await readerPage.getByRole("button",{name:"Ajustes",exact:true}).click();
+    await readerPage.locator("isl-settings").getByRole("button",{name:"Lectores",exact:true}).click();
     await readersView.getByRole("heading",{name:"NFC despensa",exact:true}).waitFor();
     await readersView.getByRole("button",{name:"Quitar lector NFC despensa",exact:true}).click();
     await readersView.getByRole("dialog",{name:"Quitar lector",exact:true}).getByRole("button",{name:"Quitar lector",exact:true}).click();

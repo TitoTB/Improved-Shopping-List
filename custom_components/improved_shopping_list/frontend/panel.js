@@ -5,7 +5,6 @@ import { imageSource, normalizedName, productNameKey, cachedProductPrice } from 
 import { ListSettingsSession, gradientTextColor } from "./list-settings-client.js?v=0.26.0";
 import "./settings-panel.js?v=0.26.0";
 import { ReadersSession } from "./readers-client.js?v=0.26.0";
-import "./readers-panel.js?v=0.26.0";
 import "./purchases-panel.js?v=0.26.0";
 
 const LOGO_URL = new URL("logo.png", import.meta.url).href;
@@ -75,7 +74,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
     if (!this.isConnected) return;
     if (this._built) this.shadowRoot.querySelector("isl-catalog").hass = value;
     this._ensureStarted();
-    if (this._view === "readers") this.shadowRoot.querySelector("isl-readers").data = { hass:value, settings:this._settings, readers:this._readers };
+    if (this._view === "settings") this.shadowRoot.querySelector("isl-settings").hass = value;
     if (previousConnection && previousConnection !== value.connection) {
       void this._settings.start();
       void this._readers.start();
@@ -339,7 +338,6 @@ class ImprovedShoppingListPanel extends HTMLElement {
           <button id="nav-shopping" aria-label="Lista" aria-pressed="true"><ha-icon icon="mdi:shopping" aria-hidden="true"></ha-icon><span class="nav-label">Lista</span></button>
           <button id="nav-catalog" aria-label="Catálogo" aria-pressed="false"><ha-icon icon="mdi:view-grid" aria-hidden="true"></ha-icon><span class="nav-label">Catálogo</span></button>
           <button id="nav-stock" aria-label="Stock" aria-pressed="false"><ha-icon icon="mdi:package-variant" aria-hidden="true"></ha-icon><span class="nav-label">Stock</span></button>
-          <button id="nav-readers" aria-label="Lectores" aria-pressed="false"><ha-icon icon="mdi:barcode-scan" aria-hidden="true"></ha-icon><span class="nav-label">Lectores</span></button>
           <button id="nav-settings" aria-label="Ajustes" aria-pressed="false"><ha-icon icon="mdi:cog" aria-hidden="true"></ha-icon><span class="nav-label">Ajustes</span></button>
         </nav>
       </header>
@@ -399,7 +397,6 @@ class ImprovedShoppingListPanel extends HTMLElement {
         <dialog id="stock-remove-dialog" aria-labelledby="stock-remove-title"><h2 id="stock-remove-title">Eliminar de Stock</h2><p id="stock-remove-description"></p><p id="stock-remove-error" class="notice error" role="alert" hidden></p><div class="dialog-actions"><button id="cancel-stock-remove" type="button">Cancelar</button><button id="confirm-stock-remove" type="button">Eliminar producto</button></div></dialog>
         <isl-catalog hidden></isl-catalog>
         <isl-settings hidden></isl-settings>
-        <isl-readers hidden></isl-readers>
         <div id="announcement" class="sr-only" role="status" aria-live="polite"></div>
       </main>`;
     this._built = true;
@@ -486,7 +483,6 @@ class ImprovedShoppingListPanel extends HTMLElement {
     });
     root.querySelector("#nav-catalog").addEventListener("click", () => this._switchView("catalog"));
     root.querySelector("#nav-settings").addEventListener("click", () => this._switchView("settings"));
-    root.querySelector("#nav-readers").addEventListener("click", () => this._switchView("readers"));
     root.querySelector("isl-settings").onAction = (action, entity) => this._settings.update(action, entity);
     root.querySelector("isl-settings").onAppearance = appearance => this._settings.saveAppearance(appearance);
     root.querySelector("isl-catalog").onAdd = (product) => this._runAction(
@@ -536,11 +532,9 @@ class ImprovedShoppingListPanel extends HTMLElement {
     root.querySelector("#nav-stock").setAttribute("aria-pressed",String(view==="stock"));
     root.querySelector("isl-catalog").hidden = view !== "catalog";
     root.querySelector("isl-settings").hidden = view !== "settings";
-    root.querySelector("isl-readers").hidden = view !== "readers";
     root.querySelector("#nav-shopping").setAttribute("aria-pressed", String(view === "shopping"));
     root.querySelector("#nav-catalog").setAttribute("aria-pressed", String(view === "catalog"));
     root.querySelector("#nav-settings").setAttribute("aria-pressed", String(view === "settings"));
-    root.querySelector("#nav-readers").setAttribute("aria-pressed", String(view === "readers"));
     this._renderData();
   }
 
@@ -624,9 +618,8 @@ class ImprovedShoppingListPanel extends HTMLElement {
     this.style.setProperty("--isl-completed-gradient-text", gradientTextColor(appearance.completed_gradient_start, appearance.completed_gradient_end));
     this.style.setProperty("--isl-columns", appearance.columns);
     this.style.setProperty("--isl-mobile-columns", appearance.mobile_columns);
-    root.querySelector("isl-settings").data = { hass: this._hass, settings: this._settings, products:[...this._catalogProducts.values()] };
+    root.querySelector("isl-settings").data = { hass: this._hass, settings: this._settings, readers:this._readers, products:[...this._catalogProducts.values()] };
     root.querySelector("isl-settings").active = this._view === "settings";
-    root.querySelector("isl-readers").data = { hass: this._hass, settings: this._settings, readers: this._readers };
     const state = this._hass.states[session.entityId];
     const available = isAvailable(state);
     const canCreate = available && supports(state, FEATURES.CREATE);

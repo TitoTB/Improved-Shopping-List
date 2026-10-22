@@ -263,18 +263,12 @@ class ImprovedShoppingListPanel extends HTMLElement {
         .row-meta { display:none; }
         .quantity-corner { position:absolute; top:0; left:0; width:clamp(32px,34cqi,100px); aspect-ratio:1; clip-path:polygon(0 0,100% 0,0 100%); background:var(--isl-quantity-color,#267052); color:#fff; text-align:left; }
         .quantity-corner span { position:absolute; top:7%; left:7%; max-width:72%; font-size:clamp(7px,5cqi,14px); font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; line-height:1.2; }
-        .quantity-controls { display:none; }
         .rows li { position:relative; }
-        .rows .quantity-controls { display:inline-flex; flex-direction:row; align-items:center; gap:5px; margin-right:10px; padding:3px; }
-        .quantity-controls button { display:grid; place-items:center; flex:none; width:28px; height:28px; padding:0; border:0; border-radius:12px; background:transparent; color:inherit; }
-        .quantity-controls ha-icon { width:18px; height:18px; --mdc-icon-size:18px; }
         .rows .quantity-corner { display:none; }
-        .row-quantity { justify-content:center; background:rgba(255,255,255,.2); color:inherit; font-size:12px; font-weight:700; min-width:0; max-width:100%; white-space:nowrap; }
-        .quantity-value { min-width:0; max-width:16ch; overflow:hidden; text-overflow:ellipsis; }
-        .rows .list-product-row { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; border-radius:12px; background:linear-gradient(var(--isl-gradient-start,#ee524f),var(--isl-gradient-end,#b52a27)); color:var(--isl-gradient-text,#fff); border:1px solid var(--isl-gradient-end,#b52a27); }
+        .row-quantity { display:inline-flex; align-items:center; padding:6px 9px; justify-content:center; background:rgba(255,255,255,.2); color:inherit; font-size:12px; font-weight:700; min-width:0; max-width:100%; white-space:nowrap; }
+        .rows .list-product-row { display:grid; grid-template-columns:minmax(0,1fr); align-items:center; border-radius:12px; background:linear-gradient(var(--isl-gradient-start,#ee524f),var(--isl-gradient-end,#b52a27)); color:var(--isl-gradient-text,#fff); border:1px solid var(--isl-gradient-end,#b52a27); }
         .rows .list-product-row.list-completed { background:linear-gradient(var(--isl-completed-gradient-start,#4faba2),var(--isl-completed-gradient-end,#26857c)); color:var(--isl-completed-gradient-text,#fff); border-color:var(--isl-completed-gradient-end,#26857c); }
         .rows .list-product-row > .item { background:transparent; color:inherit; border:0; }
-        @media(max-width:540px) { .quantity-value { max-width:9ch; } .rows .quantity-controls { gap:3px; margin-right:7px; } }
         .product-grid.rows { grid-template-columns:minmax(0,1fr); gap:10px; }
         .rows .item { display:grid; grid-template-columns:48px minmax(0,1fr) auto; gap:12px; aspect-ratio:auto; min-height:80px; padding:12px 16px; border-radius:12px; }
         .rows .item .product-media { grid-column:1; grid-row:1; width:48px; height:48px; }
@@ -531,6 +525,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
     root.querySelector("isl-catalog").onAdd = (product) => this._runAction(
       () => this._session.add(product.name), "",
     );
+    root.querySelector("isl-catalog").onAdjustQuantity = (entity,uid,direction) => this._quantities.adjust(entity,uid,direction);
     root.querySelector("isl-catalog").onRenameSuggestion = (source, name) => this._session.renameFromSuggestion(source,name);
     root.querySelector(".menu").addEventListener("click", () => {
       this.dispatchEvent(new CustomEvent("hass-toggle-menu", { bubbles: true, composed: true }));
@@ -693,6 +688,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
     catalog.listItems = available && !session.loading ? session.items : [];
     catalog.pendingItems = available && !session.loading
       ? session.items.filter(item => item.status !== "completed") : [];
+    catalog.quantityData = {entries:this._quantities.entries[session.entityId]??{},loaded:this._quantities.loaded,loading:this._quantities.loading,locked:this._busy||session.loading||!available};
     const locked = this._busy || session.loading || !available;
     const stockLocked=this._busy || !this._stock.loaded || this._stock.loading || this._hass.user?.is_admin !== true;
     root.querySelector('#add-stock').disabled=stockLocked;
@@ -1227,16 +1223,6 @@ class ImprovedShoppingListPanel extends HTMLElement {
         card.append(badge, media, text, tags, metadata);
         const quantity=document.createElement('span');quantity.className='quantity-corner';quantity.append(document.createElement('span'));card.append(quantity);
         row.append(card);
-        const controls=document.createElement('div');controls.className='quantity-controls row-quantity';controls.setAttribute('role','group');
-        const value=document.createElement('span');value.className='quantity-value';
-        for(const [direction,icon] of [[-1,'mdi:minus-thick'],[1,'mdi:plus-thick']]){
-          const button=document.createElement('button');button.type='button';button.dataset.quantityDirection=String(direction);
-          const symbol=document.createElement('ha-icon');symbol.setAttribute('icon',icon);symbol.setAttribute('aria-hidden','true');button.append(symbol);
-          button.addEventListener('click',()=>{const entity=this._session.entityId,uid=row._item.uid;void this._runAction(()=>this._quantities.adjust(entity,uid,direction),'');});
-          if(direction>0)controls.append(value);
-          controls.append(button);
-        }
-        row.append(controls);
         this._rows.set(key, row);
       }
       row._item = item;
@@ -1255,16 +1241,6 @@ class ImprovedShoppingListPanel extends HTMLElement {
       const purchase=this._purchaseQuantity(item,product);
       const corner=row.querySelector('.quantity-corner');corner.hidden=purchase.quantity===1;
       const quantityText=quantityLabel(purchase);corner.firstChild.textContent=quantityText;corner.title=quantityText;
-      row.querySelector('.quantity-value').textContent=quantityText;
-      row.querySelector('.quantity-controls').setAttribute('aria-label',`Cantidad de ${item.summary??'Producto'}`);
-      row.querySelector('.quantity-value').title=quantityText;
-      for(const button of row.querySelectorAll('.quantity-controls button')){
-        const direction=Number(button.dataset.quantityDirection),next=Math.round((purchase.quantity+direction*purchase.step)*1000)/1000;
-        button.dataset.uid=item.uid??'';
-        button.disabled=disabled||!item.uid||this._hass.user?.is_admin!==true||!this._quantities.loaded||this._quantities.loading||next<=0||next>1000000;
-        button.setAttribute('aria-label',`${direction>0?'Aumentar':'Disminuir'} cantidad: ${item.summary??'Producto'}`);
-        button.title=`${direction>0?'+':'−'} ${new Intl.NumberFormat('es-ES',{maximumFractionDigits:3}).format(purchase.step)} ${purchase.unit}`;
-      }
       const category = this._catalogCategories.get(normalizedName(product?.category));
       const metadata = row.querySelector(".row-meta");
       metadata.replaceChildren();
@@ -1295,6 +1271,9 @@ class ImprovedShoppingListPanel extends HTMLElement {
         label.textContent = new Intl.NumberFormat("es-ES",{style:"currency",currency:offer.currency}).format(Number(offer.price));
         price.title = offer.store ? `Último precio guardado · ${STORE_NAMES[offer.store] ?? offer.store}` : "Precio manual";
         price.append(label); metadata.append(price);
+      }
+      if(this._listLayout === 'rows' && purchase.quantity !== 1){
+        const quantity=document.createElement('span');quantity.className='row-quantity';quantity.textContent=quantityText;quantity.title=quantityText;metadata.append(quantity);
       }
       const badge = row.querySelector(".category-badge");
       badge.hidden = !category;

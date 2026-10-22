@@ -460,9 +460,9 @@ Los cambios de los controles también se reflejan en el panel y se guardan entre
 
 ### Cantidades de compra
 
-La ficha del producto, en Información adicional, permite indicar **Unidades**, **Cantidad unitaria** y **Tamaño del paso**. Los valores iniciales son `uds`, `1` y `1`. Por ejemplo, Pavo con `g`, `250` y `50` aparece como **250 g** al incluirlo en la lista; los controles de filas permiten pasar a 300 g o 200 g. Se admiten unidades personalizadas y cantidades positivas de hasta tres decimales.
+La ficha del producto, en Información adicional, permite indicar **Unidades**, **Cantidad unitaria** y **Tamaño del paso**. Los valores iniciales son `uds`, `1` y `1`. Por ejemplo, Pavo con `g`, `250` y `50` aparece como **250 g** al incluirlo en la lista; los controles de Catálogo → Productos en filas permiten pasar a 300 g o 200 g en la lista seleccionada. Se admiten unidades personalizadas y cantidades positivas de hasta tres decimales.
 
-La cantidad 1 no muestra indicador. Las demás cantidades aparecen en un triángulo en la esquina superior izquierda en cuadrícula, o en el último badge de las filas. El color verde inicial se cambia desde **Ajustes → Personalización → Color del indicador de cantidad**. Los botones + y − solo se muestran en filas; disminuir nunca elimina el producto ni permite una cantidad cero.
+La cantidad 1 no muestra indicador. Las demás cantidades aparecen en un triángulo en la esquina superior izquierda en cuadrícula, o en el último badge de las filas. El color verde inicial se cambia desde **Ajustes → Personalización → Color del indicador de cantidad**. Los botones + y − solo se muestran en Catálogo → Productos en filas y se activan si el producto está en la lista seleccionada; disminuir nunca elimina el producto ni permite una cantidad cero. En Lista, la cantidad se muestra como información, sin controles.
 
 Las cantidades se guardan por lista y UID en Home Assistant, se sincronizan entre sesiones de la integración y no se escriben en el nombre o la descripción del proveedor todo. Quitar una entrada de la lista elimina su ajuste local; los productos del catálogo mantienen sus valores predeterminados. Si se cambian las unidades del producto, los ajustes de cantidad con otras unidades no se reinterpretan automáticamente. Estos datos no se envían al diccionario comunitario.
 

@@ -1,3 +1,4 @@
+import { purchaseQuantity, quantityLabel } from "./quantity-client.js?v=0.28.0";
 import { installDialogCloseButtons } from "./dialog-controls.js?v=0.28.0";
 import { CatalogSession } from "./catalog-client.js?v=0.28.0";
 import { matchCatalogProducts } from "./product-matching.js?v=0.28.0";
@@ -120,6 +121,11 @@ class ImprovedShoppingCatalog extends HTMLElement {
     if(value?.enabled === false){this.shadowRoot.querySelector('#product-store-prices')?.setAttribute('hidden','');this.shadowRoot.querySelector('#store-price-results')?.replaceChildren();}
     this._renderProducts();
   }
+  set quantityData(value) {
+    const key=JSON.stringify(value);
+    if(key===this._quantityKey)return;
+    this._quantityKey=key;this._quantityData=value;this._renderProducts();
+  }
   set listEntity(value) { this._listEntity = value; }
 
   set listItems(value) {
@@ -128,6 +134,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
     this._listSignature = signature;
     this._listItems = value ?? [];
     this._renderSuggestions();
+    this._renderProducts();
   }
 
   set pendingItems(value) {
@@ -276,6 +283,13 @@ class ImprovedShoppingCatalog extends HTMLElement {
         .row-price { background:var(--secondary-background-color,#edf4ee); white-space:nowrap; }.in-list .row-price { background:rgba(255,255,255,.2); }
         .row-meta ha-icon { --mdc-icon-size:18px; display:flex; align-items:center; justify-content:center; width:18px; height:18px; flex:none; }
         @media(max-width:650px) { .rows .product-top { grid-template-columns:36px minmax(0,1fr) auto; gap:8px; padding:10px 48px 10px 10px; }.rows .product-media { width:36px; height:36px; }.rows .placeholder ha-icon { --mdc-icon-size:32px; }.rows .product-controls { right:8px; }.rows .row-meta { max-width:30cqi; }.row-price { font-size:11px; padding:5px 7px; } }
+        .row-quantity { position:relative; z-index:2; pointer-events:auto; display:inline-flex; align-items:center; justify-content:center; flex:none; gap:3px; height:34px; padding:3px; border-radius:16px; background:var(--secondary-background-color,#edf4ee); color:inherit; font-size:12px; font-weight:700; white-space:nowrap; }
+        .in-list .row-quantity { background:rgba(255,255,255,.2); }
+        .row-quantity button { display:grid; place-items:center; flex:none; width:28px; height:28px; min-height:28px; padding:0; border:0; border-radius:12px; background:transparent; color:inherit; }
+        .quantity-value { min-width:0; max-width:9ch; overflow:hidden; text-overflow:ellipsis; }
+        .rows .row-meta { max-width:min(45cqi,320px); }
+        .rows .row-price { height:34px; box-sizing:border-box; }
+        @media(max-width:650px) { .rows .row-meta { max-width:45cqi; } .quantity-value { max-width:5ch; } }
         /* Match List's outer li width, including the Catalog card's two border pixels. */
         .title { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:3; overflow:hidden; font-size:clamp(12px,calc((100cqi + 2px) / 10),32px); line-height:1.2; font-weight:650; margin:0; overflow-wrap:anywhere; text-align:center; }
         .subtitle { color:var(--secondary-text-color,#63766b); font-size:12px; margin:4px 0 0; overflow-wrap:anywhere; }
@@ -1239,6 +1253,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
         badge.append(icon,element("span","",new Intl.NumberFormat("es-ES",{style:"currency",currency:offer.currency}).format(Number(offer.price))));
         metadata.append(badge);
       }
+      if(this._view === 'products')metadata.append(this._quantityControl(product));
       top.append(metadata);
     }
     card.append(top);
@@ -1253,6 +1268,37 @@ class ImprovedShoppingCatalog extends HTMLElement {
     controls.append(edit);
     card.append(controls);
     return card;
+  }
+
+  _quantityControl(product) {
+    const items=this._listItems.filter(item=>productNameKey(item.summary)===productNameKey(product.name));
+    const item=items.find(item=>item.status!=='completed')??items[0];
+    const value=purchaseQuantity(product,item ? this._quantityData?.entries?.[item.uid] : null);
+    const controls=element('div','row-quantity');controls.setAttribute('role','group');controls.setAttribute('aria-label','Cantidad de '+product.name);
+    const label=element('span','quantity-value',quantityLabel(value));label.title=label.textContent;
+    const locked=this._quantityData?.locked||!this._quantityData?.loaded||this._quantityData?.loading||this._adjustingQuantity||!item?.uid||!this.onAdjustQuantity||this._hass?.user?.is_admin!==true;
+    for(const [direction,icon] of [[-1,'mdi:minus-thick'],[1,'mdi:plus-thick']]){
+      const button=iconButton(icon,(direction>0?'Aumentar':'Disminuir')+' cantidad: '+product.name);
+      const next=Math.round((value.quantity+direction*value.step)*1000)/1000;
+      button.disabled=Boolean(locked||next<=0||next>1000000);
+      button.dataset.quantityProduct=product.id;button.dataset.quantityDirection=String(direction);
+      button.title=item ? (direction>0?'+':'−')+' '+quantityLabel({quantity:value.step,unit:value.unit}) : 'Añade el producto a la lista para ajustar su cantidad';
+      button.addEventListener('click',event=>{event.stopPropagation();void this._adjustQuantity(product,item,direction);});
+      if(direction>0)controls.append(label);controls.append(button);
+    }
+    return controls;
+  }
+
+  async _adjustQuantity(product,item,direction) {
+    if(this._adjustingQuantity||!item?.uid||!this.onAdjustQuantity)return;
+    const entity=this._listEntity;
+    this._adjustingQuantity=true;this._catalog.error='';this._renderProducts();
+    try { await this.onAdjustQuantity(entity,item.uid,direction); }
+    catch(error){this._catalog.error=error.message??'No se ha podido cambiar la cantidad.';}
+    finally {
+      this._adjustingQuantity=false;this._render();
+      if(this._active&&this._listEntity===entity)[...this.shadowRoot.querySelectorAll('[data-quantity-product]')].find(button=>button.dataset.quantityProduct===product.id&&Number(button.dataset.quantityDirection)===direction)?.focus();
+    }
   }
 
   _confirmDeleteProduct(product) {

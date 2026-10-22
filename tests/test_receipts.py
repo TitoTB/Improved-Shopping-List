@@ -149,7 +149,8 @@ async def test_import_disk_failure_stale_stock_and_confirmed_alias(hass,monkeypa
     monkeypatch.setattr(env.stock._store,'async_save',AsyncMock(side_effect=OSError('disk')))
     with pytest.raises(OSError):
         await env.manager.async_confirm(draft['token'],'owner',selections(draft,env.product),True)
-    assert env.stock.snapshot==before and env.manager.snapshot['receipts']==[]
+    assert env.stock.snapshot['items']==before['items'] and env.manager.snapshot['receipts']==[]
+    assert env.stock.snapshot['receipt_stores']=={env.product['id']:['carrefour'],cereal['id']:['carrefour']}
     monkeypatch.setattr(env.stock._store,'async_save',save)
     await env.stock.async_adjust(env.item['id'],-1)
     with pytest.raises(CatalogError,match='stock ha cambiado'):

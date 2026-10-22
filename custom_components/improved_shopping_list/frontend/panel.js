@@ -281,8 +281,8 @@ class ImprovedShoppingListPanel extends HTMLElement {
         .section-nav ha-icon { --mdc-icon-size:20px; width:20px; height:20px; flex:none; }
         @media(max-width:540px) { main { padding:26px 14px 40px; } .card { padding:18px 16px; border-radius:14px; } .primary { padding:10px 14px; } }
         .stock-item { min-height:132px; background:linear-gradient(#f59a23,#c65b0c); color:#fff; border:0; padding:clamp(4px,4cqi,20px); }
-        .stock-item.perishable { isolation:isolate; background:linear-gradient(hsl(var(--stock-hue) 70% 35%),hsl(var(--stock-hue) 80% 25%)); }
-        .stock-item.perishable::before { content:""; position:absolute; inset:0; width:var(--stock-remaining); background:linear-gradient(hsl(var(--stock-hue) 92% 55%),hsl(var(--stock-hue) 88% 42%)); pointer-events:none; z-index:-1; }
+        .stock-item.stock-progress { isolation:isolate; background:linear-gradient(hsl(var(--stock-hue) 70% 35%),hsl(var(--stock-hue) 80% 25%)); }
+        .stock-item.stock-progress::before { content:""; position:absolute; inset:0; width:var(--stock-remaining); background:linear-gradient(hsl(var(--stock-hue) 92% 55%),hsl(var(--stock-hue) 88% 42%)); pointer-events:none; z-index:-1; }
         .stock-life { display:block; font-size:12px; font-weight:500; margin-top:4px; }
         .stock-item .placeholder { color:inherit; }.stock-item .product-media { width:clamp(18px,26cqi,144px); }
         .stock-item .summary { -webkit-line-clamp:2; }
@@ -362,7 +362,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
             <label>Stock actual<div class="stock-quantity-editor"><button id="stock-draft-minus" type="button" aria-label="Disminuir stock"><ha-icon icon="mdi:minus" aria-hidden="true"></ha-icon></button><input name="quantity" aria-label="Stock actual" type="number" min="0" max="1000000" step="0.001" required><button id="stock-draft-plus" type="button" aria-label="Incrementar stock"><ha-icon icon="mdi:plus" aria-hidden="true"></ha-icon></button></div></label>
             <label>Unidades<select name="unit" aria-label="Unidades"><option value="uds">uds</option><option value="kg">kg</option><option value="g">g</option><option value="l">l</option><option value="ml">ml</option><option value="custom">Personalizadas</option></select></label>
             <label class="wide" id="stock-custom-unit-label" hidden>Unidad personalizada<input name="custom_unit" maxlength="32" placeholder="Por ejemplo, Latas"></label>
-            <label class="wide">Control del stock<select name="mode" aria-label="Control del stock"><option value="manual">Manual / lectores</option><option value="perishable">Perecedero</option><option value="usage">Consumo registrado en Home Assistant</option></select></label>
+            <label class="wide">Control del stock<select name="mode" aria-label="Control del stock"><option value="manual">Manual / lectores</option><option value="perishable">Perecedero</option><option value="usage">Consumo registrado</option></select></label>
             <div id="stock-usage-fields" class="wide" hidden><div class="stock-form-fields">
               <label class="wide">Entidad de consumo<input name="usage_entity" list="stock-usage-entities" placeholder="Por ejemplo, binary_sensor.lavadora"><datalist id="stock-usage-entities"></datalist></label>
               <label>Estado que representa un uso<input name="usage_state" maxlength="255" placeholder="Por ejemplo, on"></label>
@@ -684,8 +684,9 @@ class ImprovedShoppingListPanel extends HTMLElement {
       const li=node("li");li.dataset.stockId=item.id;
       const card=node("div","item stock-item"), open=node("button","stock-open");
       const percent=stockRemaining(item,now);
-      if(item.mode === 'perishable') {
-        card.classList.add('perishable');
+      const progress=item.mode === 'perishable' || item.mode === 'usage';
+      if(progress) {
+        card.classList.add('stock-progress');
         card.style.setProperty('--stock-remaining',percent+'%');
         card.style.setProperty('--stock-hue',String(10+percent*.25));
       }
@@ -701,7 +702,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
       };
       const quantity=node("span","stock-quantity",new Intl.NumberFormat('es-ES',{maximumFractionDigits:3}).format(item.quantity)+' '+(item.unit??'uds'));
       quantity.setAttribute('aria-label',`Stock de ${item.name}: ${item.quantity} ${item.unit??'uds'}`);
-      if(item.mode === 'perishable'){
+      if(progress){
         const life=node('span','stock-life',`${Math.round(percent)} %`);
         life.setAttribute('role','progressbar');life.setAttribute('aria-label','Stock restante');
         life.setAttribute('aria-valuemin','0');life.setAttribute('aria-valuemax','100');life.setAttribute('aria-valuenow',String(Math.round(percent)));

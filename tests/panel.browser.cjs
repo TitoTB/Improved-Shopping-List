@@ -2013,6 +2013,7 @@ async function main() {
     await stockForm.getByLabel('Unidades',{exact:true}).selectOption('custom');
     await stockForm.getByLabel('Unidad personalizada',{exact:true}).fill('Latas');
     await stockForm.getByLabel('Control del stock',{exact:true}).selectOption('usage');
+    assert.equal(await stockForm.locator('select[name="mode"] option:checked').textContent(),'Consumo registrado');
     await stockForm.getByLabel('Entidad de consumo',{exact:true}).fill('binary_sensor.lavadora');
     await stockForm.getByLabel('Estado que representa un uso',{exact:true}).fill('on');
     await stockForm.getByLabel('Cantidad consumida por uso',{exact:true}).fill('0.5');
@@ -2022,6 +2023,8 @@ async function main() {
     assert.equal(await stockForm.getByLabel('Lista para reponer',{exact:true}).inputValue(),'todo.local');
     await stockForm.getByRole('button',{name:'Guardar',exact:true}).click();await stockEditor.waitFor({state:'hidden'});
     await stockCard.getByLabel('Stock de Cacao: 2.5 Latas',{exact:true}).waitFor();
+    assert.equal(await stockCard.getByRole('progressbar',{name:'Stock restante'}).getAttribute('aria-valuenow'),'63');
+    assert.equal(await stockCard.locator('.stock-progress').evaluate(node=>node.style.getPropertyValue('--stock-remaining')),'62.5%');
     assert.deepEqual(await stockPage.evaluate(()=>({mode:window.stockItems[0].mode,unit:window.stockItems[0].unit,usage_amount:window.stockItems[0].usage_amount,refill_quantity:window.stockItems[0].refill_quantity})),{mode:'usage',unit:'Latas',usage_amount:0.5,refill_quantity:4});
     await stockCard.getByRole('button',{name:'Configurar stock de Cacao',exact:true}).click();
     await stockForm.getByLabel('Control del stock',{exact:true}).selectOption('perishable');

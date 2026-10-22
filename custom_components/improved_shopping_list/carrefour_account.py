@@ -523,28 +523,34 @@ class CarrefourAccount:
             endpoint = API + "/md-ticketsAccount-v1/tickets/" + purchase["id"]
             fallback = {}
             try:
-                pdf = await self._http("GET", endpoint + "/pdf", headers=headers, pdf=True)
-                try:
-                    return await self.receipts.async_preview(base64.b64encode(pdf).decode(), owner, account_reference=purchase["id"])
-                except CatalogError as err:
-                    # Only unsupported line layout: duplicates, totals and conflicts remain errors.
-                    if err.code != "receipt_unrecognized_lines":
-                        raise
-                    fallback = {"pdf_format_error":err.code}
+                detail = await self._http("GET", endpoint, headers=headers)
             except CarrefourAccountError as err:
                 status = err.diagnostics.get("http_status")
                 if not isinstance(status, int) or not 500 <= status <= 599:
                     raise
-                fallback = {"pdf_http_status":status}
-            detail = await self._http("GET", endpoint, headers=headers)
+                fallback = {"detail_http_status":status}
+            else:
+                try:
+                    return await self.receipts.async_preview_carrefour_ticket(detail, purchase["id"], purchase["amount"], owner)
+                except CatalogError as err:
+                    # Only unsupported structure: totals, identity and duplicates stay errors.
+                    if err.code not in ("receipt_unrecognized_lines", "receipt_detail_format"):
+                        raise
+                    fallback = {"detail_format_error":err.code}
             try:
-                draft = await self.receipts.async_preview_carrefour_ticket(detail, purchase["id"], purchase["amount"], owner)
+                pdf = await self._http("GET", endpoint + "/pdf", headers=headers, pdf=True)
+                draft = await self.receipts.async_preview(base64.b64encode(pdf).decode(), owner, account_reference=purchase["id"])
             except CatalogError as err:
-                error = CarrefourAccountError(
-                    "No se ha podido leer el detalle de este ticket de Carrefour. Consulta la información técnica en Logs → Tiendas.",
-                    "ticket_detail_parse")
-                error.diagnostics.update({**fallback, "fallback":"ticket_detail", "detail_error":err.code})
-                raise error from err
-            self.activity.record("stores.account", "Carrefour: ticket preparado desde el detalle alternativo",
-                source="manual", diagnostics={**fallback, "fallback":"ticket_detail", "products":len(draft["receipt"]["lines"])})
+                if err.code in ("receipt_unrecognized_lines", "carrefour_account_error"):
+                    error = CarrefourAccountError(
+                        "No se ha podido recuperar este ticket desde el detalle ni desde el PDF. Consulta la información técnica en Logs → Tiendas.",
+                        "ticket_pdf_fallback")
+                    error.diagnostics.update({**fallback, "fallback":"pdf", "pdf_error":err.code,
+                        **getattr(err, "diagnostics", {})})
+                    # The failing phase remains identifiable even for a transport error.
+                    error.diagnostics["stage"] = "ticket_pdf_fallback"
+                    raise error from err
+                raise
+            self.activity.record("stores.account", "Carrefour: ticket preparado desde el PDF alternativo",
+                source="manual", diagnostics={**fallback, "fallback":"pdf"})
             return draft

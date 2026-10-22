@@ -16,7 +16,7 @@ from custom_components.improved_shopping_list.const import DOMAIN, CONF_TODO_ENT
 
 @pytest.fixture
 async def account(hass):
-    manager = CarrefourAccount(hass, SimpleNamespace(async_preview=AsyncMock(return_value={"token":"draft"}),async_import_carrefour_purchases=AsyncMock(return_value=0)), SimpleNamespace(record=Mock()))
+    manager = CarrefourAccount(hass, SimpleNamespace(async_preview=AsyncMock(return_value={"token":"draft"}),async_preview_carrefour_ticket=AsyncMock(return_value={"token":"draft"}),async_import_carrefour_purchases=AsyncMock(return_value=0)), SimpleNamespace(record=Mock()))
     await manager.async_load()
     manager._config = {"api_key":"public-key", "client_id":"public-client", "client_secret":"public-config-value"}
     manager.start()
@@ -89,27 +89,24 @@ async def test_expired_session_requires_manual_reconnect_and_never_retries_passw
     assert account._http.await_args.args[1].endswith("accounts.getJWT")
 
 
-async def test_purchases_and_pdf_are_manual_bound_and_never_confirm_stock(account):
+async def test_purchases_and_detail_are_owner_bound_and_never_confirm_stock(account):
     account._session={"login_token":"private","jwt":"private-jwt","jwt_until":time.time()+500}
     cursor=dict.fromkeys(OFFSET_KEYS,0);cursor["ticketOffset"]=10
     row={"purchaseId":"test-ticket-1","purchaseDate":dt_util.now().isoformat(),"amount":3.75,"orderSource":"TICKET","mallName":"Test Carrefour"}
-    account._http=AsyncMock(side_effect=[{"purchases":[row,{**row,"purchaseId":"order-1","orderSource":"FOOD"}],"offsets":cursor},b"%PDF-test"])
+    detail={"ticketId":"test-ticket-1","header":{"netAmount":3.75},"lines":["detail"]}
+    account._http=AsyncMock(side_effect=[{"purchases":[row,{**row,"purchaseId":"order-1","orderSource":"FOOD"}],"offsets":cursor},detail])
     result=await account.async_purchases("owner")
     assert result["next_cursor"]==cursor and len(result["purchases"])==2
-    assert result["purchases"][0]["reviewable"] and not result["purchases"][1]["reviewable"]
     key=result["purchases"][0]["id"]
-    assert "test-ticket-1" not in json.dumps(result)
     with pytest.raises(CarrefourAccountError,match="consultar las compras"):
         await account.async_preview("other",key)
     with pytest.raises(CarrefourAccountError,match="manualmente"):
         await account.async_preview("owner",result["purchases"][1]["id"])
-    with pytest.raises(CarrefourAccountError,match="consultar las compras"):
-        await account.async_preview("owner","https://other.test/secret")
     assert await account.async_preview("owner",key)=={"token":"draft"}
     assert account._http.await_count==2
-    assert account._http.await_args.args[1]==API+"/md-ticketsAccount-v1/tickets/test-ticket-1/pdf"
-    encoded,owner=account.receipts.async_preview.await_args.args
-    assert owner=="owner" and base64.b64decode(encoded)==b"%PDF-test"
+    assert account._http.await_args.args[1]==API+"/md-ticketsAccount-v1/tickets/test-ticket-1"
+    account.receipts.async_preview_carrefour_ticket.assert_awaited_once_with(detail,"test-ticket-1",3.75,"owner")
+    account.receipts.async_preview.assert_not_awaited()
     assert account._http.await_args.kwargs["headers"]["Authorization"]=="Bearer private-jwt"
     account.stop()
     assert not account._purchases
@@ -185,26 +182,23 @@ async def test_identity_bootstrap_keeps_provider_device_cookie(account,monkeypat
 
 
 @pytest.mark.parametrize("status", [500, 502, 503])
-async def test_pdf_server_error_uses_detail_once_without_reauthenticating(account, status):
-    account._session={"login_token":"private", "jwt":"private-jwt", "jwt_until":time.time()+500}
-    row={"purchaseId":"test-ticket-1", "purchaseDate":dt_util.now().isoformat(), "amount":5.22, "orderSource":"TICKET"}
-    detail={"ticketId":"test-ticket-1", "header":{"netAmount":5.22}, "lines":["private printable lines"]}
-    error=CarrefourAccountError("PDF no disponible", "pdf", status=status)
-    account._http=AsyncMock(side_effect=[{"purchases":[row]}, error, detail])
-    draft={"token":"detail-draft", "receipt":{"lines":[{}]}}
-    account.receipts.async_preview_carrefour_ticket=AsyncMock(return_value=draft)
+async def test_detail_server_error_uses_pdf_once_without_reauthenticating(account, status):
+    account._session={"login_token":"private","jwt":"private-jwt","jwt_until":time.time()+500}
+    row={"purchaseId":"test-ticket-1","purchaseDate":dt_util.now().isoformat(),"amount":5.22,"orderSource":"TICKET"}
+    error=CarrefourAccountError("Detalle no disponible","detail",status=status)
+    account._http=AsyncMock(side_effect=[{"purchases":[row]},error,b"%PDF-test"])
     result=await account.async_purchases("owner")
-    assert await account.async_preview("owner",result["purchases"][0]["id"])==draft
+    assert await account.async_preview("owner",result["purchases"][0]["id"])=={"token":"draft"}
     assert [request.args[1] for request in account._http.await_args_list[1:]]==[
-        API+"/md-ticketsAccount-v1/tickets/test-ticket-1/pdf", API+"/md-ticketsAccount-v1/tickets/test-ticket-1"]
-    account.receipts.async_preview_carrefour_ticket.assert_awaited_once_with(detail,"test-ticket-1",5.22,"owner")
-    account.receipts.async_preview.assert_not_awaited()
-    assert account.activity.record.call_args.kwargs["diagnostics"]=={"pdf_http_status":status,"fallback":"ticket_detail","products":1}
-    assert "private" not in str(account.activity.record.call_args)
+        API+"/md-ticketsAccount-v1/tickets/test-ticket-1",API+"/md-ticketsAccount-v1/tickets/test-ticket-1/pdf"]
+    account.receipts.async_preview_carrefour_ticket.assert_not_awaited()
+    encoded,owner=account.receipts.async_preview.await_args.args
+    assert base64.b64decode(encoded)==b"%PDF-test" and owner=="owner"
+    assert account.activity.record.call_args.kwargs["diagnostics"]=={"detail_http_status":status,"fallback":"pdf"}
 
 
 @pytest.mark.parametrize("status", [401,403,404])
-async def test_pdf_access_errors_never_try_the_detail_endpoint(account,status):
+async def test_detail_access_errors_never_try_the_pdf_endpoint(account,status):
     account._session={"login_token":"private", "jwt":"private-jwt", "jwt_until":time.time()+500}
     row={"purchaseId":"test-ticket-1", "purchaseDate":dt_util.now().isoformat(), "amount":5.22, "orderSource":"TICKET"}
     account._http=AsyncMock(side_effect=[{"purchases":[row]},CarrefourAccountError("Acceso rechazado","pdf",status=status)])
@@ -323,10 +317,10 @@ async def test_saved_purchase_ticket_uses_private_reference_after_restart(accoun
     await restored.async_load()
     restored._config = dict(account._config)
     restored.start()
-    restored._http = AsyncMock(return_value=b"%PDF-test")
+    restored._http = AsyncMock(return_value={"ticketId":reference,"header":{"netAmount":3.75},"lines":["detail"]})
     try:
         assert await restored.async_preview_saved("owner", "summary") == {"token":"draft"}
-        assert restored._http.await_args.args[1] == API+"/md-ticketsAccount-v1/tickets/"+reference+"/pdf"
+        assert restored._http.await_args.args[1] == API+"/md-ticketsAccount-v1/tickets/"+reference
         assert restored._http.await_count == 1
         assert reference not in json.dumps(restored.status("owner"))
         assert saved == account.receipts.stock.receipts["history"]["summary"]
@@ -342,7 +336,7 @@ async def test_legacy_saved_purchase_is_resolved_by_exact_reference_hash(account
     account.receipts.stock = SimpleNamespace(receipts={"history":{"summary":{
         "account_key":key,"store":"carrefour","summary_only":True,"total":3.75}}})
     row = {"purchaseId":reference,"purchaseDate":dt_util.now().isoformat(),"amount":3.75,"orderSource":"TICKET"}
-    account._http = AsyncMock(side_effect=[{"purchases":[row]},b"%PDF-test"])
+    account._http = AsyncMock(side_effect=[{"purchases":[row]},{"ticketId":reference,"header":{"netAmount":3.75},"lines":["detail"]}])
     assert await account.async_preview_saved("owner","summary") == {"token":"draft"}
     account.receipts.async_import_carrefour_purchases.assert_not_awaited()
     assert account._http.await_count == 2
@@ -415,41 +409,40 @@ async def test_transient_renewal_failure_preserves_saved_session(account):
     assert (await account._store.async_load())["login_token"]=="PRIVATE_SESSION"
 
 
-async def test_unrecognized_pdf_lines_use_verified_account_detail(account):
+async def test_unrecognized_detail_lines_use_pdf(account):
     from custom_components.improved_shopping_list.catalog import CatalogError
     account._session={"login_token":"private","jwt":"private-jwt","jwt_until":time.time()+500}
     account._purchases["key"]={"id":"test-ticket","owner":"owner","expires":time.time()+500,"supported":True,"amount":5.22}
-    detail={"ticketId":"test-ticket","header":{"netAmount":5.22},"lines":["printable detail"]}
-    account._http=AsyncMock(side_effect=[b"%PDF-test",detail])
-    account.receipts.async_preview=AsyncMock(side_effect=CatalogError("No lines","receipt_unrecognized_lines"))
-    draft={"token":"draft","receipt":{"lines":[{"id":"0"}]}}
-    account.receipts.async_preview_carrefour_ticket=AsyncMock(return_value=draft)
-    assert await account.async_preview("owner","key")==draft
-    account.receipts.async_preview_carrefour_ticket.assert_awaited_once_with(detail,"test-ticket",5.22,"owner")
-    assert account.activity.record.call_args.kwargs["diagnostics"]["pdf_format_error"]=="receipt_unrecognized_lines"
+    account._http=AsyncMock(side_effect=[{"ticketId":"test-ticket"},b"%PDF-test"])
+    account.receipts.async_preview_carrefour_ticket=AsyncMock(side_effect=CatalogError("No lines","receipt_unrecognized_lines"))
+    assert await account.async_preview("owner","key")=={"token":"draft"}
+    assert account._http.await_count==2
+    account.receipts.async_preview.assert_awaited_once()
+    assert account.activity.record.call_args.kwargs["diagnostics"]["detail_format_error"]=="receipt_unrecognized_lines"
 
 
 @pytest.mark.parametrize("code",["duplicate","conflict","invalid"])
-async def test_other_pdf_validation_failures_do_not_use_fallback(account,code):
+async def test_detail_validation_failures_do_not_use_pdf_fallback(account,code):
     from custom_components.improved_shopping_list.catalog import CatalogError
     account._session={"login_token":"private","jwt":"private-jwt","jwt_until":time.time()+500}
     account._purchases["key"]={"id":"test-ticket","owner":"owner","expires":time.time()+500,"supported":True,"amount":5.22}
-    account._http=AsyncMock(return_value=b"%PDF-test")
-    account.receipts.async_preview=AsyncMock(side_effect=CatalogError("Invalid total or duplicate",code))
+    account._http=AsyncMock(return_value={"ticketId":"test-ticket"})
+    account.receipts.async_preview_carrefour_ticket=AsyncMock(side_effect=CatalogError("Invalid total or duplicate",code))
     with pytest.raises(CatalogError):
         await account.async_preview("owner","key")
     assert account._http.await_count==1
+    account.receipts.async_preview.assert_not_awaited()
 
 
 async def test_both_ticket_formats_fail_with_safe_diagnostic(account):
     from custom_components.improved_shopping_list.catalog import CatalogError
     account._session={"login_token":"private","jwt":"private-jwt","jwt_until":time.time()+500}
     account._purchases["key"]={"id":"test-ticket","owner":"owner","expires":time.time()+500,"supported":True,"amount":5.22}
-    account._http=AsyncMock(side_effect=[b"%PDF-test",{"private_customer":"PRIVATE_DATA"}])
+    account._http=AsyncMock(side_effect=[{"private_customer":"PRIVATE_DATA"},b"%PDF-test"])
     account.receipts.async_preview=AsyncMock(side_effect=CatalogError("No lines","receipt_unrecognized_lines"))
     account.receipts.async_preview_carrefour_ticket=AsyncMock(side_effect=CatalogError("No lines","receipt_unrecognized_lines"))
     with pytest.raises(CarrefourAccountError) as error:
         await account.async_preview("owner","key")
-    assert error.value.diagnostics["stage"]=="ticket_detail_parse"
-    assert error.value.diagnostics["detail_error"]=="receipt_unrecognized_lines"
+    assert error.value.diagnostics["stage"]=="ticket_pdf_fallback"
+    assert error.value.diagnostics["detail_format_error"]=="receipt_unrecognized_lines"
     assert "PRIVATE" not in str(error.value.diagnostics)

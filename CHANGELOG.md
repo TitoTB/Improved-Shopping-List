@@ -2,6 +2,8 @@
 
 ## Pendiente de publicación
 
+- Carrefour prioriza el detalle de la cuenta para revisar tickets. Solo descarga el PDF como alternativa ante HTTP 5xx o una estructura no reconocida; las discrepancias de importe, referencia, duplicados y errores de autorización siguen deteniendo la operación.
+
 - Compras filtra sus bloques por los mismos seis meses seleccionados en la gráfica; las flechas actualizan ambos elementos y los periodos sin compras muestran un mensaje específico.
 
 - Carrefour intenta el detalle alternativo cuando un PDF no permite identificar sus líneas, además de ante HTTP 5xx. Los errores de totales, duplicados o conflictos no activan esa alternativa; si tampoco se reconoce el detalle, se registra la fase sin datos del ticket.

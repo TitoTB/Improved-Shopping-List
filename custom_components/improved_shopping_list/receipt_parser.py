@@ -179,7 +179,7 @@ def extract_carrefour_account_ticket(detail, reference, expected_total):
     lines, header = detail.get("lines"), detail.get("header")
     if (not isinstance(lines, list) or not 1 <= len(lines) <= 2000 or
             any(not isinstance(line, str) or len(line) > 2000 for line in lines)):
-        raise CatalogError("Carrefour no ha devuelto un detalle de ticket válido.")
+        raise CatalogError("Carrefour no ha devuelto un detalle de ticket válido.", "receipt_detail_format")
     text = "\n".join(lines)
     if len(text) > 100000:
         raise CatalogError("El ticket contiene demasiado texto.")

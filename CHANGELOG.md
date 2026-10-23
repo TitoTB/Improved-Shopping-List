@@ -1,6 +1,6 @@
 # Historial de cambios
 
-## Sin publicar
+## 0.41.0 — 2026-10-23
 
 - DIA se retira de Ajustes → Tiendas y sus revisiones públicas no arrancan, aunque tuviera una actualización periódica activada. Se conservan el código, las opciones, las vinculaciones y los precios guardados.
 - Alcampo mantiene su configuración, búsqueda de coincidencias y actualización periódica, como antes. Las demás tiendas permanecen disponibles.

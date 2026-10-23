@@ -1,4 +1,4 @@
-import { installDialogCloseButtons } from "./dialog-controls.js?v=0.40.0";
+import { installDialogCloseButtons } from "./dialog-controls.js?v=0.41.0";
 export class CarrefourAccountPanel extends HTMLElement {
   get providerId(){return "carrefour";}
   get providerName(){return "Carrefour";}

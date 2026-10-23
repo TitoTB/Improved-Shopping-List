@@ -537,6 +537,9 @@ class ImprovedShoppingListPanel extends HTMLElement {
     root.querySelector("isl-catalog").onAdd = (product) => this._runAction(
       () => this._session.add(product.name), "",
     );
+    root.querySelector("isl-catalog").onComplete = (item) => this._runAction(
+      () => this._session.setCompleted(item, true), "",
+    );
     root.querySelector("isl-catalog").onAdjustQuantity = (entity,uid,direction) => this._quantities.adjust(entity,uid,direction);
     root.querySelector("isl-catalog").onRenameSuggestion = (source, name) => this._session.renameFromSuggestion(source,name);
     root.querySelector(".menu").addEventListener("click", () => {
@@ -702,6 +705,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
     catalog.hass = this._hass;
     catalog.readerData = this._readers;
     catalog.canAdd = canCreate && !this._busy && !session.loading;
+    catalog.canComplete = canUpdate && !this._busy && !session.loading;
     catalog.listName = state?.attributes.friendly_name ?? session.entityId;
     catalog.listEntity = session.entityId;
     catalog.active = this._view === "catalog";

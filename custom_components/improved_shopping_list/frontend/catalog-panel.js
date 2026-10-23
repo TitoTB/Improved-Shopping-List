@@ -95,6 +95,12 @@ class ImprovedShoppingCatalog extends HTMLElement {
     this._renderProducts();
   }
 
+  set canComplete(value) {
+    if (this._canComplete === value) return;
+    this._canComplete = value;
+    this._renderProducts();
+  }
+
   set listName(value) {
     this._listName = value;
     this._renderSuggestions();
@@ -1243,9 +1249,9 @@ class ImprovedShoppingCatalog extends HTMLElement {
     // Edit/delete are sibling controls above it, so they never activate list writes.
     const add = element("button", "add-product");
     add.type = "button";
-    add.title = inList ? "Este producto ya está en la lista." : this._canAdd ? `Añadir ${product.name} a «${this._listName}»` : "Selecciona una lista disponible en el apartado Lista para añadir productos.";
-    add.setAttribute("aria-label", `Añadir ${product.name} a la lista`);
-    add.disabled = inList || !this._canAdd || Boolean(this._adding);
+    add.title = inList ? `Marcar ${product.name} como comprado en «${this._listName}»` : this._canAdd ? `Añadir ${product.name} a «${this._listName}»` : "Selecciona una lista disponible en el apartado Lista para añadir productos.";
+    add.setAttribute("aria-label", inList ? `Marcar ${product.name} como comprado` : `Añadir ${product.name} a la lista`);
+    add.disabled = !(inList ? this._canComplete : this._canAdd) || Boolean(this._adding);
     add.addEventListener("click", () => void this._addToList(product));
     card.append(add);
     const top = element("div", "product-top");
@@ -1619,11 +1625,15 @@ class ImprovedShoppingCatalog extends HTMLElement {
   }
 
   async _addToList(product) {
-    if (!this._canAdd || this._adding || !this.onAdd || this._pendingNames.has(productNameKey(product.name))) return;
+    if (this._adding) return;
+    const inList = this._pendingNames.has(productNameKey(product.name));
+    const item = inList ? this._listItems?.find(item => item.status !== "completed" && productNameKey(item.summary) === productNameKey(product.name)) : null;
+    if (inList ? !this._canComplete || !this.onComplete || !item : !this._canAdd || !this.onAdd) return;
     this._adding = product.id;
     this._render();
     try {
-      await this.onAdd(product);
+      if (inList) await this.onComplete(item);
+      else await this.onAdd(product);
     } finally {
       this._adding = undefined;
       this._render();

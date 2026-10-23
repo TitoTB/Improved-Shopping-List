@@ -3837,14 +3837,14 @@ async function main() {
     assert.deepEqual(await accountPage.evaluate(()=>window.lastCfLogin),{username:'test@example.test',password_empty:true,remember:true});
     await accountContext.close();
 
-    // Shipping policy: only Carrefour is available; archived settings never initialize.
+    // Shipping policy: only DIA is archived; Alcampo and the other stores remain available.
     const archivedContext=await browser.newContext({viewport:{width:390,height:844}});
-    await archivedContext.addInitScript(()=>localStorage.setItem('settings-fixture',JSON.stringify({entities:['todo.bring'],primary_entity:'todo.bring',available_stores:['carrefour'],stores:{carrefour:{enabled:true},alcampo:{enabled:false},dia:{enabled:false}}})));
+    await archivedContext.addInitScript(()=>localStorage.setItem('settings-fixture',JSON.stringify({entities:['todo.bring'],primary_entity:'todo.bring',available_stores:['mercadona','carrefour','alcampo','consum','lasirena','eroski'],stores:{carrefour:{enabled:true},alcampo:{enabled:true},dia:{enabled:false}}})));
     const archivedPage=await archivedContext.newPage();archivedPage.on('pageerror',error=>errors.push(error.message));
     await archivedPage.goto(url);await archivedPage.getByRole('button',{name:'Ajustes',exact:true}).click();
     await archivedPage.locator('isl-settings').getByRole('button',{name:'Tiendas',exact:true}).click();
-    assert.deepEqual(await archivedPage.locator('isl-settings .store-row:visible h3').allTextContents(),['Carrefour']);
-    assert.equal(await archivedPage.getByRole('button',{name:'Ajustes de Alcampo',exact:true}).isVisible(),false);
+    assert.deepEqual(await archivedPage.locator('isl-settings .store-row:visible h3').allTextContents(),['Alcampo','Carrefour','Consum','Eroski','La Sirena','Mercadona']);
+    assert.equal(await archivedPage.getByRole('button',{name:'Ajustes de Alcampo',exact:true}).isVisible(),true);
     assert.equal(await archivedPage.getByRole('button',{name:'Ajustes de DIA',exact:true}).isVisible(),false);
     assert.equal(await archivedPage.evaluate(()=>window.calls.some(call=>/\/(?:alcampo|dia\/prices)\//.test(call.type))),false);
     await archivedPage.getByRole('button',{name:'Ajustes de Carrefour',exact:true}).click();

@@ -1,10 +1,10 @@
-"""User-facing stores with a working web-ticket connector.
+"""User-facing stores, excluding connectors explicitly archived by the project.
 
 Keep archived connectors and stored references intact. Re-enabling a connector
 requires deliberately changing this capability list after validating it.
 """
 
-AVAILABLE_STORES = frozenset({"carrefour"})
+AVAILABLE_STORES = frozenset({"mercadona", "carrefour", "alcampo", "consum", "lasirena", "eroski"})
 
 
 def apply_availability(snapshot):

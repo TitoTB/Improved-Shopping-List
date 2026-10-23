@@ -3453,11 +3453,11 @@ async function main() {
         const bounds=name=>form.elements[name].getBoundingClientRect();
         const name=bounds('name'),category=bounds('category'),tags=bounds('tags');
         const unit=bounds('purchase_unit'),quantity=bounds('unit_quantity'),step=bounds('quantity_step');
-        return {top:[name.bottom,category.bottom,tags.bottom],units:[unit.bottom,quantity.bottom,step.bottom],order:form.querySelector('[name="image_url"]').getBoundingClientRect().bottom<=form.querySelector('isl-icon-picker').getBoundingClientRect().top,overflow:form.scrollWidth>form.clientWidth};
+        return {top:[name.bottom,category.bottom],tagsBelow:tags.top>=name.bottom,units:[unit.bottom,quantity.bottom,step.bottom],order:form.querySelector('[name="image_url"]').getBoundingClientRect().bottom<=form.querySelector('isl-icon-picker').getBoundingClientRect().top,overflow:form.scrollWidth>form.clientWidth};
       });
       assert.ok(Math.max(...layout.top)-Math.min(...layout.top)<=1);
       assert.ok(Math.max(...layout.units)-Math.min(...layout.units)<=1);
-      assert.equal(layout.order,true);assert.equal(layout.overflow,false);
+      assert.equal(layout.tagsBelow,true);assert.equal(layout.order,true);assert.equal(layout.overflow,false);
       await storeGroupingPage.screenshot({path:'test-results/product-form-main-'+width+'.png',fullPage:true});
     }
     await storesProductForm.getByRole('button',{name:'Tiendas',exact:true}).click();

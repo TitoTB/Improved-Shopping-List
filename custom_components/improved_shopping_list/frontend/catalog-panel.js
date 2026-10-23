@@ -329,7 +329,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
         #product-form h3 { font-size:15px; font-weight:650; line-height:1.4; margin:0 0 12px; }
         .product-main-row,.product-quantity-row { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); align-items:end; gap:12px; }
         .product-main-row>*,.product-quantity-row>* { min-width:0; }
-        #product-tags-help { margin:0; }
+        .product-main-row { grid-template-columns:repeat(2,minmax(0,1fr)); }
         @media(max-width:550px) { .product-main-row,.product-quantity-row { gap:6px; }.product-main-row input,.product-quantity-row input { padding-inline:6px; }.product-main-row label,.product-quantity-row label { font-size:12px; }.product-main-row #add-product-category { flex-basis:28px;width:28px;padding:0; }.product-main-row .product-category-controls { gap:4px; }.product-main-row select { padding-inline:4px; } }
 
         .recurrence-controls { display:flex; align-items:center; flex-wrap:wrap; gap:8px; margin-top:12px; }
@@ -446,9 +446,8 @@ class ImprovedShoppingCatalog extends HTMLElement {
             <div class="wide product-main-row">
               <label>Nombre del producto<input name="name" required maxlength="160" placeholder="Por ejemplo, Cacao"></label>
               <div><label for="product-category">Categoría</label><div class="product-category-controls"><select id="product-category" name="category"><option value="">Sin categoría</option></select><button id="add-product-category" type="button" aria-label="Nueva categoría" title="Nueva categoría"><ha-icon icon="mdi:plus-thick"></ha-icon></button></div></div>
-              <label>Etiquetas<input name="tags" maxlength="840" placeholder="Marca, tienda, otros términos…" aria-describedby="product-tags-help"></label>
             </div>
-            <p id="product-tags-help" class="helper wide">Separa las etiquetas con comas. Hasta 20 etiquetas de 40 caracteres.</p>
+            <label class="wide">Etiquetas<input name="tags" maxlength="840" placeholder="Marca, tienda, otros términos…"></label>
             <div class="wide product-quantity-row">
             <label>Unidades<input name="purchase_unit" list="purchase-unit-options" maxlength="32" value="uds" required><datalist id="purchase-unit-options">${['uds','kg','g','l','ml','Latas','Paquetes'].map(unit=>`<option value="${unit}"></option>`).join('')}</datalist></label>
             <label>Cantidad unitaria<input name="unit_quantity" type="number" min="0.001" max="1000000" step="0.001" value="1" required></label>

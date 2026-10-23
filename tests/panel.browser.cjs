@@ -45,6 +45,7 @@ window.calls=[];window.fail=false;window.failCatalog=false;
 window.logFixture={entries:[],limit:1000};window.failLogs=false;
 window.emitLogs=()=>{for(const listener of listeners.keys())if(listener.logs)listener.callback(structuredClone(window.logFixture));};
 window.listSettings=JSON.parse(localStorage.getItem('settings-fixture')??'{"entities":["todo.bring","todo.local","todo.readonly"],"primary_entity":"todo.bring"}');
+const settingsSnapshot=()=>({...structuredClone(window.listSettings),available_stores:window.listSettings.available_stores??['mercadona','carrefour','alcampo','consum','lasirena','eroski','dia']});
 window.failSettings=false;
 window.readerFixture=JSON.parse(localStorage.getItem('reader-fixture')??'{"readers":[],"pending":[]}');
 window.failReaders=false;
@@ -54,7 +55,7 @@ window.emitReaders=()=>{
 };
 window.emitSettings=()=>{
   localStorage.setItem('settings-fixture',JSON.stringify(window.listSettings));
-  for(const listener of listeners.keys())if(listener.settings)listener.callback(structuredClone(window.listSettings));
+  for(const listener of listeners.keys())if(listener.settings)listener.callback(settingsSnapshot());
 };
 const panel=document.createElement('improved-shopping-list-panel');
 const hass={
@@ -94,7 +95,7 @@ const hass={
     }
     if(msg.type==='improved_shopping_list/settings/subscribe'){
       const listener={callback,settings:true};listeners.set(listener,true);
-      callback(structuredClone(window.listSettings));return ()=>listeners.delete(listener);
+      callback(settingsSnapshot());return ()=>listeners.delete(listener);
     }
     if(msg.type==='improved_shopping_list/catalog/subscribe'){
       const listener={callback,catalog:true};listeners.set(listener,true);
@@ -277,7 +278,7 @@ const hass={
       item.quantity=Math.max(0,item.quantity+(msg.delta??1));item.revision++;window.emitStock();return structuredClone(item);
     }
     // Legacy scenarios intentionally exercise preserved store panels; the shipping-policy scenario below restricts this list.
-    if(msg.type==='improved_shopping_list/settings/get')return {...structuredClone(window.listSettings),available_stores:window.listSettings.available_stores??['mercadona','carrefour','alcampo','consum','lasirena','eroski','dia']};
+    if(msg.type==='improved_shopping_list/settings/get')return settingsSnapshot();
     if(msg.type==='improved_shopping_list/settings/notifications'){
       if(window.failSettings)throw new Error('No se han podido guardar las notificaciones');
       for(const rule of Object.values(msg.notifications))if(rule.enabled&&!rule.targets.length)throw new Error('Selecciona al menos un dispositivo');

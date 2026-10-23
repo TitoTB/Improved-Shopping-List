@@ -1,6 +1,6 @@
 # Historial de cambios
 
-## Pendiente de publicación
+## 0.38.0 — 2026-10-23
 
 - Detección de compras con asignación provisional por zonas: selección de personas y varias zonas por tienda, visitas locales por día y elección entre tiendas candidatas. La descarga de tickets prioriza tiendas visitadas y se detiene al confirmar una compra coincidente.
 

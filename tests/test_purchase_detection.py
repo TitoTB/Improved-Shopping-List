@@ -269,3 +269,37 @@ async def test_ticket_sources_prioritize_visited_store_stop_after_match_and_cont
     await env.manager.async_search_ticket_sources({"alcampo":other,"carrefour":broken})
     # Reconciliation needs a pending detection; the previous match must not be recreated.
     assert calls==["carrefour","failed","alcampo"]
+
+
+async def test_ticket_order_favorite_fallback_without_unavailable_sources(env,hass):
+    env.settings.snapshot["favorite_store"]="carrefour"
+    assert env.manager.ticket_search_order(["dia","alcampo","carrefour"])==["carrefour","alcampo","dia"]
+    assert env.manager.ticket_search_order(["dia","alcampo"])==["alcampo","dia"]
+    zone_setup(env,hass)
+    visit(env,hass,"person.ana","Alcampo")
+    await env.manager.async_check()
+    assert env.manager.ticket_search_order(["dia","alcampo","carrefour"])==["alcampo","carrefour","dia"]
+    visit(env,hass,"person.ana","Carrefour")
+    await env.manager.async_check()
+    assert env.manager.ticket_search_order(["dia","alcampo","carrefour"])==["carrefour","alcampo","dia"]
+    env.settings.snapshot["purchase_detection"]["zone_assignment"]=False
+    assert env.manager.ticket_search_order(["dia","alcampo","carrefour"])==["carrefour","alcampo","dia"]
+
+
+@pytest.mark.parametrize("visited",[False,True])
+async def test_ticket_search_tries_favorite_after_unsuccessful_zone_then_stops(env,hass,visited):
+    env.settings.snapshot["favorite_store"]="carrefour"
+    if visited:
+        zone_setup(env,hass)
+        visit(env,hass,"person.ana","Alcampo")
+    for uid in "abc":complete(env,uid)
+    await env.manager.async_check()
+    calls=[]
+    async def no_match():calls.append("alcampo")
+    async def favorite_match():
+        calls.append("carrefour")
+        env.stock.receipts["history"]["favorite-ticket"]=ticket(env,"favorite-ticket")
+    async def unused():calls.append("dia")
+    await env.manager.async_search_ticket_sources({"dia":unused,"alcampo":no_match,"carrefour":favorite_match})
+    assert calls==(["alcampo","carrefour"] if visited else ["carrefour"])
+    assert env.manager._today_identified()

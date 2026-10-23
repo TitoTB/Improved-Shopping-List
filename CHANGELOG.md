@@ -2,6 +2,8 @@
 
 ## Pendiente de publicación
 
+- La búsqueda automática de tickets consulta primero las tiendas coincidentes por zona y después la tienda favorita, antes de continuar por las demás fuentes disponibles.
+
 - Compras sitúa Subir ticket dentro de la gráfica, a la derecha del selector de periodos; también permite subir el primer ticket sin compras previas.
 
 - Analítica muestra las vistas en el orden Compras, Comparativa y Nutri-score.

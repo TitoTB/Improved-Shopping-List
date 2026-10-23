@@ -115,8 +115,9 @@ class PurchaseDetection:
             any(persons.intersection(visits.get(zone,[])) for zone in zones))
 
     def ticket_search_order(self, stores):
-        preferred = self.zone_stores()
-        return sorted(stores, key=lambda store:(store not in preferred, store))
+        visited = self.zone_stores()
+        favorite = self.settings.snapshot.get("favorite_store", "")
+        return sorted(stores, key=lambda store:(store not in visited, store != favorite, store))
 
     def _today_identified(self):
         identifier = self._days.get(dt_util.now().date().isoformat(), {}).get("receipt_id")

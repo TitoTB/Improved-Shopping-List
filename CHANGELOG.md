@@ -2,6 +2,8 @@
 
 ## Pendiente de publicación
 
+- Compras sitúa Subir ticket dentro de la gráfica, a la derecha del selector de periodos; también permite subir el primer ticket sin compras previas.
+
 - Analítica muestra las vistas en el orden Compras, Comparativa y Nutri-score.
 
 - Pulsar un producto del catálogo que ya está pendiente lo marca como comprado en la lista seleccionada; si no está pendiente, lo añade, sin borrar la entrada ni duplicarla.

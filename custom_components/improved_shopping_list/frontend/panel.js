@@ -188,7 +188,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
         #list-controls { margin-bottom:24px; }
         #add-form { display:flex; align-items:center; gap:8px; margin:0; }
         .icon-button { display:inline-flex; align-items:center; justify-content:center; flex:0 0 48px; width:48px; height:48px; padding:0; border:1px solid var(--divider-color,#dfe7e1); border-radius:10px; color:inherit; background:var(--card-background-color,#fff); }
-        #add-button, #add-stock, #upload-ticket { padding:0; align-self:auto; color:#fff; background:var(--isl-green); border:0; }
+        #add-button, #add-stock { padding:0; align-self:auto; color:#fff; background:var(--isl-green); border:0; }
         .icon-button ha-icon { --mdc-icon-size:24px; }
         dialog { color:inherit; background:var(--card-background-color,#fff); border:1px solid var(--divider-color,#dfe7e1); border-radius:18px; padding:24px; width:min(460px,calc(100vw - 28px)); max-height:calc(100dvh - 28px); }
         dialog::backdrop { background:rgba(0,0,0,.4); }
@@ -402,7 +402,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
           <details id="completed-details"><summary id="completed-summary"><span id="completed-label">Compras recientes</span><button id="clear-completed" type="button"><ha-icon icon="mdi:delete" aria-hidden="true"></ha-icon>Limpiar productos</button></summary><ul id="completed" class="product-grid" aria-label="Compras recientes"></ul></details>
         </section>
         <section id="stock-card" aria-label="Stock" hidden><ul id="stock-items" class="product-grid" aria-label="Productos en stock"></ul><p id="stock-empty" class="empty" hidden>Añade productos para empezar a controlar tu despensa.</p></section>
-        <div id="analytics-heading" hidden><h2>Analítica</h2><nav class="stock-tabs" role="tablist" aria-label="Vistas de Analítica"><button id="purchases-tab" type="button" role="tab" aria-label="Compras" aria-selected="true"><ha-icon icon="mdi:receipt-text" aria-hidden="true"></ha-icon><span>Compras</span></button><button id="comparison-tab" type="button" role="tab" aria-label="Comparativa" aria-selected="false"><ha-icon icon="mdi:scale-balance" aria-hidden="true"></ha-icon><span>Comparativa</span></button><button id="nutrition-tab" type="button" role="tab" aria-label="Nutri-Score" aria-selected="false"><ha-icon icon="mdi:nutrition" aria-hidden="true"></ha-icon><span>Nutri-score</span></button></nav><button id="upload-ticket" class="icon-button" type="button" aria-label="Subir ticket" title="Subir ticket PDF"><ha-icon icon="mdi:file-upload" aria-hidden="true"></ha-icon></button></div>
+        <div id="analytics-heading" hidden><h2>Analítica</h2><nav class="stock-tabs" role="tablist" aria-label="Vistas de Analítica"><button id="purchases-tab" type="button" role="tab" aria-label="Compras" aria-selected="true"><ha-icon icon="mdi:receipt-text" aria-hidden="true"></ha-icon><span>Compras</span></button><button id="comparison-tab" type="button" role="tab" aria-label="Comparativa" aria-selected="false"><ha-icon icon="mdi:scale-balance" aria-hidden="true"></ha-icon><span>Comparativa</span></button><button id="nutrition-tab" type="button" role="tab" aria-label="Nutri-Score" aria-selected="false"><ha-icon icon="mdi:nutrition" aria-hidden="true"></ha-icon><span>Nutri-score</span></button></nav></div>
         <isl-analytics hidden></isl-analytics>
         <isl-purchases id="purchase-history" hidden></isl-purchases>
         <dialog id="stock-add-dialog" aria-labelledby="stock-add-title"><form id="stock-add-form"><h2 id="stock-add-title">Añadir producto al stock</h2><label>Nombre del producto<input name="name" type="text" maxlength="255" list="stock-add-products" autocomplete="off" required></label><datalist id="stock-add-products"></datalist><p id="stock-add-error" class="notice error" role="alert" hidden></p><div class="dialog-actions"><button id="stock-add-submit" type="submit">Añadir</button></div></form></dialog>
@@ -442,7 +442,6 @@ class ImprovedShoppingListPanel extends HTMLElement {
     root.querySelector('#stock-add-dialog').addEventListener('cancel',event=>{if(this._busy)event.preventDefault();});
     for(const [id,view] of [['comparison-tab','comparison'],['purchases-tab','purchases'],['nutrition-tab','nutrition']])root.querySelector('#'+id).addEventListener('click',()=>{this._analyticsView=view;this._renderData();});
     root.querySelector('#nav-analytics').addEventListener('click',()=>this._switchView('analytics'));
-    root.querySelector('#upload-ticket').addEventListener('click',()=>root.querySelector('isl-purchases').chooseFile());
     root.querySelector('isl-purchases').addEventListener('receipt-busy',event=>{this._receiptBusy=event.detail;this._renderData();});
     root.querySelector('isl-purchases').addEventListener('receipt-imported',()=>{this._analyticsView='purchases';void this._stock.refresh();void this._refreshRowPrices();this._renderData();});
     root.querySelector('isl-purchases').createProduct=name=>root.querySelector('isl-catalog').createProduct(name);
@@ -661,8 +660,6 @@ class ImprovedShoppingListPanel extends HTMLElement {
     groupingButton.setAttribute('aria-pressed',String(grouped));
     groupingButton.querySelector('ha-icon').setAttribute('icon',grouped ? 'mdi:sort-alphabetical-ascending' : 'mdi:label');
     root.querySelector('#add-stock').hidden=!stockItemsView;
-    root.querySelector('#upload-ticket').hidden=!analyticsView||this._analyticsView!=='purchases';
-    root.querySelector('#upload-ticket').disabled=Boolean(this._receiptBusy)||this._hass.user?.is_admin!==true;
     root.querySelector('isl-purchases').hidden=!analyticsView||this._analyticsView!=='purchases';
     root.querySelector('isl-purchases').data={hass:this._hass,active:analyticsView&&this._analyticsView==='purchases',history:true,pricesEnabled:this._settings.priceUpdatesEnabled!==false};
     const sortButton=root.querySelector("#toggle-stock-sort");

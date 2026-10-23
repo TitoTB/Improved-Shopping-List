@@ -2595,10 +2595,21 @@ async function main() {
     await purchases.getByText('Todavía no has subido ningún ticket.',{exact:true}).waitFor();
     assert.equal(await purchasePage.locator('#list-controls').isVisible(),false);
     assert.equal(await purchasePage.getByRole('button',{name:'Subir ticket',exact:true}).isVisible(),true);
+    assert.equal(await purchasePage.locator('#analytics-heading #upload-ticket').count(),0);
+    const chartUpload=purchases.locator('#spending-chart').getByRole('button',{name:'Subir ticket',exact:true});
+    for(const width of [1280,390,320]){
+      await purchasePage.setViewportSize({width,height:844});
+      assert.ok(await chartUpload.evaluate(button=>{
+        const upload=button.getBoundingClientRect(),navigation=button.parentElement.querySelector('.chart-navigation').getBoundingClientRect(),chart=button.closest('#spending-chart').getBoundingClientRect();
+        return navigation.right<=upload.left&&Math.abs((navigation.top+navigation.bottom-upload.top-upload.bottom)/2)<1&&upload.right<=chart.right&&chart.width>=chart.scrollWidth-1;
+      }),'Upload is to the right of the period selector inside the chart at '+width+'px');
+    }
+    await purchasePage.setViewportSize({width:390,height:844});
+
     assert.equal(await purchasePage.getByRole('button',{name:'Añadir producto al stock',exact:true}).isVisible(),false);
     assert.equal(await purchasePage.getByRole('button',{name:'Seleccionar lista',exact:true}).isVisible(),false);
     const ticketFile={name:'ticket.pdf',mimeType:'application/pdf',buffer:Buffer.from('%PDF-fixture')};
-    await purchases.locator('#ticket-file').setInputFiles(ticketFile);
+    const chooseTicket=purchasePage.waitForEvent('filechooser');await chartUpload.click();await (await chooseTicket).setFiles(ticketFile);
     const review=purchases.getByRole('dialog',{name:'Revisar ticket',exact:true});await review.waitFor();
     assert.equal(await review.locator('#step-help').textContent(),'Vincula los productos detectados en el ticket con los de tu catálogo. Si no existen, puedes crear un producto nuevo o simplemente ignorarlos.');
     assert.equal(await purchasePage.evaluate(()=>window.receiptHistory.length),0);

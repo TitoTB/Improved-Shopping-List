@@ -3446,6 +3446,10 @@ async function main() {
     assert.ok((await storesProductForm.locator('.product-store-association[data-store="carrefour"]').textContent()).includes('Ticket/factura confirmado'));
     assert.equal(await storesProductForm.getByLabel('Enlace o ID de Carrefour',{exact:true}).count(),0);
     assert.equal(await storesProductForm.locator('#product-ean-summary').textContent(),'EAN del producto: 1234567890128');
+    await storesProductForm.getByLabel('Tienda del producto',{exact:true}).selectOption('carrefour');
+    await storesProductForm.getByLabel('Enlace o ID del producto',{exact:true}).fill('https://www.carrefour.es/supermercado/producto/R-prod1/p');
+    await storesProductForm.getByRole('button',{name:'Añadir vinculación',exact:true}).click();
+    assert.equal(await storesProductForm.locator('.product-store-association[data-store="carrefour"] .association-source span').count(),2);
     await storesProductForm.getByRole('button',{name:'Características',exact:true}).click();
     for(const width of [1280,390,320]){
       await storeGroupingPage.setViewportSize({width,height:960});
@@ -3461,6 +3465,15 @@ async function main() {
       await storeGroupingPage.screenshot({path:'test-results/product-form-main-'+width+'.png',fullPage:true});
     }
     await storesProductForm.getByRole('button',{name:'Tiendas',exact:true}).click();
+    for(const width of [320,390,1280]){
+      await storeGroupingPage.setViewportSize({width,height:960});
+      const storeLayout=await storesProductForm.locator('.product-store-association[data-store="carrefour"]').evaluate(card=>{
+        const header=card.querySelector('.product-store-header').getBoundingClientRect(),input=card.querySelector('input').getBoundingClientRect(),remove=card.querySelector('.remove-store-link').getBoundingClientRect();
+        return {below:input.top>=header.bottom,full:input.width>card.clientWidth*.6,centered:Math.abs((input.top+input.height/2)-(remove.top+remove.height/2))<1,overflow:card.scrollWidth>card.clientWidth};
+      });
+      assert.equal(storeLayout.below,true);assert.equal(storeLayout.full,true);assert.equal(storeLayout.centered,true);assert.equal(storeLayout.overflow,false);
+      await storeGroupingPage.screenshot({path:'test-results/product-form-stores-'+width+'.png',fullPage:true});
+    }
     await storeGroupingPage.screenshot({path:'test-results/product-form-stores-mobile.png',fullPage:true});
     await storeCatalog.locator('dialog[aria-labelledby="product-dialog-title"]').getByRole('button',{name:'Cerrar ventana',exact:true}).click();
     await storeGroupingPage.evaluate(()=>{window.listSettings.stores.carrefour.enabled=false;window.emitSettings();});

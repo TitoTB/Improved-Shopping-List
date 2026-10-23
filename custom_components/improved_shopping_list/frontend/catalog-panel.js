@@ -250,16 +250,18 @@ class ImprovedShoppingCatalog extends HTMLElement {
         .store-link-add select { appearance:none; -webkit-appearance:none; padding-right:32px; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right 12px center; }
         #add-product-store-link { display:grid; place-items:center; padding:0; }
         #add-product-store-link ha-icon { display:block; width:24px; height:24px; --mdc-icon-size:24px; }
-        .product-store-link { display:grid; grid-template-columns:minmax(90px,.8fr) minmax(0,1.4fr) 40px; gap:8px; align-items:center; margin-bottom:10px; }
-        .product-store-association { padding:12px; border:1px solid var(--divider-color,#dfe7e1); border-radius:10px; margin-bottom:10px; min-width:0; }
-        .product-store-association .product-store-link { margin-bottom:0; }
-        .product-store-link.ticket-only { grid-template-columns:minmax(90px,.8fr) minmax(0,1.4fr) 40px; }
-        .association-source { margin:8px 0 0; }
+        #product-store-links { display:grid; gap:12px; }
+        .product-store-association { padding:14px; border:1px solid var(--divider-color,#dfe7e1); border-radius:12px; min-width:0; background:var(--card-background-color,#fff); }
+        .product-store-header { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; min-width:0; }
+        .store-reference { display:flex; align-items:center; gap:9px; min-width:0; font-size:14px; font-weight:650; }
+        .store-reference img { width:32px; height:32px; object-fit:contain; background:white; border-radius:8px; padding:3px; flex:none; }
+        .association-source { display:flex; align-items:center; flex-wrap:wrap; gap:5px; margin:0 0 0 auto; }
+        .association-source span { display:inline-flex; align-items:center; min-height:24px; padding:3px 8px; border-radius:7px; background:var(--secondary-background-color,#edf4ee); font-size:11px; line-height:1.3; color:var(--secondary-text-color,#63766b); }
         #product-ean-summary { overflow-wrap:anywhere; }
-        .product-store-link input { min-width:0; width:100%; height:46px; margin:0; }
-        .store-reference { display:flex; align-items:center; justify-content:center; gap:6px; min-width:0; min-height:46px; padding:6px; border-radius:10px; background:var(--secondary-background-color,#edf4ee); font-size:12px; font-weight:650; }
-        .store-reference img { width:24px; height:24px; object-fit:contain; background:white; border-radius:6px; padding:2px; flex:none; }
-        .remove-store-link { display:grid; place-items:center; width:40px; height:46px; min-height:46px; padding:0; background:#d32f2f; color:white; border:0; }
+        .product-store-link { display:grid; grid-template-columns:minmax(0,1fr) 42px; gap:8px; align-items:center; margin-top:12px; }
+        .product-store-link input { min-width:0; width:100%; height:44px; min-height:44px; margin:0; font-size:12px; }
+        .remove-store-link { display:grid; place-items:center; width:42px; height:44px; min-height:44px; padding:0; background:#d32f2f; color:white; border:0; }
+        @media(max-width:420px) { .product-store-association { padding:11px; }.product-store-header { gap:8px; }.store-reference { font-size:13px; }.association-source { gap:4px; }.association-source span { font-size:10px;padding:3px 6px; }.product-store-link { margin-top:10px;gap:6px; } }
         .remove-store-link ha-icon { --mdc-icon-size:22px; width:22px; height:22px; }
         label { font-size:13px; font-weight:600; display:block; }
         input,select,textarea { display:block; min-height:46px; width:100%; margin-top:7px; padding:10px 12px; color:inherit; background:var(--card-background-color,#fff); border:1px solid var(--divider-color,#dfe7e1); border-radius:9px; min-width:0; }
@@ -1428,23 +1430,25 @@ class ImprovedShoppingCatalog extends HTMLElement {
     root.querySelector("#product-store-links").replaceChildren(...stores.map(store=>{
       const value=this._storeLinks[store],fromTicket=receiptStores.includes(store);
       const card=document.createElement('section');card.className='product-store-association';card.dataset.store=store;
-      const row = document.createElement("div"); row.className = "product-store-link"+(value?'':' ticket-only');
+      const row = document.createElement("div"); row.className = "product-store-link";
       const reference = document.createElement("span"); reference.className = "store-reference";
       const image = document.createElement("img"); image.alt = ""; image.referrerPolicy = "no-referrer";
       const logos = {carrefour:"https://images.seeklogo.com/logo-png/31/2/carrefour-logo-png_seeklogo-318190.png",alcampo:"https://almeria.online/wp-content/uploads/2024/09/alcampo-logo.png"};
       image.src = logos[store] ?? new URL(`${store}.${store === "mercadona" || store === "dia" ? "png" : store === "eroski" ? "svg" : "jpg"}`,import.meta.url).href;
       const name = document.createElement("span"); name.textContent = names[store] ?? store;
-      reference.append(image,name);row.append(reference);
+      reference.append(image,name);
       if(value){
-        const input = document.createElement("input"); input.value = typeof value === "string" ? value : value.url || value.id; input.maxLength = 2048; input.setAttribute("aria-label",`Enlace o ID de ${names[store]}`);
+        const input = document.createElement("input"); input.value = typeof value === "string" ? value : value.url || value.id; input.maxLength = 2048; input.title=input.value; input.setAttribute("aria-label",`Enlace o ID de ${names[store]}`);
         input.addEventListener("input",()=>{this._storeLinks[store]=input.value.trim();});
         input.addEventListener("change",()=>void this._loadRetailPrices());
         const remove = document.createElement("button"); remove.type = "button"; remove.className = "remove-store-link"; remove.setAttribute("aria-label",`Quitar vinculación de ${names[store]}`); remove.innerHTML = '<ha-icon icon="mdi:delete" aria-hidden="true"></ha-icon>';
         remove.addEventListener("click",()=>{delete this._storeLinks[store];this._renderStoreLinks();void this._loadRetailPrices();});
         row.append(input,remove);
       }
-      const source=document.createElement('p');source.className='helper association-source';source.textContent=[value?'Web':'',fromTicket?'Ticket/factura confirmado':''].filter(Boolean).join(' · ');
-      card.append(row,source);return card;
+      const source=document.createElement('div');source.className='association-source';
+      for(const text of [value?'Web':'',fromTicket?'Ticket/factura confirmado':''].filter(Boolean)){const badge=document.createElement('span');badge.textContent=text;source.append(badge);}
+      const header=document.createElement('div');header.className='product-store-header';header.append(reference,source);card.append(header);
+      if(value)card.append(row);return card;
     }));
     const select = root.querySelector("#product-link-store");
     select.replaceChildren(...Object.entries(names).filter(([key])=>!(key in this._storeLinks)).map(([key,name])=>new Option(name,key)));

@@ -2,6 +2,8 @@
 
 ## Pendiente de publicación
 
+- Tiendas de la ficha de producto con cabecera de logo/nombre y distintivos del origen; el enlace ocupa una fila completa junto al botón de eliminar, adaptable a móvil.
+
 - La ficha de producto deja nombre y categoría en la misma fila y muestra Etiquetas en una fila completa debajo, sin texto de ayuda.
 
 - Las pestañas de la ficha de producto conservan todos sus textos: solo la vista seleccionada tiene fondo sombreado; el resto permanece transparente. En pantallas estrechas pueden repartirse en varias filas.

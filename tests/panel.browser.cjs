@@ -3831,6 +3831,7 @@ async function main() {
     assert.equal(await detectedEditor.locator('#detected-zone-candidates button').count(),2);
     await detectedEditor.locator('#detected-zone-candidates').getByRole('button',{name:'Alcampo',exact:true}).click();
     assert.equal(await detectedEditor.getByLabel('Tienda',{exact:true}).inputValue(),'alcampo');
+    assert.equal(await detectedEditor.locator('#detected-zone-candidates').getByRole('button',{name:'Alcampo',exact:true}).getAttribute('aria-pressed'),'true');
     await detectedEditor.getByLabel('Tienda',{exact:true}).selectOption('other');
     await detectedEditor.getByLabel('Nombre de la tienda',{exact:true}).fill('Mi tienda');
     await detectedEditor.getByLabel('Importe total (€)',{exact:true}).fill('42.55');

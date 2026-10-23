@@ -141,7 +141,7 @@ class ReceiptManager:
             self.stock.activity.record("purchase.detected.matched", "Compra detectada vinculada a su ticket", source="automatic")
         return reconciled
 
-    async def async_save_detected_purchase(self, identifier, purchased_at, products):
+    async def async_save_detected_purchase(self, identifier, purchased_at, products, *, zone_stores=None):
         """Save a detection summary only; completion already handled stock replenishment."""
         async with self.stock._lock:
             data = deepcopy(self.stock.receipts)
@@ -154,6 +154,12 @@ class ReceiptManager:
                 "needs_details":True,"summary_only":True,"store":"unknown","store_name":"Tienda desconocida",
                 "purchased_at":purchased_at,"currency":"EUR","total":None,"lines":[],"imported_at":time.time()}
             receipt.update(completed_products=deepcopy(products),article_count=len(products))
+            if receipt.get("needs_details") and zone_stores is not None:
+                candidates = [store for store in dict.fromkeys(zone_stores) if store in STORES]
+                receipt["zone_candidates"] = candidates
+                receipt["provisional_store"] = len(candidates) == 1
+                receipt["store"] = candidates[0] if len(candidates) == 1 else "unknown"
+                receipt["store_name"] = STORES[candidates[0]] if len(candidates) == 1 else "Tienda desconocida"
             data["history"][identifier] = receipt
             if data != self.stock.receipts:
                 await self.stock._persist(deepcopy(self.stock._items),receipts=data)
@@ -175,7 +181,7 @@ class ReceiptManager:
             receipt = data["history"].get(identifier)
             if not receipt or not receipt.get("detected_purchase"):
                 raise CatalogError("Esta compra detectada ya no está pendiente o se ha sustituido por un ticket.","conflict")
-            receipt.update(store=store,store_name=store_name,total=round(total,2),needs_details=False)
+            receipt.update(store=store,store_name=store_name,total=round(total,2),needs_details=False,provisional_store=False)
             # This is explicit user confirmation, not an automatic product inference.
             matches = [other for other in data["history"].values() if not other.get("detected_purchase") and
                 other.get("store")==store and type(other.get("total")) in (int,float) and

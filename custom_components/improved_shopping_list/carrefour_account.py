@@ -158,25 +158,10 @@ class CarrefourAccount:
             self._options["ticket_day"]=day;await self._save_options()
             owner="automatic_carrefour"
             try:
-                result=await self.async_purchases(owner)
-                candidates = result["purchases"]
-                if detected_today:
-                    def same_day(purchase):
-                        date = dt_util.parse_datetime(purchase["purchased_at"])
-                        return bool(date and dt_util.as_local(date if date.tzinfo else date.replace(tzinfo=dt_util.DEFAULT_TIME_ZONE)).date() == now.date())
-                    candidates = [purchase for purchase in candidates if same_day(purchase)]
-                latest=max(candidates,key=lambda purchase:purchase["purchased_at"],default=None)
-                if latest and latest["reviewable"]:
-                    cached=self._purchases[latest["id"]]
-                    if not self.receipts.account_ticket_available(cached["id"]):
-                        draft=await self.async_preview(owner,latest["id"])
-                        if self._active and self._options["auto_ticket"]:
-                            await self.receipts.async_archive_account_ticket(draft["token"],owner)
-                        else:
-                            self.receipts.discard(draft["token"],owner)
-                    self.activity.record("stores.account","Carrefour: última compra disponible para revisar",source="automatic")
-                elif latest:
-                    self.activity.record("stores.account","Carrefour: la factura online debe subirse manualmente",source="automatic")
+                if detection and getattr(detection,"enabled",False):
+                    await detection.async_search_ticket_sources({"carrefour":lambda:self._download_automatic_ticket(owner,now,detected_today)})
+                else:
+                    await self._download_automatic_ticket(owner,now,detected_today)
                 self._options["handled_completion"]=completion;await self._save_options()
             except CatalogError as err:
                 self.activity.record("stores.account","Carrefour: no se ha podido recuperar automáticamente el ticket",source="automatic",diagnostics=getattr(err,"diagnostics",{"stage":"ticket_preview"}))
@@ -184,6 +169,27 @@ class CarrefourAccount:
             raise
         except (OSError,aiohttp.ClientError,TimeoutError):
             self.activity.record("stores.account","Carrefour: no se ha podido guardar la revisión automática",source="automatic")
+
+    async def _download_automatic_ticket(self, owner, now, detected_today):
+        result=await self.async_purchases(owner)
+        candidates = result["purchases"]
+        if detected_today:
+            def same_day(purchase):
+                date = dt_util.parse_datetime(purchase["purchased_at"])
+                return bool(date and dt_util.as_local(date if date.tzinfo else date.replace(tzinfo=dt_util.DEFAULT_TIME_ZONE)).date() == now.date())
+            candidates = [purchase for purchase in candidates if same_day(purchase)]
+        latest=max(candidates,key=lambda purchase:purchase["purchased_at"],default=None)
+        if latest and latest["reviewable"]:
+            cached=self._purchases[latest["id"]]
+            if not self.receipts.account_ticket_available(cached["id"]):
+                draft=await self.async_preview(owner,latest["id"])
+                if self._active and self._options["auto_ticket"]:
+                    await self.receipts.async_archive_account_ticket(draft["token"],owner)
+                else:
+                    self.receipts.discard(draft["token"],owner)
+            self.activity.record("stores.account","Carrefour: última compra disponible para revisar",source="automatic")
+        elif latest:
+            self.activity.record("stores.account","Carrefour: la factura online debe subirse manualmente",source="automatic")
 
     async def async_stop(self):
         task=self._background_task

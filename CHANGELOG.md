@@ -2,6 +2,8 @@
 
 ## Pendiente de publicación
 
+- Detección de compras con asignación provisional por zonas: selección de personas y varias zonas por tienda, visitas locales por día y elección entre tiendas candidatas. La descarga de tickets prioriza tiendas visitadas y se detiene al confirmar una compra coincidente.
+
 - Comparativa sustituida por Catálogo y Compras pasadas: gráficos de mínimos, filtros, comparación de formatos equivalentes y análisis de tickets con cobertura visible.
 - Historial local y limitado de observaciones de Alcampo, unido a precios guardados en tickets revisados. El modo histórico excluye precios futuros y separa las estimaciones actuales; las comparaciones parciales con descuentos no se anuncian como ahorro neto.
 

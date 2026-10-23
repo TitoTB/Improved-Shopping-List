@@ -185,7 +185,7 @@ class ImprovedShoppingSettings extends HTMLElement {
         .error { color:var(--error-color,#bd3636); border:1px solid var(--error-color,#bd3636); }
         @media(max-width:540px) { .card { padding:18px 14px; } .add-row { flex-wrap:wrap; } .select-wrap { flex-basis:100%; } .actions { width:100%; } }
         #carrefour-products-view,#alcampo-products-view,#store-products-view,[id$="-products-view"]{display:none!important}#carrefour-dialog>h2{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
-      .purchase-detection-settings{margin-top:24px;padding-top:18px;border-top:1px solid var(--divider-color,#dfe7e1)}.detection-row{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-top:16px}.detection-row input[type=number]{width:90px;text-align:center;flex:none}
+      .zone-settings{margin-top:20px;padding-top:16px;border-top:1px solid var(--divider-color,#dfe7e1)}.zone-settings select,#purchase-zone-persons{width:100%;max-width:320px;min-height:120px}.zone-settings label{display:block;margin-bottom:10px}.zone-settings button{margin-top:12px}.zone-settings p{margin:8px 0}.purchase-detection-settings{margin-top:24px;padding-top:18px;border-top:1px solid var(--divider-color,#dfe7e1)}.detection-row{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-top:16px}.detection-row input[type=number]{width:90px;text-align:center;flex:none}
     </style>
       <div class="settings-heading"><h1>Ajustes</h1>
       <nav class="settings-tabs" aria-label="Vistas de ajustes"><button id="settings-view-lists" aria-label="Listas" aria-pressed="true"><ha-icon icon="mdi:format-list-checks" aria-hidden="true"></ha-icon><span class="tab-label">Listas</span></button><button id="settings-view-appearance" aria-label="Personalización" aria-pressed="false"><ha-icon icon="mdi:palette" aria-hidden="true"></ha-icon><span class="tab-label">Personalización</span></button><button id="settings-view-stores" aria-label="Tiendas" aria-pressed="false"><ha-icon icon="mdi:store" aria-hidden="true"></ha-icon><span class="tab-label">Tiendas</span></button><button id="settings-view-notifications" aria-label="Notificaciones" aria-pressed="false"><ha-icon icon="mdi:bell-outline" aria-hidden="true"></ha-icon><span class="tab-label">Notificaciones</span></button><button id="settings-view-community" aria-label="Comunidad" aria-pressed="false"><ha-icon icon="mdi:account-group" aria-hidden="true"></ha-icon><span class="tab-label">Comunidad</span></button><button id="settings-view-logs" aria-label="Logs" aria-pressed="false"><ha-icon icon="mdi:format-list-group" aria-hidden="true"></ha-icon><span class="tab-label">Logs</span></button></nav></div>
@@ -197,7 +197,7 @@ class ImprovedShoppingSettings extends HTMLElement {
         <div class="add-row"><div class="select-wrap"><label for="todo-entity">Entidad todo</label><select id="todo-entity"></select></div><button id="add-list" class="primary">Añadir lista</button></div>
         <div id="configured-lists" class="lists"></div>
         <p id="settings-empty" hidden>No hay listas añadidas. Añade una entidad todo para empezar.</p>
-        <div class="purchase-detection-settings"><h3>Detección automática de compra</h3><form id="purchase-detection-form"><label class="detection-row" for="purchase-detection-enabled">Activar detección automática<input id="purchase-detection-enabled" class="store-toggle" type="checkbox" role="switch"></label><label class="detection-row" for="purchase-detection-threshold">Más de X productos completados en un día<input id="purchase-detection-threshold" type="number" min="1" max="1000" step="1" value="5" required></label><p class="helper">Se suman todas las listas y se registra una compra por día en Analítica → Compras. Si no se identifica un ticket coincidente, podrás indicar la tienda y el importe. No vuelve a reponer Stock. Para consultar Carrefour, activa «Descargar ticket automáticamente» en su cuenta.</p><div class="appearance-actions"><button class="primary" id="save-purchase-detection" type="submit">Guardar</button></div></form></div>
+        <div class="purchase-detection-settings"><h3>Detección automática de compra</h3><form id="purchase-detection-form"><label class="detection-row" for="purchase-detection-enabled">Activar detección automática<input id="purchase-detection-enabled" class="store-toggle" type="checkbox" role="switch"></label><label class="detection-row" for="purchase-detection-threshold">Más de X productos completados en un día<input id="purchase-detection-threshold" type="number" min="1" max="1000" step="1" value="5" required></label><label class="detection-row" for="purchase-zone-assignment">Asignación de tienda basada en zona<input id="purchase-zone-assignment" class="store-toggle" type="checkbox" role="switch"></label><label class="detection-row" id="purchase-persons-label" for="purchase-zone-persons">Personas<select id="purchase-zone-persons" multiple size="4" aria-label="Personas para asignación por zona"></select></label><p id="purchase-zone-help" class="helper">Selecciona las personas y guarda. Después asigna una o varias zonas en el popup de cada tienda. Se registran las visitas desde la activación; la tienda será provisional hasta confirmarla o identificar un ticket.</p><p class="helper">Se suman todas las listas y se registra una compra por día en Analítica → Compras. Si no se identifica un ticket coincidente, podrás indicar la tienda y el importe. No vuelve a reponer Stock. Para consultar Carrefour, activa «Descargar ticket automáticamente» en su cuenta.</p><div class="appearance-actions"><button class="primary" id="save-purchase-detection" type="submit">Guardar</button></div></form></div>
       </section>
 
       <section id="settings-notifications" hidden><isl-notification-settings></isl-notification-settings></section>
@@ -330,6 +330,7 @@ class ImprovedShoppingSettings extends HTMLElement {
     readersTab.innerHTML='<ha-icon icon="mdi:barcode-scan" aria-hidden="true"></ha-icon><span class="tab-label">Lectores</span>';
     root.querySelector('#settings-view-community').before(readersTab);
     this._buildRegionalStores(root);
+    this._buildZoneSettings(root);
     installDialogCloseButtons(root);
     root.querySelector("#refresh-all-prices").addEventListener("click",()=>void this._refreshPricesNow());
     const storesGrid=root.querySelector(".stores-grid");
@@ -352,7 +353,7 @@ class ImprovedShoppingSettings extends HTMLElement {
     });
     root.querySelector("#price-schedule-form").addEventListener("submit",event=>{event.preventDefault();void this._savePriceSchedule();});
     root.querySelector('#purchase-detection-form').addEventListener('input',()=>{this._purchaseDetectionDirty=true;this._render();});
-    root.querySelector('#purchase-detection-form').addEventListener('submit',event=>{event.preventDefault();const config={enabled:root.querySelector('#purchase-detection-enabled').checked,threshold:Number(root.querySelector('#purchase-detection-threshold').value)};void this._saveRetailSettings(async()=>{await this._data.settings.savePurchaseDetection(config);this._purchaseDetectionDirty=false;});});
+    root.querySelector('#purchase-detection-form').addEventListener('submit',event=>{event.preventDefault();const config={...this._data.settings.purchaseDetection,enabled:root.querySelector('#purchase-detection-enabled').checked,threshold:Number(root.querySelector('#purchase-detection-threshold').value),zone_assignment:root.querySelector('#purchase-zone-assignment').checked,persons:Array.from(root.querySelector('#purchase-zone-persons').selectedOptions,option=>option.value)};void this._saveRetailSettings(async()=>{await this._data.settings.savePurchaseDetection(config);this._purchaseDetectionDirty=false;});});
     root.querySelector("#close-prices-progress").addEventListener("click",()=>root.querySelector("#prices-progress-dialog").close());
     root.querySelector("#prices-progress-dialog").addEventListener("close",()=>clearInterval(this._pricesProgressTimer));
     root.querySelector("#alcampo-enabled").addEventListener("change",()=>void this._saveRetailSettings(()=>this._data.settings.setStoreEnabled("alcampo",root.querySelector("#alcampo-enabled").checked)));
@@ -413,7 +414,14 @@ class ImprovedShoppingSettings extends HTMLElement {
     const admin = hass?.user?.is_admin === true;
     const locked = !admin || !settings.loaded || settings.loading || this._busy;
     const detection=settings.purchaseDetection??{enabled:false,threshold:5};
-    if(!this._purchaseDetectionDirty){root.querySelector('#purchase-detection-enabled').checked=detection.enabled;root.querySelector('#purchase-detection-threshold').value=String(detection.threshold);}
+    if(!this._purchaseDetectionDirty){root.querySelector('#purchase-detection-enabled').checked=detection.enabled;root.querySelector('#purchase-detection-threshold').value=String(detection.threshold);root.querySelector('#purchase-zone-assignment').checked=Boolean(detection.zone_assignment);}
+    const people=root.querySelector('#purchase-zone-persons');
+    this._entityChoices(people,'person',this._purchaseDetectionDirty?Array.from(people.selectedOptions,option=>option.value):detection.persons??[]);
+    const zonesEnabled=root.querySelector('#purchase-zone-assignment').checked;
+    root.querySelector('#purchase-persons-label').hidden=!zonesEnabled;root.querySelector('#purchase-zone-help').hidden=!zonesEnabled;
+    people.disabled=locked||!root.querySelector('#purchase-detection-enabled').checked||!zonesEnabled;
+    root.querySelector('#purchase-zone-assignment').disabled=locked||!root.querySelector('#purchase-detection-enabled').checked;
+    this._renderZoneSettings(locked);
     for(const id of ['purchase-detection-enabled','save-purchase-detection'])root.querySelector('#'+id).disabled=locked;
     root.querySelector('#purchase-detection-threshold').disabled=locked||!root.querySelector('#purchase-detection-enabled').checked;
     const refresh = root.querySelector("#refresh-all-prices");
@@ -654,6 +662,43 @@ class ImprovedShoppingSettings extends HTMLElement {
       const alert=root.querySelector("#carrefour-error");alert.textContent=error.message??"No se pudieron leer los precios guardados.";alert.hidden=false;
       root.querySelector("#carrefour-status").textContent=`${root.querySelector("#carrefour-products").childElementCount} precios guardados`;
     } } finally { if (current()) this._carrefourLoading=false; }
+  }
+
+  _entityChoices(select, domain, chosen) {
+    const states=this._data?.hass?.states??{};
+    const entities=[...new Set([...Object.keys(states).filter(id=>id.startsWith(domain+'.')), ...chosen])];
+    entities.sort((a,b)=>(states[a]?.attributes?.friendly_name??a).localeCompare(states[b]?.attributes?.friendly_name??b,'es'));
+    const key=JSON.stringify(entities.map(id=>[id,states[id]?.attributes?.friendly_name]));
+    if(select.dataset.options!==key){select.replaceChildren(...entities.map(id=>new Option(states[id]?.attributes?.friendly_name??id,id)));select.dataset.options=key;}
+    for(const option of select.options)option.selected=chosen.includes(option.value);
+  }
+
+  _buildZoneSettings(root) {
+    for(const store of ['alcampo','carrefour','consum','dia','eroski','lasirena','mercadona']){
+      const section=document.createElement('section');section.className='zone-settings';section.dataset.store=store;section.hidden=true;
+      const label=document.createElement('label');label.htmlFor='zones-'+store;label.textContent='Zonas de la tienda';
+      const select=document.createElement('select');select.id='zones-'+store;select.multiple=true;select.size=4;select.setAttribute('aria-label','Zonas de '+store);
+      const help=document.createElement('p');help.textContent='Puedes seleccionar varias zonas. Se usan las visitas del mismo día de las personas elegidas para proponer la tienda y priorizar sus tickets.';
+      const save=document.createElement('button');save.type='button';save.className='primary';save.textContent='Guardar zonas';
+      select.addEventListener('change',()=>{section.dataset.dirty='true';});
+      save.addEventListener('click',()=>void this._saveRetailSettings(async()=>{
+        const config=this._data.settings.purchaseDetection??{enabled:false,threshold:5};
+        await this._data.settings.savePurchaseDetection({...config,store_zones:{...config.store_zones,[store]:Array.from(select.selectedOptions,option=>option.value)}});
+        delete section.dataset.dirty;
+      }));
+      section.append(label,select,help,save);
+      root.querySelector(store==='mercadona'?'#store-dialog':'#'+store+'-dialog').append(section);
+    }
+  }
+
+  _renderZoneSettings(locked) {
+    const config=this._data.settings.purchaseDetection??{};
+    for(const section of this.shadowRoot.querySelectorAll('.zone-settings')){
+      section.hidden=!config.zone_assignment;
+      const select=section.querySelector('select');
+      this._entityChoices(select,'zone',section.dataset.dirty?Array.from(select.selectedOptions,option=>option.value):config.store_zones?.[section.dataset.store]??[]);
+      select.disabled=locked;section.querySelector('button').disabled=locked;
+    }
   }
 
   _buildRegionalStores(root) {

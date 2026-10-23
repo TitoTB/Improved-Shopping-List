@@ -189,7 +189,7 @@ async def test_purchase_detection_configuration_validation_persistence_and_permi
     assert await hass.config_entries.async_setup(entry.entry_id)
     writer=await hass_ws_client(hass)
     await writer.send_json({"id":1,"type":f"{DOMAIN}/settings/purchase_detection","config":{"enabled":True,"threshold":7}})
-    assert (await writer.receive_json())["result"]["purchase_detection"]=={"enabled":True,"threshold":7}
+    assert (await writer.receive_json())["result"]["purchase_detection"]=={**DEFAULT_PURCHASE_DETECTION,"enabled":True,"threshold":7}
     for index,value in enumerate((0,1001,True,1.5),start=2):
         await writer.send_json({"id":index,"type":f"{DOMAIN}/settings/purchase_detection","config":{"enabled":True,"threshold":value}})
         assert (await writer.receive_json())["error"]["code"]=="invalid_purchase_detection"
@@ -200,4 +200,20 @@ async def test_purchase_detection_configuration_validation_persistence_and_permi
     await hass.async_block_till_done()
     assert await hass.config_entries.async_unload(entry.entry_id)
     assert await hass.config_entries.async_setup(entry.entry_id)
-    assert hass.data[DOMAIN]["settings"].snapshot["purchase_detection"]=={"enabled":True,"threshold":7}
+    assert hass.data[DOMAIN]["settings"].snapshot["purchase_detection"]=={**DEFAULT_PURCHASE_DETECTION,"enabled":True,"threshold":7}
+
+
+async def test_purchase_zone_settings_validate_and_preserve_saved_mapping(hass):
+    entry=MockConfigEntry(domain=DOMAIN,data={CONF_TODO_ENTITY:"todo.bring"})
+    entry.add_to_hass(hass)
+    settings=ListSettings(hass);settings.entry=entry
+    config={"enabled":True,"threshold":5,"zone_assignment":True,"persons":["person.ana","person.ana"],
+        "store_zones":{"carrefour":["zone.market","zone.market"],"alcampo":[]}}
+    result=settings.update_purchase_detection(config)["purchase_detection"]
+    assert result["persons"]==["person.ana"] and result["store_zones"]["carrefour"]==["zone.market"]
+    assert settings.update_purchase_detection({"enabled":True,"threshold":8})["purchase_detection"]["store_zones"]==result["store_zones"]
+    for invalid in ({"persons":[]},{"persons":["sensor.phone"]},{"persons":"person.ana"},
+                    {"zone_assignment":"yes"},{"store_zones":{"carrefour":["person.ana"]}},
+                    {"store_zones":{"unknown":["zone.market"]}},{"store_zones":{"carrefour":"zone.market"}}):
+        with pytest.raises(ListSettingsError):
+            settings.update_purchase_detection({**config,**invalid})

@@ -23,7 +23,7 @@ DEFAULT_APPEARANCE = {
     "recipe_gradient_start": "#66bb6a", "recipe_gradient_end": "#2e7d32",
     "stock_gradient_start": "#f59a23", "stock_gradient_end": "#c65b0c",
 }
-DEFAULT_PURCHASE_DETECTION = {"enabled":False,"threshold":5}
+DEFAULT_PURCHASE_DETECTION = {"enabled":False,"threshold":5,"zone_assignment":False,"persons":[],"store_zones":{}}
 DEFAULT_STORES = {store: {"enabled": False, **reference_location(store)} for store in REFERENCE_LOCATIONS}
 
 
@@ -220,10 +220,23 @@ class ListSettings:
 
     @callback
     def update_purchase_detection(self, data):
-        if (not self.entry or not isinstance(data,dict) or set(data)!={"enabled","threshold"} or
+        if (not self.entry or not isinstance(data,dict) or set(data)-set(DEFAULT_PURCHASE_DETECTION) or not {"enabled","threshold"}.issubset(data) or
                 type(data["enabled"]) is not bool or type(data["threshold"]) is not int or not 1 <= data["threshold"] <= 1000):
             raise ListSettingsError("Indica un umbral entre 1 y 1000 productos.")
-        self.hass.config_entries.async_update_entry(self.entry, options={**self.entry.options,"purchase_detection":dict(data)})
+        config = {**deepcopy(DEFAULT_PURCHASE_DETECTION), **self.snapshot["purchase_detection"], **deepcopy(data)}
+        persons, zones = config["persons"], config["store_zones"]
+        if (type(config["zone_assignment"]) is not bool or not isinstance(persons,list) or len(persons)>50 or
+                any(not isinstance(entity,str) or not re.fullmatch(r"person\.[a-z0-9_]+",entity) for entity in persons) or
+                not isinstance(zones,dict) or set(zones)-set(DEFAULT_STORES) or
+                any(not isinstance(values,list) or len(values)>50 or
+                    any(not isinstance(entity,str) or not re.fullmatch(r"zone\.[a-z0-9_]+",entity) for entity in values)
+                    for values in zones.values())):
+            raise ListSettingsError("Selecciona personas y zonas válidas de Home Assistant.")
+        config["persons"] = list(dict.fromkeys(persons))
+        config["store_zones"] = {store:list(dict.fromkeys(values)) for store,values in zones.items()}
+        if config["zone_assignment"] and not config["persons"]:
+            raise ListSettingsError("Selecciona al menos una persona para la asignación por zona.")
+        self.hass.config_entries.async_update_entry(self.entry, options={**self.entry.options,"purchase_detection":config})
         self.notify()
         return self.snapshot
 

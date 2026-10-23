@@ -154,3 +154,118 @@ async def test_user_confirmed_store_and_amount_reconcile_one_existing_summary_wi
     assert len(env.stock.receipts["history"])==1
     complete(env,"d");await env.manager.async_check()
     assert len(env.stock.receipts["history"])==1
+
+
+
+def zone_setup(env, hass):
+    env.settings.snapshot["purchase_detection"].update(zone_assignment=True,persons=["person.ana"],
+        store_zones={"carrefour":["zone.carrefour","zone.carrefour_2"],"alcampo":["zone.alcampo"]})
+    env.settings.snapshot["stores"]={"carrefour":{"enabled":True},"alcampo":{"enabled":True}}
+    for zone in ("carrefour","carrefour_2","alcampo"):
+        hass.states.async_set("zone."+zone,"0",{"friendly_name":zone.title()})
+
+
+def visit(env, hass, person, zone):
+    from homeassistant.core import State
+    env.manager._presence_changed(SimpleNamespace(data={"entity_id":person,"new_state":State(person,zone)}))
+
+
+async def test_zone_visits_precede_purchase_survive_restart_and_remain_provisional(env,hass):
+    zone_setup(env,hass)
+    visit(env,hass,"person.ana","Carrefour")
+    await env.manager.async_check()
+    await env.manager.async_stop()
+    restored=PurchaseDetection(hass,env.settings,env.receipts,env.stock.activity,env.carrefour)
+    await restored.async_load();restored.start();env.manager=restored
+    for uid in "abc":complete(env,uid)
+    await restored.async_check()
+    receipt=next(iter(env.stock.receipts["history"].values()))
+    assert receipt["store"]=="carrefour" and receipt["provisional_store"] and receipt["needs_details"]
+    assert receipt["total"] is None and receipt["zone_candidates"]==["carrefour"]
+    stored=await restored._store.async_load()
+    assert stored["days"][env.clock[0].date().isoformat()]["visits"]=={"zone.carrefour":["person.ana"]}
+    assert "latitude" not in str(stored) and env.stock._items=={}
+
+
+async def test_multiple_store_visits_offer_choices_but_not_unselected_people_or_disabled_stores(env,hass):
+    zone_setup(env,hass)
+    visit(env,hass,"person.other","Alcampo")
+    visit(env,hass,"person.ana","Carrefour")
+    visit(env,hass,"person.ana","Carrefour_2")
+    for uid in "abc":complete(env,uid)
+    await env.manager.async_check()
+    receipt=next(iter(env.stock.receipts["history"].values()))
+    assert receipt["zone_candidates"]==["carrefour"]
+    visit(env,hass,"person.ana","Alcampo")
+    await env.manager.async_check()
+    receipt=env.stock.receipts["history"][receipt["id"]]
+    assert receipt["store"]=="unknown" and not receipt["provisional_store"]
+    assert receipt["zone_candidates"]==["alcampo","carrefour"]
+    env.settings.snapshot["stores"]["alcampo"]["enabled"]=False
+    await env.manager.async_check()
+    assert env.stock.receipts["history"][receipt["id"]]["store"]=="carrefour"
+
+
+async def test_confirmed_store_is_not_overwritten_and_ticket_can_override_provisional_zone(env,hass):
+    zone_setup(env,hass)
+    visit(env,hass,"person.ana","Alcampo")
+    for uid in "abc":complete(env,uid)
+    await env.manager.async_check()
+    receipt=next(iter(env.stock.receipts["history"].values()))
+    assert receipt["store"]=="alcampo"
+    env.stock.receipts["history"]["matching"]=ticket(env,"matching")
+    await env.manager.async_check()
+    assert receipt["id"] not in env.stock.receipts["history"]
+    assert env.stock.receipts["history"]["matching"]["detection_id"]==receipt["id"]
+    env.clock[0]+=timedelta(days=1)
+    visit(env,hass,"person.ana","Carrefour")
+    for uid in "abc":complete(env,uid)
+    await env.manager.async_check()
+    identifier="detected:"+env.clock[0].date().isoformat()
+    await env.receipts.async_complete_detected_purchase(identifier,"alcampo",20)
+    visit(env,hass,"person.ana","Alcampo")
+    await env.manager.async_check()
+    assert env.stock.receipts["history"][identifier]["store"]=="alcampo"
+    assert not env.stock.receipts["history"][identifier]["provisional_store"]
+
+
+async def test_zone_day_boundary_disabled_mode_and_geo_precedence(env,hass):
+    from homeassistant.core import State
+    zone_setup(env,hass)
+    zone=State("zone.carrefour","0",{"latitude":40,"longitude":-3,"radius":100,"friendly_name":"Carrefour"})
+    assert env.manager._inside_zone(State("person.ana","not_home",{"latitude":40,"longitude":-3}),zone)
+    assert not env.manager._inside_zone(State("person.ana","Carrefour",{"latitude":41,"longitude":-3}),zone)
+    assert not env.manager._inside_zone(State("person.ana","Carrefour",{"latitude":float("nan"),"longitude":-3}),zone)
+    visit(env,hass,"person.ana","Carrefour");await env.manager.async_check()
+    env.clock[0]+=timedelta(days=1)
+    for uid in "abc":complete(env,uid)
+    await env.manager.async_check()
+    receipt=next(iter(env.stock.receipts["history"].values()))
+    assert receipt["store"]=="unknown" and not receipt["zone_candidates"]
+    visit(env,hass,"person.ana","Carrefour");await env.manager.async_check()
+    env.settings.snapshot["purchase_detection"]["zone_assignment"]=False
+    await env.manager.async_check()
+    assert env.stock.receipts["history"][receipt["id"]]["store"]=="unknown"
+
+
+async def test_ticket_sources_prioritize_visited_store_stop_after_match_and_continue_after_failure(env,hass):
+    zone_setup(env,hass)
+    visit(env,hass,"person.ana","Carrefour")
+    for uid in "abc":complete(env,uid)
+    await env.manager.async_check()
+    calls=[]
+    async def matching():
+        calls.append("carrefour")
+        env.stock.receipts["history"]["matched"]=ticket(env,"matched")
+    async def other():calls.append("alcampo")
+    await env.manager.async_search_ticket_sources({"alcampo":other,"carrefour":matching})
+    assert calls==["carrefour"] and env.manager._today_identified()
+    await env.manager.async_search_ticket_sources({"alcampo":other,"carrefour":matching})
+    assert calls==["carrefour"]
+    env.stock.receipts["history"]["matched"].pop("detection_id")
+    async def broken():
+        calls.append("failed")
+        raise CatalogError("No disponible")
+    await env.manager.async_search_ticket_sources({"alcampo":other,"carrefour":broken})
+    # Reconciliation needs a pending detection; the previous match must not be recreated.
+    assert calls==["carrefour","failed","alcampo"]

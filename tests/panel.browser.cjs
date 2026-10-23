@@ -3793,7 +3793,7 @@ async function main() {
     await accountContext.close();
     // Unknown detected purchases stay editable and do not contribute invented amounts.
     const detectedContext=await browser.newContext({viewport:{width:390,height:844}});
-    await detectedContext.addInitScript(()=>localStorage.setItem('receipt-fixture',JSON.stringify([{id:'detected:today',digest:'detection',detected_purchase:true,needs_details:true,summary_only:true,store:'unknown',store_name:'Tienda desconocida',purchased_at:new Date().toISOString(),currency:'EUR',total:null,article_count:6,lines:[],completed_products:[{name:'Cacao'},{name:'Leche'}]}])));
+    await detectedContext.addInitScript(()=>localStorage.setItem('receipt-fixture',JSON.stringify([{id:'detected:today',digest:'detection',detected_purchase:true,needs_details:true,summary_only:true,store:'unknown',store_name:'Tienda desconocida',zone_candidates:['alcampo','carrefour'],purchased_at:new Date().toISOString(),currency:'EUR',total:null,article_count:6,lines:[],completed_products:[{name:'Cacao'},{name:'Leche'}]}])));
     const detectedPage=await detectedContext.newPage();detectedPage.on('pageerror',error=>errors.push(error.message));
     await detectedPage.goto(url);await detectedPage.getByRole('button',{name:'Ajustes',exact:true}).click();
     const detectionForm=detectedPage.locator('#purchase-detection-form');
@@ -3802,6 +3802,25 @@ async function main() {
     await detectionForm.getByLabel('Más de X productos completados en un día',{exact:true}).fill('7');
     await detectionForm.getByRole('button',{name:'Guardar',exact:true}).click();
     await detectedPage.waitForFunction(()=>window.listSettings.purchase_detection?.threshold===7);
+    await detectedPage.evaluate(()=>{const panel=window.testPanel;panel.hass={...panel._hass,states:{...panel._hass.states,
+      'person.ana':{entity_id:'person.ana',state:'home',attributes:{friendly_name:'Ana'}},
+      'zone.market':{entity_id:'zone.market',state:'0',attributes:{friendly_name:'Mi supermercado'}},
+      'zone.market_2':{entity_id:'zone.market_2',state:'0',attributes:{friendly_name:'Otra sucursal'}}}};});
+    await detectionForm.getByRole('switch',{name:'Asignación de tienda basada en zona',exact:true}).check();
+    await detectionForm.getByRole('listbox',{name:'Personas para asignación por zona',exact:true}).selectOption('person.ana');
+    await detectionForm.getByRole('button',{name:'Guardar',exact:true}).click();
+    await detectedPage.waitForFunction(()=>window.listSettings.purchase_detection?.zone_assignment===true);
+    await detectedPage.locator('isl-settings').getByRole('button',{name:'Tiendas',exact:true}).click();
+    for(const [store,name] of [['carrefour','Carrefour'],['alcampo','Alcampo'],['mercadona','Mercadona'],['consum','Consum'],['lasirena','La Sirena'],['eroski','Eroski'],['dia','DIA']]){
+      await detectedPage.getByRole('button',{name:'Ajustes de '+name,exact:true}).click();
+      const section=detectedPage.locator('.zone-settings[data-store="'+store+'"]');
+      await section.getByRole('listbox',{name:'Zonas de '+store,exact:true}).selectOption(store==='carrefour'?['zone.market','zone.market_2']:['zone.market']);
+      await section.getByRole('button',{name:'Guardar zonas',exact:true}).click();
+      await detectedPage.waitForFunction(store=>window.listSettings.purchase_detection?.store_zones?.[store]?.includes('zone.market'),store);
+      assert.deepEqual(await detectedPage.evaluate(()=>window.listSettings.purchase_detection.persons),['person.ana']);
+      await section.locator('..').getByRole('button',{name:'Cerrar ventana',exact:true}).click();
+    }
+
     await detectedPage.getByRole('button',{name:'Analítica',exact:true}).click();await detectedPage.getByRole('tab',{name:'Compras',exact:true}).click();
     const detectedPurchases=detectedPage.locator('isl-purchases');
     await detectedPurchases.locator('#history .needs-details').waitFor();
@@ -3809,6 +3828,9 @@ async function main() {
     assert.equal(await detectedPurchases.locator('.store-segment').count(),0);
     await detectedPurchases.getByRole('button',{name:'Completar compra detectada',exact:true}).click();
     const detectedEditor=detectedPurchases.getByRole('dialog',{name:'Compra detectada',exact:true});
+    assert.equal(await detectedEditor.locator('#detected-zone-candidates button').count(),2);
+    await detectedEditor.locator('#detected-zone-candidates').getByRole('button',{name:'Alcampo',exact:true}).click();
+    assert.equal(await detectedEditor.getByLabel('Tienda',{exact:true}).inputValue(),'alcampo');
     await detectedEditor.getByLabel('Tienda',{exact:true}).selectOption('other');
     await detectedEditor.getByLabel('Nombre de la tienda',{exact:true}).fill('Mi tienda');
     await detectedEditor.getByLabel('Importe total (€)',{exact:true}).fill('42.55');

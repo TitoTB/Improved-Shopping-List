@@ -182,15 +182,15 @@ class AlcampoManager:
         offer = self._data["offers"].get(link["id"]) if link else None
         return deepcopy(offer) if offer else None
 
-    async def _before_request(self):
-        if not self._enabled():
+    async def _before_request(self, *, manual=False):
+        if not self._enabled() and not (manual and self._active):
             raise asyncio.CancelledError
         # Persist the reservation before HTTP so reloads cannot reset the rate limit.
         self._data["next_request"] = time.time() + REQUEST_INTERVAL
         await self._save()
 
-    async def _search(self, term):
-        await self._before_request()
+    async def _search(self, term, *, manual=False):
+        await self._before_request(manual=manual)
         session = async_create_clientsession(self.hass, auto_cleanup=False, cookie_jar=aiohttp.DummyCookieJar())
         try:
             async with session.get("https://www.compraonline.alcampo.es/search?" + urlencode({"q":term}),
@@ -208,6 +208,49 @@ class AlcampoManager:
             return search_candidates(raw.decode("utf-8"))
         finally:
             session.detach()
+
+    async def async_test_search(self, product_id):
+        """One explicit diagnostic search; candidates are not confirmed product bindings."""
+        if self._lock.locked():
+            raise CatalogError("Alcampo está realizando otra consulta. Vuelve a intentarlo cuando termine.")
+        async with self._lock:
+            product = next((p for p in self.catalog.products if p["id"] == product_id), None)
+            if not product:
+                raise CatalogError("Selecciona un producto del catálogo.")
+            result = {"product_id":product_id, "product_name":product["name"], "eans":list(dict.fromkeys(code for code in product_codes(product, "barcode") if valid_ean(code))),
+                "term":"", "candidates":[], "http_requests":0, "status":"skipped", "message":"", "elapsed_ms":0}
+            now = time.time()
+            wait_until = max(self._data["next_request"], self._data["retry_at"])
+            terms = self._names(product)
+            if not self._active:
+                result["message"] = "Alcampo no está disponible todavía. Vuelve a abrir la integración."
+            elif not result["eans"]:
+                result["message"] = "El producto no tiene ningún EAN válido informado."
+            elif not terms:
+                result["message"] = "No hay un nombre comercial de otra tienda para buscar este producto. Vincula primero un ticket o un enlace de producto."
+            elif now < wait_until:
+                result.update(status="paused", next_request=wait_until, message="La consulta está en pausa. Próximo intento: "+str(int(wait_until)))
+            else:
+                result.update(term=terms[0], http_requests=1)
+                try:
+                    candidates = await self._search(terms[0], manual=True)
+                    result["candidates"] = [{"reference_id":identifier, "url":normalize_link("alcampo", identifier)["url"]} for identifier in candidates[:3]]
+                    result.update(status="candidates" if candidates else "not_found", http_status=200,
+                        message=f"La búsqueda ha devuelto {len(result['candidates'])} candidatos. Su EAN todavía no se ha confirmado." if candidates else "La búsqueda no ha devuelto candidatos.")
+                    self._data.update(failures=0, retry_at=0, error="")
+                except (PriceError, aiohttp.ClientError, asyncio.TimeoutError, UnicodeError, json.JSONDecodeError) as err:
+                    self._data["failures"] += 1
+                    diagnostics = getattr(err, "diagnostics", {})
+                    delay = max(min(DAY, 3600 * 2 ** min(self._data["failures"] - 1, 5)), min(DAY, diagnostics.get("retry_seconds", 0)))
+                    self._data.update(retry_at=time.time()+delay, error=str(err) or "Alcampo no está disponible.")
+                    result.update(diagnostics=diagnostics, status="error", message=self._data["error"], retry_at=self._data["retry_at"])
+                result["elapsed_ms"] = round((time.time()-now)*1000)
+                await self._save()
+            result["next_request"] = max(self._data["next_request"], self._data["retry_at"])
+            self.activity.record("stores.search_test", "Alcampo: prueba de búsqueda · "+result["message"], source="manual",
+                product=product["name"], code=result["eans"][0] if result["eans"] else "",
+                diagnostics={"provider":"alcampo", **result})
+            return result
 
     async def _fetch(self, identifier):
         return await self.sources.fetch("alcampo", normalize_link("alcampo", identifier),

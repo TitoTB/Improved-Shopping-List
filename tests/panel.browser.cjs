@@ -189,6 +189,10 @@ const hass={
       const ids=msg.lines.map(line=>line.product_id).filter(Boolean);if(new Set(ids).size!==ids.length)throw new Error('Dos líneas no pueden vincularse al mismo producto.');
       window.receiptLinks=structuredClone(msg.lines);return receiptOptions();
     }
+    if(msg.type==='improved_shopping_list/alcampo/test_search'){
+      window.lastAlcampoSearch=structuredClone(msg);
+      return {status:'candidates',message:'La búsqueda ha devuelto 1 candidatos. Su EAN todavía no se ha confirmado.',product_id:msg.product_id,term:'Producto comercial del ticket',eans:['8410199023094'],candidates:[{reference_id:'10739',url:'https://www.compraonline.alcampo.es/products/producto/10739'}],http_requests:1,http_status:200};
+    }
     if(msg.type.startsWith('improved_shopping_list/alcampo/')){
       window.calls.push({type:msg.type});
       window.alcampoStatus??={search_enabled:false,refresh_enabled:false,days:30};
@@ -3645,6 +3649,7 @@ async function main() {
     // Alcampo options are explicit opt-ins; opening settings does not query the retailer.
     const alcampoContext=await browser.newContext({viewport:{width:390,height:844}});
     const alcampoPage=await alcampoContext.newPage();alcampoPage.on('pageerror',error=>errors.push(error.message));
+    await alcampoPage.addInitScript(()=>localStorage.setItem('catalog-fixture',JSON.stringify([{id:'test-alcampo-product',name:'Patatas',revision:1,category:'',tags:[],store_links:{alcampo:{id:'10739',url:'https://www.compraonline.alcampo.es/products/producto/10739'}},barcodes:['8410199023094']}])));
     await alcampoPage.goto(url);await alcampoPage.getByRole('button',{name:'Ajustes',exact:true}).click();
     const alcampoSettings=alcampoPage.locator('isl-settings');
     await alcampoSettings.getByRole('button',{name:'Tiendas',exact:true}).click();
@@ -3652,6 +3657,13 @@ async function main() {
     const alcampoOptions=alcampoSettings.locator('isl-alcampo-settings');
     await alcampoOptions.getByRole('switch',{name:'Buscar coincidencias de productos en su catálogo',exact:true}).waitFor();
     assert.equal(await alcampoOptions.locator('#days').inputValue(),'30');
+    assert.equal(await alcampoSettings.locator('#alcampo-enabled').evaluate(toggle=>toggle.closest('.store-row').querySelector('.store-linked-count').textContent),'1 producto vinculado');
+    assert.equal(await alcampoOptions.getByRole('button',{name:'Buscar',exact:true}).isDisabled(),true);
+    await alcampoOptions.getByLabel('Producto del catálogo para probar Alcampo',{exact:true}).selectOption('test-alcampo-product');
+    await alcampoOptions.getByRole('button',{name:'Buscar',exact:true}).click();
+    await alcampoOptions.getByText('Consulta: Producto comercial del ticket',{exact:true}).waitFor();
+    assert.equal(await alcampoOptions.getByRole('link',{name:'Referencia 10739',exact:true}).count(),1);
+    assert.equal(await alcampoPage.evaluate(()=>window.lastAlcampoSearch.product_id),'test-alcampo-product');
     assert.equal(await alcampoOptions.locator('#search-enabled').isChecked(),false);
     await alcampoOptions.getByRole('switch',{name:'Buscar coincidencias de productos en su catálogo',exact:true}).check();
     await alcampoPage.waitForFunction(()=>window.alcampoStatus.search_enabled);

@@ -31,8 +31,8 @@ async def env(hass, monkeypatch):
     prices.alcampo = manager
     clock = [1000000.0]
     monkeypatch.setattr(module,"time",SimpleNamespace(time=lambda:clock[0]))
-    async def search(term):
-        await manager._before_request()
+    async def search(term, *, manual=False):
+        await manager._before_request(manual=manual)
         return ["10739"]
     async def fetch(identifier):
         await manager._before_request()
@@ -197,3 +197,62 @@ async def test_new_match_does_not_immediately_fetch_the_same_price_again(env):
     env.clock[0]+=REQUEST_INTERVAL
     await manager.async_tick()
     assert manager._fetch.await_count == 1
+
+
+async def test_manual_search_returns_candidates_logs_and_preserves_links_and_cooldown(env,hass):
+    manager=env.manager;manager._active=True
+    env.settings.snapshot['price_updates_enabled']=False  # Explicit diagnostics do not enable automatic updates.
+    result=await manager.async_test_search(env.product['id'])
+    assert result['status']=='candidates' and result['http_status']==200 and result['http_requests']==1
+    assert result['term']=="LAY'S Gourmet Patatas fritas 170 g."
+    assert result['eans']==['8410199023094'] and result['candidates'][0]['reference_id']=='10739'
+    assert env.catalog.products[0]['store_links']=={} and manager._data['attempts']=={}
+    assert manager._fetch.await_count==0
+    assert env.activity.record.call_args.args[0]=='stores.search_test'
+    paused=await manager.async_test_search(env.product['id'])
+    assert paused['status']=='paused' and paused['http_requests']==0 and manager._search.await_count==1
+    restored=AlcampoManager(hass,env.catalog,env.settings,env.prices,env.receipts,env.activity);await restored.async_load()
+    assert restored._data['next_request']==env.clock[0]+REQUEST_INTERVAL
+    restored.sources.close()
+
+
+async def test_manual_search_requires_commercial_name_and_valid_ean(env):
+    env.manager._active=True
+    env.receipts.stock.receipts['history']={}
+    result=await env.manager.async_test_search(env.product['id'])
+    assert result['status']=='skipped' and 'nombre comercial' in result['message']
+    product=await env.catalog.async_save_product({'name':'Sin código'})
+    result=await env.manager.async_test_search(product['id'])
+    assert result['status']=='skipped' and 'EAN válido' in result['message']
+    env.manager._search.assert_not_awaited()
+
+
+async def test_manual_search_http_failure_keeps_shared_backoff(env):
+    manager=env.manager;manager._active=True
+    async def fail(term, *, manual=False):
+        await manager._before_request(manual=manual)
+        raise PriceError('Alcampo: búsqueda rechazada (HTTP 403).',http_status=403)
+    manager._search.side_effect=fail
+    result=await manager.async_test_search(env.product['id'])
+    assert result['status']=='error' and result['diagnostics']['http_status']==403
+    assert result['next_request']==env.clock[0]+3600
+    assert (await manager.async_test_search(env.product['id']))['http_requests']==0
+
+
+async def test_manual_search_websocket_requires_admin(hass,hass_ws_client,hass_read_only_user,monkeypatch):
+    from pytest_homeassistant_custom_component.common import MockConfigEntry
+    from custom_components.improved_shopping_list.const import DOMAIN, CONF_TODO_ENTITY
+    entry=MockConfigEntry(domain=DOMAIN,data={CONF_TODO_ENTITY:'todo.main'});entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    manager=hass.data[DOMAIN]['alcampo']
+    operation=AsyncMock(return_value={'status':'not_found','candidates':[]})
+    monkeypatch.setattr(manager,'async_test_search',operation)
+    token=await hass.auth.async_create_refresh_token(hass_read_only_user,client_id='http://test.local')
+    readonly=await hass_ws_client(hass,hass.auth.async_create_access_token(token))
+    await readonly.send_json({'id':1,'type':f'{DOMAIN}/alcampo/test_search','product_id':'test'})
+    assert (await readonly.receive_json())['error']['code']=='unauthorized'
+    operation.assert_not_awaited()
+    admin=await hass_ws_client(hass)
+    await admin.send_json({'id':1,'type':f'{DOMAIN}/alcampo/test_search','product_id':'test'})
+    assert (await admin.receive_json())['result']=={'status':'not_found','candidates':[]}
+    operation.assert_awaited_once_with('test')

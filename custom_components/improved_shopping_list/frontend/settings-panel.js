@@ -112,6 +112,7 @@ class ImprovedShoppingSettings extends HTMLElement {
         @container(min-width:800px) { .stores-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
         .store-logo { width:56px; height:56px; padding:8px; flex:none; object-fit:contain; border-radius:10px; background:#fff; }
         .store-row .store-logo { grid-column:1; grid-row:1; }
+        .store-linked-count { font-size:12px;opacity:.65;margin-top:4px; }
         .store-name { grid-column:2; grid-row:1; min-width:0; display:flex; flex-direction:column; justify-content:center; overflow-wrap:anywhere; }
         .store-favorite[aria-pressed=true] { color:#e53935; }
         .stores-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:16px; }
@@ -355,7 +356,7 @@ class ImprovedShoppingSettings extends HTMLElement {
     root.querySelector("#close-prices-progress").addEventListener("click",()=>root.querySelector("#prices-progress-dialog").close());
     root.querySelector("#prices-progress-dialog").addEventListener("close",()=>clearInterval(this._pricesProgressTimer));
     root.querySelector("#alcampo-enabled").addEventListener("change",()=>void this._saveRetailSettings(()=>this._data.settings.setStoreEnabled("alcampo",root.querySelector("#alcampo-enabled").checked)));
-    root.querySelector("#configure-alcampo").addEventListener("click",()=>{root.querySelector("#alcampo-dialog").showModal();const options=root.querySelector("isl-alcampo-settings");options.hass=this._data.hass;void options.activate();});
+    root.querySelector("#configure-alcampo").addEventListener("click",()=>{root.querySelector("#alcampo-dialog").showModal();const options=root.querySelector("isl-alcampo-settings");options.hass=this._data.hass;options.products=this._data.products??[];void options.activate();});
     root.querySelector("#alcampo-dialog").addEventListener("close",()=>root.querySelector("isl-alcampo-settings")?.deactivate());
     root.querySelector("#alcampo-dialog").addEventListener("cancel",event=>{if(this._busy)event.preventDefault();});
     const alcampoError=document.createElement("div");alcampoError.id="alcampo-error";alcampoError.className="notice error";alcampoError.setAttribute("role","alert");alcampoError.hidden=true;root.querySelector("#alcampo-title").after(alcampoError);
@@ -420,11 +421,16 @@ class ImprovedShoppingSettings extends HTMLElement {
     refresh.setAttribute("aria-busy",String(Boolean(this._pricesRefreshing)));
     root.querySelector("#configure-price-schedule").disabled = !settings.loaded || settings.loading || this._busy;
     this._watchPriceStatus();
+    const alcampoOptions=root.querySelector("isl-alcampo-settings");if(alcampoOptions)alcampoOptions.products=this._data.products??[];
     this._renderCommunity();
     this._renderPriceTimestamp();
     this._renderGlobalPriceProgress();
     for (const store of ["mercadona", "carrefour", "alcampo", "consum", "lasirena", "eroski", "dia"]) {
       root.querySelector(`#${store}-enabled`).closest(".store-row").dataset.enabled = String(Boolean(settings.stores?.[store]?.enabled));
+      const storeName=root.querySelector(`#${store}-enabled`).closest('.store-row').querySelector('.store-name');
+      let count=storeName.querySelector('.store-linked-count');if(!count){count=document.createElement('span');count.className='store-linked-count';storeName.append(count);}
+      const linked=(this._data.products??[]).filter(product=>{const link=product.store_links?.[store];return Boolean(typeof link==='string'?link.trim():link?.id||link?.url)||(this._data.receiptStores?.[product.id]??[]).includes(store);}).length;
+      count.textContent=linked+(linked===1?' producto vinculado':' productos vinculados');
       const favorite = root.querySelector(`#favorite-${store}`);
       favorite.disabled = locked || !settings.stores?.[store]?.enabled;
       const selected = Boolean(settings.stores?.[store]?.enabled && settings.favoriteStore === store);

@@ -40,6 +40,7 @@ def async_register_commands(hass: HomeAssistant) -> None:
     """Register once; commands check that the config entry is still loaded."""
     websocket_api.async_register_command(hass, ws_alcampo_status)
     websocket_api.async_register_command(hass, ws_alcampo_options)
+    websocket_api.async_register_command(hass, ws_alcampo_test_search)
     for command in (ws_carrefour_account_status, ws_carrefour_account_login, ws_carrefour_account_send_code,
                     ws_carrefour_account_verify, ws_carrefour_account_disconnect, ws_carrefour_account_purchases, ws_carrefour_account_sync_history, ws_carrefour_account_options, ws_carrefour_account_preview, ws_carrefour_account_preview_saved):
         websocket_api.async_register_command(hass, command)
@@ -1163,3 +1164,16 @@ async def ws_detected_purchase_complete(hass, connection, msg):
 @websocket_api.async_response
 async def ws_detected_purchase_discard(hass, connection, msg):
     await _receipt_operation(hass,connection,msg,lambda manager,owner:manager.async_discard_detected_purchase(msg["receipt_id"]))
+
+
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/alcampo/test_search", vol.Required("product_id"):str})
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_alcampo_test_search(hass, connection, msg):
+    if not _catalog(hass, connection, msg):
+        return
+    try:
+        result = await hass.data[DOMAIN]["alcampo"].async_test_search(msg["product_id"])
+        connection.send_result(msg["id"], result)
+    except (CatalogError, OSError) as err:
+        connection.send_error(msg["id"], getattr(err, "code", "alcampo_error"), str(err))

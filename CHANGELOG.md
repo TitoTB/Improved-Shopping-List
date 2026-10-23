@@ -2,6 +2,9 @@
 
 ## Pendiente de publicación
 
+- Ajustes → Tiendas indica cuántos productos del catálogo están vinculados mediante referencia web o ticket, sin duplicarlos por tienda.
+- Alcampo incorpora temporalmente una prueba manual por producto: muestra nombre comercial, EAN, candidatos y diagnóstico en popup y Logs → Tiendas, con los mismos límites de peticiones y pausas ante errores.
+
 - Ficha de producto con pestañas del estilo de Ajustes, subtítulos uniformes y campos reorganizados en Características: nombre/categoría/etiquetas, unidades/cantidad/paso y URL antes de los iconos sugeridos.
 - Información adicional pasa a llamarse Tiendas y reúne asociaciones web y de tickets, incluidos los EAN del producto y los precios guardados sin enlace web.
 

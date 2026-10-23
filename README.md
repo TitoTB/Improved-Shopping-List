@@ -6,7 +6,7 @@ Una interfaz propia para gestionar las listas de la compra que ya tienes integra
 
 Versión actual: **0.39.0**. Interfaz en español, pensada para móvil y ordenador. Requiere **Home Assistant Core 2026.10 o posterior**. La referencia de desarrollo es Core 2026.10.2.
 
-Los precios proceden de tickets y facturas confirmados por el usuario y, opcionalmente, de Alcampo al activar sus opciones. El catálogo comunitario se dedica exclusivamente a sugerencias de iconos y no proporciona precios. Se conserva el último precio conocido de cada producto y tienda.
+Los precios proceden de tickets y facturas confirmados por el usuario y, opcionalmente, de Alcampo y DIA al activar sus opciones. El catálogo comunitario se dedica exclusivamente a sugerencias de iconos y no proporciona precios. Se conserva el último precio conocido de cada producto y tienda.
 
 El diccionario comunitario sirve exclusivamente para sugerir iconos por nombre o traducción del producto. No intercambia precios, EAN, referencias, Nutri-Score ni documentos de compra.
 
@@ -87,7 +87,7 @@ HACS es el método de instalación y actualización descrito abajo. No se necesi
 | Sugerir iconos y traducir nombres para buscarlos | Iconify y MyMemory | Acceso a Internet; no requiere configurar claves de API. Las traducciones se guardan para reutilizarlas. |
 | Consultar el diccionario comunitario | Archivos públicos del repositorio en GitHub | Acceso a Internet; la consulta pública no requiere una cuenta. |
 | Compartir datos con la comunidad | GitHub y la GitHub App de Improved Shopping List | Activar la opción y autorizar una cuenta de GitHub. La autorización es independiente de HACS: no se reutilizan sus credenciales. |
-| Guardar precios | Tickets y facturas del usuario; web pública de Alcampo si se habilita | Confirmar los precios del documento o activar las opciones de Alcampo. No requiere otras tarjetas de HACS, n8n ni servicios adicionales. El catálogo comunitario no comparte precios. |
+| Guardar precios | Tickets y facturas del usuario; web pública de Alcampo y DIA si se habilita | Confirmar los precios del documento o activar las opciones de la tienda. No requiere otras tarjetas de HACS, n8n ni servicios adicionales. El catálogo comunitario no comparte precios. |
 | Mostrar imágenes remotas y algunos logos de tiendas | El servidor de cada imagen | El navegador necesita poder acceder a la URL. Las imágenes locales y los iconos descargados no dependen de ese servidor para mostrarse. Flaticon no es una API necesaria para la integración. |
 | Usar lectores de códigos o NFC | Un dispositivo ya integrado que exponga la entidad de lectura compatible | Configurar su entidad en Ajustes → Lectores. ESPHome es una opción para el dispositivo, no un requisito de Improved Shopping List. |
 | Descontar stock por consumo registrado | Una entidad de Home Assistant que represente el uso | Seleccionar la entidad y el estado correspondiente. |

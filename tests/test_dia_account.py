@@ -161,6 +161,8 @@ async def test_ticket_accounts_share_zone_favorite_order_and_stop_after_confirma
     manager=TicketAccounts({"carrefour":make("carrefour"),"dia":make("dia")},SimpleNamespace(record=Mock()));manager.purchase_detection=detection
     await manager.async_check()
     assert calls==["dia"]
+    await manager.async_check()
+    assert calls==["dia"]
 
 
 async def test_dia_review_pending_import_is_explicit_and_preserves_one_history_entry(hass):

@@ -81,7 +81,8 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         dia_account = DiaAccount(hass,receipts,activity)
         await dia_account.async_load()
         dia_account.settings = settings
-        ticket_accounts = TicketAccounts({"carrefour":carrefour_account,"dia":dia_account},activity)
+        ticket_accounts = TicketAccounts({"carrefour":carrefour_account,"dia":dia_account},activity,hass)
+        await ticket_accounts.async_load()
         stock_automation.ticket_accounts = ticket_accounts
         carrefour_account.ticket_accounts = ticket_accounts
         dia_account.ticket_accounts = ticket_accounts

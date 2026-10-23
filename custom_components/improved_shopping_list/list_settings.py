@@ -14,6 +14,7 @@ from .stores import StoreError
 from .notification_settings import notification_options, normalize_notifications
 from .regional_stores import REGIONAL_STORES
 from .store_location import REFERENCE_LOCATIONS, reference_location
+from . import store_availability
 
 DEFAULT_APPEARANCE = {
     "gradient_start": "#ee524f", "gradient_end": "#b52a27",
@@ -80,7 +81,7 @@ class ListSettings:
         self.entry = entry
         # Drop all historical user locations and coverage errors atomically.
         # Keep store activation, lists, favorite and unrelated preferences.
-        stores = self.snapshot["stores"]
+        stores = list_options(entry)["stores"]
         favorite = entry.options.get("favorite_store", "")
         if favorite not in stores or not stores[favorite].get("enabled"):
             favorite = next((key for key, value in stores.items() if value.get("enabled")), "")
@@ -107,18 +108,21 @@ class ListSettings:
 
     @property
     def snapshot(self) -> dict:
-        return list_options(self.entry) if self.entry else {"entities": [], "primary_entity": "", "gateway_lists": [], "purchase_detection":dict(DEFAULT_PURCHASE_DETECTION), "notifications": notification_options(), "appearance": dict(DEFAULT_APPEARANCE), "stores": deepcopy(DEFAULT_STORES), "favorite_store": "", "price_update_time":self._default_price_time,"price_updates_enabled":True,"price_update_days":1}
+        snapshot = list_options(self.entry) if self.entry else {"entities": [], "primary_entity": "", "gateway_lists": [], "purchase_detection":dict(DEFAULT_PURCHASE_DETECTION), "notifications": notification_options(), "appearance": dict(DEFAULT_APPEARANCE), "stores": deepcopy(DEFAULT_STORES), "favorite_store": "", "price_update_time":self._default_price_time,"price_updates_enabled":True,"price_update_days":1}
+        return store_availability.apply_availability(snapshot)
 
     async def async_toggle_located_store(self, store, enabled):
         """Enable a fixed reference without postal discovery or HTTP requests."""
         if store not in DEFAULT_STORES:
             raise StoreError("Tienda no compatible.")
+        if enabled and store not in store_availability.AVAILABLE_STORES:
+            raise StoreError("Esta tienda está archivada y no se puede activar.")
         generation = self._generation
         async with self._stores_lock:
             entry = self.entry
             if not entry or generation != self._generation or not self.hass.data.get(DOMAIN, {}).get("active"):
                 raise StoreError("La integración no está activa.")
-            stores = {**self.snapshot["stores"], store: {"enabled": enabled, **reference_location(store)}}
+            stores = {**list_options(entry)["stores"], store: {"enabled": enabled, **reference_location(store)}}
             self.hass.config_entries.async_update_entry(entry, options={**entry.options,
                 "stores": stores, "favorite_store": self._favorite(stores)})
             self.notify()
@@ -138,7 +142,7 @@ class ListSettings:
         return await self.async_toggle_located_store("mercadona", enabled)
 
     def _favorite(self, stores):
-        active = [key for key, value in stores.items() if value.get("enabled")]
+        active = [key for key, value in stores.items() if value.get("enabled") and key in store_availability.AVAILABLE_STORES]
         current = self.snapshot["favorite_store"]
         return current if current in active else next(iter(active), "")
 

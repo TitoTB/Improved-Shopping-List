@@ -436,6 +436,12 @@ class ImprovedShoppingSettings extends HTMLElement {
     this._renderGlobalPriceProgress();
     for (const store of ["mercadona", "carrefour", "alcampo", "consum", "lasirena", "eroski", "dia"]) {
       root.querySelector(`#${store}-enabled`).closest(".store-row").dataset.enabled = String(Boolean(settings.stores?.[store]?.enabled));
+      const available=(settings.availableStores??["carrefour"]).includes(store);
+      root.querySelector(`#${store}-enabled`).closest(".store-row").hidden=!available;
+      if(!available){
+        const dialog=root.querySelector(store==='mercadona'?'#store-dialog':`#${store}-dialog`);
+        if(dialog?.open)dialog.close();
+      }
       const storeName=root.querySelector(`#${store}-enabled`).closest('.store-row').querySelector('.store-name');
       let count=storeName.querySelector('.store-linked-count');if(!count){count=document.createElement('span');count.className='store-linked-count';storeName.append(count);}
       const linked=(this._data.products??[]).filter(product=>{const link=product.store_links?.[store];return Boolean(typeof link==='string'?link.trim():link?.id||link?.url)||(this._data.receiptStores?.[product.id]??[]).includes(store);}).length;

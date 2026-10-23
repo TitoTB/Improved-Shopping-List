@@ -4,6 +4,9 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock
 
 import pytest
+
+# Preserve coverage of dormant connectors for a possible future reactivation.
+pytestmark = pytest.mark.usefixtures("archived_store_capabilities")
 from homeassistant.components.todo import DATA_COMPONENT, TodoItem, TodoItemStatus
 from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers import device_registry as dr, entity_registry as er

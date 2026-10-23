@@ -17,6 +17,7 @@ from .const import DOMAIN
 from .price_sources import PriceError, PriceSources
 from .store_links import normalize_link
 from .store_location import reference_location
+from . import store_availability
 
 DAY = 86400
 REQUEST_INTERVAL = 300
@@ -121,7 +122,7 @@ class AlcampoManager:
         self._saved = deepcopy(self._data)
 
     def start(self):
-        if self._active:
+        if self._active or self.provider not in store_availability.AVAILABLE_STORES:
             return
         self._active = True
         self._timer = async_track_time_interval(self.hass, self._wake, timedelta(minutes=1))

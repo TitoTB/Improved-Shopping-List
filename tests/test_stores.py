@@ -5,6 +5,9 @@ import time
 from unittest.mock import AsyncMock
 
 import pytest
+
+# Preserve coverage of dormant connectors for a possible future reactivation.
+pytestmark = pytest.mark.usefixtures("archived_store_capabilities")
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.improved_shopping_list.const import CONF_TODO_ENTITY, DOMAIN

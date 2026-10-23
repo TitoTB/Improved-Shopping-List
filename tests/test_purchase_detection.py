@@ -6,6 +6,9 @@ from types import SimpleNamespace
 from unittest.mock import Mock
 
 import pytest
+
+# Preserve coverage of dormant connectors for a possible future reactivation.
+pytestmark = pytest.mark.usefixtures("archived_store_capabilities")
 from homeassistant.util import dt as dt_util
 
 from custom_components.improved_shopping_list.purchase_detection import PurchaseDetection

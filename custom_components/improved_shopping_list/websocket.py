@@ -23,6 +23,7 @@ from .community_sync import CommunityError
 from .product_translation import async_translate_name
 from .product_lookup import is_product_barcode
 from .store_links import normalize_links, STORES
+from . import store_availability
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -472,7 +473,8 @@ async def ws_readers_dismiss(hass, connection, msg):
 @callback
 def ws_settings_get(hass: HomeAssistant, connection, msg) -> None:
     if _catalog(hass, connection, msg):
-        connection.send_result(msg["id"], hass.data[DOMAIN]["settings"].snapshot)
+        connection.send_result(msg["id"], {**hass.data[DOMAIN]["settings"].snapshot,
+            "available_stores": sorted(store_availability.AVAILABLE_STORES)})
 
 
 @websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/settings/subscribe"})
@@ -484,7 +486,8 @@ def ws_settings_subscribe(hass: HomeAssistant, connection, msg) -> None:
 
     @callback
     def on_update():
-        connection.send_event(msg["id"], settings.snapshot)
+        connection.send_event(msg["id"], {**settings.snapshot,
+            "available_stores": sorted(store_availability.AVAILABLE_STORES)})
 
     connection.subscriptions[msg["id"]] = settings.subscribe(on_update)
     connection.send_result(msg["id"])

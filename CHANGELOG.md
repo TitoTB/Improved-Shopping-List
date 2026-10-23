@@ -1,5 +1,11 @@
 # Historial de cambios
 
+## Sin publicar
+
+- Ajustes → Tiendas muestra únicamente tiendas con recuperación de tickets web disponible; por ahora, Carrefour.
+- Alcampo y DIA quedan archivados y sus revisiones públicas no arrancan, aunque tuvieran una actualización periódica activada. Se conservan el código, las opciones, las vinculaciones y los precios guardados.
+- Las tiendas archivadas no cuentan como activas ni favoritas. Se mantiene la cobertura de sus conectores para poder recuperarlos más adelante.
+
 ## 0.40.0 — 2026-10-23
 
 - DIA utiliza vinculaciones manuales por URL o ID y actualizaciones públicas repartidas durante un periodo configurable (30 días por defecto), sin búsqueda automática por EAN ni acceso a la cuenta.

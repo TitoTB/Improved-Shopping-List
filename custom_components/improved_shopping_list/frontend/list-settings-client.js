@@ -27,6 +27,7 @@ export class ListSettingsSession {
     this.purchaseDetection = {enabled:false,threshold:5};
     this.primary = "";
     this.stores = {};
+    this.availableStores = ["carrefour"];
     this.favoriteStore = "";
     this.appearance = { ...DEFAULT_APPEARANCE };
     this.loaded = false;
@@ -43,6 +44,7 @@ export class ListSettingsSession {
     this.purchaseDetection = {enabled:false,threshold:5,...data.purchase_detection};
     this.primary = data.primary_entity ?? "";
     this.stores = data.stores ?? {};
+    this.availableStores = data.available_stores ?? this.availableStores;
     this.favoriteStore = data.favorite_store ?? "";
     this.priceUpdateTime = data.price_update_time ?? "00:00";
     this.priceUpdatesEnabled = data.price_updates_enabled ?? true;

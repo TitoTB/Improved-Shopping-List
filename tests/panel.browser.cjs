@@ -276,7 +276,8 @@ const hass={
       if(!item){const product=window.catalogProducts.find(product=>normalizeName(product.name)===normalizeName(msg.name));item={id:crypto.randomUUID(),name:product?.name??msg.name,catalog_product_id:product?.id??'',quantity:0,revision:0};window.stockItems.push(item);}
       item.quantity=Math.max(0,item.quantity+(msg.delta??1));item.revision++;window.emitStock();return structuredClone(item);
     }
-    if(msg.type==='improved_shopping_list/settings/get')return structuredClone(window.listSettings);
+    // Legacy scenarios intentionally exercise preserved store panels; the shipping-policy scenario below restricts this list.
+    if(msg.type==='improved_shopping_list/settings/get')return {...structuredClone(window.listSettings),available_stores:window.listSettings.available_stores??['mercadona','carrefour','alcampo','consum','lasirena','eroski','dia']};
     if(msg.type==='improved_shopping_list/settings/notifications'){
       if(window.failSettings)throw new Error('No se han podido guardar las notificaciones');
       for(const rule of Object.values(msg.notifications))if(rule.enabled&&!rule.targets.length)throw new Error('Selecciona al menos un dispositivo');
@@ -3834,6 +3835,20 @@ async function main() {
     await login.getByRole('button',{name:'Enviar código',exact:true}).waitFor();
     assert.deepEqual(await accountPage.evaluate(()=>window.lastCfLogin),{username:'test@example.test',password_empty:true,remember:true});
     await accountContext.close();
+
+    // Shipping policy: only Carrefour is available; archived settings never initialize.
+    const archivedContext=await browser.newContext({viewport:{width:390,height:844}});
+    await archivedContext.addInitScript(()=>localStorage.setItem('settings-fixture',JSON.stringify({entities:['todo.bring'],primary_entity:'todo.bring',available_stores:['carrefour'],stores:{carrefour:{enabled:true},alcampo:{enabled:false},dia:{enabled:false}}})));
+    const archivedPage=await archivedContext.newPage();archivedPage.on('pageerror',error=>errors.push(error.message));
+    await archivedPage.goto(url);await archivedPage.getByRole('button',{name:'Ajustes',exact:true}).click();
+    await archivedPage.locator('isl-settings').getByRole('button',{name:'Tiendas',exact:true}).click();
+    assert.deepEqual(await archivedPage.locator('isl-settings .store-row:visible h3').allTextContents(),['Carrefour']);
+    assert.equal(await archivedPage.getByRole('button',{name:'Ajustes de Alcampo',exact:true}).isVisible(),false);
+    assert.equal(await archivedPage.getByRole('button',{name:'Ajustes de DIA',exact:true}).isVisible(),false);
+    assert.equal(await archivedPage.evaluate(()=>window.calls.some(call=>/\/(?:alcampo|dia\/prices)\//.test(call.type))),false);
+    await archivedPage.getByRole('button',{name:'Ajustes de Carrefour',exact:true}).click();
+    await archivedPage.locator('isl-carrefour-account').getByRole('button',{name:'Conectar cuenta',exact:true}).waitFor();
+    await archivedContext.close();
 
     // DIA uses manual references and opt-in public refreshes, without account login.
     const diaContext=await browser.newContext({viewport:{width:390,height:844}});

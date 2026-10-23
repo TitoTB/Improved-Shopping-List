@@ -5,6 +5,9 @@ import json
 
 import pytest
 
+# Preserve coverage of dormant connectors for a possible future reactivation.
+pytestmark = pytest.mark.usefixtures("archived_store_capabilities")
+
 from custom_components.improved_shopping_list.alcampo import (
     AlcampoManager, DAY, REQUEST_INTERVAL, search_terms, search_candidates, valid_ean, linked_commercial_names)
 from custom_components.improved_shopping_list.catalog import Catalog

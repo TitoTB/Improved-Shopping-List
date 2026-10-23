@@ -2881,8 +2881,9 @@ async function main() {
     assert.equal(await linksForm.locator('#product-store-links label').count(),0);
     assert.equal(await linksForm.getByRole('button',{name:'Quitar vinculación de Mercadona',exact:true}).evaluate(node=>getComputedStyle(node).backgroundColor),'rgb(211, 47, 47)');
     assert.ok(await linksForm.locator('.product-store-link').first().evaluate(row=>{
-      const [store,input,remove]=[...row.children].map(node=>node.getBoundingClientRect());
-      return store.right<=input.left && input.right<=remove.left && Math.abs(store.top-input.top)<1;
+      const [input,remove]=[...row.children].map(node=>node.getBoundingClientRect());
+      const header=row.closest('.product-store-association').querySelector('.product-store-header').getBoundingClientRect();
+      return header.bottom<=input.top && input.right<=remove.left && Math.abs(input.top-remove.top)<1;
     }));
     await linksPage.screenshot({path:'test-results/store-links-mobile.png',fullPage:true});
     assert.ok(await linksCatalog.locator('dialog[open]').evaluate(dialog=>dialog.scrollWidth<=dialog.clientWidth+1));

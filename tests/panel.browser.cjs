@@ -1370,6 +1370,8 @@ async function main() {
       panel._renderData();
     });
     await receiptPage.getByRole('button',{name:'Analítica',exact:true}).click();
+    assert.equal(await receiptPage.getByRole('tab',{name:'Compras',exact:true}).getAttribute('aria-selected'),'true');
+    await receiptPage.getByRole('tab',{name:'Comparativa',exact:true}).click();
     const analytics=receiptPage.locator('isl-analytics');
     await analytics.locator('.shop').nth(4).waitFor();
     assert.equal(await analytics.locator('.shop').count(),5);

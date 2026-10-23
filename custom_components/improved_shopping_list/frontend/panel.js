@@ -37,7 +37,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
     this._stock = new StockSession(() => this._hass, () => this._renderData());
     this._quantities = new QuantitySession(() => this._hass, () => this._renderData());
     this._stockLayout = "grid";
-    this._analyticsView = "comparison";
+    this._analyticsView = "purchases";
     this._stockSort = "lowest";
     this._stockGrouped = false;
     this._listGrouped = false;
@@ -402,7 +402,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
           <details id="completed-details"><summary id="completed-summary"><span id="completed-label">Compras recientes</span><button id="clear-completed" type="button"><ha-icon icon="mdi:delete" aria-hidden="true"></ha-icon>Limpiar productos</button></summary><ul id="completed" class="product-grid" aria-label="Compras recientes"></ul></details>
         </section>
         <section id="stock-card" aria-label="Stock" hidden><ul id="stock-items" class="product-grid" aria-label="Productos en stock"></ul><p id="stock-empty" class="empty" hidden>Añade productos para empezar a controlar tu despensa.</p></section>
-        <div id="analytics-heading" hidden><h2>Analítica</h2><nav class="stock-tabs" role="tablist" aria-label="Vistas de Analítica"><button id="comparison-tab" type="button" role="tab" aria-label="Comparativa" aria-selected="true"><ha-icon icon="mdi:scale-balance" aria-hidden="true"></ha-icon><span>Comparativa</span></button><button id="purchases-tab" type="button" role="tab" aria-label="Compras" aria-selected="false"><ha-icon icon="mdi:receipt-text" aria-hidden="true"></ha-icon><span>Compras</span></button><button id="nutrition-tab" type="button" role="tab" aria-label="Nutri-Score" aria-selected="false"><ha-icon icon="mdi:nutrition" aria-hidden="true"></ha-icon><span>Nutri-score</span></button></nav><button id="upload-ticket" class="icon-button" type="button" aria-label="Subir ticket" title="Subir ticket PDF"><ha-icon icon="mdi:file-upload" aria-hidden="true"></ha-icon></button></div>
+        <div id="analytics-heading" hidden><h2>Analítica</h2><nav class="stock-tabs" role="tablist" aria-label="Vistas de Analítica"><button id="comparison-tab" type="button" role="tab" aria-label="Comparativa" aria-selected="false"><ha-icon icon="mdi:scale-balance" aria-hidden="true"></ha-icon><span>Comparativa</span></button><button id="purchases-tab" type="button" role="tab" aria-label="Compras" aria-selected="true"><ha-icon icon="mdi:receipt-text" aria-hidden="true"></ha-icon><span>Compras</span></button><button id="nutrition-tab" type="button" role="tab" aria-label="Nutri-Score" aria-selected="false"><ha-icon icon="mdi:nutrition" aria-hidden="true"></ha-icon><span>Nutri-score</span></button></nav><button id="upload-ticket" class="icon-button" type="button" aria-label="Subir ticket" title="Subir ticket PDF"><ha-icon icon="mdi:file-upload" aria-hidden="true"></ha-icon></button></div>
         <isl-analytics hidden></isl-analytics>
         <isl-purchases id="purchase-history" hidden></isl-purchases>
         <dialog id="stock-add-dialog" aria-labelledby="stock-add-title"><form id="stock-add-form"><h2 id="stock-add-title">Añadir producto al stock</h2><label>Nombre del producto<input name="name" type="text" maxlength="255" list="stock-add-products" autocomplete="off" required></label><datalist id="stock-add-products"></datalist><p id="stock-add-error" class="notice error" role="alert" hidden></p><div class="dialog-actions"><button id="stock-add-submit" type="submit">Añadir</button></div></form></dialog>

@@ -1,5 +1,9 @@
 # Historial de cambios
 
+## Pendiente de publicación
+
+- Las pestañas de la ficha de producto conservan todos sus textos: solo la vista seleccionada tiene fondo sombreado; el resto permanece transparente. En pantallas estrechas pueden repartirse en varias filas.
+
 ## 0.37.0 — 2026-10-23
 
 - Ajustes → Tiendas indica cuántos productos del catálogo están vinculados mediante referencia web o ticket, sin duplicarlos por tienda.

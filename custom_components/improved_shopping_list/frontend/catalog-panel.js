@@ -322,9 +322,8 @@ class ImprovedShoppingCatalog extends HTMLElement {
         dialog { color:inherit; background:var(--card-background-color,#fff); width:min(640px,calc(100vw - 28px)); max-height:calc(100dvh - 28px); border:1px solid var(--divider-color,#dfe7e1); border-radius:18px; padding:24px; }
         dialog::backdrop { background:rgba(0,0,0,.4); }
         .dialog-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; }
-        .product-views { display:flex; flex-wrap:nowrap; min-width:0; gap:6px; margin-top:18px; overflow-x:auto; scrollbar-width:thin; }
-        .product-views button { display:inline-flex; flex:none; align-items:center; justify-content:center; gap:6px; padding:10px; font-size:13px; white-space:nowrap; }
-        .product-views button[aria-pressed=false] .tab-label { display:none; }
+        .product-views { display:flex; flex-wrap:wrap; min-width:0; gap:6px; margin-top:18px; overflow-x:auto; scrollbar-width:thin; }
+        .product-views button { display:inline-flex; flex:none; align-items:center; justify-content:center; gap:6px; padding:10px; font-size:13px; white-space:nowrap; border:0; background:transparent; }
         .product-views ha-icon { display:flex; align-items:center; justify-content:center; flex:none; width:20px; height:20px; --mdc-icon-size:20px; line-height:0; }
         .product-views [aria-pressed=true] { background:var(--secondary-background-color,#edf4ee); font-weight:650; }
         #product-form h3 { font-size:15px; font-weight:650; line-height:1.4; margin:0 0 12px; }

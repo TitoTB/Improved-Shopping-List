@@ -1,6 +1,6 @@
 # Historial de cambios
 
-## Sin publicar
+## 0.40.0 — 2026-10-23
 
 - DIA utiliza vinculaciones manuales por URL o ID y actualizaciones públicas repartidas durante un periodo configurable (30 días por defecto), sin búsqueda automática por EAN ni acceso a la cuenta.
 - El popup de DIA adopta las opciones de actualización de Alcampo; los precios, planificación y pausas se conservan tras reiniciar y sus observaciones se incorporan a la analítica.

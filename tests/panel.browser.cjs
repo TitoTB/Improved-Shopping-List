@@ -2601,7 +2601,7 @@ async function main() {
       await purchasePage.setViewportSize({width,height:844});
       assert.ok(await chartUpload.evaluate(button=>{
         const upload=button.getBoundingClientRect(),navigation=button.parentElement.querySelector('.chart-navigation').getBoundingClientRect(),chart=button.closest('#spending-chart').getBoundingClientRect();
-        return navigation.right<=upload.left&&Math.abs((navigation.top+navigation.bottom-upload.top-upload.bottom)/2)<1&&upload.right<=chart.right&&chart.width>=chart.scrollWidth-1;
+        return navigation.right<=upload.left&&Math.abs((navigation.top+navigation.bottom-upload.top-upload.bottom)/2)<1&&upload.right<=chart.right&&chart.width>=button.closest('#spending-chart').scrollWidth-1;
       }),'Upload is to the right of the period selector inside the chart at '+width+'px');
     }
     await purchasePage.setViewportSize({width:390,height:844});

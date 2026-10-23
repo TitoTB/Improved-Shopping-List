@@ -173,20 +173,21 @@ async def test_dia_review_pending_import_is_explicit_and_preserves_one_history_e
     product=await catalog.async_save_product({"name":"Producto A"})
     stock=StockManager(hass,catalog);await stock.async_load()
     item=await stock.async_add(product["name"])
+    initial_quantity=item["quantity"]
     automation=SimpleNamespace(_lock=asyncio.Lock(),async_check=AsyncMock(),_snapshots={},settings=SimpleNamespace(snapshot={"primary_entity":"todo.main"}))
     manager=ReceiptManager(hass,stock,automation,SimpleNamespace(_notify=Mock()))
     params,raw,detail=fixture_ticket()
     await manager.async_import_account_purchases([{"purchaseId":reference_id(params),"purchaseDate":raw["submitted_date"],"amount":4.91}],"dia")
-    assert len(manager.snapshot["receipts"])==1 and stock.snapshot["items"][0]["quantity"]==0
+    assert len(manager.snapshot["receipts"])==1 and stock.snapshot["items"][0]["quantity"]==initial_quantity
     draft=await manager.async_preview_dia_ticket(detail,params,4.91,"automatic")
     pending=await manager.async_archive_account_ticket(draft["token"],"automatic")
     assert pending["pending_review"] and len(manager.snapshot["receipts"])==1
-    assert stock.snapshot["items"][0]["quantity"]==0 and not manager.offers_for(product)
+    assert stock.snapshot["items"][0]["quantity"]==initial_quantity and not manager.offers_for(product)
     review=await manager.async_review_saved(pending["id"],"owner")
     choices=[{"id":line["id"],"product_id":product["id"] if i==0 else "","replenish":i==0,"quantity":1 if i==0 else None,"unit":"uds","purchase_id":"","save_price":i==0} for i,line in enumerate(review["receipt"]["lines"])]
     receipt=await manager.async_confirm(review["token"],"owner",choices,True)
     assert len(manager.snapshot["receipts"])==1 and not receipt.get("pending_review")
-    assert stock.snapshot["items"][0]["quantity"]==1
+    assert stock.snapshot["items"][0]["quantity"]==initial_quantity+1
     assert manager.offers_for(product)[0]["price"]==3.81
     assert manager.offers_for(product)[0]["reference_id"]=="111111"
     assert catalog.products[0].get("barcodes",[])==[]

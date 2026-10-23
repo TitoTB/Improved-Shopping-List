@@ -663,7 +663,7 @@ async function main() {
     assert.equal(await catalog.getByLabel("Marca", { exact: true }).count(), 0);
     assert.equal(await catalog.getByLabel("Formato", { exact: true }).count(), 0);
     await captureProductCode(page,catalog,"barcode","0012345678905");
-    await catalog.getByRole("button",{name:"Información adicional",exact:true}).click();
+    await catalog.getByRole("button",{name:"Tiendas",exact:true}).click();
     assert.equal(await catalog.getByLabel("Precio orientativo", { exact: true }).count(),0);
     assert.equal(await catalog.getByLabel("Moneda", { exact: true }).count(),0);
     await catalog.getByRole("button",{name:"Características",exact:true}).click();
@@ -1868,7 +1868,7 @@ async function main() {
     await quantityBadge.locator('.quantity-value').filter({hasText:'300 g'}).waitFor();
     await quantityCatalog.getByRole('button',{name:'Editar Pavo',exact:true}).click();
     const quantityForm=quantityCatalog.locator('#product-form');
-    await quantityForm.getByRole('button',{name:'Información adicional',exact:true}).click();
+    await quantityForm.getByRole('button',{name:'Características',exact:true}).click();
     assert.equal(await quantityForm.getByLabel('Unidades',{exact:true}).inputValue(),'g');
     assert.equal(await quantityForm.getByLabel('Cantidad unitaria',{exact:true}).inputValue(),'250');
     await quantityForm.getByLabel('Tamaño del paso',{exact:true}).fill('100');
@@ -2334,17 +2334,17 @@ async function main() {
     await nutriForm.getByRole('button',{name:'Automatización',exact:true}).click();
     for(const code of ['8410109115543','08410109115543','3017620422003','https://private.test/qr','3017620422004'])await captureProductCode(nutriPage,nutriForm,'barcode',code);
     await captureProductCode(nutriPage,nutriForm,'nfc','AA:BB:CC:DD');
-    await nutriForm.getByRole('button',{name:'Información adicional',exact:true}).click();
+    await nutriForm.getByRole('button',{name:'Tiendas',exact:true}).click();
     await nutriForm.getByText('Nutri-Score: D',{exact:true}).waitFor();
     assert.equal(await nutriForm.locator('.nutriscore-item').count(),2);
     assert.deepEqual(await nutriPage.evaluate(()=>window.nutriCalls),['8410109115543','3017620422003']);
     await nutriForm.getByRole('button',{name:'Características',exact:true}).click();
-    await nutriForm.getByRole('button',{name:'Información adicional',exact:true}).click();
+    await nutriForm.getByRole('button',{name:'Tiendas',exact:true}).click();
     assert.equal(await nutriPage.evaluate(()=>window.nutriCalls.length),2);
     await nutriPage.evaluate(()=>{window.listSettings.stores={carrefour:{enabled:true}};window.emitSettings();});
     await nutriForm.getByRole('button',{name:'Automatización',exact:true}).click();
     await captureProductCode(nutriPage,nutriForm,'barcode','8431876279146');
-    await nutriForm.getByRole('button',{name:'Información adicional',exact:true}).click();
+    await nutriForm.getByRole('button',{name:'Tiendas',exact:true}).click();
     await nutriForm.locator('#store-price-results').getByRole('link').waitFor();
     assert.match(await nutriForm.locator('#store-price-results').textContent(),/Carrefour: 1,35/);
     assert.match(await nutriForm.locator('#store-price-results').getByRole('link').getAttribute('href'),/awin1.com\/pclick.php/);
@@ -2353,12 +2353,12 @@ async function main() {
     await nutriForm.getByRole('button',{name:'Automatización',exact:true}).click();
     await captureProductCode(nutriPage,nutriForm,'barcode','3017620422003');
     await nutriPage.evaluate(()=>{window.delayNutriCode='3017620422003';});
-    await nutriForm.getByRole('button',{name:'Información adicional',exact:true}).click();
+    await nutriForm.getByRole('button',{name:'Tiendas',exact:true}).click();
     await nutriPage.waitForFunction(()=>typeof window.releaseNutri==='function');
     await nutriForm.locator('..').getByRole('button',{name:'Cerrar ventana',exact:true}).click();
     await nutriCatalog.getByRole('button',{name:'Nuevo producto',exact:true}).click();
     await nutriPage.evaluate(()=>window.releaseNutri());
-    await nutriForm.getByRole('button',{name:'Información adicional',exact:true}).click();
+    await nutriForm.getByRole('button',{name:'Tiendas',exact:true}).click();
     assert.equal(await nutriForm.locator('#product-nutriscore').isVisible(),false);
     await nutriForm.getByRole('button',{name:'Automatización',exact:true}).click();
     const captureGroup=nutriForm.locator('#product-barcode-codes');
@@ -2840,7 +2840,7 @@ async function main() {
     await linksCatalog.getByRole('button',{name:'Nuevo producto',exact:true}).click();
     const linksForm=linksCatalog.locator('#product-form');
     await linksForm.getByLabel('Nombre del producto',{exact:true}).fill('Arroz vinculado');
-    await linksForm.getByRole('button',{name:'Información adicional',exact:true}).click();
+    await linksForm.getByRole('button',{name:'Tiendas',exact:true}).click();
     await linksForm.getByLabel('Tienda del producto',{exact:true}).selectOption('mercadona');
     await linksForm.getByLabel('Enlace o ID del producto',{exact:true}).fill('69938');
     await linksForm.getByRole('button',{name:'Añadir vinculación',exact:true}).click();
@@ -2863,7 +2863,7 @@ async function main() {
     assert.equal(await linksPage.evaluate(()=>window.catalogProducts[0].barcode),'');
     assert.equal(await linksPage.evaluate(()=>window.catalogProducts[0].store_links.mercadona),'69938');
     await editCatalogProduct(linksCatalog,'Editar Arroz vinculado');
-    await linksForm.getByRole('button',{name:'Información adicional',exact:true}).click();
+    await linksForm.getByRole('button',{name:'Tiendas',exact:true}).click();
     assert.match(await linksForm.getByLabel('Enlace o ID de Alcampo',{exact:true}).inputValue(),/24097$/);
     await linksForm.getByRole('button',{name:'Quitar vinculación de Mercadona',exact:true}).click();
     await linksForm.getByRole('button',{name:'Guardar producto',exact:true}).click();
@@ -3433,6 +3433,32 @@ async function main() {
     await storeGroupingPage.reload();await storeGroupingPage.getByRole('button',{name:'Catálogo',exact:true}).click();
     await storeCatalog.locator('.category-group-title').filter({hasText:'Carrefour (3)'}).waitFor();
     assert.equal(await storeCatalog.locator('#catalog-grid [data-product-id="bread"]').count(),1);
+    await storeGroupingPage.evaluate(()=>{window.catalogProducts.find(product=>product.id==='bread').barcode='1234567890128';window.emitCatalog();});
+    await storeCatalog.getByRole('button',{name:'Editar Pan',exact:true}).click();
+    const storesProductForm=storeCatalog.locator('#product-form');
+    await storesProductForm.getByRole('button',{name:'Tiendas',exact:true}).click();
+    assert.equal(await storesProductForm.locator('.product-store-association[data-store="carrefour"]').count(),1);
+    assert.equal(await storesProductForm.locator('.product-store-association[data-store="dia"]').count(),1);
+    assert.match(await storesProductForm.locator('.product-store-association[data-store="carrefour"]').textContent(),/Ticket/factura confirmado/);
+    assert.equal(await storesProductForm.getByLabel('Enlace o ID de Carrefour',{exact:true}).count(),0);
+    assert.equal(await storesProductForm.locator('#product-ean-summary').textContent(),'EAN del producto: 1234567890128');
+    await storesProductForm.getByRole('button',{name:'Características',exact:true}).click();
+    for(const width of [1280,390,320]){
+      await storeGroupingPage.setViewportSize({width,height:960});
+      const layout=await storesProductForm.evaluate(form=>{
+        const bounds=name=>form.elements[name].getBoundingClientRect();
+        const name=bounds('name'),category=bounds('category'),tags=bounds('tags');
+        const unit=bounds('purchase_unit'),quantity=bounds('unit_quantity'),step=bounds('quantity_step');
+        return {top:[name.bottom,category.bottom,tags.bottom],units:[unit.bottom,quantity.bottom,step.bottom],order:form.querySelector('[name="image_url"]').getBoundingClientRect().bottom<=form.querySelector('isl-icon-picker').getBoundingClientRect().top,overflow:form.scrollWidth>form.clientWidth};
+      });
+      assert.ok(Math.max(...layout.top)-Math.min(...layout.top)<=1);
+      assert.ok(Math.max(...layout.units)-Math.min(...layout.units)<=1);
+      assert.equal(layout.order,true);assert.equal(layout.overflow,false);
+      await storeGroupingPage.screenshot({path:'test-results/product-form-main-'+width+'.png',fullPage:true});
+    }
+    await storesProductForm.getByRole('button',{name:'Tiendas',exact:true}).click();
+    await storeGroupingPage.screenshot({path:'test-results/product-form-stores-mobile.png',fullPage:true});
+    await storeCatalog.locator('dialog[aria-labelledby="product-dialog-title"]').getByRole('button',{name:'Cerrar ventana',exact:true}).click();
     await storeGroupingPage.evaluate(()=>{window.listSettings.stores.carrefour.enabled=false;window.emitSettings();});
     assert.deepEqual(await storeCatalog.locator('.category-group-title').allTextContents(),['Alcampo (1)']);
     await storeGroupingContext.close();

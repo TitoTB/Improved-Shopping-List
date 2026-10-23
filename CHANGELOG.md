@@ -1,5 +1,10 @@
 # Historial de cambios
 
+## Pendiente de publicación
+
+- Ficha de producto con pestañas del estilo de Ajustes, subtítulos uniformes y campos reorganizados en Características: nombre/categoría/etiquetas, unidades/cantidad/paso y URL antes de los iconos sugeridos.
+- Información adicional pasa a llamarse Tiendas y reúne asociaciones web y de tickets, incluidos los EAN del producto y los precios guardados sin enlace web.
+
 ## 0.36.0 — 2026-10-22
 
 - Catálogo → Productos, al agrupar por Tienda, incluye también vinculaciones confirmadas en tickets y facturas, aunque no tengan URL ni precio guardado. Recupera las asociaciones existentes y se actualiza al confirmar vínculos, manteniendo solo tiendas activas y sin duplicar productos dentro de cada tienda.

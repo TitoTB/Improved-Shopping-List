@@ -61,7 +61,7 @@ class ImprovedShoppingIconPicker extends HTMLElement {
         :host{display:block;min-width:0}*{box-sizing:border-box}[hidden]{display:none!important}
         button{font:inherit;color:inherit}button{cursor:pointer;border:1px solid var(--divider-color,#dfe7e1);border-radius:10px;background:transparent;padding:10px 12px;min-height:44px}
         button:disabled{opacity:.5;cursor:default}button:focus-visible,a:focus-visible{outline:3px solid var(--primary-color,#267052);outline-offset:3px}
-        h3{margin:0 0 12px;font-size:15px}
+        h3{margin:0 0 12px;font-size:15px;font-weight:650;line-height:1.4}
         .helper,.attribution{font-size:12px;line-height:1.5;color:var(--secondary-text-color,#63766b)}a{color:var(--primary-color,#267052)}
         #results{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;margin:14px 0;container-type:inline-size}.option{min-width:0;min-height:0;width:100%;padding:clamp(2px,1cqi,6px);display:flex;align-items:center;justify-content:center;aspect-ratio:1;overflow:hidden}.option img{width:min(56px,100%);height:auto;max-height:100%;aspect-ratio:1;object-fit:contain}.option[aria-pressed=true]{border:2px solid var(--primary-color,#267052)}
         #status{font-size:13px}#status.error{color:var(--error-color,#bd3636)}

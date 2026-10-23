@@ -123,6 +123,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
     const key=JSON.stringify(value??{});
     if(key===this._receiptStoresKey)return;
     this._receiptStoresKey=key;this._receiptStores=value??{};this._renderProducts();
+    if(this._storeLinks&&this.shadowRoot.querySelector("dialog")?.open)this._renderStoreLinks();
   }
   set priceData(value) {
     const key = JSON.stringify(value);
@@ -250,6 +251,11 @@ class ImprovedShoppingCatalog extends HTMLElement {
         #add-product-store-link { display:grid; place-items:center; padding:0; }
         #add-product-store-link ha-icon { display:block; width:24px; height:24px; --mdc-icon-size:24px; }
         .product-store-link { display:grid; grid-template-columns:minmax(90px,.8fr) minmax(0,1.4fr) 40px; gap:8px; align-items:center; margin-bottom:10px; }
+        .product-store-association { padding:12px; border:1px solid var(--divider-color,#dfe7e1); border-radius:10px; margin-bottom:10px; min-width:0; }
+        .product-store-association .product-store-link { margin-bottom:0; }
+        .product-store-link.ticket-only { grid-template-columns:minmax(90px,.8fr) minmax(0,1.4fr) 40px; }
+        .association-source { margin:8px 0 0; }
+        #product-ean-summary { overflow-wrap:anywhere; }
         .product-store-link input { min-width:0; width:100%; height:46px; margin:0; }
         .store-reference { display:flex; align-items:center; justify-content:center; gap:6px; min-width:0; min-height:46px; padding:6px; border-radius:10px; background:var(--secondary-background-color,#edf4ee); font-size:12px; font-weight:650; }
         .store-reference img { width:24px; height:24px; object-fit:contain; background:white; border-radius:6px; padding:2px; flex:none; }
@@ -316,10 +322,17 @@ class ImprovedShoppingCatalog extends HTMLElement {
         dialog { color:inherit; background:var(--card-background-color,#fff); width:min(640px,calc(100vw - 28px)); max-height:calc(100dvh - 28px); border:1px solid var(--divider-color,#dfe7e1); border-radius:18px; padding:24px; }
         dialog::backdrop { background:rgba(0,0,0,.4); }
         .dialog-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; }
-        .product-views { display:flex; flex-wrap:wrap; gap:8px; margin-top:18px; }
-        .product-views button { display:inline-flex; align-items:center; justify-content:center; gap:6px; flex:1 1 130px; min-width:0; font-size:13px; padding:10px 8px; }
-        .product-views ha-icon { display:flex; align-items:center; justify-content:center; flex:none; width:18px; height:18px; --mdc-icon-size:18px; line-height:0; }
+        .product-views { display:flex; flex-wrap:nowrap; min-width:0; gap:6px; margin-top:18px; overflow-x:auto; scrollbar-width:thin; }
+        .product-views button { display:inline-flex; flex:none; align-items:center; justify-content:center; gap:6px; padding:10px; font-size:13px; white-space:nowrap; }
+        .product-views button[aria-pressed=false] .tab-label { display:none; }
+        .product-views ha-icon { display:flex; align-items:center; justify-content:center; flex:none; width:20px; height:20px; --mdc-icon-size:20px; line-height:0; }
         .product-views [aria-pressed=true] { background:var(--secondary-background-color,#edf4ee); font-weight:650; }
+        #product-form h3 { font-size:15px; font-weight:650; line-height:1.4; margin:0 0 12px; }
+        .product-main-row,.product-quantity-row { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); align-items:end; gap:12px; }
+        .product-main-row>*,.product-quantity-row>* { min-width:0; }
+        #product-tags-help { margin:0; }
+        @media(max-width:550px) { .product-main-row,.product-quantity-row { gap:6px; }.product-main-row input,.product-quantity-row input { padding-inline:6px; }.product-main-row label,.product-quantity-row label { font-size:12px; }.product-main-row #add-product-category { flex-basis:28px;width:28px;padding:0; }.product-main-row .product-category-controls { gap:4px; }.product-main-row select { padding-inline:4px; } }
+
         .recurrence-controls { display:flex; align-items:center; flex-wrap:wrap; gap:8px; margin-top:12px; }
         .recurrence-controls label { display:flex; align-items:center; gap:8px; }
         .recurrence-controls input[type=checkbox] { width:20px; min-height:20px; margin:0; padding:0; accent-color:var(--primary-color,#267052); }
@@ -426,23 +439,27 @@ class ImprovedShoppingCatalog extends HTMLElement {
           <p class="helper">Solo necesitas un nombre para empezar. Puedes completar el resto más adelante.</p>
           <div id="product-error" class="notice error" role="alert" hidden></div>
           <nav class="product-views" aria-label="Vistas de la ficha del producto">
-            <button type="button" data-product-view="main" aria-pressed="true" aria-controls="product-main"><ha-icon icon="mdi:package-variant-closed" aria-hidden="true"></ha-icon>Características</button>
-            <button type="button" data-product-view="additional" aria-pressed="false" aria-controls="product-additional"><ha-icon icon="mdi:information-outline" aria-hidden="true"></ha-icon>Información adicional</button>
-            <button type="button" data-product-view="automation" aria-pressed="false" aria-controls="product-automation"><ha-icon icon="mdi:robot-outline" aria-hidden="true"></ha-icon>Automatización</button>
+            <button type="button" data-product-view="main" aria-label="Características" aria-pressed="true" aria-controls="product-main"><ha-icon icon="mdi:package-variant-closed" aria-hidden="true"></ha-icon><span class="tab-label">Características</span></button>
+            <button type="button" data-product-view="additional" aria-label="Tiendas" aria-pressed="false" aria-controls="product-additional"><ha-icon icon="mdi:store" aria-hidden="true"></ha-icon><span class="tab-label">Tiendas</span></button>
+            <button type="button" data-product-view="automation" aria-label="Automatización" aria-pressed="false" aria-controls="product-automation"><ha-icon icon="mdi:robot-outline" aria-hidden="true"></ha-icon><span class="tab-label">Automatización</span></button>
           </nav>
           <section id="product-main" class="fields" aria-label="Características">
-            <label class="wide">Nombre del producto<input name="name" required maxlength="160" placeholder="Por ejemplo, Cacao"></label>
-            <isl-icon-picker class="wide"></isl-icon-picker>
-            <label class="wide">URL Imagen/Icono<input name="image_url" maxlength="2048" placeholder="https://… o /local/producto.png"></label>
-            <div class="wide"><label for="product-category">Categoría</label><div class="product-category-controls"><select id="product-category" name="category"><option value="">Sin categoría</option></select><button id="add-product-category" type="button" aria-label="Nueva categoría" title="Nueva categoría"><ha-icon icon="mdi:plus-thick"></ha-icon></button></div></div>
-            <label class="wide">Etiquetas<input name="tags" maxlength="840" placeholder="Marca, tienda, otros términos…" aria-describedby="product-tags-help"></label>
+            <div class="wide product-main-row">
+              <label>Nombre del producto<input name="name" required maxlength="160" placeholder="Por ejemplo, Cacao"></label>
+              <div><label for="product-category">Categoría</label><div class="product-category-controls"><select id="product-category" name="category"><option value="">Sin categoría</option></select><button id="add-product-category" type="button" aria-label="Nueva categoría" title="Nueva categoría"><ha-icon icon="mdi:plus-thick"></ha-icon></button></div></div>
+              <label>Etiquetas<input name="tags" maxlength="840" placeholder="Marca, tienda, otros términos…" aria-describedby="product-tags-help"></label>
+            </div>
             <p id="product-tags-help" class="helper wide">Separa las etiquetas con comas. Hasta 20 etiquetas de 40 caracteres.</p>
-          </section>
-          <section id="product-additional" class="fields" aria-label="Información adicional" hidden>
+            <div class="wide product-quantity-row">
             <label>Unidades<input name="purchase_unit" list="purchase-unit-options" maxlength="32" value="uds" required><datalist id="purchase-unit-options">${['uds','kg','g','l','ml','Latas','Paquetes'].map(unit=>`<option value="${unit}"></option>`).join('')}</datalist></label>
             <label>Cantidad unitaria<input name="unit_quantity" type="number" min="0.001" max="1000000" step="0.001" value="1" required></label>
             <label>Tamaño del paso<input name="quantity_step" type="number" min="0.001" max="1000000" step="0.001" value="1" required></label>
-            <div class="wide"><h3>Vinculaciones con tiendas</h3><div id="product-store-links"></div><div class="store-link-add"><select id="product-link-store" aria-label="Tienda del producto"></select><input id="product-link-value" aria-label="Enlace o ID del producto" maxlength="2048" placeholder="Enlace o ID del producto"><button id="add-product-store-link" type="button" aria-label="Añadir vinculación"><ha-icon icon="mdi:plus-thick" aria-hidden="true"></ha-icon></button></div></div>
+            </div>
+            <label class="wide">URL Imagen/Icono<input name="image_url" maxlength="2048" placeholder="https://… o /local/producto.png"></label>
+            <isl-icon-picker class="wide"></isl-icon-picker>
+          </section>
+          <section id="product-additional" class="fields" aria-label="Tiendas" hidden>
+            <div class="wide"><h3>Vinculaciones con tiendas</h3><p id="product-ean-summary" class="helper"></p><div id="product-store-links"></div><div class="store-link-add"><select id="product-link-store" aria-label="Tienda del producto"></select><input id="product-link-value" aria-label="Enlace o ID del producto" maxlength="2048" placeholder="Enlace o ID del producto"><button id="add-product-store-link" type="button" aria-label="Añadir vinculación"><ha-icon icon="mdi:plus-thick" aria-hidden="true"></ha-icon></button></div></div>
             <div id="product-nutriscore" class="wide" hidden><h3>Nutri-Score</h3><div id="nutriscore-results"></div></div>
             <div id="product-store-prices" class="wide" hidden><h3>Precios de tiendas</h3><div id="store-price-results"></div></div>
           </section>
@@ -1354,7 +1371,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
       button.setAttribute("aria-pressed", String(selected));
       this.shadowRoot.querySelector(`#${button.getAttribute("aria-controls")}`).hidden = !selected;
     }
-    if (view === "additional") { void this._loadNutriscores(); void this._loadRetailPrices(); }
+    if (view === "additional") { this._renderStoreLinks(); void this._loadNutriscores(); void this._loadRetailPrices(); }
   }
 
   _resetNutriscores() {
@@ -1376,10 +1393,15 @@ class ImprovedShoppingCatalog extends HTMLElement {
       const data = await this._hass.callWS({type:"improved_shopping_list/catalog/store_prices",links:this._storeLinks ?? {},codes:this._productCodes?.barcode ?? []});
       if (this._priceData?.enabled === false || generation !== this._nutriGeneration || linksKey !== JSON.stringify(this._storeLinks ?? {}) || !root.querySelector("dialog").open || !this.isConnected) return;
       const names = {mercadona:"Mercadona",carrefour:"Carrefour",alcampo:"Alcampo",consum:"Consum",lasirena:"La Sirena",eroski:"Eroski",dia:"DIA"};
-      const rows = data.products.map(product => {
+      const offers=new Map();
+      for(const offer of [...(data.products??[]),...(this._priceData?.offers??[]).filter(offer=>offer.catalog_product_id===this._editing?.id)]){
+        const previous=offers.get(offer.store);
+        if(!previous||(offer.checked_at??0)>=(previous.checked_at??0))offers.set(offer.store,offer);
+      }
+      const rows = [...offers.values()].map(product => {
         const row = document.createElement("div"); row.className = "nutriscore-item";
-        const link = document.createElement("a"); link.textContent = `${names[product.store] ?? product.store}: ${new Intl.NumberFormat("es-ES",{style:"currency",currency:product.currency}).format(Number(product.price))} · ${product.store_name || product.name || "Ver producto"}${product.reference_id ? ` · ID ${product.reference_id}` : ""}`;
-        link.href = product.url; link.target = "_blank"; link.rel = "noopener noreferrer";
+        const link = document.createElement(product.url ? "a" : "span"); link.textContent = `${names[product.store] ?? product.store}: ${new Intl.NumberFormat("es-ES",{style:"currency",currency:product.currency}).format(Number(product.price))} · ${product.store_name || product.name || "Ver producto"}${product.reference_id ? ` · ID ${product.reference_id}` : ""}`;
+        if(product.url){link.href = product.url; link.target = "_blank"; link.rel = "noopener noreferrer";}
         const date = document.createElement("p"); date.className = "helper"; date.textContent = `Último precio conocido: ${new Date(product.checked_at*1000).toLocaleString("es-ES")}${product.error ? " · No se pudo actualizar" : ""}${product.available === false ? " · No disponible" : ""}${product.expired ? " · Oferta finalizada" : ""}`;
         row.append(link);
         if(product.reference_price != null && Number.isFinite(Number(product.reference_price)) && product.reference_unit){
@@ -1397,20 +1419,34 @@ class ImprovedShoppingCatalog extends HTMLElement {
 
   _renderStoreLinks() {
     const root = this.shadowRoot, names = STORE_NAMES;
-    root.querySelector("#product-store-links").replaceChildren(...Object.entries(this._storeLinks).map(([store,value])=>{
-      const row = document.createElement("div"); row.className = "product-store-link";
+    const receiptStores=this._receiptStores?.[this._editing?.id]??[];
+    const stores=[...new Set([...Object.keys(this._storeLinks??{}),...receiptStores])].filter(store=>store in names).sort((a,b)=>names[a].localeCompare(names[b],"es"));
+    const eans=[...new Map((this._productCodes?.barcode??[]).filter(code=>{
+      if(!/^(?:\d{8}|\d{12,14})$/.test(code))return false;
+      const total=[...code.slice(0,-1)].reverse().reduce((sum,digit,index)=>sum+Number(digit)*(index%2?1:3),0);
+      return (10-total%10)%10===Number(code.at(-1));
+    }).map(code=>[code.padStart(14,"0"),code])).values()];
+    root.querySelector('#product-ean-summary').textContent=eans.length?'EAN del producto: '+eans.join(' · '):'Sin EAN informado';
+    root.querySelector("#product-store-links").replaceChildren(...stores.map(store=>{
+      const value=this._storeLinks[store],fromTicket=receiptStores.includes(store);
+      const card=document.createElement('section');card.className='product-store-association';card.dataset.store=store;
+      const row = document.createElement("div"); row.className = "product-store-link"+(value?'':' ticket-only');
       const reference = document.createElement("span"); reference.className = "store-reference";
       const image = document.createElement("img"); image.alt = ""; image.referrerPolicy = "no-referrer";
       const logos = {carrefour:"https://images.seeklogo.com/logo-png/31/2/carrefour-logo-png_seeklogo-318190.png",alcampo:"https://almeria.online/wp-content/uploads/2024/09/alcampo-logo.png"};
       image.src = logos[store] ?? new URL(`${store}.${store === "mercadona" || store === "dia" ? "png" : store === "eroski" ? "svg" : "jpg"}`,import.meta.url).href;
       const name = document.createElement("span"); name.textContent = names[store] ?? store;
-      reference.append(image,name);
-      const input = document.createElement("input"); input.value = typeof value === "string" ? value : value.url || value.id; input.maxLength = 2048; input.setAttribute("aria-label",`Enlace o ID de ${names[store]}`);
-      input.addEventListener("input",()=>{this._storeLinks[store]=input.value.trim();});
-      input.addEventListener("change",()=>void this._loadRetailPrices());
-      const remove = document.createElement("button"); remove.type = "button"; remove.className = "remove-store-link"; remove.setAttribute("aria-label",`Quitar vinculación de ${names[store]}`); remove.innerHTML = '<ha-icon icon="mdi:delete" aria-hidden="true"></ha-icon>';
-      remove.addEventListener("click",()=>{delete this._storeLinks[store];this._renderStoreLinks();void this._loadRetailPrices();});
-      row.append(reference,input,remove);return row;
+      reference.append(image,name);row.append(reference);
+      if(value){
+        const input = document.createElement("input"); input.value = typeof value === "string" ? value : value.url || value.id; input.maxLength = 2048; input.setAttribute("aria-label",`Enlace o ID de ${names[store]}`);
+        input.addEventListener("input",()=>{this._storeLinks[store]=input.value.trim();});
+        input.addEventListener("change",()=>void this._loadRetailPrices());
+        const remove = document.createElement("button"); remove.type = "button"; remove.className = "remove-store-link"; remove.setAttribute("aria-label",`Quitar vinculación de ${names[store]}`); remove.innerHTML = '<ha-icon icon="mdi:delete" aria-hidden="true"></ha-icon>';
+        remove.addEventListener("click",()=>{delete this._storeLinks[store];this._renderStoreLinks();void this._loadRetailPrices();});
+        row.append(input,remove);
+      }
+      const source=document.createElement('p');source.className='helper association-source';source.textContent=[value?'Web':'',fromTicket?'Ticket/factura confirmado':''].filter(Boolean).join(' · ');
+      card.append(row,source);return card;
     }));
     const select = root.querySelector("#product-link-store");
     select.replaceChildren(...Object.entries(names).filter(([key])=>!(key in this._storeLinks)).map(([key,name])=>new Option(name,key)));

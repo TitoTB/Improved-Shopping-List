@@ -189,6 +189,9 @@ const hass={
       const ids=msg.lines.map(line=>line.product_id).filter(Boolean);if(new Set(ids).size!==ids.length)throw new Error('Dos líneas no pueden vincularse al mismo producto.');
       window.receiptLinks=structuredClone(msg.lines);return receiptOptions();
     }
+    if(msg.type==='improved_shopping_list/analytics/comparison'){
+      return structuredClone(window.comparisonFixture??{observations:[],purchases:[],stores:Object.keys(window.listSettings.stores??{}).filter(store=>window.listSettings.stores[store].enabled),historical_window_days:30});
+    }
     if(msg.type==='improved_shopping_list/alcampo/test_search'){
       window.lastAlcampoSearch=structuredClone(msg);
       return {status:'candidates',message:'La búsqueda ha devuelto 1 candidatos. Su EAN todavía no se ha confirmado.',product_id:msg.product_id,term:'Producto comercial del ticket',eans:['8410199023094'],candidates:[{reference_id:'10739',url:'https://www.compraonline.alcampo.es/products/producto/10739'}],http_requests:1,http_status:200};
@@ -1369,28 +1372,46 @@ async function main() {
       panel._rowPrices=stores.flatMap((store,index)=>[{catalog_product_id:'ticket-cacao',store,price:10-index,currency:'EUR',checked_at:1800000000},...(index===0?[{catalog_product_id:'ticket-milk',store,price:20,currency:'EUR',checked_at:1800000000}]:[])]);
       panel._renderData();
     });
+    await receiptPage.evaluate(()=>{
+      const now=Date.now()/1000,stores=['carrefour','alcampo','consum','eroski','lasirena'];
+      window.catalogProducts.push({id:'not-in-list',name:'Galletas',revision:1,category:'Despensa',barcodes:[],tags:[],store_links:{}});window.emitCatalog();
+      window.comparisonFixture={stores,historical_window_days:30,observations:[
+        ...stores.map((store,index)=>({product_id:'ticket-cacao',store,price:10-index,currency:'EUR',ean:'1234567890128',at:now-2*86400})),
+        {product_id:'ticket-cacao',store:'alcampo',price:1,currency:'EUR',ean:'1234567890128',at:now-3600},
+        {product_id:'ticket-milk',store:'carrefour',price:20,currency:'EUR',ean:'4006381333931',at:now-2*86400},
+        {product_id:'not-in-list',store:'carrefour',price:1.2,currency:'EUR',pack_quantity:200,pack_unit:'g',at:now-3600},
+        {product_id:'not-in-list',store:'alcampo',price:1.5,currency:'EUR',pack_quantity:250,pack_unit:'g',at:now-3600}
+      ],purchases:[{id:'comparison-ticket',store:'carrefour',store_name:'Carrefour',at:now-86400,purchased_at:new Date((now-86400)*1000).toISOString(),total:10,shipping:0,discount:0,currency:'EUR',lines:[{id:'line',product_id:'ticket-cacao',description:'CACAO COMERCIAL',count:1,amount:10,ean:'1234567890128'}]}]};
+    });
     await receiptPage.getByRole('button',{name:'Analítica',exact:true}).click();
     assert.equal(await receiptPage.getByRole('tab',{name:'Compras',exact:true}).getAttribute('aria-selected'),'true');
     await receiptPage.getByRole('tab',{name:'Comparativa',exact:true}).click();
     const analytics=receiptPage.locator('isl-analytics');
-    await analytics.locator('.shop').nth(4).waitFor();
-    assert.equal(await analytics.locator('.shop').count(),5);
-    assert.equal(await analytics.getByText('Cesta completa más barata',{exact:true}).count(),1);
-    assert.equal(await analytics.locator('tbody tr').count(),2);
-    assert.deepEqual(await analytics.locator('tbody th').evaluateAll(nodes=>nodes.map(node=>node.firstChild.textContent)),['Cacao','Leche entera']);
-    assert.equal(await analytics.locator('.common-ranking .best').count(),1);
-    assert.equal(await analytics.locator('tbody .best').count(),2);
-    await analytics.locator('.split summary').click();
-    assert.match(await analytics.locator('.split').textContent(),/4,00/);
+    await analytics.locator('.rank-row').nth(4).waitFor();
+    assert.equal(await analytics.locator('.rank-row').count(),5);
+    assert.equal(await analytics.locator('tbody tr[data-product-id="not-in-list"]').count(),1);
+    assert.equal(await analytics.getByLabel('Lista para comparar',{exact:true}).count(),0);
+    await analytics.getByLabel('Buscar producto',{exact:true}).fill('Galletas');
+    assert.equal(await analytics.locator('tbody tr').count(),1);
+    assert.match(await analytics.locator('tbody').textContent(),/6,00/);
+    await analytics.getByLabel('Buscar producto',{exact:true}).fill('');
     for(const width of [1280,390,320]){
-      await receiptPage.setViewportSize({width,height:844});
+      await receiptPage.setViewportSize({width,height:960});
       assert.ok(await analytics.evaluate(node=>node.scrollWidth<=node.clientWidth+1));
-      await receiptPage.evaluate(()=>{window.testPanel.scrollTop=0;});
-      await receiptPage.screenshot({path:'test-results/analytics-comparison-'+width+'.png',fullPage:true});
+      await receiptPage.screenshot({path:'test-results/analytics-catalog-'+width+'.png',fullPage:true});
     }
+    await analytics.getByRole('button',{name:'Compras pasadas',exact:true}).click();
+    const past=analytics.locator('[data-receipt-id="comparison-ticket"]');await past.locator('summary').first().click();
+    assert.match(await past.locator('.alternative[data-store="alcampo"] .pair-price').last().textContent(),/9,00/);
+    for(const width of [1280,390,320]){
+      await receiptPage.setViewportSize({width,height:960});
+      assert.ok(await analytics.evaluate(node=>node.scrollWidth<=node.clientWidth+1));
+      await receiptPage.screenshot({path:'test-results/analytics-past-'+width+'.png',fullPage:true});
+    }
+    await analytics.getByLabel('Precios para comparar',{exact:true}).selectOption('current');
+    await analytics.locator('[data-receipt-id="comparison-ticket"] summary').first().click();
+    assert.match(await analytics.locator('.alternative[data-store="alcampo"] .pair-price').last().textContent(),/1,00/);
     assert.equal(await receiptPage.evaluate(()=>window.calls.some(call=>/refresh_prices|refresh_all_prices/.test(call.type??''))),false);
-    await analytics.getByLabel('Lista para comparar',{exact:true}).selectOption('todo.local');
-    await analytics.getByText('No hay precios guardados para los productos de esta lista en las tiendas activas.',{exact:true}).waitFor();
     await receiptContext.close();
     const resumeContext=await browser.newContext({viewport:{width:390,height:844}});
     await resumeContext.addInitScript(()=>{

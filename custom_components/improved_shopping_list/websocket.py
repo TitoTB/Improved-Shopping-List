@@ -41,6 +41,7 @@ def async_register_commands(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_alcampo_status)
     websocket_api.async_register_command(hass, ws_alcampo_options)
     websocket_api.async_register_command(hass, ws_alcampo_test_search)
+    websocket_api.async_register_command(hass, ws_comparison_data)
     for command in (ws_carrefour_account_status, ws_carrefour_account_login, ws_carrefour_account_send_code,
                     ws_carrefour_account_verify, ws_carrefour_account_disconnect, ws_carrefour_account_purchases, ws_carrefour_account_sync_history, ws_carrefour_account_options, ws_carrefour_account_preview, ws_carrefour_account_preview_saved):
         websocket_api.async_register_command(hass, command)
@@ -1177,3 +1178,15 @@ async def ws_alcampo_test_search(hass, connection, msg):
         connection.send_result(msg["id"], result)
     except (CatalogError, OSError) as err:
         connection.send_error(msg["id"], getattr(err, "code", "alcampo_error"), str(err))
+
+
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/analytics/comparison"})
+@callback
+def ws_comparison_data(hass, connection, msg):
+    if not (catalog := _catalog(hass, connection, msg)):
+        return
+    data = hass.data[DOMAIN]
+    if not data["settings"].snapshot.get("price_updates_enabled", True):
+        connection.send_result(msg["id"], {"observations":[], "purchases":[], "stores":[], "enabled":False})
+        return
+    connection.send_result(msg["id"], data["price_history"].comparison_data(catalog, data["settings"], data["receipts"], [{**offer,"catalog_product_id":product["id"]} for product in catalog.products if (offer := data["alcampo"].offer_for(product))]))

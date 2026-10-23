@@ -2,6 +2,9 @@
 
 ## Pendiente de publicación
 
+- Comparativa sustituida por Catálogo y Compras pasadas: gráficos de mínimos, filtros, comparación de formatos equivalentes y análisis de tickets con cobertura visible.
+- Historial local y limitado de observaciones de Alcampo, unido a precios guardados en tickets revisados. El modo histórico excluye precios futuros y separa las estimaciones actuales; las comparaciones parciales con descuentos no se anuncian como ahorro neto.
+
 - Analítica abre inicialmente la vista Compras.
 
 - Tiendas de la ficha de producto con cabecera de logo/nombre y distintivos del origen; el enlace ocupa una fila completa junto al botón de eliminar, adaptable a móvil.

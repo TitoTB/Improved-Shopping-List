@@ -34,7 +34,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
     this._session = new TodoSession(() => this._hass, () => this._renderData());
     this._settings = new ListSettingsSession(() => this._hass, () => this._applySettings());
     this._readers = new ReadersSession(() => this._hass, () => this._renderData());
-    this._stock = new StockSession(() => this._hass, () => this._renderData());
+    this._stock = new StockSession(() => this._hass, () => {this._comparisonRevision=(this._comparisonRevision||0)+1;this._renderData();});
     this._quantities = new QuantitySession(() => this._hass, () => this._renderData());
     this._stockLayout = "grid";
     this._analyticsView = "purchases";
@@ -441,7 +441,6 @@ class ImprovedShoppingListPanel extends HTMLElement {
     root.querySelector('#stock-add-form').addEventListener('submit',event=>{event.preventDefault();void this._addStockProduct();});
     root.querySelector('#stock-add-dialog').addEventListener('cancel',event=>{if(this._busy)event.preventDefault();});
     for(const [id,view] of [['comparison-tab','comparison'],['purchases-tab','purchases'],['nutrition-tab','nutrition']])root.querySelector('#'+id).addEventListener('click',()=>{this._analyticsView=view;this._renderData();});
-    root.querySelector('isl-analytics').onSelectList=entity=>void this._session.select(entity);
     root.querySelector('#nav-analytics').addEventListener('click',()=>this._switchView('analytics'));
     root.querySelector('#upload-ticket').addEventListener('click',()=>root.querySelector('isl-purchases').chooseFile());
     root.querySelector('isl-purchases').addEventListener('receipt-busy',event=>{this._receiptBusy=event.detail;this._renderData();});
@@ -640,7 +639,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
     root.querySelector('#analytics-heading').hidden=!analyticsView;
     const analytics=root.querySelector('isl-analytics');
     analytics.hidden=!analyticsView||this._analyticsView==='purchases';
-    analytics.data={logos:STORE_LOGOS,hass:this._hass,active:analyticsView,view:this._analyticsView,products:[...this._catalogProducts.values()],entities:this._settings.entities,entityId:session.entityId,loading:session.loading,error:session.error,enabled:this._settings.priceUpdatesEnabled!==false,count:session.items.filter(item=>item.status!=='completed').length,receipts:this._storeReceipts(session.loading?[]:session.items.filter(item=>item.status!=='completed'),false)};
+    analytics.data={stores:this._settings.stores,comparisonRevision:this._comparisonRevision,priceKey:JSON.stringify(this._rowPrices),logos:STORE_LOGOS,hass:this._hass,active:analyticsView,view:this._analyticsView,products:[...this._catalogProducts.values()],enabled:this._settings.priceUpdatesEnabled!==false};
     for(const view of ['comparison','purchases','nutrition'])root.querySelector('#'+view+'-tab').setAttribute('aria-selected',String(view===this._analyticsView));
     root.querySelector('#stock-heading').hidden=!stockView;
     root.querySelector('#stock-card').hidden=!stockItemsView;

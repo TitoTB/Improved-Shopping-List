@@ -27,6 +27,7 @@ from .carrefour_account import CarrefourAccount
 from .purchase_detection import PurchaseDetection
 from .alcampo import AlcampoManager
 from .price_manager import PriceManager, StorePriceView
+from .price_history import PriceHistory
 from .recurrence import RecurrenceManager
 from .const import (
     CONF_TODO_ENTITY,
@@ -67,6 +68,9 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         stock_automation.quantities = quantities
         prices = PriceManager(hass, catalog, settings, activity)
         await prices.async_load()
+        history = PriceHistory(hass)
+        await history.async_load()
+        prices.history = history
         receipts = ReceiptManager(hass, stock, stock_automation, prices)
         carrefour_account = CarrefourAccount(hass, receipts, activity)
         await carrefour_account.async_load()
@@ -101,6 +105,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         hass.data[DOMAIN]["purchase_detection"] = purchase_detection
         hass.data[DOMAIN]["carrefour_account"] = carrefour_account
         hass.data[DOMAIN]["alcampo"] = alcampo
+        hass.data[DOMAIN]["price_history"] = history
         hass.data[DOMAIN]["gateway_lists"] = gateways
         hass.data[DOMAIN]["quantities"] = quantities
         hass.data[DOMAIN]["entity_data"] = EntityData(hass, hass.data[DOMAIN])

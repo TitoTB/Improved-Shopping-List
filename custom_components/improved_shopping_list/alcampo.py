@@ -258,7 +258,10 @@ class AlcampoManager:
 
     async def _remember(self, offer):
         if offer:
-            self._data["offers"][offer["reference_id"]] = {**offer, "checked_at":time.time(), "source":"web"}
+            observed = {**offer, "checked_at":time.time(), "source":"web"}
+            if history := getattr(self.prices, "history", None):
+                await history.async_record(observed)
+            self._data["offers"][offer["reference_id"]] = observed
 
     async def async_tick(self):
         if not self._enabled() or self._lock.locked():

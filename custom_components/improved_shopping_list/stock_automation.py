@@ -76,6 +76,8 @@ class StockAutomation:
                     if detection and detection.enabled:
                         quantity = self.quantities.value(entity_id,item) if getattr(self,"quantities",None) else None
                         detection.note_completion(entity_id,item,quantity)
+                    elif getattr(self,"ticket_accounts",None):
+                        self.ticket_accounts.note_completion()
                     elif getattr(self,"carrefour_account",None):
                         self.carrefour_account.note_completion()
                     for stock in self.stock.snapshot["items"]:

@@ -141,6 +141,9 @@ class CarrefourAccount:
             self._background_task = self.hass.async_create_task(self._run_background())
 
     async def _run_background(self):
+        if getattr(self,"ticket_accounts",None):
+            await self.ticket_accounts.async_check()
+            return
         try:
             await self._save_options()
             settings = getattr(self,"settings",None)
@@ -170,6 +173,21 @@ class CarrefourAccount:
         except (OSError,aiohttp.ClientError,TimeoutError):
             self.activity.record("stores.account","Carrefour: no se ha podido guardar la revisión automática",source="automatic")
 
+    def automatic_due(self,now,detected_today):
+        return bool(self._active and self._session.get("login_token") and self._options["auto_ticket"] and
+            self._options["ticket_day"]!=now.date().isoformat() and self._options["completion_at"]>self._options["handled_completion"] and
+            (detected_today or now.strftime("%H:%M")>=self.settings.snapshot["price_update_time"]))
+
+    async def async_automatic_ticket(self,now,detected_today):
+        if not self.automatic_due(now,detected_today):return False
+        self._options["ticket_day"]=now.date().isoformat();await self._save_options()
+        try:
+            found=await self._download_automatic_ticket("automatic_carrefour",now,detected_today)
+            self._options["handled_completion"]=self._options["completion_at"]
+            return found
+        finally:
+            await self._save_options()
+
     async def _download_automatic_ticket(self, owner, now, detected_today):
         result=await self.async_purchases(owner)
         candidates = result["purchases"]
@@ -190,6 +208,8 @@ class CarrefourAccount:
             self.activity.record("stores.account","Carrefour: última compra disponible para revisar",source="automatic")
         elif latest:
             self.activity.record("stores.account","Carrefour: la factura online debe subirse manualmente",source="automatic")
+        date=dt_util.parse_datetime(latest["purchased_at"]) if latest else None
+        return bool(latest and latest["reviewable"] and date and dt_util.as_local(date if date.tzinfo else date.replace(tzinfo=dt_util.DEFAULT_TIME_ZONE)).date()==now.date())
 
     async def async_stop(self):
         task=self._background_task

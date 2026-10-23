@@ -24,6 +24,8 @@ from .stock import StockManager
 from .stock_automation import StockAutomation
 from .receipts import ReceiptManager
 from .carrefour_account import CarrefourAccount
+from .dia_account import DiaAccount
+from .ticket_accounts import TicketAccounts
 from .purchase_detection import PurchaseDetection
 from .alcampo import AlcampoManager
 from .price_manager import PriceManager, StorePriceView
@@ -76,10 +78,19 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         await carrefour_account.async_load()
         carrefour_account.settings=settings
         stock_automation.carrefour_account=carrefour_account
-        purchase_detection = PurchaseDetection(hass,settings,receipts,activity,carrefour_account)
+        dia_account = DiaAccount(hass,receipts,activity)
+        await dia_account.async_load()
+        dia_account.settings = settings
+        ticket_accounts = TicketAccounts({"carrefour":carrefour_account,"dia":dia_account},activity)
+        stock_automation.ticket_accounts = ticket_accounts
+        carrefour_account.ticket_accounts = ticket_accounts
+        dia_account.ticket_accounts = ticket_accounts
+        purchase_detection = PurchaseDetection(hass,settings,receipts,activity,ticket_accounts)
         await purchase_detection.async_load()
         stock_automation.purchase_detection = purchase_detection
         carrefour_account.purchase_detection = purchase_detection
+        dia_account.purchase_detection = purchase_detection
+        ticket_accounts.purchase_detection = purchase_detection
         prices.receipts = receipts
         alcampo = AlcampoManager(hass, catalog, settings, prices, receipts, activity)
         await alcampo.async_load()
@@ -104,6 +115,8 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         hass.data[DOMAIN] = {"catalog": catalog, "stock":stock, "receipts":receipts, "stock_automation":stock_automation, "settings": settings, "price_manager":prices, "store_products": store_products, "recurrence": recurrence, "readers": readers, "icons": icons, "community": community, "community_sync": community_sync, "activity": activity, "active": False}
         hass.data[DOMAIN]["purchase_detection"] = purchase_detection
         hass.data[DOMAIN]["carrefour_account"] = carrefour_account
+        hass.data[DOMAIN]["dia_account"] = dia_account
+        hass.data[DOMAIN]["ticket_accounts"] = ticket_accounts
         hass.data[DOMAIN]["alcampo"] = alcampo
         hass.data[DOMAIN]["price_history"] = history
         hass.data[DOMAIN]["gateway_lists"] = gateways
@@ -120,6 +133,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     await _async_register_panel(hass, entry)
     hass.data[DOMAIN]["active"] = True
     hass.data[DOMAIN]["carrefour_account"].start()
+    hass.data[DOMAIN]["dia_account"].start()
     hass.data[DOMAIN]["activity"].start()
     hass.data[DOMAIN]["quantities"].start()
     hass.data[DOMAIN]["gateway_lists"].start()
@@ -167,6 +181,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.data[DOMAIN]["active"] = False
     await hass.data[DOMAIN]["purchase_detection"].async_stop()
     await hass.data[DOMAIN]["carrefour_account"].async_stop()
+    await hass.data[DOMAIN]["dia_account"].async_stop()
     await hass.data[DOMAIN]["quantities"].async_stop()
     await hass.data[DOMAIN]["gateway_lists"].async_stop()
     await hass.data[DOMAIN]["community_sync"].async_stop()

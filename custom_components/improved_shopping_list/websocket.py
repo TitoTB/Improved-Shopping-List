@@ -38,6 +38,8 @@ def _catalog(hass: HomeAssistant, connection, msg) -> Catalog | None:
 @callback
 def async_register_commands(hass: HomeAssistant) -> None:
     """Register once; commands check that the config entry is still loaded."""
+    from .dia_websocket import register as register_dia
+    register_dia(hass)
     websocket_api.async_register_command(hass, ws_alcampo_status)
     websocket_api.async_register_command(hass, ws_alcampo_options)
     websocket_api.async_register_command(hass, ws_alcampo_test_search)

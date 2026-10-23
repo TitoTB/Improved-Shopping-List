@@ -432,7 +432,7 @@ class ImprovedShoppingPurchases extends HTMLElement {
       const card=node('article','ticket'+(receipt.needs_details?' needs-details':''));card.dataset.id=receipt.id;
       const title=node('div','title');title.append(node('strong','',receipt.store_name+(receipt.document_type==='invoice'?' · Factura':'')),node('span','muted',documentDate(receipt)+(receipt.article_count==null?'':' · '+receipt.article_count+' artículos')));
       const open=this._button('Ver ticket de '+receipt.store_name+' del '+documentDate(receipt),'mdi:receipt-text',()=>receipt.summary_only?void this._reviewPending(receipt):this._openPurchaseDetail(receipt),'ticket-open'+(!receipt.summary_only?' reviewed':''));
-      card.append(this._storeImage(receipt.store,receipt.store_name),title,node('span','total',receipt.total==null?'Importe pendiente':money(receipt.total)));if(!receipt.summary_only||receipt.pending_review||(receipt.store==='carrefour'&&receipt.account_key&&receipt.ticket_available!==false))card.append(open);if(receipt.detected_purchase)card.append(this._button(receipt.needs_details?'Completar compra detectada':'Editar compra detectada','mdi:pencil',()=>this._editDetectedPurchase(receipt),'ticket-open edit-detection'));return card;
+      card.append(this._storeImage(receipt.store,receipt.store_name),title,node('span','total',receipt.total==null?'Importe pendiente':money(receipt.total)));if(!receipt.summary_only||receipt.pending_review||(['carrefour','dia'].includes(receipt.store)&&receipt.account_key&&receipt.ticket_available!==false))card.append(open);if(receipt.detected_purchase)card.append(this._button(receipt.needs_details?'Completar compra detectada':'Editar compra detectada','mdi:pencil',()=>this._editDetectedPurchase(receipt),'ticket-open edit-detection'));return card;
     }));
   }
   _detectedStoreFields(){const root=this.shadowRoot,other=root.querySelector('#detected-store').value==='other';root.querySelector('#detected-other-label').hidden=!other;root.querySelector('#detected-other').required=other;for(const button of root.querySelectorAll('.zone-store-choice'))button.setAttribute('aria-pressed',String(button.dataset.store===root.querySelector('#detected-store').value));}
@@ -461,7 +461,7 @@ class ImprovedShoppingPurchases extends HTMLElement {
   async _reviewPending(receipt){
     if(this._busy)return;
     this._setBusy(true);this._error='';
-    try{const draft=await this._hass.callWS({type:receipt.pending_review?'improved_shopping_list/receipts/review_saved':'improved_shopping_list/carrefour_account/preview_saved',receipt_id:receipt.id});this._draft=draft;this._buildReview();this.shadowRoot.querySelector('dialog').showModal();}
+    try{const draft=await this._hass.callWS({type:receipt.pending_review?'improved_shopping_list/receipts/review_saved':'improved_shopping_list/'+receipt.store+'_account/preview_saved',receipt_id:receipt.id});this._draft=draft;this._buildReview();this.shadowRoot.querySelector('dialog').showModal();}
     catch(error){this._error=error.message??'No se ha podido abrir el ticket.';this._render();}
     finally{this._setBusy(false);}
   }

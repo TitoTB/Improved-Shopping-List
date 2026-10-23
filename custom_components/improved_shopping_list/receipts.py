@@ -14,6 +14,7 @@ from homeassistant.util import dt as dt_util
 
 from .catalog import CatalogError, normalized_name, product_codes
 from .receipt_parser import MAX_PDF_BYTES, extract_receipt, extract_carrefour_account_ticket
+from .dia_receipts import extract_dia_account_ticket, reference_id
 from .stock import DAY, DEFAULT_CONFIG, quantity_value
 from .store_links import STORES
 from .quantity_values import purchase_defaults
@@ -41,8 +42,8 @@ class ReceiptManager:
             key=lambda receipt:receipt["purchased_at"], reverse=True)}
 
     @staticmethod
-    def _account_key(reference):
-        return sha256(("carrefour:"+reference).encode()).hexdigest()
+    def _account_key(reference, store="carrefour"):
+        return sha256((store+":"+reference).encode()).hexdigest()
 
     @staticmethod
     def _same_purchase(first, second):
@@ -64,17 +65,22 @@ class ReceiptManager:
         return candidates[0] if len(candidates)==1 else None
 
     async def async_import_carrefour_purchases(self, purchases):
+        return await self.async_import_account_purchases(purchases,"carrefour")
+
+    async def async_import_account_purchases(self, purchases, store):
         """Store account summaries only: never replenish stock or generate prices."""
+        if store not in ("carrefour","dia"):
+            raise CatalogError("La tienda no admite tickets de cuenta.")
         added = 0
         async with self.stock._lock:
             data = deepcopy(self.stock.receipts)
             for purchase in purchases:
-                key = self._account_key(purchase["purchaseId"])
+                key = self._account_key(purchase["purchaseId"],store)
                 when = dt_util.parse_datetime(purchase["purchaseDate"])
                 if when.tzinfo is None:
                     when = when.replace(tzinfo=dt_util.DEFAULT_TIME_ZONE)
-                receipt = {"id":"carrefour-account:"+key,"digest":"carrefour-account:"+key,"account_key":key,
-                    "summary_only":True,"store":"carrefour","store_name":"Carrefour",
+                receipt = {"id":store+"-account:"+key,"digest":store+"-account:"+key,"account_key":key,
+                    "summary_only":True,"store":store,"store_name":STORES[store],
                     "purchased_at":dt_util.as_local(when).isoformat(),"currency":"EUR","total":purchase["amount"],
                     "article_count":purchase.get("article_count"),"lines":[],"imported_at":time.time(),
                     "ticket_available":purchase.get("ticket_available", True)}
@@ -205,8 +211,8 @@ class ReceiptManager:
             await self.stock._persist(deepcopy(self.stock._items),receipts=data)
         return {"removed":True}
 
-    def account_ticket_available(self, reference):
-        key=self._account_key(reference)
+    def account_ticket_available(self, reference, store="carrefour"):
+        key=self._account_key(reference,store)
         return any(old.get("account_key")==key and (old.get("pending_review") or not old.get("summary_only")) for old in self.stock.receipts["history"].values())
 
     async def async_archive_account_ticket(self, token, owner):
@@ -292,6 +298,8 @@ class ReceiptManager:
         key = store+":"+normalized_name(line["description"])
         if data["aliases"].get(key,{}).get("product_id") != product["id"]:
             data["aliases"][key] = {"product_id":product["id"],"per_unit":None,"unit":""}
+        if line.get("reference_id"):
+            data["aliases"][key]["reference_id"] = line["reference_id"]
 
     async def async_link(self, token, owner, selections):
         draft = self._draft(token,owner)
@@ -327,6 +335,14 @@ class ReceiptManager:
             receipt = await self.hass.async_add_executor_job(extract_carrefour_account_ticket, detail, reference, expected_total)
         receipt["account_key"] = self._account_key(reference)
         return await self._prepare_preview(receipt, owner)
+
+    async def async_preview_dia_ticket(self, detail, params, expected_total, owner):
+        if self._parse_lock.locked():
+            raise CatalogError("Ya se está leyendo un ticket. Espera a que termine.")
+        async with self._parse_lock:
+            receipt = await self.hass.async_add_executor_job(extract_dia_account_ticket,detail,params,expected_total)
+        receipt["account_key"] = self._account_key(reference_id(params),"dia")
+        return await self._prepare_preview(receipt,owner)
 
     async def _prepare_preview(self, receipt, owner):
         summary = self._summary_match(receipt)
@@ -485,5 +501,5 @@ class ReceiptManager:
                         link = product.get("store_links",{}).get(receipt["store"],{})
                         offers[receipt["store"]] = {"store":receipt["store"],"store_name":receipt["store_name"],"name":product["name"],
                             "catalog_product_id":product["id"],"price":line["unit_price"],"currency":receipt["currency"],
-                            "checked_at":at,"source":"receipt","reference_id":link.get("id",""),"url":link.get("url","")}
+                            "checked_at":at,"source":"receipt","reference_id":link.get("id") or line.get("reference_id",""),"url":link.get("url","")}
         return list(offers.values())

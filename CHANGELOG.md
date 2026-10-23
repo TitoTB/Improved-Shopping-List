@@ -2,6 +2,10 @@
 
 ## Pendiente de publicación
 
+- Cuenta DIA con el mismo panel de conexión e historial que Carrefour: credenciales recordadas de forma opcional, sesión privada persistente y compras del último año.
+- Tickets DIA estructurados sin PDF: validación de referencias, cantidades, productos al peso, descuentos por artículo y total. Sus códigos internos se conservan como referencias, sin tratarlos como EAN.
+- Descarga automática DIA pendiente de revisión, con coordinación común de tiendas por zonas/favorita y parada al identificar la compra. Un HTTP 403 conserva sesión e historial; el acceso real desde la red de desarrollo ha sido rechazado por DIA y necesita comprobarse desde la instancia del usuario.
+
 - La búsqueda automática de tickets consulta primero las tiendas coincidentes por zona y después la tienda favorita, antes de continuar por las demás fuentes disponibles.
 
 - Compras sitúa Subir ticket dentro de la gráfica, a la derecha del selector de periodos; también permite subir el primer ticket sin compras previas.

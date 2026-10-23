@@ -202,6 +202,20 @@ const hass={
       if(msg.type.endsWith('/options'))window.alcampoStatus=structuredClone(msg.options);
       return structuredClone(window.alcampoStatus);
     }
+
+    if(msg.type.startsWith('improved_shopping_list/dia_account/')){
+      window.calls.push({type:msg.type,receipt_id:msg.receipt_id});
+      window.diaStatus??={connected:false,credentials_saved:false,remembered_email:'',options:{history_enabled:false,auto_ticket:false}};
+      const action=msg.type.split('/').at(-1);
+      if(window.failDiaAccount&&action!=='status')throw new Error('DIA ha rechazado el acceso desde esta conexión (HTTP 403).');
+      if(action==='status')return structuredClone(window.diaStatus);
+      if(action==='login'){window.lastDiaLogin={username:msg.username,password_empty:msg.password==='',remember:msg.remember_credentials};window.diaStatus={connected:true,email:msg.username,credentials_saved:msg.remember_credentials,remembered_email:msg.remember_credentials?msg.username:'',options:{history_enabled:false,auto_ticket:false}};return structuredClone(window.diaStatus);}
+      if(action==='disconnect'){window.diaStatus={...window.diaStatus,connected:false,email:'',options:{history_enabled:false,auto_ticket:false}};return structuredClone(window.diaStatus);}
+      if(action==='options'){window.diaStatus.options=structuredClone(msg.options);if(msg.options.history_enabled&&!window.receiptHistory.some(r=>r.id==='dia-summary'))window.receiptHistory.push({id:'dia-summary',store:'dia',store_name:'DIA',purchased_at:new Date().toISOString(),total:4.91,article_count:null,lines:[],summary_only:true,account_key:'dia-private-ref',ticket_available:true});localStorage.setItem('receipt-fixture',JSON.stringify(window.receiptHistory));return structuredClone(window.diaStatus);}
+      if(action==='preview_saved'){
+        const draft={token:'dia-preview',receipt:{id:'dia-ticket',store:'dia',store_name:'DIA',purchased_at:new Date().toISOString(),total:4.91,subtotal:4.91,discount:0,article_count:1,lines:[{id:'0',description:'PRODUCTO DIA',count:1,unit_price:4.91,amount:4.91,pack_quantity:null,pack_unit:'',product_id:'',matched:false,quantity:null,replenish:false,ean:'',reference_id:'123456'}]},...receiptOptions()};window.receiptDraft=structuredClone(draft.receipt);return draft;
+      }
+    }
     if(msg.type.startsWith('improved_shopping_list/carrefour_account/')){
       window.calls.push({type:msg.type,receipt_id:msg.receipt_id});
       window.cfStatus??={connected:false,verification_required:false,destinations:[],verification_sent:false};
@@ -507,7 +521,7 @@ async function main() {
       return;
     }
     if (pathname === "/") { res.setHeader("content-type", "text/html; charset=utf-8"); res.end(html); return; }
-    if (!["/analytics-panel.js", "/alcampo-settings.js", "/carrefour-account.js", "/notification-settings.js", "/recipe-editor.js", "/quantity-client.js", "/panel.js", "/purchases-panel.js", "/stock-client.js", "/dialog-controls.js", "/todo-client.js", "/catalog-panel.js", "/catalog-client.js", "/category-panel.js", "/icon-picker.js", "/list-settings-client.js", "/settings-panel.js", "/readers-client.js", "/readers-panel.js", "/product-matching.js", "/product-names.js", "/logs-panel.js", "/logo.png", "/mercadona.png", "/consum.jpg", "/lasirena.jpg", "/eroski.svg", "/dia.png"].includes(pathname)) { res.writeHead(404).end(); return; }
+    if (!["/dia-account.js", "/analytics-panel.js", "/alcampo-settings.js", "/carrefour-account.js", "/notification-settings.js", "/recipe-editor.js", "/quantity-client.js", "/panel.js", "/purchases-panel.js", "/stock-client.js", "/dialog-controls.js", "/todo-client.js", "/catalog-panel.js", "/catalog-client.js", "/category-panel.js", "/icon-picker.js", "/list-settings-client.js", "/settings-panel.js", "/readers-client.js", "/readers-panel.js", "/product-matching.js", "/product-names.js", "/logs-panel.js", "/logo.png", "/mercadona.png", "/consum.jpg", "/lasirena.jpg", "/eroski.svg", "/dia.png"].includes(pathname)) { res.writeHead(404).end(); return; }
     res.setHeader("content-type", pathname.endsWith(".svg") ? "image/svg+xml" : pathname.endsWith(".png") ? "image/png" : pathname.endsWith(".jpg") ? "image/jpeg" : "text/javascript; charset=utf-8");
     res.end(await fs.readFile(path.join(root, pathname.slice(1))));
   });
@@ -3814,6 +3828,55 @@ async function main() {
     await login.getByRole('button',{name:'Enviar código',exact:true}).waitFor();
     assert.deepEqual(await accountPage.evaluate(()=>window.lastCfLogin),{username:'test@example.test',password_empty:true,remember:true});
     await accountContext.close();
+
+    // DIA uses the same account options and review wizard, without PDF or invented EANs.
+    const diaContext=await browser.newContext({viewport:{width:390,height:844}});
+    const diaPage=await diaContext.newPage();diaPage.on('pageerror',error=>errors.push(error.message));
+    await diaPage.goto(url);await diaPage.getByRole('button',{name:'Ajustes',exact:true}).click();
+    await diaPage.locator('isl-settings').getByRole('button',{name:'Tiendas',exact:true}).click();
+    await diaPage.getByRole('button',{name:'Ajustes de DIA',exact:true}).click();
+    const diaAccount=diaPage.locator('isl-dia-account'),diaDialog=diaPage.locator('isl-settings #dia-dialog');
+    assert.equal(await diaAccount.getByRole('switch',{name:'Recuperar compras del último año',exact:true}).isDisabled(),true);
+    await diaAccount.getByRole('button',{name:'Conectar cuenta',exact:true}).click();
+    const diaLogin=diaAccount.getByRole('dialog',{name:'Conectar cuenta de DIA',exact:true});
+    await diaLogin.getByLabel('Correo',{exact:true}).fill('test@example.test');
+    await diaLogin.getByLabel('Contraseña',{exact:true}).fill('test-password');
+    await diaLogin.getByLabel('Recordar credenciales',{exact:true}).check();
+    await diaPage.evaluate(()=>window.failDiaAccount=true);
+    await diaLogin.getByRole('button',{name:'Conectar',exact:true}).click();
+    await diaLogin.getByText('DIA ha rechazado el acceso desde esta conexión (HTTP 403).',{exact:true}).waitFor();
+    assert.equal(await diaLogin.getByLabel('Contraseña',{exact:true}).inputValue(),'');
+    await diaPage.evaluate(()=>window.failDiaAccount=false);
+    await diaLogin.getByLabel('Contraseña',{exact:true}).fill('test-password');
+    await diaLogin.getByRole('button',{name:'Conectar',exact:true}).click();await diaLogin.waitFor({state:'hidden'});
+    await diaAccount.getByText('test@example.test',{exact:true}).waitFor();
+    assert.equal(await diaAccount.getByRole('button',{name:'Desconectar cuenta',exact:true}).evaluate(button=>getComputedStyle(button).backgroundColor),'rgb(211, 47, 47)');
+    await diaAccount.getByRole('switch',{name:'Recuperar compras del último año',exact:true}).check();
+    await diaPage.waitForFunction(()=>window.receiptHistory.some(r=>r.id==='dia-summary'));
+    await diaAccount.getByRole('switch',{name:'Descargar ticket automáticamente',exact:true}).check();
+    await diaPage.waitForFunction(()=>window.diaStatus.options.auto_ticket===true);
+    assert.equal(await diaAccount.getByRole('button',{name:'Consultar compras',exact:true}).count(),0);
+    for(const width of [1280,390,320]){await diaPage.setViewportSize({width,height:844});assert.ok(await diaDialog.evaluate(d=>d.scrollWidth<=d.clientWidth+1));}
+    await diaDialog.getByRole('button',{name:'Cerrar ventana',exact:true}).click();
+    await diaPage.getByRole('button',{name:'Analítica',exact:true}).click();
+    const diaPurchases=diaPage.locator('isl-purchases');
+    await diaPurchases.getByRole('button',{name:/Ver ticket de DIA/}).click();
+    const diaReview=diaPurchases.getByRole('dialog',{name:'Revisar ticket',exact:true});await diaReview.waitFor();
+    assert.equal(await diaPage.evaluate(()=>window.receiptDraft.store),'dia');
+    assert.equal(await diaReview.locator('.review-line').count(),1);
+    assert.equal(await diaPage.evaluate(()=>window.receiptDraft.lines[0].ean),'');
+    assert.equal(await diaPage.evaluate(()=>window.stockItems.length),0);
+    await diaReview.getByRole('button',{name:'Cerrar ventana',exact:true}).click();
+    await diaPage.getByRole('button',{name:'Ajustes',exact:true}).click();
+    await diaPage.getByRole('button',{name:'Ajustes de DIA',exact:true}).click();
+    await diaAccount.getByRole('button',{name:'Desconectar cuenta',exact:true}).click();
+    await diaAccount.getByRole('button',{name:'Conectar cuenta',exact:true}).click();
+    assert.equal(await diaLogin.getByLabel('Recordar credenciales',{exact:true}).isChecked(),true);
+    assert.equal(await diaLogin.getByLabel('Contraseña',{exact:true}).getAttribute('placeholder'),'••••••••');
+    await diaLogin.getByRole('button',{name:'Conectar',exact:true}).click();await diaLogin.waitFor({state:'hidden'});
+    assert.deepEqual(await diaPage.evaluate(()=>window.lastDiaLogin),{username:'test@example.test',password_empty:true,remember:true});
+    await diaContext.close();
+
     // Unknown detected purchases stay editable and do not contribute invented amounts.
     const detectedContext=await browser.newContext({viewport:{width:390,height:844}});
     await detectedContext.addInitScript(()=>localStorage.setItem('receipt-fixture',JSON.stringify([{id:'detected:today',digest:'detection',detected_purchase:true,needs_details:true,summary_only:true,store:'unknown',store_name:'Tienda desconocida',zone_candidates:['alcampo','carrefour'],purchased_at:new Date().toISOString(),currency:'EUR',total:null,article_count:6,lines:[],completed_products:[{name:'Cacao'},{name:'Leche'}]}])));

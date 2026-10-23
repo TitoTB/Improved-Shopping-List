@@ -2,6 +2,8 @@
 
 ## Pendiente de publicación
 
+- Analítica muestra las vistas en el orden Compras, Comparativa y Nutri-score.
+
 - Pulsar un producto del catálogo que ya está pendiente lo marca como comprado en la lista seleccionada; si no está pendiente, lo añade, sin borrar la entrada ni duplicarla.
 
 - El botón Limpiar productos utiliza el mismo fondo que los badges y conserva su opacidad del 50 %.

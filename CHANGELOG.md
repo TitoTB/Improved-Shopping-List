@@ -1,6 +1,6 @@
 # Historial de cambios
 
-## Pendiente de publicación
+## 0.37.0 — 2026-10-23
 
 - Ajustes → Tiendas indica cuántos productos del catálogo están vinculados mediante referencia web o ticket, sin duplicarlos por tienda.
 - Alcampo incorpora temporalmente una prueba manual por producto: muestra nombre comercial, EAN, candidatos y diagnóstico en popup y Logs → Tiendas, con los mismos límites de peticiones y pausas ante errores.

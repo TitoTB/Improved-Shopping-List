@@ -4,7 +4,7 @@
 
 Una interfaz propia para gestionar las listas de la compra que ya tienes integradas en Home Assistant.
 
-Versión actual: **0.36.0**. Interfaz en español, pensada para móvil y ordenador. Requiere **Home Assistant Core 2026.10 o posterior**. La referencia de desarrollo es Core 2026.10.2.
+Versión actual: **0.37.0**. Interfaz en español, pensada para móvil y ordenador. Requiere **Home Assistant Core 2026.10 o posterior**. La referencia de desarrollo es Core 2026.10.2.
 
 Los precios proceden de tickets y facturas confirmados por el usuario y, opcionalmente, de Alcampo al activar sus opciones. El catálogo comunitario se dedica exclusivamente a sugerencias de iconos y no proporciona precios. Se conserva el último precio conocido de cada producto y tienda.
 

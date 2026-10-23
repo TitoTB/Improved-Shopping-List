@@ -1,5 +1,12 @@
 # Historial de cambios
 
+## Sin publicar
+
+- DIA utiliza vinculaciones manuales por URL o ID y actualizaciones públicas repartidas durante un periodo configurable (30 días por defecto), sin búsqueda automática por EAN ni acceso a la cuenta.
+- El popup de DIA adopta las opciones de actualización de Alcampo; los precios, planificación y pausas se conservan tras reiniciar y sus observaciones se incorporan a la analítica.
+- Se retira DIA de la búsqueda automática de tickets, manteniendo las compras guardadas. Los errores de precios conservan el último dato y registran diagnóstico con espera de reintento.
+
+
 ## 0.39.0 — 2026-10-23
 
 - Cuenta DIA con el mismo panel de conexión e historial que Carrefour: credenciales recordadas de forma opcional, sesión privada persistente y compras del último año.

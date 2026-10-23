@@ -99,10 +99,13 @@ def search_candidates(html):
 
 
 class AlcampoManager:
+    provider = "alcampo"
+    provider_name = "Alcampo"
+
     def __init__(self, hass, catalog, settings, prices, receipts, activity):
         self.hass, self.catalog, self.settings = hass, catalog, settings
         self.prices, self.receipts, self.activity = prices, receipts, activity
-        self._store = Store(hass, 1, f"{DOMAIN}.alcampo")
+        self._store = Store(hass, 1, f"{DOMAIN}.{self.provider}")
         self._data = {"search_enabled":False, "refresh_enabled":False, "days":30,
             "attempts":{}, "offers":{}, "due":{}, "next_request":0, "retry_at":0, "failures":0, "error":""}
         self._active, self._task, self._timer = False, None, None
@@ -165,7 +168,7 @@ class AlcampoManager:
 
     def _enabled(self):
         return (self._active and self.settings.snapshot.get("price_updates_enabled", True)
-            and self.settings.snapshot.get("stores", {}).get("alcampo", {}).get("enabled", False))
+            and self.settings.snapshot.get("stores", {}).get(self.provider, {}).get("enabled", False))
 
     def _names(self, product):
         found = []
@@ -178,7 +181,7 @@ class AlcampoManager:
         return search_terms(found + linked_commercial_names(product), product["name"])
 
     def offer_for(self, product):
-        link = product.get("store_links", {}).get("alcampo")
+        link = product.get("store_links", {}).get(self.provider)
         offer = self._data["offers"].get(link["id"]) if link else None
         return deepcopy(offer) if offer else None
 
@@ -242,7 +245,7 @@ class AlcampoManager:
                     self._data["failures"] += 1
                     diagnostics = getattr(err, "diagnostics", {})
                     delay = max(min(DAY, 3600 * 2 ** min(self._data["failures"] - 1, 5)), min(DAY, diagnostics.get("retry_seconds", 0)))
-                    self._data.update(retry_at=time.time()+delay, error=str(err) or "Alcampo no está disponible.")
+                    self._data.update(retry_at=time.time()+delay, error=str(err) or f"{self.provider_name} no está disponible.")
                     result.update(diagnostics=diagnostics, status="error", message=self._data["error"], retry_at=self._data["retry_at"])
                 result["elapsed_ms"] = round((time.time()-now)*1000)
                 await self._save()
@@ -289,30 +292,30 @@ class AlcampoManager:
                 diagnostics = getattr(err, "diagnostics", {})
                 delay = min(DAY, 3600 * 2 ** min(self._data["failures"] - 1, 5))
                 delay = max(delay, min(DAY, diagnostics.get("retry_seconds", 0)))
-                self._data.update(retry_at=time.time()+delay, error=str(err) or "Alcampo no está disponible.")
+                self._data.update(retry_at=time.time()+delay, error=str(err) or f"{self.provider_name} no está disponible.")
                 self.activity.record("stores.error", self._data["error"], source="integration",
-                    diagnostics={**diagnostics, "retry_seconds":delay, "provider":"alcampo"})
+                    diagnostics={**diagnostics, "retry_seconds":delay, "provider":self.provider})
             except CatalogError as err:
-                self.activity.record("stores.error", str(err), source="integration", diagnostics={"provider":"alcampo"})
+                self.activity.record("stores.error", str(err), source="integration", diagnostics={"provider":self.provider})
             await self._save()
 
     async def _refresh_one(self, now):
-        products = [p for p in self.catalog.products if p.get("store_links", {}).get("alcampo")]
+        products = [p for p in self.catalog.products if p.get("store_links", {}).get(self.provider)]
         if not products:
             return False
         period = self._data["days"] * DAY
         gap = max(REQUEST_INTERVAL, period / len(products))
-        keys = {p["id"]+":"+p["store_links"]["alcampo"]["id"] for p in products}
+        keys = {p["id"]+":"+p["store_links"][self.provider]["id"] for p in products}
         self._data["due"] = {key:due for key,due in self._data["due"].items() if key in keys}
-        new = [p for p in sorted(products, key=lambda p:p["id"]) if p["id"]+":"+p["store_links"]["alcampo"]["id"] not in self._data["due"]]
+        new = [p for p in sorted(products, key=lambda p:p["id"]) if p["id"]+":"+p["store_links"][self.provider]["id"] not in self._data["due"]]
         for index, product in enumerate(new):
-            key = product["id"]+":"+product["store_links"]["alcampo"]["id"]
+            key = product["id"]+":"+product["store_links"][self.provider]["id"]
             self._data["due"][key] = now + index * gap
-        due = sorted((self._data["due"][p["id"]+":"+p["store_links"]["alcampo"]["id"]], p["id"], p) for p in products)
+        due = sorted((self._data["due"][p["id"]+":"+p["store_links"][self.provider]["id"]], p["id"], p) for p in products)
         if due[0][0] > now:
             return False
         _, _, product = due[0]
-        link = product["store_links"]["alcampo"]
+        link = product["store_links"][self.provider]
         offer = await self._fetch(link["id"])
         if not self._enabled() or not self._data["refresh_enabled"]:
             return True

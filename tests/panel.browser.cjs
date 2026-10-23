@@ -203,6 +203,12 @@ const hass={
       return structuredClone(window.alcampoStatus);
     }
 
+    if(msg.type.startsWith('improved_shopping_list/dia/prices/')){
+      window.calls.push({type:msg.type});
+      window.diaPricesStatus??={refresh_enabled:false,days:30};
+      if(msg.type.endsWith('/options'))window.diaPricesStatus=structuredClone(msg.options);
+      return structuredClone(window.diaPricesStatus);
+    }
     if(msg.type.startsWith('improved_shopping_list/dia_account/')){
       window.calls.push({type:msg.type,receipt_id:msg.receipt_id});
       window.diaStatus??={connected:false,credentials_saved:false,remembered_email:'',options:{history_enabled:false,auto_ticket:false}};
@@ -3829,52 +3835,29 @@ async function main() {
     assert.deepEqual(await accountPage.evaluate(()=>window.lastCfLogin),{username:'test@example.test',password_empty:true,remember:true});
     await accountContext.close();
 
-    // DIA uses the same account options and review wizard, without PDF or invented EANs.
+    // DIA uses manual references and opt-in public refreshes, without account login.
     const diaContext=await browser.newContext({viewport:{width:390,height:844}});
     const diaPage=await diaContext.newPage();diaPage.on('pageerror',error=>errors.push(error.message));
     await diaPage.goto(url);await diaPage.getByRole('button',{name:'Ajustes',exact:true}).click();
     await diaPage.locator('isl-settings').getByRole('button',{name:'Tiendas',exact:true}).click();
     await diaPage.getByRole('button',{name:'Ajustes de DIA',exact:true}).click();
-    const diaAccount=diaPage.locator('isl-dia-account'),diaDialog=diaPage.locator('isl-settings #dia-dialog');
-    assert.equal(await diaAccount.getByRole('switch',{name:'Recuperar compras del último año',exact:true}).isDisabled(),true);
-    await diaAccount.getByRole('button',{name:'Conectar cuenta',exact:true}).click();
-    const diaLogin=diaAccount.getByRole('dialog',{name:'Conectar cuenta de DIA',exact:true});
-    await diaLogin.getByLabel('Correo',{exact:true}).fill('test@example.test');
-    await diaLogin.getByLabel('Contraseña',{exact:true}).fill('test-password');
-    await diaLogin.getByLabel('Recordar credenciales',{exact:true}).check();
-    await diaPage.evaluate(()=>window.failDiaAccount=true);
-    await diaLogin.getByRole('button',{name:'Conectar',exact:true}).click();
-    await diaLogin.getByText('DIA ha rechazado el acceso desde esta conexión (HTTP 403).',{exact:true}).waitFor();
-    assert.equal(await diaLogin.getByLabel('Contraseña',{exact:true}).inputValue(),'');
-    await diaPage.evaluate(()=>window.failDiaAccount=false);
-    await diaLogin.getByLabel('Contraseña',{exact:true}).fill('test-password');
-    await diaLogin.getByRole('button',{name:'Conectar',exact:true}).click();await diaLogin.waitFor({state:'hidden'});
-    await diaAccount.getByText('test@example.test',{exact:true}).waitFor();
-    assert.equal(await diaAccount.getByRole('button',{name:'Desconectar cuenta',exact:true}).evaluate(button=>getComputedStyle(button).backgroundColor),'rgb(211, 47, 47)');
-    await diaAccount.getByRole('switch',{name:'Recuperar compras del último año',exact:true}).check();
-    await diaPage.waitForFunction(()=>window.receiptHistory.some(r=>r.id==='dia-summary'));
-    await diaAccount.getByRole('switch',{name:'Descargar ticket automáticamente',exact:true}).check();
-    await diaPage.waitForFunction(()=>window.diaStatus.options.auto_ticket===true);
-    assert.equal(await diaAccount.getByRole('button',{name:'Consultar compras',exact:true}).count(),0);
+    const diaOptions=diaPage.locator('isl-dia-prices-settings'),diaDialog=diaPage.locator('isl-settings #dia-dialog');
+    assert.equal(await diaOptions.getByRole('button',{name:'Conectar cuenta',exact:true}).count(),0);
+    assert.equal(await diaOptions.getByRole('switch',{name:'Buscar coincidencias de productos en su catálogo',exact:true}).count(),0);
+    const diaRefresh=diaOptions.getByRole('switch',{name:'Actualizar precios periódicamente',exact:true});
+    await diaPage.waitForFunction(()=>Boolean(window.diaPricesStatus));
+    assert.equal(await diaRefresh.isChecked(),false);
+    await diaRefresh.check();await diaPage.waitForFunction(()=>window.diaPricesStatus.refresh_enabled);
+    await diaOptions.getByLabel('Periodo de actualización de DIA en días').fill('45');
+    await diaOptions.getByLabel('Periodo de actualización de DIA en días').press('Tab');
+    await diaPage.waitForFunction(()=>window.diaPricesStatus.days===45);
+    assert.equal(await diaPage.evaluate(()=>window.calls.some(call=>call.type.startsWith('improved_shopping_list/dia_account/'))),false);
     for(const width of [1280,390,320]){await diaPage.setViewportSize({width,height:844});assert.ok(await diaDialog.evaluate(d=>d.scrollWidth<=d.clientWidth+1));}
+    await diaPage.screenshot({path:'test-results/dia-prices-mobile.png',fullPage:true});
     await diaDialog.getByRole('button',{name:'Cerrar ventana',exact:true}).click();
-    await diaPage.getByRole('button',{name:'Analítica',exact:true}).click();
-    const diaPurchases=diaPage.locator('isl-purchases');
-    await diaPurchases.getByRole('button',{name:/Ver ticket de DIA/}).click();
-    const diaReview=diaPurchases.getByRole('dialog',{name:'Revisar ticket',exact:true});await diaReview.waitFor();
-    assert.equal(await diaPage.evaluate(()=>window.receiptDraft.store),'dia');
-    assert.equal(await diaReview.locator('.review-line').count(),1);
-    assert.equal(await diaPage.evaluate(()=>window.receiptDraft.lines[0].ean),'');
-    assert.equal(await diaPage.evaluate(()=>window.stockItems.length),0);
-    await diaReview.getByRole('button',{name:'Cerrar ventana',exact:true}).click();
-    await diaPage.getByRole('button',{name:'Ajustes',exact:true}).click();
     await diaPage.getByRole('button',{name:'Ajustes de DIA',exact:true}).click();
-    await diaAccount.getByRole('button',{name:'Desconectar cuenta',exact:true}).click();
-    await diaAccount.getByRole('button',{name:'Conectar cuenta',exact:true}).click();
-    assert.equal(await diaLogin.getByLabel('Recordar credenciales',{exact:true}).isChecked(),true);
-    assert.equal(await diaLogin.getByLabel('Contraseña',{exact:true}).getAttribute('placeholder'),'••••••••');
-    await diaLogin.getByRole('button',{name:'Conectar',exact:true}).click();await diaLogin.waitFor({state:'hidden'});
-    assert.deepEqual(await diaPage.evaluate(()=>window.lastDiaLogin),{username:'test@example.test',password_empty:true,remember:true});
+    assert.equal(await diaRefresh.isChecked(),true);
+    assert.equal(await diaOptions.getByLabel('Periodo de actualización de DIA en días').inputValue(),'45');
     await diaContext.close();
 
     // Unknown detected purchases stay editable and do not contribute invented amounts.

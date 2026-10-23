@@ -42,6 +42,8 @@ def async_register_commands(hass: HomeAssistant) -> None:
     register_dia(hass)
     websocket_api.async_register_command(hass, ws_alcampo_status)
     websocket_api.async_register_command(hass, ws_alcampo_options)
+    websocket_api.async_register_command(hass, ws_dia_prices_status)
+    websocket_api.async_register_command(hass, ws_dia_prices_options)
     websocket_api.async_register_command(hass, ws_alcampo_test_search)
     websocket_api.async_register_command(hass, ws_comparison_data)
     for command in (ws_carrefour_account_status, ws_carrefour_account_login, ws_carrefour_account_send_code,
@@ -1118,6 +1120,26 @@ async def ws_carrefour_account_preview_saved(hass, connection, msg):
         lambda manager, owner: manager.async_preview_saved(owner, msg["receipt_id"]))
 
 
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/dia/prices/status"})
+@websocket_api.require_admin
+def ws_dia_prices_status(hass, connection, msg):
+    if _catalog(hass, connection, msg):
+        connection.send_result(msg["id"], hass.data[DOMAIN]["dia_prices"].snapshot)
+
+
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/dia/prices/options", vol.Required("options"): dict})
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_dia_prices_options(hass, connection, msg):
+    if not _catalog(hass, connection, msg):
+        return
+    try:
+        result = await hass.data[DOMAIN]["dia_prices"].async_options(msg["options"])
+        connection.send_result(msg["id"], result)
+    except CatalogError as err:
+        connection.send_error(msg["id"], err.code, str(err))
+
+
 @websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/alcampo/status"})
 @websocket_api.require_admin
 def ws_alcampo_status(hass, connection, msg):
@@ -1191,4 +1213,4 @@ def ws_comparison_data(hass, connection, msg):
     if not data["settings"].snapshot.get("price_updates_enabled", True):
         connection.send_result(msg["id"], {"observations":[], "purchases":[], "stores":[], "enabled":False})
         return
-    connection.send_result(msg["id"], data["price_history"].comparison_data(catalog, data["settings"], data["receipts"], [{**offer,"catalog_product_id":product["id"]} for product in catalog.products if (offer := data["alcampo"].offer_for(product))]))
+    connection.send_result(msg["id"], data["price_history"].comparison_data(catalog, data["settings"], data["receipts"], [{**offer,"catalog_product_id":product["id"]} for product in catalog.products for key in ("alcampo", "dia_prices") if (manager := data.get(key)) and (offer := manager.offer_for(product))]))

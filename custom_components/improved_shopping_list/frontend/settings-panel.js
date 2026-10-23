@@ -1,4 +1,4 @@
-import "./dia-account.js?v=0.39.0";
+import "./dia-prices-settings.js?v=0.39.0";
 import "./alcampo-settings.js?v=0.39.0";
 import "./carrefour-account.js?v=0.39.0";
 import "./logs-panel.js?v=0.39.0";
@@ -27,7 +27,7 @@ class ImprovedShoppingSettings extends HTMLElement {
   set data(value) { this._data = value; this._render(); }
   set hass(value) { if(this._data){this._data={...this._data,hass:value};this._syncReaders();} }
 
-  set active(value) { this._active = Boolean(value); if(!this._active){this.shadowRoot.querySelector('#community-authorization')?.close();this.shadowRoot.querySelector('#carrefour-dialog')?.close();this.shadowRoot.querySelector('isl-carrefour-account')?.deactivate();this.shadowRoot.querySelector('#dia-dialog')?.close();this.shadowRoot.querySelector('isl-dia-account')?.deactivate();} this._syncLogs(); this._syncReaders(); }
+  set active(value) { this._active = Boolean(value); if(!this._active){this.shadowRoot.querySelector('#community-authorization')?.close();this.shadowRoot.querySelector('#carrefour-dialog')?.close();this.shadowRoot.querySelector('isl-carrefour-account')?.deactivate();this.shadowRoot.querySelector('#dia-dialog')?.close();this.shadowRoot.querySelector('isl-dia-prices-settings')?.deactivate();} this._syncLogs(); this._syncReaders(); }
 
   _syncReaders() {
     const readers=this.shadowRoot.querySelector('isl-readers');
@@ -185,7 +185,7 @@ class ImprovedShoppingSettings extends HTMLElement {
         .notice { padding:12px 14px; border-radius:10px; background:var(--secondary-background-color,#edf4ee); font-size:13px; line-height:1.6; margin:14px 0; }
         .error { color:var(--error-color,#bd3636); border:1px solid var(--error-color,#bd3636); }
         @media(max-width:540px) { .card { padding:18px 14px; } .add-row { flex-wrap:wrap; } .select-wrap { flex-basis:100%; } .actions { width:100%; } }
-        #carrefour-products-view,#alcampo-products-view,#store-products-view,[id$="-products-view"]{display:none!important}#carrefour-dialog>h2,#dia-dialog>h2{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+        #carrefour-products-view,#alcampo-products-view,#store-products-view,[id$="-products-view"]{display:none!important}#carrefour-dialog>h2{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
       .zone-settings{margin-top:20px;padding-top:16px;border-top:1px solid var(--divider-color,#dfe7e1)}.zone-settings select,#purchase-zone-persons{width:100%;max-width:320px;min-height:120px}.zone-settings label{display:block;margin-bottom:10px}.zone-settings button{margin-top:12px}.zone-settings p{margin:8px 0}.purchase-detection-settings{margin-top:24px;padding-top:18px;border-top:1px solid var(--divider-color,#dfe7e1)}.detection-row{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-top:16px}.detection-row input[type=number]{width:90px;text-align:center;flex:none}
     </style>
       <div class="settings-heading"><h1>Ajustes</h1>
@@ -710,7 +710,7 @@ class ImprovedShoppingSettings extends HTMLElement {
       container.innerHTML = `<dialog id="${store}-dialog" aria-labelledby="${store}-title"><h2 id="${store}-title">${name}</h2><div id="${store}-error" class="notice error" role="alert" hidden></div><section id="${store}-products-view"><div id="${store}-products" class="store-products"></div><p id="${store}-status" class="store-cache-footer" role="status"></p></section></dialog>`;
       root.append(...container.children);
       const dialog = root.querySelector(`#${store}-dialog`);
-      if(store==="dia"){const account=document.createElement("isl-dia-account");dialog.querySelector("h2").after(account);dialog.addEventListener("close",()=>account.deactivate());}
+      if(store==="dia"){const account=document.createElement("isl-dia-prices-settings");dialog.querySelector("h2").after(account);dialog.addEventListener("close",()=>account.deactivate());}
       root.querySelector(`#configure-${store}`).addEventListener("click",()=>this._openRegionalStore(store));
       root.querySelector(`#${store}-enabled`).addEventListener("change",()=>void this._saveRetailSettings(()=>this._data.settings.setStoreEnabled(store,root.querySelector(`#${store}-enabled`).checked)));
       dialog.addEventListener("cancel",event=>{if(this._busy)event.preventDefault();});
@@ -724,7 +724,7 @@ class ImprovedShoppingSettings extends HTMLElement {
     this._regionalDrafts[store] = {postal:config.postal_code ?? "", enabled:Boolean(config.enabled)};
     this._error = "";
     root.querySelector(`#${store}-dialog`).showModal();
-    if(store==="dia"){const account=root.querySelector("isl-dia-account");account.hass=this._data.hass;void account.activate();}
+    if(store==="dia"){const account=root.querySelector("isl-dia-prices-settings");account.hass=this._data.hass;void account.activate();}
     this._render();
 
   }

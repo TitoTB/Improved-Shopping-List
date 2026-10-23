@@ -1,4 +1,4 @@
-"""Receipt prices plus explicitly enabled Alcampo observations; no community prices."""
+"""Receipt prices plus opt-in Alcampo and DIA observations; no community prices."""
 
 from copy import deepcopy
 import time
@@ -54,10 +54,11 @@ class PriceManager:
             return []
         receipts=getattr(self,"receipts",None)
         offers = {price["store"]:deepcopy(price) for price in receipts.offers_for(product) if price.get("source")=="receipt"} if receipts else {}
-        alcampo = getattr(self, "alcampo", None)
-        offer = alcampo.offer_for(product) if alcampo else None
-        if offer and ("alcampo" not in offers or offer["checked_at"] > offers["alcampo"]["checked_at"]):
-            offers["alcampo"] = offer
+        for store, attribute in (("alcampo", "alcampo"), ("dia", "dia_prices")):
+            manager = getattr(self, attribute, None)
+            offer = manager.offer_for(product) if manager else None
+            if offer and (store not in offers or offer["checked_at"] > offers[store]["checked_at"]):
+                offers[store] = offer
         return [{**price,"catalog_product_id":product["id"],"name":product["name"]} for price in offers.values()]
 
     def snapshot(self,store=None):

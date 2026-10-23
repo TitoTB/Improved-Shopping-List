@@ -3439,7 +3439,7 @@ async function main() {
     await storesProductForm.getByRole('button',{name:'Tiendas',exact:true}).click();
     assert.equal(await storesProductForm.locator('.product-store-association[data-store="carrefour"]').count(),1);
     assert.equal(await storesProductForm.locator('.product-store-association[data-store="dia"]').count(),1);
-    assert.match(await storesProductForm.locator('.product-store-association[data-store="carrefour"]').textContent(),/Ticket/factura confirmado/);
+    assert.ok((await storesProductForm.locator('.product-store-association[data-store="carrefour"]').textContent()).includes('Ticket/factura confirmado'));
     assert.equal(await storesProductForm.getByLabel('Enlace o ID de Carrefour',{exact:true}).count(),0);
     assert.equal(await storesProductForm.locator('#product-ean-summary').textContent(),'EAN del producto: 1234567890128');
     await storesProductForm.getByRole('button',{name:'Características',exact:true}).click();

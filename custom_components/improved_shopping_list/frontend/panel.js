@@ -299,7 +299,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
         #completed-summary::before { content:"▸"; flex:none; }
         #completed-details[open] #completed-summary::before { content:"▾"; }
         #completed-label { flex:1; min-width:0; }
-        #clear-completed { display:inline-flex; align-items:center; justify-content:center; gap:6px; flex:none; margin-left:auto; min-height:36px; font-size:12px; padding:8px 10px; white-space:nowrap; border:0; border-radius:10px; background:#d32f2f; color:#fff; opacity:.5; }
+        #clear-completed { display:inline-flex; align-items:center; justify-content:center; gap:6px; flex:none; margin-left:auto; min-height:36px; font-size:12px; padding:8px 10px; white-space:nowrap; border:0; border-radius:10px; background:var(--secondary-background-color,#edf4ee); color:#fff; opacity:.5; }
         #clear-completed ha-icon { display:flex; align-items:center; justify-content:center; flex:none; width:18px; height:18px; --mdc-icon-size:18px; }
         .notice { line-height:1.6; padding:12px 16px; border-radius:12px; background:var(--secondary-background-color,#edf4ee); margin:0 0 18px; font-size:14px; }
         .error { border:1px solid var(--error-color,#bd3636); color:var(--error-color,#bd3636); }

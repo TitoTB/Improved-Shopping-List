@@ -1,6 +1,6 @@
 # Historial de cambios
 
-## Pendiente de publicación
+## 0.39.0 — 2026-10-23
 
 - Cuenta DIA con el mismo panel de conexión e historial que Carrefour: credenciales recordadas de forma opcional, sesión privada persistente y compras del último año.
 - Tickets DIA estructurados sin PDF: validación de referencias, cantidades, productos al peso, descuentos por artículo y total. Sus códigos internos se conservan como referencias, sin tratarlos como EAN.

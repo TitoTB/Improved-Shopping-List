@@ -15,7 +15,7 @@ from custom_components.improved_shopping_list.stores import StoreError
 
 
 async def test_archived_activations_and_favorite_masked_without_erasing_options(hass):
-    assert "dia" not in AVAILABLE_STORES and "alcampo" in AVAILABLE_STORES
+    assert "dia" not in AVAILABLE_STORES and "alcampo" not in AVAILABLE_STORES
     entry = MockConfigEntry(domain=DOMAIN, data={CONF_TODO_ENTITY:"todo.bring"}, options={
         "stores":{store:{"enabled":True} for store in ("carrefour","alcampo","dia")},
         "favorite_store":"dia"})
@@ -24,21 +24,21 @@ async def test_archived_activations_and_favorite_masked_without_erasing_options(
     settings.attach(entry)
     hass.data[DOMAIN] = {"active":True}
     assert settings.snapshot["favorite_store"] == "carrefour"
-    assert {store for store, value in settings.snapshot["stores"].items() if value["enabled"]} == {"carrefour", "alcampo"}
+    assert {store for store, value in settings.snapshot["stores"].items() if value["enabled"]} == {"carrefour"}
     assert entry.options["stores"]["alcampo"]["enabled"] is True
     assert entry.options["stores"]["dia"]["enabled"] is True
     await settings.async_update_carrefour(False)
-    assert settings.snapshot["favorite_store"] == "alcampo"
+    assert settings.snapshot["favorite_store"] == ""
     assert entry.options["stores"]["alcampo"]["enabled"] is True
     assert entry.options["stores"]["dia"]["enabled"] is True
     with pytest.raises(StoreError, match="archivada"):
         await settings.async_toggle_located_store("dia", True)
     await settings.async_update_alcampo(False)
-    await settings.async_update_alcampo(True)
-    assert settings.snapshot["stores"]["alcampo"]["enabled"] is True
+    with pytest.raises(StoreError, match="archivada"):
+        await settings.async_update_alcampo(True)
 
 
-@pytest.mark.parametrize("manager_type", [DiaPriceManager])
+@pytest.mark.parametrize("manager_type", [AlcampoManager, DiaPriceManager])
 async def test_archived_schedulers_never_start_even_with_old_refresh_options(hass, manager_type):
     catalog = Catalog(hass)
     await catalog.async_load()
@@ -60,15 +60,3 @@ async def test_archived_schedulers_never_start_even_with_old_refresh_options(has
     assert catalog.products == [product]
     await manager.async_stop()
     await restored.async_stop()
-
-
-async def test_alcampo_scheduler_can_still_start_with_shipping_policy(hass, monkeypatch):
-    timer = Mock(return_value=lambda: None)
-    monkeypatch.setattr("custom_components.improved_shopping_list.alcampo.async_track_time_interval", timer)
-    manager = AlcampoManager(hass, Mock(), Mock(), Mock(), Mock(), Mock())
-    manager._wake = Mock()
-    manager.start()
-    assert manager._active
-    timer.assert_called_once()
-    manager._wake.assert_called_once()
-    await manager.async_stop()

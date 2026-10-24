@@ -436,7 +436,7 @@ class ImprovedShoppingSettings extends HTMLElement {
     this._renderGlobalPriceProgress();
     for (const store of ["mercadona", "carrefour", "alcampo", "consum", "lasirena", "eroski", "dia"]) {
       root.querySelector(`#${store}-enabled`).closest(".store-row").dataset.enabled = String(Boolean(settings.stores?.[store]?.enabled));
-      const available=(settings.availableStores??["mercadona","carrefour","alcampo","consum","lasirena","eroski"]).includes(store);
+      const available=(settings.availableStores??["mercadona","carrefour","consum","lasirena","eroski"]).includes(store);
       root.querySelector(`#${store}-enabled`).closest(".store-row").hidden=!available;
       if(!available){
         const dialog=root.querySelector(store==='mercadona'?'#store-dialog':`#${store}-dialog`);

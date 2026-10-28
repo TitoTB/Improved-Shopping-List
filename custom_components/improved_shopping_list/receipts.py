@@ -117,9 +117,9 @@ class ReceiptManager:
         day = self._purchase_day(detected)
         if day is None or day != self._purchase_day(receipt) or receipt.get("detected_purchase"):
             return False
-        if detected.get('shop_id') and detected.get('account') != receipt.get('store'):
+        if detected.get('account') and detected.get('account') != receipt.get('store'):
             return False
-        if not detected.get("needs_details") and (detected["store"] != receipt["store"] or
+        if not detected.get("needs_details") and (detected["store"] != receipt["store"] and not (detected.get('shop_id') and not detected.get('account')) or
                 abs(detected["total"]-receipt["total"]) > .01):
             return False
         completed = detected.get("completed_products", []) or (detected.get('candidate_products',[]) if detected.get('shop_id') else [])
@@ -145,7 +145,7 @@ class ReceiptManager:
                     if detected.get('purchase_group') and sum(self._detection_matches(other,candidate) for other in data['history'].values() if other.get('detected_purchase')) != 1:
                         continue
                     candidate["detection_id"] = detected["id"]
-                    for key in ('shop_id','shop_name','shop_image','shop_color','shoppers','purchase_group','completed_products'):
+                    for key in ('shop_id','zone_id','shop_name','shop_image','shop_color','shoppers','purchase_group','completed_products'):
                         if key in detected:candidate[key]=deepcopy(detected[key])
                     data["history"].pop(detected["id"])
                     reconciled.append(detected["id"])
@@ -181,6 +181,7 @@ class ReceiptManager:
                 history[identifier] = {**(previous or {}),'id':identifier,'digest':identifier,'detected_purchase':True,
                     'needs_details':True,'summary_only':True,'store':store,'store_name':shop['name'] if shop else 'Tienda desconocida',
                     'shop_id':shop['id'] if shop else '', 'shop_name':shop['name'] if shop else '',
+                    'zone_id':shop.get('zone_id','') if shop else '',
                     'shop_image':shop['image_url'] if shop else '', 'shop_color':shop['color'] if shop else '#64748b',
                     'account':shop['account'] if shop else '', 'shoppers':group['shoppers'],'purchase_group':day,
                     'purchased_at':group['purchased_at'],'currency':'EUR','total':None,'lines':[],
@@ -237,7 +238,7 @@ class ReceiptManager:
             if shop:
                 receipt.update(shop_id=shop['id'],shop_name=shop['name'],shop_image=shop['image_url'],shop_color=shop['color'],account=shop['account'])
             elif receipt.get('shop_id'):
-                for key in ('shop_id','shop_name','shop_image','shop_color','account'):receipt.pop(key,None)
+                for key in ('shop_id','zone_id','shop_name','shop_image','shop_color','account'):receipt.pop(key,None)
             if shoppers is not None:
                 allowed = set(getattr(self,'settings',None).snapshot['purchase_detection'].get('persons',[])) if getattr(self,'settings',None) else set()
                 allowed.update(receipt.get('shoppers',[]))
@@ -261,7 +262,7 @@ class ReceiptManager:
                 abs(other["total"]-receipt["total"]) <= .01 and self._purchase_day(other)==self._purchase_day(receipt)]
             if len(matches)==1 and not matches[0].get("detection_id"):
                 matches[0]["detection_id"]=identifier
-                for key in ('shop_id','shop_name','shop_image','shop_color','shoppers','purchase_group','completed_products'):
+                for key in ('shop_id','zone_id','shop_name','shop_image','shop_color','shoppers','purchase_group','completed_products'):
                     if key in receipt:matches[0][key]=deepcopy(receipt[key])
                 data["history"].pop(identifier)
                 receipt=matches[0]
@@ -470,7 +471,7 @@ class ReceiptManager:
                 data, items = deepcopy(self.stock.receipts), deepcopy(self.stock._items)
                 summary = self._summary_match(receipt,data["history"])
                 if summary:
-                    for key in ("detection_id","shop_id","shop_name","shop_image","shop_color","shoppers","purchase_group","completed_products"):
+                    for key in ("detection_id","shop_id","zone_id","shop_name","shop_image","shop_color","shoppers","purchase_group","completed_products"):
                         if key in summary:receipt[key]=deepcopy(summary[key])
                     data["history"].pop(summary["id"])
                 if len(data["history"]) >= 1000:

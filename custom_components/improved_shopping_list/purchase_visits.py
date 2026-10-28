@@ -44,11 +44,12 @@ class PurchaseVisits:
         day = day or dt_util.now().date().isoformat()
         persons = set(self.zone_config.get('persons',[]))
         visits = self._days.get(day,{}).get('qualified_shops',{})
-        return [(shop, [v for v in visits.get(shop['id'],{}).values()
-                       if v['person'] in persons and v['zone'] in shop['zones']
+        return [({**shop,'visit_key':shop['id']+':'+zone,'zone_id':zone}, [v for v in visits.get(shop['id'],{}).values()
+                       if v['person'] in persons and v['zone'] == zone
                        and v['seconds'] >= self.zone_config.get('minimum_minutes',5)*60])
                 for shop in self.zone_config.get('shops',[])
-                if any(v['person'] in persons and v['zone'] in shop['zones']
+                for zone in shop['zones']
+                if any(v['person'] in persons and v['zone'] == zone
                        and v['seconds'] >= self.zone_config.get('minimum_minutes',5)*60
                        for v in visits.get(shop['id'],{}).values())] if self.zone_config.get('zone_assignment') else []
 
@@ -93,18 +94,18 @@ class PurchaseVisits:
             products = [{**p,'key':key,'completed_at':p.get('completed_at',record['first_at'])} for key,p in record['entries'].items()]
             if len(products) <= self.zone_config.get('threshold',5):continue
             places = self.qualified_places(day)
-            allocations = {shop['id']:[] for shop,_ in places}
+            allocations = {shop['visit_key']:[] for shop,_ in places}
             unknown = []
             for product in products:
                 when = dt_util.parse_datetime(product.get('completed_at',''))
-                matches = [shop['id'] for shop,visits in places if when and any(
+                matches = [shop['visit_key'] for shop,visits in places if when and any(
                     dt_util.parse_datetime(v['started_at']) <= when <= dt_util.parse_datetime(v['last_seen']) for v in visits)]
                 if len(matches)==1:allocations[matches[0]].append(product)
-                elif len(places)==1:allocations[places[0][0]['id']].append(product)
+                elif len(places)==1:allocations[places[0][0]['visit_key']].append(product)
                 else:unknown.append(product)
             groups = []
             for shop,visits in places:
-                groups.append({'id':'detected:'+day+':'+shop['id'],'shop':shop,'products':allocations[shop['id']],
+                groups.append({'id':'detected:'+day+':'+shop['visit_key'],'shop':shop,'products':allocations[shop['visit_key']],
                     'shoppers':sorted({v['person'] for v in visits}),
                     'purchased_at':min(v['started_at'] for v in visits)})
             if unknown or not places:

@@ -82,6 +82,20 @@ async def test_passing_through_or_unknown_presence_does_not_qualify(visit_env):
     assert not e.manager.qualified_places()
 
 
+async def test_two_qualified_zones_of_same_store_create_separate_purchases(visit_env):
+    e=visit_env
+    e.settings.snapshot['purchase_detection']['shops']=e.settings.snapshot['purchase_detection']['shops'][:1]
+    e.settings.snapshot['purchase_detection']['shops'][0]['zones']=['zone.a','zone.b']
+    await e.manager.async_check();e.clock[0]+=timedelta(minutes=2)
+    complete(e,'first');complete(e,'second');await e.manager.async_check()
+    e.hass.states.async_set('person.one','away');await e.manager.async_check()
+    e.clock[0]+=timedelta(minutes=1);e.hass.states.async_set('person.one','B');await e.manager.async_check()
+    e.clock[0]+=timedelta(minutes=2);complete(e,'third');await e.manager.async_check()
+    receipts=list(e.stock.receipts['history'].values())
+    assert len(receipts)==2 and {r['shop_id'] for r in receipts}=={'a'}
+    assert {r['zone_id'] for r in receipts}=={'zone.a','zone.b'}
+
+
 async def test_restart_keeps_qualified_visits_but_never_counts_offline_dwell(visit_env):
     e=visit_env;await e.manager.async_check();e.clock[0]+=timedelta(minutes=1)
     await e.manager.async_check()

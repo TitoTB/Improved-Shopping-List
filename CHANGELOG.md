@@ -1,5 +1,13 @@
 # Historial de cambios
 
+## 0.45.0 — 2026-10-28
+
+- Conexión de Lidl guiada mediante archivo HAR: rutas de los menús del navegador, instrucciones de exportación y selección directa del archivo, sin copiar direcciones.
+- Lidl se representa en amarillo en la gráfica de compras; sus compras importadas muestran el botón para recuperar y revisar el ticket.
+- Calendario de inicio y fin en Analítica → Compras, aplicado a la gráfica y al listado con ambos días incluidos y acceso al periodo de seis meses.
+- Las comprobaciones automáticas de Carrefour y Lidl incorporan al histórico las compras disponibles que falten, recorriendo las páginas sin descargar sus tickets antiguos ni modificar stock o precios.
+- Mecanismo común de sincronización para futuras cuentas, con control de páginas repetidas, pausas y cancelación. Sin nuevas dependencias.
+
 ## 0.44.1 — 2026-10-28
 
 - Asistente de conexión de Lidl en tres pasos: preparar el registro de red, acceder en la página oficial y completar la conexión en Home Assistant.

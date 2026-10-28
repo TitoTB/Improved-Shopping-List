@@ -641,6 +641,10 @@ async function checkLidlAccount(browser,url,errors){
   await page.evaluate(()=>{const original=window.testPanel._hass.callWS;const status={connected:false,email:'',options:{history_enabled:false,auto_ticket:false}};window.lidlCalls=[];
     window.testPanel._hass.callWS=async message=>{if(!message.type.startsWith('improved_shopping_list/lidl_account/'))return original(message);window.lidlCalls.push(message);const action=message.type.split('/').pop();
       if(action==='begin')return {authorization_url:'https://accounts.lidl.com/connect/authorize?state=test-state&code_challenge=test-challenge'};
+      if(action==='preview_saved'){
+        const draft=await original({...message,type:'improved_shopping_list/carrefour_account/preview_saved'});
+        draft.receipt.store='lidl';draft.receipt.store_name='Lidl';return draft;
+      }
       if(action==='finish')status.connected=true;
       if(action==='disconnect'){status.connected=false;status.options={history_enabled:false,auto_ticket:false};}
       if(action==='options')status.options=message.options;
@@ -664,7 +668,8 @@ async function checkLidlAccount(browser,url,errors){
   await page.screenshot({path:'test-results/lidl-wizard-mobile.png',fullPage:true});
   assert.equal(await account.locator('#login-dialog').evaluate(el=>el.scrollWidth<=el.clientWidth),true);
   assert.equal(await account.locator('#login-form').isVisible(),false);
-  await account.getByLabel('Dirección de retorno',{exact:true}).fill('com.lidlplus.app://callback?state=test-state&code=private-code');await account.getByRole('button',{name:'Completar conexión',exact:true}).click();
+  assert.equal(await account.locator('#oauth-callback').count(),0);
+  await account.getByLabel('Seleccionar archivo HAR de Lidl',{exact:true}).setInputFiles({name:'authorization.har',mimeType:'application/json',buffer:Buffer.from(JSON.stringify({log:{entries:[{request:{url:'com.lidlplus.app://callback?state=test-state&code=private-code'}}]}}))});
   await account.getByRole('button',{name:'Desconectar cuenta',exact:true}).waitFor();assert.equal(await account.locator('#login-dialog').isVisible(),false);
   await account.locator('#history-enabled').check();await account.locator('#auto-ticket').check();
   assert.deepEqual(await page.evaluate(()=>window.lidlCalls.filter(x=>x.type.endsWith('/options')).at(-1).options),{history_enabled:true,auto_ticket:true});
@@ -675,10 +680,12 @@ async function checkLidlAccount(browser,url,errors){
   await account.getByRole('button',{name:'Ya he iniciado sesión'}).click();
   await account.getByRole('button',{name:'Reiniciar conexión',exact:true}).click();
   assert.equal(await account.locator('[data-step="1"]').isVisible(),true);
-  assert.equal(await account.locator('#oauth-callback').inputValue(),'');
+  assert.equal(await account.locator('#oauth-har').inputValue(),'');
   await account.getByRole('button',{name:'Ya he preparado el navegador'}).click();
   await account.getByRole('button',{name:'Ya he iniciado sesión'}).click();
-  await account.getByText('Alternativa: seleccionar el archivo HAR',{exact:true}).click();
+  assert.equal(await account.getByLabel('Seleccionar archivo HAR de Lidl',{exact:true}).isVisible(),true);
+  await account.locator('#oauth-har').setInputFiles({name:'invalid.har',mimeType:'application/json',buffer:Buffer.from('invalid json')});
+  await account.locator('#login-error').getByText('No se reconoce el archivo HAR.',{exact:false}).waitFor();
   await account.locator('#oauth-har').setInputFiles({name:'wrong.har',mimeType:'application/json',buffer:Buffer.from(JSON.stringify({log:{entries:[]}}))});
   await account.locator('#login-error').getByText('El archivo no contiene el retorno de esta conexión.',{exact:false}).waitFor();
   assert.equal(await page.evaluate(()=>window.lidlCalls.filter(x=>x.type.endsWith('/finish')).length),1);
@@ -689,7 +696,109 @@ async function checkLidlAccount(browser,url,errors){
   await settings.locator('#lidl-dialog').evaluate(dialog=>dialog.close());
   await settings.locator('isl-shopping-places').getByRole('button',{name:'Añadir tienda',exact:true}).click();await settings.locator('isl-shopping-places #account').selectOption('lidl');
   assert.equal(await settings.locator('isl-shopping-places #account').inputValue(),'lidl');
+  await settings.locator('isl-shopping-places').evaluate(el=>el.shadowRoot.querySelector('dialog').close());
+  await page.getByRole('button',{name:'Analítica',exact:true}).click();await page.getByRole('tab',{name:'Compras',exact:true}).click();
+  const purchases=page.locator('isl-purchases');
+  await purchases.evaluate(el=>{
+    const base={store:'lidl',store_name:'Lidl',purchased_at:new Date().toISOString(),total:8.94,article_count:null,lines:[],summary_only:true,account_key:'lidl-purchase',ticket_available:true};
+    el._session.receipts=[{...base,id:'lidl-summary'},{...base,id:'lidl-no-ticket',ticket_available:false},{...base,id:'lidl-reviewed',summary_only:false,lines:[{description:'Producto Lidl',count:1,unit_price:8.94,amount:8.94}]}];el._session.loaded=true;el._session.loading=false;el._render();
+  });
+  const lidlPurchase=purchases.locator('#history [data-id="lidl-summary"]');
+  assert.equal(await lidlPurchase.locator('.ticket-open').count(),1);
+  assert.equal(await purchases.locator('#history [data-id="lidl-no-ticket"] .ticket-open').count(),0);
+  assert.equal(await purchases.locator('#history [data-id="lidl-reviewed"] .ticket-open.reviewed').count(),1);
+  assert.equal(await purchases.locator('.store-segment[data-store="lidl"]').evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(255, 204, 0)');
+  await lidlPurchase.locator('.ticket-open').click();
+  await purchases.getByRole('dialog',{name:'Revisar ticket',exact:true}).waitFor();
+  assert.equal(await page.evaluate(()=>window.lidlCalls.filter(call=>call.type.endsWith('/preview_saved')).length),1);
+  assert.equal(await page.evaluate(()=>window.lidlCalls.find(call=>call.type.endsWith('/preview_saved')).receipt_id),'lidl-summary');
+  await purchases.locator('#review-steps').getByRole('button',{name:/Vinculación/}).waitFor();
+  await page.screenshot({path:'test-results/lidl-purchase-review-mobile.png',fullPage:true});
   await context.close();
+}
+
+async function checkSpendingChart(browser,url,errors){
+    const spendingContext=await browser.newContext({viewport:{width:390,height:844}});
+    await spendingContext.route('https://images.seeklogo.com/**',route=>route.fulfill({contentType:'image/svg+xml',body:'<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32"><circle cx="16" cy="16" r="14" fill="blue"/></svg>'}));
+    const spendingPage=await spendingContext.newPage();spendingPage.on('pageerror',error=>errors.push(error.message));
+    await spendingPage.addInitScript(()=>{
+      const now=new Date(),first=new Date(now.getFullYear(),now.getMonth()-5,1),before=new Date(first.getTime()-1);
+      const receipts=[['recent','carrefour','Carrefour',now.toISOString(),9],['start','carrefour','Carrefour',first.toISOString(),2],['before','carrefour','Carrefour',before.toISOString(),3],['older','carrefour','Carrefour','2025-01-10T12:00:00',4],['j1','carrefour','Carrefour','2026-01-10T12:00:00',10.25],['j2','mercadona','Mercadona','2026-01-15T12:00:00',20],['j3','carrefour','Carrefour','2026-01-20T12:00:00',5.5],['f1','mercadona','Mercadona','2026-02-15T12:00:00',40]];
+      localStorage.setItem('receipt-fixture',JSON.stringify(receipts.map(([id,store,store_name,purchased_at,total])=>({id,store,store_name,purchased_at,total,article_count:1,lines:[{description:'Producto '+id,count:1,unit_price:total,amount:total}]}))));
+    });
+    await spendingPage.goto(url);await spendingPage.getByRole('button',{name:'Stock',exact:true}).click();await spendingPage.getByRole('button',{name:'Analítica',exact:true}).click();await spendingPage.getByRole('tab',{name:'Compras',exact:true}).click();
+    const spending=spendingPage.locator('isl-purchases');await spending.locator('#history .ticket').first().waitFor();
+    assert.equal(await spending.locator('#history details,#history summary').count(),0);
+    assert.deepEqual(await spending.locator('#history .ticket').evaluateAll(cards=>cards.map(card=>card.dataset.id)),['recent','start']);
+    const firstPurchase=spending.locator('#history .ticket').first();
+    assert.match(await firstPurchase.locator('.store-image').getAttribute('src'),/carrefour-logo/);
+    assert.ok(await firstPurchase.evaluate(card=>card.querySelector('.total').getBoundingClientRect().right<=card.querySelector('.ticket-open').getBoundingClientRect().left));
+    await firstPurchase.locator('.title').click();assert.equal(await spending.locator('#purchase-detail').isVisible(),false);
+    await firstPurchase.locator('.ticket-open').focus();await firstPurchase.locator('.ticket-open').press('Enter');
+    const purchaseDetail=spending.getByRole('dialog',{name:'Detalle de la compra',exact:true});await purchaseDetail.waitFor();
+    await purchaseDetail.getByText('Producto recent',{exact:true}).waitFor();
+    await purchaseDetail.getByRole('button',{name:'Cerrar ventana',exact:true}).click();
+    assert.equal(await spending.locator('.month-column').count(),6);
+    const defaultMonths=await spendingPage.evaluate(()=>{const now=new Date();return Array.from({length:6},(_,i)=>{const month=new Date(now.getFullYear(),now.getMonth()-5+i,1);return month.getFullYear()+'-'+String(month.getMonth()+1).padStart(2,'0');});});
+    assert.deepEqual(await spending.locator('.month-column').evaluateAll(columns=>columns.map(column=>column.dataset.month)),defaultMonths);
+    const selectPeriod=async(from,to)=>{
+      await spending.getByRole('button',{name:'Seleccionar periodo de compras',exact:true}).click();
+      await spending.getByLabel('Fecha de inicio',{exact:true}).fill(from);await spending.getByLabel('Fecha de fin',{exact:true}).fill(to);
+      await spending.getByRole('button',{name:'Aplicar',exact:true}).click();
+    };
+    const resetPeriod=async()=>{await spending.getByRole('button',{name:'Seleccionar periodo de compras',exact:true}).click();await spending.getByRole('button',{name:'Últimos seis meses',exact:true}).click();};
+    await selectPeriod('2026-01-01','2026-04-30');
+    assert.deepEqual(await spending.locator('#history .ticket').evaluateAll(cards=>cards.map(card=>card.dataset.id)),['before','f1','j3','j2','j1']);
+    const jan=spending.locator('.month-column[data-month="2026-01"]'),feb=spending.locator('.month-column[data-month="2026-02"]');
+    assert.equal(await jan.getAttribute('data-total'),'35.75');assert.equal(await feb.getAttribute('data-total'),'40');
+    assert.equal(await jan.locator('[data-store="carrefour"]').getAttribute('data-amount'),'15.75');
+    assert.equal(await jan.locator('[data-store="mercadona"]').getAttribute('data-amount'),'20');
+    assert.equal(await jan.locator('.store-segment').count(),2);assert.equal(await feb.locator('.store-segment').count(),1);
+    assert.match(await jan.getAttribute('aria-label'),/Carrefour.*15,75.*Mercadona.*20,00/);
+    await selectPeriod('2025-06-01','2025-12-31');
+    assert.equal(await spending.locator('#history .ticket').count(),0);
+    await spending.locator('#empty').getByText('No hay compras registradas en este periodo.',{exact:true}).waitFor();
+    await selectPeriod('2025-01-01','2025-01-31');
+    assert.equal(await spending.locator('#history [data-id="older"]').count(),1);
+    await selectPeriod('2026-01-10','2026-01-15');
+    assert.deepEqual(await spending.locator('#history .ticket').evaluateAll(cards=>cards.map(card=>card.dataset.id)),['j2','j1']);
+    assert.equal(await spending.locator('.month-column[data-month="2026-01"]').getAttribute('data-total'),'30.25');
+    await selectPeriod('2026-01-15','2026-01-15');
+    assert.deepEqual(await spending.locator('#history .ticket').evaluateAll(cards=>cards.map(card=>card.dataset.id)),['j2']);
+    assert.equal(await spending.locator('.month-column').count(),1);
+    await selectPeriod('2026-02-01','2026-01-01');
+    assert.equal(await spending.locator('#purchase-period-dialog').isVisible(),true);
+    assert.equal(await spending.locator('#purchase-end').evaluate(el=>el.validity.customError),true);
+    await spending.getByRole('button',{name:'Últimos seis meses',exact:true}).click();
+    assert.deepEqual(await spending.locator('#history .ticket').evaluateAll(cards=>cards.map(card=>card.dataset.id)),['recent','start']);
+
+    assert.deepEqual(await spending.locator('.month-column').evaluateAll(columns=>columns.map(column=>column.dataset.month)),defaultMonths);
+    for(const width of [320,390,1280]){
+      await spendingPage.setViewportSize({width,height:844});
+      assert.ok(await spending.evaluate(el=>el.scrollWidth<=el.clientWidth+1));
+      assert.ok(await spending.locator('.monthly-bars').evaluate(el=>Math.abs(el.getBoundingClientRect().width-el.parentElement.getBoundingClientRect().width)<1));
+      assert.equal(await spending.locator('.month-column').count(),6);
+    }
+    await spendingPage.screenshot({path:'test-results/purchases-monthly-chart-desktop.png',fullPage:true});
+    await spendingPage.setViewportSize({width:390,height:844});await spendingPage.screenshot({path:'test-results/purchases-monthly-chart-mobile.png',fullPage:true});
+    await firstPurchase.locator('.ticket-open').click();await spendingPage.screenshot({path:'test-results/purchase-detail-mobile.png',fullPage:true});
+    await purchaseDetail.getByRole('button',{name:'Cerrar ventana',exact:true}).click();
+    await spending.evaluate(panel=>{
+      const now=Date.now();
+      panel._session.receipts=Array.from({length:23},(_,index)=>({id:'page-'+index,store:'carrefour',store_name:'Carrefour',purchased_at:new Date(now-index*60000).toISOString(),total:1,lines:[]})).reverse();
+      panel._session.receipts.push({id:'old-page',store:'carrefour',store_name:'Carrefour',purchased_at:new Date(new Date().getFullYear()-1,0,1).toISOString(),total:1,lines:[]});
+      panel._render();
+    });
+    const morePurchases=spending.getByRole('button',{name:'Mostrar más',exact:true});
+    assert.equal(await spending.locator('#history .ticket').count(),10);
+    assert.equal(await spending.locator('#history .ticket').first().getAttribute('data-id'),'page-0');
+    await morePurchases.click();assert.equal(await spending.locator('#history .ticket').count(),20);
+    await morePurchases.click();assert.equal(await spending.locator('#history .ticket').count(),23);
+    assert.equal(await morePurchases.isVisible(),false);
+    await selectPeriod('2020-01-01','2020-01-31');assert.equal(await spending.locator('#history .ticket').count(),0);
+    await resetPeriod();assert.equal(await spending.locator('#history .ticket').count(),10);
+    assert.equal(await morePurchases.isVisible(),true);
+    await spendingContext.close();
 }
 
 async function main() {
@@ -715,6 +824,7 @@ async function main() {
   let browser;
   try {
     browser = await chromium.launch({ headless: true, channel: process.env.PLAYWRIGHT_CHANNEL || undefined });
+    if(process.argv.includes('--purchases-only')){const errors=[];await checkSpendingChart(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Purchase calendar browser checks passed.');return;}
     if(process.argv.includes('--lidl-only')){const errors=[];await checkLidlAccount(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Lidl account browser checks passed.');return;}
     if(process.argv.includes('--names-only')){
       const nameErrors=[];await checkTwoLineNames(browser,`http://127.0.0.1:${server.address().port}`,nameErrors);
@@ -769,7 +879,7 @@ async function main() {
       };
       visit(document);
       return dialogs.filter(dialog => dialog.querySelectorAll(".isl-dialog-close[aria-label='Cerrar ventana']").length === 1).length;
-    }), 36);
+    }), 37);
     await page.getByRole("button", { name: "Seleccionar lista", exact: true }).click();
     const listDialog = page.getByRole("dialog", { name: "Seleccionar lista", exact: true });
     assert.equal(await listDialog.getByRole("button", { name: "Compra · Bring!", exact: true }).getAttribute("aria-pressed"), "true");
@@ -2812,7 +2922,7 @@ async function main() {
     for(const width of [1280,390,320]){
       await purchasePage.setViewportSize({width,height:844});
       assert.ok(await chartUpload.evaluate(button=>{
-        const upload=button.getBoundingClientRect(),navigation=button.parentElement.querySelector('.chart-navigation').getBoundingClientRect(),chart=button.closest('#spending-chart').getBoundingClientRect();
+        const upload=button.getBoundingClientRect(),navigation=button.parentElement.querySelector('.chart-range').getBoundingClientRect(),chart=button.closest('#spending-chart').getBoundingClientRect();
         return navigation.right<=upload.left&&Math.abs((navigation.top+navigation.bottom-upload.top-upload.bottom)/2)<1&&upload.right<=chart.right&&chart.width>=button.closest('#spending-chart').scrollWidth-1;
       }),'Upload is to the right of the period selector inside the chart at '+width+'px');
     }
@@ -3022,75 +3132,7 @@ async function main() {
     await stockOnlyContext.close();
 
     // Purchase history uses a ticket button for details and stacks monthly spend by store.
-    const spendingContext=await browser.newContext({viewport:{width:390,height:844}});
-    await spendingContext.route('https://images.seeklogo.com/**',route=>route.fulfill({contentType:'image/svg+xml',body:'<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32"><circle cx="16" cy="16" r="14" fill="blue"/></svg>'}));
-    const spendingPage=await spendingContext.newPage();spendingPage.on('pageerror',error=>errors.push(error.message));
-    await spendingPage.addInitScript(()=>{
-      const now=new Date(),first=new Date(now.getFullYear(),now.getMonth()-5,1),before=new Date(first.getTime()-1);
-      const receipts=[['recent','carrefour','Carrefour',now.toISOString(),9],['start','carrefour','Carrefour',first.toISOString(),2],['before','carrefour','Carrefour',before.toISOString(),3],['older','carrefour','Carrefour','2025-01-10T12:00:00',4],['j1','carrefour','Carrefour','2026-01-10T12:00:00',10.25],['j2','mercadona','Mercadona','2026-01-15T12:00:00',20],['j3','carrefour','Carrefour','2026-01-20T12:00:00',5.5],['f1','mercadona','Mercadona','2026-02-15T12:00:00',40]];
-      localStorage.setItem('receipt-fixture',JSON.stringify(receipts.map(([id,store,store_name,purchased_at,total])=>({id,store,store_name,purchased_at,total,article_count:1,lines:[{description:'Producto '+id,count:1,unit_price:total,amount:total}]}))));
-    });
-    await spendingPage.goto(url);await spendingPage.getByRole('button',{name:'Stock',exact:true}).click();await spendingPage.getByRole('button',{name:'Analítica',exact:true}).click();await spendingPage.getByRole('tab',{name:'Compras',exact:true}).click();
-    const spending=spendingPage.locator('isl-purchases');await spending.locator('#history .ticket').first().waitFor();
-    assert.equal(await spending.locator('#history details,#history summary').count(),0);
-    assert.deepEqual(await spending.locator('#history .ticket').evaluateAll(cards=>cards.map(card=>card.dataset.id)),['recent','start']);
-    const firstPurchase=spending.locator('#history .ticket').first();
-    assert.match(await firstPurchase.locator('.store-image').getAttribute('src'),/carrefour-logo/);
-    assert.ok(await firstPurchase.evaluate(card=>card.querySelector('.total').getBoundingClientRect().right<=card.querySelector('.ticket-open').getBoundingClientRect().left));
-    await firstPurchase.locator('.title').click();assert.equal(await spending.locator('#purchase-detail').isVisible(),false);
-    await firstPurchase.locator('.ticket-open').focus();await firstPurchase.locator('.ticket-open').press('Enter');
-    const purchaseDetail=spending.getByRole('dialog',{name:'Detalle de la compra',exact:true});await purchaseDetail.waitFor();
-    await purchaseDetail.getByText('Producto recent',{exact:true}).waitFor();
-    await purchaseDetail.getByRole('button',{name:'Cerrar ventana',exact:true}).click();
-    assert.equal(await spending.locator('.month-column').count(),6);
-    const defaultMonths=await spendingPage.evaluate(()=>{const now=new Date();return Array.from({length:6},(_,i)=>{const month=new Date(now.getFullYear(),now.getMonth()-5+i,1);return month.getFullYear()+'-'+String(month.getMonth()+1).padStart(2,'0');});});
-    assert.deepEqual(await spending.locator('.month-column').evaluateAll(columns=>columns.map(column=>column.dataset.month)),defaultMonths);
-    const previousPeriod=spending.getByRole('button',{name:'Mostrar seis meses anteriores',exact:true});
-    const nextPeriod=spending.getByRole('button',{name:'Mostrar seis meses siguientes',exact:true});
-    assert.equal(await nextPeriod.isDisabled(),true);
-    while(!await spending.locator('.month-column[data-month="2026-01"]').count())await previousPeriod.click();
-    assert.deepEqual(await spending.locator('#history .ticket').evaluateAll(cards=>cards.map(card=>card.dataset.id)),['before','f1','j3','j2','j1']);
-    const jan=spending.locator('.month-column[data-month="2026-01"]'),feb=spending.locator('.month-column[data-month="2026-02"]');
-    assert.equal(await jan.getAttribute('data-total'),'35.75');assert.equal(await feb.getAttribute('data-total'),'40');
-    assert.equal(await jan.locator('[data-store="carrefour"]').getAttribute('data-amount'),'15.75');
-    assert.equal(await jan.locator('[data-store="mercadona"]').getAttribute('data-amount'),'20');
-    assert.equal(await jan.locator('.store-segment').count(),2);assert.equal(await feb.locator('.store-segment').count(),1);
-    assert.match(await jan.getAttribute('aria-label'),/Carrefour.*15,75.*Mercadona.*20,00/);
-    await previousPeriod.click();
-    assert.equal(await spending.locator('#history .ticket').count(),0);
-    await spending.locator('#empty').getByText('No hay compras registradas en este periodo.',{exact:true}).waitFor();
-    while(!await previousPeriod.isDisabled())await previousPeriod.click();
-    assert.equal(await spending.locator('#history [data-id="older"]').count(),1);
-    while(!await nextPeriod.isDisabled())await nextPeriod.click();
-    assert.deepEqual(await spending.locator('#history .ticket').evaluateAll(cards=>cards.map(card=>card.dataset.id)),['recent','start']);
-
-    assert.deepEqual(await spending.locator('.month-column').evaluateAll(columns=>columns.map(column=>column.dataset.month)),defaultMonths);
-    for(const width of [320,390,1280]){
-      await spendingPage.setViewportSize({width,height:844});
-      assert.ok(await spending.evaluate(el=>el.scrollWidth<=el.clientWidth+1));
-      assert.ok(await spending.locator('.monthly-bars').evaluate(el=>Math.abs(el.getBoundingClientRect().width-el.parentElement.getBoundingClientRect().width)<1));
-      assert.equal(await spending.locator('.month-column').count(),6);
-    }
-    await spendingPage.screenshot({path:'test-results/purchases-monthly-chart-desktop.png',fullPage:true});
-    await spendingPage.setViewportSize({width:390,height:844});await spendingPage.screenshot({path:'test-results/purchases-monthly-chart-mobile.png',fullPage:true});
-    await firstPurchase.locator('.ticket-open').click();await spendingPage.screenshot({path:'test-results/purchase-detail-mobile.png',fullPage:true});
-    await purchaseDetail.getByRole('button',{name:'Cerrar ventana',exact:true}).click();
-    await spending.evaluate(panel=>{
-      const now=Date.now();
-      panel._session.receipts=Array.from({length:23},(_,index)=>({id:'page-'+index,store:'carrefour',store_name:'Carrefour',purchased_at:new Date(now-index*60000).toISOString(),total:1,lines:[]})).reverse();
-      panel._session.receipts.push({id:'old-page',store:'carrefour',store_name:'Carrefour',purchased_at:new Date(new Date().getFullYear()-1,0,1).toISOString(),total:1,lines:[]});
-      panel._render();
-    });
-    const morePurchases=spending.getByRole('button',{name:'Mostrar más',exact:true});
-    assert.equal(await spending.locator('#history .ticket').count(),10);
-    assert.equal(await spending.locator('#history .ticket').first().getAttribute('data-id'),'page-0');
-    await morePurchases.click();assert.equal(await spending.locator('#history .ticket').count(),20);
-    await morePurchases.click();assert.equal(await spending.locator('#history .ticket').count(),23);
-    assert.equal(await morePurchases.isVisible(),false);
-    await previousPeriod.click();assert.equal(await spending.locator('#history .ticket').count(),0);
-    await nextPeriod.click();assert.equal(await spending.locator('#history .ticket').count(),10);
-    assert.equal(await morePurchases.isVisible(),true);
-    await spendingContext.close();
+    await checkSpendingChart(browser,url,errors);
 
     // Store bindings persist without barcodes; all product-price UI reads use cache.
     const linksContext=await browser.newContext({viewport:{width:390,height:844}});

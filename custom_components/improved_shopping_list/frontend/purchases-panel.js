@@ -1,10 +1,11 @@
-import { ListSettingsSession } from "./list-settings-client.js?v=0.44.1";
-import { installDialogCloseButtons } from "./dialog-controls.js?v=0.44.1";
-import { productNameKey } from "./product-names.js?v=0.44.1";
+import { ListSettingsSession } from "./list-settings-client.js?v=0.45.0";
+import { installDialogCloseButtons } from "./dialog-controls.js?v=0.45.0";
+import { productNameKey } from "./product-names.js?v=0.45.0";
 
 const node=(tag,cls,text)=>{const el=document.createElement(tag);if(cls)el.className=cls;if(text!==undefined)el.textContent=text;return el;};
 const money=value=>new Intl.NumberFormat('es-ES',{style:'currency',currency:'EUR'}).format(value);
 const documentDate=receipt=>receipt.document_type==='invoice'?new Intl.DateTimeFormat('es-ES',{dateStyle:'short'}).format(new Date(receipt.purchased_at)):date(receipt.purchased_at);
+const localDay=value=>`${value.getFullYear()}-${String(value.getMonth()+1).padStart(2,'0')}-${String(value.getDate()).padStart(2,'0')}`;
 const date=value=>new Intl.DateTimeFormat('es-ES',{dateStyle:'short',timeStyle:'short'}).format(new Date(value));
 const icon=name=>{const el=node('ha-icon');el.setAttribute('icon',name);el.setAttribute('aria-hidden','true');return el;};
 
@@ -14,7 +15,7 @@ const STORE_LOGOS={
   ...Object.fromEntries(['mercadona','consum','lasirena','eroski','dia'].map(store=>[store,new URL(store+'.'+(['mercadona','dia'].includes(store)?'png':store==='eroski'?'svg':'jpg'),import.meta.url).href]))
 };
 const STORE_NAMES={mercadona:"Mercadona",carrefour:"Carrefour",alcampo:"Alcampo",consum:"Consum",lasirena:"La Sirena",eroski:"Eroski",dia:"DIA",lidl:"Lidl"};
-const STORE_COLORS={lidl:'#2351a1',mercadona:'#29975b',carrefour:'#2388dc',alcampo:'#e15150',consum:'#ef9639',lasirena:'#42b9ca',eroski:'#a968bd',dia:'#e2608c'};
+const STORE_COLORS={lidl:'#ffcc00',mercadona:'#29975b',carrefour:'#2388dc',alcampo:'#e15150',consum:'#ef9639',lasirena:'#42b9ca',eroski:'#a968bd',dia:'#e2608c'};
 
 class PurchaseSession extends ListSettingsSession {
   constructor(getHass,onChange){super(getHass,onChange,'improved_shopping_list/receipts/');this.receipts=[];this.shops=[];}
@@ -83,7 +84,7 @@ class ImprovedShoppingPurchases extends HTMLElement {
       .price-line{position:relative}.price-select{position:absolute;inset:0;width:100%;height:100%;border:0;border-radius:inherit;background:transparent;padding:0}.price-select:focus-visible{outline:3px solid var(--isl-green,#267052);outline-offset:-3px}.price-line[data-selected=true]{border-color:var(--isl-green,#267052);background:color-mix(in srgb,var(--secondary-background-color,#f2f4f3) 75%,var(--isl-green,#267052))}.price-product-name{position:relative;pointer-events:none}.price-label{min-width:0}.price-value{margin-top:6px}.price-value del{opacity:.6;font-size:.9em;margin-left:6px}.price-product-name strong{display:block}
       @media(max-width:750px){.association-row{flex-wrap:wrap;gap:6px}.association-buttons{width:100%;justify-content:flex-end}.association-buttons .small-button{width:30px;height:34px}.association-buttons ha-icon{--mdc-icon-size:20px;width:20px;height:20px}.association-image{width:26px;height:26px}.stock-line-main{grid-template-columns:20px minmax(0,1fr) minmax(0,1.2fr);gap:4px}.stock-line-main .association-image{width:20px;height:20px}.stock-quantity{gap:3px;font-size:.85em}.stock-quantity input{padding-inline:2px;appearance:textfield}.stock-quantity input::-webkit-inner-spin-button,.stock-quantity input::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}.review-line{padding:8px}.association-name strong,.price-label{font-size:.85em}#review-lines,.review-group-content{gap:8px}.review-group-content{padding:0 8px 8px}}
       .review-summary{padding:18px;border:1px solid var(--divider-color,#d9e0dd);border-radius:14px}.purchase-heading{display:flex;align-items:center;gap:12px}.purchase-heading>ha-icon{color:var(--isl-green,#267052);--mdc-icon-size:28px;width:28px;height:28px}.purchase-heading>div{flex:1;min-width:0}.purchase-heading h3{margin:0;font-size:1.1em}.purchase-heading .muted{display:block;font-size:.85em}.purchase-total{font-size:1.25em;white-space:nowrap}.purchase-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:18px 0}.purchase-stats>div{display:flex;flex-direction:column;align-items:center;background:var(--card-background-color,#fff);padding:10px 4px;border-radius:10px}.purchase-stats strong{font-size:1.3em;color:var(--isl-green,#267052)}.purchase-stats span{font-size:.8em}.purchase-summary-line{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--divider-color,#d9e0dd)}.purchase-summary-line>div{min-width:0;overflow-wrap:anywhere}.purchase-summary-line .muted{display:block;font-size:.8em}.purchase-summary-line>span{white-space:nowrap}.review-summary>.totals{font-size:1.1em;border-top:2px dashed var(--divider-color,#d9e0dd);padding-top:14px}.purchase-lines{max-height:40vh;overflow:auto}@media(max-width:550px){#review-steps button{font-size:.7em;padding-inline:2px}.review-summary{padding:12px}.purchase-heading{flex-wrap:wrap;gap:8px}.purchase-total{margin-left:auto}.purchase-stats{gap:4px}.purchase-stats span{font-size:.75em}}
-      .ticket{display:flex;align-items:center;gap:12px;min-width:0}.store-image{width:42px;height:42px;object-fit:contain;background:white;border-radius:10px;padding:5px;flex:none}.ticket .title{overflow-wrap:anywhere}.ticket .ticket-open{flex:none;width:40px;height:40px;border:0;border-radius:10px;background:var(--secondary-background-color,#edf2ef);display:grid;place-items:center;padding:0}.ticket-open.reviewed{background:var(--isl-green,#267052);color:white}.ticket-open:focus-visible{outline:3px solid var(--primary-color,#267052);outline-offset:2px}#purchase-detail-info{align-items:center;padding-bottom:12px;border-bottom:1px solid var(--divider-color,#d9e0dd)}#purchase-detail-info .total{margin-left:auto}.spending-chart{background:var(--card-background-color,#fff);padding:18px;border-radius:14px;margin-bottom:16px;min-width:0}.spending-chart h3{margin:0 0 4px;font-size:1.05em}.spending-chart .chart-note{font-size:.8em;opacity:.65;margin:0 0 12px}.chart-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}.chart-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;margin-left:auto;min-width:0;max-width:100%}.chart-navigation{display:flex;align-items:center;gap:6px;min-width:0}.chart-navigation button{flex:none}.upload-ticket{display:grid;place-items:center;flex:none;width:36px;height:36px;padding:0;border:0;border-radius:10px;background:var(--isl-green,#267052);color:#fff}.upload-ticket ha-icon{display:block;width:22px;height:22px;--mdc-icon-size:22px}.upload-ticket:focus-visible{outline:3px solid var(--primary-color,#267052);outline-offset:2px}.chart-period{font-size:.8em;text-align:center}.chart-navigation button{display:grid;place-items:center;width:32px;height:32px;padding:0;border:0;border-radius:8px;background:var(--secondary-background-color,#edf2ef)}.chart-navigation button ha-icon{--mdc-icon-size:22px}.chart-navigation button:focus-visible{outline:3px solid var(--primary-color,#267052);outline-offset:2px}.chart-scroll{width:100%;min-width:0}.monthly-bars{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));align-items:end;gap:14px;width:100%;padding:8px 0 0;border-bottom:1px solid var(--divider-color,#d9e0dd)}.month-column{min-width:0;text-align:center}.month-total{display:block;font-weight:700;font-size:clamp(.6rem,2vw,.85rem);margin-bottom:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.month-stack{height:130px;display:flex;flex-direction:column;justify-content:end;gap:0;background:repeating-linear-gradient(to top,transparent 0,transparent calc(25% - 1px),var(--divider-color,#d9e0dd) 25%);border-bottom:1px solid var(--divider-color,#d9e0dd)}.store-segment{width:70%;margin-inline:auto;flex:none;min-height:0}.month-label{display:block;font-size:.8em;padding:8px 0}.chart-legend{display:flex;flex-wrap:wrap;gap:10px 16px;margin-top:14px}.chart-key{display:inline-flex;align-items:center;gap:6px;font-size:.8em}.chart-swatch{width:10px;height:10px;border-radius:3px;flex:none}@media(max-width:550px){.ticket{gap:8px}.ticket .store-image{width:34px;height:34px}.ticket .ticket-open{width:32px;height:36px}.ticket .title{font-size:.85em}.ticket .total{font-size:.9em}.spending-chart{padding:14px}.monthly-bars{gap:6px}.month-label{font-size:.7em}.chart-period{font-size:.7em}}
+      .ticket{display:flex;align-items:center;gap:12px;min-width:0}.store-image{width:42px;height:42px;object-fit:contain;background:white;border-radius:10px;padding:5px;flex:none}.ticket .title{overflow-wrap:anywhere}.ticket .ticket-open{flex:none;width:40px;height:40px;border:0;border-radius:10px;background:var(--secondary-background-color,#edf2ef);display:grid;place-items:center;padding:0}.ticket-open.reviewed{background:var(--isl-green,#267052);color:white}.ticket-open:focus-visible{outline:3px solid var(--primary-color,#267052);outline-offset:2px}#purchase-detail-info{align-items:center;padding-bottom:12px;border-bottom:1px solid var(--divider-color,#d9e0dd)}#purchase-detail-info .total{margin-left:auto}.spending-chart{background:var(--card-background-color,#fff);padding:18px;border-radius:14px;margin-bottom:16px;min-width:0}.spending-chart h3{margin:0 0 4px;font-size:1.05em}.spending-chart .chart-note{font-size:.8em;opacity:.65;margin:0 0 12px}.chart-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}.chart-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;margin-left:auto;min-width:0;max-width:100%}.chart-navigation{display:flex;align-items:center;gap:6px;min-width:0}.chart-navigation button{flex:none}.upload-ticket{display:grid;place-items:center;flex:none;width:36px;height:36px;padding:0;border:0;border-radius:10px;background:var(--isl-green,#267052);color:#fff}.upload-ticket ha-icon{display:block;width:22px;height:22px;--mdc-icon-size:22px}.upload-ticket:focus-visible{outline:3px solid var(--primary-color,#267052);outline-offset:2px}.chart-period{font-size:.8em;text-align:center}.chart-navigation button{display:grid;place-items:center;width:32px;height:32px;padding:0;border:0;border-radius:8px;background:var(--secondary-background-color,#edf2ef)}.chart-navigation button ha-icon{--mdc-icon-size:22px}.chart-navigation button:focus-visible{outline:3px solid var(--primary-color,#267052);outline-offset:2px}.chart-scroll{width:100%;min-width:0;overflow-x:auto}.chart-range{display:flex;align-items:center;gap:6px;border:0;border-radius:8px;padding:8px;background:var(--secondary-background-color,#edf2ef);font-size:.8em;min-width:0}.chart-range span{overflow-wrap:anywhere}.chart-range ha-icon{flex:none}#purchase-period-dialog{width:min(460px,calc(100vw - 24px))}#purchase-period-form .period-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:20px}#purchase-period-form .secondary{margin-right:auto}.monthly-bars{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));align-items:end;gap:14px;width:100%;padding:8px 0 0;border-bottom:1px solid var(--divider-color,#d9e0dd)}.month-column{min-width:0;text-align:center}.month-total{display:block;font-weight:700;font-size:clamp(.6rem,2vw,.85rem);margin-bottom:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.month-stack{height:130px;display:flex;flex-direction:column;justify-content:end;gap:0;background:repeating-linear-gradient(to top,transparent 0,transparent calc(25% - 1px),var(--divider-color,#d9e0dd) 25%);border-bottom:1px solid var(--divider-color,#d9e0dd)}.store-segment{width:70%;margin-inline:auto;flex:none;min-height:0}.month-label{display:block;font-size:.8em;padding:8px 0}.chart-legend{display:flex;flex-wrap:wrap;gap:10px 16px;margin-top:14px}.chart-key{display:inline-flex;align-items:center;gap:6px;font-size:.8em}.chart-swatch{width:10px;height:10px;border-radius:3px;flex:none}@media(max-width:550px){.ticket{gap:8px}.ticket .store-image{width:34px;height:34px}.ticket .ticket-open{width:32px;height:36px}.ticket .title{font-size:.85em}.ticket .total{font-size:.9em}.spending-chart{padding:14px}.monthly-bars{gap:6px}.month-label{font-size:.7em}.chart-period{font-size:.7em}}
       #detected-purchase-dialog{width:min(500px,calc(100vw - 24px))}#detected-purchase-form label{margin-top:16px}#detected-products{max-height:25vh;overflow:auto;padding-left:20px}.ticket.needs-details{border:1px dashed var(--secondary-text-color,#64748b)}.ticket .edit-detection{background:#ffb74d;color:#182b22}.actions .danger{background:#d32f2f;color:#fff}
     .zone-candidates{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:18px}.zone-store-choice{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-width:0;flex:1;padding:10px;border:1px solid var(--divider-color,#d9e0dd);border-radius:10px;background:var(--secondary-background-color,#edf2ef)}.zone-store-choice:focus-visible{outline:3px solid var(--primary-color,#267052);outline-offset:2px}.zone-store-choice[aria-pressed=true]{background:var(--primary-color,#267052);color:white}.zone-store-choice .store-image{width:28px;height:28px;flex:none}
     </style>
@@ -101,8 +102,18 @@ class ImprovedShoppingPurchases extends HTMLElement {
       <div class="actions"><button id="confirm-association" type="submit">Vincular</button></div>
     </form></dialog>
     <dialog id="purchase-detail" aria-labelledby="purchase-detail-title"><h2 id="purchase-detail-title">Detalle de la compra</h2><div id="purchase-detail-info" class="receipt-info"></div><div id="purchase-detail-lines"></div></dialog><dialog id="detected-purchase-dialog" aria-labelledby="detected-purchase-title"><h2 id="detected-purchase-title">Compra detectada</h2><form id="detected-purchase-form"><p id="detected-date" class="muted"></p><p id="detected-zone-help" class="note" hidden></p><div id="detected-zone-candidates" class="zone-candidates" hidden></div><label>Tienda<select id="detected-store" aria-label="Tienda" required><option value="">Selecciona una tienda</option><option value="alcampo">Alcampo</option><option value="carrefour">Carrefour</option><option value="consum">Consum</option><option value="dia">DIA</option><option value="eroski">Eroski</option><option value="lasirena">La Sirena</option><option value="mercadona">Mercadona</option><option value="other">Otra tienda</option></select></label><label id="detected-other-label" hidden>Nombre de la tienda<input id="detected-other" maxlength="100"></label><label>Compradores<select id="detected-shoppers" multiple aria-label="Compradores"></select></label><label>Importe total (€)<input id="detected-total" type="number" min="0" max="1000000" step="0.01" required></label><p class="note">Completa los datos de la compra. No se modifican el stock ni los precios de los productos.</p><ul id="detected-products"></ul><p id="detected-error" class="error" role="alert" hidden></p><div class="actions"><button id="discard-detection" class="danger" type="button">Eliminar detección</button><button type="submit">Guardar</button></div></form></dialog>`;
+    const rangeDialog=document.createElement('dialog');rangeDialog.id='purchase-period-dialog';rangeDialog.setAttribute('aria-labelledby','purchase-period-title');rangeDialog.innerHTML=`<h2 id="purchase-period-title">Periodo de compras</h2><form id="purchase-period-form"><div class="period-fields"><label>Fecha de inicio<input id="purchase-start" type="date" required></label><label>Fecha de fin<input id="purchase-end" type="date" required></label></div><div class="actions"><button id="purchase-period-reset" class="secondary" type="button">Últimos seis meses</button><button type="submit">Aplicar</button></div></form>`;this.shadowRoot.append(rangeDialog);
     installDialogCloseButtons(this.shadowRoot);
     const root=this.shadowRoot,dialog=root.querySelector('dialog');
+    root.querySelector('#purchase-period-form').addEventListener('submit',event=>{
+      event.preventDefault();const from=root.querySelector('#purchase-start'),to=root.querySelector('#purchase-end');to.setCustomValidity('');
+      if(!from.value||!to.value)return;
+      if(from.value>to.value){to.setCustomValidity('La fecha de fin debe ser igual o posterior a la de inicio.');to.reportValidity();return;}
+      this._spendingRange={from:from.value,to:to.value};root.querySelector('#purchase-period-dialog').close();this._render();
+    });
+    root.querySelector('#purchase-end').addEventListener('input',event=>event.target.setCustomValidity(''));
+    root.querySelector('#purchase-start').addEventListener('input',()=>root.querySelector('#purchase-end').setCustomValidity(''));
+    root.querySelector('#purchase-period-reset').onclick=()=>{this._spendingRange=null;root.querySelector('#purchase-period-dialog').close();this._render();};
     root.querySelector('#detected-store').addEventListener('change',()=>this._detectedStoreFields());
     root.querySelector('#detected-purchase-form').addEventListener('submit',event=>{event.preventDefault();void this._saveDetectedPurchase();});
     root.querySelector('#discard-detection').addEventListener('click',()=>{if(window.confirm('¿Eliminar esta compra detectada? No se modificará el stock.'))void this._saveDetectedPurchase(true);});
@@ -422,11 +433,11 @@ class ImprovedShoppingPurchases extends HTMLElement {
       select.replaceChildren(new Option(first,''),...[...values].sort((a,b)=>a[1].localeCompare(b[1],'es')).map(([value,name])=>new Option(name,value)));select.value=selected;select.onchange=()=>{this._visiblePurchases=10;this._render();};
     }
     const period=this._renderSpendingChart();
-    const periodKey=period?period.start+':'+period.end:'';
+    const periodKey=period?period.from+':'+period.until:'';
     if(this._purchasePeriod!==periodKey){this._purchasePeriod=periodKey;this._visiblePurchases=10;}
     const receipts=this._session.receipts.filter(receipt=>{
-      const date=new Date(receipt.purchased_at),month=date.getFullYear()*12+date.getMonth();
-      return period&&month>=period.start&&month<=period.end&&(!root.querySelector('#filter-shop').value||(receipt.shop_id||receipt.store)===root.querySelector('#filter-shop').value)&&(!root.querySelector('#filter-person').value||(receipt.shoppers??[]).includes(root.querySelector('#filter-person').value));
+      const when=new Date(receipt.purchased_at).getTime();
+      return period&&when>=period.from&&when<period.until&&(!root.querySelector('#filter-shop').value||(receipt.shop_id||receipt.store)===root.querySelector('#filter-shop').value)&&(!root.querySelector('#filter-person').value||(receipt.shoppers??[]).includes(root.querySelector('#filter-person').value));
     }).sort((a,b)=>new Date(b.purchased_at)-new Date(a.purchased_at));
     const empty=root.querySelector('#empty');
     empty.textContent=this._session.receipts.length?'No hay compras registradas en este periodo.':'Todavía no has subido ningún ticket.';
@@ -438,7 +449,7 @@ class ImprovedShoppingPurchases extends HTMLElement {
       const open=this._button('Ver ticket de '+receipt.store_name+' del '+documentDate(receipt),'mdi:receipt-text',()=>receipt.summary_only?void this._reviewPending(receipt):this._openPurchaseDetail(receipt),'ticket-open'+(!receipt.summary_only?' reviewed':''));
       if(receipt.shoppers?.length)title.append(node('span','shoppers',receipt.shoppers.map(person=>this._hass.states[person]?.attributes?.friendly_name??person).join(', ')));if(receipt.allocation_pending)title.append(node('small','muted','Productos pendientes de repartir'));
       card.style.borderLeft=receipt.shop_color?'4px solid '+receipt.shop_color:'';
-      card.append(this._receiptImage(receipt),title,node('span','total',receipt.total==null?'Importe pendiente':money(receipt.total)));if(!receipt.summary_only||receipt.pending_review||(['carrefour','dia'].includes(receipt.store)&&receipt.account_key&&receipt.ticket_available!==false))card.append(open);if(receipt.detected_purchase)card.append(this._button(receipt.needs_details?'Completar compra detectada':'Editar compra detectada','mdi:pencil',()=>this._editDetectedPurchase(receipt),'ticket-open edit-detection'));return card;
+      card.append(this._receiptImage(receipt),title,node('span','total',receipt.total==null?'Importe pendiente':money(receipt.total)));if(!receipt.summary_only||receipt.pending_review||(['carrefour','dia','lidl'].includes(receipt.store)&&receipt.account_key&&receipt.ticket_available!==false))card.append(open);if(receipt.detected_purchase)card.append(this._button(receipt.needs_details?'Completar compra detectada':'Editar compra detectada','mdi:pencil',()=>this._editDetectedPurchase(receipt),'ticket-open edit-detection'));return card;
     }));
   }
   _detectedStoreFields(){const root=this.shadowRoot,other=root.querySelector('#detected-store').value==='other';root.querySelector('#detected-other-label').hidden=!other;root.querySelector('#detected-other').required=other;for(const button of root.querySelectorAll('.zone-store-choice'))button.setAttribute('aria-pressed',String(button.dataset.store===root.querySelector('#detected-store').value));}
@@ -493,22 +504,27 @@ class ImprovedShoppingPurchases extends HTMLElement {
     if(receipt.discount)container.append(this._totalRow('Descuentos generales',-receipt.discount));
     container.append(this._totalRow('Total',receipt.total));root.querySelector('#purchase-detail').showModal();
   }
+  _purchaseRange(){
+    const now=new Date(),from=this._spendingRange?new Date(this._spendingRange.from+'T00:00:00'):new Date(now.getFullYear(),now.getMonth()-5,1);
+    const to=this._spendingRange?new Date(this._spendingRange.to+'T00:00:00'):new Date(now.getFullYear(),now.getMonth()+1,0);
+    const until=new Date(to);until.setDate(until.getDate()+1);
+    return {from:from.getTime(),until:until.getTime(),first:from,last:to,start:from.getFullYear()*12+from.getMonth(),end:to.getFullYear()*12+to.getMonth()};
+  }
+  _openPurchasePeriod(){
+    const root=this.shadowRoot,range=this._purchaseRange();root.querySelector('#purchase-start').value=localDay(range.first);root.querySelector('#purchase-end').value=localDay(range.last);root.querySelector('#purchase-end').setCustomValidity('');root.querySelector('#purchase-period-dialog').showModal();
+  }
   _renderSpendingChart(){
-    const chart=this.shadowRoot.querySelector('#spending-chart'),months=new Map(),stores=new Map(),shopColors=new Map();
+    const chart=this.shadowRoot.querySelector('#spending-chart'),months=new Map(),stores=new Map(),shopColors=new Map(),range=this._purchaseRange();
     for(const receipt of this._session.receipts){
       if(this.shadowRoot.querySelector('#filter-shop').value&&(receipt.shop_id||receipt.store)!==this.shadowRoot.querySelector('#filter-shop').value||this.shadowRoot.querySelector('#filter-person').value&&!(receipt.shoppers??[]).includes(this.shadowRoot.querySelector('#filter-person').value))continue;
       const when=new Date(receipt.purchased_at),cents=Math.round(Number(receipt.total)*100);
-      if(!Number.isFinite(when.getTime())||!Number.isFinite(cents)||cents<0)continue;
+      if(!Number.isFinite(when.getTime())||when.getTime()<range.from||when.getTime()>=range.until||!Number.isFinite(cents)||cents<0)continue;
       const key=when.getFullYear()+'-'+String(when.getMonth()+1).padStart(2,'0');
       if(!months.has(key))months.set(key,{date:new Date(when.getFullYear(),when.getMonth(),1),total:0,stores:new Map()});
       const store=receipt.shop_id||receipt.store,month=months.get(key);if(receipt.total==null)continue;month.total+=cents;month.stores.set(store,(month.stores.get(store)||0)+cents);stores.set(store,receipt.shop_name||receipt.store_name);if(receipt.shop_color)shopColors.set(store,receipt.shop_color);
     }
     chart.hidden=!this._history;chart.replaceChildren();if(chart.hidden)return;
-    const now=new Date(),latest=now.getFullYear()*12+now.getMonth();
-    const earliest=months.size?Math.min(...[...months.values()].map(month=>month.date.getFullYear()*12+month.date.getMonth())):latest-5;
-    const maximumOffset=Math.ceil(Math.max(0,latest-5-earliest)/6)*6;
-    this._spendingOffset=Math.min(this._spendingOffset||0,maximumOffset);
-    const end=latest-this._spendingOffset,start=end-5,visible=[];
+    const {start,end}=range,visible=[];
     for(let index=start;index<=end;index++){
       const date=new Date(Math.floor(index/12),index%12,1),key=date.getFullYear()+'-'+String(date.getMonth()+1).padStart(2,'0');
       visible.push([key,months.get(key)||{date,total:0,stores:new Map()}]);
@@ -516,16 +532,13 @@ class ImprovedShoppingPurchases extends HTMLElement {
     const sortedStores=[...stores].sort((a,b)=>a[1].localeCompare(b[1],'es'));
     const palette=['#607d8b','#9e8048','#6978c8'];
     const colors=new Map(sortedStores.map(([store],index)=>[store,shopColors.get(store)||STORE_COLORS[store]||palette[index%palette.length]]));
-    const heading=node('div','chart-heading'),navigation=node('div','chart-navigation');
-    const previous=this._button('Mostrar seis meses anteriores','mdi:chevron-left',()=>{this._spendingOffset+=6;this._render();});
-    const next=this._button('Mostrar seis meses siguientes','mdi:chevron-right',()=>{this._spendingOffset=Math.max(0,this._spendingOffset-6);this._render();});
-    previous.disabled=this._spendingOffset>=maximumOffset;next.disabled=this._spendingOffset===0;
-    const format=new Intl.DateTimeFormat('es-ES',{month:'short',year:'numeric'});
-    const period=node('span','chart-period',format.format(visible[0][1].date)+' – '+format.format(visible[5][1].date));period.setAttribute('aria-live','polite');
-    navigation.append(previous,period,next);
+    const heading=node('div','chart-heading'),navigation=this._button('Seleccionar periodo de compras','mdi:calendar-range',()=>this._openPurchasePeriod(),'chart-range');
+    const format=new Intl.DateTimeFormat('es-ES',{day:'2-digit',month:'2-digit',year:'numeric'});
+    navigation.append(node('span','',format.format(range.first)+' – '+format.format(range.last)));
     const actions=node('div','chart-actions'),upload=this._button('Subir ticket','mdi:file-upload',()=>this.chooseFile(),'upload-ticket');upload.id='upload-ticket';upload.title='Subir ticket PDF';upload.disabled=this._busy||this._hass?.user?.is_admin!==true;
     actions.append(navigation,upload);heading.append(node('h3','','Gasto mensual'),actions);
     const bars=node('div','monthly-bars'),scroll=node('div','chart-scroll');
+    bars.style.gridTemplateColumns=`repeat(${visible.length},minmax(0,1fr))`;if(visible.length>12)bars.style.minWidth=(visible.length*50)+'px';
     const maximum=Math.max(1,...visible.map(([,month])=>month.total));
     for(const [key,month] of visible){
       const label=new Intl.DateTimeFormat('es-ES',{month:'short',year:'2-digit'}).format(month.date),column=node('div','month-column');column.dataset.month=key;column.dataset.total=String(month.total/100);
@@ -539,7 +552,7 @@ class ImprovedShoppingPurchases extends HTMLElement {
     const legend=node('div','chart-legend');
     for(const [store,name] of sortedStores){const key=node('span','chart-key'),swatch=node('span','chart-swatch');swatch.style.background=colors.get(store);key.append(swatch,document.createTextNode(name));legend.append(key);}
     scroll.append(bars);chart.append(heading,node('p','chart-note','Importes de las compras registradas, por tienda'),scroll,legend);
-    return {start,end};
+    return range;
   }
   _totalRow(label,value){const row=node('div','totals');row.append(node('span','',label),node('strong','',money(value)));return row;}
 }

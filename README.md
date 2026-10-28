@@ -4,7 +4,7 @@
 
 Una interfaz propia para gestionar las listas de la compra que ya tienes integradas en Home Assistant.
 
-Versión actual: **0.44.0**. Interfaz en español, pensada para móvil y ordenador. Requiere **Home Assistant Core 2026.10 o posterior**. La referencia de desarrollo es Core 2026.10.2.
+Versión actual: **0.45.0**. Interfaz en español, pensada para móvil y ordenador. Requiere **Home Assistant Core 2026.10 o posterior**. La referencia de desarrollo es Core 2026.10.2.
 
 Los precios proceden de tickets y facturas confirmados por el usuario. Alcampo y DIA están archivados: no aparecen en Ajustes → Tiendas ni inician consultas, pero conservan su código y sus datos guardados. Las demás tiendas permanecen disponibles. El catálogo comunitario se dedica exclusivamente a sugerencias de iconos y no proporciona precios.
 
@@ -12,21 +12,21 @@ El diccionario comunitario sirve exclusivamente para sugerir iconos por nombre o
 
 ## Cuenta Lidl
 
-Lidl se incorpora a **Ajustes → Tiendas → Cuentas** con recuperación del historial disponible del último año y descarga automática de tickets pendientes de revisión, coordinada con las tiendas físicas, zonas y prioridad de cuentas. Su conexión usa OAuth/PKCE: abre el acceso oficial de Lidl y después permite pegar su dirección nativa de retorno o seleccionar el HAR de ese acceso. El HAR se lee en el navegador; solo se envía el retorno que corresponde a esa conexión. El primer acceso requiere este paso manual porque Lidl redirige a su aplicación móvil. No se instala navegador, complemento ni tarjeta adicional en Home Assistant, y no se guarda la contraseña de Lidl.
+Lidl se incorpora a **Ajustes → Tiendas → Cuentas** con recuperación del historial disponible del último año y descarga automática de tickets pendientes de revisión, coordinada con las tiendas físicas, zonas y prioridad de cuentas. Su conexión usa OAuth/PKCE: abre el acceso oficial de Lidl y después guía para exportar y seleccionar el HAR de ese acceso. El HAR se lee en el navegador; solo se envía el retorno que corresponde a esa conexión. El primer acceso requiere este paso manual porque Lidl redirige a su aplicación móvil. No se instala navegador, complemento ni tarjeta adicional en Home Assistant, y no se guarda la contraseña de Lidl.
 
 El popup guía la conexión en tres pasos:
 
-1. **Preparar**: desde un ordenador, abre el enlace oficial de Lidl. Antes de iniciar sesión, pulsa F12 (o Ctrl + Mayús + I; en Mac, ⌘ + ⌥ + I), entra en **Red / Network** y activa **Conservar registro / Preserve log**. Mantén esas herramientas abiertas.
+1. **Preparar**: desde un ordenador, abre el enlace oficial de Lidl. Antes de iniciar sesión, abre las herramientas desde el menú del navegador: **Chrome: ⋮ → Más herramientas → Herramientas para desarrolladores**; **Edge: ⋯ → Más herramientas → Herramientas de desarrollo**; **Firefox: ☰ → Más herramientas → Herramientas del navegador**. También puedes pulsar F12 (o Ctrl + Mayús + I; en Mac, ⌘ + ⌥ + I). Después entra en **Red / Network** y activa **Conservar registro / Preserve log**. Mantén esas herramientas abiertas.
 2. **Acceder**: introduce tus credenciales en Lidl y completa su verificación. Una pantalla en blanco, error o aviso para abrir la app tras el acceso puede corresponder al retorno móvil; volver al formulario de login no confirma el acceso.
-3. **Conectar**: busca `com.lidlplus.app` en Red, con el filtro **Todo / All**, y copia la URL completa. Si no aparece una petición, busca el retorno en **Cabeceras / Headers → Cabeceras de respuesta / Response Headers → Location** de la respuesta de autorización. Pégalo en Home Assistant. La ayuda desplegable también permite seleccionar un HAR exportado desde ese mismo registro.
+3. **Conectar**: vuelve a Red / Network en Lidl, borra los filtros y selecciona **Todo / All**. En Chrome o Edge, utiliza el icono de descarga **Exportar HAR / Export HAR** (puede ser sanitizado); en Firefox, clic derecho en una petición → **Guardar todo como HAR / Save All As HAR**. Guarda el `.har` y selecciónalo en el asistente de Home Assistant. La conexión se completa automáticamente si el archivo contiene la autorización de ese intento. No tienes que localizar ni copiar ninguna URL. La ayuda desplegable explica otras ubicaciones del menú de exportación.
 
-Puedes volver entre los pasos sin perder la conexión en preparación. **Reiniciar conexión** genera un acceso nuevo y limpia los datos anteriores. El intento permanece disponible diez minutos; el código de retorno puede caducar antes y es de un solo uso, por lo que conviene pegarlo enseguida. El asistente no necesita extensiones del navegador ni nuevas dependencias.
+Puedes volver entre los pasos sin perder la conexión en preparación. **Reiniciar conexión** genera un acceso nuevo y limpia los datos anteriores. El intento permanece disponible diez minutos; el código de retorno puede caducar antes y es de un solo uso, por lo que conviene seleccionar el archivo enseguida. El asistente no necesita extensiones del navegador ni nuevas dependencias.
 
 Los tokens se conservan en el almacenamiento privado de Home Assistant y se renuevan mediante HTTPS con HTTP/1.1. El historial básico no modifica stock ni precios. Los tickets HTML se validan y se revisan con el mismo asistente de Compras; solo al confirmar se aplican los cambios elegidos. Los códigos internos de Lidl se guardan como referencias, sin inferir EAN. Los formatos con devoluciones, descuentos o totales que no cuadren se dejan sin revisar en lugar de estimar sus líneas.
 
 ## Qué puedes hacer
 
-El apartado **Analítica** incluye **Comparativa**, **Compras** y **Nutri-score**. Compras muestra el logo de la tienda y un botón de ticket junto al importe para abrir el detalle en un popup. Encima del historial, un gráfico de barras apiladas suma los importes de las compras registradas por mes y tienda, sin dependencias de tarjetas externas. Incluye un botón para subir tickets
+El apartado **Analítica** incluye **Comparativa**, **Compras** y **Nutri-score**. Compras muestra el logo de la tienda y un botón de ticket junto al importe para abrir el detalle en un popup. Encima del historial, un gráfico de barras apiladas suma los importes de las compras registradas por mes y tienda, sin dependencias de tarjetas externas. El botón de calendario permite elegir las fechas de inicio y fin, ambas incluidas: la gráfica y el listado muestran solo las compras de ese intervalo. Inicialmente se muestran los últimos seis meses, periodo que puede recuperarse desde el mismo selector. Incluye un botón para subir tickets
 PDF electrónicos de Carrefour, tanto tickets como facturas online con tabla de EAN (hasta 2 MB y 10 páginas). El documento se lee localmente;
 los escaneos y otros formatos de tienda todavía no están disponibles. El popup guía
 la revisión con **Vinculación**, **Stock**, **Precios** y un **Resumen** final. Primero permite
@@ -457,3 +457,9 @@ En **Ajustes → Tiendas → DIA**, activa **Actualizar precios cada** y elige u
 Los precios se obtienen sin cuenta mediante el cliente público `urllib` ya utilizado para DIA. Se exige que la referencia devuelta coincida exactamente con la vinculada; se excluyen precios condicionados al Club y productos sin disponibilidad. Los precios web se muestran junto con los de tickets, conservando la observación más reciente de cada tienda, y alimentan la analítica. Un error o bloqueo HTTP 403 conserva el último precio y deja un diagnóstico de DIA en Logs → Tiendas, con espera creciente antes de reintentar. Las pruebas públicas anteriores funcionaron, pero el acceso puede variar según la conexión y las restricciones de la tienda.
 
 El popup de DIA sustituye la conexión experimental de cuenta por estas opciones de precios. DIA queda fuera de la búsqueda automática de tickets; las compras y vinculaciones guardadas se conservan. No requiere otras tarjetas de HACS, bibliotecas nuevas ni servicios externos.
+
+### Compras pendientes al consultar una cuenta
+
+Cada consulta automática para detectar un ticket en Carrefour o Lidl incorpora también al historial las compras disponibles del último año que falten, aunque no se haya activado la importación inicial del historial. Se recorren las páginas del listado con una pausa entre peticiones y límites de seguridad; cada compra conserva su identificador para evitar duplicados. Esto no implica descargar los tickets antiguos ni modificar stock o precios: solo añade sus datos básicos y mantiene la revisión del ticket como un paso independiente. Las compras ya revisadas se conservan.
+
+Las nuevas cuentas deben utilizar `account_history.account_purchase_check` y un importador de resúmenes idempotente. El ticket actual se prepara antes de avanzar por las páginas para conservar sus referencias temporales; el resto del historial se incorpora también si falla su lectura. La cancelación al detener Home Assistant no inicia peticiones adicionales.

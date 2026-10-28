@@ -16,6 +16,7 @@ from homeassistant.helpers.storage import Store
 from homeassistant.helpers.event import async_track_time_interval
 from homeassistant.util import dt as dt_util
 
+from .account_history import account_purchase_check
 from .catalog import CatalogError
 from .const import DOMAIN
 from .receipt_parser import MAX_PDF_BYTES
@@ -197,40 +198,43 @@ class CarrefourAccount:
             await self._save_options()
 
     async def _download_automatic_ticket(self, owner, now, detected_today):
-        result=await self.async_purchases(owner)
-        candidates = result["purchases"]
-        detection=getattr(self,'purchase_detection',None)
-        if detection and getattr(detection,'enabled',False) and 'shops' in getattr(detection,'zone_config',{}):
-            found=False
-            for purchase in candidates[:100]:
-                date=dt_util.parse_datetime(purchase['purchased_at'])
-                if not date or dt_util.as_local(date if date.tzinfo else date.replace(tzinfo=dt_util.DEFAULT_TIME_ZONE)).date()!=now.date() or not purchase['reviewable']:continue
-                cached=self._purchases[purchase['id']]
-                if not self.receipts.account_ticket_available(cached['id']):
-                    draft=await self.async_preview(owner,purchase['id'])
-                    if self._active and self._options['auto_ticket']:await self.receipts.async_archive_account_ticket(draft['token'],owner)
-                    else:self.receipts.discard(draft['token'],owner)
-                found=True
-            return found
-        if detected_today:
-            def same_day(purchase):
-                date = dt_util.parse_datetime(purchase["purchased_at"])
-                return bool(date and dt_util.as_local(date if date.tzinfo else date.replace(tzinfo=dt_util.DEFAULT_TIME_ZONE)).date() == now.date())
-            candidates = [purchase for purchase in candidates if same_day(purchase)]
-        latest=max(candidates,key=lambda purchase:purchase["purchased_at"],default=None)
-        if latest and latest["reviewable"]:
-            cached=self._purchases[latest["id"]]
-            if not self.receipts.account_ticket_available(cached["id"]):
-                draft=await self.async_preview(owner,latest["id"])
-                if self._active and self._options["auto_ticket"]:
-                    await self.receipts.async_archive_account_ticket(draft["token"],owner)
-                else:
-                    self.receipts.discard(draft["token"],owner)
-            self.activity.record("stores.account","Carrefour: última compra disponible para revisar",source="automatic")
-        elif latest:
-            self.activity.record("stores.account","Carrefour: la factura online debe subirse manualmente",source="automatic")
-        date=dt_util.parse_datetime(latest["purchased_at"]) if latest else None
-        return bool(latest and latest["reviewable"] and date and dt_util.as_local(date if date.tzinfo else date.replace(tzinfo=dt_util.DEFAULT_TIME_ZONE)).date()==now.date())
+        async with account_purchase_check(
+            lambda cursor: self.async_purchases(owner, cursor, import_summaries=True),
+            pagination_error=lambda: CarrefourAccountError("Carrefour ha repetido una página del historial. Las compras ya incorporadas se conservan.", "history_pagination"),
+        ) as result:
+            candidates = result["purchases"]
+            detection=getattr(self,'purchase_detection',None)
+            if detection and getattr(detection,'enabled',False) and 'shops' in getattr(detection,'zone_config',{}):
+                found=False
+                for purchase in candidates[:100]:
+                    date=dt_util.parse_datetime(purchase['purchased_at'])
+                    if not date or dt_util.as_local(date if date.tzinfo else date.replace(tzinfo=dt_util.DEFAULT_TIME_ZONE)).date()!=now.date() or not purchase['reviewable']:continue
+                    cached=self._purchases[purchase['id']]
+                    if not self.receipts.account_ticket_available(cached['id']):
+                        draft=await self.async_preview(owner,purchase['id'])
+                        if self._active and self._options['auto_ticket']:await self.receipts.async_archive_account_ticket(draft['token'],owner)
+                        else:self.receipts.discard(draft['token'],owner)
+                    found=True
+                return found
+            if detected_today:
+                def same_day(purchase):
+                    date = dt_util.parse_datetime(purchase["purchased_at"])
+                    return bool(date and dt_util.as_local(date if date.tzinfo else date.replace(tzinfo=dt_util.DEFAULT_TIME_ZONE)).date() == now.date())
+                candidates = [purchase for purchase in candidates if same_day(purchase)]
+            latest=max(candidates,key=lambda purchase:purchase["purchased_at"],default=None)
+            if latest and latest["reviewable"]:
+                cached=self._purchases[latest["id"]]
+                if not self.receipts.account_ticket_available(cached["id"]):
+                    draft=await self.async_preview(owner,latest["id"])
+                    if self._active and self._options["auto_ticket"]:
+                        await self.receipts.async_archive_account_ticket(draft["token"],owner)
+                    else:
+                        self.receipts.discard(draft["token"],owner)
+                self.activity.record("stores.account","Carrefour: última compra disponible para revisar",source="automatic")
+            elif latest:
+                self.activity.record("stores.account","Carrefour: la factura online debe subirse manualmente",source="automatic")
+            date=dt_util.parse_datetime(latest["purchased_at"]) if latest else None
+            return bool(latest and latest["reviewable"] and date and dt_util.as_local(date if date.tzinfo else date.replace(tzinfo=dt_util.DEFAULT_TIME_ZONE)).date()==now.date())
 
     async def async_stop(self):
         task=self._background_task

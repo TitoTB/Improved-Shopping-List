@@ -512,3 +512,16 @@ async def test_detection_never_uses_yesterday_ticket(account):
     account.async_preview=AsyncMock()
     await account._run_background()
     account.async_preview.assert_not_awaited()
+
+
+async def test_automatic_check_catches_up_pages_even_when_initial_history_is_disabled(account):
+    now = dt_util.now()
+    account._options["history_enabled"] = False
+    account.async_purchases = AsyncMock(side_effect=[
+        {"purchases":[], "next_cursor":dict.fromkeys(OFFSET_KEYS,10)},
+        {"purchases":[], "next_cursor":None},
+    ])
+    assert not await account._download_automatic_ticket("automatic_carrefour",now,True)
+    assert account.async_purchases.await_count == 2
+    assert all(call.kwargs["import_summaries"] is True for call in account.async_purchases.await_args_list)
+    account.receipts.async_preview.assert_not_awaited()

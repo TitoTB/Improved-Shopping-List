@@ -15,6 +15,7 @@ import urllib.request
 
 from homeassistant.helpers.storage import Store
 from homeassistant.util import dt as dt_util
+from .account_history import account_purchase_check
 from .catalog import CatalogError
 from .const import DOMAIN
 from .dia_account import DiaAccount
@@ -281,22 +282,27 @@ class LidlAccount(DiaAccount):
             self._options["ticket_scopes"] = list(dict.fromkeys([v for v in self._options["ticket_scopes"] if day in v] + detection.ticket_scope("lidl")))
         self._options["ticket_day"] = now.date().isoformat(); await self._save_options()
         try:
-            owner = "automatic_lidl"; result = await self.async_purchases(owner)
-            candidates = [p for p in result["purchases"] if dt_util.as_local(dt_util.parse_datetime(p["purchased_at"])).date() == now.date()]
-            if not (detection and "shops" in detection.zone_config):
-                candidates = sorted(candidates, key=lambda p:p["purchased_at"], reverse=True)[:1]
-            for latest in candidates:
-                if not self._active or not self._options["auto_ticket"]:
-                    break
-                ref = self._session["purchase_refs"][latest["id"]]["reference"]
-                if not self.receipts.account_ticket_available(ref, "lidl"):
-                    draft = await self.async_preview(owner, latest["id"])
-                    if self._active and self._options["auto_ticket"]:
-                        await self.receipts.async_archive_account_ticket(draft["token"], owner)
-                    else:
-                        self.receipts.discard(draft["token"], owner)
-                self.activity.record("stores.account", "Lidl: última compra disponible para revisar", source="automatic")
-            self._options["handled_completion"] = self._options["completion_at"]
-            return bool(candidates)
+            owner = "automatic_lidl"
+            async with account_purchase_check(
+                lambda cursor: self.async_purchases(owner, cursor, import_summaries=True),
+                pagination_error=lambda: LidlAccountError("Lidl ha repetido una página del historial. Las compras ya incorporadas se conservan.", "history_pagination"),
+                page_limit=50,
+            ) as result:
+                candidates = [p for p in result["purchases"] if dt_util.as_local(dt_util.parse_datetime(p["purchased_at"])).date() == now.date()]
+                if not (detection and "shops" in detection.zone_config):
+                    candidates = sorted(candidates, key=lambda p:p["purchased_at"], reverse=True)[:1]
+                for latest in candidates:
+                    if not self._active or not self._options["auto_ticket"]:
+                        break
+                    ref = self._session["purchase_refs"][latest["id"]]["reference"]
+                    if not self.receipts.account_ticket_available(ref, "lidl"):
+                        draft = await self.async_preview(owner, latest["id"])
+                        if self._active and self._options["auto_ticket"]:
+                            await self.receipts.async_archive_account_ticket(draft["token"], owner)
+                        else:
+                            self.receipts.discard(draft["token"], owner)
+                    self.activity.record("stores.account", "Lidl: última compra disponible para revisar", source="automatic")
+                self._options["handled_completion"] = self._options["completion_at"]
+                return bool(candidates)
         finally:
             await self._save_options()

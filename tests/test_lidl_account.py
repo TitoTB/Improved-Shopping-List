@@ -159,3 +159,16 @@ async def test_lidl_saved_summary_review_and_confirm_preserve_stock_until_confir
     assert stock.snapshot['items'][0]['quantity']==item['quantity']+1
     assert len(manager.snapshot['receipts'])==1 and manager.offers_for(product)[0]['price']==1
     assert catalog.products[0].get('barcodes',[])==[] and stock.receipt_stores[product['id']]==['lidl']
+
+
+async def test_lidl_automatic_check_imports_missing_history_without_initial_import(account):
+    account._session={"access_token":"access","refresh_token":"refresh"}
+    account._options.update(auto_ticket=True,history_enabled=False,completion_at=time.time())
+    account.async_purchases=AsyncMock(side_effect=[
+        {"purchases":[],"next_cursor":{"page":2}},
+        {"purchases":[],"next_cursor":None},
+    ])
+    assert not await account.async_automatic_ticket(dt_util.now(),True)
+    assert account.async_purchases.await_count==2
+    assert all(call.kwargs["import_summaries"] is True for call in account.async_purchases.await_args_list)
+    account.receipts.async_preview_lidl_ticket.assert_not_awaited()

@@ -183,7 +183,7 @@ const hass={
     if(msg.type==='improved_shopping_list/readers/delete'){window.readerFixture.readers=window.readerFixture.readers.filter(reader=>reader.id!==msg.reader_id);window.emitReaders();return null;}
     if(msg.type==='improved_shopping_list/readers/dismiss'){window.readerFixture.pending=window.readerFixture.pending.filter(item=>item.id!==msg.pending_id);window.emitReaders();return null;}
     if(msg.type==='improved_shopping_list/stock/get')return {items:structuredClone(window.stockItems),receipt_stores:structuredClone(window.receiptStores)};
-    if(msg.type==='improved_shopping_list/receipts/get')return {receipts:structuredClone(window.receiptHistory)};
+    if(msg.type==='improved_shopping_list/receipts/get')return {receipts:structuredClone(window.receiptHistory),shops:structuredClone(window.listSettings.purchase_detection?.shops??[]),persons:window.listSettings.purchase_detection?.persons??[]};
     if(msg.type==='improved_shopping_list/receipts/discard')return null;
     if(msg.type==='improved_shopping_list/receipts/options')return receiptOptions();
     if(msg.type==='improved_shopping_list/receipts/link'){
@@ -529,7 +529,7 @@ async function main() {
       return;
     }
     if (pathname === "/") { res.setHeader("content-type", "text/html; charset=utf-8"); res.end(html); return; }
-    if (!["/dia-prices-settings.js", "/dia-account.js", "/analytics-panel.js", "/alcampo-settings.js", "/carrefour-account.js", "/notification-settings.js", "/recipe-editor.js", "/quantity-client.js", "/panel.js", "/purchases-panel.js", "/stock-client.js", "/dialog-controls.js", "/todo-client.js", "/catalog-panel.js", "/catalog-client.js", "/category-panel.js", "/icon-picker.js", "/list-settings-client.js", "/settings-panel.js", "/readers-client.js", "/readers-panel.js", "/product-matching.js", "/product-names.js", "/logs-panel.js", "/logo.png", "/mercadona.png", "/consum.jpg", "/lasirena.jpg", "/eroski.svg", "/dia.png"].includes(pathname)) { res.writeHead(404).end(); return; }
+    if (!["/shopping-places.js", "/dia-prices-settings.js", "/dia-account.js", "/analytics-panel.js", "/alcampo-settings.js", "/carrefour-account.js", "/notification-settings.js", "/recipe-editor.js", "/quantity-client.js", "/panel.js", "/purchases-panel.js", "/stock-client.js", "/dialog-controls.js", "/todo-client.js", "/catalog-panel.js", "/catalog-client.js", "/category-panel.js", "/icon-picker.js", "/list-settings-client.js", "/settings-panel.js", "/readers-client.js", "/readers-panel.js", "/product-matching.js", "/product-names.js", "/logs-panel.js", "/logo.png", "/mercadona.png", "/consum.jpg", "/lasirena.jpg", "/eroski.svg", "/dia.png"].includes(pathname)) { res.writeHead(404).end(); return; }
     res.setHeader("content-type", pathname.endsWith(".svg") ? "image/svg+xml" : pathname.endsWith(".png") ? "image/png" : pathname.endsWith(".jpg") ? "image/jpeg" : "text/javascript; charset=utf-8");
     res.end(await fs.readFile(path.join(root, pathname.slice(1))));
   });
@@ -3836,6 +3836,35 @@ async function main() {
     await login.getByRole('button',{name:'Enviar código',exact:true}).waitFor();
     assert.deepEqual(await accountPage.evaluate(()=>window.lastCfLogin),{username:'test@example.test',password_empty:true,remember:true});
     await accountContext.close();
+
+    // Universal purchase setup separates accounts, physical shops and shoppers.
+    const universalContext=await browser.newContext({viewport:{width:390,height:844}});
+    await universalContext.addInitScript(()=>{
+      localStorage.setItem('settings-fixture',JSON.stringify({entities:['todo.bring'],primary_entity:'todo.bring',available_stores:['carrefour'],purchase_detection:{enabled:true,threshold:5,zone_assignment:true,minimum_minutes:5,persons:['person.one'],store_zones:{},shops:[]}}));
+      localStorage.setItem('receipt-fixture',JSON.stringify([{id:'shop-buy',store:'shop:fruit',store_name:'Frutería',shop_id:'fruit',shop_name:'Frutería',shop_color:'#267052',shoppers:['person.one'],purchased_at:new Date().toISOString(),total:5,article_count:2,lines:[],summary_only:true},{id:'other-buy',store:'carrefour',store_name:'Carrefour',purchased_at:new Date().toISOString(),total:10,article_count:1,lines:[],summary_only:true}]));
+    });
+    const universalPage=await universalContext.newPage();universalPage.on('pageerror',error=>errors.push(error.message));
+    await universalPage.goto(url);await universalPage.getByRole('button',{name:'Ajustes',exact:true}).click();
+    await universalPage.locator('isl-settings').getByRole('button',{name:'Tiendas',exact:true}).click();
+    const universalSettings=universalPage.locator('isl-settings');
+    await universalSettings.getByRole('heading',{name:'Cuentas',exact:true}).waitFor();
+    await universalSettings.getByRole('heading',{name:'Usuarios',exact:true}).waitFor();
+    const places=universalSettings.locator('isl-shopping-places');await places.getByRole('button',{name:'Añadir tienda',exact:true}).click();
+    const shopEditor=places.locator('dialog');await shopEditor.getByLabel('Nombre',{exact:true}).fill('Frutería');
+    await shopEditor.getByRole('button',{name:'Guardar tienda',exact:true}).click();
+    await universalPage.waitForFunction(()=>window.listSettings.purchase_detection.shops.length===1);
+    await shopEditor.waitFor({state:'hidden'});await places.getByRole('button',{name:'Editar tienda Frutería',exact:true}).click();
+    assert.equal(await shopEditor.getByLabel('Cuenta vinculada',{exact:true}).inputValue(),'');
+    await shopEditor.getByRole('button',{name:'Cerrar ventana',exact:true}).click();
+    assert.equal(await universalSettings.getByLabel('Permanencia mínima en la zona (minutos)',{exact:true}).inputValue(),'5');
+    assert.deepEqual(await universalSettings.locator('.store-row:visible h3').allTextContents(),['Carrefour']);
+    await universalPage.getByRole('button',{name:'Analítica',exact:true}).click();const universalPurchases=universalPage.locator('isl-purchases');
+    await universalPurchases.locator('#history .ticket').filter({hasText:'Frutería'}).waitFor();
+    await universalPurchases.getByLabel('Filtrar por usuario',{exact:true}).selectOption('person.one');
+    assert.equal(await universalPurchases.locator('#history .ticket').count(),1);
+    assert.equal(await universalPurchases.locator('#history .ticket').getAttribute('data-id'),'shop-buy');
+    await universalPage.screenshot({path:'test-results/universal-purchases-mobile.png',fullPage:true});
+    await universalContext.close();
 
     // Shipping policy: Alcampo and DIA are archived; the other stores remain available.
     const archivedContext=await browser.newContext({viewport:{width:390,height:844}});

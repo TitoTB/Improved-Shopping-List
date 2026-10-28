@@ -75,6 +75,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         await history.async_load()
         prices.history = history
         receipts = ReceiptManager(hass, stock, stock_automation, prices)
+        receipts.settings = settings
         carrefour_account = CarrefourAccount(hass, receipts, activity)
         await carrefour_account.async_load()
         carrefour_account.settings=settings

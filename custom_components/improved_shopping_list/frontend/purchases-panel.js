@@ -17,8 +17,8 @@ const STORE_NAMES={mercadona:"Mercadona",carrefour:"Carrefour",alcampo:"Alcampo"
 const STORE_COLORS={mercadona:'#29975b',carrefour:'#2388dc',alcampo:'#e15150',consum:'#ef9639',lasirena:'#42b9ca',eroski:'#a968bd',dia:'#e2608c'};
 
 class PurchaseSession extends ListSettingsSession {
-  constructor(getHass,onChange){super(getHass,onChange,'improved_shopping_list/receipts/');this.receipts=[];}
-  _receive(data){this.receipts=data.receipts??[];this.loaded=true;this.loading=false;this.error='';this.onChange();}
+  constructor(getHass,onChange){super(getHass,onChange,'improved_shopping_list/receipts/');this.receipts=[];this.shops=[];}
+  _receive(data){this.receipts=data.receipts??[];this.shops=data.shops??[];this.persons=data.persons??[];this.loaded=true;this.loading=false;this.error='';this.onChange();}
 }
 
 class ImprovedShoppingPurchases extends HTMLElement {
@@ -47,7 +47,7 @@ class ImprovedShoppingPurchases extends HTMLElement {
     this._built=true;
     this.shadowRoot.innerHTML=`<style>
       :host{display:block;color:inherit;font:inherit}*{box-sizing:border-box}[hidden]{display:none!important}
-      button,input,select{font:inherit;color:inherit}button{cursor:pointer}button:disabled{opacity:.5;cursor:default}
+      .purchase-filters{display:flex;gap:12px;margin:16px 0;flex-wrap:wrap}.purchase-filters label{flex:1;min-width:140px}.shoppers{font-size:12px;opacity:.7}.product-choice{display:flex!important;align-items:center;gap:10px}.product-choice input{width:auto!important}button,input,select{font:inherit;color:inherit}button{cursor:pointer}button:disabled{opacity:.5;cursor:default}
       input,select{width:100%;min-width:0;min-height:42px;border:1px solid var(--divider-color,#d9e0dd);background:var(--card-background-color,#fff);border-radius:8px;padding:8px}
       .notice{padding:12px;border-radius:10px;background:var(--secondary-background-color,#edf2ef)}.error{color:var(--error-color,#d32f2f)}
       #history{display:grid;gap:12px}#more-purchases{display:block;margin:16px auto 0;padding:12px 20px;border:0;border-radius:10px;background:var(--primary-color,#267052);color:white}#more-purchases:focus-visible{outline:3px solid var(--primary-color,#267052);outline-offset:3px}.ticket{border-radius:14px;background:var(--card-background-color,#fff);padding:16px}
@@ -88,7 +88,7 @@ class ImprovedShoppingPurchases extends HTMLElement {
     .zone-candidates{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:18px}.zone-store-choice{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-width:0;flex:1;padding:10px;border:1px solid var(--divider-color,#d9e0dd);border-radius:10px;background:var(--secondary-background-color,#edf2ef)}.zone-store-choice:focus-visible{outline:3px solid var(--primary-color,#267052);outline-offset:2px}.zone-store-choice[aria-pressed=true]{background:var(--primary-color,#267052);color:white}.zone-store-choice .store-image{width:28px;height:28px;flex:none}
     </style>
     <input id="ticket-file" type="file" accept="application/pdf,.pdf" hidden>
-    <p id="message" class="notice" role="status" hidden></p><section id="spending-chart" class="spending-chart" aria-label="Gasto mensual por tienda" hidden></section><div id="history"></div><button id="more-purchases" type="button" hidden>Mostrar más</button><p id="empty" class="empty" hidden>Todavía no has subido ningún ticket.</p>
+    <p id="message" class="notice" role="status" hidden></p><section id="spending-chart" class="spending-chart" aria-label="Gasto mensual por tienda" hidden></section><div class="purchase-filters"><label>Tienda<select id="filter-shop" aria-label="Filtrar por tienda"><option value="">Todas las tiendas</option></select></label><label>Usuario<select id="filter-person" aria-label="Filtrar por usuario"><option value="">Todos los usuarios</option></select></label></div><div id="history"></div><button id="more-purchases" type="button" hidden>Mostrar más</button><p id="empty" class="empty" hidden>Todavía no has subido ningún ticket.</p>
     <dialog aria-labelledby="review-title"><form id="review-form"><h2 id="review-title">Revisar ticket</h2><div id="review-summary" class="receipt-info"></div>
       <ol id="review-steps" aria-label="Pasos de revisión del ticket"><li><button type="button">1. Vinculación</button></li><li><button type="button">2. Stock</button></li><li><button type="button">3. Precios</button></li><li><button type="button">4. Resumen</button></li></ol><h3 id="step-title"></h3><p id="step-help" class="note"></p>
       <div id="review-lines"></div><div id="review-result" class="review-summary" hidden></div>
@@ -100,7 +100,7 @@ class ImprovedShoppingPurchases extends HTMLElement {
       <p id="association-error" class="notice error" role="alert" hidden></p>
       <div class="actions"><button id="confirm-association" type="submit">Vincular</button></div>
     </form></dialog>
-    <dialog id="purchase-detail" aria-labelledby="purchase-detail-title"><h2 id="purchase-detail-title">Detalle de la compra</h2><div id="purchase-detail-info" class="receipt-info"></div><div id="purchase-detail-lines"></div></dialog><dialog id="detected-purchase-dialog" aria-labelledby="detected-purchase-title"><h2 id="detected-purchase-title">Compra detectada</h2><form id="detected-purchase-form"><p id="detected-date" class="muted"></p><p id="detected-zone-help" class="note" hidden></p><div id="detected-zone-candidates" class="zone-candidates" hidden></div><label>Tienda<select id="detected-store" aria-label="Tienda" required><option value="">Selecciona una tienda</option><option value="alcampo">Alcampo</option><option value="carrefour">Carrefour</option><option value="consum">Consum</option><option value="dia">DIA</option><option value="eroski">Eroski</option><option value="lasirena">La Sirena</option><option value="mercadona">Mercadona</option><option value="other">Otra tienda</option></select></label><label id="detected-other-label" hidden>Nombre de la tienda<input id="detected-other" maxlength="100"></label><label>Importe total (€)<input id="detected-total" type="number" min="0" max="1000000" step="0.01" required></label><p class="note">Completa los datos de la compra. No se modifican el stock ni los precios de los productos.</p><ul id="detected-products"></ul><p id="detected-error" class="error" role="alert" hidden></p><div class="actions"><button id="discard-detection" class="danger" type="button">Eliminar detección</button><button type="submit">Guardar</button></div></form></dialog>`;
+    <dialog id="purchase-detail" aria-labelledby="purchase-detail-title"><h2 id="purchase-detail-title">Detalle de la compra</h2><div id="purchase-detail-info" class="receipt-info"></div><div id="purchase-detail-lines"></div></dialog><dialog id="detected-purchase-dialog" aria-labelledby="detected-purchase-title"><h2 id="detected-purchase-title">Compra detectada</h2><form id="detected-purchase-form"><p id="detected-date" class="muted"></p><p id="detected-zone-help" class="note" hidden></p><div id="detected-zone-candidates" class="zone-candidates" hidden></div><label>Tienda<select id="detected-store" aria-label="Tienda" required><option value="">Selecciona una tienda</option><option value="alcampo">Alcampo</option><option value="carrefour">Carrefour</option><option value="consum">Consum</option><option value="dia">DIA</option><option value="eroski">Eroski</option><option value="lasirena">La Sirena</option><option value="mercadona">Mercadona</option><option value="other">Otra tienda</option></select></label><label id="detected-other-label" hidden>Nombre de la tienda<input id="detected-other" maxlength="100"></label><label>Compradores<select id="detected-shoppers" multiple aria-label="Compradores"></select></label><label>Importe total (€)<input id="detected-total" type="number" min="0" max="1000000" step="0.01" required></label><p class="note">Completa los datos de la compra. No se modifican el stock ni los precios de los productos.</p><ul id="detected-products"></ul><p id="detected-error" class="error" role="alert" hidden></p><div class="actions"><button id="discard-detection" class="danger" type="button">Eliminar detección</button><button type="submit">Guardar</button></div></form></dialog>`;
     installDialogCloseButtons(this.shadowRoot);
     const root=this.shadowRoot,dialog=root.querySelector('dialog');
     root.querySelector('#detected-store').addEventListener('change',()=>this._detectedStoreFields());
@@ -417,12 +417,16 @@ class ImprovedShoppingPurchases extends HTMLElement {
     root.querySelector('#spending-chart').hidden=!this._history;
     root.querySelector('#more-purchases').hidden=true;
     if(!this._history)return;
+    for(const [id,values] of [['filter-shop',new Map(this._session.receipts.map(receipt=>[receipt.shop_id||receipt.store,receipt.shop_name||receipt.store_name]))],['filter-person',new Map(this._session.receipts.flatMap(receipt=>(receipt.shoppers??[]).map(person=>[person,this._hass.states[person]?.attributes?.friendly_name??person])))]]){
+      const select=root.querySelector('#'+id),selected=select.value,first=select.options[0].textContent;
+      select.replaceChildren(new Option(first,''),...[...values].sort((a,b)=>a[1].localeCompare(b[1],'es')).map(([value,name])=>new Option(name,value)));select.value=selected;select.onchange=()=>{this._visiblePurchases=10;this._render();};
+    }
     const period=this._renderSpendingChart();
     const periodKey=period?period.start+':'+period.end:'';
     if(this._purchasePeriod!==periodKey){this._purchasePeriod=periodKey;this._visiblePurchases=10;}
     const receipts=this._session.receipts.filter(receipt=>{
       const date=new Date(receipt.purchased_at),month=date.getFullYear()*12+date.getMonth();
-      return period&&month>=period.start&&month<=period.end;
+      return period&&month>=period.start&&month<=period.end&&(!root.querySelector('#filter-shop').value||(receipt.shop_id||receipt.store)===root.querySelector('#filter-shop').value)&&(!root.querySelector('#filter-person').value||(receipt.shoppers??[]).includes(root.querySelector('#filter-person').value));
     }).sort((a,b)=>new Date(b.purchased_at)-new Date(a.purchased_at));
     const empty=root.querySelector('#empty');
     empty.textContent=this._session.receipts.length?'No hay compras registradas en este periodo.':'Todavía no has subido ningún ticket.';
@@ -430,30 +434,32 @@ class ImprovedShoppingPurchases extends HTMLElement {
     root.querySelector('#more-purchases').hidden=receipts.length<=this._visiblePurchases;
     root.querySelector('#history').replaceChildren(...receipts.slice(0,this._visiblePurchases).map(receipt=>{
       const card=node('article','ticket'+(receipt.needs_details?' needs-details':''));card.dataset.id=receipt.id;
-      const title=node('div','title');title.append(node('strong','',receipt.store_name+(receipt.document_type==='invoice'?' · Factura':'')),node('span','muted',documentDate(receipt)+(receipt.article_count==null?'':' · '+receipt.article_count+' artículos')));
+      const title=node('div','title');title.append(node('strong','',(receipt.shop_name||receipt.store_name)+(receipt.document_type==='invoice'?' · Factura':'')),node('span','muted',documentDate(receipt)+(receipt.article_count==null?'':' · '+receipt.article_count+' artículos')));
       const open=this._button('Ver ticket de '+receipt.store_name+' del '+documentDate(receipt),'mdi:receipt-text',()=>receipt.summary_only?void this._reviewPending(receipt):this._openPurchaseDetail(receipt),'ticket-open'+(!receipt.summary_only?' reviewed':''));
-      card.append(this._storeImage(receipt.store,receipt.store_name),title,node('span','total',receipt.total==null?'Importe pendiente':money(receipt.total)));if(!receipt.summary_only||receipt.pending_review||(['carrefour','dia'].includes(receipt.store)&&receipt.account_key&&receipt.ticket_available!==false))card.append(open);if(receipt.detected_purchase)card.append(this._button(receipt.needs_details?'Completar compra detectada':'Editar compra detectada','mdi:pencil',()=>this._editDetectedPurchase(receipt),'ticket-open edit-detection'));return card;
+      if(receipt.shoppers?.length)title.append(node('span','shoppers',receipt.shoppers.map(person=>this._hass.states[person]?.attributes?.friendly_name??person).join(', ')));if(receipt.allocation_pending)title.append(node('small','muted','Productos pendientes de repartir'));
+      card.style.borderLeft=receipt.shop_color?'4px solid '+receipt.shop_color:'';
+      card.append(this._receiptImage(receipt),title,node('span','total',receipt.total==null?'Importe pendiente':money(receipt.total)));if(!receipt.summary_only||receipt.pending_review||(['carrefour','dia'].includes(receipt.store)&&receipt.account_key&&receipt.ticket_available!==false))card.append(open);if(receipt.detected_purchase)card.append(this._button(receipt.needs_details?'Completar compra detectada':'Editar compra detectada','mdi:pencil',()=>this._editDetectedPurchase(receipt),'ticket-open edit-detection'));return card;
     }));
   }
   _detectedStoreFields(){const root=this.shadowRoot,other=root.querySelector('#detected-store').value==='other';root.querySelector('#detected-other-label').hidden=!other;root.querySelector('#detected-other').required=other;for(const button of root.querySelectorAll('.zone-store-choice'))button.setAttribute('aria-pressed',String(button.dataset.store===root.querySelector('#detected-store').value));}
   _editDetectedPurchase(receipt){
     if(this._busy)return;this._detectedReceipt=receipt.id;const root=this.shadowRoot;
     root.querySelector('#detected-date').textContent=documentDate(receipt)+' · '+receipt.article_count+' productos completados';
-    root.querySelector('#detected-store').value=receipt.store==='unknown'?'':STORE_NAMES[receipt.store]?receipt.store:'other';
-    root.querySelector('#detected-other').value=receipt.store.startsWith('other:')?receipt.store_name:'';
-    root.querySelector('#detected-total').value=receipt.total==null?'':String(receipt.total);
+    const shopSelect=root.querySelector('#detected-store');shopSelect.querySelectorAll('[data-shop]').forEach(n=>n.remove());for(const shop of this._session.shops){const option=new Option(shop.name,'shop:'+shop.id);option.dataset.shop='true';shopSelect.append(option);}shopSelect.value=receipt.shop_id&&this._session.shops.some(shop=>shop.id===receipt.shop_id)?'shop:'+receipt.shop_id:receipt.store==='unknown'?'':STORE_NAMES[receipt.store]?receipt.store:'other';
+    root.querySelector('#detected-other').value=receipt.store.startsWith('other:')||receipt.shop_id&&!this._session.shops.some(shop=>shop.id===receipt.shop_id)?receipt.store_name:'';
+    root.querySelector('#detected-total').value=receipt.total==null?'':String(receipt.total);const people=root.querySelector('#detected-shoppers');people.replaceChildren(...[...new Set([...(this._session.persons??[]),...(receipt.shoppers??[])])].map(person=>{const option=new Option(this._hass.states[person]?.attributes?.friendly_name??person,person);option.selected=(receipt.shoppers??[]).includes(person);return option;}));
     const candidates=receipt.needs_details?(receipt.zone_candidates??[]):[];
     const choices=root.querySelector('#detected-zone-candidates');choices.hidden=!candidates.length;
     const hint=root.querySelector('#detected-zone-help');hint.hidden=!candidates.length;hint.textContent=candidates.length===1?'Tienda propuesta por presencia en su zona. Puedes confirmarla o elegir otra.':'Se han registrado visitas a varias tiendas ese día. Selecciona dónde hiciste la compra.';
     choices.replaceChildren(...candidates.map(store=>{const name=STORE_NAMES[store]??store,button=node('button','zone-store-choice');button.type='button';button.dataset.store=store;button.setAttribute('aria-label',name);button.append(this._storeImage(store,name),node('span','',name));button.addEventListener('click',()=>{root.querySelector('#detected-store').value=store;this._detectedStoreFields();});return button;}));
-    root.querySelector('#detected-products').replaceChildren(...(receipt.completed_products??[]).map(product=>node('li','',product.name)));
+    const completed=new Set((receipt.completed_products??[]).map(p=>p.key));root.querySelector('#detected-products').replaceChildren(...(receipt.candidate_products??receipt.completed_products??[]).map(product=>{const li=node('li'),label=node('label','product-choice');if(product.key){const input=node('input');input.type='checkbox';input.dataset.productKey=product.key;input.checked=completed.has(product.key);label.append(input);}label.append(document.createTextNode(product.name));li.append(label);return li;}));
     root.querySelector('#detected-error').hidden=true;this._detectedStoreFields();root.querySelector('#detected-purchase-dialog').showModal();
   }
   async _saveDetectedPurchase(discard=false){
     if(this._busy||!this._detectedReceipt)return;const root=this.shadowRoot;this._setBusy(true);
     try{
       await this._hass.callWS({type:'improved_shopping_list/receipts/'+(discard?'discard_detection':'complete_detection'),receipt_id:this._detectedReceipt,
-        ...(discard?{}:{store:root.querySelector('#detected-store').value,total:Number(root.querySelector('#detected-total').value),store_name:root.querySelector('#detected-other').value})});
+        ...(discard?{}:{store:root.querySelector('#detected-store').value,total:Number(root.querySelector('#detected-total').value),store_name:root.querySelector('#detected-other').value,...(this._session.persons?.length?{shoppers:Array.from(root.querySelector('#detected-shoppers').selectedOptions,o=>o.value)}:{}),...(root.querySelector('#detected-products [data-product-key]')?{product_keys:Array.from(root.querySelectorAll('#detected-products input:checked'),n=>n.dataset.productKey)}:{})})});
       root.querySelector('#detected-purchase-dialog').close();this._detectedReceipt=null;await this._session.refresh();
     }catch(error){const message=root.querySelector('#detected-error');message.textContent=error.message??'No se ha podido guardar la compra.';message.hidden=false;}
     finally{this._setBusy(false);}
@@ -465,6 +471,7 @@ class ImprovedShoppingPurchases extends HTMLElement {
     catch(error){this._error=error.message??'No se ha podido abrir el ticket.';this._render();}
     finally{this._setBusy(false);}
   }
+  _receiptImage(receipt){if(!receipt.shop_image)return this._storeImage(receipt.store,receipt.store_name);const image=node('img','store-image');image.src=receipt.shop_image;image.alt=receipt.shop_name||receipt.store_name;image.referrerPolicy='no-referrer';image.onerror=()=>image.replaceWith(icon('mdi:store'));return image;}
   _storeImage(store,name){
     if(store==='unknown')return icon('mdi:help-circle-outline');
     if(!STORE_LOGOS[store])return icon('mdi:store');
@@ -487,14 +494,14 @@ class ImprovedShoppingPurchases extends HTMLElement {
     container.append(this._totalRow('Total',receipt.total));root.querySelector('#purchase-detail').showModal();
   }
   _renderSpendingChart(){
-    const chart=this.shadowRoot.querySelector('#spending-chart'),months=new Map(),stores=new Map();
+    const chart=this.shadowRoot.querySelector('#spending-chart'),months=new Map(),stores=new Map(),shopColors=new Map();
     for(const receipt of this._session.receipts){
+      if(this.shadowRoot.querySelector('#filter-shop').value&&(receipt.shop_id||receipt.store)!==this.shadowRoot.querySelector('#filter-shop').value||this.shadowRoot.querySelector('#filter-person').value&&!(receipt.shoppers??[]).includes(this.shadowRoot.querySelector('#filter-person').value))continue;
       const when=new Date(receipt.purchased_at),cents=Math.round(Number(receipt.total)*100);
       if(!Number.isFinite(when.getTime())||!Number.isFinite(cents)||cents<0)continue;
       const key=when.getFullYear()+'-'+String(when.getMonth()+1).padStart(2,'0');
       if(!months.has(key))months.set(key,{date:new Date(when.getFullYear(),when.getMonth(),1),total:0,stores:new Map()});
-      const month=months.get(key);if(receipt.total==null)continue;month.total+=cents;month.stores.set(receipt.store,(month.stores.get(receipt.store)||0)+cents);
-      stores.set(receipt.store,receipt.store_name);
+      const store=receipt.shop_id||receipt.store,month=months.get(key);if(receipt.total==null)continue;month.total+=cents;month.stores.set(store,(month.stores.get(store)||0)+cents);stores.set(store,receipt.shop_name||receipt.store_name);if(receipt.shop_color)shopColors.set(store,receipt.shop_color);
     }
     chart.hidden=!this._history;chart.replaceChildren();if(chart.hidden)return;
     const now=new Date(),latest=now.getFullYear()*12+now.getMonth();
@@ -508,7 +515,7 @@ class ImprovedShoppingPurchases extends HTMLElement {
     }
     const sortedStores=[...stores].sort((a,b)=>a[1].localeCompare(b[1],'es'));
     const palette=['#607d8b','#9e8048','#6978c8'];
-    const colors=new Map(sortedStores.map(([store],index)=>[store,STORE_COLORS[store]||palette[index%palette.length]]));
+    const colors=new Map(sortedStores.map(([store],index)=>[store,shopColors.get(store)||STORE_COLORS[store]||palette[index%palette.length]]));
     const heading=node('div','chart-heading'),navigation=node('div','chart-navigation');
     const previous=this._button('Mostrar seis meses anteriores','mdi:chevron-left',()=>{this._spendingOffset+=6;this._render();});
     const next=this._button('Mostrar seis meses siguientes','mdi:chevron-right',()=>{this._spendingOffset=Math.max(0,this._spendingOffset-6);this._render();});

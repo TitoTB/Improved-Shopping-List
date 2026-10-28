@@ -29,7 +29,7 @@ class TicketAccounts:
         if self._lock.locked():return
         async with self._lock:
             now=dt_util.now();detection=self.purchase_detection
-            if self._resolved_day==now.date().isoformat():return
+            if self._resolved_day==now.date().isoformat() and not (detection and 'shops' in getattr(detection,'zone_config',{})):return
             detected_today=bool(detection and detection.pending_for_today)
             sources={}
             for store,account in self.accounts.items():

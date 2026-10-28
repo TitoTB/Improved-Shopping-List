@@ -17,17 +17,19 @@ from .catalog import normalized_name
 from .catalog import CatalogError
 from .const import DOMAIN
 from .store_links import STORES
+from .purchase_visits import PurchaseVisits
 
 _LOGGER = logging.getLogger(__name__)
 
 
-class PurchaseDetection:
+class PurchaseDetection(PurchaseVisits):
     def __init__(self, hass, settings, receipts, activity, carrefour):
         self.hass, self.settings, self.receipts = hass, settings, receipts
         self.activity, self.carrefour = activity, carrefour
         self._store = Store(hass, 1, f"{DOMAIN}.purchase_detection", private=True)
         self._days, self._events, self._stops = {}, deque(), []
         self._visits = deque()
+        self._shop_visits, self._inside_since = deque(), {}
         self._active, self._dirty, self._task = False, False, None
         self._lock = asyncio.Lock()
         self._ticket_lock = asyncio.Lock()
@@ -47,8 +49,9 @@ class PurchaseDetection:
         if not self._active or not self.enabled:
             return False
         record = self._days.get(dt_util.now().date().isoformat(), {})
-        receipt = self.receipts.stock.receipts["history"].get(record.get("receipt_id"))
-        return bool(receipt and receipt.get("detected_purchase") and receipt.get("needs_details"))
+        return any((receipt := self.receipts.stock.receipts["history"].get(identifier)) and
+            receipt.get("detected_purchase") and receipt.get("needs_details")
+            for identifier in record.get("receipt_ids",[record.get("receipt_id")]))
 
     @callback
     def start(self):
@@ -71,11 +74,14 @@ class PurchaseDetection:
         if entity in config.get("persons", []):
             self._observe_presence(entity, event.data.get("new_state"))
             self._queue()
-        elif entity in {zone for zones in config.get("store_zones", {}).values() for zone in zones}:
+        elif entity in {zone for zones in config.get("store_zones", {}).values() for zone in zones} or entity in {zone for shop in config.get('shops',[]) for zone in shop['zones']}:
             self._queue()
 
     def _observe_presence(self, entity, state):
         config = self.zone_config
+        if 'shops' in config:
+            self._observe_shop_presence(entity,state)
+            return
         if not self.enabled or not config.get("zone_assignment") or not state or state.state in ("unknown","unavailable"):
             return
         day = dt_util.now().date().isoformat()
@@ -105,6 +111,8 @@ class PurchaseDetection:
         return person.state.casefold() == str(expected).casefold()
 
     def zone_stores(self, day=None):
+        if 'shops' in self.zone_config:
+            return sorted({shop['account'] for shop,_ in self.qualified_places(day) if shop['account']})
         if not self.enabled or not self.zone_config.get("zone_assignment"):
             return []
         day = day or dt_util.now().date().isoformat()
@@ -120,6 +128,11 @@ class PurchaseDetection:
         return sorted(stores, key=lambda store:(store not in visited, store != favorite, store))
 
     def _today_identified(self):
+        if 'shops' in self.zone_config:
+            record = self._days.get(dt_util.now().date().isoformat(),{})
+            history = self.receipts.stock.receipts['history']
+            ids = record.get('receipt_ids',[])
+            return bool(ids) and all(any(r.get('detection_id')==identifier or r.get('id')==identifier and not r.get('needs_details') for r in history.values()) for identifier in ids)
         identifier = self._days.get(dt_util.now().date().isoformat(), {}).get("receipt_id")
         if not identifier:
             return False
@@ -129,6 +142,8 @@ class PurchaseDetection:
 
     async def async_search_ticket_sources(self, sources):
         """Order available account connectors and stop after a confirmed purchase match."""
+        if 'shops' in self.zone_config:
+            sources = {store:source for store,source in sources.items() if self.ticket_scope(store)}
         async with self._ticket_lock:
             for store in self.ticket_search_order(sources):
                 await self.receipts.async_reconcile_detected_purchases()
@@ -177,6 +192,9 @@ class PurchaseDetection:
     async def async_check(self):
         async with self._lock:
             if not self._active:
+                return
+            if 'shops' in self.zone_config:
+                await self._check_places()
                 return
             if not self.enabled:
                 self._events.clear()

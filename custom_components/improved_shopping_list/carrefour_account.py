@@ -47,7 +47,7 @@ class CarrefourAccount:
         self._credentials_store = Store(hass, 1, f"{DOMAIN}.carrefour_credentials", private=True)
         self._credentials = {}
         self._options_store = Store(hass, 1, f"{DOMAIN}.carrefour_options", private=True)
-        self._options = {"history_enabled":False,"auto_ticket":False,"completion_at":0,"handled_completion":0,"ticket_day":""}
+        self._options = {"history_enabled":False,"auto_ticket":False,"completion_at":0,"handled_completion":0,"ticket_day":"","ticket_scopes":[]}
         self._background_task, self._timer_stop = None, None
         self._options_lock = asyncio.Lock()
         self._saved_options = None
@@ -174,12 +174,20 @@ class CarrefourAccount:
             self.activity.record("stores.account","Carrefour: no se ha podido guardar la revisión automática",source="automatic")
 
     def automatic_due(self,now,detected_today):
+        detection=getattr(self,'purchase_detection',None)
+        if detection and detection.enabled and 'shops' in getattr(detection,'zone_config',{}):
+            return bool(self._active and self._session.get('login_token') and self._options['auto_ticket'] and
+                set(detection.ticket_scope('carrefour'))-set(self._options['ticket_scopes']))
         return bool(self._active and self._session.get("login_token") and self._options["auto_ticket"] and
             self._options["ticket_day"]!=now.date().isoformat() and self._options["completion_at"]>self._options["handled_completion"] and
             (detected_today or now.strftime("%H:%M")>=self.settings.snapshot["price_update_time"]))
 
     async def async_automatic_ticket(self,now,detected_today):
         if not self.automatic_due(now,detected_today):return False
+        detection=getattr(self,'purchase_detection',None)
+        if detection and 'shops' in getattr(detection,'zone_config',{}):
+            day=now.date().isoformat()
+            self._options['ticket_scopes']=list(dict.fromkeys([scope for scope in self._options['ticket_scopes'] if day in scope]+detection.ticket_scope('carrefour')))
         self._options["ticket_day"]=now.date().isoformat();await self._save_options()
         try:
             found=await self._download_automatic_ticket("automatic_carrefour",now,detected_today)
@@ -191,6 +199,19 @@ class CarrefourAccount:
     async def _download_automatic_ticket(self, owner, now, detected_today):
         result=await self.async_purchases(owner)
         candidates = result["purchases"]
+        detection=getattr(self,'purchase_detection',None)
+        if detection and detection.enabled and 'shops' in getattr(detection,'zone_config',{}):
+            found=False
+            for purchase in candidates[:100]:
+                date=dt_util.parse_datetime(purchase['purchased_at'])
+                if not date or dt_util.as_local(date if date.tzinfo else date.replace(tzinfo=dt_util.DEFAULT_TIME_ZONE)).date()!=now.date() or not purchase['reviewable']:continue
+                cached=self._purchases[purchase['id']]
+                if not self.receipts.account_ticket_available(cached['id']):
+                    draft=await self.async_preview(owner,purchase['id'])
+                    if self._active and self._options['auto_ticket']:await self.receipts.async_archive_account_ticket(draft['token'],owner)
+                    else:self.receipts.discard(draft['token'],owner)
+                found=True
+            return found
         if detected_today:
             def same_day(purchase):
                 date = dt_util.parse_datetime(purchase["purchased_at"])

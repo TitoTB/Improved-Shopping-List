@@ -39,7 +39,9 @@ class ReceiptManager:
     @property
     def snapshot(self):
         return {"receipts":sorted(deepcopy(list(self.stock.receipts["history"].values())),
-            key=lambda receipt:receipt["purchased_at"], reverse=True)}
+            key=lambda receipt:receipt["purchased_at"], reverse=True),
+            "shops":deepcopy(getattr(self,'settings',None).snapshot['purchase_detection'].get('shops',[])) if getattr(self,'settings',None) else [],
+            "persons":list(self.settings.snapshot['purchase_detection'].get('persons',[])) if getattr(self,'settings',None) else []}
 
     @staticmethod
     def _account_key(reference, store="carrefour"):
@@ -115,10 +117,12 @@ class ReceiptManager:
         day = self._purchase_day(detected)
         if day is None or day != self._purchase_day(receipt) or receipt.get("detected_purchase"):
             return False
+        if detected.get('shop_id') and detected.get('account') != receipt.get('store'):
+            return False
         if not detected.get("needs_details") and (detected["store"] != receipt["store"] or
                 abs(detected["total"]-receipt["total"]) > .01):
             return False
-        completed = detected.get("completed_products", [])
+        completed = detected.get("completed_products", []) or (detected.get('candidate_products',[]) if detected.get('shop_id') else [])
         ids = {item.get("product_id") for item in completed if item.get("product_id")}
         names = {normalized_name(item.get("name", "")) for item in completed if normalized_name(item.get("name", ""))}
         products = {product["id"]:product for product in self.stock.catalog.products}
@@ -138,7 +142,11 @@ class ReceiptManager:
                     if not receipt.get("detection_id") and self._detection_matches(detected,receipt)]
                 if len(candidates) == 1:
                     candidate = candidates[0]
+                    if detected.get('purchase_group') and sum(self._detection_matches(other,candidate) for other in data['history'].values() if other.get('detected_purchase')) != 1:
+                        continue
                     candidate["detection_id"] = detected["id"]
+                    for key in ('shop_id','shop_name','shop_image','shop_color','shoppers','purchase_group','completed_products'):
+                        if key in detected:candidate[key]=deepcopy(detected[key])
                     data["history"].pop(detected["id"])
                     reconciled.append(detected["id"])
             if reconciled:
@@ -146,6 +154,41 @@ class ReceiptManager:
         if reconciled and getattr(self.stock,"activity",None):
             self.stock.activity.record("purchase.detected.matched", "Compra detectada vinculada a su ticket", source="automatic")
         return reconciled
+
+    async def async_save_purchase_group(self, day, groups, products):
+        """Upsert physical-store detections without duplicating allocated products."""
+        async with self.stock._lock:
+            data = deepcopy(self.stock.receipts)
+            history = data['history']
+            claimed = {p['key'] for receipt in history.values() if receipt.get('purchase_group')==day
+                and (receipt.get('allocation_confirmed') or not receipt.get('detected_purchase'))
+                for p in receipt.get('completed_products',[]) if p.get('key')}
+            wanted = {group['id'] for group in groups}
+            for identifier,receipt in list(history.items()):
+                if receipt.get('purchase_group')==day and receipt.get('detected_purchase') and receipt.get('needs_details') and not receipt.get('allocation_confirmed') and identifier not in wanted:
+                    history.pop(identifier)
+            for group in groups:
+                identifier, shop = group['id'], group['shop']
+                if identifier in data.get('coverage',{}).get('dismissed_detections',[]):continue
+                if any(r.get('detection_id')==identifier for r in history.values()):continue
+                previous = history.get(identifier)
+                if shop is None and not any(p.get('key') not in claimed for p in group['products']) and any(g['shop'] for g in groups):
+                    if previous and previous.get('needs_details') and not previous.get('allocation_confirmed'):history.pop(identifier)
+                    continue
+                if previous and (not previous.get('needs_details') or previous.get('allocation_confirmed')):continue
+                if not previous and len(history)>=1000:raise CatalogError('El historial ha alcanzado las 1000 compras.')
+                store = (shop['account'] or 'shop:'+shop['id']) if shop else 'unknown'
+                history[identifier] = {**(previous or {}),'id':identifier,'digest':identifier,'detected_purchase':True,
+                    'needs_details':True,'summary_only':True,'store':store,'store_name':shop['name'] if shop else 'Tienda desconocida',
+                    'shop_id':shop['id'] if shop else '', 'shop_name':shop['name'] if shop else '',
+                    'shop_image':shop['image_url'] if shop else '', 'shop_color':shop['color'] if shop else '#64748b',
+                    'account':shop['account'] if shop else '', 'shoppers':group['shoppers'],'purchase_group':day,
+                    'purchased_at':group['purchased_at'],'currency':'EUR','total':None,'lines':[],
+                    'completed_products':[deepcopy(p) for p in group['products'] if p.get('key') not in claimed],
+                    'candidate_products':[deepcopy(p) for p in products if p.get('key') not in claimed],
+                    'article_count':len([p for p in group['products'] if p.get('key') not in claimed]),
+                    'allocation_pending':len(groups)>1,'imported_at':(previous or {}).get('imported_at',time.time())}
+            if data != self.stock.receipts:await self.stock._persist(deepcopy(self.stock._items),receipts=data)
 
     async def async_save_detected_purchase(self, identifier, purchased_at, products, *, zone_stores=None):
         """Save a detection summary only; completion already handled stock replenishment."""
@@ -171,11 +214,15 @@ class ReceiptManager:
                 await self.stock._persist(deepcopy(self.stock._items),receipts=data)
             return deepcopy(receipt)
 
-    async def async_complete_detected_purchase(self, identifier, store, total, store_name=""):
-        if (store not in {*STORES,"other"} or type(total) not in (int,float) or
+    async def async_complete_detected_purchase(self, identifier, store, total, store_name="", product_keys=None, shoppers=None):
+        places = getattr(self,'settings',None).snapshot['purchase_detection'].get('shops',[]) if getattr(self,'settings',None) else []
+        shop = next((p for p in places if store=='shop:'+p['id']),None)
+        if (store not in {*STORES,"other"} and shop is None or type(total) not in (int,float) or
                 not math.isfinite(total) or not 0 <= total <= 1000000 or abs(total-round(total,2)) > .000001):
             raise CatalogError("Selecciona una tienda e indica un importe válido con hasta dos decimales.")
-        if store == "other":
+        if shop:
+            store_name=shop['name'];store=shop['account'] or 'shop:'+shop['id']
+        elif store == "other":
             if not isinstance(store_name,str) or not 1 <= len(store_name.strip()) <= 100:
                 raise CatalogError("Indica el nombre de la tienda.")
             store_name = store_name.strip()
@@ -187,6 +234,25 @@ class ReceiptManager:
             receipt = data["history"].get(identifier)
             if not receipt or not receipt.get("detected_purchase"):
                 raise CatalogError("Esta compra detectada ya no está pendiente o se ha sustituido por un ticket.","conflict")
+            if shop:
+                receipt.update(shop_id=shop['id'],shop_name=shop['name'],shop_image=shop['image_url'],shop_color=shop['color'],account=shop['account'])
+            elif receipt.get('shop_id'):
+                for key in ('shop_id','shop_name','shop_image','shop_color','account'):receipt.pop(key,None)
+            if shoppers is not None:
+                allowed = set(getattr(self,'settings',None).snapshot['purchase_detection'].get('persons',[])) if getattr(self,'settings',None) else set()
+                if not isinstance(shoppers,list) or any(person not in allowed for person in shoppers):raise CatalogError('Selecciona compradores válidos.')
+                receipt['shoppers']=list(dict.fromkeys(shoppers))
+            if product_keys is not None:
+                candidates={p['key']:p for p in receipt.get('candidate_products',[]) if p.get('key')}
+                if not isinstance(product_keys,list) or len(product_keys)!=len(set(product_keys)) or any(key not in candidates for key in product_keys):raise CatalogError('La selección de productos ha cambiado. Vuelve a abrir la compra.')
+                claimed={p['key'] for r in data['history'].values() if r['id']!=identifier and r.get('purchase_group')==receipt.get('purchase_group') and r.get('allocation_confirmed') for p in r.get('completed_products',[]) if p.get('key')}
+                if claimed.intersection(product_keys):raise CatalogError('Algún producto ya está asignado a otra compra.')
+                receipt.update(completed_products=[deepcopy(candidates[key]) for key in product_keys],article_count=len(product_keys),allocation_confirmed=True,allocation_pending=False)
+                for r in data['history'].values():
+                    if r['id']!=identifier and r.get('purchase_group')==receipt.get('purchase_group') and r.get('detected_purchase') and not r.get('allocation_confirmed'):
+                        r['completed_products']=[p for p in r.get('completed_products',[]) if p.get('key') not in product_keys]
+                        r['candidate_products']=[p for p in r.get('candidate_products',[]) if p.get('key') not in product_keys]
+                        r['article_count']=len(r['completed_products'])
             receipt.update(store=store,store_name=store_name,total=round(total,2),needs_details=False,provisional_store=False)
             # This is explicit user confirmation, not an automatic product inference.
             matches = [other for other in data["history"].values() if not other.get("detected_purchase") and
@@ -194,6 +260,8 @@ class ReceiptManager:
                 abs(other["total"]-receipt["total"]) <= .01 and self._purchase_day(other)==self._purchase_day(receipt)]
             if len(matches)==1 and not matches[0].get("detection_id"):
                 matches[0]["detection_id"]=identifier
+                for key in ('shop_id','shop_name','shop_image','shop_color','shoppers','purchase_group','completed_products'):
+                    if key in receipt:matches[0][key]=deepcopy(receipt[key])
                 data["history"].pop(identifier)
                 receipt=matches[0]
             await self.stock._persist(deepcopy(self.stock._items),receipts=data)
@@ -208,6 +276,9 @@ class ReceiptManager:
             if not receipt or not receipt.get("detected_purchase"):
                 raise CatalogError("Esta compra detectada ya no está disponible.","conflict")
             data["history"].pop(identifier)
+            if receipt.get('purchase_group'):
+                data.setdefault('coverage',{}).setdefault('dismissed_detections',[]).append(identifier)
+                data['coverage']['dismissed_detections']=data['coverage']['dismissed_detections'][-1000:]
             await self.stock._persist(deepcopy(self.stock._items),receipts=data)
         return {"removed":True}
 
@@ -398,6 +469,8 @@ class ReceiptManager:
                 data, items = deepcopy(self.stock.receipts), deepcopy(self.stock._items)
                 summary = self._summary_match(receipt,data["history"])
                 if summary:
+                    for key in ("detection_id","shop_id","shop_name","shop_image","shop_color","shoppers","purchase_group","completed_products"):
+                        if key in summary:receipt[key]=deepcopy(summary[key])
                     data["history"].pop(summary["id"])
                 if len(data["history"]) >= 1000:
                     raise CatalogError("El historial ha alcanzado los 1000 tickets.")

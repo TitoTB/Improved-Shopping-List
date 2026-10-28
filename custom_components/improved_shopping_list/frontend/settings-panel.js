@@ -1,3 +1,4 @@
+import "./shopping-places.js?v=0.41.0";
 import "./dia-prices-settings.js?v=0.41.0";
 import "./alcampo-settings.js?v=0.41.0";
 import "./carrefour-account.js?v=0.41.0";
@@ -198,7 +199,7 @@ class ImprovedShoppingSettings extends HTMLElement {
         <div class="add-row"><div class="select-wrap"><label for="todo-entity">Entidad todo</label><select id="todo-entity"></select></div><button id="add-list" class="primary">Añadir lista</button></div>
         <div id="configured-lists" class="lists"></div>
         <p id="settings-empty" hidden>No hay listas añadidas. Añade una entidad todo para empezar.</p>
-        <div class="purchase-detection-settings"><h3>Detección automática de compra</h3><form id="purchase-detection-form"><label class="detection-row" for="purchase-detection-enabled">Activar detección automática<input id="purchase-detection-enabled" class="store-toggle" type="checkbox" role="switch"></label><label class="detection-row" for="purchase-detection-threshold">Más de X productos completados en un día<input id="purchase-detection-threshold" type="number" min="1" max="1000" step="1" value="5" required></label><label class="detection-row" for="purchase-zone-assignment">Asignación de tienda basada en zona<input id="purchase-zone-assignment" class="store-toggle" type="checkbox" role="switch"></label><label class="detection-row" id="purchase-persons-label" for="purchase-zone-persons">Personas<select id="purchase-zone-persons" multiple size="4" aria-label="Personas para asignación por zona"></select></label><p id="purchase-zone-help" class="helper">Selecciona las personas y guarda. Después asigna una o varias zonas en el popup de cada tienda. Se registran las visitas desde la activación; la tienda será provisional hasta confirmarla o identificar un ticket.</p><p class="helper">Se suman todas las listas y se registra una compra por día en Analítica → Compras. Si no se identifica un ticket coincidente, podrás indicar la tienda y el importe. No vuelve a reponer Stock. Para consultar Carrefour, activa «Descargar ticket automáticamente» en su cuenta.</p><div class="appearance-actions"><button class="primary" id="save-purchase-detection" type="submit">Guardar</button></div></form></div>
+        <div class="purchase-detection-settings"><h3>Detección automática de compra</h3><form id="purchase-detection-form"><label class="detection-row" for="purchase-detection-enabled">Activar detección automática<input id="purchase-detection-enabled" class="store-toggle" type="checkbox" role="switch"></label><label class="detection-row" for="purchase-detection-threshold">Más de X productos completados en un día<input id="purchase-detection-threshold" type="number" min="1" max="1000" step="1" value="5" required></label><label class="detection-row" for="purchase-zone-assignment">Asignación de tienda basada en zona<input id="purchase-zone-assignment" class="store-toggle" type="checkbox" role="switch"></label><label class="detection-row" id="purchase-persons-label" for="purchase-zone-persons">Personas<select id="purchase-zone-persons" multiple size="4" aria-label="Personas para asignación por zona"></select></label><p id="purchase-zone-help" class="helper">Selecciona las personas y guarda. Después asigna una o varias zonas en el popup de cada tienda. Se registran las visitas desde la activación; la tienda será provisional hasta confirmarla o identificar un ticket.</p><label class="detection-row" for="purchase-minimum-minutes">Permanencia mínima en la zona (minutos)<input id="purchase-minimum-minutes" type="number" min="1" max="1440" step="1" value="5" required></label><p class="helper">Se suman todas las listas. Si varias tiendas cumplen la permanencia mínima, se registran compras separadas en Analítica → Compras. Si no se identifica un ticket coincidente, podrás indicar la tienda y el importe. No vuelve a reponer Stock. Para consultar Carrefour, activa «Descargar ticket automáticamente» en su cuenta.</p><div class="appearance-actions"><button class="primary" id="save-purchase-detection" type="submit">Guardar</button></div></form></div>
       </section>
 
       <section id="settings-notifications" hidden><isl-notification-settings></isl-notification-settings></section>
@@ -354,7 +355,7 @@ class ImprovedShoppingSettings extends HTMLElement {
     });
     root.querySelector("#price-schedule-form").addEventListener("submit",event=>{event.preventDefault();void this._savePriceSchedule();});
     root.querySelector('#purchase-detection-form').addEventListener('input',()=>{this._purchaseDetectionDirty=true;this._render();});
-    root.querySelector('#purchase-detection-form').addEventListener('submit',event=>{event.preventDefault();const config={...this._data.settings.purchaseDetection,enabled:root.querySelector('#purchase-detection-enabled').checked,threshold:Number(root.querySelector('#purchase-detection-threshold').value),zone_assignment:root.querySelector('#purchase-zone-assignment').checked,persons:Array.from(root.querySelector('#purchase-zone-persons').selectedOptions,option=>option.value)};void this._saveRetailSettings(async()=>{await this._data.settings.savePurchaseDetection(config);this._purchaseDetectionDirty=false;});});
+    root.querySelector('#purchase-detection-form').addEventListener('submit',event=>{event.preventDefault();const config={...this._data.settings.purchaseDetection,enabled:root.querySelector('#purchase-detection-enabled').checked,threshold:Number(root.querySelector('#purchase-detection-threshold').value),minimum_minutes:Number(root.querySelector('#purchase-minimum-minutes').value),zone_assignment:root.querySelector('#purchase-zone-assignment').checked,persons:Array.from(root.querySelector('#purchase-zone-persons').selectedOptions,option=>option.value)};void this._saveRetailSettings(async()=>{await this._data.settings.savePurchaseDetection(config);this._purchaseDetectionDirty=false;});});
     root.querySelector("#close-prices-progress").addEventListener("click",()=>root.querySelector("#prices-progress-dialog").close());
     root.querySelector("#prices-progress-dialog").addEventListener("close",()=>clearInterval(this._pricesProgressTimer));
     root.querySelector("#alcampo-enabled").addEventListener("change",()=>void this._saveRetailSettings(()=>this._data.settings.setStoreEnabled("alcampo",root.querySelector("#alcampo-enabled").checked)));
@@ -415,7 +416,15 @@ class ImprovedShoppingSettings extends HTMLElement {
     const admin = hass?.user?.is_admin === true;
     const locked = !admin || !settings.loaded || settings.loading || this._busy;
     const detection=settings.purchaseDetection??{enabled:false,threshold:5};
-    if(!this._purchaseDetectionDirty){root.querySelector('#purchase-detection-enabled').checked=detection.enabled;root.querySelector('#purchase-detection-threshold').value=String(detection.threshold);root.querySelector('#purchase-zone-assignment').checked=Boolean(detection.zone_assignment);}
+    const universal=Array.isArray(detection.shops);
+    if(universal&&!root.querySelector('isl-shopping-places')){
+      const places=document.createElement('isl-shopping-places');root.querySelector('#settings-stores').append(places);
+      const users=document.createElement('section');users.className='purchase-users';users.style.marginTop='28px';
+      const heading=document.createElement('h3');heading.textContent='Usuarios';users.append(heading,root.querySelector('.purchase-detection-settings'));root.querySelector('#settings-stores').append(users);
+    }
+    if(universal){root.querySelector('#settings-stores-title').textContent='Cuentas';root.querySelector('isl-shopping-places').data=this._data;root.querySelector('#purchase-zone-help').textContent='Selecciona las personas que realizan las compras. Solo se tendrán en cuenta visitas que alcancen la permanencia mínima configurada.';}
+
+    if(!this._purchaseDetectionDirty){root.querySelector('#purchase-detection-enabled').checked=detection.enabled;root.querySelector('#purchase-detection-threshold').value=String(detection.threshold);root.querySelector('#purchase-zone-assignment').checked=Boolean(detection.zone_assignment);root.querySelector('#purchase-minimum-minutes').value=String(detection.minimum_minutes??5);}
     const people=root.querySelector('#purchase-zone-persons');
     this._entityChoices(people,'person',this._purchaseDetectionDirty?Array.from(people.selectedOptions,option=>option.value):detection.persons??[]);
     const zonesEnabled=root.querySelector('#purchase-zone-assignment').checked;
@@ -436,7 +445,7 @@ class ImprovedShoppingSettings extends HTMLElement {
     this._renderGlobalPriceProgress();
     for (const store of ["mercadona", "carrefour", "alcampo", "consum", "lasirena", "eroski", "dia"]) {
       root.querySelector(`#${store}-enabled`).closest(".store-row").dataset.enabled = String(Boolean(settings.stores?.[store]?.enabled));
-      const available=(settings.availableStores??["mercadona","carrefour","consum","lasirena","eroski"]).includes(store);
+      const available=universal?store==="carrefour":(settings.availableStores??["mercadona","carrefour","consum","lasirena","eroski"]).includes(store);
       root.querySelector(`#${store}-enabled`).closest(".store-row").hidden=!available;
       if(!available){
         const dialog=root.querySelector(store==='mercadona'?'#store-dialog':`#${store}-dialog`);
@@ -701,7 +710,7 @@ class ImprovedShoppingSettings extends HTMLElement {
   _renderZoneSettings(locked) {
     const config=this._data.settings.purchaseDetection??{};
     for(const section of this.shadowRoot.querySelectorAll('.zone-settings')){
-      section.hidden=!config.zone_assignment;
+      section.hidden=Array.isArray(config.shops)||!config.zone_assignment;
       const select=section.querySelector('select');
       this._entityChoices(select,'zone',section.dataset.dirty?Array.from(select.selectedOptions,option=>option.value):config.store_zones?.[section.dataset.store]??[]);
       select.disabled=locked;section.querySelector('button').disabled=locked;

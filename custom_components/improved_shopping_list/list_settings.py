@@ -15,6 +15,7 @@ from .notification_settings import notification_options, normalize_notifications
 from .regional_stores import REGIONAL_STORES
 from .store_location import REFERENCE_LOCATIONS, reference_location
 from . import store_availability
+from .shopping_places import normalize_places
 
 DEFAULT_APPEARANCE = {
     "gradient_start": "#ee524f", "gradient_end": "#b52a27",
@@ -24,7 +25,7 @@ DEFAULT_APPEARANCE = {
     "recipe_gradient_start": "#66bb6a", "recipe_gradient_end": "#2e7d32",
     "stock_gradient_start": "#f59a23", "stock_gradient_end": "#c65b0c",
 }
-DEFAULT_PURCHASE_DETECTION = {"enabled":False,"threshold":5,"zone_assignment":False,"persons":[],"store_zones":{}}
+DEFAULT_PURCHASE_DETECTION = {"enabled":False,"threshold":5,"zone_assignment":False,"persons":[],"store_zones":{},"minimum_minutes":5,"shops":[]}
 DEFAULT_STORES = {store: {"enabled": False, **reference_location(store)} for store in REFERENCE_LOCATIONS}
 
 
@@ -53,8 +54,15 @@ def list_options(entry: ConfigEntry) -> dict:
     """Read older entries without losing their configured default."""
     primary = entry.options.get(CONF_TODO_ENTITY, entry.data[CONF_TODO_ENTITY])
     entities = list(entry.options.get(CONF_TODO_ENTITIES, [primary] if primary else []))
+    saved_detection = entry.options.get('purchase_detection',{})
+    detection = {**deepcopy(DEFAULT_PURCHASE_DETECTION), **deepcopy(saved_detection)}
+    if 'shops' not in saved_detection:
+        names={'carrefour':'Carrefour','alcampo':'Alcampo','mercadona':'Mercadona','consum':'Consum','dia':'DIA','eroski':'Eroski','lasirena':'La Sirena'}
+        detection['shops']=[{'id':'legacy-'+store,'name':names.get(store,store),'image_url':'','color':'#267052',
+            'account':'carrefour' if store=='carrefour' else '', 'zones':zones}
+            for store,zones in detection.get('store_zones',{}).items() if zones]
     return {"entities": entities, "primary_entity": primary if primary in entities else next(iter(entities), ""),
-            "purchase_detection": {**DEFAULT_PURCHASE_DETECTION, **entry.options.get("purchase_detection", {})},
+            "purchase_detection": detection,
             "gateway_lists": deepcopy(entry.options.get("gateway_lists", [])),
             "notifications": notification_options(entry.options.get("notifications")),
             "appearance": {**DEFAULT_APPEARANCE, **entry.options.get("appearance", {})},
@@ -228,6 +236,12 @@ class ListSettings:
                 type(data["enabled"]) is not bool or type(data["threshold"]) is not int or not 1 <= data["threshold"] <= 1000):
             raise ListSettingsError("Indica un umbral entre 1 y 1000 productos.")
         config = {**deepcopy(DEFAULT_PURCHASE_DETECTION), **self.snapshot["purchase_detection"], **deepcopy(data)}
+        if type(config['minimum_minutes']) is not int or not 1 <= config['minimum_minutes'] <= 1440:
+            raise ListSettingsError('Indica una permanencia mínima entre 1 y 1440 minutos.')
+        try:
+            config['shops'] = normalize_places(config['shops'])
+        except ValueError as err:
+            raise ListSettingsError(str(err)) from err
         persons, zones = config["persons"], config["store_zones"]
         if (type(config["zone_assignment"]) is not bool or not isinstance(persons,list) or len(persons)>50 or
                 any(not isinstance(entity,str) or not re.fullmatch(r"person\.[a-z0-9_]+",entity) for entity in persons) or

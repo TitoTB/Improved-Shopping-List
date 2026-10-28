@@ -2,6 +2,10 @@
 
 ## Sin publicar
 
+- Compras universales: Cuentas, Tiendas físicas y Usuarios en Ajustes → Tiendas; nombre, imagen, color, zonas y cuenta vinculada por establecimiento.
+- Permanencia mínima configurable (5 minutos inicialmente) y varios registros diarios cuando distintas tiendas cumplen el criterio. Compradores asociados, reparto de productos sin duplicarlos y filtros por tienda y usuario en Compras.
+- Un intento de descarga por nueva compra detectada en una tienda vinculada, persistido antes de consultar Carrefour. Los tickets conservan la tienda física y compradores al sustituir la detección.
+
 - Alcampo se retira también de Ajustes → Tiendas y sus consultas automáticas quedan detenidas. Se conservan su código, opciones, vinculaciones, precios y planificación para una posible reactivación.
 - Alcampo y DIA no cuentan como tiendas activas ni favoritas; las demás tiendas permanecen disponibles.
 

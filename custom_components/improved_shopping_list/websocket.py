@@ -1179,12 +1179,12 @@ def ws_purchase_detection_settings(hass, connection, msg):
 
 @websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/receipts/complete_detection",
     vol.Required("receipt_id"):str, vol.Required("store"):str, vol.Required("total"):vol.Any(int,float),
-    vol.Optional("store_name",default=""):str})
+    vol.Optional("store_name",default=""):str, vol.Optional('product_keys'): [str], vol.Optional('shoppers'): [str]})
 @websocket_api.require_admin
 @websocket_api.async_response
 async def ws_detected_purchase_complete(hass, connection, msg):
     await _receipt_operation(hass,connection,msg,lambda manager,owner:manager.async_complete_detected_purchase(
-        msg["receipt_id"],msg["store"],msg["total"],msg["store_name"]))
+        msg["receipt_id"],msg["store"],msg["total"],msg["store_name"],msg.get('product_keys'),msg.get('shoppers')))
 
 
 @websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/receipts/discard_detection",vol.Required("receipt_id"):str})

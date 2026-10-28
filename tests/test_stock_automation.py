@@ -59,6 +59,19 @@ async def test_incompatible_purchase_units_keep_configured_stock_refill(env):
     assert env.stock.snapshot["items"][0]["quantity"] == 270
 
 
+async def test_two_line_completion_replenishes_the_matching_variant_only(env):
+    await env.catalog.async_save_product({'name':'Leche de avena'})
+    milk=await env.stock.async_add('Leche de avena')
+    env.settings.snapshot['description_as_name']={'todo.main':True}
+    env.manager.quantities=SimpleNamespace(value=lambda *_args:{'quantity':2,'unit':'uds'})
+    native=TodoItem(uid='milk',summary='Leche',description='de avena',status=TodoItemStatus.NEEDS_ACTION)
+    env.todo.todo_items=[native];env.todo.publish()
+    native.status=TodoItemStatus.COMPLETED;env.todo.publish();await env.manager.async_check()
+    amounts={item['id']:item['quantity'] for item in env.stock.snapshot['items']}
+    assert amounts[milk['id']] == 3 and amounts[env.item['id']] == 1
+    assert native.summary == 'Leche' and native.description == 'de avena'
+
+
 async def test_list_purchase_replenishes_manually_added_stock_without_enabling_other_automation(env):
     assert env.item["configured"] is False
     env.manager.quantities=SimpleNamespace(value=lambda *_args:{"quantity":3,"unit":"uds"})

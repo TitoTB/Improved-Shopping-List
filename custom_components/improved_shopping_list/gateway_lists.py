@@ -14,6 +14,7 @@ from homeassistant.helpers.storage import Store
 from .catalog import normalized_name
 from .const import CONF_TODO_ENTITIES, DOMAIN
 from .list_settings import ListSettingsError
+from .todo_names import named_item
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -139,7 +140,7 @@ class GatewayLists:
     def _receive(self, source, items):
         if not self._active or items is None or source not in self.configs:
             return
-        current = self._snapshot([serialize_todo_item(item) for item in items])
+        current = self._snapshot([named_item(self.settings, source, serialize_todo_item(item)) for item in items])
         state = self._state.get(source)
         if state is None:
             self._state[source] = {"seen": current, "pending": {}}
@@ -187,7 +188,7 @@ class GatewayLists:
         items = result.get(entity_id, {}).get("items") if isinstance(result, dict) else None
         if not isinstance(items, list):
             raise ListSettingsError(f"No se pudo comprobar el contenido de {entity_id}.")
-        return items
+        return [named_item(self.settings, entity_id, item) for item in items]
 
     def _current(self, source, config, uid, pending):
         return (self._active and self.configs.get(source) == config

@@ -10,6 +10,24 @@ from custom_components.improved_shopping_list.stores import StoreError
 from custom_components.improved_shopping_list.notification_settings import DEFAULT_NOTIFICATIONS
 
 
+async def test_bring_name_policy_uses_registry_and_persists_explicit_overrides(hass):
+    from homeassistant.helpers import entity_registry as er
+    registry=er.async_get(hass)
+    bring=registry.async_get_or_create('todo','bring','two-line-list',suggested_object_id='my_groceries')
+    local=registry.async_get_or_create('todo','shopping_list','local-list',suggested_object_id='local_notes')
+    for entity_id in (bring.entity_id,local.entity_id):hass.states.async_set(entity_id,'0')
+    entry=MockConfigEntry(domain=DOMAIN,data={CONF_TODO_ENTITY:bring.entity_id},options={CONF_TODO_ENTITIES:[bring.entity_id,local.entity_id]})
+    entry.add_to_hass(hass)
+    settings=ListSettings(hass);settings.attach(entry)
+    assert settings.snapshot['description_as_name'] == {bring.entity_id:True}
+    settings.update_name_mode(bring.entity_id,False)
+    settings.update_name_mode(local.entity_id,True)
+    restored=ListSettings(hass);restored.attach(entry)
+    assert restored.snapshot['description_as_name'] == {bring.entity_id:False,local.entity_id:True}
+    with pytest.raises(ListSettingsError):restored.update_name_mode('todo.missing',True)
+    with pytest.raises(ListSettingsError):restored.update_name_mode(local.entity_id,1)
+
+
 async def test_price_preferences_random_once_and_persisted(hass,monkeypatch):
     monkeypatch.setattr(settings_module,"randbelow",lambda maximum:1439)
     entry=MockConfigEntry(domain=DOMAIN,data={CONF_TODO_ENTITY:"todo.bring"})

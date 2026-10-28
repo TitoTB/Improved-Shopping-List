@@ -13,6 +13,7 @@ from homeassistant.helpers.event import async_track_time_interval
 from homeassistant.helpers.storage import Store
 
 from .const import DOMAIN
+from .todo_names import item_name
 from .catalog import normalized_name, code_key, product_codes
 from .stock import stock_needs_reorder
 from .notification_settings import RESERVED_SERVICES
@@ -110,7 +111,7 @@ class NotificationManager:
             if state is None or state.state in ("unknown", "unavailable") or items is None:
                 return None  # Do not rearm from an incomplete list snapshot.
             for item in items:
-                name = str(item.get("summary", "")).strip()
+                name = item_name(settings, entity_id, item).strip()
                 key = normalized_name(name)
                 if key and key not in excluded:
                     names.setdefault(key, name)
@@ -135,7 +136,7 @@ class NotificationManager:
                 result.append(("shopping_list:"+entity_id, "shopping_list", entity_id, None))
             else:
                 result.append(("shopping_list:"+entity_id, "shopping_list", entity_id,
-                               [item.get("summary", "") for item in items if item.get("status") == "needs_action"]))
+                               [item_name(settings, entity_id, item) for item in items if item.get("status") == "needs_action"]))
         result.append(("low_stock", "low_stock", "", [item["name"] for item in self.stock.snapshot["items"] if stock_needs_reorder(item)]))
         if settings["notifications"]["catalog_new"]["enabled"]:
             result.append(("catalog_new", "catalog_new", "", self._catalog_candidates(settings)))

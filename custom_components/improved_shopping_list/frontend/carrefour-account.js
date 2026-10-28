@@ -1,4 +1,5 @@
-import { installDialogCloseButtons } from "./dialog-controls.js?v=0.42.0";
+import { installDialogCloseButtons } from "./dialog-controls.js?v=0.43.0";
+import { installToggleStyles } from "./toggle-styles.js?v=0.43.0";
 export class CarrefourAccountPanel extends HTMLElement {
   get providerId(){return "carrefour";}
   get providerName(){return "Carrefour";}
@@ -30,7 +31,7 @@ export class CarrefourAccountPanel extends HTMLElement {
       <p id="login-error" class="error" role="alert" hidden></p><p id="login-status" role="status"></p>
     </dialog>
 `;
-    const r=this.shadowRoot;installDialogCloseButtons(r);
+    const r=this.shadowRoot;installDialogCloseButtons(r);installToggleStyles(r);
     r.querySelectorAll('dialog').forEach(d=>d.addEventListener('cancel',e=>{if(this._busy)e.preventDefault();}));
     r.querySelector('#login-dialog').addEventListener('close',()=>{r.querySelector('#password').value='';r.querySelector('#code').value='';});
     r.querySelector('#connect').addEventListener('click',()=>{if(this._status.connected){void this._action('disconnect');return;}this._error='';this._editingPassword=false;r.querySelector('#username').value=this._status.remembered_email||'';r.querySelector('#password').value='';r.querySelector('#remember-credentials').checked=Boolean(this._status.credentials_saved);this._credentialFields();this._render();r.querySelector('#login-dialog').showModal();});

@@ -1,3 +1,4 @@
+import { installToggleStyles } from './toggle-styles.js?v=0.43.0';
 class AlcampoSettings extends HTMLElement {
   constructor(){super();this.attachShadow({mode:'open'});this._status={search_enabled:false,refresh_enabled:false,days:30};this._generation=0;this._products=[];}
   set hass(value){this._hass=value;if(!this._built)this._build();this._render();}
@@ -30,6 +31,7 @@ class AlcampoSettings extends HTMLElement {
       @media(max-width:420px){.row{gap:10px;font-size:.9em}.period{gap:6px}.days{width:54px}}
     </style><div class="options"><div><div class="row"><label for="search-enabled">Buscar coincidencias de productos en su catálogo</label><input id="search-enabled" class="toggle" type="checkbox" role="switch" aria-describedby="search-help"></div><p id="search-help" class="help">Busca con nombres comerciales de compras o enlaces guardados de otras tiendas y vincula solo coincidencias de EAN exactas. Incluye los nuevos códigos añadidos; si no hay un nombre comercial, puedes indicar la URL de Alcampo en la ficha del producto.</p></div>
     <div><div class="row"><label for="refresh-enabled">Actualizar precios cada</label><div class="period"><input id="days" class="days" type="number" min="1" max="3650" step="1" value="30" aria-label="Periodo de actualización de Alcampo en días"><span>días</span><input id="refresh-enabled" class="toggle" type="checkbox" role="switch" aria-label="Actualizar precios periódicamente" aria-describedby="refresh-help"></div></div><p id="refresh-help" class="help">Actualiza los productos vinculados mediante su referencia web, repartiendo las consultas durante el periodo. Se usa una ubicación fija y se conserva el último precio conocido.</p></div></div><section class="test-search"><h3>Prueba de búsqueda (temporal)</h3><p class="help">Consulta con el nombre comercial de otra tienda. Muestra hasta tres candidatos pendientes de confirmar por EAN y respeta la pausa de cinco minutos entre peticiones.</p><div class="test-controls"><select id="test-product" aria-label="Producto del catálogo para probar Alcampo"></select><button id="test-search" type="button">Buscar</button></div><div id="test-result" class="test-result" role="status" hidden></div></section><p id="error" class="error" role="alert" hidden></p>`;
+    installToggleStyles(this.shadowRoot);
     this.shadowRoot.querySelector('#test-search').addEventListener('click',()=>void this._testSearch());
     this.shadowRoot.querySelector('#test-product').addEventListener('change',()=>this._lock());
     this._renderProducts();

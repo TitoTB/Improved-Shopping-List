@@ -13,6 +13,7 @@ from homeassistant.helpers.event import async_track_time_interval
 
 from .catalog import normalized_name
 from .stock import stock_needs_reorder
+from .todo_names import item_name
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -81,7 +82,7 @@ class StockAutomation:
                     elif getattr(self,"carrefour_account",None):
                         self.carrefour_account.note_completion()
                     for stock in self.stock.snapshot["items"]:
-                        if (stock.get("configured") or getattr(self, "quantities", None)) and normalized_name(stock["name"]) == normalized_name(item.get("summary", "")):
+                        if (stock.get("configured") or getattr(self, "quantities", None)) and normalized_name(stock["name"]) == normalized_name(item_name(self.settings, entity_id, item)):
                             quantity = self.quantities.value(entity_id, item) if getattr(self, "quantities", None) else None
                             self._events.append((stock["id"],stock["config_revision"],"purchase",
                                 {"id":str(uuid4()), "at":time.time(), "list_entity":entity_id, "uid":uid,
@@ -205,7 +206,7 @@ class StockAutomation:
         items = response.get(target,{}).get("items") if isinstance(response,dict) else None
         if not isinstance(items,list):
             raise ValueError("No se ha podido comprobar el contenido de la lista de reposición.")
-        matches = [entry for entry in items if normalized_name(entry.get("summary", "")) == normalized_name(item["name"])]
+        matches = [entry for entry in items if normalized_name(item_name(self.settings, target, entry)) == normalized_name(item["name"])]
         if any(entry.get("status") != "completed" for entry in matches):
             return
         completed = next((entry for entry in matches if entry.get("uid") and entry.get("status") == "completed"),None)

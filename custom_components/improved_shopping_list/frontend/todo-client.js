@@ -1,6 +1,6 @@
 /** Native Home Assistant APIs; the selected provider owns all list data. */
-import { productNameKey } from "./product-names.js?v=0.42.0";
-export const FEATURES = Object.freeze({ CREATE: 1, DELETE: 2, UPDATE: 4 });
+import { productNameKey, todoItemName, namedTodoItem } from "./product-names.js?v=0.43.0";
+export const FEATURES = Object.freeze({ CREATE: 1, DELETE: 2, UPDATE: 4, DESCRIPTION: 64 });
 
 export function todoEntities(hass) {
   return Object.values(hass?.states ?? {})
@@ -23,9 +23,10 @@ export function errorMessage(error) {
 }
 
 export class TodoSession {
-  constructor(getHass, onChange) {
+  constructor(getHass, onChange, getDescriptionMode=()=>false) {
     this.getHass = getHass;
     this.onChange = onChange;
+    this.getDescriptionMode = getDescriptionMode;
     this.entityId = "";
     this.items = [];
     this.loading = false;
@@ -34,6 +35,9 @@ export class TodoSession {
     this._revision = 0;
     this._pendingAdds = new Map();
   }
+
+  get items() { return this.getDescriptionMode(this.entityId)?this._items.map(item=>namedTodoItem(item,true)):this._items; }
+  set items(value) { this._items=value; }
 
   async select(entityId) {
     this._stop();
@@ -112,10 +116,12 @@ export class TodoSession {
         if (!supports(state, feature)) throw new Error("Esta lista no admite esa operación.");
       };
       validate(FEATURES.CREATE);
+      const useDescription=Boolean(this.getDescriptionMode(entityId));
       // Read the provider before writing: the panel snapshot may be out of date.
       const {items} = await this.getHass().callWS({type:"todo/item/list",entity_id:entityId});
       if (!Array.isArray(items)) throw new Error("No se ha podido comprobar el contenido de la lista.");
-      const matches = items.filter(value => productNameKey(value.summary) === productNameKey(item));
+      if(Boolean(this.getDescriptionMode(entityId))!==useDescription)throw new Error('Los ajustes de nombres han cambiado. Vuelve a intentarlo.');
+      const matches = items.filter(value => productNameKey(todoItemName(value,useDescription)) === productNameKey(item));
       if (!matches.some(value => value.status !== "completed")) {
         const completed = matches.find(value => value.uid && value.status === "completed");
         if (matches.length && !completed) throw new Error("El producto de la lista no tiene un identificador válido.");
@@ -149,23 +155,27 @@ export class TodoSession {
     const candidates = source.items.filter(item => String(item.summary ?? "").trim() !== name);
     if (!candidates.length) return 0;
     const entityId = source.entityId;
+    const useDescription=Boolean(this.getDescriptionMode(entityId));
     const generation = this._generation;
     const state = this.getHass().states[entityId];
     if (!isAvailable(state)) throw new Error("La lista de origen no está disponible.");
     if (!supports(state, FEATURES.UPDATE)) throw new Error("La lista de origen no permite renombrar productos.");
     if (candidates.some(item => !item.uid)) throw new Error("El producto de la lista no tiene un identificador válido.");
     const {items} = await this.getHass().callWS({type:"todo/item/list",entity_id:entityId});
+    if(Boolean(this.getDescriptionMode(entityId))!==useDescription)throw new Error('Los ajustes de nombres han cambiado. Vuelve a intentarlo.');
     const updates = [];
     for (const original of new Map(candidates.map(item => [item.uid,item])).values()) {
       const current = items.find(item => item.uid === original.uid);
       // A removed item stays removed. Successful earlier renames are safe to retry.
-      if (!current || current.summary === name) continue;
-      if (productNameKey(current.summary) !== productNameKey(original.summary)) {
+      if (!current || todoItemName(current,useDescription) === name) continue;
+      if (productNameKey(todoItemName(current,useDescription)) !== productNameKey(todoItemName(original,useDescription))) {
         throw new Error("El producto de la lista ha cambiado en otra sesión. Revisa su nombre antes de continuar.");
       }
-      updates.push(current.uid);
+      const clearDescription=useDescription&&Boolean(current.description);
+      if(clearDescription&&!supports(state,FEATURES.DESCRIPTION))throw new Error('La lista no permite actualizar la segunda línea del producto.');
+      updates.push({uid:current.uid,clearDescription});
     }
-    for (const uid of updates) await this.getHass().callService("todo","update_item",{entity_id:entityId,item:uid,rename:name});
+    for (const {uid,clearDescription} of updates) await this.getHass().callService("todo","update_item",{entity_id:entityId,item:uid,rename:name,...(clearDescription?{description:''}:{})});
     if (generation === this._generation && this.entityId === entityId) await this.refresh();
     return updates.length;
   }

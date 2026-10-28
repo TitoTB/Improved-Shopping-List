@@ -12,6 +12,7 @@ from homeassistant.helpers.storage import Store
 
 from .catalog import normalized_name
 from .const import DOMAIN
+from .todo_names import item_name
 
 _LOGGER = logging.getLogger(__name__)
 DAY = 86400
@@ -189,7 +190,7 @@ class RecurrenceManager:
         items = response.get(target, {}).get("items") if isinstance(response, dict) else None
         if not isinstance(items, list):
             raise ValueError("No se ha podido comprobar el contenido de la lista principal.")
-        matches = [item for item in items if normalized_name(item.get("summary", "")) == normalized_name(product["name"])]
+        matches = [item for item in items if normalized_name(item_name(self.settings, target, item)) == normalized_name(product["name"])]
         if any(item.get("status") != "completed" for item in matches):
             return "pending", target
         completed = next((item for item in matches if item.get("uid") and item.get("status") == "completed"), None)

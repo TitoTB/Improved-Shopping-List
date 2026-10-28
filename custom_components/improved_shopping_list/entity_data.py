@@ -11,6 +11,7 @@ from homeassistant.util import dt as dt_util
 from .catalog import normalized_name
 from .stock import stock_needs_reorder
 from .store_links import STORES
+from .todo_names import named_item
 
 
 class EntityData:
@@ -88,7 +89,7 @@ class EntityData:
     def _refresh(self, items):
         target = self.settings["primary_entity"]
         state = self.hass.states.get(target) if target else None
-        serialized = [serialize_todo_item(item) for item in items] if items is not None else None
+        serialized = [named_item(self.settings, target, serialize_todo_item(item)) for item in items] if items is not None else None
         self.pending = ([] if not target else None) if serialized is None else [item
             for item in serialized if item.get("status") == "needs_action"]
         if target and (state is None or state.state in ("unknown", "unavailable")):

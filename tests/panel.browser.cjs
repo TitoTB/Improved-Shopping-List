@@ -107,6 +107,10 @@ const hass={
     return ()=>listeners.delete(listener);
   }},
   callWS:async(msg)=>{
+    if(msg.type==='improved_shopping_list/settings/name_mode'){
+      (window.listSettings.description_as_name??={})[msg.entity_id]=msg.enabled;
+      window.emitSettings();return settingsSnapshot();
+    }
     if(msg.type==='improved_shopping_list/settings/purchase_detection'){
       window.listSettings.purchase_detection=structuredClone(msg.config);window.emitSettings();return structuredClone(window.listSettings);
     }
@@ -461,7 +465,7 @@ const hass={
     window.calls.push({domain,service,...args});
     if(service==='remove_completed_items'){if(window.delayClear)await new Promise(resolve=>{window.releaseClear=resolve;});data[args.entity_id]=data[args.entity_id].filter(item=>item.status!=='completed');}
     if(service==='add_item')data[args.entity_id].push({uid:crypto.randomUUID(),summary:args.item,status:'needs_action'});
-    if(service==='update_item'){const item=data[args.entity_id].find(item=>item.uid===args.item);if(!item)throw new Error('Item missing');if('status' in args)item.status=args.status;if('rename' in args)item.summary=args.rename;}
+    if(service==='update_item'){const item=data[args.entity_id].find(item=>item.uid===args.item);if(!item)throw new Error('Item missing');if('status' in args)item.status=args.status;if('rename' in args)item.summary=args.rename;if('description' in args)item.description=args.description;}
     window.emit(args.entity_id);
   }
 };
@@ -514,6 +518,121 @@ async function captureProductCode(page, form, kind, code, expected = code) {
   await group.getByRole('button',{name:'Detener',exact:true}).click();
 }
 
+async function checkUniversalPurchaseSettings(browser,url,errors) {
+  // Universal purchase setup separates accounts, physical shops and shoppers.
+  const universalContext=await browser.newContext({viewport:{width:390,height:844}});
+  await universalContext.addInitScript(()=>{
+    // Localhost is secure in Chromium; emulate HA's common plain-HTTP context.
+    Object.defineProperty(Crypto.prototype,'randomUUID',{value:undefined,configurable:true});
+    if(!localStorage.getItem('settings-fixture'))localStorage.setItem('settings-fixture',JSON.stringify({entities:['todo.bring'],primary_entity:'todo.bring',available_stores:['carrefour'],purchase_detection:{enabled:true,threshold:5,zone_assignment:false,minimum_minutes:5,persons:['person.one'],store_zones:{},shops:[]}}));
+    localStorage.setItem('receipt-fixture',JSON.stringify([{id:'shop-buy',store:'shop:fruit',store_name:'Frutería',shop_id:'fruit',shop_name:'Frutería',shop_color:'#267052',shoppers:['person.one'],purchased_at:new Date().toISOString(),total:5,article_count:2,lines:[],summary_only:true},{id:'other-buy',store:'carrefour',store_name:'Carrefour',purchased_at:new Date().toISOString(),total:10,article_count:1,lines:[],summary_only:true}]));
+  });
+  const universalPage=await universalContext.newPage();universalPage.on('pageerror',error=>errors.push(error.message));
+  await universalPage.goto(url);await universalPage.getByRole('button',{name:'Ajustes',exact:true}).click();
+  await universalPage.locator('isl-settings').getByRole('button',{name:'Tiendas',exact:true}).click();
+  const universalSettings=universalPage.locator('isl-settings');
+  await universalSettings.getByRole('heading',{name:'Cuentas',exact:true}).waitFor();
+  await universalSettings.getByRole('heading',{name:'Usuarios',exact:true}).waitFor();
+  const places=universalSettings.locator('isl-shopping-places');
+  const addShop=places.getByRole('button',{name:'Añadir tienda',exact:true});
+  const addShopBox=await addShop.boundingBox();assert.ok(Math.abs(addShopBox.width-addShopBox.height)<1);
+  await addShop.click();
+  const shopEditor=places.locator('dialog');await shopEditor.getByLabel('Nombre',{exact:true}).fill('Frutería');
+  await shopEditor.getByRole('button',{name:'Guardar tienda',exact:true}).click();
+  await universalPage.waitForFunction(()=>window.listSettings.purchase_detection.shops.length===1);
+  await shopEditor.waitFor({state:'hidden'});await places.getByRole('button',{name:'Editar tienda Frutería',exact:true}).click();
+  assert.equal(await shopEditor.getByLabel('Cuenta vinculada',{exact:true}).inputValue(),'');
+  await shopEditor.getByRole('button',{name:'Cerrar ventana',exact:true}).click();
+  assert.equal(await universalSettings.getByLabel('Permanencia mínima en la zona (minutos)',{exact:true}).inputValue(),'5');
+  assert.deepEqual(await universalSettings.locator('.store-row:visible h3').allTextContents(),['Carrefour']);
+  await universalPage.evaluate(()=>{const panel=window.testPanel;panel.hass={...panel._hass,states:{...panel._hass.states,
+    'person.one':{entity_id:'person.one',state:'home',attributes:{friendly_name:'Ana'}},
+    'person.two':{entity_id:'person.two',state:'home',attributes:{friendly_name:'Luis'}}}};});
+  const users=universalSettings.locator('.purchase-users');
+  assert.equal(await users.locator('#purchase-zone-persons').isVisible(),true);
+  assert.equal(await universalSettings.locator('select#purchase-zone-persons').count(),0);
+  assert.equal(await universalSettings.getByText('Se suman todas las listas.',{exact:false}).count(),0);
+  const zoneSwitch=users.getByRole('switch',{name:'Asignación de tienda basada en zona',exact:true});
+  assert.equal(await zoneSwitch.isChecked(),false);
+  assert.equal(await zoneSwitch.evaluate(input=>getComputedStyle(input).backgroundColor),'rgb(100, 116, 139)');
+  assert.equal(await universalSettings.locator('#carrefour-enabled').evaluate(input=>getComputedStyle(input).backgroundColor),'rgb(100, 116, 139)');
+  await users.locator('summary').click();
+  assert.equal(await users.getByRole('checkbox',{name:'Ana',exact:true}).isChecked(),true);
+  await users.getByRole('checkbox',{name:'Luis',exact:true}).check();
+  await universalPage.evaluate(()=>window.emitSettings());
+  assert.equal(await users.getByRole('checkbox',{name:'Luis',exact:true}).isChecked(),true);
+  await universalPage.screenshot({path:'test-results/shopping-users-mobile.png',fullPage:true});
+  await users.getByRole('button',{name:'Guardar',exact:true}).click();
+  await universalPage.waitForFunction(()=>window.listSettings.purchase_detection.persons.includes('person.two'));
+  assert.deepEqual(await universalPage.evaluate(()=>window.listSettings.purchase_detection.persons),['person.one','person.two']);
+  assert.equal(await universalPage.evaluate(()=>window.listSettings.purchase_detection.shops[0].name),'Frutería');
+  await universalPage.setViewportSize({width:1280,height:960});
+  await universalPage.screenshot({path:'test-results/shopping-users-desktop.png',fullPage:true});
+  await universalPage.reload();
+  await universalPage.getByRole('button',{name:'Ajustes',exact:true}).click();
+  await universalSettings.getByRole('button',{name:'Tiendas',exact:true}).click();
+  await users.locator('summary').click();
+  assert.equal(await users.getByRole('checkbox',{name:'person.one',exact:true}).isChecked(),true);
+  assert.equal(await users.getByRole('checkbox',{name:'person.two',exact:true}).isChecked(),true);
+  await universalPage.getByRole('button',{name:'Analítica',exact:true}).click();const universalPurchases=universalPage.locator('isl-purchases');
+  await universalPurchases.locator('#history .ticket').filter({hasText:'Frutería'}).waitFor();
+  await universalPurchases.getByLabel('Filtrar por usuario',{exact:true}).selectOption('person.one');
+  assert.equal(await universalPurchases.locator('#history .ticket').count(),1);
+  assert.equal(await universalPurchases.locator('#history .ticket').getAttribute('data-id'),'shop-buy');
+  await universalPage.screenshot({path:'test-results/universal-purchases-mobile.png',fullPage:true});
+  await universalContext.close();
+
+  // Older settings have no physical-store section; the same chooser still saves.
+  const legacyContext=await browser.newContext();
+  await legacyContext.addInitScript(()=>localStorage.setItem('settings-fixture',JSON.stringify({entities:['todo.bring'],primary_entity:'todo.bring',purchase_detection:{enabled:true,threshold:5,zone_assignment:false,persons:[],store_zones:{}}})));
+  const legacyPage=await legacyContext.newPage();legacyPage.on('pageerror',error=>errors.push(error.message));
+  await legacyPage.goto(url);await legacyPage.getByRole('button',{name:'Ajustes',exact:true}).click();
+  const legacySettings=legacyPage.locator('isl-settings');await legacySettings.getByRole('button',{name:'Listas',exact:true}).click();
+  await legacyPage.evaluate(()=>{const panel=window.testPanel;panel.hass={...panel._hass,states:{...panel._hass.states,'person.ana':{entity_id:'person.ana',state:'home',attributes:{friendly_name:'Ana'}}}};});
+  const legacyForm=legacySettings.locator('#purchase-detection-form');
+  await legacyForm.getByRole('switch',{name:'Asignación de tienda basada en zona',exact:true}).check();
+  await legacyForm.locator('summary').click();await legacyForm.getByRole('checkbox',{name:'Ana',exact:true}).check();
+  await legacyForm.getByRole('button',{name:'Guardar',exact:true}).click();
+  await legacyPage.waitForFunction(()=>window.listSettings.purchase_detection.persons.includes('person.ana'));
+  assert.equal(await legacyPage.evaluate(()=>window.listSettings.purchase_detection.zone_assignment),true);
+  await legacyContext.close();
+}
+
+async function checkTwoLineNames(browser,url,errors) {
+  const context=await browser.newContext({viewport:{width:390,height:844}});
+  await context.addInitScript(()=>localStorage.setItem('settings-fixture',JSON.stringify({entities:['todo.bring','todo.local'],primary_entity:'todo.bring',description_as_name:{'todo.bring':true}})));
+  const page=await context.newPage();page.on('pageerror',error=>errors.push(error.message));
+  await page.goto(url);
+  await page.evaluate(()=>{
+    window.catalogProducts=[{id:'oat',revision:1,name:'Leche de avena',category:'',tags:[],image_url:'',icon:'mdi:cup',price:null,currency:'EUR',barcodes:[],nfc_tags:[],reader_actions:{},purchase_unit:'uds',unit_quantity:1,quantity_step:1}];window.emitCatalog();
+    window.listData['todo.bring']=[{uid:'oat-list',summary:'Leche',description:'de avena',status:'needs_action'},{uid:'lactose-list',summary:'Leche',description:'sin lactosa',status:'needs_action'}];window.emit('todo.bring');
+  });
+  assert.deepEqual(await page.locator('#pending .summary').allTextContents(),['Leche de avena','Leche sin lactosa']);
+  assert.equal(await page.locator('#pending .description:visible').count(),0);
+  await page.getByRole('button',{name:'Catálogo',exact:true}).click();const catalog=page.locator('isl-catalog');
+  const card=catalog.locator('#catalog-grid .product').filter({hasText:'Leche de avena'});
+  await card.click();await page.waitForFunction(()=>window.listData['todo.bring'][0].status==='completed');
+  await card.click();await page.waitForFunction(()=>window.listData['todo.bring'][0].status==='needs_action');
+  assert.equal(await page.evaluate(()=>window.calls.filter(call=>call.domain==='todo'&&call.service==='add_item').length),0);
+  assert.deepEqual(await page.evaluate(()=>window.listData['todo.bring'].map(item=>[item.uid,item.summary,item.description])),[['oat-list','Leche','de avena'],['lactose-list','Leche','sin lactosa']]);
+  await catalog.getByRole('button',{name:'Nuevos',exact:true}).click();
+  assert.match(await catalog.locator('#list-suggestions').textContent(),/Leche sin lactosa/);
+  assert.doesNotMatch(await catalog.locator('#list-suggestions').textContent(),/Leche de avena/);
+  await page.getByRole('button',{name:'Ajustes',exact:true}).click();const settings=page.locator('isl-settings');
+  const option=settings.locator('#configured-lists [data-entity-id="todo.bring"]').getByRole('checkbox',{name:'Usar la descripción como parte del nombre',exact:true});
+  assert.equal(await option.isChecked(),true);await option.uncheck();
+  await page.waitForFunction(()=>window.listSettings.description_as_name['todo.bring']===false);
+  await page.getByRole('button',{name:'Lista',exact:true}).click();
+  assert.deepEqual(await page.locator('#pending .summary').allTextContents(),['Leche','Leche']);
+  assert.equal(await page.locator('#pending .description:visible').count(),2);
+  await page.getByRole('button',{name:'Ajustes',exact:true}).click();await option.check();
+  await page.waitForFunction(()=>window.listSettings.description_as_name['todo.bring']===true);
+  await page.getByRole('button',{name:'Lista',exact:true}).click();
+  assert.deepEqual(await page.locator('#pending .summary').allTextContents(),['Leche de avena','Leche sin lactosa']);
+  await page.screenshot({path:'test-results/two-line-names-mobile.png',fullPage:true});
+  await context.close();
+}
+
 async function main() {
   await fs.mkdir("test-results", { recursive: true });
   const server = http.createServer(async (req, res) => {
@@ -529,7 +648,7 @@ async function main() {
       return;
     }
     if (pathname === "/") { res.setHeader("content-type", "text/html; charset=utf-8"); res.end(html); return; }
-    if (!["/shopping-places.js", "/dia-prices-settings.js", "/dia-account.js", "/analytics-panel.js", "/alcampo-settings.js", "/carrefour-account.js", "/notification-settings.js", "/recipe-editor.js", "/quantity-client.js", "/panel.js", "/purchases-panel.js", "/stock-client.js", "/dialog-controls.js", "/todo-client.js", "/catalog-panel.js", "/catalog-client.js", "/category-panel.js", "/icon-picker.js", "/list-settings-client.js", "/settings-panel.js", "/readers-client.js", "/readers-panel.js", "/product-matching.js", "/product-names.js", "/logs-panel.js", "/logo.png", "/mercadona.png", "/consum.jpg", "/lasirena.jpg", "/eroski.svg", "/dia.png"].includes(pathname)) { res.writeHead(404).end(); return; }
+    if (!["/toggle-styles.js", "/shopping-places.js", "/dia-prices-settings.js", "/dia-account.js", "/analytics-panel.js", "/alcampo-settings.js", "/carrefour-account.js", "/notification-settings.js", "/recipe-editor.js", "/quantity-client.js", "/panel.js", "/purchases-panel.js", "/stock-client.js", "/dialog-controls.js", "/todo-client.js", "/catalog-panel.js", "/catalog-client.js", "/category-panel.js", "/icon-picker.js", "/list-settings-client.js", "/settings-panel.js", "/readers-client.js", "/readers-panel.js", "/product-matching.js", "/product-names.js", "/logs-panel.js", "/logo.png", "/mercadona.png", "/consum.jpg", "/lasirena.jpg", "/eroski.svg", "/dia.png"].includes(pathname)) { res.writeHead(404).end(); return; }
     res.setHeader("content-type", pathname.endsWith(".svg") ? "image/svg+xml" : pathname.endsWith(".png") ? "image/png" : pathname.endsWith(".jpg") ? "image/jpeg" : "text/javascript; charset=utf-8");
     res.end(await fs.readFile(path.join(root, pathname.slice(1))));
   });
@@ -537,6 +656,17 @@ async function main() {
   let browser;
   try {
     browser = await chromium.launch({ headless: true, channel: process.env.PLAYWRIGHT_CHANNEL || undefined });
+    if(process.argv.includes('--names-only')){
+      const nameErrors=[];await checkTwoLineNames(browser,`http://127.0.0.1:${server.address().port}`,nameErrors);
+      assert.deepEqual(nameErrors,[]);console.log('Two-line product names browser checks passed.');return;
+    }
+    if(process.argv.includes('--stores-only')){
+      const storeErrors=[];
+      await checkUniversalPurchaseSettings(browser,`http://127.0.0.1:${server.address().port}`,storeErrors);
+      assert.deepEqual(storeErrors,[]);
+      console.log('Purchase settings browser checks passed: HTTP-compatible shop creation, square add control, user choices, save/reload and unchecked switch colors.');
+      return;
+    }
     const page = await browser.newPage({ viewport: { width: 1280, height: 960 } });
     const errors = [];
     page.on("pageerror", (error) => errors.push(error.message));
@@ -1974,8 +2104,8 @@ async function main() {
     await gatewayRow.waitFor();
     assert.equal(await gatewaySettings.locator('#configured-lists article').count(),2);
     assert.equal(await gatewaySettings.locator('#todo-entity option[value="todo.local"]').count(),0);
-    assert.equal(await gatewayRow.getByRole('checkbox').isChecked(),true);
-    await gatewayRow.getByRole('checkbox').uncheck();
+    assert.equal(await gatewayRow.getByRole('checkbox',{name:'Eliminar de la pasarela tras transferir',exact:true}).isChecked(),true);
+    await gatewayRow.getByRole('checkbox',{name:'Eliminar de la pasarela tras transferir',exact:true}).uncheck();
     await gatewayPage.waitForFunction(()=>window.listSettings.gateway_lists[0].remove_after_transfer===false);
     await gatewaySettings.getByRole('button',{name:'Personalización',exact:true}).click();
     assert.equal(await gatewaySettings.locator('#settings-gateways').isVisible(),false);
@@ -3837,34 +3967,8 @@ async function main() {
     assert.deepEqual(await accountPage.evaluate(()=>window.lastCfLogin),{username:'test@example.test',password_empty:true,remember:true});
     await accountContext.close();
 
-    // Universal purchase setup separates accounts, physical shops and shoppers.
-    const universalContext=await browser.newContext({viewport:{width:390,height:844}});
-    await universalContext.addInitScript(()=>{
-      localStorage.setItem('settings-fixture',JSON.stringify({entities:['todo.bring'],primary_entity:'todo.bring',available_stores:['carrefour'],purchase_detection:{enabled:true,threshold:5,zone_assignment:true,minimum_minutes:5,persons:['person.one'],store_zones:{},shops:[]}}));
-      localStorage.setItem('receipt-fixture',JSON.stringify([{id:'shop-buy',store:'shop:fruit',store_name:'Frutería',shop_id:'fruit',shop_name:'Frutería',shop_color:'#267052',shoppers:['person.one'],purchased_at:new Date().toISOString(),total:5,article_count:2,lines:[],summary_only:true},{id:'other-buy',store:'carrefour',store_name:'Carrefour',purchased_at:new Date().toISOString(),total:10,article_count:1,lines:[],summary_only:true}]));
-    });
-    const universalPage=await universalContext.newPage();universalPage.on('pageerror',error=>errors.push(error.message));
-    await universalPage.goto(url);await universalPage.getByRole('button',{name:'Ajustes',exact:true}).click();
-    await universalPage.locator('isl-settings').getByRole('button',{name:'Tiendas',exact:true}).click();
-    const universalSettings=universalPage.locator('isl-settings');
-    await universalSettings.getByRole('heading',{name:'Cuentas',exact:true}).waitFor();
-    await universalSettings.getByRole('heading',{name:'Usuarios',exact:true}).waitFor();
-    const places=universalSettings.locator('isl-shopping-places');await places.getByRole('button',{name:'Añadir tienda',exact:true}).click();
-    const shopEditor=places.locator('dialog');await shopEditor.getByLabel('Nombre',{exact:true}).fill('Frutería');
-    await shopEditor.getByRole('button',{name:'Guardar tienda',exact:true}).click();
-    await universalPage.waitForFunction(()=>window.listSettings.purchase_detection.shops.length===1);
-    await shopEditor.waitFor({state:'hidden'});await places.getByRole('button',{name:'Editar tienda Frutería',exact:true}).click();
-    assert.equal(await shopEditor.getByLabel('Cuenta vinculada',{exact:true}).inputValue(),'');
-    await shopEditor.getByRole('button',{name:'Cerrar ventana',exact:true}).click();
-    assert.equal(await universalSettings.getByLabel('Permanencia mínima en la zona (minutos)',{exact:true}).inputValue(),'5');
-    assert.deepEqual(await universalSettings.locator('.store-row:visible h3').allTextContents(),['Carrefour']);
-    await universalPage.getByRole('button',{name:'Analítica',exact:true}).click();const universalPurchases=universalPage.locator('isl-purchases');
-    await universalPurchases.locator('#history .ticket').filter({hasText:'Frutería'}).waitFor();
-    await universalPurchases.getByLabel('Filtrar por usuario',{exact:true}).selectOption('person.one');
-    assert.equal(await universalPurchases.locator('#history .ticket').count(),1);
-    assert.equal(await universalPurchases.locator('#history .ticket').getAttribute('data-id'),'shop-buy');
-    await universalPage.screenshot({path:'test-results/universal-purchases-mobile.png',fullPage:true});
-    await universalContext.close();
+    await checkUniversalPurchaseSettings(browser,url,errors);
+    await checkTwoLineNames(browser,url,errors);
 
     // Shipping policy: Alcampo and DIA are archived; the other stores remain available.
     const archivedContext=await browser.newContext({viewport:{width:390,height:844}});
@@ -3921,7 +4025,8 @@ async function main() {
       'zone.market':{entity_id:'zone.market',state:'0',attributes:{friendly_name:'Mi supermercado'}},
       'zone.market_2':{entity_id:'zone.market_2',state:'0',attributes:{friendly_name:'Otra sucursal'}}}};});
     await detectionForm.getByRole('switch',{name:'Asignación de tienda basada en zona',exact:true}).check();
-    await detectionForm.getByRole('listbox',{name:'Personas para asignación por zona',exact:true}).selectOption('person.ana');
+    await detectionForm.locator('#purchase-zone-persons summary').click();
+    await detectionForm.getByRole('checkbox',{name:'Ana',exact:true}).check();
     await detectionForm.getByRole('button',{name:'Guardar',exact:true}).click();
     await detectedPage.waitForFunction(()=>window.listSettings.purchase_detection?.zone_assignment===true);
     await detectedPage.locator('isl-settings').getByRole('button',{name:'Tiendas',exact:true}).click();

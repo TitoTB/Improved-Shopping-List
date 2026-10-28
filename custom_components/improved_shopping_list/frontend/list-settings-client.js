@@ -23,6 +23,7 @@ export class ListSettingsSession {
     this.onChange = onChange;
     this.entities = [];
     this.gatewayLists = [];
+    this.descriptionAsName = {};
     this.notifications = {};
     this.purchaseDetection = {enabled:false,threshold:5};
     this.primary = "";
@@ -40,6 +41,7 @@ export class ListSettingsSession {
   _receive(data) {
     this.entities = data.entities ?? [];
     this.gatewayLists = data.gateway_lists ?? [];
+    this.descriptionAsName = {...data.description_as_name};
     this.notifications = data.notifications ?? {};
     this.purchaseDetection = {enabled:false,threshold:5,...data.purchase_detection};
     this.primary = data.primary_entity ?? "";
@@ -101,6 +103,12 @@ export class ListSettingsSession {
     const data = await this.getHass().callWS({ type: `${PREFIX}update`, action, entity_id: entityId });
     if (generation === this._generation && revision === this._revision) this._receive(data);
     // A newer pushed snapshot takes precedence over this response.
+  }
+
+  async setDescriptionAsName(entityId, enabled) {
+    const generation=this._generation,revision=++this._revision;
+    const data=await this.getHass().callWS({type:`${PREFIX}name_mode`,entity_id:entityId,enabled});
+    if(generation===this._generation&&revision===this._revision)this._receive(data);
   }
 
   async saveGateway(entityId, targetEntity, removeAfterTransfer) {

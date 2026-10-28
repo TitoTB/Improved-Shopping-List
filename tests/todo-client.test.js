@@ -1,7 +1,50 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { FEATURES, TodoSession, isAvailable, supports, todoEntities } from "../custom_components/improved_shopping_list/frontend/todo-client.js";
-import { productNameKey } from "../custom_components/improved_shopping_list/frontend/product-names.js";
+import { productNameKey, combinedTodoName, namedTodoItem } from "../custom_components/improved_shopping_list/frontend/product-names.js";
+
+test('two-line names preserve variants, avoid repeated words and retain source fields',()=>{
+  for(const [summary,description,expected] of [
+    [' Leche ',' de  avena ','Leche de avena'],['Leche de avena','DE AVENA','Leche de avena'],
+    ['Leche','Leche de avena','Leche de avena'],['Seitán','SEITAN','Seitán'],['Chocolate','late','Chocolate late'],
+    ['Leche','','Leche'],['','de avena','de avena'],
+  ])assert.equal(combinedTodoName(summary,description),expected);
+  const raw={uid:'milk',summary:'Leche',description:'de avena',status:'needs_action'};
+  const named=namedTodoItem(raw,true);
+  assert.equal(named.summary,'Leche de avena');assert.equal(named.description,'');
+  assert.equal(named.source_summary,'Leche');assert.equal(named.source_description,'de avena');
+  assert.equal(named.uid,raw.uid);assert.equal(raw.summary,'Leche');assert.equal(raw.description,'de avena');
+  assert.deepEqual(namedTodoItem(named,true),named);
+});
+
+test('native two-line items suppress duplicate additions and restore the original UID',async()=>{
+  const {hass,session,calls}=fixture();let enabled=true;
+  session.getDescriptionMode=entity=>entity==='todo.bring'&&enabled;
+  const raw=[{uid:'oat',summary:'Leche',description:'de avena',status:'needs_action'},
+    {uid:'plain',summary:'Leche',description:'',status:'needs_action'}];
+  hass.callWS=async()=>({items:structuredClone(raw)});
+  await session.select('todo.bring');
+  assert.deepEqual(session.items.map(item=>item.summary),['Leche de avena','Leche']);
+  await session.add('LECHE DE AVENA');assert.deepEqual(calls,[]);
+  raw[0].status='completed';await session.add('Leche de avena');
+  assert.deepEqual(calls,[['todo','update_item',{entity_id:'todo.bring',item:'oat',status:'needs_action'}]]);
+  assert.equal(raw[0].description,'de avena');
+  enabled=false;assert.equal(session.items[0].summary,'Leche');assert.equal(session.items[0].description,'de avena');
+  session.dispose();
+});
+
+test('catalog suggestion acceptance preserves a split name; explicit corrections clear its old second line',async()=>{
+  const {hass,session,calls}=fixture();session.getDescriptionMode=()=>true;
+  hass.states['todo.bring'].attributes.supported_features=71;
+  const raw={uid:'oat',summary:'Leche',description:'de avena',status:'needs_action'};
+  hass.callWS=async()=>({items:[structuredClone(raw)]});await session.select('todo.bring');
+  const source={entityId:'todo.bring',items:session.items};
+  assert.equal(await session.renameFromSuggestion(source,'Leche de avena'),0);assert.deepEqual(calls,[]);
+  await session.renameFromSuggestion(source,'Bebida de avena');
+  assert.deepEqual(calls,[['todo','update_item',{entity_id:'todo.bring',item:'oat',rename:'Bebida de avena',description:''}]]);
+  raw.description='sin lactosa';await assert.rejects(session.renameFromSuggestion(source,'Bebida de avena'),/otra sesión/);
+  session.dispose();
+});
 
 const deferred = () => {
   let resolve, reject;

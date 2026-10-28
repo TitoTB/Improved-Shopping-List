@@ -13,6 +13,7 @@ from homeassistant.helpers.storage import Store
 
 from .catalog import READER_ACTIONS, CatalogError, code_key, normalized_name
 from .const import DOMAIN
+from .todo_names import item_name
 from .product_lookup import ProductLookup, is_product_barcode
 
 _LOGGER = logging.getLogger(__name__)
@@ -386,7 +387,7 @@ class ReaderManager:
         items = result.get(target, {}).get("items") if isinstance(result, dict) else None
         if not isinstance(items, list):
             raise CatalogError("No se ha podido comprobar el contenido de la lista.")
-        matches = [item for item in items if normalized_name(item.get("summary", "")) == normalized_name(product["name"])]
+        matches = [item for item in items if normalized_name(item_name(self.settings, target, item)) == normalized_name(product["name"])]
         if any(item.get("status") != "completed" for item in matches):
             self._status(reader["id"], code, "El producto ya estaba pendiente en la lista", product["name"])
             return

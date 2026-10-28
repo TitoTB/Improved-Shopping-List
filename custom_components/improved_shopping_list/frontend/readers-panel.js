@@ -1,4 +1,5 @@
-import { installDialogCloseButtons } from "./dialog-controls.js?v=0.42.0";
+import { installDialogCloseButtons } from "./dialog-controls.js?v=0.43.0";
+import { installToggleStyles } from "./toggle-styles.js?v=0.43.0";
 
 class ImprovedShoppingReaders extends HTMLElement {
   constructor() { super(); this.attachShadow({mode:"open"}); this._toggling = new Map(); }
@@ -58,6 +59,7 @@ class ImprovedShoppingReaders extends HTMLElement {
     this._built = true;
     const root = this.shadowRoot;
     installDialogCloseButtons(root);
+    installToggleStyles(root);
     root.querySelector("#new-reader").addEventListener("click", () => this._open());
     root.querySelector("#cancel-reader").addEventListener("click", () => root.querySelector("#reader-dialog").close());
     root.querySelector("#cancel-remove-reader").addEventListener("click", () => root.querySelector("#remove-reader-dialog").close());

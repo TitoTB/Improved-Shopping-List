@@ -1,3 +1,4 @@
+import { installToggleStyles } from './toggle-styles.js?v=0.43.0';
 class DiaPricesSettings extends HTMLElement {
   constructor(){super();this.attachShadow({mode:'open'});this._status={refresh_enabled:false,days:30};this._generation=0;}
   set hass(value){this._hass=value;if(!this._built)this._build();this._render();}
@@ -25,6 +26,7 @@ class DiaPricesSettings extends HTMLElement {
       @media(max-width:420px){.row{gap:10px;font-size:.9em}.period{gap:6px}.days{width:54px}}
     </style><p class="help">Vincula cada producto manualmente con su enlace o ID de DIA en la ficha del catálogo. Se guarda la referencia interna; no se utiliza como EAN.</p>
     <div class="options"><div><div class="row"><label for="refresh-enabled">Actualizar precios cada</label><div class="period"><input id="days" class="days" type="number" min="1" max="3650" step="1" value="30" aria-label="Periodo de actualización de DIA en días"><span>días</span><input id="refresh-enabled" class="toggle" type="checkbox" role="switch" aria-label="Actualizar precios periódicamente" aria-describedby="refresh-help"></div></div><p id="refresh-help" class="help">Actualiza los productos vinculados mediante su referencia web, repartiendo las consultas durante el periodo. Se usa una ubicación fija y se conserva el último precio conocido.</p></div></div><p id="error" class="error" role="alert" hidden></p>`;
+    installToggleStyles(this.shadowRoot);
     for(const id of ['refresh-enabled','days'])this.shadowRoot.querySelector('#'+id).addEventListener('change',()=>void this._save());
   }
   async _save(){

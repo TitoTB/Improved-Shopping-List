@@ -52,6 +52,15 @@ async def env(hass):
 def item(): return {"uid": "same-uid", "summary": "Pavo"}
 
 
+async def test_two_line_variant_uses_catalog_units_and_step(env):
+    await env.catalog.async_save_product({'name':'Pavo cocido','purchase_unit':'g','unit_quantity':250,'quantity_step':50})
+    env.settings.update_name_mode('todo.main',True)
+    env.todos['todo.main'].todo_items=[TodoItem(uid='same-uid',summary='Pavo',description='cocido',status=TodoItemStatus.NEEDS_ACTION)]
+    await env.manager.async_adjust('todo.main','same-uid',1)
+    record=env.manager.snapshot['entries']['todo.main']['same-uid']
+    assert record['quantity'] == 300 and record['unit'] == 'g' and record['step'] == 50
+
+
 async def test_catalog_purchase_fields_defaults_validation_and_old_clients(hass):
     assert normalize_product({"name": "Pan"})["unit_quantity"] == 1
     for fields in ({"unit_quantity": 0}, {"unit_quantity": True}, {"quantity_step": -1},

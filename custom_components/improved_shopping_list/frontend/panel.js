@@ -1,13 +1,13 @@
-import { StockSession } from "./stock-client.js?v=0.42.0";
-import { QuantitySession, purchaseQuantity, quantityLabel } from "./quantity-client.js?v=0.42.0";
-import { installDialogCloseButtons } from "./dialog-controls.js?v=0.42.0";
-import { FEATURES, TodoSession, errorMessage, isAvailable, supports } from "./todo-client.js?v=0.42.0";
-import { imageSource, normalizedName, productNameKey, cachedProductPrice } from "./catalog-panel.js?v=0.42.0";
-import { ListSettingsSession, gradientTextColor } from "./list-settings-client.js?v=0.42.0";
-import "./settings-panel.js?v=0.42.0";
-import { ReadersSession } from "./readers-client.js?v=0.42.0";
-import "./purchases-panel.js?v=0.42.0";
-import "./analytics-panel.js?v=0.42.0";
+import { StockSession } from "./stock-client.js?v=0.43.0";
+import { QuantitySession, purchaseQuantity, quantityLabel } from "./quantity-client.js?v=0.43.0";
+import { installDialogCloseButtons } from "./dialog-controls.js?v=0.43.0";
+import { FEATURES, TodoSession, errorMessage, isAvailable, supports } from "./todo-client.js?v=0.43.0";
+import { imageSource, normalizedName, productNameKey, cachedProductPrice } from "./catalog-panel.js?v=0.43.0";
+import { ListSettingsSession, gradientTextColor } from "./list-settings-client.js?v=0.43.0";
+import "./settings-panel.js?v=0.43.0";
+import { ReadersSession } from "./readers-client.js?v=0.43.0";
+import "./purchases-panel.js?v=0.43.0";
+import "./analytics-panel.js?v=0.43.0";
 
 const LOGO_URL = new URL("logo.png", import.meta.url).href;
 const STORE_LOGOS = {
@@ -31,7 +31,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
   constructor() {
     super();
     this.attachShadow({ mode: "open" });
-    this._session = new TodoSession(() => this._hass, () => this._renderData());
+    this._session = new TodoSession(() => this._hass, () => this._renderData(), entity=>this._settings?.descriptionAsName?.[entity]===true);
     this._settings = new ListSettingsSession(() => this._hass, () => this._applySettings());
     this._readers = new ReadersSession(() => this._hass, () => this._renderData());
     this._stock = new StockSession(() => this._hass, () => {this._comparisonRevision=(this._comparisonRevision||0)+1;this._renderData();});
@@ -364,7 +364,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
       </style>
       <header>
         <button class="menu" aria-label="Abrir menú de Home Assistant"><ha-icon icon="mdi:menu"></ha-icon></button>
-        <div class="branding"><img class="brand-logo" src="${LOGO_URL}" alt="" width="44" height="44"><div class="brand-copy"><span class="brand">Improved Shopping List</span><span class="version">0.42.0</span></div></div>
+        <div class="branding"><img class="brand-logo" src="${LOGO_URL}" alt="" width="44" height="44"><div class="brand-copy"><span class="brand">Improved Shopping List</span><span class="version">0.43.0</span></div></div>
         <nav class="section-nav" aria-label="Apartados">
           <button id="nav-shopping" aria-label="Lista" aria-pressed="true"><ha-icon icon="mdi:shopping" aria-hidden="true"></ha-icon><span class="nav-label">Lista</span></button>
           <button id="nav-catalog" aria-label="Catálogo" aria-pressed="false"><ha-icon icon="mdi:view-grid" aria-hidden="true"></ha-icon><span class="nav-label">Catálogo</span></button>

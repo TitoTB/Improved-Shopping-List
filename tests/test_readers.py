@@ -85,6 +85,22 @@ async def add_product(env, reader, **changes):
     return await env.catalog.async_save_product({"name":"Cacao","barcode":"0012345","barcodes":["0012346"],"nfc_tags":["AA:BB:CC:DD"],"reader_actions":{reader["id"]:"add_list"},**changes})
 
 
+async def test_reader_matches_full_bring_name_without_duplicate_and_restores_uid(reader_env,monkeypatch):
+    env=reader_env;env.settings.update_name_mode('todo.bring',True)
+    clock=[1800000000.0]
+    monkeypatch.setattr('custom_components.improved_shopping_list.readers.time',SimpleNamespace(time=lambda:clock[0]))
+    reader=await add_reader(env,cooldown=1)
+    await add_product(env,reader,name='Leche de avena')
+    env.items['todo.bring']=[{'uid':'oat','summary':'Leche','description':'de avena','status':'needs_action'}]
+    await env.manager.async_process(reader['id'],'0012345')
+    assert env.calls == []
+    clock[0]+=2
+    env.items['todo.bring'][0]['status']='completed'
+    await env.manager.async_process(reader['id'],'0012345')
+    assert env.calls == [('update',{'entity_id':'todo.bring','item':'oat','status':'needs_action'})]
+    assert env.items['todo.bring'][0]['description'] == 'de avena'
+
+
 async def test_product_capture_suppresses_actions_and_suggestions_until_released(reader_env):
     env = reader_env
     reader = await add_reader(env, default_action="add_list")

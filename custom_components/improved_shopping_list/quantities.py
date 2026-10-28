@@ -13,6 +13,7 @@ from homeassistant.helpers.storage import Store
 from .catalog import CatalogError, normalized_name
 from .const import DOMAIN
 from .quantity_values import normalize_purchase, positive_quantity, purchase_defaults
+from .todo_names import item_name, named_item
 
 
 RECIPE_CONFIRM_DELAYS = (1, 4, 6)
@@ -63,7 +64,7 @@ class ListQuantities:
     def value(self, entity_id, item, product=None):
         if product is None:
             product = next((p for p in self.catalog.products
-                if normalized_name(p["name"]) == normalized_name(item.get("summary") or "")), None)
+                if normalized_name(p["name"]) == normalized_name(item_name(self.settings, entity_id, item))), None)
         defaults = purchase_defaults(product)
         record = self._entries.get(entity_id, {}).get(str(item.get("uid")))
         if record and product and record["unit"] != defaults["purchase_unit"]:
@@ -90,6 +91,7 @@ class ListQuantities:
             item = next((item for item in items if str(item.get("uid")) == uid), None) if isinstance(items, list) else None
             if item is None:
                 raise CatalogError("El producto ya no está en la lista. Actualiza la vista.", "not_found")
+            item = named_item(self.settings, entity_id, item)
             value = self.value(entity_id, item)
             try:
                 quantity = positive_quantity(round(value["quantity"] + direction * value["step"], 3))
@@ -126,7 +128,7 @@ class ListQuantities:
                 items = response.get(entity_id, {}).get("items") if isinstance(response, dict) else None
                 if not self._active or entity_id not in self.settings.snapshot["entities"] or not isinstance(items, list):
                     raise CatalogError("No se ha podido comprobar el contenido de la lista.")
-                return items
+                return [named_item(self.settings, entity_id, item) for item in items]
 
             async def confirm_item(product):
                 """Re-read after a write; never repeat an unconfirmed provider mutation."""
@@ -257,7 +259,7 @@ class ListQuantities:
                     current = {str(item.uid): item for item in entity.todo_items if item.uid}
                     records = entries.get(entity_id, {})
                     for uid in tuple(records):
-                        product = products.get(normalized_name(current[uid].summary or "")) if uid in current else None
+                        product = products.get(normalized_name(item_name(self.settings, entity_id, current[uid]))) if uid in current else None
                         if uid not in current or product and records[uid]["unit"] != purchase_defaults(product)["purchase_unit"]:
                             del records[uid]
                     if not records:

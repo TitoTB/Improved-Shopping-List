@@ -1,5 +1,13 @@
 # Historial de cambios
 
+## 0.43.0 — 2026-10-28
+
+- Bring! identifica los productos con su nombre y segunda línea, conservando los campos nativos y el identificador. Opción por lista para otros proveedores y listas pasarela.
+- La misma identidad se aplica al catálogo, sugerencias, lectores, recetas, stock, detección de compras, notificaciones y controles de duplicados.
+- Corregido el botón cuadrado para añadir tiendas físicas, también desde Home Assistant por HTTP.
+- Selector de Usuarios unificado en Tiendas mediante desplegable con casillas; conserva las selecciones al actualizar la interfaz.
+- Toggles desactivados con el mismo color azul grisáceo en toda la interfaz.
+
 ## 0.42.0 — 2026-10-28
 
 - Compras universales: Cuentas, Tiendas físicas y Usuarios en Ajustes → Tiendas; nombre, imagen, color, zonas y cuenta vinculada por establecimiento.

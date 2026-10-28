@@ -78,6 +78,7 @@ def async_register_commands(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_settings_get)
     websocket_api.async_register_command(hass, ws_settings_subscribe)
     websocket_api.async_register_command(hass, ws_settings_update)
+    websocket_api.async_register_command(hass, ws_name_mode)
     websocket_api.async_register_command(hass, ws_gateway_save)
     websocket_api.async_register_command(hass, ws_gateway_remove)
     websocket_api.async_register_command(hass, ws_personalization)
@@ -506,6 +507,21 @@ def ws_settings_update(hass: HomeAssistant, connection, msg) -> None:
         return
     try:
         result = hass.data[DOMAIN]["settings"].update(msg["action"], msg["entity_id"])
+    except ListSettingsError as err:
+        connection.send_error(msg["id"], "invalid_list", str(err))
+    else:
+        connection.send_result(msg["id"], result)
+
+
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/settings/name_mode",
+    vol.Required("entity_id"): str, vol.Required("enabled"): bool})
+@websocket_api.require_admin
+@callback
+def ws_name_mode(hass, connection, msg):
+    if not _catalog(hass, connection, msg):
+        return
+    try:
+        result = hass.data[DOMAIN]["settings"].update_name_mode(msg["entity_id"], msg["enabled"])
     except ListSettingsError as err:
         connection.send_error(msg["id"], "invalid_list", str(err))
     else:

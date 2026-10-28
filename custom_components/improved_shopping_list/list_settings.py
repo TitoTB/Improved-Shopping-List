@@ -7,6 +7,7 @@ from secrets import randbelow
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers import entity_registry as er
 
 from .const import CONF_TODO_ENTITY, CONF_TODO_ENTITIES
 from .const import DOMAIN
@@ -117,7 +118,29 @@ class ListSettings:
     @property
     def snapshot(self) -> dict:
         snapshot = list_options(self.entry) if self.entry else {"entities": [], "primary_entity": "", "gateway_lists": [], "purchase_detection":dict(DEFAULT_PURCHASE_DETECTION), "notifications": notification_options(), "appearance": dict(DEFAULT_APPEARANCE), "stores": deepcopy(DEFAULT_STORES), "favorite_store": "", "price_update_time":self._default_price_time,"price_updates_enabled":True,"price_update_days":1}
+        entities = set(snapshot["entities"]) | {item["entity_id"] for item in snapshot.get("gateway_lists", [])}
+        overrides = self.entry.options.get("description_as_name", {}) if self.entry else {}
+        registry = er.async_get(self.hass) if entities else None
+        modes = {}
+        for entity_id in entities:
+            registered = registry.async_get(entity_id)
+            if entity_id in overrides:
+                modes[entity_id] = overrides[entity_id] is True
+            elif registered and registered.platform == "bring":
+                modes[entity_id] = True
+        if modes:
+            snapshot["description_as_name"] = modes
         return store_availability.apply_availability(snapshot)
+
+    @callback
+    def update_name_mode(self, entity_id, enabled):
+        allowed = set(self.snapshot["entities"]) | {item["entity_id"] for item in self.snapshot.get("gateway_lists", [])}
+        if not self.entry or entity_id not in allowed or type(enabled) is not bool:
+            raise ListSettingsError("Selecciona una lista configurada y un modo de nombre válido.")
+        self.hass.config_entries.async_update_entry(self.entry, options={**self.entry.options,
+            "description_as_name": {**self.entry.options.get("description_as_name", {}), entity_id: enabled}})
+        self.notify()
+        return self.snapshot
 
     async def async_toggle_located_store(self, store, enabled):
         """Enable a fixed reference without postal discovery or HTTP requests."""

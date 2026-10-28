@@ -14,6 +14,7 @@ from homeassistant.helpers.storage import Store
 
 from .catalog import normalized_name
 from .const import DOMAIN
+from .todo_names import item_name
 
 MAX_ENTRIES = 1000
 _LOGGER = logging.getLogger(__name__)
@@ -195,7 +196,7 @@ class ActivityLog:
             old, new = previous.get(uid), current.get(uid)
             if old == new:
                 continue
-            product = (new or old).get("summary") or "Producto sin nombre"
+            product = item_name(self.settings, entity_id, new or old) or "Producto sin nombre"
             if old is None:
                 kind, text = "list.added", "Añadido a la lista"
             elif new is None:
@@ -205,8 +206,8 @@ class ActivityLog:
             else:
                 kind, text = "list.updated", "Producto modificado en la lista"
             details = {}
-            if old and new and old.get("summary") != new.get("summary"):
-                details["previous_name"] = old.get("summary")
+            if old and new and item_name(self.settings, entity_id, old) != item_name(self.settings, entity_id, new):
+                details["previous_name"] = item_name(self.settings, entity_id, old)
             self.record(kind, f"{text}: {product}", product=product, list_entity=entity_id,
                         list_name=list_name, **details, **self._origin(entity_id, kind, old, new))
 

@@ -4,7 +4,7 @@
 
 Una interfaz propia para gestionar las listas de la compra que ya tienes integradas en Home Assistant.
 
-Versión actual: **0.42.0**. Interfaz en español, pensada para móvil y ordenador. Requiere **Home Assistant Core 2026.10 o posterior**. La referencia de desarrollo es Core 2026.10.2.
+Versión actual: **0.43.0**. Interfaz en español, pensada para móvil y ordenador. Requiere **Home Assistant Core 2026.10 o posterior**. La referencia de desarrollo es Core 2026.10.2.
 
 Los precios proceden de tickets y facturas confirmados por el usuario. Alcampo y DIA están archivados: no aparecen en Ajustes → Tiendas ni inician consultas, pero conservan su código y sus datos guardados. Las demás tiendas permanecen disponibles. El catálogo comunitario se dedica exclusivamente a sugerencias de iconos y no proporciona precios.
 
@@ -59,6 +59,8 @@ para administradores de Home Assistant.
 - Asignar categorías, códigos de barras, etiquetas NFC, precios orientativos e imágenes.
 - Buscar, filtrar y añadir productos del catálogo a la lista seleccionada.
 - Agrupar el catálogo por categoría o Sugerencias. Al agrupar por Sugerencias solo se muestran productos asociados a un grupo de sugerencias activo.
+
+En Ajustes → Listas puedes activar **Usar la descripción como parte del nombre** para cada lista, incluidas las pasarela. Se activa por defecto para Bring!: «Leche» con segunda línea «de avena» se identifica como «Leche de avena». Esta identidad se utiliza en el catálogo, las sugerencias, los lectores, las recetas, el stock y las comprobaciones de duplicados. Se conserva el identificador y los campos originales del proveedor; aceptar una sugerencia sin corregir su nombre no reescribe el producto. Si corriges expresamente el nombre desde una sugerencia, se actualiza el nombre completo y se vacía la segunda línea para evitar repetirla. Otros proveedores mantienen su comportamiento habitual salvo que actives la opción. No requiere nuevas dependencias.
 
 Cada lista conserva sus datos en su integración original. Las operaciones disponibles dependen de lo que admita ese proveedor. Por ejemplo, una lista de solo lectura se puede consultar, pero sus controles de edición aparecen desactivados. La frecuencia con la que Bring! u otro proveedor recibe cambios de su nube depende de su propia integración.
 

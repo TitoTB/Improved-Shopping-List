@@ -18,6 +18,7 @@ from .catalog import CatalogError
 from .const import DOMAIN
 from .store_links import STORES
 from .purchase_visits import PurchaseVisits
+from .todo_names import item_name
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -164,10 +165,11 @@ class PurchaseDetection(PurchaseVisits):
         if not self._active or not self.enabled or entity_id not in self.settings.snapshot["entities"] or not item.get("uid"):
             return
         when = dt_util.now()
-        product = next((p for p in self.receipts.stock.catalog.products if normalized_name(p["name"]) == normalized_name(item.get("summary", ""))), None)
+        name = item_name(self.settings, entity_id, item)
+        product = next((p for p in self.receipts.stock.catalog.products if normalized_name(p["name"]) == normalized_name(name)), None)
         self._events.append((when.date().isoformat(), when.isoformat(),
             sha256((entity_id+":"+str(item["uid"])).encode()).hexdigest(),
-            {"name":item.get("summary", "")[:255], "product_id":product["id"] if product else "",
+            {"name":name[:255], "product_id":product["id"] if product else "",
              "list_entity":entity_id, "quantity":quantity.get("quantity",1) if quantity else 1,
              "unit":quantity.get("unit","uds") if quantity else "uds"}))
         self._queue()

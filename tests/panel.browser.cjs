@@ -658,6 +658,11 @@ async function checkLidlAccount(browser,url,errors){
   assert.deepEqual(await page.evaluate(()=>window.lidlCalls.filter(x=>x.type.endsWith('/options')).at(-1).options),{history_enabled:true,auto_ticket:true});
   await page.screenshot({path:'test-results/lidl-account-mobile.png',fullPage:true});
   await account.getByRole('button',{name:'Desconectar cuenta',exact:true}).click();assert.equal(await account.locator('#auto-ticket').isDisabled(),true);
+  const morePopup=page.waitForEvent('popup');await account.getByRole('button',{name:'Conectar cuenta',exact:true}).click();await morePopup;
+  const har={log:{entries:[{request:{url:'https://accounts.lidl.com/connect/authorize/callback'},response:{headers:[{name:'Location',value:'com.lidlplus.app://callback?state=test-state&code=har-code'}]},private_other_data:'DO_NOT_SEND'}]}};
+  await account.locator('#oauth-har').setInputFiles({name:'authorization.har',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(har))});
+  await account.getByRole('button',{name:'Desconectar cuenta',exact:true}).waitFor();
+  assert.equal(await page.evaluate(()=>JSON.stringify(window.lidlCalls).includes('DO_NOT_SEND')),false);
   await settings.locator('#lidl-dialog').evaluate(dialog=>dialog.close());
   await settings.locator('isl-shopping-places').getByRole('button',{name:'Añadir tienda',exact:true}).click();await settings.locator('isl-shopping-places #account').selectOption('lidl');
   assert.equal(await settings.locator('isl-shopping-places #account').inputValue(),'lidl');
@@ -741,7 +746,7 @@ async function main() {
       };
       visit(document);
       return dialogs.filter(dialog => dialog.querySelectorAll(".isl-dialog-close[aria-label='Cerrar ventana']").length === 1).length;
-    }), 35);
+    }), 36);
     await page.getByRole("button", { name: "Seleccionar lista", exact: true }).click();
     const listDialog = page.getByRole("dialog", { name: "Seleccionar lista", exact: true });
     assert.equal(await listDialog.getByRole("button", { name: "Compra · Bring!", exact: true }).getAttribute("aria-pressed"), "true");

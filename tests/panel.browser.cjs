@@ -1666,7 +1666,7 @@ async function main() {
     await settingsPage.getByRole("button", { name: "Ajustes", exact: true }).click();
     await settingsView.getByRole("button",{name:"Tiendas",exact:true}).click();
     assert.equal(await settingsView.locator("#settings-view-stores ha-icon").getAttribute("icon"), "mdi:store");
-    assert.deepEqual(await settingsView.locator(".stores-grid .store-name h3").allTextContents(),["Alcampo","Carrefour","Consum","DIA","Eroski","La Sirena","Mercadona"]);
+    assert.deepEqual(await settingsView.locator(".stores-grid .store-name h3").allTextContents(),["Alcampo","Carrefour","Consum","DIA","Eroski","La Sirena","Lidl","Mercadona"]);
     // Store settings open without cached-product listings or count badges.
     for (const store of ['Mercadona','Carrefour','Alcampo','Consum','La Sirena','Eroski','DIA']) {
       const gear=settingsView.getByRole('button',{name:`Ajustes de ${store}`,exact:true});

@@ -1,4 +1,4 @@
-"""Retiring a store must preserve products, scanner codes and other providers."""
+"""Reintroducing Lidl accounts preserves data without restoring its public scraper."""
 
 from copy import deepcopy
 from unittest.mock import AsyncMock
@@ -13,23 +13,23 @@ from custom_components.improved_shopping_list.price_sources import PriceSources
 from custom_components.improved_shopping_list.store_links import normalize_link
 
 
-@pytest.mark.parametrize("other_enabled,expected_favorite", [(True,"carrefour"),(False,"")])
-async def test_retired_store_settings_migrate_without_losing_lists(hass,other_enabled,expected_favorite):
+@pytest.mark.parametrize("other_enabled,expected_favorite", [(True,"lidl"),(False,"lidl")])
+async def test_lidl_account_settings_keep_lists_and_drop_obsolete_public_region(hass,other_enabled,expected_favorite):
     entry = MockConfigEntry(domain=DOMAIN,data={CONF_TODO_ENTITY:"todo.bring"},options={
         "stores":{"lidl":{"enabled":True,"region_id":"28"},
                   "carrefour":{"enabled":other_enabled,"sale_point":"012345"}},
         "favorite_store":"lidl","other_setting":"preserved"})
     entry.add_to_hass(hass)
     settings = ListSettings(hass); settings.attach(entry)
-    assert set(settings.snapshot["stores"]) == {"mercadona","carrefour","alcampo","consum","lasirena","eroski","dia"}
+    assert set(settings.snapshot["stores"]) == {"mercadona","carrefour","alcampo","consum","lasirena","eroski","dia","lidl"}
     assert settings.snapshot["favorite_store"] == expected_favorite
     assert settings.snapshot["stores"]["carrefour"]["sale_point"] == "005704"
     assert settings.snapshot["primary_entity"] == "todo.bring"
     assert entry.options["other_setting"] == "preserved"
-    assert "lidl" not in entry.options["stores"]
+    assert entry.options["stores"]["lidl"] == {"enabled":True}
 
 
-async def test_retired_binding_removed_without_deleting_catalog_product(hass):
+async def test_lidl_binding_survives_without_deleting_catalog_product(hass):
     catalog = Catalog(hass)
     await catalog.async_load()
     product = await catalog.async_save_product({"name":"Cacao","barcode":"0012345",
@@ -39,20 +39,19 @@ async def test_retired_binding_removed_without_deleting_catalog_product(hass):
     await catalog._persist(catalog._products,catalog._categories)
     restored = Catalog(hass)
     await restored.async_load()
-    assert restored.products == [product]
+    assert restored.products[0]["id"] == product["id"]
     assert restored.find_by_code("barcode","0012345")["id"] == product["id"]
     stored = await restored._store.async_load()
-    assert "lidl" not in stored["products"][product["id"]]["store_links"]
-    # A cached older client cannot silently reintroduce the removed provider.
-    with pytest.raises(CatalogError):
-        await restored.async_save_product({"name":"Cacao","store_links":{"lidl":"11107037"}})
-    assert restored.products == [product]
+    assert stored["products"][product["id"]]["store_links"]["lidl"]["id"] == "11107037"
+    saved = await restored.async_save_product({**restored.products[0],"store_links":{"lidl":"11107037","carrefour":"R-VC4AECOMM-491998"}})
+    assert saved["id"] == product["id"] and saved["barcode"] == "0012345"
+    assert saved["store_links"]["lidl"] == {"id":"11107037","url":""}
 
 
-async def test_retired_reference_is_rejected_before_any_http(hass,aioclient_mock):
+
+async def test_lidl_public_price_queries_remain_disabled(hass,aioclient_mock):
     before = AsyncMock()
-    with pytest.raises(ValueError):
-        normalize_link("lidl","11107037")
+    assert normalize_link("lidl","11107037") == {"id":"11107037","url":""}
     with pytest.raises(ValueError):
         await PriceSources(hass).fetch("lidl",{"id":"11107037","url":"https://www.lidl.es/p/p11107037"},{},before)
     before.assert_not_awaited()

@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.improved_shopping_list.catalog import Catalog, CatalogError
+from custom_components.improved_shopping_list.catalog import Catalog, CatalogError, FIELDS
 from custom_components.improved_shopping_list.const import CONF_TODO_ENTITY, DOMAIN
 from custom_components.improved_shopping_list.list_settings import ListSettings
 from custom_components.improved_shopping_list.price_sources import PriceSources
@@ -43,7 +43,7 @@ async def test_lidl_binding_survives_without_deleting_catalog_product(hass):
     assert restored.find_by_code("barcode","0012345")["id"] == product["id"]
     stored = await restored._store.async_load()
     assert stored["products"][product["id"]]["store_links"]["lidl"]["id"] == "11107037"
-    saved = await restored.async_save_product({**restored.products[0],"store_links":{"lidl":"11107037","carrefour":"R-VC4AECOMM-491998"}})
+    saved = await restored.async_save_product({**{k:v for k,v in restored.products[0].items() if k in FIELDS},"store_links":{"lidl":"11107037","carrefour":"R-VC4AECOMM-491998"}})
     assert saved["id"] == product["id"] and saved["barcode"] == "0012345"
     assert saved["store_links"]["lidl"] == {"id":"11107037","url":""}
 

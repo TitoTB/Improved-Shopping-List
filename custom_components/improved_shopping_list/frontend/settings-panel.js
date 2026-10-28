@@ -1,15 +1,15 @@
-import "./shopping-places.js?v=0.45.0";
-import "./dia-prices-settings.js?v=0.45.0";
-import "./alcampo-settings.js?v=0.45.0";
-import "./carrefour-account.js?v=0.45.0";
-import "./lidl-account.js?v=0.45.0";
-import "./logs-panel.js?v=0.45.0";
-import "./notification-settings.js?v=0.45.0";
-import "./readers-panel.js?v=0.45.0";
-import { installDialogCloseButtons } from "./dialog-controls.js?v=0.45.0";
-import { installToggleStyles } from "./toggle-styles.js?v=0.45.0";
-import { todoEntities, isAvailable } from "./todo-client.js?v=0.45.0";
-import { DEFAULT_APPEARANCE, gradientTextColor } from "./list-settings-client.js?v=0.45.0";
+import "./shopping-places.js?v=0.46.0";
+import "./dia-prices-settings.js?v=0.46.0";
+import "./alcampo-settings.js?v=0.46.0";
+import "./carrefour-account.js?v=0.46.0";
+import "./lidl-account.js?v=0.46.0";
+import "./logs-panel.js?v=0.46.0";
+import "./notification-settings.js?v=0.46.0";
+import "./readers-panel.js?v=0.46.0";
+import { installDialogCloseButtons } from "./dialog-controls.js?v=0.46.0";
+import { installToggleStyles } from "./toggle-styles.js?v=0.46.0";
+import { todoEntities, isAvailable } from "./todo-client.js?v=0.46.0";
+import { DEFAULT_APPEARANCE, gradientTextColor } from "./list-settings-client.js?v=0.46.0";
 
 const MERCADONA_LOGO_URL = new URL("mercadona.png", import.meta.url).href;
 
@@ -31,6 +31,7 @@ class ImprovedShoppingSettings extends HTMLElement {
   set hass(value) {
     if(!this._data)return;
     this._data={...this._data,hass:value};this._syncReaders();
+    const places=this.shadowRoot.querySelector('isl-shopping-places');if(places)places.data=this._data;
     if(this._built){
       const settings=this._data.settings;
       const locked=value?.user?.is_admin!==true||!settings.loaded||settings.loading||this._busy;
@@ -473,7 +474,7 @@ class ImprovedShoppingSettings extends HTMLElement {
       const storeName=root.querySelector(`#${store}-enabled`).closest('.store-row').querySelector('.store-name');
       let count=storeName.querySelector('.store-linked-count');if(!count){count=document.createElement('span');count.className='store-linked-count';storeName.append(count);}
       const linked=(this._data.products??[]).filter(product=>{const link=product.store_links?.[store];return Boolean(typeof link==='string'?link.trim():link?.id||link?.url)||(this._data.receiptStores?.[product.id]??[]).includes(store);}).length;
-      count.textContent=linked+(linked===1?' producto vinculado':' productos vinculados');
+      count.textContent=linked+(linked===1?' producto':' productos');
       const favorite = root.querySelector(`#favorite-${store}`);
       favorite.disabled = locked || !settings.stores?.[store]?.enabled;
       const selected = Boolean(settings.stores?.[store]?.enabled && settings.favoriteStore === store);

@@ -521,6 +521,7 @@ async function captureProductCode(page, form, kind, code, expected = code) {
 async function checkUniversalPurchaseSettings(browser,url,errors) {
   // Universal purchase setup separates accounts, physical shops and shoppers.
   const universalContext=await browser.newContext({viewport:{width:390,height:844}});
+  await universalContext.route('https://tile.openstreetmap.org/**',route=>route.fulfill({contentType:'image/png',body:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a20kAAAAASUVORK5CYII=','base64')}));
   await universalContext.addInitScript(()=>{
     // Localhost is secure in Chromium; emulate HA's common plain-HTTP context.
     Object.defineProperty(Crypto.prototype,'randomUUID',{value:undefined,configurable:true});
@@ -542,7 +543,71 @@ async function checkUniversalPurchaseSettings(browser,url,errors) {
   await universalPage.waitForFunction(()=>window.listSettings.purchase_detection.shops.length===1);
   await shopEditor.waitFor({state:'hidden'});await places.getByRole('button',{name:'Editar tienda Frutería',exact:true}).click();
   assert.equal(await shopEditor.getByLabel('Cuenta vinculada',{exact:true}).inputValue(),'');
+  assert.ok(await shopEditor.evaluate(dialog=>dialog.querySelector('#account').getBoundingClientRect().top<dialog.querySelector('#name').getBoundingClientRect().top));
+  await shopEditor.getByLabel('Cuenta vinculada',{exact:true}).selectOption('carrefour');
+  assert.equal(await shopEditor.getByLabel('Nombre',{exact:true}).inputValue(),'Carrefour');
+  assert.match(await shopEditor.getByLabel('Imagen',{exact:true}).inputValue(),/carrefour-logo/);
+  assert.equal(await shopEditor.getByLabel('Color',{exact:true}).inputValue(),'#2388dc');
+  await shopEditor.getByLabel('Cuenta vinculada',{exact:true}).selectOption('lidl');
+  assert.equal(await shopEditor.getByLabel('Nombre',{exact:true}).inputValue(),'Lidl');
+  assert.match(await shopEditor.getByLabel('Imagen',{exact:true}).inputValue(),/Lidl-Logo/);
+  assert.equal(await shopEditor.getByLabel('Color',{exact:true}).inputValue(),'#ffcc00');
   await shopEditor.getByRole('button',{name:'Cerrar ventana',exact:true}).click();
+  await universalPage.evaluate(()=>{const panel=window.testPanel;panel.hass={...panel._hass,states:{...panel._hass.states,'zone.shop_one':{entity_id:'zone.shop_one',state:'0',attributes:{friendly_name:'Sucursal uno',latitude:40.41,longitude:-3.7,radius:100}},'zone.shop_two':{entity_id:'zone.shop_two',state:'0',attributes:{friendly_name:'Sucursal dos',latitude:40.42,longitude:-3.71,radius:150}}}};});
+  await places.getByRole('button',{name:'Editar tienda Frutería',exact:true}).click();
+  assert.equal(await shopEditor.getByLabel('Nombre',{exact:true}).inputValue(),'Frutería');
+  assert.equal(await shopEditor.getByLabel('Cuenta vinculada',{exact:true}).inputValue(),'');
+  await shopEditor.locator('#zones summary').click();
+  await shopEditor.getByRole('checkbox',{name:'Sucursal uno',exact:true}).check();
+  await shopEditor.getByRole('checkbox',{name:'Sucursal dos',exact:true}).check();
+  assert.match(await shopEditor.locator('#zones-summary').textContent(),/Sucursal dos.*Sucursal uno/);
+  await universalPage.evaluate(()=>window.emitSettings());
+  assert.equal(await shopEditor.getByRole('checkbox',{name:'Sucursal dos',exact:true}).isChecked(),true);
+  await universalPage.screenshot({path:'test-results/shop-zone-picker-mobile.png',fullPage:true});
+  assert.ok(await shopEditor.evaluate(dialog=>dialog.scrollWidth<=dialog.clientWidth));
+  await shopEditor.getByRole('button',{name:'Guardar tienda',exact:true}).click();
+  await universalPage.waitForFunction(()=>window.listSettings.purchase_detection.shops[0].zones.length===2);
+  await places.getByRole('button',{name:'Editar tienda Frutería',exact:true}).click();
+  await shopEditor.locator('#zones summary').click();
+  assert.equal(await shopEditor.getByRole('checkbox',{name:'Sucursal uno',exact:true}).isChecked(),true);
+  await shopEditor.getByRole('checkbox',{name:'Sucursal dos',exact:true}).uncheck();
+  await shopEditor.getByRole('button',{name:'Guardar tienda',exact:true}).click();
+  await universalPage.waitForFunction(()=>window.listSettings.purchase_detection.shops[0].zones.length===1);
+  assert.deepEqual(await universalPage.evaluate(()=>window.listSettings.purchase_detection.shops[0].zones),['zone.shop_one']);
+  await places.getByRole('button',{name:'Editar tienda Frutería',exact:true}).click();
+  await shopEditor.locator('isl-zone-map').evaluate(async map=>{while(!map._map)await new Promise(resolve=>setTimeout(resolve,20));});
+  assert.equal(await shopEditor.locator('isl-zone-map').evaluate(map=>map._data.zones.length),1);
+  await universalPage.evaluate(()=>{const hass=window.testPanel._hass,original=hass.callWS;window.zoneCreations=[];window.failZoneRegistry=true;
+    hass.callWS=async message=>{
+      if(message.type==='zone/create'){window.zoneCreations.push(message);return {...message,id:'created-zone-id'};}
+      if(message.type==='config/entity_registry/list'){if(window.failZoneRegistry){window.failZoneRegistry=false;throw new Error('Registro temporalmente no disponible');}return [{platform:'zone',unique_id:'created-zone-id',entity_id:'zone.created_shop'}];}
+      return original(message);
+    };
+  });
+  await shopEditor.getByRole('button',{name:'Crear zona',exact:true}).click();
+  assert.equal(await shopEditor.getByRole('button',{name:'Guardar tienda',exact:true}).isDisabled(),true);
+  await shopEditor.getByLabel('Nombre de la zona',{exact:true}).fill('Nueva sucursal');
+  await shopEditor.getByLabel('Radio (metros)',{exact:true}).fill('125');
+  const zoneMap=shopEditor.locator('isl-zone-map');
+  const initialLatitude=await shopEditor.getByLabel('Latitud',{exact:true}).inputValue();
+  await zoneMap.locator('.leaflet-container').click({position:{x:70,y:70}});
+  assert.notEqual(await shopEditor.getByLabel('Latitud',{exact:true}).inputValue(),initialLatitude);
+  assert.ok(Number.isFinite(Number(await shopEditor.getByLabel('Latitud',{exact:true}).inputValue())));
+  await shopEditor.getByRole('button',{name:'Crear y seleccionar',exact:true}).click();
+  await shopEditor.getByText('Registro temporalmente no disponible',{exact:true}).waitFor();
+  await shopEditor.getByRole('button',{name:'Vincular zona creada',exact:true}).click();
+  await shopEditor.locator('#zone-create').waitFor({state:'hidden'});
+  assert.equal(await universalPage.evaluate(()=>window.zoneCreations.length),1);
+  assert.equal(await zoneMap.evaluate(map=>map._data.zones.length),2);
+  assert.equal(await zoneMap.evaluate(map=>map._layers.getLayers().length),4);
+  assert.equal(await zoneMap.locator('.leaflet-control-attribution a[href="https://www.openstreetmap.org/copyright"]').count(),1);
+  await shopEditor.locator('#zones summary').click();
+  assert.equal(await shopEditor.getByRole('checkbox',{name:'Nueva sucursal',exact:true}).isChecked(),true);
+  await universalPage.screenshot({path:'test-results/shop-zones-map-mobile.png',fullPage:true});
+  assert.ok(await shopEditor.evaluate(dialog=>dialog.scrollWidth<=dialog.clientWidth));
+  await shopEditor.getByRole('button',{name:'Guardar tienda',exact:true}).click();
+  await universalPage.waitForFunction(()=>window.listSettings.purchase_detection.shops[0].zones.includes('zone.created_shop'));
+
   assert.equal(await universalSettings.getByLabel('Permanencia mínima en la zona (minutos)',{exact:true}).inputValue(),'5');
   assert.deepEqual(await universalSettings.locator('.store-row:visible h3').allTextContents(),['Carrefour','Lidl']);
   await universalPage.evaluate(()=>{const panel=window.testPanel;panel.hass={...panel._hass,states:{...panel._hass.states,
@@ -635,6 +700,7 @@ async function checkTwoLineNames(browser,url,errors) {
 
 async function checkLidlAccount(browser,url,errors){
   const context=await browser.newContext({viewport:{width:390,height:844}});
+  await context.route('https://tile.openstreetmap.org/**',route=>route.fulfill({contentType:'image/png',body:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a20kAAAAASUVORK5CYII=','base64')}));
   await context.addInitScript(()=>localStorage.setItem('settings-fixture',JSON.stringify({entities:['todo.bring'],primary_entity:'todo.bring',stores:{carrefour:{enabled:false},lidl:{enabled:false}},purchase_detection:{enabled:false,threshold:5,persons:[],shops:[]}})));
   await context.route('https://accounts.lidl.com/**',route=>route.fulfill({status:200,contentType:'text/html',body:'Official login placeholder'}));
   const page=await context.newPage();page.on('pageerror',error=>errors.push(error.message));await page.goto(url);
@@ -746,7 +812,10 @@ async function checkSpendingChart(browser,url,errors){
       await spending.getByLabel('Fecha de inicio',{exact:true}).fill(from);await spending.getByLabel('Fecha de fin',{exact:true}).fill(to);
       await spending.getByRole('button',{name:'Aplicar',exact:true}).click();
     };
-    const resetPeriod=async()=>{await spending.getByRole('button',{name:'Seleccionar periodo de compras',exact:true}).click();await spending.getByRole('button',{name:'Últimos seis meses',exact:true}).click();};
+    const resetPeriod=async()=>{
+      const dates=await spendingPage.evaluate(()=>{const now=new Date(),day=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;return [day(new Date(now.getFullYear(),now.getMonth()-5,1)),day(new Date(now.getFullYear(),now.getMonth()+1,0))];});
+      await selectPeriod(...dates);
+    };
     await selectPeriod('2026-01-01','2026-04-30');
     assert.deepEqual(await spending.locator('#history .ticket').evaluateAll(cards=>cards.map(card=>card.dataset.id)),['before','f1','j3','j2','j1']);
     const jan=spending.locator('.month-column[data-month="2026-01"]'),feb=spending.locator('.month-column[data-month="2026-02"]');
@@ -769,7 +838,9 @@ async function checkSpendingChart(browser,url,errors){
     await selectPeriod('2026-02-01','2026-01-01');
     assert.equal(await spending.locator('#purchase-period-dialog').isVisible(),true);
     assert.equal(await spending.locator('#purchase-end').evaluate(el=>el.validity.customError),true);
-    await spending.getByRole('button',{name:'Últimos seis meses',exact:true}).click();
+    assert.equal(await spending.getByRole('button',{name:'Últimos seis meses',exact:true}).count(),0);
+    await spending.locator('#purchase-period-dialog').getByRole('button',{name:'Cerrar ventana',exact:true}).click();
+    await resetPeriod();
     assert.deepEqual(await spending.locator('#history .ticket').evaluateAll(cards=>cards.map(card=>card.dataset.id)),['recent','start']);
 
     assert.deepEqual(await spending.locator('.month-column').evaluateAll(columns=>columns.map(column=>column.dataset.month)),defaultMonths);
@@ -816,8 +887,8 @@ async function main() {
       return;
     }
     if (pathname === "/") { res.setHeader("content-type", "text/html; charset=utf-8"); res.end(html); return; }
-    if (!["/lidl-account.js", "/toggle-styles.js", "/shopping-places.js", "/dia-prices-settings.js", "/dia-account.js", "/analytics-panel.js", "/alcampo-settings.js", "/carrefour-account.js", "/notification-settings.js", "/recipe-editor.js", "/quantity-client.js", "/panel.js", "/purchases-panel.js", "/stock-client.js", "/dialog-controls.js", "/todo-client.js", "/catalog-panel.js", "/catalog-client.js", "/category-panel.js", "/icon-picker.js", "/list-settings-client.js", "/settings-panel.js", "/readers-client.js", "/readers-panel.js", "/product-matching.js", "/product-names.js", "/logs-panel.js", "/logo.png", "/mercadona.png", "/consum.jpg", "/lasirena.jpg", "/eroski.svg", "/dia.png"].includes(pathname)) { res.writeHead(404).end(); return; }
-    res.setHeader("content-type", pathname.endsWith(".svg") ? "image/svg+xml" : pathname.endsWith(".png") ? "image/png" : pathname.endsWith(".jpg") ? "image/jpeg" : "text/javascript; charset=utf-8");
+    if (!["/zone-map.js", "/vendor/leaflet/leaflet.js", "/vendor/leaflet/leaflet.css", "/vendor/leaflet/images/layers.png", "/vendor/leaflet/images/layers-2x.png", "/lidl-account.js", "/toggle-styles.js", "/shopping-places.js", "/dia-prices-settings.js", "/dia-account.js", "/analytics-panel.js", "/alcampo-settings.js", "/carrefour-account.js", "/notification-settings.js", "/recipe-editor.js", "/quantity-client.js", "/panel.js", "/purchases-panel.js", "/stock-client.js", "/dialog-controls.js", "/todo-client.js", "/catalog-panel.js", "/catalog-client.js", "/category-panel.js", "/icon-picker.js", "/list-settings-client.js", "/settings-panel.js", "/readers-client.js", "/readers-panel.js", "/product-matching.js", "/product-names.js", "/logs-panel.js", "/logo.png", "/mercadona.png", "/consum.jpg", "/lasirena.jpg", "/eroski.svg", "/dia.png"].includes(pathname)) { res.writeHead(404).end(); return; }
+    res.setHeader("content-type", pathname.endsWith(".css") ? "text/css; charset=utf-8" : pathname.endsWith(".svg") ? "image/svg+xml" : pathname.endsWith(".png") ? "image/png" : pathname.endsWith(".jpg") ? "image/jpeg" : "text/javascript; charset=utf-8");
     res.end(await fs.readFile(path.join(root, pathname.slice(1))));
   });
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -3971,7 +4042,7 @@ async function main() {
     const alcampoOptions=alcampoSettings.locator('isl-alcampo-settings');
     await alcampoOptions.getByRole('switch',{name:'Buscar coincidencias de productos en su catálogo',exact:true}).waitFor();
     assert.equal(await alcampoOptions.locator('#days').inputValue(),'30');
-    assert.equal(await alcampoSettings.locator('#alcampo-enabled').evaluate(toggle=>toggle.closest('.store-row').querySelector('.store-linked-count').textContent),'1 producto vinculado');
+    assert.equal(await alcampoSettings.locator('#alcampo-enabled').evaluate(toggle=>toggle.closest('.store-row').querySelector('.store-linked-count').textContent),'1 producto');
     assert.equal(await alcampoOptions.getByRole('button',{name:'Buscar',exact:true}).isDisabled(),true);
     await alcampoOptions.getByLabel('Producto del catálogo para probar Alcampo',{exact:true}).selectOption('test-alcampo-product');
     await alcampoOptions.getByRole('button',{name:'Buscar',exact:true}).click();

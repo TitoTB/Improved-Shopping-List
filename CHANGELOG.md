@@ -1,5 +1,13 @@
 # Historial de cambios
 
+## 0.46.0 — 2026-10-28
+
+- Corregida la fecha de los tickets de Lidl cuando su detalle omite la zona horaria; mantiene la comprobación de identidad, fecha e importe.
+- Cuenta vinculada al principio de la ficha de tiendas, con nombre, imagen y color sugeridos al seleccionarla. Selector de zonas mediante casillas.
+- Creación de zonas de Home Assistant desde la ficha de la tienda, selección automática y reintento de vinculación sin duplicar la zona.
+- Mapa de las zonas seleccionadas con su radio y selección de coordenadas con un clic. Leaflet 1.9.4 incluido localmente y teselas de OpenStreetMap; sin tarjetas ni complementos adicionales.
+- Contadores de cuentas simplificados a «XX productos» y eliminado «Últimos seis meses» del popup de periodo de compras.
+
 ## 0.45.0 — 2026-10-28
 
 - Conexión de Lidl guiada mediante archivo HAR: rutas de los menús del navegador, instrucciones de exportación y selección directa del archivo, sin copiar direcciones.

@@ -1,13 +1,23 @@
 {
   "domain": "improved_shopping_list",
   "name": "Improved Shopping List",
-  "codeowners": ["@TitoTB"],
+  "codeowners": [
+    "@TitoTB"
+  ],
   "config_flow": true,
-  "dependencies": ["frontend", "http", "panel_custom", "todo"],
+  "dependencies": [
+    "frontend",
+    "http",
+    "panel_custom",
+    "todo",
+    "zone"
+  ],
   "documentation": "https://github.com/TitoTB/Improved-Shopping-List",
   "integration_type": "service",
   "iot_class": "local_push",
   "issue_tracker": "https://github.com/TitoTB/Improved-Shopping-List/issues",
-  "requirements": ["pypdf==6.21.2"],
-  "version": "0.45.0"
+  "requirements": [
+    "pypdf==6.21.2"
+  ],
+  "version": "0.46.0"
 }

@@ -39,7 +39,9 @@ def summary(raw):
     if when is None:
         raise CatalogError("La fecha de compra de Lidl no es válida.", "lidl_history_format")
     if when.tzinfo is None:
-        when = when.replace(tzinfo=dt_util.DEFAULT_TIME_ZONE)
+        # Lidl lists dates with Z but may omit that suffix in ticket details.
+        # Interpret both consistently; never attach the Home Assistant local zone.
+        when = when.replace(tzinfo=dt_util.UTC)
     return {"reference": reference, "purchased_at": dt_util.as_local(when).isoformat(),
             "amount": float(amount(raw.get("totalAmount"))), "supported": not raw.get("isDeleted", False)}
 
@@ -79,7 +81,7 @@ def extract_lidl_ticket(detail, reference, expected_total, expected_date):
     parsed = summary({**detail, "totalAmount": expected_total})
     expected = dt_util.parse_datetime(expected_date)
     if expected is not None and expected.tzinfo is None:
-        expected = expected.replace(tzinfo=dt_util.DEFAULT_TIME_ZONE)
+        expected = expected.replace(tzinfo=dt_util.UTC)
     if expected is None or abs(dt_util.parse_datetime(parsed["purchased_at"]).timestamp() - expected.timestamp()) > 60:
         raise CatalogError("La fecha del ticket de Lidl no coincide.", "lidl_ticket_identity")
     html = detail.get("htmlPrintedReceipt")

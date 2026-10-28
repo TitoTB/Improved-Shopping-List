@@ -4,7 +4,7 @@
 
 Una interfaz propia para gestionar las listas de la compra que ya tienes integradas en Home Assistant.
 
-Versión actual: **0.45.0**. Interfaz en español, pensada para móvil y ordenador. Requiere **Home Assistant Core 2026.10 o posterior**. La referencia de desarrollo es Core 2026.10.2.
+Versión actual: **0.46.0**. Interfaz en español, pensada para móvil y ordenador. Requiere **Home Assistant Core 2026.10 o posterior**. La referencia de desarrollo es Core 2026.10.2.
 
 Los precios proceden de tickets y facturas confirmados por el usuario. Alcampo y DIA están archivados: no aparecen en Ajustes → Tiendas ni inician consultas, pero conservan su código y sus datos guardados. Las demás tiendas permanecen disponibles. El catálogo comunitario se dedica exclusivamente a sugerencias de iconos y no proporciona precios.
 
@@ -26,7 +26,7 @@ Los tokens se conservan en el almacenamiento privado de Home Assistant y se renu
 
 ## Qué puedes hacer
 
-El apartado **Analítica** incluye **Comparativa**, **Compras** y **Nutri-score**. Compras muestra el logo de la tienda y un botón de ticket junto al importe para abrir el detalle en un popup. Encima del historial, un gráfico de barras apiladas suma los importes de las compras registradas por mes y tienda, sin dependencias de tarjetas externas. El botón de calendario permite elegir las fechas de inicio y fin, ambas incluidas: la gráfica y el listado muestran solo las compras de ese intervalo. Inicialmente se muestran los últimos seis meses, periodo que puede recuperarse desde el mismo selector. Incluye un botón para subir tickets
+El apartado **Analítica** incluye **Comparativa**, **Compras** y **Nutri-score**. Compras muestra el logo de la tienda y un botón de ticket junto al importe para abrir el detalle en un popup. Encima del historial, un gráfico de barras apiladas suma los importes de las compras registradas por mes y tienda, sin dependencias de tarjetas externas. El botón de calendario permite elegir las fechas de inicio y fin, ambas incluidas: la gráfica y el listado muestran solo las compras de ese intervalo. Inicialmente se muestran los últimos seis meses. Incluye un botón para subir tickets
 PDF electrónicos de Carrefour, tanto tickets como facturas online con tabla de EAN (hasta 2 MB y 10 páginas). El documento se lee localmente;
 los escaneos y otros formatos de tienda todavía no están disponibles. El popup guía
 la revisión con **Vinculación**, **Stock**, **Precios** y un **Resumen** final. Primero permite
@@ -433,7 +433,7 @@ La revisión de tickets de la cuenta de Carrefour consulta primero el detalle de
 En **Ajustes → Tiendas** hay tres bloques:
 
 - **Cuentas**: proveedores que permiten conectar una cuenta y descargar tickets; actualmente Carrefour y Lidl. Conserva las opciones de recuperación de historial y descarga automática.
-- **Tiendas**: establecimientos físicos con nombre, imagen, color y una o varias zonas de Home Assistant. Pueden vincularse a Carrefour o Lidl, o funcionar sin cuenta. Varias tiendas físicas pueden compartir la misma cuenta. Editar o eliminar una tienda conserva las compras anteriores.
+- **Tiendas**: establecimientos físicos con nombre, imagen, color y una o varias zonas de Home Assistant. Pueden vincularse a Carrefour o Lidl, o funcionar sin cuenta. Al crear o editar una tienda, el selector de cuenta aparece primero: al elegir Carrefour o Lidl completa su nombre, imagen y color, que se pueden personalizar después. Las zonas se seleccionan mediante un desplegable con casillas. Varias tiendas físicas pueden compartir la misma cuenta. Editar o eliminar una tienda conserva las compras anteriores.
 - **Usuarios**: personas (`person.*`) cuyas visitas se evalúan, activación de la detección, umbral diario y permanencia mínima en zona. La permanencia empieza en 5 minutos y admite de 1 a 1440 minutos. Se requiere Home Assistant recibiendo los estados de las personas; no hacen falta nuevas tarjetas HACS, bibliotecas ni servicios externos.
 
 La integración observa nuevas transiciones de pendiente a comprado y suma las entradas de todas las listas configuradas. El umbral es estricto: con 5 se activa al completar la sexta entrada. Los completados existentes al arrancar no cuentan como compras nuevas. La identidad de cada entrada evita contar repetidas transiciones de la misma entrada durante ese día. La reposición de Stock sigue realizándose al completar los productos; detectar la compra no vuelve a reponerlos.
@@ -463,3 +463,9 @@ El popup de DIA sustituye la conexión experimental de cuenta por estas opciones
 Cada consulta automática para detectar un ticket en Carrefour o Lidl incorpora también al historial las compras disponibles del último año que falten, aunque no se haya activado la importación inicial del historial. Se recorren las páginas del listado con una pausa entre peticiones y límites de seguridad; cada compra conserva su identificador para evitar duplicados. Esto no implica descargar los tickets antiguos ni modificar stock o precios: solo añade sus datos básicos y mantiene la revisión del ticket como un paso independiente. Las compras ya revisadas se conservan.
 
 Las nuevas cuentas deben utilizar `account_history.account_purchase_check` y un importador de resúmenes idempotente. El ticket actual se prepara antes de avanzar por las páginas para conservar sus referencias temporales; el resto del historial se incorpora también si falla su lectura. La cancelación al detener Home Assistant no inicia peticiones adicionales.
+
+### Zonas de las tiendas y mapa
+
+En el popup de una tienda, el botón Crear zona permite indicar nombre, coordenadas y radio, o elegir la posición pulsando en el mapa. La zona se crea en Home Assistant (componente integrado `zone`) y se selecciona para esa tienda. Se guarda en Home Assistant al crearla, aunque después cierres la ficha de la tienda. El mapa muestra las zonas seleccionadas y su radio; crear y vincular zonas requiere un usuario administrador.
+
+El mapa utiliza **Leaflet 1.9.4**, incluido localmente en la integración con su licencia BSD-2-Clause, y las teselas públicas de **OpenStreetMap** con atribución visible. No requiere instalar tarjetas de HACS, complementos, claves API ni bibliotecas en Home Assistant. El navegador necesita acceso a Internet para ver el fondo del mapa; las coordenadas se pueden introducir manualmente. No se descargan mapas en segundo plano ni se ofrecen descargas sin conexión. La dependencia npm solo se utiliza para mantener la copia distribuida en `frontend/vendor/leaflet`; la instalación mediante HACS ya la incluye.

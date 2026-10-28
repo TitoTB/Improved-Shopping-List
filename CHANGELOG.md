@@ -1,5 +1,11 @@
 # Historial de cambios
 
+## 0.44.1 — 2026-10-28
+
+- Asistente de conexión de Lidl en tres pasos: preparar el registro de red, acceder en la página oficial y completar la conexión en Home Assistant.
+- Instrucciones para recuperar el retorno móvil desde Network o Location, alternativa HAR desplegable y reinicio del intento sin cerrar el popup.
+- Navegación atrás, estados de progreso y limpieza del intento al cerrar; sin nuevas dependencias.
+
 ## 0.44.0 — 2026-10-28
 
 - El primer acceso de Lidl se completa con su dirección nativa de retorno o un HAR leído en el navegador; no requiere complementos adicionales.

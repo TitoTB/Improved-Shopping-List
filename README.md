@@ -14,6 +14,14 @@ El diccionario comunitario sirve exclusivamente para sugerir iconos por nombre o
 
 Lidl se incorpora a **Ajustes → Tiendas → Cuentas** con recuperación del historial disponible del último año y descarga automática de tickets pendientes de revisión, coordinada con las tiendas físicas, zonas y prioridad de cuentas. Su conexión usa OAuth/PKCE: abre el acceso oficial de Lidl y después permite pegar su dirección nativa de retorno o seleccionar el HAR de ese acceso. El HAR se lee en el navegador; solo se envía el retorno que corresponde a esa conexión. El primer acceso requiere este paso manual porque Lidl redirige a su aplicación móvil. No se instala navegador, complemento ni tarjeta adicional en Home Assistant, y no se guarda la contraseña de Lidl.
 
+El popup guía la conexión en tres pasos:
+
+1. **Preparar**: desde un ordenador, abre el enlace oficial de Lidl. Antes de iniciar sesión, pulsa F12 (o Ctrl + Mayús + I; en Mac, ⌘ + ⌥ + I), entra en **Red / Network** y activa **Conservar registro / Preserve log**. Mantén esas herramientas abiertas.
+2. **Acceder**: introduce tus credenciales en Lidl y completa su verificación. Una pantalla en blanco, error o aviso para abrir la app tras el acceso puede corresponder al retorno móvil; volver al formulario de login no confirma el acceso.
+3. **Conectar**: busca `com.lidlplus.app` en Red, con el filtro **Todo / All**, y copia la URL completa. Si no aparece una petición, busca el retorno en **Cabeceras / Headers → Cabeceras de respuesta / Response Headers → Location** de la respuesta de autorización. Pégalo en Home Assistant. La ayuda desplegable también permite seleccionar un HAR exportado desde ese mismo registro.
+
+Puedes volver entre los pasos sin perder la conexión en preparación. **Reiniciar conexión** genera un acceso nuevo y limpia los datos anteriores. El intento permanece disponible diez minutos; el código de retorno puede caducar antes y es de un solo uso, por lo que conviene pegarlo enseguida. El asistente no necesita extensiones del navegador ni nuevas dependencias.
+
 Los tokens se conservan en el almacenamiento privado de Home Assistant y se renuevan mediante HTTPS con HTTP/1.1. El historial básico no modifica stock ni precios. Los tickets HTML se validan y se revisan con el mismo asistente de Compras; solo al confirmar se aplican los cambios elegidos. Los códigos internos de Lidl se guardan como referencias, sin inferir EAN. Los formatos con devoluciones, descuentos o totales que no cuadren se dejan sin revisar en lugar de estimar sus líneas.
 
 ## Qué puedes hacer

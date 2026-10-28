@@ -4,7 +4,7 @@
 
 Una interfaz propia para gestionar las listas de la compra que ya tienes integradas en Home Assistant.
 
-Versión actual: **0.46.0**. Interfaz en español, pensada para móvil y ordenador. Requiere **Home Assistant Core 2026.10 o posterior**. La referencia de desarrollo es Core 2026.10.2.
+Versión actual: **0.47.0**. Interfaz en español, pensada para móvil y ordenador. Requiere **Home Assistant Core 2026.10 o posterior**. La referencia de desarrollo es Core 2026.10.2.
 
 Los precios proceden de tickets y facturas confirmados por el usuario. Alcampo y DIA están archivados: no aparecen en Ajustes → Tiendas ni inician consultas, pero conservan su código y sus datos guardados. Las demás tiendas permanecen disponibles. El catálogo comunitario se dedica exclusivamente a sugerencias de iconos y no proporciona precios.
 
@@ -469,3 +469,9 @@ Las nuevas cuentas deben utilizar `account_history.account_purchase_check` y un 
 En el popup de una tienda, el botón Crear zona permite indicar nombre, coordenadas y radio, o elegir la posición pulsando en el mapa. La zona se crea en Home Assistant (componente integrado `zone`) y se selecciona para esa tienda. Se guarda en Home Assistant al crearla, aunque después cierres la ficha de la tienda. El mapa muestra las zonas seleccionadas y su radio; crear y vincular zonas requiere un usuario administrador.
 
 El mapa utiliza **Leaflet 1.9.4**, incluido localmente en la integración con su licencia BSD-2-Clause, y las teselas públicas de **OpenStreetMap** con atribución visible. No requiere instalar tarjetas de HACS, complementos, claves API ni bibliotecas en Home Assistant. El navegador necesita acceso a Internet para ver el fondo del mapa; las coordenadas se pueden introducir manualmente. No se descargan mapas en segundo plano ni se ofrecen descargas sin conexión. La dependencia npm solo se utiliza para mantener la copia distribuida en `frontend/vendor/leaflet`; la instalación mediante HACS ya la incluye.
+
+### Recuperar manualmente una compra detectada
+
+En Analítica → Compras, abre la edición de una compra detectada, selecciona la tienda y pulsa **Recuperar compra**. La tienda debe tener una cuenta conectada (Carrefour o Lidl, o una tienda física vinculada a esas cuentas). Esta búsqueda es explícita: no depende del horario, de la descarga automática ni de que ya se haya realizado un intento ese día. Incorpora los resúmenes que falten y busca los tickets pendientes del mismo día. Si hay varios, permite elegir uno; si solo hay uno, abre su revisión.
+
+El ticket se revisa con el asistente habitual de productos, stock y precios. La compra detectada solo se sustituye al confirmar el ticket, conservando la tienda física y compradores seleccionados. Si no hay resultados o falla el acceso, la compra se mantiene para completarla manualmente o subir un documento. No se aplican cambios de stock o precios por el hecho de buscar o abrir el ticket.

@@ -872,6 +872,50 @@ async function checkSpendingChart(browser,url,errors){
     await spendingContext.close();
 }
 
+async function checkDetectedPurchaseRecovery(browser,url,errors){
+  const context=await browser.newContext({viewport:{width:390,height:844}});
+  await context.addInitScript(()=>localStorage.setItem('receipt-fixture',JSON.stringify([{id:'unknown-purchase',detected_purchase:true,needs_details:true,summary_only:true,store:'unknown',store_name:'Tienda desconocida',purchased_at:new Date().toISOString(),total:null,article_count:6,lines:[],completed_products:[{name:'Pan'}]}])));
+  const page=await context.newPage();page.on('pageerror',error=>errors.push(error.message));await page.goto(url);
+  await page.evaluate(()=>{
+    const hass=window.testPanel._hass,original=hass.callWS,subscribe=hass.connection.subscribeMessage;
+    const accounts={carrefour:false,lidl:true};window.recoveryCalls=[];window.recoveryMode='none';
+    hass.connection.subscribeMessage=(callback,message)=>subscribe(data=>callback(message.type==='improved_shopping_list/receipts/subscribe'?{...data,ticket_accounts:accounts}:data),message);
+    hass.callWS=async message=>{
+      if(message.type==='improved_shopping_list/receipts/get')return {...await original(message),ticket_accounts:accounts};
+      if(message.type==='improved_shopping_list/receipts/search_detection_ticket'){
+        window.recoveryCalls.push(message);return {recovery_token:'manual-search',purchases:window.recoveryMode==='none'?[]:Array.from({length:window.recoveryMode==='many'?2:1},(_,index)=>({id:'candidate-'+index,purchased_at:new Date().toISOString(),amount:5.22+index}))};
+      }
+      if(message.type==='improved_shopping_list/receipts/preview_detection_ticket'){
+        window.recoveryCalls.push(message);const draft=await original({type:'improved_shopping_list/carrefour_account/preview_saved',receipt_id:message.purchase_id});draft.receipt.store='lidl';draft.receipt.store_name='Lidl';draft.receipt.purchased_at=new Date().toISOString();return draft;
+      }
+      return original(message);
+    };
+  });
+  await page.getByRole('button',{name:'Analítica',exact:true}).click();await page.getByRole('tab',{name:'Compras',exact:true}).click();const purchases=page.locator('isl-purchases');
+  const edit=purchases.getByRole('button',{name:'Completar compra detectada',exact:true});await edit.click();
+  const dialog=purchases.getByRole('dialog',{name:'Compra detectada',exact:true}),recover=dialog.getByRole('button',{name:'Recuperar compra',exact:true});
+  assert.equal(await recover.isDisabled(),true);
+  await dialog.getByLabel('Tienda',{exact:true}).selectOption('carrefour');assert.equal(await recover.isDisabled(),true);
+  await dialog.getByLabel('Tienda',{exact:true}).selectOption('lidl');assert.equal(await recover.isDisabled(),false);
+  assert.equal(await dialog.getByLabel('Importe total (€)',{exact:true}).inputValue(),'');
+  await recover.click();await dialog.getByText('No se han encontrado tickets pendientes de revisión para ese día en esta cuenta.',{exact:false}).waitFor();
+  assert.equal(await page.evaluate(()=>window.receiptHistory.length),1);
+  await page.evaluate(()=>window.recoveryMode='many');await recover.click();await dialog.locator('.recovery-choice').nth(1).waitFor();
+  assert.equal(await dialog.locator('.recovery-choice').count(),2);
+  await page.screenshot({path:'test-results/manual-purchase-recovery-mobile.png',fullPage:true});
+  assert.ok(await dialog.evaluate(el=>el.scrollWidth<=el.clientWidth));
+  await dialog.locator('.recovery-choice').first().click();const review=purchases.getByRole('dialog',{name:'Revisar ticket',exact:true});await review.waitFor();
+  assert.equal(await dialog.isVisible(),false);
+  assert.equal(await page.evaluate(()=>window.recoveryCalls.filter(call=>call.type.endsWith('/preview_detection_ticket')).length),1);
+  assert.equal(await page.evaluate(()=>window.receiptHistory[0].store),'unknown');
+  assert.equal(await page.evaluate(()=>window.stockItems.length),0);
+  await review.getByRole('button',{name:'Cerrar ventana',exact:true}).click();
+  await edit.click();await dialog.getByLabel('Tienda',{exact:true}).selectOption('lidl');await page.evaluate(()=>window.recoveryMode='one');await recover.click();await review.waitFor();
+  assert.equal(await page.evaluate(()=>window.recoveryCalls.filter(call=>call.type.endsWith('/preview_detection_ticket')).length),2);
+  assert.equal(await page.evaluate(()=>window.recoveryCalls.find(call=>call.type.endsWith('/search_detection_ticket')).receipt_id),'unknown-purchase');
+  await context.close();
+}
+
 async function main() {
   await fs.mkdir("test-results", { recursive: true });
   const server = http.createServer(async (req, res) => {
@@ -895,6 +939,7 @@ async function main() {
   let browser;
   try {
     browser = await chromium.launch({ headless: true, channel: process.env.PLAYWRIGHT_CHANNEL || undefined });
+    if(process.argv.includes('--recovery-only')){const errors=[];await checkDetectedPurchaseRecovery(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Manual purchase recovery browser checks passed.');return;}
     if(process.argv.includes('--purchases-only')){const errors=[];await checkSpendingChart(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Purchase calendar browser checks passed.');return;}
     if(process.argv.includes('--lidl-only')){const errors=[];await checkLidlAccount(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Lidl account browser checks passed.');return;}
     if(process.argv.includes('--names-only')){
@@ -4143,6 +4188,7 @@ async function main() {
     await checkUniversalPurchaseSettings(browser,url,errors);
     await checkTwoLineNames(browser,url,errors);
     await checkLidlAccount(browser,url,errors);
+    await checkDetectedPurchaseRecovery(browser,url,errors);
 
     // Shipping policy: Alcampo and DIA are archived; the other stores remain available.
     const archivedContext=await browser.newContext({viewport:{width:390,height:844}});

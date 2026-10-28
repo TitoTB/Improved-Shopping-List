@@ -198,10 +198,14 @@ async def test_receipt_api_is_admin_only_and_inactive_guard(hass,hass_ws_client,
     for i,operation in enumerate(['options','link'],4):
         await client.send_json({'id':i,'type':f'{DOMAIN}/receipts/{operation}','token':'missing',**({'lines':[]} if operation=='link' else {})})
         assert (await client.receive_json())['error']['code']=='unauthorized'
+    for i,operation in enumerate(['search_detection_ticket','preview_detection_ticket'],6):
+        fields={'receipt_id':'missing','store':'carrefour'} if operation=='search_detection_ticket' else {'recovery_token':'missing','purchase_id':'missing'}
+        await client.send_json({'id':i,'type':f'{DOMAIN}/receipts/{operation}',**fields})
+        assert (await client.receive_json())['error']['code']=='unauthorized'
     await client.close()
     admin=await hass_ws_client(hass)
     await admin.send_json({'id':1,'type':f'{DOMAIN}/receipts/get'})
-    assert (await admin.receive_json())['result']=={'receipts':[],'shops':[],'persons':[]}
+    assert (await admin.receive_json())['result']=={'receipts':[],'shops':[],'persons':[],'ticket_accounts':{'carrefour':False,'lidl':False}}
     assert await hass.config_entries.async_unload(entry.entry_id)
     await admin.send_json({'id':2,'type':f'{DOMAIN}/receipts/get'})
     assert (await admin.receive_json())['error']['code']=='not_loaded'
@@ -599,3 +603,16 @@ async def test_confirmed_ticket_links_push_store_association_without_stock_or_pr
     restored=StockManager(hass,env.stock.catalog);await restored.async_load()
     assert restored.snapshot['receipt_stores']==notifications[-1]
     stop()
+
+
+async def test_manual_recovery_confirmation_replaces_unknown_without_automatic_stock(hass):
+    env=await setup_manager(hass);draft=await preview(env)
+    detected={'id':'manual-detection','detected_purchase':True,'store':'unknown','purchased_at':draft['receipt']['purchased_at'],'total':None,'needs_details':True,'shoppers':['person.one']}
+    env.stock.receipts['history'][detected['id']]=deepcopy(detected)
+    env.manager._draft(draft['token'],'owner')['manual_detection']={'snapshot':deepcopy(detected),'shop':None}
+    edits=selections(draft,env.product)
+    for edit in edits:edit['replenish']=False
+    saved=await env.manager.async_confirm(draft['token'],'owner',edits,False)
+    assert saved['detection_id']=='manual-detection' and saved['shoppers']==['person.one']
+    assert len(env.stock.receipts['history'])==1 and 'manual-detection' not in env.stock.receipts['history']
+    assert env.stock.snapshot['items'][0]['quantity']==20

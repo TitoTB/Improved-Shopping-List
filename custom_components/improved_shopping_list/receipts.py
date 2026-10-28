@@ -41,6 +41,7 @@ class ReceiptManager:
     def snapshot(self):
         return {"receipts":sorted(deepcopy(list(self.stock.receipts["history"].values())),
             key=lambda receipt:receipt["purchased_at"], reverse=True),
+            "ticket_accounts":{store:bool(account.status("").get("connected")) for store,account in self.ticket_accounts.accounts.items()} if getattr(self,"ticket_accounts",None) else {},
             "shops":deepcopy(getattr(self,'settings',None).snapshot['purchase_detection'].get('shops',[])) if getattr(self,'settings',None) else [],
             "persons":list(self.settings.snapshot['purchase_detection'].get('persons',[])) if getattr(self,'settings',None) else []}
 
@@ -467,6 +468,22 @@ class ReceiptManager:
         if self._drafts.get(token,{}).get("owner") == owner:
             self._drafts.pop(token,None)
 
+    def _apply_manual_detection(self, draft, receipt, history):
+        manual=draft.get("manual_detection")
+        if not manual:
+            return
+        expected=manual["snapshot"];detected=history.get(expected["id"])
+        if detected!=expected or not detected.get("detected_purchase") or self._purchase_day(detected)!=self._purchase_day(receipt):
+            raise CatalogError("La compra detectada ha cambiado o ya tiene un ticket. Vuelve a abrirla.","conflict")
+        if receipt.get("detection_id") not in (None,detected["id"]):
+            raise CatalogError("Este ticket ya está asignado a otra compra.","conflict")
+        receipt["detection_id"]=detected["id"]
+        for key in ("shoppers","purchase_group","completed_products"):
+            if key in detected:receipt[key]=deepcopy(detected[key])
+        if shop:=manual.get("shop"):
+            receipt.update(shop_id=shop["id"],shop_name=shop["name"],shop_image=shop["image_url"],shop_color=shop["color"],account=shop["account"])
+        history.pop(detected["id"])
+
     async def async_confirm(self, token, owner, selections, update_prices):
         draft = self._draft(token,owner)
         if type(update_prices) is not bool or not isinstance(selections,list) or len(selections) != len(draft["receipt"]["lines"]):
@@ -483,6 +500,7 @@ class ReceiptManager:
                     for key in ("detection_id","shop_id","zone_id","shop_name","shop_image","shop_color","shoppers","purchase_group","completed_products"):
                         if key in summary:receipt[key]=deepcopy(summary[key])
                     data["history"].pop(summary["id"])
+                self._apply_manual_detection(draft,receipt,data["history"])
                 if len(data["history"]) >= 1000:
                     raise CatalogError("El historial ha alcanzado los 1000 tickets.")
                 groups = {}

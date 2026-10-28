@@ -64,6 +64,8 @@ def async_register_commands(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_purchase_detection_settings)
     websocket_api.async_register_command(hass, ws_detected_purchase_complete)
     websocket_api.async_register_command(hass, ws_detected_purchase_discard)
+    websocket_api.async_register_command(hass, ws_detected_purchase_search_ticket)
+    websocket_api.async_register_command(hass, ws_detected_purchase_preview_ticket)
     for command in (ws_receipts_get, ws_receipts_subscribe, ws_receipts_preview, ws_receipts_confirm, ws_receipts_discard, ws_receipts_options, ws_receipts_link, ws_receipts_review_saved):
         websocket_api.async_register_command(hass, command)
     websocket_api.async_register_command(hass, ws_catalog_subscribe)
@@ -1235,3 +1237,17 @@ def ws_comparison_data(hass, connection, msg):
         connection.send_result(msg["id"], {"observations":[], "purchases":[], "stores":[], "enabled":False})
         return
     connection.send_result(msg["id"], data["price_history"].comparison_data(catalog, data["settings"], data["receipts"], [{**offer,"catalog_product_id":product["id"]} for product in catalog.products for key in ("alcampo", "dia_prices") if (manager := data.get(key)) and (offer := manager.offer_for(product))]))
+
+
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/receipts/search_detection_ticket",vol.Required("receipt_id"):str,vol.Required("store"):str})
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_detected_purchase_search_ticket(hass,connection,msg):
+    await _receipt_operation(hass,connection,msg,lambda receipts,owner:hass.data[DOMAIN]["ticket_accounts"].async_search_manual(receipts,owner,msg["receipt_id"],msg["store"]))
+
+
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/receipts/preview_detection_ticket",vol.Required("recovery_token"):str,vol.Required("purchase_id"):str})
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_detected_purchase_preview_ticket(hass,connection,msg):
+    await _receipt_operation(hass,connection,msg,lambda receipts,owner:hass.data[DOMAIN]["ticket_accounts"].async_preview_manual(receipts,owner,msg["recovery_token"],msg["purchase_id"]))

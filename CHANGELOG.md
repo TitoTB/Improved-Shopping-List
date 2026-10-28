@@ -1,5 +1,12 @@
 # Historial de cambios
 
+## 0.47.0 — 2026-10-28
+
+- Recuperación manual de compras detectadas: selecciona una tienda con cuenta conectada en Analítica → Compras y busca sus tickets de ese día sin esperar a la consulta automática.
+- Selección del ticket cuando hay varias compras disponibles y apertura del asistente habitual de revisión.
+- La compra detectada se sustituye al confirmar el ticket, conservando la tienda física y los compradores. Buscar o previsualizar no modifica stock ni precios.
+- Protección frente a búsquedas caducadas, tickets de otra tienda o fecha y cambios simultáneos en la compra detectada. Sin nuevas dependencias.
+
 ## 0.46.0 — 2026-10-28
 
 - Corregida la fecha de los tickets de Lidl cuando su detalle omite la zona horaria; mantiene la comprobación de identidad, fecha e importe.

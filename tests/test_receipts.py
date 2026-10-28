@@ -607,7 +607,8 @@ async def test_confirmed_ticket_links_push_store_association_without_stock_or_pr
 
 async def test_manual_recovery_confirmation_replaces_unknown_without_automatic_stock(hass):
     env=await setup_manager(hass);draft=await preview(env)
-    detected={'id':'manual-detection','detected_purchase':True,'store':'unknown','purchased_at':draft['receipt']['purchased_at'],'total':None,'needs_details':True,'shoppers':['person.one']}
+    detected=await env.manager.async_save_detected_purchase('manual-detection',draft['receipt']['purchased_at'],[])
+    detected['shoppers']=['person.one']
     env.stock.receipts['history'][detected['id']]=deepcopy(detected)
     env.manager._draft(draft['token'],'owner')['manual_detection']={'snapshot':deepcopy(detected),'shop':None}
     edits=selections(draft,env.product)

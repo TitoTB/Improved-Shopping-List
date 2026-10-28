@@ -60,7 +60,7 @@ async def test_incompatible_purchase_units_keep_configured_stock_refill(env):
 
 
 async def test_two_line_completion_replenishes_the_matching_variant_only(env):
-    await env.catalog.async_save_product({'name':'Leche de avena'})
+    await env.stock.catalog.async_save_product({'name':'Leche de avena'})
     milk=await env.stock.async_add('Leche de avena')
     env.settings.snapshot['description_as_name']={'todo.main':True}
     env.manager.quantities=SimpleNamespace(value=lambda *_args:{'quantity':2,'unit':'uds'})

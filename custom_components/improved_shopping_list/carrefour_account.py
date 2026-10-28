@@ -175,7 +175,7 @@ class CarrefourAccount:
 
     def automatic_due(self,now,detected_today):
         detection=getattr(self,'purchase_detection',None)
-        if detection and detection.enabled and 'shops' in getattr(detection,'zone_config',{}):
+        if detection and getattr(detection,'enabled',False) and 'shops' in getattr(detection,'zone_config',{}):
             return bool(self._active and self._session.get('login_token') and self._options['auto_ticket'] and
                 set(detection.ticket_scope('carrefour'))-set(self._options['ticket_scopes']))
         return bool(self._active and self._session.get("login_token") and self._options["auto_ticket"] and
@@ -200,7 +200,7 @@ class CarrefourAccount:
         result=await self.async_purchases(owner)
         candidates = result["purchases"]
         detection=getattr(self,'purchase_detection',None)
-        if detection and detection.enabled and 'shops' in getattr(detection,'zone_config',{}):
+        if detection and getattr(detection,'enabled',False) and 'shops' in getattr(detection,'zone_config',{}):
             found=False
             for purchase in candidates[:100]:
                 date=dt_util.parse_datetime(purchase['purchased_at'])

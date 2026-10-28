@@ -160,12 +160,12 @@ class ReceiptManager:
         async with self.stock._lock:
             data = deepcopy(self.stock.receipts)
             history = data['history']
-            claimed = {p['key'] for receipt in history.values() if receipt.get('purchase_group')==day
-                and (receipt.get('allocation_confirmed') or not receipt.get('detected_purchase'))
-                for p in receipt.get('completed_products',[]) if p.get('key')}
             wanted = {group['id'] for group in groups}
+            claimed = {p['key'] for receipt in history.values() if receipt.get('purchase_group')==day
+                and (receipt.get('allocation_confirmed') or not receipt.get('detected_purchase') or receipt.get('shop_id') and receipt['id'] not in wanted)
+                for p in receipt.get('completed_products',[]) if p.get('key')}
             for identifier,receipt in list(history.items()):
-                if receipt.get('purchase_group')==day and receipt.get('detected_purchase') and receipt.get('needs_details') and not receipt.get('allocation_confirmed') and identifier not in wanted:
+                if identifier=='detected:'+day and receipt.get('purchase_group')==day and receipt.get('detected_purchase') and receipt.get('needs_details') and not receipt.get('allocation_confirmed') and identifier not in wanted:
                     history.pop(identifier)
             for group in groups:
                 identifier, shop = group['id'], group['shop']
@@ -240,6 +240,7 @@ class ReceiptManager:
                 for key in ('shop_id','shop_name','shop_image','shop_color','account'):receipt.pop(key,None)
             if shoppers is not None:
                 allowed = set(getattr(self,'settings',None).snapshot['purchase_detection'].get('persons',[])) if getattr(self,'settings',None) else set()
+                allowed.update(receipt.get('shoppers',[]))
                 if not isinstance(shoppers,list) or any(person not in allowed for person in shoppers):raise CatalogError('Selecciona compradores válidos.')
                 receipt['shoppers']=list(dict.fromkeys(shoppers))
             if product_keys is not None:

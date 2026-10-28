@@ -54,8 +54,10 @@ class PurchaseVisits:
 
     def ticket_scope(self, account):
         history = self.receipts.stock.receipts['history']
+        eligible={shop['id'] for shop in self.zone_config.get('shops',[]) if shop['account']==account}
         return sorted(receipt['id'] for receipt in history.values()
             if receipt.get('purchase_group') == dt_util.now().date().isoformat()
+            and receipt.get('shop_id') in eligible
             and receipt.get('account') == account and receipt.get('needs_details'))
 
     async def _check_places(self):
@@ -76,8 +78,10 @@ class PurchaseVisits:
                 record['entries'].setdefault(key,{**product,'key':key,'completed_at':when})
         for day, shop, person, zone, start, end, seconds in visits:
             record = days.setdefault(day,{'entries':{},'first_at':end,'created':False,'receipt_id':'detected:'+day})
-            record.setdefault('qualified_shops',{}).setdefault(shop,{})[person+':'+zone] = {
-                'person':person,'zone':zone,'started_at':start,'last_seen':end,'seconds':seconds}
+            observed=record.setdefault('qualified_shops',{}).setdefault(shop,{})
+            key=person+':'+zone+':'+start
+            if key in observed or len(observed)<1000:
+                observed[key] = {'person':person,'zone':zone,'started_at':start,'last_seen':end,'seconds':seconds}
         cutoff = (now.date()-timedelta(days=6)).isoformat()
         days = {day:value for day,value in days.items() if day >= cutoff}
         if days != self._days:

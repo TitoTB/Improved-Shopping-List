@@ -4,17 +4,17 @@
 
 Una interfaz propia para gestionar las listas de la compra que ya tienes integradas en Home Assistant.
 
-Versión actual: **0.43.0**. Interfaz en español, pensada para móvil y ordenador. Requiere **Home Assistant Core 2026.10 o posterior**. La referencia de desarrollo es Core 2026.10.2.
+Versión actual: **0.44.0**. Interfaz en español, pensada para móvil y ordenador. Requiere **Home Assistant Core 2026.10 o posterior**. La referencia de desarrollo es Core 2026.10.2.
 
 Los precios proceden de tickets y facturas confirmados por el usuario. Alcampo y DIA están archivados: no aparecen en Ajustes → Tiendas ni inician consultas, pero conservan su código y sus datos guardados. Las demás tiendas permanecen disponibles. El catálogo comunitario se dedica exclusivamente a sugerencias de iconos y no proporciona precios.
 
 El diccionario comunitario sirve exclusivamente para sugerir iconos por nombre o traducción del producto. No intercambia precios, EAN, referencias, Nutri-Score ni documentos de compra.
 
-## Cuenta Lidl — desarrollo pendiente de publicación
+## Cuenta Lidl
 
 Lidl se incorpora a **Ajustes → Tiendas → Cuentas** con recuperación del historial disponible del último año y descarga automática de tickets pendientes de revisión, coordinada con las tiendas físicas, zonas y prioridad de cuentas. Su conexión usa OAuth/PKCE: abre el acceso oficial de Lidl y después permite pegar su dirección nativa de retorno o seleccionar el HAR de ese acceso. El HAR se lee en el navegador; solo se envía el retorno que corresponde a esa conexión. El primer acceso requiere este paso manual porque Lidl redirige a su aplicación móvil. No se instala navegador, complemento ni tarjeta adicional en Home Assistant, y no se guarda la contraseña de Lidl.
 
-Los tokens se conservan en el almacenamiento privado de Home Assistant y se renuevan mediante HTTPS con HTTP/1.1. El historial básico no modifica stock ni precios. Los tickets HTML se validan y se revisan con el mismo asistente de Compras; solo al confirmar se aplican los cambios elegidos. Los códigos internos de Lidl se guardan como referencias, sin inferir EAN. Los formatos con devoluciones, descuentos o totales que no cuadren se dejan sin revisar en lugar de estimar sus líneas. Esta función no forma parte de la release 0.43.0.
+Los tokens se conservan en el almacenamiento privado de Home Assistant y se renuevan mediante HTTPS con HTTP/1.1. El historial básico no modifica stock ni precios. Los tickets HTML se validan y se revisan con el mismo asistente de Compras; solo al confirmar se aplican los cambios elegidos. Los códigos internos de Lidl se guardan como referencias, sin inferir EAN. Los formatos con devoluciones, descuentos o totales que no cuadren se dejan sin revisar en lugar de estimar sus líneas.
 
 ## Qué puedes hacer
 
@@ -424,8 +424,8 @@ La revisión de tickets de la cuenta de Carrefour consulta primero el detalle de
 
 En **Ajustes → Tiendas** hay tres bloques:
 
-- **Cuentas**: proveedores que permiten conectar una cuenta y descargar tickets; actualmente Carrefour. Conserva las opciones de recuperación de historial y descarga automática.
-- **Tiendas**: establecimientos físicos con nombre, imagen, color y una o varias zonas de Home Assistant. Pueden vincularse a Carrefour o funcionar sin cuenta. Varias tiendas físicas pueden compartir la misma cuenta. Editar o eliminar una tienda conserva las compras anteriores.
+- **Cuentas**: proveedores que permiten conectar una cuenta y descargar tickets; actualmente Carrefour y Lidl. Conserva las opciones de recuperación de historial y descarga automática.
+- **Tiendas**: establecimientos físicos con nombre, imagen, color y una o varias zonas de Home Assistant. Pueden vincularse a Carrefour o Lidl, o funcionar sin cuenta. Varias tiendas físicas pueden compartir la misma cuenta. Editar o eliminar una tienda conserva las compras anteriores.
 - **Usuarios**: personas (`person.*`) cuyas visitas se evalúan, activación de la detección, umbral diario y permanencia mínima en zona. La permanencia empieza en 5 minutos y admite de 1 a 1440 minutos. Se requiere Home Assistant recibiendo los estados de las personas; no hacen falta nuevas tarjetas HACS, bibliotecas ni servicios externos.
 
 La integración observa nuevas transiciones de pendiente a comprado y suma las entradas de todas las listas configuradas. El umbral es estricto: con 5 se activa al completar la sexta entrada. Los completados existentes al arrancar no cuentan como compras nuevas. La identidad de cada entrada evita contar repetidas transiciones de la misma entrada durante ese día. La reposición de Stock sigue realizándose al completar los productos; detectar la compra no vuelve a reponerlos.
@@ -434,7 +434,7 @@ Una visita solo se admite cuando una persona permanece en una zona el mínimo co
 
 Tras superar el umbral se crea una compra por cada combinación de tienda física y zona con una visita válida ese día. Varias personas en la misma zona aparecen como compradores del mismo registro. Dos zonas distintas de la misma tienda permiten registrar dos compras, igual que visitar tiendas diferentes. Los productos completados durante una única visita se asignan a ella; si solo hay una tienda candidata, se proponen en esa tienda. Cuando el reparto entre varias tiendas no es seguro, los productos quedan en un registro pendiente de asignación, sin repetir cantidades ni importes. El popup de cada detección permite elegir los productos, compradores, tienda e importe; un producto ya confirmado en otra compra no puede volver a asignarse. Eliminar una detección impide que el siguiente chequeo vuelva a crearla.
 
-Con una tienda vinculada a Carrefour, cuenta conectada y **Descargar ticket automáticamente** activo, se realiza un intento automático por nuevo registro detectado de esa tienda. El intento se guarda antes de consultar para impedir repeticiones al reiniciar o en cada chequeo. Otra tienda física visitada puede provocar otro intento ese día. Se revisan los tickets disponibles del día, con un límite de 100 referencias del listado; el ticket queda pendiente de revisión. No se consulta la cuenta por una tienda sin vinculación. Si no hay ticket compatible, falta conexión o falla la consulta, el registro se conserva para completarlo o subir un PDF. El flujo sin detección activada mantiene su límite anterior de un intento diario tras completar productos y alcanzar el horario configurado.
+Con una tienda vinculada a Carrefour o Lidl, cuenta conectada y **Descargar ticket automáticamente** activo, se realiza un intento automático por nuevo registro detectado de esa tienda. El intento se guarda antes de consultar para impedir repeticiones al reiniciar o en cada chequeo. Otra tienda física visitada puede provocar otro intento ese día. Se revisan los tickets disponibles del día, con un límite de 100 referencias del listado para Carrefour y una página de hasta 25 para Lidl; el ticket queda pendiente de revisión. No se consulta la cuenta por una tienda sin vinculación. Si no hay ticket compatible, falta conexión o falla la consulta, el registro se conserva para completarlo o subir un PDF. El flujo sin detección activada mantiene su límite anterior de un intento diario tras completar productos y alcanzar el horario configurado.
 
 La asociación automática exige coincidencia de día y productos reconocidos; además respeta la cuenta vinculada a la tienda. Si dos tiendas físicas de la misma cuenta podrían corresponder al mismo ticket, se deja pendiente la elección. Los tickets sustituyen la detección compatible, conservando la tienda física y los compradores. Los registros sin importe no suman un gasto de cero ni inflan los totales. En **Analítica → Compras**, los filtros de tienda y usuario afectan al listado y al gráfico; las imágenes y colores elegidos identifican los establecimientos.
 

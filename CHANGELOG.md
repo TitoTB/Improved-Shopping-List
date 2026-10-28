@@ -1,7 +1,8 @@
 # Historial de cambios
 
-## Pendiente de publicación
+## 0.44.0 — 2026-10-28
 
+- El primer acceso de Lidl se completa con su dirección nativa de retorno o un HAR leído en el navegador; no requiere complementos adicionales.
 - Cuenta Lidl en Ajustes → Tiendas: conexión oficial OAuth/PKCE, sesión renovable privada y sin contraseña guardada.
 - Historial del último año disponible, revisión de tickets HTML y descarga automática pendiente de revisión, coordinada con las compras detectadas y sus tiendas físicas.
 - Validación de productos al peso y total impreso; referencias internas separadas de EAN. Sin nuevas dependencias ni tarjetas externas.

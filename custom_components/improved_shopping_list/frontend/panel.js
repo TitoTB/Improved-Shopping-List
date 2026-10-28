@@ -16,10 +16,10 @@ const STORE_LOGOS = {
   consum:new URL("consum.jpg", import.meta.url).href,
   lasirena:new URL("lasirena.jpg", import.meta.url).href,
   mercadona:new URL("mercadona.png", import.meta.url).href,
-  carrefour:"https://images.seeklogo.com/logo-png/31/2/carrefour-logo-png_seeklogo-318190.png",
+  lidl:"https://upload.wikimedia.org/wikipedia/commons/9/91/Lidl-Logo.svg",carrefour:"https://images.seeklogo.com/logo-png/31/2/carrefour-logo-png_seeklogo-318190.png",
   alcampo:"https://almeria.online/wp-content/uploads/2024/09/alcampo-logo.png",
 };
-const STORE_NAMES = {mercadona:"Mercadona",carrefour:"Carrefour",alcampo:"Alcampo",consum:"Consum",lasirena:"La Sirena",eroski:"Eroski",dia:"DIA"};
+const STORE_NAMES = {mercadona:"Mercadona",carrefour:"Carrefour",alcampo:"Alcampo",consum:"Consum",lasirena:"La Sirena",eroski:"Eroski",dia:"DIA",lidl:"Lidl"};
 const searchText = value => normalizedName(value).normalize("NFD").replace(/\p{M}/gu, "");
 const stockRemaining = (item, now=Date.now()/1000) => {
   if (item.quantity <= 0 || item.expired) return 0;

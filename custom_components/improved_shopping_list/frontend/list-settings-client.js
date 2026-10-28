@@ -28,7 +28,7 @@ export class ListSettingsSession {
     this.purchaseDetection = {enabled:false,threshold:5};
     this.primary = "";
     this.stores = {};
-    this.availableStores = ["mercadona", "carrefour", "consum", "lasirena", "eroski"];
+    this.availableStores = ["mercadona", "carrefour", "lidl", "consum", "lasirena", "eroski"];
     this.favoriteStore = "";
     this.appearance = { ...DEFAULT_APPEARANCE };
     this.loaded = false;

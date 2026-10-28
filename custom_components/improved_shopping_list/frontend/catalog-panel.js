@@ -10,7 +10,7 @@ export { productNameKey };
 
 export const normalizedName = value => String(value ?? "").normalize("NFKC").trim().replace(/\s+/g, " ").toLocaleLowerCase("es");
 const MONTHS = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
-const STORE_NAMES = {mercadona:"Mercadona",carrefour:"Carrefour",alcampo:"Alcampo",consum:"Consum",lasirena:"La Sirena",eroski:"Eroski",dia:"DIA"};
+const STORE_NAMES = {mercadona:"Mercadona",carrefour:"Carrefour",alcampo:"Alcampo",consum:"Consum",lasirena:"La Sirena",eroski:"Eroski",dia:"DIA",lidl:"Lidl"};
 
 export function cachedProductPrice(product, prices = [], favorite = "") {
   if (!product) return null;
@@ -1280,7 +1280,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
       const offer = this._priceData?.enabled === false ? null : cachedProductPrice(product,this._priceData?.offers,this._priceData?.favorite);
       if (offer) {
         const badge = element("span","row-price");
-        badge.title = offer.store ? `Último precio guardado · ${({mercadona:"Mercadona",carrefour:"Carrefour",alcampo:"Alcampo",consum:"Consum",lasirena:"La Sirena",eroski:"Eroski",dia:"DIA"})[offer.store] ?? offer.store}` : "Precio manual";
+        badge.title = offer.store ? `Último precio guardado · ${({mercadona:"Mercadona",carrefour:"Carrefour",alcampo:"Alcampo",consum:"Consum",lasirena:"La Sirena",eroski:"Eroski",dia:"DIA",lidl:"Lidl"})[offer.store] ?? offer.store}` : "Precio manual";
         const icon = element("ha-icon"); icon.setAttribute("icon","mdi:cash-multiple"); icon.setAttribute("aria-hidden","true");
         badge.append(icon,element("span","",new Intl.NumberFormat("es-ES",{style:"currency",currency:offer.currency}).format(Number(offer.price))));
         metadata.append(badge);
@@ -1398,7 +1398,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
       const linksKey = JSON.stringify(this._storeLinks ?? {});
       const data = await this._hass.callWS({type:"improved_shopping_list/catalog/store_prices",links:this._storeLinks ?? {},codes:this._productCodes?.barcode ?? []});
       if (this._priceData?.enabled === false || generation !== this._nutriGeneration || linksKey !== JSON.stringify(this._storeLinks ?? {}) || !root.querySelector("dialog").open || !this.isConnected) return;
-      const names = {mercadona:"Mercadona",carrefour:"Carrefour",alcampo:"Alcampo",consum:"Consum",lasirena:"La Sirena",eroski:"Eroski",dia:"DIA"};
+      const names = {mercadona:"Mercadona",carrefour:"Carrefour",alcampo:"Alcampo",consum:"Consum",lasirena:"La Sirena",eroski:"Eroski",dia:"DIA",lidl:"Lidl"};
       const offers=new Map();
       for(const offer of [...(data.products??[]),...(this._priceData?.offers??[]).filter(offer=>offer.catalog_product_id===this._editing?.id)]){
         const previous=offers.get(offer.store);
@@ -1439,7 +1439,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
       const row = document.createElement("div"); row.className = "product-store-link";
       const reference = document.createElement("span"); reference.className = "store-reference";
       const image = document.createElement("img"); image.alt = ""; image.referrerPolicy = "no-referrer";
-      const logos = {carrefour:"https://images.seeklogo.com/logo-png/31/2/carrefour-logo-png_seeklogo-318190.png",alcampo:"https://almeria.online/wp-content/uploads/2024/09/alcampo-logo.png"};
+      const logos = {lidl:"https://upload.wikimedia.org/wikipedia/commons/9/91/Lidl-Logo.svg",carrefour:"https://images.seeklogo.com/logo-png/31/2/carrefour-logo-png_seeklogo-318190.png",alcampo:"https://almeria.online/wp-content/uploads/2024/09/alcampo-logo.png"};
       image.src = logos[store] ?? new URL(`${store}.${store === "mercadona" || store === "dia" ? "png" : store === "eroski" ? "svg" : "jpg"}`,import.meta.url).href;
       const name = document.createElement("span"); name.textContent = names[store] ?? store;
       reference.append(image,name);

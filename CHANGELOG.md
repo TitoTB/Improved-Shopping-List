@@ -1,5 +1,11 @@
 # Historial de cambios
 
+## Pendiente de publicación
+
+- Cuenta Lidl en Ajustes → Tiendas: conexión oficial OAuth/PKCE, sesión renovable privada y sin contraseña guardada.
+- Historial del último año disponible, revisión de tickets HTML y descarga automática pendiente de revisión, coordinada con las compras detectadas y sus tiendas físicas.
+- Validación de productos al peso y total impreso; referencias internas separadas de EAN. Sin nuevas dependencias ni tarjetas externas.
+
 ## 0.43.0 — 2026-10-28
 
 - Bring! identifica los productos con su nombre y segunda línea, conservando los campos nativos y el identificador. Opción por lista para otros proveedores y listas pasarela.

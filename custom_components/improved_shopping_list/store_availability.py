@@ -4,7 +4,7 @@ Keep archived connectors and stored references intact. Re-enabling a connector
 requires deliberately changing this capability list after validating it.
 """
 
-AVAILABLE_STORES = frozenset({"mercadona", "carrefour", "consum", "lasirena", "eroski"})
+AVAILABLE_STORES = frozenset({"mercadona", "carrefour", "lidl", "consum", "lasirena", "eroski"})
 
 
 def apply_availability(snapshot):

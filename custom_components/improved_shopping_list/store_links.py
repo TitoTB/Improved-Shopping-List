@@ -3,8 +3,8 @@
 import re
 from urllib.parse import urlsplit
 
-STORES = {"mercadona": "Mercadona", "carrefour": "Carrefour", "alcampo": "Alcampo", "consum": "Consum", "lasirena": "La Sirena", "eroski":"Eroski", "dia":"DIA"}
-HOSTS = {"mercadona": {"tienda.mercadona.es"}, "carrefour": {"www.carrefour.es", "carrefour.es"},
+STORES = {"lidl":"Lidl", "mercadona": "Mercadona", "carrefour": "Carrefour", "alcampo": "Alcampo", "consum": "Consum", "lasirena": "La Sirena", "eroski":"Eroski", "dia":"DIA"}
+HOSTS = {"lidl":{"www.lidl.es"}, "mercadona": {"tienda.mercadona.es"}, "carrefour": {"www.carrefour.es", "carrefour.es"},
          "alcampo": {"www.compraonline.alcampo.es", "compraonline.alcampo.es"},
          "consum": {"tienda.consum.es"}, "lasirena": {"www.lasirena.es"}, "eroski":{"supermercado.eroski.es"}, "dia":{"www.dia.es","dia.es"}}
 
@@ -33,7 +33,7 @@ def normalize_link(store, value):
             or any(segment in (".", "..") for segment in parts.path.split("/"))
             or re.search(r"%(?:2f|5c|2e)", parts.path, re.I)):
             raise ValueError(f"Utiliza un enlace HTTPS de {STORES[store]}.")
-        patterns = {"mercadona": r"/product/([0-9]{1,12})(?:/[^/]*)?/?",
+        patterns = {"lidl":r"/(?:[^/]+/)*p([0-9]{1,12})/?", "mercadona": r"/product/([0-9]{1,12})(?:/[^/]*)?/?",
             "alcampo": r"/products/[^/]+/([0-9]{1,12})/?",
             "carrefour": r"/supermercado/(?:[^/]+/)?(R-[A-Za-z0-9-]{1,80})/p/?",
             "consum": r"/(?:es/)?p/[^/]+/([0-9]{1,12})/?",
@@ -55,7 +55,7 @@ def normalize_link(store, value):
     pattern = r"R-[A-Za-z0-9-]{1,80}" if store == "carrefour" else r"[0-9]{1,12}"
     if not re.fullmatch(pattern, identifier):
         raise ValueError(f"La ID de {STORES[store]} no es válida.")
-    defaults = {"mercadona": f"https://tienda.mercadona.es/product/{identifier}",
+    defaults = {"lidl":"", "mercadona": f"https://tienda.mercadona.es/product/{identifier}",
         "alcampo": f"https://www.compraonline.alcampo.es/products/producto/{identifier}",
         "carrefour": f"https://www.carrefour.es/supermercado/{identifier}/p",
         "consum": f"https://tienda.consum.es/es/p/producto/{identifier}",

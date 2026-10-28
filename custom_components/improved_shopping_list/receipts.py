@@ -15,6 +15,7 @@ from homeassistant.util import dt as dt_util
 from .catalog import CatalogError, normalized_name, product_codes
 from .receipt_parser import MAX_PDF_BYTES, extract_receipt, extract_carrefour_account_ticket
 from .dia_receipts import extract_dia_account_ticket, reference_id
+from .lidl_receipts import extract_lidl_ticket
 from .stock import DAY, DEFAULT_CONFIG, quantity_value
 from .store_links import STORES
 from .quantity_values import purchase_defaults
@@ -71,7 +72,7 @@ class ReceiptManager:
 
     async def async_import_account_purchases(self, purchases, store):
         """Store account summaries only: never replenish stock or generate prices."""
-        if store not in ("carrefour","dia"):
+        if store not in ("carrefour","dia","lidl"):
             raise CatalogError("La tienda no admite tickets de cuenta.")
         added = 0
         async with self.stock._lock:
@@ -416,6 +417,14 @@ class ReceiptManager:
             receipt = await self.hass.async_add_executor_job(extract_dia_account_ticket,detail,params,expected_total)
         receipt["account_key"] = self._account_key(reference_id(params),"dia")
         return await self._prepare_preview(receipt,owner)
+
+    async def async_preview_lidl_ticket(self, detail, reference, expected_total, expected_date, owner):
+        if self._parse_lock.locked():
+            raise CatalogError("Ya se está leyendo un ticket. Espera a que termine.")
+        async with self._parse_lock:
+            receipt = await self.hass.async_add_executor_job(extract_lidl_ticket, detail, reference, expected_total, expected_date)
+        receipt["account_key"] = self._account_key(reference, "lidl")
+        return await self._prepare_preview(receipt, owner)
 
     async def _prepare_preview(self, receipt, owner):
         summary = self._summary_match(receipt)

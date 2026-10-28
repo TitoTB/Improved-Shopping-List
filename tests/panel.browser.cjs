@@ -544,7 +544,7 @@ async function checkUniversalPurchaseSettings(browser,url,errors) {
   assert.equal(await shopEditor.getByLabel('Cuenta vinculada',{exact:true}).inputValue(),'');
   await shopEditor.getByRole('button',{name:'Cerrar ventana',exact:true}).click();
   assert.equal(await universalSettings.getByLabel('Permanencia mínima en la zona (minutos)',{exact:true}).inputValue(),'5');
-  assert.deepEqual(await universalSettings.locator('.store-row:visible h3').allTextContents(),['Carrefour']);
+  assert.deepEqual(await universalSettings.locator('.store-row:visible h3').allTextContents(),['Carrefour','Lidl']);
   await universalPage.evaluate(()=>{const panel=window.testPanel;panel.hass={...panel._hass,states:{...panel._hass.states,
     'person.one':{entity_id:'person.one',state:'home',attributes:{friendly_name:'Ana'}},
     'person.two':{entity_id:'person.two',state:'home',attributes:{friendly_name:'Luis'}}}};});
@@ -633,6 +633,37 @@ async function checkTwoLineNames(browser,url,errors) {
   await context.close();
 }
 
+async function checkLidlAccount(browser,url,errors){
+  const context=await browser.newContext({viewport:{width:390,height:844}});
+  await context.addInitScript(()=>localStorage.setItem('settings-fixture',JSON.stringify({entities:['todo.bring'],primary_entity:'todo.bring',stores:{carrefour:{enabled:false},lidl:{enabled:false}},purchase_detection:{enabled:false,threshold:5,persons:[],shops:[]}})));
+  await context.route('https://accounts.lidl.com/**',route=>route.fulfill({status:200,contentType:'text/html',body:'Official login placeholder'}));
+  const page=await context.newPage();page.on('pageerror',error=>errors.push(error.message));await page.goto(url);
+  await page.evaluate(()=>{const original=window.testPanel._hass.callWS;const status={connected:false,email:'',options:{history_enabled:false,auto_ticket:false}};window.lidlCalls=[];
+    window.testPanel._hass.callWS=async message=>{if(!message.type.startsWith('improved_shopping_list/lidl_account/'))return original(message);window.lidlCalls.push(message);const action=message.type.split('/').pop();
+      if(action==='begin')return {authorization_url:'https://accounts.lidl.com/connect/authorize?state=test-state&code_challenge=test-challenge'};
+      if(action==='finish')status.connected=true;
+      if(action==='disconnect'){status.connected=false;status.options={history_enabled:false,auto_ticket:false};}
+      if(action==='options')status.options=message.options;
+      return structuredClone(status);
+    };
+  });
+  await page.getByRole('button',{name:'Ajustes',exact:true}).click();const settings=page.locator('isl-settings');await settings.getByRole('button',{name:'Tiendas',exact:true}).click();
+  await settings.locator('#lidl-row').waitFor();await settings.getByRole('button',{name:'Ajustes de Lidl',exact:true}).click();
+  const account=settings.locator('isl-lidl-account');assert.equal(await account.locator('#history-enabled').isDisabled(),true);
+  const popupPromise=page.waitForEvent('popup');await account.getByRole('button',{name:'Conectar cuenta',exact:true}).click();const popup=await popupPromise;await popup.waitForURL('https://accounts.lidl.com/**');
+  assert.equal(await account.locator('#login-form').isVisible(),false);
+  await account.getByLabel('Dirección de retorno',{exact:true}).fill('com.lidlplus.app://callback?state=test-state&code=private-code');await account.getByRole('button',{name:'Completar conexión',exact:true}).click();
+  await account.getByRole('button',{name:'Desconectar cuenta',exact:true}).waitFor();assert.equal(await account.locator('#login-dialog').isVisible(),false);
+  await account.locator('#history-enabled').check();await account.locator('#auto-ticket').check();
+  assert.deepEqual(await page.evaluate(()=>window.lidlCalls.filter(x=>x.type.endsWith('/options')).at(-1).options),{history_enabled:true,auto_ticket:true});
+  await page.screenshot({path:'test-results/lidl-account-mobile.png',fullPage:true});
+  await account.getByRole('button',{name:'Desconectar cuenta',exact:true}).click();assert.equal(await account.locator('#auto-ticket').isDisabled(),true);
+  await settings.locator('#lidl-dialog').evaluate(dialog=>dialog.close());
+  await settings.locator('isl-shopping-places').getByRole('button',{name:'Añadir tienda',exact:true}).click();await settings.locator('isl-shopping-places #account').selectOption('lidl');
+  assert.equal(await settings.locator('isl-shopping-places #account').inputValue(),'lidl');
+  await context.close();
+}
+
 async function main() {
   await fs.mkdir("test-results", { recursive: true });
   const server = http.createServer(async (req, res) => {
@@ -648,7 +679,7 @@ async function main() {
       return;
     }
     if (pathname === "/") { res.setHeader("content-type", "text/html; charset=utf-8"); res.end(html); return; }
-    if (!["/toggle-styles.js", "/shopping-places.js", "/dia-prices-settings.js", "/dia-account.js", "/analytics-panel.js", "/alcampo-settings.js", "/carrefour-account.js", "/notification-settings.js", "/recipe-editor.js", "/quantity-client.js", "/panel.js", "/purchases-panel.js", "/stock-client.js", "/dialog-controls.js", "/todo-client.js", "/catalog-panel.js", "/catalog-client.js", "/category-panel.js", "/icon-picker.js", "/list-settings-client.js", "/settings-panel.js", "/readers-client.js", "/readers-panel.js", "/product-matching.js", "/product-names.js", "/logs-panel.js", "/logo.png", "/mercadona.png", "/consum.jpg", "/lasirena.jpg", "/eroski.svg", "/dia.png"].includes(pathname)) { res.writeHead(404).end(); return; }
+    if (!["/lidl-account.js", "/toggle-styles.js", "/shopping-places.js", "/dia-prices-settings.js", "/dia-account.js", "/analytics-panel.js", "/alcampo-settings.js", "/carrefour-account.js", "/notification-settings.js", "/recipe-editor.js", "/quantity-client.js", "/panel.js", "/purchases-panel.js", "/stock-client.js", "/dialog-controls.js", "/todo-client.js", "/catalog-panel.js", "/catalog-client.js", "/category-panel.js", "/icon-picker.js", "/list-settings-client.js", "/settings-panel.js", "/readers-client.js", "/readers-panel.js", "/product-matching.js", "/product-names.js", "/logs-panel.js", "/logo.png", "/mercadona.png", "/consum.jpg", "/lasirena.jpg", "/eroski.svg", "/dia.png"].includes(pathname)) { res.writeHead(404).end(); return; }
     res.setHeader("content-type", pathname.endsWith(".svg") ? "image/svg+xml" : pathname.endsWith(".png") ? "image/png" : pathname.endsWith(".jpg") ? "image/jpeg" : "text/javascript; charset=utf-8");
     res.end(await fs.readFile(path.join(root, pathname.slice(1))));
   });
@@ -656,6 +687,7 @@ async function main() {
   let browser;
   try {
     browser = await chromium.launch({ headless: true, channel: process.env.PLAYWRIGHT_CHANNEL || undefined });
+    if(process.argv.includes('--lidl-only')){const errors=[];await checkLidlAccount(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Lidl account browser checks passed.');return;}
     if(process.argv.includes('--names-only')){
       const nameErrors=[];await checkTwoLineNames(browser,`http://127.0.0.1:${server.address().port}`,nameErrors);
       assert.deepEqual(nameErrors,[]);console.log('Two-line product names browser checks passed.');return;
@@ -3969,6 +4001,7 @@ async function main() {
 
     await checkUniversalPurchaseSettings(browser,url,errors);
     await checkTwoLineNames(browser,url,errors);
+    await checkLidlAccount(browser,url,errors);
 
     // Shipping policy: Alcampo and DIA are archived; the other stores remain available.
     const archivedContext=await browser.newContext({viewport:{width:390,height:844}});

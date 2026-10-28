@@ -37,7 +37,7 @@ async def test_migration_replaces_user_locations_and_errors_without_losing_prefe
     assert settings.snapshot["price_update_time"] == "03:15"
     assert settings.snapshot["stores"]["consum"] == {"enabled": True, **reference_location("consum")}
     assert settings.snapshot["stores"]["mercadona"]["warehouse"] == "mad1"
-    assert "lidl" not in settings.snapshot["stores"]
+    assert settings.snapshot["stores"]["lidl"] == {"enabled": True}  # Account tickets need no location.
     assert aioclient_mock.call_count == 0
     before = dict(entry.options)
     settings.attach(entry)

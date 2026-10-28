@@ -41,6 +41,8 @@ def async_register_commands(hass: HomeAssistant) -> None:
     """Register once; commands check that the config entry is still loaded."""
     from .dia_websocket import register as register_dia
     register_dia(hass)
+    from .lidl_websocket import register as register_lidl
+    register_lidl(hass)
     websocket_api.async_register_command(hass, ws_alcampo_status)
     websocket_api.async_register_command(hass, ws_alcampo_options)
     websocket_api.async_register_command(hass, ws_dia_prices_status)

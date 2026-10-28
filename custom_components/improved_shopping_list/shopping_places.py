@@ -21,7 +21,7 @@ def normalize_places(places):
         if image and not (image.startswith('/local/') and not image.startswith('//')) and (
                 parsed.scheme not in ('https','http') or not parsed.hostname or parsed.username or parsed.password):
             raise ValueError("Indica una URL HTTP/HTTPS o una imagen de /local/.")
-        if not isinstance(color,str) or not re.fullmatch(r"#[a-fA-F0-9]{6}",color) or account not in ('','carrefour'):
+        if not isinstance(color,str) or not re.fullmatch(r"#[a-fA-F0-9]{6}",color) or account not in ('','carrefour','lidl'):
             raise ValueError("Selecciona un color y una cuenta compatible.")
         if not isinstance(zones,list) or len(zones)>50 or any(not isinstance(z,str) or not re.fullmatch(r"zone\.[a-z0-9_]+",z) for z in zones):
             raise ValueError("Selecciona zonas válidas de Home Assistant.")

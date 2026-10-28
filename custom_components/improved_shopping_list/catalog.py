@@ -234,9 +234,6 @@ class Catalog:
                         product[key] = default
                         migrated = True
                 links = product.get("store_links")
-                if isinstance(links, dict) and "lidl" in links:
-                    del links["lidl"]
-                    migrated = True
                 for field in LEGACY_PRODUCT_FIELDS:
                     if field in product:
                         del product[field]

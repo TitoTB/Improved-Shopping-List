@@ -7,6 +7,7 @@ offers from an older center as prices of the new reference location.
 from copy import deepcopy
 
 REFERENCE_LOCATIONS = {
+    "lidl": {},  # Account receipts have no public-price center.
     "mercadona": {"postal_code": "28024", "warehouse": "mad1"},
     "carrefour": {"postal_code": "28024", "sale_point": "005704"},
     "alcampo": {"postal_code": "28024", "region_id": "deb03a69-3104-4451-9ffa-3a55dc156d9f"},

@@ -1,5 +1,5 @@
 const node=(tag,cls,text)=>{const el=document.createElement(tag);if(cls)el.className=cls;if(text!==undefined)el.textContent=text;return el;};
-const names={mercadona:'Mercadona',carrefour:'Carrefour',alcampo:'Alcampo',consum:'Consum',lasirena:'La Sirena',eroski:'Eroski',dia:'DIA'};
+const names={mercadona:'Mercadona',carrefour:'Carrefour',alcampo:'Alcampo',consum:'Consum',lasirena:'La Sirena',eroski:'Eroski',dia:'DIA',lidl:'Lidl'};
 const money=(cents,currency)=>new Intl.NumberFormat('es-ES',{style:'currency',currency}).format(cents/100);
 const scales={kg:['kg',1],g:['kg',.001],gr:['kg',.001],ml:['l',.001],cl:['l',.01],l:['l',1]};
 const number=value=>typeof value==='boolean'||value===null||value===''?NaN:Number(value);

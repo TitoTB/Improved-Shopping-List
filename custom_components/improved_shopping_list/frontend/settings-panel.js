@@ -2,6 +2,7 @@ import "./shopping-places.js?v=0.43.0";
 import "./dia-prices-settings.js?v=0.43.0";
 import "./alcampo-settings.js?v=0.43.0";
 import "./carrefour-account.js?v=0.43.0";
+import "./lidl-account.js?v=0.43.0";
 import "./logs-panel.js?v=0.43.0";
 import "./notification-settings.js?v=0.43.0";
 import "./readers-panel.js?v=0.43.0";
@@ -37,7 +38,7 @@ class ImprovedShoppingSettings extends HTMLElement {
     }
   }
 
-  set active(value) { this._active = Boolean(value); if(!this._active){this.shadowRoot.querySelector('#community-authorization')?.close();this.shadowRoot.querySelector('#carrefour-dialog')?.close();this.shadowRoot.querySelector('isl-carrefour-account')?.deactivate();this.shadowRoot.querySelector('#dia-dialog')?.close();this.shadowRoot.querySelector('isl-dia-prices-settings')?.deactivate();} this._syncLogs(); this._syncReaders(); }
+  set active(value) { this._active = Boolean(value); if(!this._active){this.shadowRoot.querySelector("#lidl-dialog")?.close();this.shadowRoot.querySelector("isl-lidl-account")?.deactivate();this.shadowRoot.querySelector('#community-authorization')?.close();this.shadowRoot.querySelector('#carrefour-dialog')?.close();this.shadowRoot.querySelector('isl-carrefour-account')?.deactivate();this.shadowRoot.querySelector('#dia-dialog')?.close();this.shadowRoot.querySelector('isl-dia-prices-settings')?.deactivate();} this._syncLogs(); this._syncReaders(); }
 
   _syncReaders() {
     const readers=this.shadowRoot.querySelector('isl-readers');
@@ -63,6 +64,7 @@ class ImprovedShoppingSettings extends HTMLElement {
   disconnectedCallback() {
     this.active = false;
     this.shadowRoot.querySelector("isl-carrefour-account")?.deactivate();
+    this.shadowRoot.querySelector("#lidl-dialog")?.close();this.shadowRoot.querySelector("isl-lidl-account")?.deactivate();
     for (const store of ["consum", "lasirena", "eroski", "dia"]) this.shadowRoot.querySelector(`#${store}-dialog`)?.close();
     clearInterval(this._pricesProgressTimer);
     this.shadowRoot.querySelector("#prices-progress-dialog")?.close();
@@ -342,6 +344,11 @@ class ImprovedShoppingSettings extends HTMLElement {
     readersTab.id='settings-view-readers';readersTab.type='button';readersTab.setAttribute('aria-label','Lectores');readersTab.setAttribute('aria-pressed','false');
     readersTab.innerHTML='<ha-icon icon="mdi:barcode-scan" aria-hidden="true"></ha-icon><span class="tab-label">Lectores</span>';
     root.querySelector('#settings-view-community').before(readersTab);
+    const lidlRow=document.createElement('article');lidlRow.className='store-row';lidlRow.id='lidl-row';lidlRow.innerHTML='<img class="store-logo" src="https://upload.wikimedia.org/wikipedia/commons/9/91/Lidl-Logo.svg" alt="Logo de Lidl" referrerpolicy="no-referrer" loading="lazy" width="56" height="56"><div class="store-name"><h3>Lidl</h3></div><div class="store-controls"><input id="lidl-enabled" class="store-toggle" type="checkbox" role="switch" aria-label="Habilitar Lidl"><button id="configure-lidl" class="store-cog" type="button" aria-label="Ajustes de Lidl" title="Ajustes de Lidl"><ha-icon icon="mdi:cog" aria-hidden="true"></ha-icon></button></div>';root.querySelector('.stores-grid').append(lidlRow);
+    const lidlDialog=document.createElement('dialog');lidlDialog.id='lidl-dialog';lidlDialog.setAttribute('aria-label','Lidl');lidlDialog.append(document.createElement('isl-lidl-account'));root.append(lidlDialog);
+    root.querySelector('#lidl-enabled').addEventListener('change',()=>void this._saveRetailSettings(()=>this._data.settings.setStoreEnabled('lidl',root.querySelector('#lidl-enabled').checked)));
+    root.querySelector('#configure-lidl').addEventListener('click',()=>{lidlDialog.showModal();const account=lidlDialog.querySelector('isl-lidl-account');account.hass=this._data.hass;void account.activate();});
+    lidlDialog.addEventListener('close',()=>lidlDialog.querySelector('isl-lidl-account').deactivate());
     this._buildRegionalStores(root);
     this._buildZoneSettings(root);
     installDialogCloseButtons(root);
@@ -350,7 +357,7 @@ class ImprovedShoppingSettings extends HTMLElement {
     const storesGrid=root.querySelector(".stores-grid");
     storesGrid.append(...[...storesGrid.querySelectorAll(".store-row")].sort((a,b)=>
       a.querySelector("h3").textContent.localeCompare(b.querySelector("h3").textContent,"es")));
-    for (const store of ["mercadona", "carrefour", "alcampo", "consum", "lasirena", "eroski", "dia"]) {
+    for (const store of ["mercadona", "carrefour", "lidl", "alcampo", "consum", "lasirena", "eroski", "dia"]) {
       const row = root.querySelector(`#${store}-enabled`).closest(".store-row");
       const heart = document.createElement("button"); heart.id = `favorite-${store}`; heart.type = "button"; heart.className = "store-cog store-favorite";
       const label = `Marcar ${row.querySelector("h3").textContent} como favorita`;
@@ -454,9 +461,10 @@ class ImprovedShoppingSettings extends HTMLElement {
     this._renderCommunity();
     this._renderPriceTimestamp();
     this._renderGlobalPriceProgress();
-    for (const store of ["mercadona", "carrefour", "alcampo", "consum", "lasirena", "eroski", "dia"]) {
+    for (const store of ["mercadona", "carrefour", "lidl", "alcampo", "consum", "lasirena", "eroski", "dia"]) {
+      if(store==="lidl"){root.querySelector("#lidl-enabled").checked=Boolean(settings.stores?.lidl?.enabled);root.querySelector("#lidl-enabled").disabled=locked;}
       root.querySelector(`#${store}-enabled`).closest(".store-row").dataset.enabled = String(Boolean(settings.stores?.[store]?.enabled));
-      const available=universal?store==="carrefour":(settings.availableStores??["mercadona","carrefour","consum","lasirena","eroski"]).includes(store);
+      const available=universal?["carrefour","lidl"].includes(store):(settings.availableStores??["mercadona","carrefour","consum","lasirena","eroski"]).includes(store);
       root.querySelector(`#${store}-enabled`).closest(".store-row").hidden=!available;
       if(!available){
         const dialog=root.querySelector(store==='mercadona'?'#store-dialog':`#${store}-dialog`);

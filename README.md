@@ -10,6 +10,12 @@ Los precios proceden de tickets y facturas confirmados por el usuario. Alcampo y
 
 El diccionario comunitario sirve exclusivamente para sugerir iconos por nombre o traducción del producto. No intercambia precios, EAN, referencias, Nutri-Score ni documentos de compra.
 
+## Cuenta Lidl — desarrollo pendiente de publicación
+
+Lidl se incorpora a **Ajustes → Tiendas → Cuentas** con recuperación del historial disponible del último año y descarga automática de tickets pendientes de revisión, coordinada con las tiendas físicas, zonas y prioridad de cuentas. Su conexión usa OAuth/PKCE: abre el acceso oficial de Lidl y después permite pegar su dirección nativa de retorno o seleccionar el HAR de ese acceso. El HAR se lee en el navegador; solo se envía el retorno que corresponde a esa conexión. El primer acceso requiere este paso manual porque Lidl redirige a su aplicación móvil. No se instala navegador, complemento ni tarjeta adicional en Home Assistant, y no se guarda la contraseña de Lidl.
+
+Los tokens se conservan en el almacenamiento privado de Home Assistant y se renuevan mediante HTTPS con HTTP/1.1. El historial básico no modifica stock ni precios. Los tickets HTML se validan y se revisan con el mismo asistente de Compras; solo al confirmar se aplican los cambios elegidos. Los códigos internos de Lidl se guardan como referencias, sin inferir EAN. Los formatos con devoluciones, descuentos o totales que no cuadren se dejan sin revisar en lugar de estimar sus líneas. Esta función no forma parte de la release 0.43.0.
+
 ## Qué puedes hacer
 
 El apartado **Analítica** incluye **Comparativa**, **Compras** y **Nutri-score**. Compras muestra el logo de la tienda y un botón de ticket junto al importe para abrir el detalle en un popup. Encima del historial, un gráfico de barras apiladas suma los importes de las compras registradas por mes y tienda, sin dependencias de tarjetas externas. Incluye un botón para subir tickets

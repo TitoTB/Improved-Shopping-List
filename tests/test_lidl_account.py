@@ -178,17 +178,18 @@ async def test_lidl_automatic_check_imports_missing_history_without_initial_impo
 @pytest.mark.parametrize("zone", ["Europe/Madrid", "Atlantic/Canary", "UTC"])
 @pytest.mark.parametrize("stamp", ["2026-01-15T17:20:38", "2026-07-15T23:50:38", "2026-03-29T01:30:00", "2026-10-25T01:30:00"])
 def test_lidl_ticket_unzoned_detail_matches_utc_list_in_any_ha_zone(monkeypatch, zone, stamp):
-    monkeypatch.setattr(dt_util, "DEFAULT_TIME_ZONE", ZoneInfo(zone))
-    detail, _ = fixture_ticket()
-    detail["date"] = stamp
-    expected = stamp + "Z"
-    receipt = extract_lidl_ticket(detail, detail["id"], 3, expected)
-    assert dt_util.parse_datetime(receipt["purchased_at"]).timestamp() == dt_util.parse_datetime(expected).timestamp()
-    # A saved summary can already carry Home Assistant's explicit local offset.
-    local_expected = dt_util.as_local(dt_util.parse_datetime(expected)).isoformat()
-    assert extract_lidl_ticket(detail, detail["id"], 3, local_expected)["total"] == 3
-    with pytest.raises(CatalogError, match="fecha"):
-        extract_lidl_ticket(detail, detail["id"], 3, (dt_util.parse_datetime(expected)+timedelta(days=1)).isoformat())
+    with monkeypatch.context() as scoped:
+        scoped.setattr(dt_util, "DEFAULT_TIME_ZONE", ZoneInfo(zone))
+        detail, _ = fixture_ticket()
+        detail["date"] = stamp
+        expected = stamp + "Z"
+        receipt = extract_lidl_ticket(detail, detail["id"], 3, expected)
+        assert dt_util.parse_datetime(receipt["purchased_at"]).timestamp() == dt_util.parse_datetime(expected).timestamp()
+        # A saved summary can already carry Home Assistant's explicit local offset.
+        local_expected = dt_util.as_local(dt_util.parse_datetime(expected)).isoformat()
+        assert extract_lidl_ticket(detail, detail["id"], 3, local_expected)["total"] == 3
+        with pytest.raises(CatalogError, match="fecha"):
+            extract_lidl_ticket(detail, detail["id"], 3, (dt_util.parse_datetime(expected)+timedelta(days=1)).isoformat())
 
 
 def test_lidl_explicit_detail_offset_is_preserved():

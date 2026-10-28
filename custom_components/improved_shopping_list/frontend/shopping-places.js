@@ -1,4 +1,4 @@
-import { installDialogCloseButtons } from './dialog-controls.js?v=0.41.0';
+import { installDialogCloseButtons } from './dialog-controls.js?v=0.42.0';
 const el=(tag,text)=>{const n=document.createElement(tag);if(text!==undefined)n.textContent=text;return n;};
 class ShoppingPlaces extends HTMLElement {
   constructor(){super();this.attachShadow({mode:'open'});}

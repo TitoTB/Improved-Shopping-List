@@ -1,6 +1,6 @@
 # Historial de cambios
 
-## Sin publicar
+## 0.42.0 — 2026-10-28
 
 - Compras universales: Cuentas, Tiendas físicas y Usuarios en Ajustes → Tiendas; nombre, imagen, color, zonas y cuenta vinculada por establecimiento.
 - Permanencia mínima configurable (5 minutos inicialmente) y varios registros diarios cuando distintas tiendas cumplen el criterio. Compradores asociados, reparto de productos sin duplicarlos y filtros por tienda y usuario en Compras.

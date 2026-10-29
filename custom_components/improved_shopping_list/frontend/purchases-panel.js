@@ -363,7 +363,7 @@ class ImprovedShoppingPurchases extends HTMLElement {
     if(this._busy)return;this._errorMessage('');this._setBusy(true);
     try{
       if(!this.createProduct)throw new Error('No se ha podido abrir la ficha del producto.');
-      const product=await this.createProduct(edit.search||edit.line.description);if(!product||!this._draft)return;
+      const product=await this.createProduct(edit.line.description);if(!product||!this._draft)return;
       const options=await this._hass.callWS({type:'improved_shopping_list/receipts/options',token:this._draft.token});this._updateOptions(options);
       if(this._chooseProduct(edit,this._draft.products.find(p=>p.id===product.id))){edit.search=product.name;}
       this._renderStep();

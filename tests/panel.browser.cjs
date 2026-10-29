@@ -3131,8 +3131,20 @@ async function main() {
     await association.getByText('Este producto ya está vinculado a otra línea. Libera primero esa vinculación.',{exact:true}).waitFor();
     await purchasePage.screenshot({path:'test-results/receipt-link-dialog-mobile.png',fullPage:true});
     await association.getByRole('button',{name:'Cerrar ventana',exact:true}).click();
+    // A suggested catalog match must not supply the name when creating a new product.
+    await review.locator('#linked-products-group > summary').click();
+    const suggestedLine=review.locator('[data-line-id="0"]');
+    const ticketProductName=await suggestedLine.locator('.association-name strong').textContent();
+    assert.notEqual(ticketProductName,'Seitán');
+    await suggestedLine.locator('.create').click();
+    const suggestedProduct=purchasePage.locator('isl-catalog').getByRole('dialog',{name:'Nuevo producto',exact:true});
+    assert.equal(await suggestedProduct.getByLabel('Nombre del producto',{exact:true}).inputValue(),ticketProductName);
+    await suggestedProduct.getByRole('button',{name:'Cerrar ventana',exact:true}).click();
+    await purchasePage.waitForFunction(()=>!window.testPanel.shadowRoot.querySelector('isl-purchases')._busy);
+    await review.locator('#linked-products-group > summary').click();
     await cerealLine.getByRole('button',{name:'Crear producto para FLAUTIN CEREALES',exact:true}).click();
     const receiptProduct=purchasePage.locator('isl-catalog').getByRole('dialog',{name:'Nuevo producto',exact:true});
+    assert.equal(await receiptProduct.getByLabel('Nombre del producto',{exact:true}).inputValue(),'FLAUTIN CEREALES');
     await receiptProduct.getByLabel('Nombre del producto',{exact:true}).fill('Flautines');
     await receiptProduct.getByRole('button',{name:'Guardar producto',exact:true}).click();
     await receiptProduct.waitFor({state:'hidden'});

@@ -971,8 +971,8 @@ async function checkReferenceFormats(browser,url,errors){
   assert.equal(await dialog.locator('#product-ean-summary').count(),0);
   assert.match(await first.textContent(),/EAN: 1234567890128/);
   assert.equal(await first.getByLabel('Contenido por envase',{exact:true}).inputValue(),'12');
-  assert.equal(await first.getByLabel('Formato confirmado',{exact:true}).isChecked(),false);
-  await first.getByLabel('Formato confirmado',{exact:true}).check();
+  assert.equal(await first.getByLabel('Formato confirmado',{exact:true}).count(),0);
+  await first.getByLabel('Contenido por envase',{exact:true}).fill('12');
   await first.getByLabel('Marca',{exact:true}).fill('Granja');
   assert.match(await dialog.locator('.product-option > summary').first().textContent(),/Granja.*12 uds/);
   assert.equal(await first.getByLabel('Enlace o ID de Lidl',{exact:true}).count(),1);
@@ -998,7 +998,7 @@ async function checkReferenceFormats(browser,url,errors){
   await dialog.getByRole('button',{name:'Opciones',exact:true}).click();
   assert.equal(await dialog.locator('.product-option[open]').count(),0);
   await dialog.locator('.product-option > summary').first().click();
-  assert.equal(await first.getByLabel('Formato confirmado',{exact:true}).isChecked(),true);
+  assert.equal(await first.getByLabel('Formato confirmado',{exact:true}).count(),0);
   assert.equal(await first.getByLabel('Marca',{exact:true}).inputValue(),'Granja Web');
   assert.equal(await page.evaluate(()=>window.catalogProducts.find(p=>p.id==='eggs').commercial_references[0].last_price.price),2.5);
   await page.evaluate(()=>window.failOptionLookup=true);

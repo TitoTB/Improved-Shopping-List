@@ -1545,7 +1545,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
     card.append(element('p','helper',[ref.ean?'EAN: '+ref.ean:'',ref.reference_id?'ID: '+ref.reference_id:''].filter(Boolean).join(' · ')));
     if(ref.url){const link=element('a','helper','Ver ficha de la tienda');link.href=ref.url;link.target='_blank';link.rel='noopener noreferrer';card.append(link);}
     let renderPrice=()=>{};
-    const status=element('p','helper'),update=()=>{status.textContent='Formato pendiente de revisar';status.hidden=Boolean(ref.content_confirmed);renderPrice();onChange();};
+    const status=element('p','helper'),update=()=>{status.textContent='Comprueba el contenido recuperado: al introducir la cantidad o las unidades quedará confirmado.';status.hidden=Boolean(ref.content_confirmed)||!(ref.content_quantity>0&&ref.content_unit);renderPrice();onChange();};
     card.append(referenceContentControls(ref,update),status);update();
     const offers=[...(ref.last_price?[ref.last_price]:[]),...(this._priceData?.offers??[]).filter(offer=>offer.catalog_product_id===this._editing?.id&&(offer.commercial_reference_id===ref.id||offer.store===ref.store&&(ref.ean&&offer.ean===ref.ean||ref.reference_id&&offer.reference_id===ref.reference_id)))].sort((a,b)=>(b.checked_at??0)-(a.checked_at??0));
     if(ref.nutriscore?.grade)card.append(element('p','helper',`Nutri-Score: ${ref.nutriscore.grade.toUpperCase()}`));

@@ -214,7 +214,7 @@ async def test_receipt_prices_only_replace_older_observations_and_respect_disabl
     assert prices.prices_for(product)==[]
 
 
-async def test_reprocess_command_is_registered_and_updates_a_reviewed_receipt(hass,hass_ws_client,hass_user,monkeypatch):
+async def test_reprocess_command_is_registered_and_updates_a_reviewed_receipt(hass,hass_ws_client,hass_admin_user,monkeypatch):
     entry=MockConfigEntry(domain=DOMAIN,data={CONF_TODO_ENTITY:'todo.bring'})
     entry.add_to_hass(hass);assert await hass.config_entries.async_setup(entry.entry_id)
     data=hass.data[DOMAIN];manager=data['receipts'];catalog=data['catalog']
@@ -222,8 +222,8 @@ async def test_reprocess_command_is_registered_and_updates_a_reviewed_receipt(ha
     product=await catalog.async_save_product({'name':'Café'})
     receipt={'id':'ws-reprocess','digest':'ws-reprocess','store':'carrefour','store_name':'Carrefour','currency':'EUR','purchased_at':dt_util.now().isoformat(),
         'total':3,'subtotal':3,'discount':0,'article_count':1,'lines':[{'id':'0','description':'CAFE','count':1,'unit_price':3,'amount':3,'pack_quantity':None,'pack_unit':''}]}
-    draft=await manager._prepare_preview(receipt,hass_user.id)
-    saved=await manager.async_confirm(draft['token'],hass_user.id,[{'id':'0','product_id':product['id'],'replenish':False,'quantity':None,'purchase_id':'','save_price':True}],True)
+    draft=await manager._prepare_preview(receipt,hass_admin_user.id)
+    saved=await manager.async_confirm(draft['token'],hass_admin_user.id,[{'id':'0','product_id':product['id'],'replenish':False,'quantity':None,'purchase_id':'','save_price':True}],True)
     before=deepcopy(data['stock']._items)
     client=await hass_ws_client(hass)
     await client.send_json({'id':1,'type':f'{DOMAIN}/receipts/review_saved','receipt_id':saved['id']})

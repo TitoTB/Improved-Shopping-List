@@ -1,5 +1,13 @@
 # Historial de cambios
 
+## 0.53.1 — 2026-10-29
+
+- Alcampo espera al menos veinte segundos entre peticiones, incluidas redirecciones y consultas complementarias.
+- El popup de progreso ya no muestra el aviso de siguiente petición ni el texto sobre continuar al cerrarlo.
+- El resumen de Logs conserva los detalles de los fallos de la ficha y de la API: referencia, URL, código HTTP y motivo. Los bloqueos confirmados pausan el lote; una respuesta alternativa con precio no activa una pausa innecesaria.
+- La agrupación del catálogo por tienda incluye las opciones de compra activas guardadas, también las de Alcampo, sin depender del antiguo interruptor de tienda ni de una cuenta conectada. Las opciones desvinculadas no generan grupos.
+- Sin nuevas dependencias.
+
 ## 0.53.0 — 2026-10-29
 
 - Nuevo bloque Catálogos en Ajustes → Tiendas, con Alcampo desactivado por defecto. Al activarlo, incorpora opciones por coincidencia exacta de EAN en el diccionario y recupera precios y datos faltantes de las fichas oficiales.

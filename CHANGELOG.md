@@ -1,5 +1,13 @@
 # Historial de cambios
 
+## 0.50.2 — 2026-10-29
+
+- Recuperar datos detecta la tienda a partir del enlace oficial, aunque la opción estuviera clasificada en otra tienda. Al recuperar correctamente los datos, corrige su clasificación sin trasladar el último precio de la tienda anterior y mantiene la comprobación del EAN.
+- Los errores de recuperación se muestran junto al botón de la opción correspondiente.
+- «Ver ficha de la tienda» utiliza enlaces de afiliado de Awin para Carrefour. Las consultas de datos siguen usando la URL original.
+- Retiradas las miniaturas del producto original en los bloques de opciones de compra.
+- README con índice enlazado y nuevo apartado Marketing de afiliados. Sin nuevas dependencias.
+
 ## 0.50.1 — 2026-10-29
 
 - El selector de tienda y la recuperación de datos por enlace aparecen antes de las opciones de compra guardadas.

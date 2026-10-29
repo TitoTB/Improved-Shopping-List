@@ -367,7 +367,8 @@ async def test_stock_intent_recovers_after_catalog_failure_without_early_reorder
     monkeypatch.setattr(catalog._store,"async_save",AsyncMock(side_effect=OSError("disk")))
     with pytest.raises(OSError):await shared.async_sync_stock()
     env.clock[0]+=2*DAY;await env.manager.async_check()
-    assert env.calls==[] and env.stock.snapshot["items"][0]["quantity"]==1
+    assert env.calls==[] and env.stock.snapshot["items"][0]["quantity"]==0
+    assert env.stock._items[env.item["id"]]["quantity"]==1  # No mutation or reorder before recurrence synchronization.
     monkeypatch.setattr(catalog._store,"async_save",save)
     restored=StockManager(env.stock.hass,catalog);await restored.async_load()
     sync=RecurrenceManager(env.stock.hass,catalog,env.settings,env.activity,env.manager._operation_lock,restored)

@@ -119,12 +119,12 @@ async def test_export_websocket_admin_and_unloaded(hass, hass_ws_client):
     assert response["success"] and response["result"]["entries"] == 1
     with zipfile.ZipFile(io.BytesIO(base64.b64decode(response["result"]["data"]))) as archive:
         assert json.loads(archive.read("dictionary.json"))["entries"][0]["name"] == "Pan"
-    await client.send_json({"id": 3, "type": f"{DOMAIN}/catalog/export"})
+    await client.send_json({"id": 2, "type": f"{DOMAIN}/catalog/export"})
     exported = await client.receive_json()
     assert exported["success"]
     assert json.loads(base64.b64decode(exported["result"]["data"]))["products"][0]["name"] == "Pan"
     assert await hass.config_entries.async_unload(entry.entry_id)
-    await client.send_json({"id": 2, "type": f"{DOMAIN}/community/export"})
+    await client.send_json({"id": 3, "type": f"{DOMAIN}/community/export"})
     assert (await client.receive_json())["error"]["code"] == "not_loaded"
     await client.send_json({"id": 4, "type": f"{DOMAIN}/catalog/export"})
     assert (await client.receive_json())["error"]["code"] == "not_loaded"

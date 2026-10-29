@@ -62,13 +62,14 @@ test('catalog normalizes pack weights and only includes products with prices in 
 });
 test('catalog compares units across brands and EANs, never unknown package contents',()=>{
  const options={stores:['carrefour','alcampo'],now};
- assert.equal(analyzeCatalog(products,[offer('carrefour',1),offer('alcampo',2)],options).rows.length,0);
+ const unknown=analyzeCatalog(products,[offer('carrefour',1),offer('alcampo',2)],options);
+ assert.equal(unknown.rows.length,1);assert.equal(unknown.comparable,0);assert.deepEqual(unknown.rows[0].bestStores,[]);
  const obs=[offer('carrefour',2,{brand:'Marca A',pack_quantity:500,pack_unit:'g'}),offer('alcampo',3,{brand:'Marca B',ean:'4006381333931',pack_quantity:1,pack_unit:'kg'})];
  const row=analyzeCatalog(products,obs,options).rows[0];
  assert.equal(row.unit,'kg');assert.equal(row.min,3);assert.equal(row.max,4);assert.deepEqual(row.bestStores,['alcampo']);
  const zero=analyzeCatalog(products,[offer('carrefour',0,{pack_quantity:1,pack_unit:'uds'}),offer('alcampo',0,{ean:'4006381333931',pack_quantity:1,pack_unit:'uds'})],options).rows[0];
  assert.equal(zero.min,0);assert.deepEqual(zero.bestStores,['carrefour','alcampo']);
- assert.equal(analyzeCatalog(products,[obs[0],offer('alcampo',1,{pack_quantity:1,pack_unit:'l'})],options).rows.length,0);
+ assert.equal(analyzeCatalog(products,[obs[0],offer('alcampo',1,{pack_quantity:1,pack_unit:'l'})],options).comparable,0);
  const litres=analyzeCatalog(products,[offer('carrefour',1,{pack_quantity:500,pack_unit:'ml'}),offer('alcampo',3,{ean:'',pack_quantity:2,pack_unit:'l'})],options).rows[0];
  assert.equal(litres.unit,'l');assert.equal(litres.min,1.5);
 });
@@ -107,4 +108,17 @@ test('several alternatives from one store do not qualify as a two-store comparis
  const obs=[offer('alcampo',2,{reference_id:'one',pack_quantity:1,pack_unit:'uds'}),offer('alcampo',3,{reference_id:'two',pack_quantity:1,pack_unit:'uds'}),offer('carrefour',null),offer('lidl',5,{at:now+1})];
  assert.equal(analyzeCatalog(products,obs,{stores:['alcampo','carrefour','lidl'],now}).rows.length,0);
  assert.equal(analyzeCatalog(products,[...obs,offer('carrefour',4,{pack_quantity:1,pack_unit:'uds'})],{stores:['alcampo','carrefour','lidl'],now}).rows.length,1);
+});
+
+test('missing content in a third store stays visible without counting as the cheapest',()=>{
+ const obs=[offer('carrefour',2,{pack_quantity:170,pack_unit:'g'}),offer('alcampo',3,{pack_quantity:250,pack_unit:'g'}),offer('lidl',1)];
+ const result=analyzeCatalog(products,obs,{stores:['carrefour','alcampo','lidl'],now});
+ assert.equal(result.rows[0].offers.length,3);assert.equal(result.rows[0].offers.find(o=>o.store==='lidl').price,1);
+ assert.deepEqual(result.rows[0].bestStores,['carrefour']);assert.equal(result.ranking.find(s=>s.store==='lidl').known,1);assert.equal(result.ranking.find(s=>s.store==='lidl').wins,0);
+});
+test('a stored measured price remains usable beside a newer package price with missing content',()=>{
+ const obs=[offer('carrefour',2,{commercial_reference_id:'r',pack_quantity:1,pack_unit:'kg',at:now-200}),offer('carrefour',1,{commercial_reference_id:'r',format_pending:true,at:now-100}),offer('alcampo',3,{pack_quantity:1,pack_unit:'kg'})];
+ const row=analyzeCatalog(products,obs,{stores:['carrefour','alcampo'],now}).rows[0];
+ assert.equal(row.min,2);assert.equal(row.offers.find(o=>o.store==='carrefour').at,now-200);
+ const recent=analyzeCatalog(products,obs,{stores:['carrefour','alcampo'],now,maxAge:.002});assert.equal(recent.comparable,0);
 });

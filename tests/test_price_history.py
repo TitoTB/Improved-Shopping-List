@@ -87,3 +87,18 @@ async def test_comparison_includes_saved_alternative_prices_without_enabled_acco
     assert set(response['result']['stores'])=={'alcampo','carrefour'}
     assert {o['store']:o['price'] for o in response['result']['observations']}=={'alcampo':2.5,'carrefour':3}
     assert all(o['pack_quantity']==170 and not o['format_pending'] for o in response['result']['observations'])
+
+
+async def test_comparison_uses_saved_price_per_measure_without_package_price_or_content(hass):
+    catalog=Catalog(hass);await catalog.async_load()
+    now=time.time()
+    product=await catalog.async_save_product({'name':'Patatas fritas','commercial_references':[
+        {'store':'alcampo','reference_id':'10739','ean':'8410199023094','name':'Patatas','content_quantity':None,'content_unit':'','content_confirmed':False,
+         'measure_price':{'price':15,'quantity':1,'unit':'kg','currency':'EUR','checked_at':now,'source':'web'}}
+    ]})
+    receipts=SimpleNamespace(stock=SimpleNamespace(receipts={'history':{}}))
+    data=PriceHistory(hass).comparison_data(catalog,SimpleNamespace(snapshot={'stores':{}}),receipts,[])
+    assert data['stores']==['alcampo'] and len(data['observations'])==1
+    obs=data['observations'][0]
+    assert obs['price']==15 and obs['pack_quantity']==1 and obs['pack_unit']=='kg' and not obs['format_pending']
+    assert obs['at']==now and obs['commercial_reference_id']==product['commercial_references'][0]['id']

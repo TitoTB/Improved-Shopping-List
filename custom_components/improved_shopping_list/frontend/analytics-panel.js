@@ -22,16 +22,16 @@ export function normalizeObservation(raw){
 export function analyzeCatalog(products,observations,options={}){
   const now=options.now??Date.now()/1000,stores=options.stores??[],currency=options.currency??'EUR',age=options.maxAge?options.maxAge*86400:Infinity;
   const latest=new Map();
-  for(const raw of observations){const offer=normalizeObservation(raw);if(!offer||offer.currency!==currency||!stores.includes(offer.store)||offer.at>now||now-offer.at>age)continue;const key=offer.product_id+':'+offer.store+':'+(offer.commercial_reference_id||offer.reference_id||offer.ean||'legacy');if(!latest.has(key)||latest.get(key).at<offer.at)latest.set(key,{...offer,basis:scales[offer.unit]?.[0]??null,rate:scales[offer.unit]?offer.rate:null});}
+  for(const raw of observations){const offer=normalizeObservation(raw);if(!offer||offer.currency!==currency||!stores.includes(offer.store)||offer.at>now||now-offer.at>age)continue;const key=offer.product_id+':'+offer.store+':'+(offer.commercial_reference_id||offer.reference_id||offer.ean||'legacy');const candidate={...offer,basis:scales[offer.unit]?.[0]??null,rate:scales[offer.unit]?offer.rate:null},previous=latest.get(key);if(!previous||candidate.basis&&!previous.basis||Boolean(candidate.basis)===Boolean(previous.basis)&&previous.at<candidate.at)latest.set(key,candidate);}
   const filtered=products.filter(p=>(!options.category||p.category===options.category)&&(!options.store||[...latest.values()].some(offer=>offer.product_id===p.id&&offer.store===options.store)));
   const rows=filtered.map(product=>{
     const allOffers=[...latest.values()].filter(offer=>offer.product_id===product.id),groups=new Map();
     for(const offer of allOffers)if(offer.basis){if(!groups.has(offer.basis))groups.set(offer.basis,[]);const group=groups.get(offer.basis),before=group.find(o=>o.store===offer.store);if(!before)group.push(offer);else if(offer.rate<before.rate)group.splice(group.indexOf(before),1,offer);}
     const comparable=[...groups.values()].sort((a,b)=>b.length-a.length||a[0].basis.localeCompare(b[0].basis))[0]??[];
-    const offers=comparable;
+    const offers=stores.map(store=>comparable.find(offer=>offer.store===store)||allOffers.filter(offer=>offer.store===store).sort((a,b)=>b.at-a.at)[0]).filter(Boolean);
     const min=comparable.length>1?Math.min(...comparable.map(o=>o.rate)):null,max=min===null?null:Math.max(...comparable.map(o=>o.rate));
     return {product,offers,basis:comparable[0]?.basis??null,unit:comparable[0]?.unit??'envase',comparable:comparable.length>1,min,max,difference:min===null?null:max-min,bestStores:min===null?[]:comparable.filter(o=>Math.abs(o.rate-min)<.000001).map(o=>o.store)};
-  }).filter(row=>row.comparable).sort((a,b)=>a.product.name.localeCompare(b.product.name,'es'));
+  }).filter(row=>row.offers.length>=2).sort((a,b)=>a.product.name.localeCompare(b.product.name,'es'));
   const ranking=stores.map(store=>({store,known:rows.filter(r=>r.offers.some(o=>o.store===store)).length,wins:rows.filter(r=>r.bestStores.includes(store)).length})).sort((a,b)=>b.wins-a.wins||b.known-a.known||a.store.localeCompare(b.store));
   const participating=ranking.filter(shop=>shop.known).map(shop=>shop.store);
   const common=participating.length>1?rows.filter(row=>row.comparable&&participating.every(store=>row.offers.some(o=>o.store===store&&o.basis===row.basis))):[];
@@ -155,15 +155,15 @@ class ImprovedShoppingAnalytics extends HTMLElement {
     const products=(this._data.products??[]).filter(p=>!query||[p.name,...(p.tags??[])].join(' ').normalize('NFD').replace(/\p{M}/gu,'').toLowerCase().includes(query));
     const result=analyzeCatalog(products,data.observations??[],{stores:data.stores??[],currency:root.querySelector('#analysis-currency').value,category:root.querySelector('#analysis-category').value,store:root.querySelector('#analysis-store').value,maxAge:Number(root.querySelector('#analysis-age').value)});
     const stats=node('div','stats'),winner=result.ranking[0]?.wins?result.ranking[0]:null,winners=winner?result.ranking.filter(shop=>shop.wins===winner.wins):[];
-    stats.append(this._stat(result.comparable,'Productos comparables',result.known+' con precio de '+result.rows.length+' productos'),this._stat(winners.length>1?winners.length+' tiendas':winner?names[winner.store]:'—',winners.length>1?'Empate en mínimos':'Más productos al menor precio',winner?winner.wins+(winner.wins===1?' mínimo':' mínimos')+(winners.length>1?' por tienda':', incluidos empates'):'Hace falta precio equivalente en varias tiendas'),this._stat(Number.isFinite(result.oldest)?new Date(result.oldest*1000).toLocaleDateString('es-ES'):'—','Precio más antiguo del análisis'));
+    stats.append(this._stat(result.comparable,'Productos comparables',result.rows.length+' con precios en varias tiendas · '+(result.rows.length-result.comparable)+' pendientes de contenido comparable'),this._stat(winners.length>1?winners.length+' tiendas':winner?names[winner.store]:'—',winners.length>1?'Empate en mínimos':'Más productos al menor precio',winner?winner.wins+(winner.wins===1?' mínimo':' mínimos')+(winners.length>1?' por tienda':', incluidos empates'):'Hace falta precio equivalente en varias tiendas'),this._stat(Number.isFinite(result.oldest)?new Date(result.oldest*1000).toLocaleDateString('es-ES'):'—','Precio más antiguo del análisis'));
     container.append(stats);
     if(data.observations_truncated)container.append(node('p','comparison-note','El análisis usa las 20.000 observaciones de precio más recientes disponibles.'));
-    if(!result.rows.length){container.append(this._empty('No hay productos con precio por kg, litro o unidad comparable en al menos dos tiendas que coincidan con estos filtros.'));return;}
-    container.append(node('p','comparison-note','Comparamos precios por kg, litro o unidad, independientemente de la marca y del EAN. En cada tienda se elige la alternativa con menor precio por la misma unidad. Solo se incluyen productos con datos suficientes en al menos dos tiendas.'));
+    if(!result.rows.length){container.append(this._empty('No hay productos con precio guardado en al menos dos tiendas que coincidan con estos filtros.'));return;}
+    container.append(node('p','comparison-note','Comparamos precios por kg, litro o unidad, independientemente de la marca y del EAN. En cada tienda se elige la alternativa con menor precio por la misma unidad. Los productos con precios en varias tiendas también se muestran cuando falta contenido del envase; esos precios se indican por envase y no cuentan para decidir qué tienda es más barata.'));
     if(result.known){
       const chart=node('section','card');chart.append(node('h2','chart-title','Dónde están los precios más bajos'));
       const maximum=Math.max(1,...result.ranking.map(shop=>shop.wins));
-      for(const shop of result.ranking.filter(s=>s.known)){
+      for(const shop of result.ranking){
         const row=node('div','rank-row');row.dataset.store=shop.store;row.append(this._shopLabel(shop.store));const track=node('div','rank-track'),bar=node('div','rank-bar');bar.style.width=shop.wins/maximum*100+'%';track.append(bar);track.setAttribute('role','img');track.setAttribute('aria-label',(names[shop.store]??shop.store)+': '+shop.wins+' productos al menor precio');
         const total=node('span','rank-total',shop.wins+(shop.wins===1?' mínimo':' mínimos'));total.append(node('small','',shop.known+' con precio'));row.append(track,total);chart.append(row);
       }
@@ -174,15 +174,15 @@ class ImprovedShoppingAnalytics extends HTMLElement {
       card.append(node('p','muted','Una unidad de referencia por producto: 1 unidad, 1 kg o 1 litro, según indica la tabla. Solo los productos con precio equivalente en todas estas tiendas. No es una lista de compra real.'));
       const shops=node('div','common-cards');for(const [index,shop] of result.totals.entries()){const block=node('div','common-shop');block.append(this._shopLabel(shop.store),node('strong',Math.abs(shop.total-result.totals[0].total)<.000001?'best':'',this._amount(shop.total,result.currency)));shops.append(block);}card.append(shops);container.append(card);
     }
-    const card=node('section','card'),scroll=node('div','scroll'),table=node('table');table.append(node('caption','','Precios del catálogo · '+result.currency));const stores=result.ranking.filter(s=>s.known).map(s=>s.store);
+    const card=node('section','card'),scroll=node('div','scroll'),table=node('table');table.append(node('caption','','Precios del catálogo · '+result.currency));const stores=result.ranking.map(s=>s.store);
     const head=node('tr');head.append(node('th','','Producto'));for(const store of stores){const th=node('th');th.append(this._shopLabel(store));head.append(th);}head.append(node('th','','Diferencia máxima'));const thead=node('thead');thead.append(head);table.append(thead);
     const body=node('tbody');
     for(const row of result.rows.slice(0,this._catalogLimit)){
       const tr=node('tr'),title=node('th'),product=node('div','table-product');tr.dataset.productId=row.product.id;
       if(row.product.image_url){const image=node('img');image.src=row.product.image_url;image.alt='';image.loading='lazy';product.append(image);}else{const icon=node('ha-icon');icon.setAttribute('icon',row.product.icon||'mdi:shopping');icon.setAttribute('aria-hidden','true');product.append(icon);}
-      const name=node('span','',row.product.name);name.append(node('small','','Por '+(row.unit==='uds'?'unidad':row.unit)));product.append(name);title.append(product);tr.append(title);
-      for(const store of stores){const offer=row.offers.find(o=>o.store===store),equivalent=offer&&row.basis&&offer.basis===row.basis;const td=node('td',row.bestStores.includes(store)?'best':'',offer?this._amount(offer.rate,result.currency):'Sin precio');
-        if(offer){td.append(node('small','',equivalent?'Por '+(row.unit==='uds'?'unidad':row.unit):'Sin dato comparable'),node('small','',new Date(offer.at*1000).toLocaleDateString('es-ES')));}tr.append(td);}
+      const name=node('span','',row.product.name);name.append(node('small','',row.comparable?'Por '+(row.unit==='uds'?'unidad':row.unit):'Falta contenido comparable'));product.append(name);title.append(product);tr.append(title);
+      for(const store of stores){const offer=row.offers.find(o=>o.store===store),equivalent=offer&&row.basis&&offer.basis===row.basis;const td=node('td',row.bestStores.includes(store)?'best':'',offer?this._amount(equivalent?offer.rate:offer.price,result.currency):'Sin precio');
+        if(offer){td.append(node('small','',equivalent?'Por '+(row.unit==='uds'?'unidad':row.unit):'Por envase · falta contenido comparable'),node('small','',new Date(offer.at*1000).toLocaleDateString('es-ES')));}tr.append(td);}
       const difference=node('td');difference.append(row.difference!==null?node('span','saving',this._amount(row.difference,result.currency)+'/'+(row.unit==='uds'?'ud':row.unit)):node('span','muted','Sin comparación'));tr.append(difference);body.append(tr);
     }
     table.append(body);scroll.append(table);card.append(scroll);container.append(card);

@@ -97,6 +97,18 @@ class PriceHistory:
             at = offer.get("checked_at")
             if product_id in product_ids and offer.get("store") in available and offer.get("source") != "receipt" and isinstance(at, (int, float)):
                 observations.append({**format_observation(product_map[product_id],offer["store"],{key:deepcopy(offer.get(key)) for key in ("store", "price", "currency", "reference_price", "reference_unit", "ean", "name", "reference_id", "ticket_reference_id", "commercial_reference_id", "pack_quantity", "pack_unit", "format_pending")}), "product_id":product_id, "at":at, "source":"web"})
+        # A saved price per measure is independently usable even for loose-weight products
+        # whose package content is unknown. Retain its own observation date.
+        for product in products:
+            for ref in product.get("commercial_references", []):
+                rate = ref.get("measure_price")
+                if ref.get("active") is False or ref.get("store") not in available or not rate:
+                    continue
+                observations.append({"product_id":product["id"], "store":ref["store"],
+                    "commercial_reference_id":ref["id"], "reference_id":ref.get("reference_id", ""),
+                    "ean":ref.get("ean", ""), "price":rate["price"], "currency":rate["currency"],
+                    "at":rate["checked_at"], "pack_quantity":rate["quantity"], "pack_unit":rate["unit"],
+                    "format_pending":False, "source":"measure"})
         observations = [entry for entry in observations if not entry.get("reference_excluded") and finite(entry.get("price")) is not None and isinstance(entry.get("at"), (int, float)) and math.isfinite(entry["at"]) and entry["at"] > 0]
         observations = sorted(observations, key=lambda item:item["at"], reverse=True)
         stores = [store for store in STORES if any(entry.get("store") == store for entry in observations[:20000])]

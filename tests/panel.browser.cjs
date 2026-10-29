@@ -1221,24 +1221,29 @@ async function checkCatalogComparison(browser,url,errors){
   await context.addInitScript(()=>localStorage.setItem('catalog-fixture',JSON.stringify([
     {id:'compared',name:'Patatas',revision:1,category:'Despensa'},
     {id:'single',name:'Solo una tienda',revision:1},
+    {id:'unknown',name:'Sin contenido',revision:1},
     {id:'none',name:'Sin precio',revision:1}
   ])));
   const page=await context.newPage();page.on('pageerror',error=>errors.push(error.message));await page.goto(url);
   await page.evaluate(()=>{
     const at=Date.now()/1000-60;
-    window.comparisonFixture={stores:['carrefour','alcampo'],observations:[
+    window.comparisonFixture={stores:['carrefour','alcampo','lidl'],observations:[
       {product_id:'compared',store:'carrefour',price:2,currency:'EUR',ean:'8410199023094',pack_quantity:500,pack_unit:'g',at},
       {product_id:'compared',store:'alcampo',price:1.5,currency:'EUR',ean:'4006381333931',pack_quantity:1,pack_unit:'kg',at},
-      {product_id:'single',store:'alcampo',price:3,currency:'EUR',ean:'8410199023094',at}
+      {product_id:'single',store:'alcampo',price:3,currency:'EUR',ean:'8410199023094',at},
+      {product_id:'unknown',store:'carrefour',price:2,currency:'EUR',format_pending:true,at},
+      {product_id:'unknown',store:'lidl',price:1,currency:'EUR',format_pending:true,at}
     ]};
   });
   await page.getByRole('button',{name:'Analítica',exact:true}).click();
   await page.getByRole('tab',{name:'Comparativa',exact:true}).click();
-  const analytics=page.locator('isl-analytics');await analytics.locator('tbody tr').waitFor();
-  assert.equal(await analytics.locator('tbody tr').count(),1);
-  assert.equal(await analytics.locator('tbody tr').getAttribute('data-product-id'),'compared');
-  assert.match(await analytics.locator('tbody tr').textContent(),/4,00/);
-  assert.match(await analytics.locator('tbody tr').textContent(),/Por kg/);
+  const analytics=page.locator('isl-analytics');await analytics.locator('tbody tr').first().waitFor();
+  assert.equal(await analytics.locator('tbody tr').count(),2);
+  assert.equal(await analytics.locator('tbody tr[data-product-id="compared"]').count(),1);
+  assert.match(await analytics.locator('tbody tr[data-product-id="unknown"]').textContent(),/Falta contenido comparable/);
+  assert.equal(await analytics.locator('.rank-row[data-store="lidl"]').count(),1);
+  assert.match(await analytics.locator('tbody tr[data-product-id="compared"]').textContent(),/4,00/);
+  assert.match(await analytics.locator('tbody tr[data-product-id="compared"]').textContent(),/Por kg/);
   assert.equal(await analytics.locator('.rank-row[data-store="alcampo"]').count(),1);
   assert.equal(await analytics.getByRole('button',{name:'Compras pasadas',exact:true}).count(),0);
   await analytics.getByLabel('Tienda',{exact:true}).selectOption('alcampo');

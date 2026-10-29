@@ -1,5 +1,12 @@
 # Historial de cambios
 
+## 0.50.4 — 2026-10-29
+
+- Botón «Reprocesar datos» en el detalle de las compras revisadas para completar y corregir el contenido por envase de sus opciones. Reutiliza el ticket guardado y la consulta por EAN cuando falta información, conservando la compra, los precios y las reposiciones de stock originales.
+- El reprocesamiento conserva una sola compra, comprueba los permisos y la propiedad de la revisión, detecta cambios simultáneos y respeta las opciones desvinculadas.
+- Las cabeceras de las opciones muestran únicamente el logo de la tienda a la izquierda y el nombre del producto a su derecha. Retirados de la cabecera la marca, el contenido y el nombre de la tienda.
+- El cuadrado de Nutri-Score pasa al final de la información desplegable de cada opción. Sin nuevas dependencias.
+
 ## 0.50.3 — 2026-10-29
 
 - Corregida la recuperación de productos de Carrefour cuya referencia interna numérica no coincide con su identificador de analítica, manteniendo las comprobaciones de identidad y de respuestas ambiguas.

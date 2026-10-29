@@ -272,18 +272,15 @@ class ImprovedShoppingCatalog extends HTMLElement {
         .product-category-controls select { flex:1; min-width:0; }
         #add-product-category { display:grid; place-items:center; flex:0 0 46px; width:46px; height:46px; padding:0; }
         #add-product-category ha-icon { --mdc-icon-size:22px; }
-        .store-link-add { display:grid; grid-template-columns:minmax(0,1.2fr) minmax(0,1.4fr) 46px; gap:8px; align-items:center; margin-top:7px; }
-        .store-link-add { grid-template-columns:minmax(0,1fr) minmax(0,2fr) auto 46px;grid-template-areas:"store url retrieve add"; }
-        #product-link-store { grid-area:store; }#product-link-value { grid-area:url; }#retrieve-product-data { grid-area:retrieve; }#add-product-store-link { grid-area:add; }
+        .store-link-add { display:grid;grid-template-columns:minmax(0,1fr) auto 46px;grid-template-areas:"url retrieve add";gap:8px;align-items:center;margin-top:7px; }
+        #product-link-value { grid-area:url; }#retrieve-product-data { grid-area:retrieve; }#add-product-store-link { grid-area:add; }
         .option-url-row { display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:8px;margin-top:12px; }
         .option-url-row input { margin:0;width:100%;min-width:0; }
         .option-lookup-feedback[data-error="true"],#option-lookup-status[data-error="true"] { color:var(--error-color,#bd3636); }
         .retrieve-option { display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:46px;padding:8px 10px;font-size:12px;background:var(--primary-color,#267052);color:#fff; }
         .retrieve-option ha-icon { width:18px;height:18px;--mdc-icon-size:18px;flex:none; }
-        @media(max-width:550px){.store-link-add{grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"store add" "url retrieve";}.option-url-row{gap:6px;}.retrieve-option{padding:8px;font-size:11px;}.retrieve-option ha-icon{display:none;}}
-        .store-link-add[data-url-mode="true"] { grid-template-columns:minmax(0,1fr) auto 46px;grid-template-areas:"url retrieve add"; }
-        .store-link-add input,.store-link-add select,.store-link-add button { width:100%; min-width:0; height:46px; min-height:46px; margin:0; }
-        .store-link-add select { appearance:none; -webkit-appearance:none; padding-right:32px; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right 12px center; }
+        @media(max-width:550px){.option-url-row{gap:6px;}.retrieve-option{padding:8px;font-size:11px;}.retrieve-option ha-icon{display:none;}}
+        .store-link-add input,.store-link-add button { width:100%; min-width:0; height:46px; min-height:46px; margin:0; }
         #add-product-store-link { display:grid; place-items:center; padding:0; }
         #add-product-store-link ha-icon { display:block; width:24px; height:24px; --mdc-icon-size:24px; }
         #product-store-links { display:grid; gap:12px; }
@@ -505,7 +502,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
             <isl-icon-picker class="wide"></isl-icon-picker>
           </section>
           <section id="product-additional" class="fields" aria-label="Opciones" hidden>
-            <div class="wide"><h3 id="product-options-title">Opciones para comprar</h3><div class="store-link-add"><select id="product-link-store" aria-label="Tienda del producto"></select><input id="product-link-value" aria-label="Enlace o ID del producto" maxlength="2048" placeholder="URL del producto"><button id="retrieve-product-data" class="retrieve-option" type="button"><ha-icon icon="mdi:download" aria-hidden="true"></ha-icon>Recuperar datos</button><button id="add-product-store-link" type="button" aria-label="Añadir vinculación"><ha-icon icon="mdi:plus-thick" aria-hidden="true"></ha-icon></button></div><p id="option-lookup-status" class="helper" role="status" aria-live="polite"></p><div id="product-store-links"></div></div>
+            <div class="wide"><h3 id="product-options-title">Opciones para comprar</h3><div class="store-link-add"><input id="product-link-value" type="url" pattern="https://.*" aria-label="URL del producto" maxlength="2048" placeholder="URL del producto" title="La tienda se detecta automáticamente a partir de la URL."><button id="retrieve-product-data" class="retrieve-option" type="button"><ha-icon icon="mdi:download" aria-hidden="true"></ha-icon>Recuperar datos</button><button id="add-product-store-link" type="button" aria-label="Añadir vinculación"><ha-icon icon="mdi:plus-thick" aria-hidden="true"></ha-icon></button></div><p id="option-lookup-status" class="helper" role="status" aria-live="polite"></p><div id="product-store-links"></div></div>
             <div id="product-nutriscore" class="wide" hidden><h3>Nutri-Score</h3><div id="nutriscore-results"></div></div>
           </section>
           <section id="product-automation" class="fields" aria-label="Automatización" hidden>
@@ -548,10 +545,9 @@ class ImprovedShoppingCatalog extends HTMLElement {
     this._built = true;
     const root = this.shadowRoot;
     installDialogCloseButtons(root);
-    root.querySelector("#product-link-store").addEventListener("change",()=>this._storeLinkHint());
     const addStoreLink = () => {
       const value = root.querySelector("#product-link-value").value.trim();
-      const store = value.includes('://')?storeFromProductUrl(value):root.querySelector("#product-link-store").value;
+      const store = storeFromProductUrl(value);
       if(value&&!store){const status=root.querySelector('#option-lookup-status');status.textContent='Introduce una URL HTTPS de una tienda compatible.';status.dataset.error='true';return;}
       if (!store || !value) return;
       if(!this._storeLinks[store])this._storeLinks[store] = value;
@@ -567,7 +563,6 @@ class ImprovedShoppingCatalog extends HTMLElement {
     root.querySelector("#product-link-value").addEventListener("keydown", event => {
       if (event.key === "Enter" && !event.isComposing) { event.preventDefault(); addStoreLink(); }
     });
-    root.querySelector("#product-link-value").addEventListener("input",()=>this._storeLinkHint());
     for (const button of root.querySelectorAll("[data-product-view]")) button.addEventListener("click", () => this._switchProductView(button.dataset.productView));
     root.querySelector("#product-form").addEventListener("invalid", event => {
       const panel = event.target.closest("section[id^=product-]");
@@ -1485,11 +1480,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
       if(ref)card.append(this._commercialReferenceCard(ref,updateSummary));
       return card;
     }));
-    const select = root.querySelector("#product-link-store");
-    const previous=select.value;select.replaceChildren(...Object.entries(STORE_NAMES).map(([key,name])=>new Option(name,key)));if([...select.options].some(option=>option.value===previous))select.value=previous;
-    root.querySelector("#add-product-store-link").disabled = !select.options.length;
     root.querySelector('#retrieve-product-data').disabled=Boolean(this._retrievingOption)||this._hass?.user?.is_admin!==true;
-    this._storeLinkHint();
   }
 
   _commercialReferenceCard(ref,onChange=()=>{}){
@@ -1502,9 +1493,9 @@ class ImprovedShoppingCatalog extends HTMLElement {
     const brandLabel=element('label','option-brand','Marca'),brand=element('input');brand.value=ref.brand||'';brand.maxLength=160;brand.placeholder='Sin marca informada';brand.addEventListener('input',()=>{ref.brand=brand.value.trim();onChange();});brandLabel.append(brand);card.append(brandLabel);
     {
       const row=element('div','option-url-row');
-      const input=element('input');input.value=ref.url||ref.reference_id;input.maxLength=2048;input.setAttribute('aria-label',`Enlace o ID de ${STORE_NAMES[ref.store]??'la opción'}`);
+      const input=element('input');input.type='url';input.pattern='https://.*';input.value=ref.url||'';input.maxLength=2048;input.setAttribute('aria-label',`URL de ${STORE_NAMES[ref.store]??'la opción'}`);
       input.placeholder='URL del producto';
-      input.addEventListener('input',()=>{const previous=ref.url||ref.reference_id,value=input.value.trim(),primary=this._storeLinks[ref.store],primaryValue=typeof primary==='string'?primary:primary?.url||primary?.id;if(primaryValue===previous)this._storeLinks[ref.store]=value;ref.url=value.startsWith('https://')?value:'';ref.reference_id=ref.url?'':value;onChange();});
+      input.addEventListener('input',()=>{const previous=ref.url||ref.reference_id,value=input.value.trim(),primary=this._storeLinks[ref.store],primaryValue=typeof primary==='string'?primary:primary?.url||primary?.id;if(primaryValue===previous){if(value)this._storeLinks[ref.store]=value;else delete this._storeLinks[ref.store];}ref.url=value.startsWith('https://')?value:'';if(ref.url)ref.reference_id='';onChange();});
       const feedback=element('p','helper option-lookup-feedback');feedback.setAttribute('role','status');feedback.setAttribute('aria-live','polite');feedback.hidden=true;
       const retrieve=element('button','retrieve-option','Recuperar datos');retrieve.type='button';retrieve.dataset.retrieveOption='true';retrieve.disabled=Boolean(this._retrievingOption)||this._hass?.user?.is_admin!==true;retrieve.addEventListener('click',()=>void this._retrieveOption(ref,input.value.trim(),feedback));row.append(input,retrieve);card.append(row,feedback);
       input.addEventListener('keydown',event=>{if(event.key==='Enter'&&!event.isComposing){event.preventDefault();void this._retrieveOption(ref,input.value.trim(),feedback);}});
@@ -1524,6 +1515,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
     if(this._retrievingOption||this._hass?.user?.is_admin!==true)return;
     const root=this.shadowRoot,status=root.querySelector('#option-lookup-status'),generation=this._optionGeneration;
     if(!value){status.textContent='Indica la URL del producto para recuperar sus datos.';return;}
+    if(!storeFromProductUrl(value)){const target=feedback??status;target.hidden=false;target.dataset.error='true';target.textContent='Introduce una URL HTTPS de una tienda compatible.';return;}
     this._retrievingOption=true;status.textContent='Recuperando datos…';
     status.dataset.error='false';
     if(feedback){feedback.hidden=false;feedback.dataset.error='false';feedback.textContent='Recuperando datos…';}
@@ -1561,18 +1553,6 @@ class ImprovedShoppingCatalog extends HTMLElement {
     finally{
       if(generation===this._optionGeneration){this._retrievingOption=false;root.querySelector('#save-product').disabled=Boolean(this._saving);root.querySelectorAll('.retrieve-option').forEach(button=>{button.disabled=this._hass?.user?.is_admin!==true;});}
     }
-  }
-
-  _storeLinkHint() {
-    const root=this.shadowRoot, select=root.querySelector("#product-link-store");
-    const input=root.querySelector("#product-link-value");
-    const manualId=Boolean(input.value.trim())&&!input.value.includes('://');
-    select.hidden=!manualId;
-    input.closest('.store-link-add').dataset.urlMode=String(!manualId);
-    const detected=storeFromProductUrl(input.value.trim());if(detected)select.value=detected;
-    const eroski=manualId&&select.value==='eroski';
-    input.placeholder=eroski ? "Enlace completo del producto de Eroski" : "URL del producto";
-    input.title=eroski ? "Eroski necesita el enlace completo; la ID sola no es suficiente." : "La tienda se detecta automáticamente a partir de la URL.";
   }
 
   async _loadNutriscores() {

@@ -3395,7 +3395,7 @@ async function main() {
     assert.ok(await review.evaluate(el=>el.scrollWidth<=el.clientWidth+1));
     await review.getByRole('button',{name:'Continuar',exact:true}).click();
     assert.equal(await review.locator('#step-title').isVisible(),false);
-    assert.equal(await review.locator('#step-help').textContent(),'Selecciona los productos cuyo precio quieres actualizar en el catálogo, para esta tienda.');
+    assert.equal(await review.locator('#step-help').textContent(),'Selecciona los productos cuyo precio quieres actualizar en el catálogo, para esta tienda. El contenido corresponde a un envase de ese EAN; si es un pack, indica el contenido total del pack.');
     assert.equal(await review.locator('[data-line-id="2"]').count(),0);
     assert.equal(await review.locator('[data-line-id="0"] .price-product-name strong').textContent(),'Seitán');
     assert.equal(await review.locator('[data-line-id="0"] .association-image img').getAttribute('src'),new URL('/local/receipt-seitan.svg',url).href);

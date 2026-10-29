@@ -6,7 +6,7 @@ import { matchCatalogProducts } from "./product-matching.js?v=0.50.1";
 import "./category-panel.js?v=0.50.1";
 import "./recipe-editor.js?v=0.50.1";
 import "./icon-picker.js?v=0.50.1";
-import { imageSource, normalizedName, productNameKey, cachedProductPrice } from "./product-display.js?v=0.50.1";
+import { imageSource, normalizedName, productNameKey, cachedProductPrice, storeProductLink } from "./product-display.js?v=0.50.1";
 export { imageSource, normalizedName, productNameKey, cachedProductPrice };
 
 const MONTHS = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
@@ -1546,7 +1546,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
       input.addEventListener('keydown',event=>{if(event.key==='Enter'&&!event.isComposing){event.preventDefault();void this._retrieveOption(ref,input.value.trim());}});
     }
     card.append(element('p','helper',[ref.ean?'EAN: '+ref.ean:'',ref.reference_id?'ID: '+ref.reference_id:''].filter(Boolean).join(' · ')));
-    if(ref.url){const link=element('a','helper','Ver ficha de la tienda');link.href=ref.url;link.target='_blank';link.rel='noopener noreferrer';card.append(link);}
+    if(ref.url){const link=element('a','helper','Ver ficha de la tienda');link.href=storeProductLink(ref.store,ref.url);link.target='_blank';link.rel='noopener noreferrer';if(link.href!==ref.url){link.rel+=' sponsored';link.title='Enlace de afiliado de Carrefour';}card.append(link);}
     let renderPrice=()=>{};
     const update=()=>{renderPrice();onChange();};
     card.append(referenceContentControls(ref,update));update();

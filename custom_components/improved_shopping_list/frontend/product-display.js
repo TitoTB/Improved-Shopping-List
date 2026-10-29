@@ -4,6 +4,15 @@ import { packageCost } from "./reference-formats.js?v=0.50.1";
 export { productNameKey };
 export const normalizedName = value => String(value ?? "").normalize("NFKC").trim().replace(/\s+/g, " ").toLocaleLowerCase("es");
 
+export function storeProductLink(store, value) {
+  if (store !== "carrefour") return value;
+  try {
+    const url = new URL(value);
+    if (url.protocol !== "https:" || !["www.carrefour.es", "carrefour.es"].includes(url.hostname) || url.username || url.password || !/^\/supermercado\/[^/]+\/R-[A-Za-z0-9-]+\/p\/?$/.test(url.pathname)) return value;
+    return `https://www.awin1.com/cread.php?awinmid=25399&awinaffid=1535625&ued=${encodeURIComponent(value)}`;
+  } catch { return value; }
+}
+
 export function cachedProductPrice(product, prices = [], favorite = "", desired = null) {
   if (!product) return null;
   const valid = offer => offer.price != null && offer.price !== "" && Number.isFinite(Number(offer.price)) &&

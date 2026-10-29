@@ -3,11 +3,20 @@ import assert from 'node:assert/strict';
 globalThis.HTMLElement=class {};globalThis.customElements={get:()=>true};
 const {normalizeObservation,analyzeCatalog,analyzePurchase}=await import('../custom_components/improved_shopping_list/frontend/analytics-panel.js');
 const {packageCost,referenceRate,suggestedContent,validReferenceContent}=await import('../custom_components/improved_shopping_list/frontend/reference-formats.js');
-const {cachedProductPrice}=await import('../custom_components/improved_shopping_list/frontend/product-display.js');
+const {cachedProductPrice,storeProductLink}=await import('../custom_components/improved_shopping_list/frontend/product-display.js');
 const now=1800000000,ean='1234567890128';
 const offer=(store,price,extra={})=>({store,product_id:'p',price,currency:'EUR',at:now-3600,ean,...extra});
 const products=[{id:'p',name:'Arroz',category:'Despensa'},{id:'q',name:'Pavo',category:'Fresco'},{id:'none',name:'Sin precio'}];
 const purchase=(extra={})=>({id:'receipt',store:'carrefour',currency:'EUR',at:now,total:8,discount:0,shipping:0,lines:[{id:'l',product_id:'p',description:'ARROZ',count:2,amount:8,ean}],...extra});
+
+test('Carrefour outgoing product links use the affiliate destination without changing source URLs',()=>{
+ const original='https://www.carrefour.es/supermercado/cafe-molido-natural-cultivo-sostenible-nestle-bonka-500-g/R-prod310215/p';
+ const affiliate=new URL(storeProductLink('carrefour',original));
+ assert.equal(affiliate.origin,'https://www.awin1.com');assert.equal(affiliate.pathname,'/cread.php');
+ assert.equal(affiliate.searchParams.get('awinmid'),'25399');assert.equal(affiliate.searchParams.get('awinaffid'),'1535625');assert.equal(affiliate.searchParams.get('ued'),original);
+ assert.equal(storeProductLink('lidl',original),original);
+ for(const url of ['https://www.awin1.com/cread.php?awinmid=25399','https://www.carrefour.es.example.org/supermercado/a/R-prod1/p','R-prod310215'])assert.equal(storeProductLink('carrefour',url),url);
+});
 
 test('list estimates select whole packages for the requested amount and leave pending formats unknown',()=>{
  for(const ref of [{content_quantity:250,content_unit:'g',content_confirmed:false},{content_quantity:12,content_unit:'uds'}])assert.equal(validReferenceContent(ref),true);

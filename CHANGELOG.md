@@ -1,5 +1,13 @@
 # Historial de cambios
 
+## 0.52.0 — 2026-10-29
+
+- La revisión de tickets de Carrefour prioriza las cantidades explícitas del documento y propone «Cantidad estimada» cuando puede calcularlas usando el precio por unidad de medida de su opción de compra.
+- Reutiliza precios guardados y, cuando faltan, consulta la URL de una única opción identificada. Guarda el precio por kg, litro o unidad en la opción, con fecha y fuente; el peso calculado queda asociado únicamente a la compra y puede corregirse antes de reponer Stock.
+- Popup de progreso con líneas procesadas y producto actual. Consultas secuenciales, pausas de al menos cinco segundos, caché y espera ante bloqueos o límites de la tienda. Los fallos permiten continuar manualmente.
+- Lectura de líneas con peso y precio por medida explícitos en tickets Carrefour, separando el peso comprado del contenido fijo del producto y conservando las comprobaciones de importes.
+- Sin nuevas dependencias.
+
 ## 0.51.1 — 2026-10-29
 
 - Corregido el arranque automático de la asociación de URL por EAN: los temporizadores se ejecutan en el bucle de eventos de Home Assistant, permitiendo iniciar y continuar las resoluciones en segundo plano.

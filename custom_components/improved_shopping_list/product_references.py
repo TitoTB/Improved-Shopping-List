@@ -5,6 +5,7 @@ import math
 import re
 from unicodedata import normalize, combining
 from urllib.parse import urlsplit
+from .receipt_quantities import measure_price
 
 UNITS = {"uds", "g", "kg", "ml", "cl", "l"}
 SCALES = {"uds":("uds",1), "g":("kg",.001), "kg":("kg",1), "ml":("l",.001), "cl":("l",.01), "l":("l",1)}
@@ -99,7 +100,7 @@ def normalized_references(values):
     result=[]; seen=set()
     from .store_links import STORES, normalize_link
     for raw in values:
-        if not isinstance(raw,dict) or set(raw)-{"id","store","name","ean","reference_id","url","brand","image_url","content_quantity","content_unit","content_confirmed","active","last_price","nutriscore"}:
+        if not isinstance(raw,dict) or set(raw)-{"id","store","name","ean","reference_id","url","brand","image_url","content_quantity","content_unit","content_confirmed","active","last_price","nutriscore","measure_price"}:
             raise ValueError("La referencia comercial contiene campos no admitidos.")
         row={key:raw.get(key,"") for key in ("store","name","ean","reference_id","url","brand")}
         for key,limit in (("store",40),("name",500),("ean",14),("reference_id",512),("url",2048),("brand",160)):
@@ -139,6 +140,8 @@ def normalized_references(values):
                 raise ValueError("El precio recuperado de la opción no es válido.")
             row["last_price"] = deepcopy(price)
         nutrition = raw.get("nutriscore")
+        if raw.get("measure_price") is not None:
+            row["measure_price"] = measure_price(raw["measure_price"])
         if nutrition is not None:
             if (not isinstance(nutrition,dict) or nutrition.get("grade") not in tuple("abcde")
                 or type(nutrition.get("checked_at")) not in (int,float) or not math.isfinite(nutrition["checked_at"]) or nutrition["checked_at"]<=0):
@@ -157,7 +160,7 @@ def merge_reference(references, store, line, *, confirmed=False):
         row["brand"]=row["brand"] or existing.get("brand", "")
         if not row.get("image_url") and existing.get("image_url"):
             row["image_url"]=existing["image_url"]
-        for key in ("last_price","nutriscore"):
+        for key in ("last_price","nutriscore","measure_price"):
             if key in existing:
                 row[key]=deepcopy(existing[key])
     if existing and not existing["store"] and store:

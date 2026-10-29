@@ -33,6 +33,16 @@ def parse_carrefour(text):
             break
         if re.match(r"[=═]{3,}", line):
             continue
+        if match := re.fullmatch(rf"(?:(.+?)\s+)?(\d+[,.]\d+)\s*(kg|g|l|ml)\s*[xX×]\s*\(?\s*({MONEY})\s*(?:€\s*/\s*(?:kg|g|l|ml))?\s*\)?\s+({MONEY})",line,re.I):
+            description=match[1] or pending
+            quantity=float(match[2].replace(",","."));rate=money(match[4]);amount=money(match[5])
+            if not description or quantity<=0 or rate<=0 or abs(round(quantity*rate,2)-amount)>.01:
+                raise CatalogError("El peso y el importe de una línea del ticket no coinciden.")
+            items.append({"description":description,"count":1,"unit_price":amount,"amount":amount,
+                "purchased_quantity":quantity,"purchased_unit":match[3].lower(),"quantity_estimated":False,
+                "ticket_measure_price":{"price":rate,"quantity":1,"unit":match[3].lower(),"currency":"EUR"}})
+            pending=""
+            continue
         if match := re.fullmatch(rf"(\d+)\s*[xX×]\s*\(\s*({MONEY})\s*\)\s*({MONEY})", line):
             if not pending:
                 raise CatalogError("No se ha podido identificar el producto de una línea con varias unidades.")
@@ -320,6 +330,19 @@ def extract_carrefour_account_ticket(detail, reference, expected_total):
             raise CatalogError("El ticket contiene demasiado texto.")
         receipt = parse_carrefour(text)
     else:
+        printed_lines=detail.get("lines")
+        if isinstance(printed_lines,list) and len(printed_lines)<=2000 and all(isinstance(value,str) and len(value)<=2000 for value in printed_lines):
+            try:
+                printed=parse_carrefour("\n".join(printed_lines))
+                if abs(printed["total"]-receipt["total"])<=.02:
+                    for item in receipt["lines"]:
+                        matches=[row for row in printed["lines"] if row.get("purchased_quantity") is not None
+                                 and row["description"].casefold()==item["description"].casefold()
+                                 and row["count"]==item["count"] and abs(row["amount"]-item["amount"])<=.01]
+                        if len(matches)==1:
+                            item.update({key:matches[0][key] for key in ("purchased_quantity","purchased_unit","quantity_estimated","ticket_measure_price")})
+            except CatalogError:
+                pass
         text = json.dumps(receipt, ensure_ascii=False, sort_keys=True)
     reported_total = header.get("netAmount") if isinstance(header, dict) else None
     for amount in (reported_total, expected_total):

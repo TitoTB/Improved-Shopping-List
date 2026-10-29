@@ -1,7 +1,7 @@
-import { ListSettingsSession } from "./list-settings-client.js?v=0.51.1";
-import { installDialogCloseButtons } from "./dialog-controls.js?v=0.51.1";
-import { productNameKey } from "./product-names.js?v=0.51.1";
-import { referenceFor, suggestedContent, referenceContentControls, validReferenceContent, barcodeIdentity } from "./reference-formats.js?v=0.51.1";
+import { ListSettingsSession } from "./list-settings-client.js?v=0.52.0";
+import { installDialogCloseButtons } from "./dialog-controls.js?v=0.52.0";
+import { productNameKey } from "./product-names.js?v=0.52.0";
+import { referenceFor, suggestedContent, referenceContentControls, validReferenceContent, barcodeIdentity } from "./reference-formats.js?v=0.52.0";
 
 const node=(tag,cls,text)=>{const el=document.createElement(tag);if(cls)el.className=cls;if(text!==undefined)el.textContent=text;return el;};
 const money=value=>new Intl.NumberFormat('es-ES',{style:'currency',currency:'EUR'}).format(value);
@@ -107,6 +107,7 @@ class ImprovedShoppingPurchases extends HTMLElement {
     </form></dialog>
     <dialog id="purchase-detail" aria-labelledby="purchase-detail-title"><h2 id="purchase-detail-title">Detalle de la compra</h2><div id="purchase-detail-info" class="receipt-info"></div><div id="purchase-detail-lines"></div></dialog><dialog id="detected-purchase-dialog" aria-labelledby="detected-purchase-title"><h2 id="detected-purchase-title">Compra detectada</h2><form id="detected-purchase-form"><p id="detected-date" class="muted"></p><p id="detected-zone-help" class="note" hidden></p><div id="detected-zone-candidates" class="zone-candidates" hidden></div><label>Tienda<select id="detected-store" aria-label="Tienda" required><option value="">Selecciona una tienda</option><option value="alcampo">Alcampo</option><option value="carrefour">Carrefour</option><option value="consum">Consum</option><option value="dia">DIA</option><option value="eroski">Eroski</option><option value="lasirena">La Sirena</option><option value="mercadona">Mercadona</option><option value="lidl">Lidl</option><option value="other">Otra tienda</option></select></label><div class="recovery-actions"><button id="recover-detected" type="button"><ha-icon icon="mdi:receipt-text"></ha-icon>Recuperar compra</button></div><p id="detected-recovery-help" class="note"></p><div id="detected-recovery-results"></div><label id="detected-other-label" hidden>Nombre de la tienda<input id="detected-other" maxlength="100"></label><label>Compradores<select id="detected-shoppers" multiple aria-label="Compradores"></select></label><label>Importe total (€)<input id="detected-total" type="number" min="0" max="1000000" step="0.01" required></label><p class="note">Completa los datos de la compra. No se modifican el stock ni los precios de los productos.</p><ul id="detected-products"></ul><p id="detected-error" class="error" role="alert" hidden></p><div class="actions"><button id="discard-detection" class="danger" type="button">Eliminar detección</button><button type="submit">Guardar</button></div></form></dialog>`;
     const rangeDialog=document.createElement('dialog');rangeDialog.id='purchase-period-dialog';rangeDialog.setAttribute('aria-labelledby','purchase-period-title');rangeDialog.innerHTML=`<h2 id="purchase-period-title">Periodo de compras</h2><form id="purchase-period-form"><div class="period-fields"><label>Fecha de inicio<input id="purchase-start" type="date" required></label><label>Fecha de fin<input id="purchase-end" type="date" required></label></div><div class="actions"><button type="submit">Aplicar</button></div></form>`;this.shadowRoot.append(rangeDialog);
+    const quantityDialog=document.createElement('dialog');quantityDialog.id='quantity-progress';quantityDialog.setAttribute('aria-labelledby','quantity-progress-title');quantityDialog.innerHTML='<h2 id="quantity-progress-title">Completando cantidades</h2><progress max="100" value="0" style="width:100%;height:26px;accent-color:#2196f3" aria-label="Progreso de cantidades"></progress><p class="quantity-progress-label" role="status"></p>';this.shadowRoot.append(quantityDialog);
     installDialogCloseButtons(this.shadowRoot);
     const root=this.shadowRoot,dialog=root.querySelector('dialog');
     root.querySelector('#purchase-period-form').addEventListener('submit',event=>{
@@ -169,7 +170,32 @@ class ImprovedShoppingPurchases extends HTMLElement {
     const token=this._draft.token;
     this._packageMetadataTask=Promise.resolve().then(()=>this._loadPackageMetadata(token));
   }
-  _defaultQuantity(line,product){return product.refill_quantity??this._quantity(line,product.unit);}
+  _defaultQuantity(line,product){return line.purchased_quantity!=null?this._quantity(line,product.unit)??product.refill_quantity:product.refill_quantity??this._quantity(line,product.unit);}
+  async _completeQuantities(){
+    if(this._draft?.reprocess||this._draft?.receipt.store!=='carrefour')return;
+    const token=this._draft.token,edits=this._edits.filter(edit=>edit.product_id&&!edit.quantityEdited&&edit.line.purchased_quantity==null);
+    if(!edits.length)return;
+    const dialog=this.shadowRoot.querySelector('#quantity-progress');
+    const progress=dialog.querySelector('progress'),label=dialog.querySelector('.quantity-progress-label');dialog.showModal();
+    try{
+      for(let index=0;index<edits.length;index++){
+        if(this._draft?.token!==token||!this.isConnected)return;
+        const edit=edits[index],product=this._product(edit);
+        progress.value=index/edits.length*100;label.textContent=`${index} de ${edits.length} · Completando cantidad de ${edit.line.description}`;
+        try{
+          const result=await this._hass.callWS({type:'improved_shopping_list/receipts/estimate_quantity',token,line_id:edit.id,product_id:edit.product_id});
+          if(this._draft?.token!==token)return;
+          if(result.quantity>0&&result.unit&&!edit.quantityEdited){
+            edit.line.purchased_quantity=result.quantity;edit.line.purchased_unit=result.unit;edit.line.quantity_estimated=Boolean(result.estimated);
+            if(!product.stock_id)edit.unit=result.unit;
+            const quantity=this._quantity(edit.line,edit.unit);
+            if(quantity!=null){edit.quantity=quantity;edit.quantityEstimated=Boolean(result.estimated);}
+          }else if(result.reason)edit.quantityReason=result.reason;
+        }catch(error){edit.quantityReason=error.message??'No se ha podido calcular la cantidad.';}
+        progress.value=(index+1)/edits.length*100;label.textContent=`${index+1} de ${edits.length}`;
+      }
+    }finally{dialog.close();}
+  }
   _lineFormat(line,product){
     const ref=referenceFor(product,this._draft.receipt.store,line),hint=suggestedContent(line);
     const saved=ref?.content_confirmed&&!this._draft.reprocess;
@@ -195,6 +221,10 @@ class ImprovedShoppingPurchases extends HTMLElement {
     }
   }
   _quantity(line,unit){
+    if(line.purchased_quantity!=null){
+      const scales={g:['mass',1],kg:['mass',1000],ml:['volume',1],cl:['volume',10],l:['volume',1000],uds:['count',1]},source=scales[line.purchased_unit],target=scales[unit];
+      if(source&&target&&source[0]===target[0])return Math.round(line.purchased_quantity*source[1]/target[1]*1000)/1000;
+    }
     if(unit==='uds')return line.count;
     const scales={g:['mass',1],kg:['mass',1000],ml:['volume',1],cl:['volume',10],l:['volume',1000]},source=scales[line.pack_unit],target=scales[unit];
     return source&&target&&source[0]===target[0]&&line.pack_quantity?Math.round(line.count*line.pack_quantity*source[1]/target[1]*1000)/1000:null;
@@ -218,7 +248,7 @@ class ImprovedShoppingPurchases extends HTMLElement {
       edit.product_id='';this._errorMessage('Este producto ya está vinculado a otra línea. Libera primero esa vinculación.');return false;
     }
     const changed=edit.product_id!==(product?.id??'');edit.product_id=product?.id??'';
-    if(changed){edit.unit=product?.unit??'uds';edit.quantity=product?this._defaultQuantity(edit.line,product):null;edit.replenish=Boolean(product?.stock_id);edit.purchase_id=null;edit.packageFormat=this._lineFormat(edit.line,product);}
+    if(changed){if(edit.line.quantity_estimated){delete edit.line.purchased_quantity;delete edit.line.purchased_unit;delete edit.line.quantity_estimated;}edit.quantityEdited=false;edit.quantityEstimated=false;edit.unit=product?.unit??'uds';edit.quantity=product?this._defaultQuantity(edit.line,product):null;edit.replenish=Boolean(product?.stock_id);edit.purchase_id=null;edit.packageFormat=this._lineFormat(edit.line,product);}
     this._errorMessage('');return true;
   }
   _goToStep(step){
@@ -373,7 +403,7 @@ class ImprovedShoppingPurchases extends HTMLElement {
     const quantity=node('input');
     quantity.type='number';quantity.min='0.001';quantity.max='1000000';quantity.step='0.001';quantity.value=edit.quantity??'';quantity.setAttribute('aria-label','Cantidad para '+edit.line.description);
     quantity.dataset.locked=String(!edit.replenish);quantity.disabled=!edit.replenish;
-    quantity.addEventListener('input',()=>{edit.quantity=quantity.value===''?null:Number(quantity.value);});
+    quantity.addEventListener('input',()=>{edit.quantity=quantity.value===''?null:Number(quantity.value);edit.quantityEdited=true;edit.quantityEstimated=false;row.querySelector('.estimated-quantity')?.remove();});
     let unit;
     if(product.stock_id){unit=node('span','stock-line-unit',product.unit);unit.title='Unidades: '+product.unit;}
     else{
@@ -389,6 +419,8 @@ class ImprovedShoppingPurchases extends HTMLElement {
       [...this.shadowRoot.querySelectorAll('.review-line')].find(line=>line.dataset.lineId===String(edit.id))?.querySelector('.stock-select')?.focus();
     });
     const fields=node('div','stock-quantity');fields.append(quantity,unit);main.append(this._productImage(product),name,fields);row.append(toggle,main);
+    if(edit.quantityEstimated)row.append(node('small','estimated-quantity','Cantidad estimada'));
+    if(edit.quantityReason){const note=node('small','note',edit.quantityReason);row.append(note);}
     const previous=this._draft.purchases.filter(p=>p.item_id===product.stock_id&&p.unit===product.unit);
     if(previous.length){
       const purchaseLabel=node('label','purchase'),purchase=node('select');purchase.setAttribute('aria-label','Reposición de '+edit.line.description);
@@ -436,7 +468,7 @@ class ImprovedShoppingPurchases extends HTMLElement {
       const options=await this._hass.callWS({type:'improved_shopping_list/receipts/link',token:this._draft.token,lines:this._edits.map(e=>({id:e.id,product_id:e.product_id}))});
       this._updateOptions(options);
       if(only){this.shadowRoot.querySelector('dialog').close();this._render();}
-      else{const token=this._draft.token;this._packageMetadataTask=Promise.resolve(this._packageMetadataTask).then(()=>this._loadPackageMetadata(token));this._step=1;this._renderStep();}
+      else{const token=this._draft.token;await this._completeQuantities();this._packageMetadataTask=Promise.resolve(this._packageMetadataTask).then(()=>this._loadPackageMetadata(token));this._step=1;this._renderStep();}
     }catch(error){this._errorMessage(error.message??'No se han podido guardar las vinculaciones.');}
     finally{this._setBusy(false);}
   }
@@ -464,7 +496,7 @@ class ImprovedShoppingPurchases extends HTMLElement {
       if(this._draft.reprocess){
         await this._hass.callWS({type:'improved_shopping_list/receipts/reprocess',token,lines:this._edits.map(edit=>({id:edit.id,pack_quantity:validReferenceContent(edit.packageFormat)?edit.packageFormat.content_quantity:null,pack_unit:validReferenceContent(edit.packageFormat)?edit.packageFormat.content_unit:''}))});
       }else await this._hass.callWS({type:'improved_shopping_list/receipts/confirm',token:this._draft.token,update_prices:Boolean(updatePrices&&this._pricesEnabled),
-        lines:this._edits.map(edit=>({id:edit.id,product_id:edit.product_id,replenish:Boolean(edit.product_id&&edit.replenish),quantity:edit.replenish?edit.quantity:null,unit:edit.unit,purchase_id:edit.purchase_id??'',save_price:Boolean(edit.product_id&&edit.save_price&&updatePrices&&this._pricesEnabled),pack_quantity:validReferenceContent(edit.packageFormat)?edit.packageFormat.content_quantity:null,pack_unit:validReferenceContent(edit.packageFormat)?edit.packageFormat.content_unit:''}))});
+        lines:this._edits.map(edit=>({id:edit.id,product_id:edit.product_id,replenish:Boolean(edit.product_id&&edit.replenish),quantity:edit.replenish?edit.quantity:null,unit:edit.unit,purchase_id:edit.purchase_id??'',save_price:Boolean(edit.product_id&&edit.save_price&&updatePrices&&this._pricesEnabled),quantity_edited:Boolean(edit.quantityEdited),pack_quantity:validReferenceContent(edit.packageFormat)?edit.packageFormat.content_quantity:null,pack_unit:validReferenceContent(edit.packageFormat)?edit.packageFormat.content_unit:''}))});
       this._draft=null;this.shadowRoot.querySelector('dialog').close();await this._session.refresh();this.dispatchEvent(new CustomEvent('receipt-imported'));
     }catch(error){this._errorMessage(error.message??'No se ha podido guardar el ticket.');}
     finally{this._setBusy(false);}

@@ -20,9 +20,16 @@ from .stock import DAY, DEFAULT_CONFIG, quantity_value, materialized_stock
 from .store_links import STORES
 from .quantity_values import purchase_defaults
 from .product_references import content, format_observation, reference_key, matching_reference, inferred_content
+from .receipt_quantities import purchase_quantity, price_from_option, estimated_quantity
 
 
 def converted_quantity(line, unit):
+    purchased, purchased_unit=purchase_quantity(line)
+    if purchased is not None:
+        from .receipt_quantities import SCALES
+        source,target=SCALES.get(purchased_unit),SCALES.get(unit)
+        if source and target and source[0]==target[0]:
+            return round(purchased*source[1]/target[1],3)
     if unit == "uds":
         return line["count"]
     scales = {"g":("mass",1), "kg":("mass",1000), "ml":("volume",1), "cl":("volume",10), "l":("volume",1000)}
@@ -407,6 +414,61 @@ class ReceiptManager:
         purchases = [p for p in self.stock.receipts["purchases"].values() if not p.get("receipt_id") and p.get("at",0)>time.time()-30*DAY]
         return {"products":deepcopy(draft["products"]),"purchases":deepcopy(purchases)}
 
+    async def async_estimate_quantity(self, token, owner, line_id, product_id):
+        """One reviewed line per request, allowing the UI to display real progress."""
+        draft=self._draft(token,owner)
+        if "reprocess_original" in draft:
+            raise CatalogError("El reprocesamiento no cambia las cantidades compradas.")
+        line=next((line for line in draft["receipt"]["lines"] if line["id"]==line_id),None)
+        if not line or draft.get("quantity_products",{}).get(line_id)!=product_id:
+            raise CatalogError("Confirma primero la vinculación del producto.","conflict")
+        quantity,unit=purchase_quantity(line)
+        if quantity is not None and not line.get("quantity_estimated"):
+            return {"quantity":quantity,"unit":unit,"estimated":False}
+        if draft["receipt"]["store"]!="carrefour":
+            return {"quantity":None}
+        product=next((p for p in self.stock.catalog.products if p["id"]==product_id),None)
+        if not product:
+            raise CatalogError("El producto ya no existe.","conflict")
+        refs=[ref for ref in product.get("commercial_references",[]) if ref["store"]=="carrefour" and ref.get("active",True) and (ref.get("url") or ref.get("measure_price") or ref.get("last_price"))]
+        from .product_references import gtin
+        if line.get("ean"):
+            refs=[ref for ref in refs if gtin(ref.get("ean"))==gtin(line["ean"])]
+        elif line.get("reference_id"):
+            refs=[ref for ref in refs if ref.get("reference_id")==line["reference_id"]]
+        if len(refs)!=1:
+            return {"quantity":None,"reason":"No hay una única opción de Carrefour identificada."}
+        ref=refs[0]
+        rate=price_from_option(ref)
+        if not rate and hasattr(self.prices,"prices_for"):
+            offers=[offer for offer in self.prices.prices_for(product) if offer.get("store")=="carrefour" and
+                    (offer.get("commercial_reference_id")==ref["id"] or ref.get("reference_id") and offer.get("reference_id")==ref["reference_id"]
+                     or gtin(ref.get("ean")) and gtin(offer.get("ean"))==gtin(ref["ean"]))]
+            for offer in sorted(offers,key=lambda item:item.get("checked_at",0),reverse=True):
+                rate=price_from_option({**ref,"last_price":{key:offer.get(key) for key in ("price","currency","checked_at")}})
+                if rate:
+                    break
+        if not rate and ref.get("url") and getattr(self,"option_lookup",None):
+            try:
+                data=await self.option_lookup.retrieve(ref["url"],"carrefour",ref.get("ean",""),measure=True)
+            except ValueError as err:
+                return {"quantity":None,"reason":str(err)}
+            self._draft(token,owner)
+            if draft.get("quantity_products",{}).get(line_id)!=product_id:
+                raise CatalogError("La vinculación ha cambiado.","conflict")
+            rate=data.get("measure_price")
+        if not rate:
+            return {"quantity":None,"reason":"No hay un precio por unidad de medida disponible."}
+        if ref.get("measure_price")!=rate:
+            await self.stock.catalog.async_save_measure_price(product_id,ref["id"],ref.get("url",""),rate)
+        result=estimated_quantity(line,rate)
+        if not result:
+            return {"quantity":None}
+        line.update(purchased_quantity=result["quantity"],purchased_unit=result["unit"],quantity_estimated=True)
+        if ref.get("reference_id"):
+            line.update(reference_id=ref["reference_id"],url=ref.get("url",""))
+        return result
+
     def _links(self, receipt, selections):
         if not isinstance(selections,list) or len(selections) != len(receipt["lines"]):
             raise CatalogError("Revisa todas las vinculaciones del ticket.")
@@ -449,6 +511,7 @@ class ReceiptManager:
             await self.stock.catalog.async_bind_receipt_eans([(product["id"], line.get("ean", "")) for line, product in linked if product],
                 references=[(product["id"],draft["receipt"]["store"],line,False) for line,product in linked if product])
             await self.stock._persist(deepcopy(self.stock._items),receipts=data)
+            draft["quantity_products"]={line["id"]:product["id"] for line,product in linked if product}
         return await self.async_options(token,owner)
 
     async def async_preview(self, encoded, owner, *, account_reference=None, expected_total=None, expected_purchased_at=None):
@@ -504,6 +567,9 @@ class ReceiptManager:
                     line["pack_quantity"],line["pack_unit"]=content(quantity,unit)
                 except ValueError:
                     pass
+            bought,bought_unit=purchase_quantity(line)
+            if bought is not None:
+                line.update(purchased_quantity=bought,purchased_unit=bought_unit,quantity_estimated=False)
         summary = self._summary_match(receipt)
         if summary:
             receipt["account_key"] = summary["account_key"]
@@ -592,7 +658,7 @@ class ReceiptManager:
                     raise CatalogError("Las líneas seleccionadas no son válidas.")
                 self._links(receipt,[{key:selection.get(key) for key in ("id","product_id")} for selection in selections])
                 for selection in selections:
-                    if set(selection)-{"save_price","unit","pack_quantity","pack_unit"} != {"id","product_id","replenish","quantity","purchase_id"}:
+                    if set(selection)-{"save_price","unit","pack_quantity","pack_unit","quantity_edited"} != {"id","product_id","replenish","quantity","purchase_id"}:
                         raise CatalogError("Las líneas seleccionadas no son válidas.")
                     if any(not isinstance(selection[key],str) or len(selection[key]) > 200 for key in ("id","product_id","purchase_id")):
                         raise CatalogError("Las líneas seleccionadas no son válidas.")
@@ -615,6 +681,8 @@ class ReceiptManager:
                             raise CatalogError(str(err)) from err
                         line.update(pack_quantity=quantity,pack_unit=unit,format_confirmed=quantity is not None)
                     if selection["replenish"]:
+                        if line.get("quantity_estimated") and selection.get("quantity_edited") is True:
+                            line.update(purchased_quantity=quantity_value(selection["quantity"],positive=True),purchased_unit=selection.get("unit",""),quantity_estimated=False)
                         stock = self.stock.item_for(product) if product else None
                         expected = next((p for p in draft["products"] if product and p["id"] == product["id"]),None)
                         if not expected or stock and stock["revision"] != expected["revision"] or not stock and expected["stock_id"]:

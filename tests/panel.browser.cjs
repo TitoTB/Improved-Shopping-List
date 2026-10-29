@@ -209,6 +209,10 @@ const hass={
       window.lastReceiptReprocess=structuredClone(msg);return structuredClone(window.receiptHistory[0]);
     }
     if(msg.type==='improved_shopping_list/receipts/options')return receiptOptions();
+    if(msg.type==='improved_shopping_list/receipts/estimate_quantity'){
+      if(window.quantityWait)await window.quantityWait;
+      return structuredClone(window.quantityResult??{quantity:null});
+    }
     if(msg.type==='improved_shopping_list/receipts/link'){
       const ids=msg.lines.map(line=>line.product_id).filter(Boolean);if(new Set(ids).size!==ids.length)throw new Error('Dos líneas no pueden vincularse al mismo producto.');
       window.receiptLinks=structuredClone(msg.lines);return receiptOptions();
@@ -985,6 +989,24 @@ async function checkReceiptPackageFormats(browser,url,errors){
   assert.equal(await page.evaluate(()=>window.lastReceiptReprocess.lines[0].pack_quantity),450);
   assert.equal(await page.evaluate(()=>window.receiptHistory.length),1);
   assert.deepEqual(await page.evaluate(()=>window.lastReceiptConfirmation),saved);
+  await purchases.evaluate(el=>{
+    const products=[{id:'cacao',name:'Seitán',unit:'g',refill_quantity:1000,stock_id:'s1',revision:1,commercial_references:[]}];
+    const receipt={id:'weight-test',store:'carrefour',store_name:'Carrefour',purchased_at:new Date().toISOString(),total:2.5,lines:[{id:'0',description:'SEITAN AL PESO',count:1,unit_price:2.5,amount:2.5,product_id:'cacao',matched:true,pack_quantity:null,pack_unit:''}]};
+    window.quantityResult={quantity:.5,unit:'kg',estimated:true};window.quantityWait=new Promise(resolve=>window.finishQuantity=resolve);
+    window.receiptDraft=structuredClone(receipt);el.openPreview({token:'weight-test',receipt,products,purchases:[]});
+  });
+  await dialog.getByRole('button',{name:'Continuar',exact:true}).click();
+  const progress=purchases.getByRole('dialog',{name:'Completando cantidades',exact:true});await progress.waitFor();
+  assert.equal(await progress.getByRole('progressbar').count(),1);
+  await page.screenshot({path:'test-results/receipt-quantity-progress-mobile.png',fullPage:true});
+  await page.evaluate(()=>{window.finishQuantity();window.quantityWait=null;});await progress.waitFor({state:'hidden'});
+  const quantity=dialog.getByLabel('Cantidad para SEITAN AL PESO',{exact:true});assert.equal(await quantity.inputValue(),'500');
+  await dialog.getByText('Cantidad estimada',{exact:true}).waitFor();
+  await quantity.fill('475');assert.equal(await dialog.getByText('Cantidad estimada',{exact:true}).count(),0);
+  await dialog.getByRole('button',{name:'Añadir stock y cerrar',exact:true}).click();await dialog.waitFor({state:'hidden'});
+  assert.equal(await page.evaluate(()=>window.lastReceiptConfirmation.lines[0].quantity),475);
+  assert.equal(await page.evaluate(()=>window.lastReceiptConfirmation.lines[0].pack_quantity),null);
+  assert.equal(await page.evaluate(()=>window.lastReceiptConfirmation.lines[0].quantity_edited),true);
   await context.close();
 }
 

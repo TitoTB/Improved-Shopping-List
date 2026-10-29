@@ -349,6 +349,22 @@ class Catalog:
         if changed:
             self._notify()
 
+    async def async_save_measure_price(self, product_id, reference_id, url, price):
+        """Persist only the reusable rate; a receipt's weight never becomes a pack."""
+        from .receipt_quantities import measure_price
+        validated=measure_price(price)
+        async with self._lock:
+            products=deepcopy(self._products)
+            product=products.get(product_id)
+            ref=next((ref for ref in (product or {}).get("commercial_references",[]) if ref["id"]==reference_id and ref.get("active",True)),None)
+            if not ref or ref.get("url","")!=url:
+                raise CatalogError("La opción de compra ha cambiado. Vuelve a revisar el ticket.","conflict")
+            ref["measure_price"]=validated
+            product["revision"]+=1
+            product["updated_at"]=datetime.now(UTC).isoformat()
+            await self._persist(products,self._categories)
+        self._notify()
+
     async def async_save_product(self, data: dict[str, Any], *, from_suggestion: bool = False) -> dict[str, Any]:
         """Persist before publishing, preserving the previous state on write failure."""
         product = normalize_product(data)

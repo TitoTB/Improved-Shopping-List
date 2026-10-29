@@ -145,6 +145,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         hass.data[DOMAIN]["entity_data"] = EntityData(hass, hass.data[DOMAIN])
         hass.data[DOMAIN]["notifications"] = notifications
         hass.data[DOMAIN]["option_lookup"] = OptionLookup(hass)
+        receipts.option_lookup = hass.data[DOMAIN]["option_lookup"]
         hass.data[DOMAIN]["ean_links"] = ean_links
         async_register_commands(hass)
     return True

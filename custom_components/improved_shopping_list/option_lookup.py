@@ -13,6 +13,7 @@ from .price_sources import PriceError, PriceSources, amount
 from .product_references import brand_name, content, gtin, inferred_content
 from .store_links import HOSTS, normalize_link
 from .store_location import reference_location
+from .receipt_quantities import measure_price
 
 
 class ProductScripts(HTMLParser):
@@ -126,7 +127,38 @@ def page_product(html, store, link):
             result.update(price=float(amount(offers["price"])), currency="EUR")
         except PriceError:
             pass
+    specs=offers.get("priceSpecification",[]) if isinstance(offers,dict) else []
+    if isinstance(specs,dict):
+        specs=[specs]
+    rates=[]
+    for spec in specs if isinstance(specs,list) else []:
+        if not isinstance(spec,dict) or spec.get("@type")!="UnitPriceSpecification":
+            continue
+        base=spec.get("referenceQuantity",{})
+        if not isinstance(base,dict):
+            continue
+        unit={"KGM":"kg","GRM":"g","LTR":"l","MLT":"ml","C62":"uds"}.get(base.get("unitCode"),base.get("unitText",""))
+        try:
+            rates.append(measure_price({"price":float(spec.get("price")),"quantity":float(base.get("value",1)),"unit":unit,
+                "currency":spec.get("priceCurrency",offers.get("priceCurrency")),"checked_at":int(time.time()),"source":"web"}))
+        except (ValueError,TypeError):
+            continue
+    if len(rates)==1:
+        result["measure_price"]=rates[0]
     return result
+
+
+def web_measure_price(result):
+    if result.get("measure_price"):
+        return measure_price(result["measure_price"])
+    raw={"price":result.get("reference_price"),"quantity":1,"unit":result.get("reference_unit"),"currency":"EUR","checked_at":int(time.time()),"source":"web"}
+    if raw["price"] is None:
+        raw.update(price=result.get("price"),quantity=result.get("content_quantity"),unit=result.get("content_unit"))
+    try:
+        raw["price"]=float(raw["price"])
+        return measure_price(raw)
+    except (ValueError,TypeError):
+        return None
 
 
 class OptionLookup:
@@ -134,6 +166,7 @@ class OptionLookup:
         self.hass = hass
         self.sources = PriceSources(hass)
         self._lock, self._next, self._cache = Lock(), 0, {}
+        self._blocked_until = {}
 
     def close(self):
         self.sources.close()
@@ -159,6 +192,9 @@ class OptionLookup:
                         current = destination["url"]
                         continue
                     if response.status != 200:
+                        if response.status in (429,503):
+                            retry=response.headers.get("Retry-After", "")
+                            self._blocked_until[store]=time.monotonic()+min(86400,max(900,int(retry) if retry.isdigit() else 900))
                         raise PriceError(f"La web ha rechazado la consulta (HTTP {response.status}).", http_status=response.status)
                     body = bytearray()
                     async for chunk in response.content.iter_chunked(65536):
@@ -170,7 +206,7 @@ class OptionLookup:
         finally:
             session.detach()
 
-    async def retrieve(self, value, store="", expected_ean=""):
+    async def retrieve(self, value, store="", expected_ean="", *, measure=False):
         # A full official URL is authoritative, even if the option was filed
         # under another store. normalize_link still validates the complete path.
         if "://" in value or not store:
@@ -184,11 +220,17 @@ class OptionLookup:
             if cached and cached[0] > time.monotonic():
                 result = deepcopy(cached[1])
             else:
+                if self._blocked_until.get(store,0)>time.monotonic():
+                    raise PriceError("La tienda está en pausa de reintento. Puedes indicar la cantidad manualmente.",response_class="rate_limited")
                 warnings, result = [], {}
+                statuses=[]
                 try:
                     result = await self._page(store, link) or {}
                 except (aiohttp.ClientError, TimeoutError, ValueError) as err:
                     warnings.append(str(err))
+                    statuses.append(getattr(err,"diagnostics",{}).get("http_status"))
+                    if self._blocked_until.get(store,0)>time.monotonic():
+                        raise PriceError("La tienda ha solicitado una pausa. Puedes indicar la cantidad manualmente.",response_class="rate_limited") from err
                 if store != "lidl" and (not result.get("name") or result.get("price") is None or not result.get("brand") or result.get("content_quantity") is None):
                     try:
                         offer = await self.sources.fetch(store, link, reference_location(store), self._before_request)
@@ -199,6 +241,9 @@ class OptionLookup:
                                     result[key] = val
                     except (aiohttp.ClientError, TimeoutError, ValueError) as err:
                         warnings.append(str(err))
+                        statuses.append(getattr(err,"diagnostics",{}).get("http_status"))
+                if any(status in (403,429,503) for status in statuses) and not web_measure_price(result):
+                    self._blocked_until[store]=time.monotonic()+900
                 if not any(result.get(key) for key in ("name", "brand", "ean", "content_quantity", "image_url", "nutriscore")) and result.get("price") is None:
                     raise PriceError("No se han podido recuperar datos de esta ficha. Puedes conservar la URL y completar la opción manualmente.", errors=warnings)
                 result.update(store=store, reference_id=link["id"], url=link["url"], checked_at=int(time.time()))
@@ -206,6 +251,8 @@ class OptionLookup:
                     result["price"] = float(amount(result["price"]))
                 if not gtin(result.get("ean", "")):
                     result.pop("ean", None)
+                if rate:=web_measure_price(result):
+                    result["measure_price"]=rate
                 self._cache[(store, link["id"])] = (time.monotonic()+60, deepcopy(result))
                 self._cache = dict(list(self._cache.items())[-100:])
             if expected_ean and result.get("ean") and gtin(expected_ean) != gtin(result["ean"]):

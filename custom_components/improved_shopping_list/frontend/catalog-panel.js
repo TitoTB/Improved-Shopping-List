@@ -300,6 +300,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
         .option-store { flex:none; }
         .product-option .option-store img { width:32px;height:32px;object-fit:contain;background:#fff;padding:3px;border-radius:8px;box-sizing:border-box; }
         .option-brand,.option-price { margin-top:12px; }
+        .product-ean-group > .reference-common-fields { margin-bottom:16px; }
         .commercial-reference-title { display:flex;gap:8px;align-items:center; }.commercial-reference-title input { min-width:0;flex:1;margin:0; }
         .reference-content-controls { display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px;margin-top:12px;min-width:0; }
         .reference-content-controls label { margin:0;min-width:0; }.reference-content-controls input,.reference-content-controls select { width:100%;min-width:0; }
@@ -1487,11 +1488,31 @@ class ImprovedShoppingCatalog extends HTMLElement {
       group.open=this._expandedEANs?.has(key)??false;
       group.addEventListener('toggle',()=>{this._expandedEANs??=new Set();if(group.open)this._expandedEANs.add(key);else this._expandedEANs.delete(key);});
       const title=element('summary','',entries.find(item=>item.ref?.name)?.ref.name||`EAN ${entries[0].ref.ean}`);
-      group.append(title,element('p','helper',`EAN: ${entries[0].ref.ean}`),...entries.map(item=>item.card));
+      for(const {card} of entries)card.querySelector('.reference-common-fields')?.remove();
+      const common=this._commonReferenceFields(entries.map(item=>item.ref),()=>{
+        for(const {card} of entries)card.querySelector('.commercial-reference')?.dispatchEvent(new Event('option-content-change'));
+      });
+      group.append(title,common,...entries.map(item=>item.card));
       return group;
     });
     root.querySelector('#product-store-links').replaceChildren(...blocks);
     root.querySelector('#retrieve-product-data').disabled=Boolean(this._retrievingOption)||this._hass?.user?.is_admin!==true;
+  }
+
+  _commonReferenceFields(refs,onChange=()=>{}) {
+    const fields=element('div','reference-common-fields');
+    if(refs[0].ean)fields.append(element('p','helper','EAN: '+refs[0].ean));
+    const brandLabel=element('label','option-brand','Marca'),brand=element('input');
+    brand.value=refs.find(ref=>ref.brand)?.brand??'';brand.maxLength=160;brand.placeholder='Sin marca informada';
+    brand.addEventListener('input',()=>{for(const ref of refs)ref.brand=brand.value.trim();onChange();});
+    brandLabel.append(brand);fields.append(brandLabel);
+    const original=refs.find(ref=>ref.content_confirmed&&validReferenceContent(ref))??refs.find(ref=>ref.content_quantity>0)??refs[0];
+    const draft={content_quantity:original.content_quantity,content_unit:original.content_unit,content_confirmed:original.content_confirmed};
+    fields.append(referenceContentControls(draft,()=>{
+      for(const ref of refs)Object.assign(ref,draft);
+      onChange();
+    }));
+    return fields;
   }
 
   _commercialReferenceCard(ref,onChange=()=>{}){
@@ -1501,7 +1522,10 @@ class ImprovedShoppingCatalog extends HTMLElement {
     const remove=element('button','remove-store-link');remove.type='button';remove.setAttribute('aria-label','Desvincular referencia');remove.innerHTML='<ha-icon icon="mdi:delete" aria-hidden="true"></ha-icon>';
     remove.addEventListener('click',()=>{if(!confirm('¿Desvincular esta referencia comercial? Se conserva el historial de compras.'))return;ref.active=false;if(ref.ean){const code=ref.ean.padStart(14,'0');if(!this._commercialReferences.some(item=>item.active!==false&&item.ean?.padStart(14,'0')===code))this._productCodes.barcode=this._productCodes.barcode.filter(value=>value.padStart(14,'0')!==code);}const link=this._storeLinks[ref.store];if(link&&(typeof link==='string'?link===ref.url||link===ref.reference_id:link.id===ref.reference_id))delete this._storeLinks[ref.store];this._renderStoreLinks();this._renderProductCodes();});
     heading.append(name,remove);card.append(heading);
-    const brandLabel=element('label','option-brand','Marca'),brand=element('input');brand.value=ref.brand||'';brand.maxLength=160;brand.placeholder='Sin marca informada';brand.addEventListener('input',()=>{ref.brand=brand.value.trim();onChange();});brandLabel.append(brand);card.append(brandLabel);
+    let renderPrice=()=>{};
+    const update=()=>{renderPrice();onChange();};
+    card.addEventListener('option-content-change',update);
+    card.append(this._commonReferenceFields([ref],update));
     {
       const row=element('div','option-url-row');
       const input=element('input');input.type='url';input.pattern='https://.*';input.value=ref.url||'';input.maxLength=2048;input.setAttribute('aria-label',`URL de ${STORE_NAMES[ref.store]??'la opción'}`);
@@ -1511,11 +1535,8 @@ class ImprovedShoppingCatalog extends HTMLElement {
       const retrieve=element('button','retrieve-option','Recuperar datos');retrieve.type='button';retrieve.dataset.retrieveOption='true';retrieve.disabled=Boolean(this._retrievingOption)||this._hass?.user?.is_admin!==true;retrieve.addEventListener('click',()=>void this._retrieveOption(ref,input.value.trim(),feedback));row.append(input,retrieve);card.append(row,feedback);
       input.addEventListener('keydown',event=>{if(event.key==='Enter'&&!event.isComposing){event.preventDefault();void this._retrieveOption(ref,input.value.trim(),feedback);}});
     }
-    card.append(element('p','helper',[ref.ean?'EAN: '+ref.ean:'',ref.reference_id?'ID: '+ref.reference_id:''].filter(Boolean).join(' · ')));
+    if(ref.reference_id)card.append(element('p','helper','ID: '+ref.reference_id));
     if(ref.url){const link=element('a','helper','Ver ficha de la tienda');link.href=storeProductLink(ref.store,ref.url);link.target='_blank';link.rel='noopener noreferrer';if(link.href!==ref.url){link.rel+=' sponsored';link.title='Enlace de afiliado de Carrefour';}card.append(link);}
-    let renderPrice=()=>{};
-    const update=()=>{renderPrice();onChange();};
-    card.append(referenceContentControls(ref,update));update();
     const offers=[...(ref.last_price?[ref.last_price]:[]),...(this._priceData?.offers??[]).filter(offer=>offer.catalog_product_id===this._editing?.id&&(offer.commercial_reference_id===ref.id||offer.store===ref.store&&(ref.ean&&offer.ean===ref.ean||ref.reference_id&&offer.reference_id===ref.reference_id)))].sort((a,b)=>(b.checked_at??0)-(a.checked_at??0));
     const priceLabel=element('label','option-price','Precio por envase (€)'),priceInput=element('input');
     priceInput.type='number';priceInput.min='0';priceInput.max='1000000';priceInput.step='0.01';priceInput.inputMode='decimal';priceInput.placeholder='Sin precio';

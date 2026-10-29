@@ -1,5 +1,11 @@
 # Historial de cambios
 
+## 0.53.4 — 2026-10-29
+
+- Al agrupar los productos del catálogo por tienda, cada bloque muestra únicamente un precio guardado de esa tienda. Si no existe, se oculta el badge sin utilizar precios de otras tiendas ni el precio genérico del producto.
+- Fuera de esa agrupación se mantiene el criterio habitual, con prioridad de la tienda favorita.
+- Sin nuevas dependencias.
+
 ## 0.53.3 — 2026-10-29
 
 - La vista Opciones de la ficha del producto pasa a llamarse Alternativas, incluido su título y la documentación.

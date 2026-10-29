@@ -3,6 +3,10 @@
 ## Índice
 
 - [Lista de la compra](#lista-de-la-compra)
+  - [Marcar productos como comprados o volver a añadirlos](#marcar-productos-como-comprados-o-volver-a-añadirlos)
+  - [Añadir productos](#añadir-productos)
+  - [Vistas y ordenación](#vistas-y-ordenación)
+  - [Precio estimado y comparación entre supermercados](#precio-estimado-y-comparación-entre-supermercados)
 - [Catálogo](#catálogo)
 - [Stock](#stock)
 - [Analítica](#analítica)

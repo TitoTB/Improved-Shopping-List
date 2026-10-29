@@ -1010,7 +1010,7 @@ async function checkReferenceFormats(browser,url,errors){
   await dialog.getByRole('button',{name:'Opciones',exact:true}).click();
   assert.equal(await dialog.locator('.commercial-reference').count(),2);
   assert.equal(await dialog.locator('.product-option[open]').count(),0);
-  await dialog.locator('.product-option > summary').last().getByText('Granja de origen · 6 uds',{exact:true}).waitFor();
+  await dialog.locator('.product-option > summary').last().getByText('HUEVOS 6 UDS',{exact:true}).waitFor();
   assert.equal(await dialog.getByRole('button',{name:'Opciones',exact:true}).locator('ha-icon').getAttribute('icon'),'mdi:format-list-text');
   await dialog.locator('.product-option > summary').first().click();
   const first=dialog.locator('.commercial-reference').first();
@@ -1019,7 +1019,8 @@ async function checkReferenceFormats(browser,url,errors){
   assert.equal(await first.getByLabel('Contenido por envase',{exact:true}).inputValue(),'12');
   assert.equal(await first.getByLabel('Formato confirmado',{exact:true}).count(),0);
   await first.getByLabel('Marca',{exact:true}).fill('Granja');
-  assert.match(await dialog.locator('.product-option > summary').first().textContent(),/Granja.*12 uds/);
+  assert.equal(await dialog.locator('.product-option > summary').first().textContent(),'HUEVOS 12 UDS');
+  assert.equal(await dialog.locator('.product-option > summary .store-reference').first().textContent(),'');
   assert.equal(await first.getByLabel('URL de Lidl',{exact:true}).count(),1);
   await first.getByLabel('URL de Lidl',{exact:true}).fill('https://www.lidl.es/p/huevos/p100');
   await page.evaluate(()=>{window.optionLookupFixture={store:'lidl',reference_id:'100',url:'https://www.lidl.es/p/huevos/p100',name:'Huevos frescos 12 uds',brand:'Granja Web',image_url:'https://example.test/product.png',ean:'1234567890128',content_quantity:24,content_unit:'uds',price:2.5,currency:'EUR',checked_at:1800000000,nutriscore:{grade:'a',checked_at:1800000000}};});
@@ -1031,6 +1032,8 @@ async function checkReferenceFormats(browser,url,errors){
   assert.equal(await dialog.getByLabel('Nombre del producto',{exact:true}).inputValue(),'Huevos');
   assert.match(await first.textContent(),/Último precio: 2,50/);
   const nutritionBadge=dialog.locator('.product-option').first().locator('.option-nutriscore');
+  assert.equal(await dialog.locator('.product-option > summary .option-nutriscore').count(),0);
+  assert.equal(await first.evaluate(el=>el.lastElementChild.classList.contains('option-nutriscore')),true);
   assert.equal(await nutritionBadge.textContent(),'A');
   assert.equal(await nutritionBadge.evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(3, 129, 65)');
   assert.ok(await nutritionBadge.evaluate(el=>{const r=el.getBoundingClientRect();return r.width===r.height;}));
@@ -3057,7 +3060,8 @@ async function main() {
     for(const code of ['8410109115543','08410109115543','3017620422003','https://private.test/qr','3017620422004'])await captureProductCode(nutriPage,nutriForm,'barcode',code);
     await captureProductCode(nutriPage,nutriForm,'nfc','AA:BB:CC:DD');
     await nutriForm.getByRole('button',{name:'Opciones',exact:true}).click();
-    await nutriForm.getByLabel('Nutri-Score D',{exact:true}).waitFor();
+    await nutriForm.getByLabel('Nutri-Score D',{exact:true}).waitFor({state:'attached'});
+    assert.equal(await nutriForm.getByLabel('Nutri-Score D',{exact:true}).isVisible(),false);
     assert.equal(await nutriForm.locator('.option-nutriscore').count(),2);
     assert.equal(await nutriForm.locator('.product-option').filter({hasText:'3017620422003'}).locator('.option-nutriscore').textContent(),'D');
     assert.equal(await nutriForm.locator('#product-nutriscore').count(),0);

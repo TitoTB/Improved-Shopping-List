@@ -292,11 +292,11 @@ class ImprovedShoppingCatalog extends HTMLElement {
         .product-option>summary::after { content:"";width:8px;height:8px;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(45deg);margin:0 4px 4px auto;flex:none; }
         .product-option[open]>summary::after { transform:rotate(225deg);margin-bottom:0; }
         .product-option>summary:focus-visible { outline:2px solid var(--primary-color,#267052);outline-offset:4px;border-radius:4px; }
-        .option-heading { display:grid;gap:5px;min-width:0;flex:1; }
+        .option-heading { display:block;min-width:0;flex:1; }
         .option-name { font-size:14px;font-weight:650;overflow-wrap:anywhere; }
-        .option-meta { font-size:12px;color:var(--secondary-text-color,#63766b);overflow-wrap:anywhere; }
-        .option-nutriscore { display:grid;place-items:center;width:32px;height:32px;flex:0 0 32px;box-sizing:border-box;border-radius:4px;font-size:18px;font-weight:700;line-height:1; }
-        .option-store { font-size:12px; }
+        .option-nutriscore { display:grid;place-items:center;width:32px;height:32px;box-sizing:border-box;border-radius:4px;font-size:18px;font-weight:700;line-height:1;margin-top:12px; }
+        .option-store { flex:none; }
+        .product-option .option-store img { width:32px;height:32px;object-fit:contain;background:#fff;padding:3px;border-radius:8px;box-sizing:border-box; }
         .option-brand { margin-top:12px; }
         .commercial-reference-title { display:flex;gap:8px;align-items:center; }.commercial-reference-title input { min-width:0;flex:1;margin:0; }
         .reference-content-controls { display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px;margin-top:12px;min-width:0; }
@@ -1459,17 +1459,13 @@ class ImprovedShoppingCatalog extends HTMLElement {
       card.addEventListener('toggle',()=>{this._expandedOptions??=new Set();if(card.open)this._expandedOptions.add(key);else this._expandedOptions.delete(key);});
       const summary=element('summary'),heading=element('span','option-heading');
       const reference = document.createElement("span"); reference.className = "store-reference";
-      const image = document.createElement("img"); image.alt = ""; image.referrerPolicy = "no-referrer";
-      if(store)image.src = storeLogo(store);else image.hidden=true;
-      const name = document.createElement("span"); name.textContent = names[store] ?? store;
-      reference.append(image,name);
+      const image = document.createElement("img"); image.alt = names[store] ?? store; image.referrerPolicy = "no-referrer";
+      if(store)image.src = storeLogo(store);else reference.hidden=true;
+      reference.append(image);
       reference.classList.add('option-store');
       const title=element('span','option-name',ref?.name|| (ref?.ean?`EAN ${ref.ean}`:ref?.reference_id?`Referencia ${ref.reference_id}`:'Opción sin detalle'));
-      const meta=element('span','option-meta');
-      const updateSummary=()=>{title.textContent=ref?.name||(ref?.ean?`EAN ${ref.ean}`:ref?.reference_id?`Referencia ${ref.reference_id}`:'Opción sin detalle');meta.textContent=[ref?.brand,ref?.content_quantity&&ref?.content_unit?`${new Intl.NumberFormat('es-ES',{maximumFractionDigits:3}).format(ref.content_quantity)} ${ref.content_unit}`:''].filter(Boolean).join(' · ');meta.hidden=!meta.textContent;};updateSummary();
-      heading.append(title,meta,reference);summary.append(heading);
-      const grade=ref?.nutriscore?.grade,colors={a:['#038141','#fff'],b:['#85bb2f','#182b22'],c:['#fecb02','#182b22'],d:['#ee8100','#182b22'],e:['#e63e11','#fff']};
-      if(Object.hasOwn(colors,grade)){const badge=element('span','option-nutriscore',grade.toUpperCase());badge.style.backgroundColor=colors[grade][0];badge.style.color=colors[grade][1];badge.setAttribute('aria-label',`Nutri-Score ${grade.toUpperCase()}`);badge.title=`Nutri-Score ${grade.toUpperCase()}`;summary.append(badge);}
+      const updateSummary=()=>{title.textContent=ref?.name||(ref?.ean?`EAN ${ref.ean}`:ref?.reference_id?`Referencia ${ref.reference_id}`:'Opción sin detalle');};updateSummary();
+      heading.append(title);summary.append(reference,heading);
       card.append(summary);
       const source=document.createElement('div');source.className='association-source';
       for(const text of [value?'Web':'',fromTicket?'Ticket/factura confirmado':''].filter(Boolean)){const badge=document.createElement('span');badge.textContent=text;source.append(badge);}
@@ -1504,6 +1500,8 @@ class ImprovedShoppingCatalog extends HTMLElement {
     card.append(referenceContentControls(ref,update));update();
     const offers=[...(ref.last_price?[ref.last_price]:[]),...(this._priceData?.offers??[]).filter(offer=>offer.catalog_product_id===this._editing?.id&&(offer.commercial_reference_id===ref.id||offer.store===ref.store&&(ref.ean&&offer.ean===ref.ean||ref.reference_id&&offer.reference_id===ref.reference_id)))].sort((a,b)=>(b.checked_at??0)-(a.checked_at??0));
     if(offers.length){const price=offers[0],text=element('p','helper');renderPrice=()=>{const money=value=>new Intl.NumberFormat('es-ES',{style:'currency',currency:price.currency}).format(value),rate=referenceRate(price.price,ref);text.textContent='Último precio: '+money(price.price)+' / envase';if(rate)text.textContent+=' · '+money(rate.price)+' / '+rate.unit;};renderPrice();card.append(text);}
+    const grade=ref.nutriscore?.grade,colors={a:['#038141','#fff'],b:['#85bb2f','#182b22'],c:['#fecb02','#182b22'],d:['#ee8100','#182b22'],e:['#e63e11','#fff']};
+    if(Object.hasOwn(colors,grade)){const badge=element('span','option-nutriscore',grade.toUpperCase());badge.style.backgroundColor=colors[grade][0];badge.style.color=colors[grade][1];badge.setAttribute('aria-label',`Nutri-Score ${grade.toUpperCase()}`);badge.title=`Nutri-Score ${grade.toUpperCase()}`;card.append(badge);}
     return card;
   }
 

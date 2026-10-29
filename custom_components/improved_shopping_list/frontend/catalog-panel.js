@@ -1530,7 +1530,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
       const row=element('div','option-url-row');
       const input=element('input');input.type='url';input.pattern='https://.*';input.value=ref.url||'';input.maxLength=2048;input.setAttribute('aria-label',`URL de ${STORE_NAMES[ref.store]??'la opción'}`);
       input.placeholder='URL del producto';
-      input.addEventListener('input',()=>{const previous=ref.url||ref.reference_id,value=input.value.trim(),primary=this._storeLinks[ref.store],primaryValue=typeof primary==='string'?primary:primary?.url||primary?.id;if(primaryValue===previous){if(value)this._storeLinks[ref.store]=value;else delete this._storeLinks[ref.store];}ref.url=value.startsWith('https://')?value:'';if(ref.url)ref.reference_id='';onChange();});
+      input.addEventListener('input',()=>{this._optionLinkOrigins??=new WeakMap();if(!this._optionLinkOrigins.has(ref))this._optionLinkOrigins.set(ref,{url:ref.url||'',reference_id:ref.reference_id||'',primary:structuredClone(this._storeLinks[ref.store])});const previous=ref.url||ref.reference_id,value=input.value.trim(),primary=this._storeLinks[ref.store],primaryValue=typeof primary==='string'?primary:primary?.url||primary?.id;if(primaryValue===previous){if(value)this._storeLinks[ref.store]=value;else delete this._storeLinks[ref.store];}ref.url=value.startsWith('https://')?value:'';if(ref.url)ref.reference_id='';onChange();});
       const feedback=element('p','helper option-lookup-feedback');feedback.setAttribute('role','status');feedback.setAttribute('aria-live','polite');feedback.hidden=true;
       const retrieve=element('button','retrieve-option','Recuperar datos');retrieve.type='button';retrieve.dataset.retrieveOption='true';retrieve.disabled=Boolean(this._retrievingOption)||this._hass?.user?.is_admin!==true;retrieve.addEventListener('click',()=>void this._retrieveOption(ref,input.value.trim(),feedback));row.append(input,retrieve);card.append(row,feedback);
       input.addEventListener('keydown',event=>{if(event.key==='Enter'&&!event.isComposing){event.preventDefault();void this._retrieveOption(ref,input.value.trim(),feedback);}});
@@ -1566,9 +1566,30 @@ class ImprovedShoppingCatalog extends HTMLElement {
     root.querySelector('#save-product').disabled=true;
     root.querySelectorAll('.retrieve-option').forEach(button=>{button.disabled=true;});
     try{
-      const data=await this._hass.callWS({type:'improved_shopping_list/catalog/retrieve_option',url:value,store:ref.store||'',ean:ref.ean||''});
+      // Explicit URL retrieval can discover another package. Automatic lookups
+      // retain their strict expected-EAN check in the backend.
+      const data=await this._hass.callWS({type:'improved_shopping_list/catalog/retrieve_option',url:value,store:ref.store||''});
       if(generation!==this._optionGeneration||!root.querySelector('dialog').open||!this.isConnected)return;
       if((ref.url||ref.reference_id)!==value){status.textContent='El enlace ha cambiado. Pulsa Recuperar datos de nuevo.';return;}
+      const differentEAN=Boolean(barcodeIdentity(ref.ean??'')&&barcodeIdentity(data.ean??'')&&barcodeIdentity(ref.ean)!==barcodeIdentity(data.ean));
+      if(differentEAN){
+        const original=ref,origin=this._optionLinkOrigins?.get(original);
+        if(origin){
+          original.url=origin.url;original.reference_id=origin.reference_id;
+          if(origin.primary===undefined)delete this._storeLinks[original.store];else this._storeLinks[original.store]=structuredClone(origin.primary);
+          this._optionLinkOrigins.delete(original);
+        }
+        // A previously saved URL may itself belong to the newly discovered EAN.
+        // Detach only that incorrect link; retain the original package and data.
+        if(original.store===data.store&&(original.reference_id===data.reference_id||original.url===data.url)){
+          original.url='';original.reference_id='';delete original.id;
+          const primary=this._storeLinks[original.store];
+          if((typeof primary==='string'?primary===data.url:primary?.url===data.url||primary?.id===data.reference_id))delete this._storeLinks[original.store];
+        }
+        ref=this._commercialReferences.find(item=>item!==original&&item.active!==false&&item.store===data.store&&barcodeIdentity(item.ean??'')===barcodeIdentity(data.ean)&&
+          (item.reference_id===data.reference_id||item.url===data.url||!item.reference_id&&!item.url));
+        if(!ref){ref={store:data.store,ean:data.ean,name:'',reference_id:'',url:'',brand:'',content_quantity:null,content_unit:'',content_confirmed:false};this._commercialReferences.push(ref);}
+      }
       const previousStore=ref.store,changedStore=previousStore!==data.store;
       if(changedStore){
         const primary=this._storeLinks[previousStore],primaryValue=typeof primary==='string'?primary:primary?.url||primary?.id;
@@ -1576,9 +1597,11 @@ class ImprovedShoppingCatalog extends HTMLElement {
         // IDs and last prices are store-specific; keep historical observations intact.
         delete ref.id;delete ref.last_price;delete ref.measure_price;
       }
-      const existing=this._commercialReferences.find(item=>item!==ref&&item.active!==false&&item.store===data.store&&(item.reference_id===data.reference_id||item.url===data.url));
+      const existing=this._commercialReferences.find(item=>item!==ref&&item.active!==false&&item.store===data.store&&
+        (!item.ean||!data.ean||barcodeIdentity(item.ean)===barcodeIdentity(data.ean))&&(item.reference_id===data.reference_id||item.url===data.url));
       if(existing){this._commercialReferences=this._commercialReferences.filter(item=>item!==ref);ref=existing;}
       Object.assign(ref,{store:data.store,reference_id:data.reference_id,url:data.url,active:true});
+      this._optionLinkOrigins?.delete(ref);
       if(data.name)ref.name=data.name;
       if(data.brand)ref.brand=data.brand;
       if(data.image_url)ref.image_url=data.image_url;
@@ -1594,7 +1617,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
       this._expandedOptions.add(ref.id||`${ref.store}:${ref.reference_id||ref.url||ref.ean}`);
       if(barcodeIdentity(ref.ean??'')){this._expandedEANs??=new Set();this._expandedEANs.add('ean:'+barcodeIdentity(ref.ean));}
       this._renderStoreLinks();this._renderProductCodes();
-      status.textContent=changedStore?`Opción reclasificada en ${STORE_NAMES[data.store]??data.store}. Datos recuperados. Guarda el producto para conservarlos.`:'Datos recuperados. Guarda el producto para conservarlos.';
+      status.textContent=differentEAN?'La ficha corresponde a otro EAN. Sus datos se han recuperado en una alternativa independiente. Guarda el producto para conservarlos.':changedStore?`Opción reclasificada en ${STORE_NAMES[data.store]??data.store}. Datos recuperados. Guarda el producto para conservarlos.`:'Datos recuperados. Guarda el producto para conservarlos.';
     }catch(error){if(generation===this._optionGeneration&&root.querySelector('dialog').open){const message=error.message||'No se han podido recuperar los datos. Puedes conservar el enlace y completar la opción manualmente.';status.textContent=feedback?'':message;status.dataset.error=String(!feedback);if(feedback){feedback.hidden=false;feedback.dataset.error='true';feedback.textContent=message;}}}
     finally{
       if(generation===this._optionGeneration){this._retrievingOption=false;root.querySelector('#save-product').disabled=Boolean(this._saving);root.querySelectorAll('.retrieve-option').forEach(button=>{button.disabled=this._hass?.user?.is_admin!==true;});}
@@ -1666,6 +1689,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
     root.querySelector("#delete-product").hidden = !this._editing;
     this._storeLinks = structuredClone(product?.store_links ?? {});
     this._commercialReferences = structuredClone(product?.commercial_references ?? []);
+    this._optionLinkOrigins = new WeakMap();
     this._expandedOptions = new Set();
     this._expandedEANs = new Set();
     this._retrievingOption=false;

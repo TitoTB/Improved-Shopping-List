@@ -1132,6 +1132,55 @@ async function checkReferenceFormats(browser,url,errors){
   await context.close();
 }
 
+async function checkDifferentOptionEAN(browser,url,errors){
+  for(const previouslySavedWrongLink of [false,true]){
+    const context=await browser.newContext({viewport:{width:390,height:844}});
+    await context.addInitScript(wrong=>{
+      const original={id:'original',store:'carrefour',ean:'8410422111086',name:'Envase original',brand:'Marca original',
+        reference_id:wrong?'R-new':'R-old',url:`https://www.carrefour.es/supermercado/producto/${wrong?'R-new':'R-old'}/p`,
+        content_quantity:70,content_unit:'ml',content_confirmed:true,last_price:{price:1.25,currency:'EUR',checked_at:1700000000}};
+      localStorage.setItem('catalog-fixture',JSON.stringify([{id:'product',revision:1,name:'Producto',category:'',tags:[],image_url:'',icon:'',barcodes:['8410422111086'],store_links:{carrefour:{id:original.reference_id,url:original.url}},commercial_references:[original]}]));
+      window.optionLookupFixture={store:'carrefour',reference_id:'R-new',url:'https://www.carrefour.es/supermercado/producto/R-new/p',
+        ean:'3017620422003',name:'Otro envase 500 g',brand:'Otra marca',content_quantity:500,content_unit:'g',price:2.5,currency:'EUR',checked_at:1800000000};
+    },previouslySavedWrongLink);
+    const page=await context.newPage();page.on('pageerror',error=>errors.push(error.message));await page.goto(url);
+    await page.getByRole('button',{name:'Catálogo',exact:true}).click();const catalog=page.locator('isl-catalog');
+    await catalog.getByRole('button',{name:'Cambiar a vista de filas',exact:true}).click();
+    await catalog.getByRole('button',{name:'Editar Producto',exact:true}).click();
+    const form=catalog.getByRole('dialog',{name:'Editar producto',exact:true});await form.getByRole('button',{name:'Alternativas',exact:true}).click();
+    await form.locator('.product-option > summary').click();
+    let original=form.locator('.product-option').filter({hasText:'Envase original'});
+    await original.getByLabel('URL de Carrefour',{exact:true}).fill('https://www.carrefour.es/supermercado/producto/R-new/p');
+    await original.getByRole('button',{name:'Recuperar datos',exact:true}).click();
+    await form.getByText(/La ficha corresponde a otro EAN/).waitFor();
+    assert.equal(await form.locator('.product-option').count(),2);
+    assert.equal(await page.evaluate(()=>window.lastOptionLookup.ean),undefined);
+    assert.equal(await page.evaluate(()=>window.catalogProducts[0].commercial_references.length),1);
+    const discovered=form.locator('.product-option').filter({hasText:'Otro envase 500 g'});
+    assert.equal(await discovered.getByLabel('Marca',{exact:true}).inputValue(),'Otra marca');
+    assert.equal(await discovered.getByLabel('Contenido por envase',{exact:true}).inputValue(),'500');
+    assert.equal(await discovered.getByLabel('Precio por envase',{exact:true}).inputValue(),'2.5');
+    await original.locator('summary').click();
+    assert.equal(await original.getByLabel('Contenido por envase',{exact:true}).inputValue(),'70');
+    assert.equal(await original.getByLabel('Marca',{exact:true}).inputValue(),'Marca original');
+    assert.equal(await original.getByLabel('Precio por envase',{exact:true}).inputValue(),'1.25');
+    assert.equal(await original.getByLabel('URL de Carrefour',{exact:true}).inputValue(),previouslySavedWrongLink?'':'https://www.carrefour.es/supermercado/producto/R-old/p');
+    // A second explicit lookup reuses the alternative rather than duplicating it.
+    await discovered.getByRole('button',{name:'Recuperar datos',exact:true}).click();
+    await form.getByText('Datos recuperados. Guarda el producto para conservarlos.',{exact:true}).waitFor();
+    assert.equal(await form.locator('.product-option').count(),2);
+    await form.getByRole('button',{name:'Guardar producto',exact:true}).click();await form.waitFor({state:'hidden'});
+    const saved=await page.evaluate(()=>window.catalogProducts[0]);
+    assert.equal(saved.commercial_references.length,2);
+    assert.equal(saved.commercial_references[0].ean,'8410422111086');
+    assert.equal(saved.commercial_references[1].ean,'3017620422003');
+    assert.equal(saved.commercial_references[0].reference_id,previouslySavedWrongLink?'':'R-old');
+    assert.equal(saved.commercial_references[1].last_price.price,2.5);
+    assert.ok([saved.barcode,...saved.barcodes].includes('3017620422003'));
+    await context.close();
+  }
+}
+
 async function checkCatalogSources(browser,url,errors){
   const context=await browser.newContext({viewport:{width:1280,height:960}}),page=await context.newPage();
   page.on('pageerror',error=>errors.push(error.message));await page.goto(url);
@@ -1303,6 +1352,7 @@ async function main() {
     browser = await chromium.launch({ headless: true, channel: process.env.PLAYWRIGHT_CHANNEL || undefined });
     if(process.argv.includes('--attention-only')){const errors=[];await checkAttentionIndicators(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Navigation attention indicators passed.');return;}
     if(process.argv.includes('--lazy-only')){const errors=[];await checkLazySections(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);return;}
+    if(process.argv.includes('--option-ean-only')){const errors=[];await checkDifferentOptionEAN(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Alternative EAN discovery passed.');return;}
     if(process.argv.includes('--catalog-sources-only')){const errors=[];await checkCatalogSources(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Catalog sources and EAN grouping passed.');return;}
     if(process.argv.includes('--formats-only')){const errors=[];await checkReferenceFormats(browser,`http://127.0.0.1:${server.address().port}`,errors);await checkReceiptPackageFormats(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Commercial reference browser checks passed.');return;}
     if(process.argv.includes('--recovery-only')){const errors=[];await checkDetectedPurchaseRecovery(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Manual purchase recovery browser checks passed.');return;}
@@ -4573,6 +4623,7 @@ async function main() {
     await checkDetectedPurchaseRecovery(browser,url,errors);
     await checkLazySections(browser,url,errors);
     await checkCatalogSources(browser,url,errors);
+    await checkDifferentOptionEAN(browser,url,errors);
     await checkReferenceFormats(browser,url,errors);
     await checkReceiptPackageFormats(browser,url,errors);
     await checkAttentionIndicators(browser,url,errors);

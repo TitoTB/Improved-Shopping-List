@@ -1,5 +1,13 @@
 # Historial de cambios
 
+## 0.54.1 — 2026-10-29
+
+- Al reprocesar un ticket revisado, «Guardar datos» conserva también el precio pagado en las alternativas de los productos vinculados, aunque no se hubiera seleccionado en la revisión original. Respeta la desactivación global de precios.
+- Los precios mantienen la fecha de compra y no reemplazan precios guardados más recientes.
+- Se registra la alternativa aunque no se encuentre una URL o el contenido del envase. Los datos de marca, cantidad y unidades disponibles o confirmados se conservan sin duplicar la compra ni volver a reponer Stock.
+- Verificados el guardado y la reapertura, las correcciones de contenido, los precios más recientes y el reprocesado sin ficha web.
+- Sin nuevas dependencias.
+
 ## 0.54.0 — 2026-10-29
 
 - Lidl puede completar las alternativas al revisar o reprocesar tickets: busca primero en la caché local, después en el diccionario por EAN cuando existe y finalmente en listados públicos con coincidencia exacta de la referencia del ticket (IAN). No se inventan EAN ni se asocian productos por parecido del nombre.

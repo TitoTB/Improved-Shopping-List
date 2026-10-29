@@ -1,5 +1,15 @@
 # Historial de cambios
 
+## 0.50.0 — 2026-10-29
+
+- La ficha sustituye Tiendas por Opciones, con el título «Opciones para comprar [producto]» y bloques independientes, comprimidos por defecto, para cada referencia comercial. Muestra marca y contenido cuando están disponibles.
+- URL y botón Recuperar datos en las opciones, incluidas las que solo tienen EAN. Consulta manual de fichas oficiales compatibles y sus endpoints, con apoyo de Open Food Facts para completar datos por EAN: nombre comercial, marca, contenido, imagen, precio y Nutri-Score según disponibilidad. Los cambios se conservan al guardar el producto; se comprueba el EAN y se respetan formatos ya confirmados.
+- Los precios recuperados manualmente se conservan por opción, con fecha, y se incorporan al historial, las estimaciones y las comparativas según sus reglas de formato y configuración. No se cambia Stock ni se reactivan consultas periódicas de tiendas archivadas.
+- Puntos rojos en Catálogo y Nuevos, Stock, y Analítica y Compras cuando hay productos por incorporar, stock bajo o compras pendientes de revisión. Se actualizan con un resumen local ligero, sin cargar historiales ni consultar tiendas.
+- Retirados los campos Etiquetas, Unidades, Cantidad unitaria y Tamaño del paso de la ficha general. Se conservan los datos anteriores para mantener las listas y cantidades existentes. La vista seleccionada del popup tiene un fondo más oscuro.
+- Los grupos de productos por tienda usan su logo dentro de un círculo blanco. El fondo de los bloques de stock acompaña el tono de la barra al disminuir el stock.
+- Consultas manuales acotadas a dominios reconocidos, separadas por cinco segundos y con reutilización breve de resultados. Una web puede omitir datos o rechazar la consulta; se conserva el enlace para completar la opción manualmente. Sin nuevas dependencias.
+
 ## 0.49.1 — 2026-10-29
 
 - Los grupos de Catálogo → Productos aparecen cerrados por defecto al agrupar por categoría, tienda o sugerencias. Su cabecera permite desplegarlos con ratón o teclado, y los grupos abiertos se mantienen al actualizar los datos.

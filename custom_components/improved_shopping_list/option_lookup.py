@@ -177,12 +177,12 @@ class OptionLookup:
             await sleep(delay)
         self._next = time.monotonic() + 5
 
-    async def _page(self, store, link):
+    async def _page(self, store, link, before_request=None):
         session = async_create_clientsession(self.hass, auto_cleanup=False, cookie_jar=aiohttp.DummyCookieJar())
         try:
             current = link["url"]
             for _ in range(3):
-                await self._before_request()
+                await (before_request or self._before_request)()
                 async with session.get(current, allow_redirects=False, timeout=aiohttp.ClientTimeout(total=20),
                     headers={"Accept":"text/html", "User-Agent":"Mozilla/5.0 (compatible; Improved-Shopping-List)"}) as response:
                     if response.status in (301,302,303,307,308):
@@ -206,7 +206,7 @@ class OptionLookup:
         finally:
             session.detach()
 
-    async def retrieve(self, value, store="", expected_ean="", *, measure=False):
+    async def retrieve(self, value, store="", expected_ean="", *, measure=False, before_request=None):
         # A full official URL is authoritative, even if the option was filed
         # under another store. normalize_link still validates the complete path.
         if "://" in value or not store:
@@ -225,7 +225,7 @@ class OptionLookup:
                 warnings, result = [], {}
                 statuses=[]
                 try:
-                    result = await self._page(store, link) or {}
+                    result = await (self._page(store, link, before_request) if before_request else self._page(store, link)) or {}
                 except (aiohttp.ClientError, TimeoutError, ValueError) as err:
                     warnings.append(str(err))
                     statuses.append(getattr(err,"diagnostics",{}).get("http_status"))
@@ -233,7 +233,7 @@ class OptionLookup:
                         raise PriceError("La tienda ha solicitado una pausa. Puedes indicar la cantidad manualmente.",response_class="rate_limited") from err
                 if store != "lidl" and (not result.get("name") or result.get("price") is None or not result.get("brand") or result.get("content_quantity") is None):
                     try:
-                        offer = await self.sources.fetch(store, link, reference_location(store), self._before_request)
+                        offer = await self.sources.fetch(store, link, reference_location(store), before_request or self._before_request)
                         if offer:
                             safe = {**metadata(offer), **{key:offer[key] for key in ("price", "currency", "ean", "reference_price", "reference_unit") if key in offer}}
                             for key, val in safe.items():

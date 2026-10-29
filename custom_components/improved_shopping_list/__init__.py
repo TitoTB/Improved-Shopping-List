@@ -11,6 +11,7 @@ from homeassistant.helpers.typing import ConfigType
 
 from .catalog import Catalog
 from .ean_links import EANLinks
+from .catalog_sources import CatalogSources
 from .activity import ActivityLog
 from .community import CommunityLibrary
 from .community_sync import CommunitySync
@@ -147,6 +148,9 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         hass.data[DOMAIN]["option_lookup"] = OptionLookup(hass)
         receipts.option_lookup = hass.data[DOMAIN]["option_lookup"]
         hass.data[DOMAIN]["ean_links"] = ean_links
+        sources = CatalogSources(hass,catalog,ean_links,hass.data[DOMAIN]["option_lookup"],activity)
+        await sources.async_load()
+        hass.data[DOMAIN]["catalog_sources"] = sources
         async_register_commands(hass)
     return True
 
@@ -169,6 +173,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.data[DOMAIN]["recurrence"].start()
     hass.data[DOMAIN]["community_sync"].start()
     hass.data[DOMAIN]["ean_links"].start()
+    hass.data[DOMAIN]["catalog_sources"].start()
     hass.data[DOMAIN]["price_manager"].start()
     hass.data[DOMAIN]["alcampo"].start()
     hass.data[DOMAIN]["entity_data"].start()
@@ -205,6 +210,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.data[DOMAIN]["entity_data"].stop()
     frontend.async_remove_panel(hass, PANEL_PATH)
     hass.data[DOMAIN]["active"] = False
+    await hass.data[DOMAIN]["catalog_sources"].async_stop()
     hass.data[DOMAIN]["option_lookup"].close()
     await hass.data[DOMAIN]["purchase_detection"].async_stop()
     await hass.data[DOMAIN]["carrefour_account"].async_stop()

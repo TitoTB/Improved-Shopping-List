@@ -100,7 +100,11 @@ def _enrich_store(product, resolved, store):
         ref = next(iter(matches), None)
         if ref and ref.get("reference_id") and ref["reference_id"] != link["id"]:
             continue
-        if any(other.get("store") == store and other.get("reference_id") == link["id"] and other is not ref for other in refs):
+        duplicate = next((other for other in refs if other.get("store") == store and other.get("reference_id") == link["id"] and other is not ref),None)
+        if duplicate:
+            if ref is None and duplicate.get("active",True) and not duplicate.get("ean") and duplicate.get("url") == link["url"]:
+                duplicate["ean"] = code
+                changed = True
             continue
         if ref is None:
             ref = next((row for row in refs if not row["store"] and gtin(row.get("ean")) == key and row.get("active", True)), None)
@@ -136,6 +140,7 @@ class EANLinks:
         self._task = self._timer = self._stop = self._unsubscribe = None
         self._next_download = self._next_request = 0
         self.error = ""
+        self.enabled_stores = {"carrefour"}
 
     async def async_load(self):
         data = await self._store.async_load()
@@ -159,7 +164,19 @@ class EANLinks:
 
     @property
     def resolved(self):
-        return self._data["resolved"]
+        return {key:value for key,value in self._data["resolved"].items() if key_store(key) in self.enabled_stores}
+
+    async def async_store_links(self, store):
+        """Read exact official links for an explicitly enabled catalog source."""
+        if store not in self.enabled_stores:
+            return {}
+        try:
+            await self._download()
+        except (ClientError, TimeoutError, OSError, ValueError) as err:
+            self.error = str(err)
+        codes = {key for product in self.catalog.products for key in product_eans(product)}
+        return {key:normalize_link(store,value) for key,value in self._data["links"].items()
+                if key_store(key) == store and key.rsplit(":",1)[-1] in codes}
 
     def start(self):
         if self._active:
@@ -218,7 +235,7 @@ class EANLinks:
     def _pending(self):
         codes = {key for product in self.catalog.products for key in product_eans(product)}
         keys = codes | {"alcampo:"+code for code in codes}
-        return sorted(key for key in keys if key in self._data["links"] and key not in self.resolved
+        return sorted(key for key in keys if key_store(key) in self.enabled_stores and key in self._data["links"] and key not in self.resolved
                       and time.time() >= self._data["failed"].get(key, 0))
 
     async def async_sync(self):

@@ -287,6 +287,9 @@ class ImprovedShoppingCatalog extends HTMLElement {
         #pending-formats { display:grid;place-items:center;flex:0 0 46px;width:46px;height:46px;padding:0; }
         #pending-formats[aria-pressed=true] { background:var(--primary-color,#267052);color:#fff; }
         .commercial-reference { padding-top:12px;min-width:0; }
+        .product-ean-group { border:1px solid var(--divider-color,#dce4e1);border-radius:12px;padding:12px;margin-top:12px;min-width:0; }
+        .product-ean-group > summary { cursor:pointer;font-weight:650;overflow-wrap:anywhere; }
+        .product-ean-group .product-option { margin-top:12px; }
         .product-option>summary { display:flex;align-items:center;gap:10px;cursor:pointer;list-style:none;min-width:0; }
         .product-option>summary::-webkit-details-marker { display:none; }
         .product-option>summary::after { content:"";width:8px;height:8px;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(45deg);margin:0 4px 4px auto;flex:none; }
@@ -1451,7 +1454,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
       const refs=this._commercialReferences.filter(ref=>ref.active!==false&&ref.store===store);
       return refs.length?refs.map(ref=>({store,ref})):[{store,ref:null}];
     });
-    root.querySelector("#product-store-links").replaceChildren(...options.map(({store,ref},index)=>{
+    const cards=options.map(({store,ref},index)=>{
       const value=this._storeLinks[store],fromTicket=receiptStores.includes(store);
       const card=document.createElement('details');card.className='product-store-association product-option';card.dataset.store=store;
       const key=ref?.id||`${store}:${ref?.reference_id||ref?.url||ref?.ean||index}`;card.dataset.optionKey=key;
@@ -1472,7 +1475,19 @@ class ImprovedShoppingCatalog extends HTMLElement {
       const header=document.createElement('div');header.className='product-store-header';header.append(source);card.append(header);
       if(ref)card.append(this._commercialReferenceCard(ref,updateSummary));
       return card;
-    }));
+    });
+    const groups=new Map();
+    options.forEach(({ref},index)=>{const code=barcodeIdentity(ref?.ean??''),key=code?`ean:${code}`:`option:${index}`;if(!groups.has(key))groups.set(key,[]);groups.get(key).push({ref,card:cards[index]});});
+    const blocks=[...groups.entries()].map(([key,entries])=>{
+      if(entries.length===1)return entries[0].card;
+      const group=element('details','product-ean-group');group.dataset.ean=entries[0].ref.ean;
+      group.open=this._expandedEANs?.has(key)??false;
+      group.addEventListener('toggle',()=>{this._expandedEANs??=new Set();if(group.open)this._expandedEANs.add(key);else this._expandedEANs.delete(key);});
+      const title=element('summary','',entries.find(item=>item.ref?.name)?.ref.name||`EAN ${entries[0].ref.ean}`);
+      group.append(title,element('p','helper',`EAN: ${entries[0].ref.ean}`),...entries.map(item=>item.card));
+      return group;
+    });
+    root.querySelector('#product-store-links').replaceChildren(...blocks);
     root.querySelector('#retrieve-product-data').disabled=Boolean(this._retrievingOption)||this._hass?.user?.is_admin!==true;
   }
 
@@ -1543,6 +1558,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
       const image=root.querySelector('form').elements.image_url;
       if(!image.value&&data.image_url){image.value=data.image_url;root.querySelector('isl-icon-picker').value=data.image_url;}
       this._expandedOptions.add(ref.id||`${ref.store}:${ref.reference_id||ref.url||ref.ean}`);
+      if(barcodeIdentity(ref.ean??'')){this._expandedEANs??=new Set();this._expandedEANs.add('ean:'+barcodeIdentity(ref.ean));}
       this._renderStoreLinks();this._renderProductCodes();
       status.textContent=changedStore?`Opción reclasificada en ${STORE_NAMES[data.store]??data.store}. Datos recuperados. Guarda el producto para conservarlos.`:'Datos recuperados. Guarda el producto para conservarlos.';
     }catch(error){if(generation===this._optionGeneration&&root.querySelector('dialog').open){const message=error.message||'No se han podido recuperar los datos. Puedes conservar el enlace y completar la opción manualmente.';status.textContent=feedback?'':message;status.dataset.error=String(!feedback);if(feedback){feedback.hidden=false;feedback.dataset.error='true';feedback.textContent=message;}}}
@@ -1617,6 +1633,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
     this._storeLinks = structuredClone(product?.store_links ?? {});
     this._commercialReferences = structuredClone(product?.commercial_references ?? []);
     this._expandedOptions = new Set();
+    this._expandedEANs = new Set();
     this._retrievingOption=false;
     root.querySelector('#option-lookup-status').textContent='';
     root.querySelector('#save-product').disabled=false;

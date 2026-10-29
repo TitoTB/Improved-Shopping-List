@@ -70,6 +70,13 @@ const hass={
     'todo.readonly':{entity_id:'todo.readonly',state:'1',attributes:{friendly_name:'Solo lectura',supported_features:0}}
   },
   connection:{subscribeMessage:async(callback,msg)=>{
+    if(msg.type==='improved_shopping_list/catalog_sources/subscribe'){
+      window.catalogSourceSubscriptions=(window.catalogSourceSubscriptions??0)+1;
+      const listener={callback,catalogSource:true};listeners.set(listener,true);
+      callback(structuredClone(window.catalogSourceFixture??{enabled:false,phase:'idle',total:0,processed:0,errors:[]}));
+      window.emitCatalogSource=state=>{window.catalogSourceFixture=state;for(const item of listeners.keys())if(item.catalogSource)item.callback(structuredClone(state));};
+      return()=>{listeners.delete(listener);window.catalogSourceSubscriptions--;};
+    }
     if(msg.type==='improved_shopping_list/attention/subscribe'){
       const listener={callback,attention:true};listeners.set(listener,true);callback(structuredClone(window.attentionFixture));return()=>listeners.delete(listener);
     }
@@ -113,6 +120,11 @@ const hass={
   }},
   callWS:async(msg)=>{
     (window.wsRequests??=[]).push(msg.type);
+    if(msg.type==='improved_shopping_list/catalog_sources/set'){
+      window.catalogSourceSets=(window.catalogSourceSets??0)+1;
+      const state={enabled:msg.enabled,phase:msg.enabled?'waiting':'idle',running:msg.enabled,total:2,processed:0,updated:0,errors:[],next_request:Date.now()/1000+300};
+      window.emitCatalogSource?.(state);return state;
+    }
     if(msg.type==='improved_shopping_list/settings/name_mode'){
       (window.listSettings.description_as_name??={})[msg.entity_id]=msg.enabled;
       window.emitSettings();return settingsSnapshot();
@@ -1118,6 +1130,45 @@ async function checkReferenceFormats(browser,url,errors){
   await context.close();
 }
 
+async function checkCatalogSources(browser,url,errors){
+  const context=await browser.newContext({viewport:{width:1280,height:960}}),page=await context.newPage();
+  page.on('pageerror',error=>errors.push(error.message));await page.goto(url);
+  assert.equal(await page.evaluate(()=>window.catalogSourceSubscriptions??0),0);
+  await page.getByRole('button',{name:'Ajustes',exact:true}).click();
+  const settings=page.locator('isl-settings');await settings.getByRole('button',{name:'Tiendas',exact:true}).click();
+  const source=settings.locator('isl-catalog-sources'),toggle=source.getByRole('switch',{name:'Completar productos con Alcampo'});
+  await toggle.waitFor();assert.equal(await toggle.isChecked(),false);
+  await toggle.check();const popup=source.getByRole('dialog',{name:'Catálogo de Alcampo',exact:true});await popup.waitFor();
+  await popup.getByText(/Siguiente petición/).waitFor();
+  await page.evaluate(()=>window.emitCatalogSource({...window.catalogSourceFixture,processed:1,updated:1}));
+  assert.equal(await popup.locator('#percentage').textContent(),'50 %');
+  await popup.getByRole('button',{name:'Cerrar ventana',exact:true}).click();
+  await source.getByRole('button',{name:'Ver progreso de Alcampo',exact:true}).click();
+  assert.equal(await page.evaluate(()=>window.catalogSourceSets),1);
+  await page.setViewportSize({width:390,height:844});
+  assert.ok(await popup.evaluate(el=>el.scrollWidth<=el.clientWidth+1));
+  await page.screenshot({path:'test-results/catalog-source-progress-mobile.png',fullPage:true});
+  await popup.getByRole('button',{name:'Cerrar ventana',exact:true}).click();await toggle.uncheck();
+  await settings.getByRole('button',{name:'Listas',exact:true}).click();
+  assert.equal(await page.evaluate(()=>window.catalogSourceSubscriptions),0);
+  await context.close();
+  const grouped=await browser.newContext({viewport:{width:390,height:844}});
+  await grouped.addInitScript(()=>localStorage.setItem('catalog-fixture',JSON.stringify([{id:'one',revision:1,name:'Producto',category:'',tags:[],image_url:'',icon:'',store_links:{},barcodes:['8410199023094'],commercial_references:[
+    {id:'a',store:'carrefour',ean:'8410199023094',name:'Producto de marca',url:'',reference_id:'a'},
+    {id:'b',store:'alcampo',ean:'08410199023094',name:'Producto de marca',url:'',reference_id:'b'},
+    {id:'c',store:'carrefour',ean:'8410422111086',name:'Otro formato',url:'',reference_id:'c'}]}])));
+  const p=await grouped.newPage();p.on('pageerror',error=>errors.push(error.message));await p.goto(url);
+  await p.getByRole('button',{name:'Catálogo',exact:true}).click();const catalog=p.locator('isl-catalog');
+  await catalog.getByRole('button',{name:'Cambiar a vista de filas',exact:true}).click();await catalog.getByRole('button',{name:'Editar Producto',exact:true}).click();
+  const form=catalog.getByRole('dialog',{name:'Editar producto',exact:true});await form.getByRole('button',{name:'Opciones',exact:true}).click();
+  assert.equal(await form.locator('.product-ean-group').count(),1);assert.equal(await form.locator('.product-ean-group[open]').count(),0);
+  assert.equal(await form.locator('.product-ean-group .product-option').count(),2);
+  await form.locator('.product-ean-group > summary').click();
+  await form.locator('.product-ean-group .product-option[data-store="alcampo"] > summary').click();
+  await p.screenshot({path:'test-results/product-ean-group-mobile.png',fullPage:true});
+  assert.ok(await form.evaluate(el=>el.scrollWidth<=el.clientWidth+1));await grouped.close();
+}
+
 async function checkLazySections(browser,url,errors){
   const context=await browser.newContext({viewport:{width:1280,height:960}}),page=await context.newPage();
   const requests=[];page.on('request',request=>requests.push(new URL(request.url()).pathname));page.on('pageerror',error=>errors.push(error.message));
@@ -1203,6 +1254,7 @@ async function main() {
       return;
     }
     if (pathname === "/") { res.setHeader("content-type", "text/html; charset=utf-8"); res.end(html); return; }
+    if (pathname === '/catalog-sources.js') {res.setHeader('content-type','text/javascript; charset=utf-8');res.end(await fs.readFile(path.join(root,'catalog-sources.js')));return;}
     if (!["/stock-panel.js", "/product-display.js", "/reference-formats.js", "/zone-map.js", "/vendor/leaflet/leaflet.js", "/vendor/leaflet/leaflet.css", "/vendor/leaflet/images/layers.png", "/vendor/leaflet/images/layers-2x.png", "/lidl-account.js", "/toggle-styles.js", "/shopping-places.js", "/dia-prices-settings.js", "/dia-account.js", "/analytics-panel.js", "/alcampo-settings.js", "/carrefour-account.js", "/notification-settings.js", "/recipe-editor.js", "/quantity-client.js", "/panel.js", "/purchases-panel.js", "/stock-client.js", "/dialog-controls.js", "/todo-client.js", "/catalog-panel.js", "/catalog-client.js", "/category-panel.js", "/icon-picker.js", "/list-settings-client.js", "/settings-panel.js", "/readers-client.js", "/readers-panel.js", "/product-matching.js", "/product-names.js", "/logs-panel.js", "/logo.png", "/mercadona.png", "/consum.jpg", "/lasirena.jpg", "/eroski.svg", "/dia.png"].includes(pathname)) { res.writeHead(404).end(); return; }
     res.setHeader("content-type", pathname.endsWith(".css") ? "text/css; charset=utf-8" : pathname.endsWith(".svg") ? "image/svg+xml" : pathname.endsWith(".png") ? "image/png" : pathname.endsWith(".jpg") ? "image/jpeg" : "text/javascript; charset=utf-8");
     res.end(await fs.readFile(path.join(root, pathname.slice(1))));
@@ -1213,6 +1265,7 @@ async function main() {
     browser = await chromium.launch({ headless: true, channel: process.env.PLAYWRIGHT_CHANNEL || undefined });
     if(process.argv.includes('--attention-only')){const errors=[];await checkAttentionIndicators(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Navigation attention indicators passed.');return;}
     if(process.argv.includes('--lazy-only')){const errors=[];await checkLazySections(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);return;}
+    if(process.argv.includes('--catalog-sources-only')){const errors=[];await checkCatalogSources(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Catalog sources and EAN grouping passed.');return;}
     if(process.argv.includes('--formats-only')){const errors=[];await checkReferenceFormats(browser,`http://127.0.0.1:${server.address().port}`,errors);await checkReceiptPackageFormats(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Commercial reference browser checks passed.');return;}
     if(process.argv.includes('--recovery-only')){const errors=[];await checkDetectedPurchaseRecovery(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Manual purchase recovery browser checks passed.');return;}
     if(process.argv.includes('--purchases-only')){const errors=[];await checkSpendingChart(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Purchase calendar browser checks passed.');return;}
@@ -4483,6 +4536,7 @@ async function main() {
     await checkLidlAccount(browser,url,errors);
     await checkDetectedPurchaseRecovery(browser,url,errors);
     await checkLazySections(browser,url,errors);
+    await checkCatalogSources(browser,url,errors);
     await checkReferenceFormats(browser,url,errors);
     await checkReceiptPackageFormats(browser,url,errors);
     await checkAttentionIndicators(browser,url,errors);

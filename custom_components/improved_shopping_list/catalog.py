@@ -6,6 +6,7 @@ from copy import deepcopy
 from datetime import UTC, datetime
 from decimal import Decimal, InvalidOperation
 import re
+import time
 from typing import Any
 from unicodedata import category as unicode_category, normalize
 from urllib.parse import urlsplit
@@ -364,6 +365,58 @@ class Catalog:
             product["updated_at"]=datetime.now(UTC).isoformat()
             await self._persist(products,self._categories)
         self._notify()
+
+    async def async_complete_store_option(self, store, code, link, data):
+        """Merge one verified EAN into current options without losing concurrent edits."""
+        key = gtin(code)
+        if not key or data.get("ean") and gtin(data["ean"]) != key:
+            raise CatalogError("El EAN de la ficha no coincide con el producto.")
+        from .store_links import normalize_link
+        from .price_sources import amount
+        link = normalize_link(store, link)
+        changed = 0
+        async with self._lock:
+            products = deepcopy(self._products)
+            for product in products.values():
+                refs = product.get("commercial_references", [])
+                target = next((ref for ref in refs if ref["store"] == store and gtin(ref.get("ean")) == key
+                               and ref.get("active",True) and ref.get("url") == link["url"]), None)
+                if not target:
+                    continue
+                before = deepcopy(refs)
+                siblings = [ref for ref in refs if gtin(ref.get("ean")) == key and ref.get("active",True)]
+                known_brand = next((ref["brand"] for ref in siblings if ref.get("brand")),data.get("brand"))
+                known_content = next((ref for ref in siblings if ref.get("content_quantity") and ref.get("content_confirmed")),
+                                     next((ref for ref in siblings if ref.get("content_quantity")),data))
+                known_nutrition = next((ref["nutriscore"] for ref in siblings if ref.get("nutriscore")),data.get("nutriscore"))
+                if data.get("name") and target.get("name") in ("", product["name"]):
+                    target["name"] = data["name"]
+                for ref in refs:
+                    if gtin(ref.get("ean")) != key or not ref.get("active",True):
+                        continue
+                    if not ref.get("brand") and known_brand:
+                        ref["brand"] = known_brand
+                    if ref.get("content_quantity") is None and known_content.get("content_quantity") and known_content.get("content_unit"):
+                        ref.update(content_quantity=known_content["content_quantity"], content_unit=known_content["content_unit"], content_confirmed=True)
+                    if not ref.get("nutriscore") and known_nutrition:
+                        grade = known_nutrition.get("grade") if isinstance(known_nutrition,dict) else known_nutrition
+                        if grade in tuple("abcde"):
+                            ref["nutriscore"] = {"grade":grade,"checked_at":int(time.time())}
+                if data.get("price") is not None and data.get("currency") == "EUR":
+                    target["last_price"] = {"price":float(amount(data["price"])),"currency":"EUR","checked_at":int(time.time())}
+                if not target.get("measure_price") and data.get("measure_price"):
+                    target["measure_price"] = data["measure_price"]
+                validated = normalized_references(refs)
+                if validated != before:
+                    product["commercial_references"] = validated
+                    product["revision"] += 1
+                    product["updated_at"] = datetime.now(UTC).isoformat()
+                    changed += 1
+            if changed:
+                await self._persist(products,self._categories)
+        if changed:
+            self._notify()
+        return changed
 
     async def async_save_product(self, data: dict[str, Any], *, from_suggestion: bool = False) -> dict[str, Any]:
         """Persist before publishing, preserving the previous state on write failure."""

@@ -1,6 +1,7 @@
 import "./shopping-places.js?v=0.52.1";
 import "./dia-prices-settings.js?v=0.52.1";
 import "./alcampo-settings.js?v=0.52.1";
+import "./catalog-sources.js?v=0.52.1";
 import "./carrefour-account.js?v=0.52.1";
 import "./lidl-account.js?v=0.52.1";
 import "./logs-panel.js?v=0.52.1";
@@ -30,7 +31,7 @@ class ImprovedShoppingSettings extends HTMLElement {
   set data(value) { this._data = value; if(this.isConnected&&!this._built)this._build(); this._render(); }
   set hass(value) {
     if(!this._data)return;
-    this._data={...this._data,hass:value};this._syncReaders();
+    this._data={...this._data,hass:value};this._syncReaders();this._syncCatalogSources();
     const places=this.shadowRoot.querySelector('isl-shopping-places');if(places)places.data=this._data;
     if(this._built){
       const settings=this._data.settings;
@@ -39,7 +40,9 @@ class ImprovedShoppingSettings extends HTMLElement {
     }
   }
 
-  set active(value) { this._active = Boolean(value); if(!this._active){this.shadowRoot.querySelector("#lidl-dialog")?.close();this.shadowRoot.querySelector("isl-lidl-account")?.deactivate();this.shadowRoot.querySelector('#carrefour-dialog')?.close();this.shadowRoot.querySelector('isl-carrefour-account')?.deactivate();this.shadowRoot.querySelector('#dia-dialog')?.close();this.shadowRoot.querySelector('isl-dia-prices-settings')?.deactivate();} this._syncLogs(); this._syncReaders(); }
+  set active(value) { this._active = Boolean(value); if(!this._active){this.shadowRoot.querySelector("#lidl-dialog")?.close();this.shadowRoot.querySelector("isl-lidl-account")?.deactivate();this.shadowRoot.querySelector('#carrefour-dialog')?.close();this.shadowRoot.querySelector('isl-carrefour-account')?.deactivate();this.shadowRoot.querySelector('#dia-dialog')?.close();this.shadowRoot.querySelector('isl-dia-prices-settings')?.deactivate();} this._syncLogs(); this._syncReaders(); this._syncCatalogSources(); }
+
+  _syncCatalogSources(){const source=this.shadowRoot.querySelector('isl-catalog-sources');if(source){source.data=this._data;source.active=this._active&&this._view==='stores';}}
 
   _syncReaders() {
     const readers=this.shadowRoot.querySelector('isl-readers');
@@ -258,6 +261,7 @@ class ImprovedShoppingSettings extends HTMLElement {
 
         </div>
         <div class="stores-footer">Última actualización: <time id="stores-last-updated" title="Última actualización correcta de precios">—</time></div>
+        <isl-catalog-sources></isl-catalog-sources>
       </section>
       <dialog id="prices-progress-dialog" aria-labelledby="prices-progress-title">
         <h2 id="prices-progress-title">Actualización de precios</h2>
@@ -412,6 +416,7 @@ class ImprovedShoppingSettings extends HTMLElement {
     this.shadowRoot.querySelector("isl-notification-settings").data = this._data;
     this._syncLogs();
     this._syncReaders();
+    this._syncCatalogSources();
 
     const { hass, settings } = this._data;
     const root = this.shadowRoot;

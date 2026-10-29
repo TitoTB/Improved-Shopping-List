@@ -65,6 +65,7 @@ async def test_alcampo_only_rows_resolve_locally_restore_and_preserve_user_choic
     catalog = Catalog(hass); await catalog.async_load()
     await catalog.async_save_product({'name':'Allioli', 'barcodes':[code]})
     manager = EANLinks(hass, catalog); await manager.async_load(); manager._active = True
+    manager.enabled_stores.add('alcampo')
     catalog.ean_links = manager
     aioclient_mock.get(URL, content=f'EAN,Carrefour,Alcampo\n{code},,{web}\n'.encode())
     try:
@@ -73,6 +74,7 @@ async def test_alcampo_only_rows_resolve_locally_restore_and_preserve_user_choic
         ref = catalog.products[0]['commercial_references'][0]
         assert ref['store'] == 'alcampo' and ref['ean'] == code and ref['url'] == web
         restored = EANLinks(hass, catalog); await restored.async_load()
+        restored.enabled_stores.add('alcampo')
         assert restored.resolved == manager.resolved
         product = catalog.products[0]
         product['commercial_references'][0]['url'] = ''

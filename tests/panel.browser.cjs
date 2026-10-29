@@ -2513,6 +2513,7 @@ async function main() {
     assert.ok(await listGroupsPage.locator('#add-form').evaluate(node=>node.scrollWidth<=node.clientWidth+1));
     await listGroupsPage.screenshot({path:'test-results/list-category-groups-mobile.png',fullPage:true});
     await listGroupsPage.getByRole('button',{name:'Stock',exact:true}).click();
+    await listGroupsPage.locator('#stock-items .summary').first().waitFor();
     assert.equal(await listGroupsPage.locator('#toggle-product-grouping').getAttribute('aria-pressed'),'false');
     assert.deepEqual(await listGroupsPage.locator('#stock-items .summary').allTextContents(),['Sin ficha','Cacao','Zanahoria','Arroz']);
     assert.equal(await listGroupsPage.locator('#toggle-product-grouping').isVisible(),false);

@@ -141,3 +141,4 @@ async def test_review_commits_web_link_without_replacing_ticket_ian_or_paid_pric
     assert len(stock.receipts["history"])==1 and stock.snapshot["items"]==[]
     assert catalog.products[0]["commercial_references"][0]["content_quantity"]==750
     assert manager.offers_for(catalog.products[0])[0]["price"]==1.89
+    assert catalog.products[0]["commercial_references"][0]["last_price"]["price"]==1.89

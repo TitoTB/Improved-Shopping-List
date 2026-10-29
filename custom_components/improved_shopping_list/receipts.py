@@ -354,6 +354,9 @@ class ReceiptManager:
             if not isinstance(selections,list) or len(selections)!=len(receipt["lines"]):
                 raise CatalogError("Revisa todos los contenidos del ticket.")
             seen=set();references=[]
+            prices_enabled=self.automation.settings.snapshot.get("price_updates_enabled",True)
+            date=dt_util.parse_datetime(receipt["purchased_at"])
+            price_at=dt_util.as_utc(date.replace(tzinfo=dt_util.DEFAULT_TIME_ZONE) if date.tzinfo is None else date).timestamp() if date else None
             for selection in selections:
                 if not isinstance(selection,dict) or set(selection)!={"id","pack_quantity","pack_unit"}:
                     raise CatalogError("Los datos del envase no son válidos.")
@@ -366,15 +369,20 @@ class ReceiptManager:
                 except ValueError as err:
                     raise CatalogError(str(err)) from err
                 product=next((product for product in self.stock.catalog.products if product["id"]==line.get("product_id")),None)
-                enriched=self._apply_lidl_metadata(draft,line,product)
+                self._apply_lidl_metadata(draft,line,product)
                 reference=matching_reference(product,receipt["store"],line) if product else None
                 if reference and reference.get("active") is False:
                     continue
-                if product and quantity is not None:
-                    line.update(pack_quantity=quantity,pack_unit=unit,format_confirmed=True)
-                    references.append((product["id"],receipt["store"],line,True))
-                elif product and enriched:
-                    references.append((product["id"],receipt["store"],line,False))
+                if product:
+                    if quantity is not None:
+                        line.update(pack_quantity=quantity,pack_unit=unit,format_confirmed=True)
+                    price=line.get("unit_price")
+                    save_price=prices_enabled and receipt.get("currency")=="EUR" and price_at and type(price) in (int,float) and math.isfinite(price) and 0<=price<=1000000
+                    reference_line=deepcopy(line)
+                    if save_price:
+                        line["price_saved"]=True
+                        reference_line["last_price"]={"price":price,"currency":"EUR","checked_at":price_at}
+                    references.append((product["id"],receipt["store"],reference_line,quantity is not None))
             await self.stock.catalog.async_bind_receipt_eans([],references=references)
             data["history"][receipt["id"]]=receipt
             await self.stock._persist(deepcopy(self.stock._items),receipts=data)

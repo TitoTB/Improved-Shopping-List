@@ -177,6 +177,10 @@ def merge_reference(references, store, line, *, confirmed=False):
         for key in ("last_price","nutriscore","measure_price"):
             if key in existing:
                 row[key]=deepcopy(existing[key])
+    # Explicitly committed receipt prices retain their purchase date and never replace newer observations.
+    price=line.get("last_price")
+    if price and price.get("checked_at",0)>=row.get("last_price",{}).get("checked_at",0):
+        row["last_price"]=deepcopy(price)
     if existing and not existing["store"] and store:
         if existing.get("content_confirmed") and not confirmed:
             row.update({key:existing[key] for key in ("content_quantity","content_unit","content_confirmed")})

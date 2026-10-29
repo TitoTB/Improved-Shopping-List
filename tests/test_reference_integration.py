@@ -81,3 +81,40 @@ async def test_receipt_contents_are_per_ean_including_multipacks_not_purchase_co
         assert offer['pack_quantity']==quantity and offer['price']==price
         assert product['commercial_references'][0]['content_quantity']==quantity
     assert [line['count'] for line in saved['lines']]==[2,3] and stock.snapshot['items']==[]
+
+
+async def test_reprocess_restores_ticket_price_without_web_or_package_and_preserves_newer_price(hass):
+    catalog=Catalog(hass);await catalog.async_load()
+    product=await catalog.async_save_product({'name':'Producto Lidl'})
+    stock=StockManager(hass,catalog);await stock.async_load()
+    settings=SimpleNamespace(snapshot={'primary_entity':'todo.main','price_updates_enabled':True})
+    automation=SimpleNamespace(_lock=asyncio.Lock(),async_check=AsyncMock(),_snapshots={},settings=settings)
+    manager=ReceiptManager(hass,stock,automation,SimpleNamespace(_notify=lambda:None))
+    receipt={'id':'reprocess-price','digest':'reprocess-price','store':'lidl','store_name':'Lidl','currency':'EUR','purchased_at':'2026-10-01T12:00:00+02:00',
+        'total':4,'subtotal':4,'discount':0,'article_count':2,'lines':[{'id':'0','description':'PRODUCTO','count':2,'unit_price':2,'amount':4,'ean':'','reference_id':'12345','pack_quantity':None,'pack_unit':''}]}
+    draft=await manager._prepare_preview(receipt,'owner')
+    saved=await manager.async_confirm(draft['token'],'owner',[{'id':'0','product_id':product['id'],'replenish':False,'quantity':None,'unit':'uds','purchase_id':'','save_price':False,'pack_quantity':None,'pack_unit':''}],True)
+    assert not saved['lines'][0]['price_saved'] and not manager.offers_for(catalog.products[0])
+    preview=await manager.async_review_saved(saved['id'],'owner')
+    result=await manager.async_reprocess(preview['token'],'owner',[{'id':'0','pack_quantity':None,'pack_unit':''}])
+    ref=catalog.products[0]['commercial_references'][0]
+    assert ref['reference_id']=='12345' and ref['last_price']['price']==2
+    assert ref['last_price']['checked_at']==dt_util.parse_datetime(receipt['purchased_at']).timestamp()
+    assert ref['content_quantity'] is None and not ref['url']
+    assert result['lines'][0]['price_saved'] and manager.offers_for(catalog.products[0])[0]['price']==2
+    assert stock.snapshot['items']==[] and len(stock.receipts['history'])==1
+    edited={key:value for key,value in catalog.products[0].items() if key in FIELDS}
+    edited['commercial_references'][0]['last_price']={'price':3,'currency':'EUR','checked_at':dt_util.parse_datetime('2026-10-02T12:00:00+02:00').timestamp()}
+    await catalog.async_save_product(edited)
+    preview=await manager.async_review_saved(saved['id'],'owner')
+    await manager.async_reprocess(preview['token'],'owner',[{'id':'0','pack_quantity':6,'pack_unit':'uds'}])
+    restored=Catalog(hass);await restored.async_load()
+    ref=restored.products[0]['commercial_references'][0]
+    assert ref['last_price']['price']==3 and ref['content_quantity']==6 and ref['content_confirmed']
+    settings.snapshot['price_updates_enabled']=False
+    edited={key:value for key,value in catalog.products[0].items() if key in FIELDS}
+    del edited['commercial_references'][0]['last_price']
+    await catalog.async_save_product(edited)
+    preview=await manager.async_review_saved(saved['id'],'owner')
+    await manager.async_reprocess(preview['token'],'owner',[{'id':'0','pack_quantity':6,'pack_unit':'uds'}])
+    assert 'last_price' not in catalog.products[0]['commercial_references'][0]

@@ -307,7 +307,7 @@ class ImprovedShoppingPurchases extends HTMLElement {
     ][step];
     if(step===2&&this._draft.receipt.document_type==='invoice'&&this._pricesEnabled)root.querySelector('#step-help').textContent+=' El precio sugerido es el PVP unitario antes de descuentos y no incluye el envío.';
     if(step===2)root.querySelector('#step-help').textContent+=' El contenido corresponde a un envase de ese EAN; si es un pack, indica el contenido total del pack.';
-    if(reprocess)root.querySelector('#step-help').textContent='Revisa el contenido de un envase de cada EAN. En los packs, indica su contenido total. Se actualizarán los datos de sus opciones en el catálogo.';
+    if(reprocess)root.querySelector('#step-help').textContent='Revisa el contenido de un envase de cada EAN. En los packs, indica su contenido total. Se guardarán sus alternativas en el catálogo y, si los precios están activados, el precio del ticket, conservando cualquier precio más reciente.';
     root.querySelector('#step-help').hidden=step===3;
     root.querySelector('#review-summary').hidden=step===3;
     root.querySelector('#previous-step').hidden=step===0||reprocess;root.querySelector('#links-only').hidden=step!==0||reprocess;

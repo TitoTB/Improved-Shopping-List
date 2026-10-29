@@ -3872,6 +3872,7 @@ async function main() {
     await seasonCatalog.getByRole('button',{name:'Cambiar criterio de agrupación',exact:true}).click();
     await seasonCatalog.locator('#catalog-grouping-dialog').getByRole('button',{name:'Sugerencias',exact:true}).click();
     assert.deepEqual(await seasonCatalog.locator('#catalog-grid .category-group-title').allTextContents(),['Productos de temporada']);
+    assert.equal(await seasonCatalog.locator('#catalog-grid .category-group[open]').count(),0);
     await seasonPage.reload();
     await seasonPage.getByRole('button',{name:'Catálogo',exact:true}).click();
     await seasonCatalog.locator('#catalog-grid .category-group').first().waitFor();
@@ -3936,6 +3937,9 @@ async function main() {
     await storeCatalog.getByRole('button',{name:'Cambiar criterio de agrupación',exact:true}).click();
     await storeCatalog.getByRole('dialog',{name:'Agrupar productos por',exact:true}).getByRole('button',{name:'Tienda',exact:true}).click();
     assert.deepEqual(await storeCatalog.locator('.category-group-title').allTextContents(),['Alcampo (1)','Carrefour (2)']);
+    assert.equal(await storeCatalog.locator('.category-group[open]').count(),0);
+    await storeCatalog.locator('.category-group[aria-label="Carrefour"] > summary').click();
+    assert.equal(await storeCatalog.locator('.category-group[aria-label="Carrefour"] .product').first().isVisible(),true);
     assert.equal(await storeCatalog.locator('#catalog-grid [data-product-id="rice"]').count(),2);
     assert.equal(await storeCatalog.locator('#catalog-grid [data-product-id="juice"],#catalog-grid [data-product-id="bread"]').count(),0);
     assert.deepEqual(await storeCatalog.locator('.category-group[aria-label="Carrefour"] .product .title').allTextContents(),['Arroz','Cacao']);
@@ -3965,6 +3969,7 @@ async function main() {
     await storeCatalog.locator('.category-group-title').filter({hasText:'Carrefour (3)'}).waitFor();
     assert.equal(await storeCatalog.locator('#catalog-grid [data-product-id="bread"]').count(),1);
     await storeGroupingPage.evaluate(()=>{window.catalogProducts.find(product=>product.id==='bread').barcode='1234567890128';window.emitCatalog();});
+    await storeCatalog.locator('.category-group[aria-label="Carrefour"] > summary').click();
     await storeCatalog.getByRole('button',{name:'Editar Pan',exact:true}).click();
     const storesProductForm=storeCatalog.locator('#product-form');
     await storesProductForm.getByRole('button',{name:'Tiendas',exact:true}).click();
@@ -4027,6 +4032,16 @@ async function main() {
     assert.deepEqual(await productNames(),['Agua','Arroz','Azúcar','Patatas','Zanahoria']);
     await groupedCatalog.getByRole('button',{name:'Agrupar por categorías',exact:true}).click();
     assert.deepEqual(await groupedCatalog.locator('.category-group-title').allTextContents(),['Despensa','Verduras','Sin categoría']);
+    assert.equal(await groupedCatalog.locator('.category-group[open]').count(),0);
+    const pantryGroup=groupedCatalog.locator('.category-group[aria-label="Despensa"]');
+    assert.equal(await pantryGroup.locator('.product').first().isVisible(),false);
+    await pantryGroup.locator('summary').click();
+    assert.equal(await pantryGroup.locator('.product').first().isVisible(),true);
+    await pantryGroup.locator('summary').click();
+    assert.equal(await pantryGroup.locator('.product').first().isVisible(),false);
+    await pantryGroup.locator('summary').focus();await groupingPage.keyboard.press('Enter');
+    await groupingPage.evaluate(()=>window.emitCatalog());
+    assert.equal(await pantryGroup.evaluate(group=>group.open),true);
     assert.deepEqual(await groupedCatalog.locator('.category-group-title ha-icon').evaluateAll(nodes=>nodes.map(node=>[node.getAttribute('icon'),getComputedStyle(node).color])),[['mdi:food','rgb(255, 255, 255)'],['mdi:carrot','rgb(255, 255, 255)'],['mdi:label-outline','rgb(255, 255, 255)']]);
     assert.deepEqual(await productNames(),['Arroz','Azúcar','Patatas','Zanahoria','Agua']);
     for (const group of await groupedCatalog.locator('.category-group').all()) {
@@ -4041,14 +4056,17 @@ async function main() {
     await groupedCatalog.getByLabel('Buscar productos',{exact:true}).fill('');
     await groupedCatalog.getByRole('button',{name:'Cambiar a vista de filas',exact:true}).click();
     assert.equal(await groupedCatalog.locator('.category-products.rows').count(),3);
+    await groupedCatalog.locator('.category-group[aria-label="Verduras"] > summary').click();
     assert.equal(await groupedCatalog.getByRole('button',{name:'Editar Patatas',exact:true}).isVisible(),true);
     await groupingPage.reload();
     await groupingPage.getByRole('button',{name:'Catálogo',exact:true}).click();
     await groupedCatalog.locator('.category-group').nth(2).waitFor();
+    assert.equal(await groupedCatalog.locator('.category-group[open]').count(),0);
     assert.equal(await groupedCatalog.locator('#toggle-catalog-order ha-icon').getAttribute('icon'),'mdi:sort-alphabetical-ascending');
     assert.equal(await groupedCatalog.locator('.category-products.rows').count(),3);
     await groupingPage.screenshot({path:'test-results/catalog-groups-desktop.png',fullPage:true});
     await groupedCatalog.getByRole('button',{name:'Cambiar a vista de cuadrícula',exact:true}).click();
+    await groupedCatalog.locator('.category-group').first().locator('summary').click();
     await groupingPage.setViewportSize({width:390,height:844});
     assert.ok(await groupedCatalog.locator('.product').first().evaluate(card=>Math.abs(card.getBoundingClientRect().width-card.getBoundingClientRect().height)<1));
     assert.ok(await groupedCatalog.evaluate(node=>node.scrollWidth<=node.clientWidth+1));

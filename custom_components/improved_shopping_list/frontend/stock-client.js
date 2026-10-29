@@ -1,4 +1,4 @@
-import { ListSettingsSession } from "./list-settings-client.js?v=0.50.4";
+import { ListSettingsSession } from "./list-settings-client.js?v=0.50.5";
 
 export class StockSession extends ListSettingsSession {
   constructor(getHass, onChange) {

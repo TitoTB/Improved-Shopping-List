@@ -1,5 +1,11 @@
 # Historial de cambios
 
+## 0.50.5 — 2026-10-29
+
+- Corregido «Unknown command» al guardar los datos de un ticket reprocesado: el comando se registra al iniciar Home Assistant. Verificado mediante una prueba del WebSocket real, conservando una sola compra y sin alterar el stock ni los precios guardados.
+- Los puntos rojos de Analítica y Compras solo consideran compras pendientes de revisión de los últimos 30 días. El historial anterior permanece disponible.
+- El índice del README incluye enlaces a los subapartados de Lista de la compra. Sin nuevas dependencias.
+
 ## 0.50.4 — 2026-10-29
 
 - Botón «Reprocesar datos» en el detalle de las compras revisadas para completar y corregir el contenido por envase de sus opciones. Reutiliza el ticket guardado y la consulta por EAN cuando falta información, conservando la compra, los precios y las reposiciones de stock originales.

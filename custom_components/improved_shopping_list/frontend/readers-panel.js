@@ -1,5 +1,5 @@
-import { installDialogCloseButtons } from "./dialog-controls.js?v=0.50.4";
-import { installToggleStyles } from "./toggle-styles.js?v=0.50.4";
+import { installDialogCloseButtons } from "./dialog-controls.js?v=0.50.5";
+import { installToggleStyles } from "./toggle-styles.js?v=0.50.5";
 
 class ImprovedShoppingReaders extends HTMLElement {
   constructor() { super(); this.attachShadow({mode:"open"}); this._toggling = new Map(); }

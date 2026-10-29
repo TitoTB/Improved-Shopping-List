@@ -171,7 +171,9 @@ class OptionLookup:
             session.detach()
 
     async def retrieve(self, value, store="", expected_ean=""):
-        if not store:
+        # A full official URL is authoritative, even if the option was filed
+        # under another store. normalize_link still validates the complete path.
+        if "://" in value or not store:
             host = urlsplit(value).hostname
             store = next((key for key, hosts in HOSTS.items() if host in hosts), "")
         link = normalize_link(store, value)

@@ -66,6 +66,24 @@ async def test_blocked_page_can_use_the_existing_official_endpoint(hass, aioclie
         lookup.close()
 
 
+async def test_official_url_corrects_the_store_and_keeps_ean_validation(hass, aioclient_mock, monkeypatch):
+    lookup = OptionLookup(hass)
+    monkeypatch.setattr(lookup,"_before_request",AsyncMock())
+    fetch = AsyncMock(side_effect=AssertionError("Complete page must not call a second source"))
+    monkeypatch.setattr(lookup.sources,"fetch",fetch)
+    url="https://www.compraonline.alcampo.es/products/delta-caf%C3%A9-220-g/540978"
+    aioclient_mock.get(url,text=html_product(url=url,gtin13="5601082041728"))
+    try:
+        result=await lookup.retrieve(url+"?srsltid=tracking","carrefour",expected_ean="5601082041728")
+        assert result["store"]=="alcampo" and result["reference_id"]=="540978" and result["url"]==url
+        assert aioclient_mock.call_count==1
+        with pytest.raises(PriceError,match="EAN"):
+            await lookup.retrieve(url,"carrefour",expected_ean=CODE)
+        assert aioclient_mock.call_count==1
+    finally:
+        lookup.close()
+
+
 async def test_unknown_hosts_and_external_redirects_are_never_requested(hass, aioclient_mock, monkeypatch):
     lookup = OptionLookup(hass)
     monkeypatch.setattr(lookup,"_before_request",AsyncMock())

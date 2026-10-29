@@ -1006,9 +1006,21 @@ async function checkReferenceFormats(browser,url,errors){
   assert.equal(await page.evaluate(()=>window.catalogProducts.find(p=>p.id==='eggs').commercial_references[0].last_price.price),2.5);
   await page.evaluate(()=>window.failOptionLookup=true);
   await first.getByRole('button',{name:'Recuperar datos',exact:true}).click();
-  await dialog.getByText('La web ha rechazado la consulta (HTTP 403).',{exact:true}).waitFor();
+  await first.locator('.option-lookup-feedback').getByText('La web ha rechazado la consulta (HTTP 403).',{exact:true}).waitFor();
   assert.equal(await first.getByLabel('Enlace o ID de Lidl',{exact:true}).inputValue(),'https://www.lidl.es/p/huevos/p100');
-  await dialog.getByRole('button',{name:'Cerrar ventana',exact:true}).click();await context.close();
+  const correctedUrl='https://www.compraonline.alcampo.es/products/huevos/540978';
+  await first.getByLabel('Enlace o ID de Lidl',{exact:true}).fill(correctedUrl+'?srsltid=tracking');
+  await page.evaluate(url=>{window.failOptionLookup=false;window.optionLookupFixture={store:'alcampo',reference_id:'540978',url,name:'Huevos frescos 12 uds',ean:'1234567890128',content_quantity:12,content_unit:'uds'};},correctedUrl);
+  await first.getByRole('button',{name:'Recuperar datos',exact:true}).click();
+  await dialog.getByText('Opción reclasificada en Alcampo. Datos recuperados. Guarda el producto para conservarlos.',{exact:true}).waitFor();
+  const corrected=dialog.locator('.product-option[data-store="alcampo"]');
+  await corrected.getByLabel('Enlace o ID de Alcampo',{exact:true}).waitFor();
+  assert.equal(await corrected.getByLabel('Enlace o ID de Alcampo',{exact:true}).inputValue(),correctedUrl);
+  assert.equal(await corrected.getByText(/Último precio:/).count(),0);
+  await dialog.getByRole('button',{name:'Guardar producto',exact:true}).click();await dialog.waitFor({state:'hidden'});
+  const moved=await page.evaluate(()=>{const p=window.catalogProducts.find(p=>p.id==='eggs');return {ref:p.commercial_references.find(r=>r.store==='alcampo'),links:p.store_links,lidl:p.commercial_references.filter(r=>r.store==='lidl').length};});
+  assert.equal(moved.ref.reference_id,'540978');assert.equal(moved.ref.last_price,undefined);assert.equal(moved.links.lidl,undefined);assert.equal(moved.links.alcampo,correctedUrl);assert.equal(moved.lidl,1);
+  await context.close();
 }
 
 async function checkLazySections(browser,url,errors){

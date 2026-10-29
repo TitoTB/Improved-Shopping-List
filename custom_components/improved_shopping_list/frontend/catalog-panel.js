@@ -1542,8 +1542,9 @@ class ImprovedShoppingCatalog extends HTMLElement {
       const input=element('input');input.value=ref.url||ref.reference_id;input.maxLength=2048;input.setAttribute('aria-label',`Enlace o ID de ${STORE_NAMES[ref.store]??'la opción'}`);
       input.placeholder='URL del producto';
       input.addEventListener('input',()=>{const previous=ref.url||ref.reference_id,value=input.value.trim(),primary=this._storeLinks[ref.store],primaryValue=typeof primary==='string'?primary:primary?.url||primary?.id;if(primaryValue===previous)this._storeLinks[ref.store]=value;ref.url=value.startsWith('https://')?value:'';ref.reference_id=ref.url?'':value;onChange();});
-      const retrieve=element('button','retrieve-option','Recuperar datos');retrieve.type='button';retrieve.dataset.retrieveOption='true';retrieve.disabled=Boolean(this._retrievingOption)||this._hass?.user?.is_admin!==true;retrieve.addEventListener('click',()=>void this._retrieveOption(ref,input.value.trim()));row.append(input,retrieve);card.append(row);
-      input.addEventListener('keydown',event=>{if(event.key==='Enter'&&!event.isComposing){event.preventDefault();void this._retrieveOption(ref,input.value.trim());}});
+      const feedback=element('p','helper option-lookup-feedback');feedback.setAttribute('role','status');feedback.setAttribute('aria-live','polite');feedback.hidden=true;
+      const retrieve=element('button','retrieve-option','Recuperar datos');retrieve.type='button';retrieve.dataset.retrieveOption='true';retrieve.disabled=Boolean(this._retrievingOption)||this._hass?.user?.is_admin!==true;retrieve.addEventListener('click',()=>void this._retrieveOption(ref,input.value.trim(),feedback));row.append(input,retrieve);card.append(row,feedback);
+      input.addEventListener('keydown',event=>{if(event.key==='Enter'&&!event.isComposing){event.preventDefault();void this._retrieveOption(ref,input.value.trim(),feedback);}});
     }
     card.append(element('p','helper',[ref.ean?'EAN: '+ref.ean:'',ref.reference_id?'ID: '+ref.reference_id:''].filter(Boolean).join(' · ')));
     if(ref.url){const link=element('a','helper','Ver ficha de la tienda');link.href=storeProductLink(ref.store,ref.url);link.target='_blank';link.rel='noopener noreferrer';if(link.href!==ref.url){link.rel+=' sponsored';link.title='Enlace de afiliado de Carrefour';}card.append(link);}
@@ -1556,17 +1557,25 @@ class ImprovedShoppingCatalog extends HTMLElement {
     return card;
   }
 
-  async _retrieveOption(ref,value) {
+  async _retrieveOption(ref,value,feedback=null) {
     if(this._retrievingOption||this._hass?.user?.is_admin!==true)return;
     const root=this.shadowRoot,status=root.querySelector('#option-lookup-status'),generation=this._optionGeneration;
     if(!value){status.textContent='Indica la URL del producto para recuperar sus datos.';return;}
     this._retrievingOption=true;status.textContent='Recuperando datos…';
+    if(feedback){feedback.hidden=false;feedback.textContent='Recuperando datos…';}
     root.querySelector('#save-product').disabled=true;
     root.querySelectorAll('.retrieve-option').forEach(button=>{button.disabled=true;});
     try{
       const data=await this._hass.callWS({type:'improved_shopping_list/catalog/retrieve_option',url:value,store:ref.store||'',ean:ref.ean||''});
       if(generation!==this._optionGeneration||!root.querySelector('dialog').open||!this.isConnected)return;
       if((ref.url||ref.reference_id)!==value){status.textContent='El enlace ha cambiado. Pulsa Recuperar datos de nuevo.';return;}
+      const previousStore=ref.store,changedStore=previousStore!==data.store;
+      if(changedStore){
+        const primary=this._storeLinks[previousStore],primaryValue=typeof primary==='string'?primary:primary?.url||primary?.id;
+        if(primaryValue&&(primaryValue===value||primaryValue===ref.url||primaryValue===ref.reference_id||primary?.id===ref.reference_id))delete this._storeLinks[previousStore];
+        // IDs and last prices are store-specific; keep historical observations intact.
+        delete ref.id;delete ref.last_price;
+      }
       const existing=this._commercialReferences.find(item=>item!==ref&&item.active!==false&&item.store===data.store&&(item.reference_id===data.reference_id||item.url===data.url));
       if(existing){this._commercialReferences=this._commercialReferences.filter(item=>item!==ref);ref=existing;}
       Object.assign(ref,{store:data.store,reference_id:data.reference_id,url:data.url,active:true});
@@ -1583,8 +1592,8 @@ class ImprovedShoppingCatalog extends HTMLElement {
       if(!image.value&&data.image_url){image.value=data.image_url;root.querySelector('isl-icon-picker').value=data.image_url;}
       this._expandedOptions.add(ref.id||`${ref.store}:${ref.reference_id||ref.url||ref.ean}`);
       this._renderStoreLinks();this._renderProductCodes();
-      status.textContent='Datos recuperados. Guarda el producto para conservarlos.';
-    }catch(error){if(generation===this._optionGeneration&&root.querySelector('dialog').open)status.textContent=error.message||'No se han podido recuperar los datos. Puedes conservar el enlace y completar la opción manualmente.';}
+      status.textContent=changedStore?`Opción reclasificada en ${STORE_NAMES[data.store]??data.store}. Datos recuperados. Guarda el producto para conservarlos.`:'Datos recuperados. Guarda el producto para conservarlos.';
+    }catch(error){if(generation===this._optionGeneration&&root.querySelector('dialog').open){status.textContent=error.message||'No se han podido recuperar los datos. Puedes conservar el enlace y completar la opción manualmente.';if(feedback){feedback.hidden=false;feedback.textContent=status.textContent;}}}
     finally{
       if(generation===this._optionGeneration){this._retrievingOption=false;root.querySelector('#save-product').disabled=Boolean(this._saving);root.querySelectorAll('.retrieve-option').forEach(button=>{button.disabled=this._hass?.user?.is_admin!==true;});}
     }

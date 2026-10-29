@@ -107,6 +107,7 @@ const hass={
     return ()=>listeners.delete(listener);
   }},
   callWS:async(msg)=>{
+    (window.wsRequests??=[]).push(msg.type);
     if(msg.type==='improved_shopping_list/settings/name_mode'){
       (window.listSettings.description_as_name??={})[msg.entity_id]=msg.enabled;
       window.emitSettings();return settingsSnapshot();
@@ -931,6 +932,44 @@ async function checkDetectedPurchaseRecovery(browser,url,errors){
   await context.close();
 }
 
+async function checkLazySections(browser,url,errors){
+  const context=await browser.newContext({viewport:{width:1280,height:960}}),page=await context.newPage();
+  const requests=[];page.on('request',request=>requests.push(new URL(request.url()).pathname));page.on('pageerror',error=>errors.push(error.message));
+  await page.goto(url);await page.locator('#pending').getByText('Cacao',{exact:true}).waitFor();
+  const heavy=['/stock-panel.js','/catalog-panel.js','/settings-panel.js','/analytics-panel.js','/purchases-panel.js','/vendor/leaflet/leaflet.js'];
+  assert.deepEqual(requests.filter(path=>heavy.includes(path)),[]);
+  assert.equal(await page.evaluate(()=>window.wsRequests.some(type=>/\/(stock|readers|receipts)\//.test(type))),false);
+  assert.equal(await page.evaluate(()=>document.querySelector('improved-shopping-list-panel').shadowRoot.querySelector('isl-catalog').shadowRoot),null);
+  await page.getByRole('button',{name:'Catálogo',exact:true}).click();await page.locator('isl-catalog #catalog-grid').waitFor({state:'attached'});
+  assert.ok(requests.includes('/catalog-panel.js'));assert.ok(!requests.includes('/settings-panel.js'));assert.ok(!requests.includes('/vendor/leaflet/leaflet.js'));
+  assert.equal(await page.evaluate(()=>document.querySelector('improved-shopping-list-panel')._catalog===document.querySelector('improved-shopping-list-panel').shadowRoot.querySelector('isl-catalog')._catalog),true);
+  const catalogGets=await page.evaluate(()=>window.wsRequests.filter(type=>type==='improved_shopping_list/catalog/get').length);
+  await page.getByRole('button',{name:'Lista',exact:true}).click();await page.locator('#pending').getByText('Cacao',{exact:true}).waitFor();
+  await page.getByRole('button',{name:'Catálogo',exact:true}).click();await page.locator('isl-catalog #catalog-grid').waitFor({state:'attached'});
+  assert.equal(await page.evaluate(()=>window.wsRequests.filter(type=>type==='improved_shopping_list/catalog/get').length),catalogGets);
+  await page.getByRole('button',{name:'Analítica',exact:true}).click();await page.locator('isl-purchases #history').waitFor({state:'attached'});
+  assert.ok(requests.includes('/purchases-panel.js'));assert.ok(!requests.includes('/analytics-panel.js'));
+  await page.getByRole('tab',{name:'Comparativa',exact:true}).click();await page.locator('isl-analytics #comparison').waitFor({state:'attached'});
+  assert.ok(requests.includes('/analytics-panel.js'));
+  await page.getByRole('button',{name:'Ajustes',exact:true}).click();await page.locator('isl-settings #settings-view-lists').waitFor();assert.ok(requests.includes('/settings-panel.js'));
+  await page.getByRole('button',{name:'Lista',exact:true}).click();await page.locator('#pending').getByText('Cacao',{exact:true}).waitFor();
+  assert.equal(await page.evaluate(()=>window.listenerCount()),4);
+  await page.evaluate(()=>{
+    const old=window.testPanel,fresh=document.createElement('improved-shopping-list-panel');
+    fresh.hass=old._hass;fresh.panel=old._panel;old.replaceWith(fresh);window.testPanel=fresh;
+  });
+  await page.locator('#pending').getByText('Cacao',{exact:true}).waitFor();
+  assert.equal(await page.locator('isl-catalog dialog').count(),0);
+  assert.equal(await page.locator('isl-settings dialog').count(),0);
+  assert.equal(await page.locator('#stock-editor-dialog').count(),0);
+  assert.equal(await page.evaluate(()=>window.listenerCount()),4);
+  await page.getByRole('button',{name:'Stock',exact:true}).click();await page.locator('#stock-editor-dialog').waitFor({state:'attached'});
+  await page.getByRole('button',{name:'Catálogo',exact:true}).click();await page.locator('isl-catalog #catalog-grid').waitFor({state:'attached'});
+  await page.evaluate(()=>window.testPanel.remove());assert.equal(await page.evaluate(()=>window.listenerCount()),0);
+  console.log('Lazy sections: no hidden views, stock/readers/history requests or map at startup; shared catalog and navigation verified.');
+  await context.close();
+}
+
 async function main() {
   await fs.mkdir("test-results", { recursive: true });
   const server = http.createServer(async (req, res) => {
@@ -946,7 +985,7 @@ async function main() {
       return;
     }
     if (pathname === "/") { res.setHeader("content-type", "text/html; charset=utf-8"); res.end(html); return; }
-    if (!["/zone-map.js", "/vendor/leaflet/leaflet.js", "/vendor/leaflet/leaflet.css", "/vendor/leaflet/images/layers.png", "/vendor/leaflet/images/layers-2x.png", "/lidl-account.js", "/toggle-styles.js", "/shopping-places.js", "/dia-prices-settings.js", "/dia-account.js", "/analytics-panel.js", "/alcampo-settings.js", "/carrefour-account.js", "/notification-settings.js", "/recipe-editor.js", "/quantity-client.js", "/panel.js", "/purchases-panel.js", "/stock-client.js", "/dialog-controls.js", "/todo-client.js", "/catalog-panel.js", "/catalog-client.js", "/category-panel.js", "/icon-picker.js", "/list-settings-client.js", "/settings-panel.js", "/readers-client.js", "/readers-panel.js", "/product-matching.js", "/product-names.js", "/logs-panel.js", "/logo.png", "/mercadona.png", "/consum.jpg", "/lasirena.jpg", "/eroski.svg", "/dia.png"].includes(pathname)) { res.writeHead(404).end(); return; }
+    if (!["/stock-panel.js", "/product-display.js", "/zone-map.js", "/vendor/leaflet/leaflet.js", "/vendor/leaflet/leaflet.css", "/vendor/leaflet/images/layers.png", "/vendor/leaflet/images/layers-2x.png", "/lidl-account.js", "/toggle-styles.js", "/shopping-places.js", "/dia-prices-settings.js", "/dia-account.js", "/analytics-panel.js", "/alcampo-settings.js", "/carrefour-account.js", "/notification-settings.js", "/recipe-editor.js", "/quantity-client.js", "/panel.js", "/purchases-panel.js", "/stock-client.js", "/dialog-controls.js", "/todo-client.js", "/catalog-panel.js", "/catalog-client.js", "/category-panel.js", "/icon-picker.js", "/list-settings-client.js", "/settings-panel.js", "/readers-client.js", "/readers-panel.js", "/product-matching.js", "/product-names.js", "/logs-panel.js", "/logo.png", "/mercadona.png", "/consum.jpg", "/lasirena.jpg", "/eroski.svg", "/dia.png"].includes(pathname)) { res.writeHead(404).end(); return; }
     res.setHeader("content-type", pathname.endsWith(".css") ? "text/css; charset=utf-8" : pathname.endsWith(".svg") ? "image/svg+xml" : pathname.endsWith(".png") ? "image/png" : pathname.endsWith(".jpg") ? "image/jpeg" : "text/javascript; charset=utf-8");
     res.end(await fs.readFile(path.join(root, pathname.slice(1))));
   });
@@ -954,6 +993,7 @@ async function main() {
   let browser;
   try {
     browser = await chromium.launch({ headless: true, channel: process.env.PLAYWRIGHT_CHANNEL || undefined });
+    if(process.argv.includes('--lazy-only')){const errors=[];await checkLazySections(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);return;}
     if(process.argv.includes('--recovery-only')){const errors=[];await checkDetectedPurchaseRecovery(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Manual purchase recovery browser checks passed.');return;}
     if(process.argv.includes('--purchases-only')){const errors=[];await checkSpendingChart(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Purchase calendar browser checks passed.');return;}
     if(process.argv.includes('--lidl-only')){const errors=[];await checkLidlAccount(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Lidl account browser checks passed.');return;}
@@ -1010,7 +1050,7 @@ async function main() {
       };
       visit(document);
       return dialogs.filter(dialog => dialog.querySelectorAll(".isl-dialog-close[aria-label='Cerrar ventana']").length === 1).length;
-    }), 37);
+    }), 1);
     await page.getByRole("button", { name: "Seleccionar lista", exact: true }).click();
     const listDialog = page.getByRole("dialog", { name: "Seleccionar lista", exact: true });
     assert.equal(await listDialog.getByRole("button", { name: "Compra · Bring!", exact: true }).getAttribute("aria-pressed"), "true");
@@ -1066,7 +1106,7 @@ async function main() {
     await selectList(page, "todo.local");
     await page.locator("#pending").getByText("Detergente", { exact: true }).waitFor();
     assert.equal(await page.locator("#pending").getByText("Cacao puro", { exact: true }).count(), 0);
-    assert.equal(await page.evaluate(() => window.listenerCount()), 6);
+    assert.equal(await page.evaluate(() => window.listenerCount()), 4);
 
     await selectList(page, "todo.readonly");
     await page.locator("#pending").getByText("Lista compartida", { exact: true }).waitFor();
@@ -2347,7 +2387,8 @@ async function main() {
     assert.equal(await quantityCatalog.locator('.add-product button').count(),0);
     assert.equal(await quantityPage.evaluate(()=>window.listData['todo.bring'].filter(item=>item.summary==='Pavo').length),1);
     assert.equal(await quantityPage.evaluate(()=>window.listData['todo.bring'].find(item=>item.uid==='pavo-entry').status),'needs_action');
-    assert.match(await quantityPage.locator('#pending-total').textContent(),/3,00/);
+    await quantityPage.getByRole('button',{name:'Lista',exact:true}).click();
+    await quantityPage.locator('#pending-total').filter({hasText:'3,00'}).waitFor();
     await quantityPage.reload();
     // The simulated native provider lives in page memory; restore its unchanged entries.
     await quantityPage.evaluate(async()=>{
@@ -3327,7 +3368,9 @@ async function main() {
     await priceScheduleDialog.getByRole('button',{name:'Guardar',exact:true}).click();
     await priceScheduleDialog.waitFor({state:'hidden'});
     assert.equal(await linkedSettings.getByRole('button',{name:'Actualizar ahora',exact:true}).isDisabled(),true);
-    assert.equal(await linksPage.locator('#pending-total').evaluate(node=>node.hidden),true);
+    await linksPage.getByRole('button',{name:'Lista',exact:true}).click();
+    await linksPage.locator('#pending-total').waitFor({state:'hidden'});
+    await linksPage.getByRole('button',{name:'Ajustes',exact:true}).click();
     await linkedSettings.getByRole('button',{name:'Actualización de precios',exact:true}).click();
     await priceScheduleDialog.getByRole('switch',{name:'Actualización automática de precios',exact:true}).check();
     await priceScheduleDialog.getByRole('button',{name:'Guardar',exact:true}).click();
@@ -4204,6 +4247,7 @@ async function main() {
     await checkTwoLineNames(browser,url,errors);
     await checkLidlAccount(browser,url,errors);
     await checkDetectedPurchaseRecovery(browser,url,errors);
+    await checkLazySections(browser,url,errors);
 
     // Shipping policy: Alcampo and DIA are archived; the other stores remain available.
     const archivedContext=await browser.newContext({viewport:{width:390,height:844}});

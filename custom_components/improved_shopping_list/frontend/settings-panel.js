@@ -27,7 +27,7 @@ class ImprovedShoppingSettings extends HTMLElement {
     this._view = "lists";
   }
 
-  set data(value) { this._data = value; this._render(); }
+  set data(value) { this._data = value; if(this.isConnected&&!this._built)this._build(); this._render(); }
   set hass(value) {
     if(!this._data)return;
     this._data={...this._data,hass:value};this._syncReaders();
@@ -58,7 +58,7 @@ class ImprovedShoppingSettings extends HTMLElement {
 
 
   connectedCallback() {
-    if (!this._built) this._build();
+    if (this._data&&!this._built) this._build();
     this._render();
   }
 

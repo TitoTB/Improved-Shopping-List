@@ -475,3 +475,10 @@ El mapa utiliza **Leaflet 1.9.4**, incluido localmente en la integración con su
 En Analítica → Compras, abre la edición de una compra detectada, selecciona la tienda y pulsa **Recuperar compra**. La tienda debe tener una cuenta conectada (Carrefour o Lidl, o una tienda física vinculada a esas cuentas). Esta búsqueda es explícita: no depende del horario, de la descarga automática ni de que ya se haya realizado un intento ese día. Incorpora los resúmenes que falten y busca los tickets pendientes del mismo día. Si hay varios, permite elegir uno; si solo hay uno, lo recupera directamente.
 
 En cuanto se recupera y guarda el ticket, se cierra el popup y la compra detectada se sustituye por el ticket pendiente de revisión, conservando la tienda física y los compradores. Puedes revisarlo después con el asistente habitual de productos, stock y precios, pulsando el icono del ticket. Si no hay resultados o falla el acceso, la compra se mantiene para completarla manualmente o subir un documento. No se aplican cambios de stock o precios por el hecho de buscar o abrir el ticket.
+
+
+### Carga de los apartados de la interfaz
+
+Lista inicia los datos compartidos que necesita para los productos, categorías, cantidades y precios guardados. Las interfaces de Catálogo, Stock, Ajustes y Analítica se descargan al abrirlas por primera vez; el mapa de zonas no forma parte de la carga inicial de Lista. Los formularios de Stock tampoco se construyen hasta entrar en ese apartado.
+
+El catálogo de datos usa una sola sesión compartida, también al crear productos desde un ticket. Los apartados ocultos no reconstruyen sus listados y las conexiones de stock y lectores se detienen cuando dejan de ser necesarias en la interfaz. Las automatizaciones siguen funcionando en Home Assistant con la interfaz cerrada. Cambiar de apartado conserva la sesión y las preferencias, sin recargar Home Assistant ni necesitar otras tarjetas de HACS.

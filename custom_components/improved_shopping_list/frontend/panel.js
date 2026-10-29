@@ -2,12 +2,10 @@ import { StockSession } from "./stock-client.js?v=0.48.1";
 import { QuantitySession, purchaseQuantity, quantityLabel } from "./quantity-client.js?v=0.48.1";
 import { installDialogCloseButtons } from "./dialog-controls.js?v=0.48.1";
 import { FEATURES, TodoSession, errorMessage, isAvailable, supports } from "./todo-client.js?v=0.48.1";
-import { imageSource, normalizedName, productNameKey, cachedProductPrice } from "./catalog-panel.js?v=0.48.1";
+import { imageSource, normalizedName, productNameKey, cachedProductPrice } from "./product-display.js?v=0.48.1";
 import { ListSettingsSession, gradientTextColor } from "./list-settings-client.js?v=0.48.1";
-import "./settings-panel.js?v=0.48.1";
+import { CatalogSession } from "./catalog-client.js?v=0.48.1";
 import { ReadersSession } from "./readers-client.js?v=0.48.1";
-import "./purchases-panel.js?v=0.48.1";
-import "./analytics-panel.js?v=0.48.1";
 
 const LOGO_URL = new URL("logo.png", import.meta.url).href;
 const STORE_LOGOS = {
@@ -21,17 +19,6 @@ const STORE_LOGOS = {
 };
 const STORE_NAMES = {mercadona:"Mercadona",carrefour:"Carrefour",alcampo:"Alcampo",consum:"Consum",lasirena:"La Sirena",eroski:"Eroski",dia:"DIA",lidl:"Lidl"};
 const searchText = value => normalizedName(value).normalize("NFD").replace(/\p{M}/gu, "");
-const stockQuantity = (item, now=Date.now()/1000) => {
-  if(item.mode!=='perishable')return item.quantity;
-  if(item.quantity<=0||item.expired)return 0;
-  if(!item.expires_at)return item.quantity;
-  const start=item.quantity_at||item.expires_at-(item.days??7)*86400;
-  if(item.expires_at<=now||item.expires_at<=start)return 0;
-  return Math.round(item.quantity*Math.max(0,Math.min(1,(item.expires_at-now)/(item.expires_at-start)))*1000)/1000;
-};
-const stockRemaining = (item, now=Date.now()/1000) => Math.max(0,Math.min(100,stockQuantity(item,now)/(item.refill_quantity??1)*100));
-
-
 class ImprovedShoppingListPanel extends HTMLElement {
   constructor() {
     super();
@@ -58,6 +45,9 @@ class ImprovedShoppingListPanel extends HTMLElement {
     this._catalogProducts = new Map();
     this._catalogCategories = new Map();
     this._view = "shopping";
+    this._modules = new Map();
+    this._sectionsReady = new Set();
+    this._catalog = new CatalogSession(() => this._hass, () => this._catalogChanged());
     this._listLayout = "grid";
     this._ticket = false;
     this._ticketStore = "";
@@ -68,8 +58,9 @@ class ImprovedShoppingListPanel extends HTMLElement {
       if (document.visibilityState === "visible") {
         void this._session.refresh();
         void this._settings.refresh();
-        void this._readers.refresh();
-        void this._stock.refresh();
+        if(this._readersRunning)void this._readers.refresh();
+        if(this._stockRunning)void this._stock.refresh();
+        void this._catalog.refresh();
         void this._quantities.refresh();
         void this._refreshRowPrices();
       }
@@ -88,13 +79,13 @@ class ImprovedShoppingListPanel extends HTMLElement {
     this._hass = value;
     if (previousConnection !== value.connection) { this._stopRowPrices(); this._stopListNutrition(); }
     if (!this.isConnected) return;
-    if (this._built) this.shadowRoot.querySelector("isl-catalog").hass = value;
+    if (this._built && this._sectionsReady.has("catalog")) this.shadowRoot.querySelector("isl-catalog").hass = value;
     this._ensureStarted();
-    if (this._view === "settings") this.shadowRoot.querySelector("isl-settings").hass = value;
+    if (this._view === "settings" && this._sectionsReady.has("settings")) this.shadowRoot.querySelector("isl-settings").hass = value;
     if (previousConnection && previousConnection !== value.connection) {
       void this._settings.start();
-      void this._readers.start();
-      void this._stock.start();
+      void this._catalog.start();
+      this._syncOptionalSessions();
       void this._quantities.start();
       if (this._session.entityId) void this._session.select(this._session.entityId);
     }
@@ -124,8 +115,9 @@ class ImprovedShoppingListPanel extends HTMLElement {
     document.removeEventListener("visibilitychange", this._onVisibility);
     this._session.dispose();
     this._settings.stop();
-    this._readers.stop();
-    this._stock.stop();
+    this._readers.stop();this._readersRunning=false;
+    this._stock.stop();this._stockRunning=false;
+    this._catalog.stop();
     this._quantities.stop();
     this._stopRowPrices();
     this._stopListNutrition();
@@ -141,9 +133,76 @@ class ImprovedShoppingListPanel extends HTMLElement {
     if (!this.isConnected || !this._built || !this._hass || !this._panel || this._started) return;
     this._started = true;
     void this._settings.start();
-    void this._readers.start();
-    void this._stock.start();
+    void this._catalog.start();
+    this._syncOptionalSessions();
     void this._quantities.start();
+    void this._prepareView(this._view);
+  }
+
+  _catalogChanged(detail) {
+    const data=detail??this._catalog;
+    this._catalogProducts=new Map(data.products.map(product=>[productNameKey(product.name),product]));
+    this._catalogCategories=new Map(data.categories.map(category=>[normalizedName(category.name),category]));
+    this._renderData();
+    if(this._built)void this._refreshRowPrices();
+  }
+
+  _syncOptionalSessions() {
+    if(!this._started||!this._hass)return;
+    const connectionChanged=this._optionalConnection!==this._hass.connection;
+    this._optionalConnection=this._hass.connection;
+    for(const [name,wanted] of [['readers',(['catalog','settings'].includes(this._view)||this._receiptCatalogOpen)],['stock',['stock','catalog','settings'].includes(this._view)]]){
+      const session=this['_'+name],flag='_'+name+'Running';
+      if(this[flag]&&(!wanted||connectionChanged)){session.stop();this[flag]=false;}
+      if(wanted&&!this[flag]){this[flag]=true;void session.start();}
+    }
+  }
+
+  _loadSection(name) {
+    if(this._modules.has(name))return this._modules.get(name);
+    const load={
+      stock:()=>import('./stock-panel.js?v=0.48.1'),
+      catalog:()=>import('./catalog-panel.js?v=0.48.1'),
+      settings:()=>import('./settings-panel.js?v=0.48.1'),
+      purchases:()=>import('./purchases-panel.js?v=0.48.1'),
+      analytics:()=>import('./analytics-panel.js?v=0.48.1'),
+    }[name];
+    const pending=load().then(module=>{
+      if(name==='stock')module.installStockView(this);
+      if(name==='catalog')this.shadowRoot.querySelector('isl-catalog').session=this._catalog;
+      this._sectionsReady.add(name);
+    }).catch(error=>{this._modules.delete(name);throw error;});
+    this._modules.set(name,pending);return pending;
+  }
+
+  async _createReceiptProduct(name) {
+    await this._loadSection('catalog');
+    const catalog=this.shadowRoot.querySelector('isl-catalog');
+    catalog.hass=this._hass;catalog.readerData=this._readers;
+    this._receiptCatalogOpen=true;this._syncOptionalSessions();
+    try{return await catalog.createProduct(name);}
+    finally{this._receiptCatalogOpen=false;this._syncOptionalSessions();}
+  }
+
+  async _showTicketPreview(draft) {
+    this._analyticsView='purchases';this._switchView('analytics');
+    try{
+      await this._loadSection('purchases');
+      if(this.isConnected&&this._view==='analytics'){
+        this._renderNow();
+        if(this.shadowRoot.querySelector('isl-purchases').openPreview(draft))return;
+      }
+    }catch{
+      if(this.isConnected){this._actionError='No se ha podido abrir el ticket. Vuelve a intentarlo.';this._renderData();}
+    }
+    void this._hass.callWS({type:'improved_shopping_list/receipts/discard',token:draft.token}).catch(()=>{});
+  }
+
+  async _prepareView(view) {
+    const name=['stock','catalog','settings'].includes(view)?view:view==='analytics'?(this._analyticsView==='purchases'?'purchases':'analytics'):null;
+    if(!name)return;
+    try{await this._loadSection(name);if(this.isConnected)this._renderData();}
+    catch(error){if(this.isConnected&&this._view===view){this._actionError='No se ha podido cargar este apartado. Pulsa de nuevo para reintentar.';this._renderData();}}
   }
 
   _applySettings() {
@@ -408,33 +467,9 @@ class ImprovedShoppingListPanel extends HTMLElement {
         </section>
         <section id="stock-card" aria-label="Stock" hidden><ul id="stock-items" class="product-grid" aria-label="Productos en stock"></ul><p id="stock-empty" class="empty" hidden>Añade productos para empezar a controlar tu despensa.</p></section>
         <div id="analytics-heading" hidden><h2>Analítica</h2><nav class="stock-tabs" role="tablist" aria-label="Vistas de Analítica"><button id="purchases-tab" type="button" role="tab" aria-label="Compras" aria-selected="true"><ha-icon icon="mdi:receipt-text" aria-hidden="true"></ha-icon><span>Compras</span></button><button id="comparison-tab" type="button" role="tab" aria-label="Comparativa" aria-selected="false"><ha-icon icon="mdi:scale-balance" aria-hidden="true"></ha-icon><span>Comparativa</span></button><button id="nutrition-tab" type="button" role="tab" aria-label="Nutri-Score" aria-selected="false"><ha-icon icon="mdi:nutrition" aria-hidden="true"></ha-icon><span>Nutri-score</span></button></nav></div>
+        <p id="view-loading" class="helper" role="status" hidden>Cargando apartado…</p>
         <isl-analytics hidden></isl-analytics>
         <isl-purchases id="purchase-history" hidden></isl-purchases>
-        <dialog id="stock-add-dialog" aria-labelledby="stock-add-title"><form id="stock-add-form"><h2 id="stock-add-title">Añadir producto al stock</h2><label>Nombre del producto<input name="name" type="text" maxlength="255" list="stock-add-products" autocomplete="off" required></label><datalist id="stock-add-products"></datalist><p id="stock-add-error" class="notice error" role="alert" hidden></p><div class="dialog-actions"><button id="stock-add-submit" type="submit">Añadir</button></div></form></dialog>
-        <dialog id="stock-editor-dialog" aria-labelledby="stock-editor-title">
-          <form id="stock-editor-form"><h2 id="stock-editor-title">Configurar Stock</h2><p id="stock-editor-error" class="notice error" role="alert" hidden></p>
-          <div class="stock-form-fields">
-            <label>Stock actual<div class="stock-quantity-editor"><button id="stock-draft-minus" type="button" aria-label="Disminuir stock"><ha-icon icon="mdi:minus" aria-hidden="true"></ha-icon></button><input name="quantity" aria-label="Stock actual" type="number" min="0" max="1000000" step="0.001" required><button id="stock-draft-plus" type="button" aria-label="Incrementar stock"><ha-icon icon="mdi:plus" aria-hidden="true"></ha-icon></button></div></label>
-            <label>Unidades<select name="unit" aria-label="Unidades"><option value="uds">uds</option><option value="kg">kg</option><option value="g">g</option><option value="l">l</option><option value="ml">ml</option><option value="custom">Personalizadas</option></select></label>
-            <label class="wide" id="stock-custom-unit-label" hidden>Unidad personalizada<input name="custom_unit" maxlength="32" placeholder="Por ejemplo, Latas"></label>
-            <label class="wide">Control del stock<select name="mode" aria-label="Control del stock"><option value="manual">Manual / lectores</option><option value="perishable">Perecedero</option><option value="usage">Consumo registrado</option></select></label>
-            <div id="stock-usage-fields" class="wide" hidden><div class="stock-form-fields">
-              <label class="wide">Entidad de consumo<input name="usage_entity" list="stock-usage-entities" placeholder="Por ejemplo, binary_sensor.lavadora"></label><datalist id="stock-usage-entities"></datalist>
-              <label>Estado que representa un uso<input name="usage_state" maxlength="255" placeholder="Por ejemplo, on"></label>
-              <label>Cantidad consumida por uso<input name="usage_amount" type="number" min="0.001" max="1000000" step="0.001" required></label>
-            </div></div>
-            <div class="stock-expiry-refill wide">
-              <label id="stock-days-label" hidden>Caduca cada cuántos días desde la compra<input name="days" type="number" min="1" max="3650" step="1" required></label>
-              <label>Cantidad que se suma al marcarlo como comprado<input name="refill_quantity" type="number" min="0.001" max="1000000" step="0.001" required></label>
-            </div>
-            <div class="stock-reorder-row wide">
-              <label class="check"><input name="reorder_enabled" type="checkbox">Añadir a la lista cuando el stock llegue al mínimo</label>
-              <label id="stock-threshold-label" hidden><span id="stock-threshold-title">Stock mínimo</span><input name="reorder_at" type="number" min="0" max="1000000" step="0.001" required></label>
-            </div>
-            <label id="stock-target-label" class="wide">Lista para reponer<select name="list_entity" aria-label="Lista para reponer"></select></label>
-          </div><div class="dialog-actions"><button id="delete-stock-from-editor" type="button">Eliminar</button><button id="save-stock-config" type="submit">Guardar</button></div></form>
-        </dialog>
-        <dialog id="stock-remove-dialog" aria-labelledby="stock-remove-title"><h2 id="stock-remove-title">Eliminar de Stock</h2><p id="stock-remove-description"></p><p id="stock-remove-error" class="notice error" role="alert" hidden></p><div class="dialog-actions"><button id="cancel-stock-remove" type="button">Cancelar</button><button id="confirm-stock-remove" type="button">Eliminar producto</button></div></dialog>
         <isl-catalog hidden></isl-catalog>
         <isl-settings hidden></isl-settings>
         <div id="announcement" class="sr-only" role="status" aria-live="polite"></div>
@@ -442,14 +477,11 @@ class ImprovedShoppingListPanel extends HTMLElement {
     this._built = true;
     const root = this.shadowRoot;
     installDialogCloseButtons(root);
-    root.querySelector('#add-stock').addEventListener('click',()=>this._openStockAdd());
-    root.querySelector('#stock-add-form').addEventListener('submit',event=>{event.preventDefault();void this._addStockProduct();});
-    root.querySelector('#stock-add-dialog').addEventListener('cancel',event=>{if(this._busy)event.preventDefault();});
-    for(const [id,view] of [['comparison-tab','comparison'],['purchases-tab','purchases'],['nutrition-tab','nutrition']])root.querySelector('#'+id).addEventListener('click',()=>{this._analyticsView=view;this._renderData();});
+    for(const [id,view] of [['comparison-tab','comparison'],['purchases-tab','purchases'],['nutrition-tab','nutrition']])root.querySelector('#'+id).addEventListener('click',()=>{this._analyticsView=view;void this._prepareView('analytics');this._renderData();});
     root.querySelector('#nav-analytics').addEventListener('click',()=>this._switchView('analytics'));
     root.querySelector('isl-purchases').addEventListener('receipt-busy',event=>{this._receiptBusy=event.detail;this._renderData();});
     root.querySelector('isl-purchases').addEventListener('receipt-imported',()=>{this._analyticsView='purchases';void this._stock.refresh();void this._refreshRowPrices();this._renderData();});
-    root.querySelector('isl-purchases').createProduct=name=>root.querySelector('isl-catalog').createProduct(name);
+    root.querySelector('isl-purchases').createProduct=name=>this._createReceiptProduct(name);
     root.querySelector("#pending-total").addEventListener("click", () => {
       this._ticket = true;
       this._renderData();
@@ -464,11 +496,8 @@ class ImprovedShoppingListPanel extends HTMLElement {
       this._nutrition.set(code.padStart(14,"0"),{code,grade:nutriscore.grade});
       this._renderData();
     });
-    root.querySelector("isl-catalog").addEventListener("catalog-change", event => {
-      this._catalogProducts = new Map(event.detail.products.map(product => [productNameKey(product.name), product]));
-      this._catalogCategories = new Map(event.detail.categories.map(category => [normalizedName(category.name), category]));
-      this._renderData();
-      void this._refreshRowPrices();
+    root.querySelector("isl-catalog").addEventListener("catalog-change",event=>{
+      if(event.detail.products!==this._catalog.products||event.detail.categories!==this._catalog.categories)this._catalogChanged(event.detail);
     });
     root.querySelector("isl-catalog").addEventListener("catalog-layout-change", () => {
       this._renderData();
@@ -498,31 +527,6 @@ class ImprovedShoppingListPanel extends HTMLElement {
       try { localStorage.setItem("isl-stock-sort",this._stockSort);localStorage.setItem('isl-stock-grouped',String(this._stockGrouped)); } catch { /* Storage disabled. */ }
       this._renderData();
     });
-    root.querySelector("#stock-editor-form").addEventListener("submit",event=>{event.preventDefault();void this._saveStockConfig();});
-    root.querySelector("#stock-editor-form").addEventListener("change",event=>{
-      if(event.target.name === "mode") {
-        const form=event.currentTarget,perishable=form.elements.mode.value === "perishable";
-        if(this._stockDraftMode === "perishable")this._stockDraftPercent=Number(form.elements.reorder_at.value);
-        else this._stockDraftMinimum=Number(form.elements.reorder_at.value);
-        form.elements.reorder_at.value=perishable ? this._stockDraftPercent : this._stockDraftMinimum;
-        this._stockDraftMode=form.elements.mode.value;
-      }
-      this._updateStockForm();
-    });
-    root.querySelector("#stock-editor-dialog").addEventListener("cancel",event=>{if(this._busy)event.preventDefault();});
-    for(const [id,delta] of [["stock-draft-minus",-1],["stock-draft-plus",1]])root.querySelector('#'+id).addEventListener("click",()=>{
-      const input=root.querySelector('#stock-editor-form').elements.quantity;
-      input.value=String(Math.min(1000000,Math.max(0,Math.round((Number(input.value)+delta)*1000)/1000)));
-    });
-    root.querySelector('#delete-stock-from-editor').addEventListener('click',()=>{
-      if(!this._stockEditing||this._busy)return;
-      this._stockDeleteTarget=this._stock.items.find(item=>item.id===this._stockEditing.id)??this._stockEditing;
-      root.querySelector('#stock-remove-description').textContent='¿Eliminar «'+this._stockEditing.name+'» de Stock?';
-      root.querySelector('#stock-remove-error').hidden=true;root.querySelector('#stock-remove-dialog').showModal();
-    });
-    root.querySelector("#cancel-stock-remove").addEventListener("click",()=>root.querySelector("#stock-remove-dialog").close());
-    root.querySelector("#confirm-stock-remove").addEventListener("click",()=>void this._removeStockItem());
-    root.querySelector("#stock-remove-dialog").addEventListener("cancel",event=>{if(this._busy)event.preventDefault();});
     root.querySelector("#nav-shopping").addEventListener("click", () => this._switchView("shopping"));
     root.querySelector("#clear-completed").addEventListener("click", event => {
       event.preventDefault();
@@ -531,10 +535,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
     });
     root.querySelector("#nav-catalog").addEventListener("click", () => this._switchView("catalog"));
     root.querySelector("#nav-settings").addEventListener("click", () => this._switchView("settings"));
-    root.querySelector("isl-settings").addEventListener('carrefour-ticket-preview',event=>{
-      this._analyticsView='purchases';this._switchView('analytics');this._renderData();
-      if(!root.querySelector('isl-purchases').openPreview(event.detail))void this._hass.callWS({type:'improved_shopping_list/receipts/discard',token:event.detail.token}).catch(()=>{});
-    });
+    root.querySelector("isl-settings").addEventListener('carrefour-ticket-preview',event=>void this._showTicketPreview(event.detail));
     root.querySelector("isl-settings").onAction = (action, entity) => this._settings.update(action, entity);
     root.querySelector("isl-settings").onNotifications = config => this._settings.saveNotifications(config);
     root.querySelector("isl-settings").onAppearance = appearance => this._settings.saveAppearance(appearance);
@@ -584,6 +585,8 @@ class ImprovedShoppingListPanel extends HTMLElement {
     }
     this._view = view;
     this._actionError = "";
+    this._syncOptionalSessions();
+    void this._prepareView(view);
     const root = this.shadowRoot;
     root.querySelector("#list-controls").hidden = !["shopping","stock"].includes(view);
     root.querySelector("#items-card").hidden = view !== "shopping";
@@ -636,6 +639,12 @@ class ImprovedShoppingListPanel extends HTMLElement {
   }
 
   _renderData() {
+    if(!this._built||!this._hass||this._renderQueued)return;
+    this._renderQueued=true;
+    queueMicrotask(()=>{this._renderQueued=false;if(this.isConnected)this._renderNow();});
+  }
+
+  _renderNow() {
     if (!this._built || !this._hass) return;
     this._renderOptions();
     const root = this.shadowRoot;
@@ -646,7 +655,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
     root.querySelector('#analytics-heading').hidden=!analyticsView;
     const analytics=root.querySelector('isl-analytics');
     analytics.hidden=!analyticsView||this._analyticsView==='purchases';
-    analytics.data={stores:this._settings.stores,comparisonRevision:this._comparisonRevision,priceKey:JSON.stringify(this._rowPrices),logos:STORE_LOGOS,hass:this._hass,active:analyticsView,view:this._analyticsView,products:[...this._catalogProducts.values()],enabled:this._settings.priceUpdatesEnabled!==false};
+    if(this._sectionsReady.has('analytics') && (analyticsView&&this._analyticsView!=='purchases'||analytics._active))analytics.data={stores:this._settings.stores,comparisonRevision:this._comparisonRevision,priceKey:JSON.stringify(this._rowPrices),logos:STORE_LOGOS,hass:this._hass,active:analyticsView&&this._analyticsView!=='purchases',view:this._analyticsView,products:[...this._catalogProducts.values()],enabled:this._settings.priceUpdatesEnabled!==false};
     for(const view of ['comparison','purchases','nutrition'])root.querySelector('#'+view+'-tab').setAttribute('aria-selected',String(view===this._analyticsView));
     root.querySelector('#stock-heading').hidden=!stockView;
     root.querySelector('#stock-card').hidden=!stockItemsView;
@@ -666,7 +675,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
     groupingButton.querySelector('ha-icon').setAttribute('icon',grouped ? 'mdi:sort-alphabetical-ascending' : 'mdi:label');
     root.querySelector('#add-stock').hidden=!stockItemsView;
     root.querySelector('isl-purchases').hidden=!analyticsView||this._analyticsView!=='purchases';
-    root.querySelector('isl-purchases').data={hass:this._hass,active:analyticsView&&this._analyticsView==='purchases',history:true,pricesEnabled:this._settings.priceUpdatesEnabled!==false};
+    if(this._sectionsReady.has('purchases')&&(analyticsView&&this._analyticsView==='purchases'||root.querySelector('isl-purchases')._active))root.querySelector('isl-purchases').data={hass:this._hass,active:analyticsView&&this._analyticsView==='purchases',history:true,pricesEnabled:this._settings.priceUpdatesEnabled!==false};
     const sortButton=root.querySelector("#toggle-stock-sort");
     sortButton.hidden=!stockItemsView;
     const sortLabel=this._stockGrouped ? "Ordenar por menor stock" : this._stockSort === "lowest" ? "Ordenar alfabéticamente" : "Agrupar por categorías";
@@ -694,32 +703,37 @@ class ImprovedShoppingListPanel extends HTMLElement {
     this.style.setProperty("--isl-completed-gradient-text", gradientTextColor(appearance.completed_gradient_start, appearance.completed_gradient_end));
     this.style.setProperty("--isl-columns", appearance.columns);
     this.style.setProperty("--isl-mobile-columns", appearance.mobile_columns);
-    root.querySelector("isl-settings").data = { hass: this._hass, settings: this._settings, readers:this._readers, products:[...this._catalogProducts.values()], receiptStores:this._stock.receiptStores };
-    root.querySelector("isl-settings").active = this._view === "settings";
+    if(this._sectionsReady.has('settings')&&this._view==='settings')root.querySelector("isl-settings").data = { hass: this._hass, settings: this._settings, readers:this._readers, products:[...this._catalogProducts.values()], receiptStores:this._stock.receiptStores };
+    if(this._sectionsReady.has('settings'))root.querySelector("isl-settings").active = this._view === "settings";
+    const tag=this._view==='catalog'?'isl-catalog':this._view==='settings'?'isl-settings':analyticsView?(this._analyticsView==='purchases'?'isl-purchases':'isl-analytics'):null;
+    root.querySelector('#view-loading').hidden=Boolean(this._actionError)||(this._view==='stock'?this._stockViewReady:!tag||this._sectionsReady.has(tag.replace('isl-','')));
     const state = this._hass.states[session.entityId];
     const available = isAvailable(state);
     const canCreate = available && supports(state, FEATURES.CREATE);
     const canUpdate = available && supports(state, FEATURES.UPDATE);
     const catalog = root.querySelector("isl-catalog");
-    catalog.stores = this._settings.stores;
-    catalog.receiptStores = this._stock.receiptStores;
-    catalog.priceData = {offers:this._settings.priceUpdatesEnabled === false ? [] : this._rowPrices,favorite:this._settings.favoriteStore,enabled:this._settings.priceUpdatesEnabled !== false};
-    catalog.hass = this._hass;
-    catalog.readerData = this._readers;
-    catalog.canAdd = canCreate && !this._busy && !session.loading;
-    catalog.canComplete = canUpdate && !this._busy && !session.loading;
-    catalog.listName = state?.attributes.friendly_name ?? session.entityId;
-    catalog.listEntity = session.entityId;
-    catalog.active = this._view === "catalog";
-    catalog.listItems = available && !session.loading ? session.items : [];
-    catalog.pendingItems = available && !session.loading
-      ? session.items.filter(item => item.status !== "completed") : [];
-    catalog.quantityData = {entries:this._quantities.entries[session.entityId]??{},loaded:this._quantities.loaded,loading:this._quantities.loading,locked:this._busy||session.loading||!available};
+    if(this._sectionsReady.has('catalog')){
+      catalog.active = this._view === 'catalog';
+      if(this._view==='catalog'||catalog._receiptCreate){
+        catalog.stores = this._settings.stores;
+        catalog.receiptStores = this._stock.receiptStores;
+        catalog.priceData = {offers:this._settings.priceUpdatesEnabled === false ? [] : this._rowPrices,favorite:this._settings.favoriteStore,enabled:this._settings.priceUpdatesEnabled !== false};
+        catalog.hass = this._hass;
+        catalog.readerData = this._readers;
+        catalog.canAdd = canCreate && !this._busy && !session.loading;
+        catalog.canComplete = canUpdate && !this._busy && !session.loading;
+        catalog.listName = state?.attributes.friendly_name ?? session.entityId;
+        catalog.listEntity = session.entityId;
+        catalog.listItems = available && !session.loading ? session.items : [];
+        catalog.pendingItems = available && !session.loading
+          ? session.items.filter(item => item.status !== "completed") : [];
+        catalog.quantityData = {entries:this._quantities.entries[session.entityId]??{},loaded:this._quantities.loaded,loading:this._quantities.loading,locked:this._busy||session.loading||!available};
+      }
+    }
     const locked = this._busy || session.loading || !available;
-    const stockLocked=this._busy || !this._stock.loaded || this._stock.loading || this._hass.user?.is_admin !== true;
+    const stockLocked=!this._stockViewReady || this._busy || !this._stock.loaded || this._stock.loading || this._hass.user?.is_admin !== true;
     root.querySelector('#add-stock').disabled=stockLocked;
-    root.querySelector('#stock-add-submit').disabled=stockLocked;
-    root.querySelector('#stock-add-form').elements.name.disabled=stockLocked;
+    if(this._stockViewReady){root.querySelector('#stock-add-submit').disabled=stockLocked;root.querySelector('#stock-add-form').elements.name.disabled=stockLocked;}
     root.querySelector("#product-input").closest('.input-wrap').hidden = stockView;
     root.querySelector("#add-button").hidden = stockView;
     root.querySelector("#product-input").disabled = stockView || locked || !canCreate;
@@ -741,6 +755,8 @@ class ImprovedShoppingListPanel extends HTMLElement {
     const message = this._actionError || (stockView ? this._stock.error : this._view === "shopping" ? session.error || this._quantities.error || this._settings.error : "");
     error.hidden = !message;
     error.textContent = message;
+    if(stockView&&this._stockViewReady)this._renderStock(stockLocked);
+    if(this._view!=='shopping')return;
     const pending = session.items.filter((item) => item.status !== "completed");
     const completed = session.items.filter((item) => item.status === "completed");
     if (this._rowsEntity !== session.entityId) {
@@ -785,141 +801,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
       title.textContent = "Todo listo por aquí";
       empty.replaceChildren(title, document.createTextNode("Añade lo que necesites para tu próxima compra."));
     }
-    this._renderStock(stockLocked);
     this._renderPredictions();
-  }
-
-  _openStockAdd() {
-    if(this._busy||!this._stock.loaded||this._hass.user?.is_admin!==true)return;
-    const root=this.shadowRoot,form=root.querySelector('#stock-add-form');
-    form.reset();root.querySelector('#stock-add-error').hidden=true;
-    root.querySelector('#stock-add-products').replaceChildren(...[...this._catalogProducts.values()].map(product=>new Option(product.name,product.name)));
-    root.querySelector('#stock-add-dialog').showModal();form.elements.name.focus();
-  }
-
-  async _addStockProduct() {
-    const root=this.shadowRoot,form=root.querySelector('#stock-add-form'),name=form.elements.name.value.trim();
-    if(!name||this._busy||this._hass.user?.is_admin!==true)return;
-    const success=await this._runAction(()=>this._stock.add(name),'Una unidad añadida a Stock.');
-    if(success)root.querySelector('#stock-add-dialog').close();
-    else {const error=root.querySelector('#stock-add-error');error.textContent=this._actionError;error.hidden=false;}
-  }
-
-  _renderStock(locked) {
-    const root=this.shadowRoot, now=Date.now()/1000, items=[...this._stock.items], grid=root.querySelector("#stock-items");
-    const remaining=item=>stockRemaining(item,now);
-    items.sort((a,b)=>(this._stockSort === 'lowest' ? remaining(a)-remaining(b) : 0)||a.name.localeCompare(b.name,'es',{sensitivity:'base'}));
-    grid.classList.toggle("rows",this._stockLayout === "rows");
-    root.querySelector("#stock-empty").hidden=items.length>0||this._stock.loading||!this._stock.loaded||Boolean(this._stock.error);
-    root.querySelector("#stock-card").setAttribute("aria-busy",String(this._stock.loading||this._busy));
-    const focus=root.activeElement, focusedId=focus?.closest?.("[data-stock-id]")?.dataset.stockId, focusedAction=focus?.dataset.stockAction;
-    const products=new Map([...this._catalogProducts.values()].map(product=>[product.id,product]));
-    const node=(tag,className,text)=>{const element=document.createElement(tag);if(className)element.className=className;if(text!==undefined)element.textContent=text;return element;};
-    const nodes=items.map(item=>{
-      const product=products.get(item.catalog_product_id)??this._catalogProducts.get(productNameKey(item.name));
-      const category=this._catalogCategories.get(normalizedName(product?.category));
-      const li=node("li");li.dataset.stockId=item.id;
-      const card=node("div","item stock-item"), open=node("button","stock-open");
-      const percent=stockRemaining(item,now);
-      const progress=item.mode === 'perishable' || item.mode === 'usage';
-      if(progress) {
-        card.classList.add('stock-progress');
-        card.style.setProperty('--stock-remaining',percent+'%');
-      }
-      open.type="button";open.setAttribute("aria-label",`Configurar stock de ${item.name}`);open.addEventListener("click",()=>this._openStockEditor(item));
-      const media=node("span","product-media"), placeholder=node("span","image placeholder"), icon=node("ha-icon");
-      icon.setAttribute("icon",product?.icon||category?.icon||"mdi:package-variant");placeholder.append(icon);
-      const source=imageSource(product?.image_url);
-      if(source){const image=node("img","image");image.src=source;image.alt="";image.loading="lazy";image.referrerPolicy="no-referrer";image.addEventListener("error",()=>image.replaceWith(placeholder),{once:true});media.append(image);}else media.append(placeholder);
-      const text=node("span","item-text");text.append(node("span","summary",item.name));
-      const button=(action,mdi,label,disabled,callback)=>{
-        const result=node("button");result.type="button";result.dataset.stockAction=action;result.setAttribute("aria-label",label);result.title=label;result.disabled=disabled;
-        const glyph=node("ha-icon");glyph.setAttribute("icon",mdi);glyph.setAttribute("aria-hidden","true");result.append(glyph);result.addEventListener("click",callback);return result;
-      };
-      const quantity=node("span","stock-quantity");
-      quantity.append(node("strong","stock-amount",new Intl.NumberFormat('es-ES',{maximumFractionDigits:0}).format(stockQuantity(item,now))+' '+(item.unit??'uds')),document.createTextNode(' '));
-      quantity.setAttribute('aria-label',`Stock de ${item.name}: ${Math.round(stockQuantity(item,now))} ${item.unit??'uds'}`);
-      const life=node('span','stock-life',`(${Math.round(percent)}%)`);
-      if(progress){
-        life.setAttribute('role','progressbar');life.setAttribute('aria-label','Stock restante');
-        life.setAttribute('aria-valuemin','0');life.setAttribute('aria-valuemax','100');life.setAttribute('aria-valuenow',String(Math.round(percent)));
-      }
-      quantity.append(life);
-      open.append(media,text,quantity);card.append(open);
-      if(this._stockLayout==='rows'){
-        const controls=node('div','stock-controls');
-        controls.append(button('decrease','mdi:minus',`Quitar una unidad de ${item.name}`,locked||stockQuantity(item,now)===0,()=>void this._runAction(()=>this._stock.adjust(item,-1),'Stock actualizado.')),
-          button('increase','mdi:plus',`Añadir una unidad de ${item.name}`,locked||stockQuantity(item,now)>=1000000,()=>void this._runAction(()=>this._stock.adjust(item,1),'Stock actualizado.')));
-        card.append(controls);
-      }
-      li.append(card);return li;
-    });
-    this._renderProductGroups(grid,nodes,items,item=>products.get(item.catalog_product_id)??this._catalogProducts.get(productNameKey(item.name)),this._stockGrouped,this._stockLayout);
-    if(focusedId){const li=[...grid.querySelectorAll('[data-stock-id]')].find(item=>item.dataset.stockId===focusedId);const button=(focusedAction ? li?.querySelector(`[data-stock-action="${focusedAction}"]:not([disabled])`) : null)??li?.querySelector("button:not([disabled])");button?.focus({preventScroll:true});}
-    root.querySelector("#confirm-stock-remove").disabled=this._busy;
-    root.querySelector("#cancel-stock-remove").disabled=this._busy;
-    if(root.querySelector("#stock-editor-dialog").open)this._updateStockForm();
-  }
-
-  _openStockEditor(item) {
-    const root=this.shadowRoot, form=root.querySelector('#stock-editor-form');
-    this._stockEditing={...item,quantity:stockQuantity(item)};
-    const defaults={unit:'uds',mode:'manual',days:7,refill_quantity:1,reorder_enabled:false,reorder_at:0,usage_entity:'',usage_state:'',usage_amount:1};
-    const config={...defaults,...this._stockEditing};
-    this._stockDraftMinimum=config.reorder_at;this._stockDraftPercent=config.reorder_percent??0;this._stockDraftMode=config.mode;
-    for(const key of ['quantity','mode','days','refill_quantity','reorder_at','usage_entity','usage_state','usage_amount'])form.elements[key].value=config[key];
-    if(config.mode === 'perishable')form.elements.reorder_at.value=this._stockDraftPercent;
-    const standard=['uds','kg','g','l','ml'].includes(config.unit);
-    form.elements.unit.value=standard?config.unit:'custom';form.elements.custom_unit.value=standard?'':config.unit;
-    form.elements.reorder_enabled.checked=config.reorder_enabled;
-    const options=this._settings.entities??[], target=item.list_entity||this._session.entityId||this._settings.primary||'';
-    form.elements.list_entity.replaceChildren(...options.map(id=>new Option(this._hass.states[id]?.attributes?.friendly_name??id,id)));
-    if(target&&!options.includes(target))form.elements.list_entity.add(new Option(target+' · No disponible',target));
-    if(!form.elements.list_entity.options.length)form.elements.list_entity.add(new Option('No hay listas configuradas',''));
-    if(target)form.elements.list_entity.value=target;
-    root.querySelector('#stock-usage-entities').replaceChildren(...Object.entries(this._hass.states).filter(([id])=>!id.startsWith('todo.')).map(([id,state])=>new Option(state.attributes?.friendly_name??id,id)));
-    root.querySelector('#stock-editor-title').textContent=item.name+' · Stock';root.querySelector('#stock-editor-error').hidden=true;
-    this._updateStockForm();root.querySelector('#stock-editor-dialog').showModal();
-  }
-
-  _updateStockForm() {
-    const root=this.shadowRoot,form=root.querySelector('#stock-editor-form'),locked=this._busy||this._hass.user?.is_admin!==true;
-    const custom=form.elements.unit.value==='custom',usage=form.elements.mode.value==='usage',perishable=form.elements.mode.value==='perishable';
-    root.querySelector('#stock-custom-unit-label').hidden=!custom;
-    root.querySelector('#stock-days-label').hidden=!perishable;root.querySelector('#stock-usage-fields').hidden=!usage;
-    root.querySelector('#stock-threshold-title').textContent=perishable ? 'Mínimo (%)' : 'Stock mínimo';
-    form.elements.reorder_at.setAttribute('aria-label',perishable ? 'Porcentaje mínimo restante (%)' : 'Stock mínimo');
-    form.elements.reorder_at.max=perishable ? '100' : '1000000';
-    root.querySelector('#stock-threshold-label').hidden=!form.elements.reorder_enabled.checked;
-    for(const input of form.querySelectorAll('input,select,button'))input.disabled=locked;
-    form.elements.custom_unit.required=custom;form.elements.days.disabled=locked||!perishable;
-    for(const key of ['usage_entity','usage_state','usage_amount']){form.elements[key].disabled=locked||!usage;form.elements[key].required=usage;}
-    form.elements.reorder_at.disabled=locked||!form.elements.reorder_enabled.checked;
-    form.elements.list_entity.required=perishable||form.elements.reorder_enabled.checked;
-  }
-
-  async _saveStockConfig() {
-    if(this._busy||!this._stockEditing||this._hass.user?.is_admin!==true)return;
-    const root=this.shadowRoot,form=root.querySelector('#stock-editor-form');
-    if(!form.reportValidity())return;
-    const value=key=>form.elements[key].value;
-    const config={quantity:Number(value('quantity')),quantity_changed:Number(value('quantity'))!==this._stockEditing.quantity,unit:value('unit')==='custom'?value('custom_unit').trim():value('unit'),
-      mode:value('mode'),days:Number(value('days')),refill_quantity:Number(value('refill_quantity')),
-      reorder_enabled:form.elements.reorder_enabled.checked,
-      reorder_at:value('mode') === 'perishable' ? this._stockDraftMinimum : Number(value('reorder_at')),
-      reorder_percent:value('mode') === 'perishable' ? Number(value('reorder_at')) : this._stockDraftPercent,
-      list_entity:value('list_entity'),usage_entity:value('usage_entity').trim(),usage_state:value('usage_state'),usage_amount:Number(value('usage_amount'))};
-    const success=await this._runAction(()=>this._stock.save(this._stockEditing,config),'Stock guardado.');
-    if(success){root.querySelector('#stock-editor-dialog').close();this._stockEditing=null;}
-    else {const error=root.querySelector('#stock-editor-error');error.textContent=this._actionError;error.hidden=!error.textContent;}
-  }
-
-  async _removeStockItem() {
-    if(!this._stockDeleteTarget||this._busy)return;
-    const item=this._stockDeleteTarget;
-    const result=await this._runAction(()=>this._stock.remove(item),"Producto eliminado de Stock.");
-    if(result){this.shadowRoot.querySelector("#stock-remove-dialog").close();this.shadowRoot.querySelector("#stock-editor-dialog").close();this._stockDeleteTarget=null;}
-    else {const error=this.shadowRoot.querySelector("#stock-remove-error");error.textContent=this._actionError;error.hidden=!error.textContent;}
   }
 
   _renderPredictions() {

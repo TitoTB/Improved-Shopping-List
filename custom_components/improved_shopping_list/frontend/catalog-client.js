@@ -5,6 +5,7 @@ export class CatalogSession {
   constructor(getHass, onChange) {
     this.getHass = getHass;
     this.onChange = onChange;
+    this._listeners = new Set();
     this.products = [];
     this.recipes = [];
     this.categories = [];
@@ -16,12 +17,22 @@ export class CatalogSession {
     this._revision = 0;
   }
 
+  subscribe(listener) {
+    this._listeners.add(listener);
+    return () => this._listeners.delete(listener);
+  }
+
+  _emit() {
+    this.onChange();
+    for (const listener of [...this._listeners]) listener();
+  }
+
   async start() {
     this.stop();
     const generation = this._generation;
     this.loading = true;
     this.error = "";
-    this.onChange();
+    this._emit();
     const initialRead = this.refresh();
     try {
       const unsubscribe = await this.getHass().connection.subscribeMessage((data) => {
@@ -34,14 +45,14 @@ export class CatalogSession {
         this.dismissedSuggestions = data.dismissed_suggestions ?? [];
         this.loading = false;
         this.error = "";
-        this.onChange();
+        this._emit();
       }, { type: `${PREFIX}subscribe` });
       if (generation !== this._generation) this._unsubscribeSafely(unsubscribe);
       else this._unsubscribe = unsubscribe;
     } catch (error) {
       if (generation === this._generation) {
         this.error = error.message ?? "No se ha podido conectar con el catálogo.";
-        this.onChange();
+        this._emit();
       }
     }
     await initialRead;
@@ -65,7 +76,7 @@ export class CatalogSession {
     } finally {
       if (generation === this._generation && revision === this._revision) {
         this.loading = false;
-        this.onChange();
+        this._emit();
       }
     }
   }

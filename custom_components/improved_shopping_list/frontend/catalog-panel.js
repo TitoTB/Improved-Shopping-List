@@ -5,21 +5,11 @@ import { matchCatalogProducts } from "./product-matching.js?v=0.48.1";
 import "./category-panel.js?v=0.48.1";
 import "./recipe-editor.js?v=0.48.1";
 import "./icon-picker.js?v=0.48.1";
-import { productNameKey } from "./product-names.js?v=0.48.1";
-export { productNameKey };
+import { imageSource, normalizedName, productNameKey, cachedProductPrice } from "./product-display.js?v=0.48.1";
+export { imageSource, normalizedName, productNameKey, cachedProductPrice };
 
-export const normalizedName = value => String(value ?? "").normalize("NFKC").trim().replace(/\s+/g, " ").toLocaleLowerCase("es");
 const MONTHS = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
 const STORE_NAMES = {mercadona:"Mercadona",carrefour:"Carrefour",alcampo:"Alcampo",consum:"Consum",lasirena:"La Sirena",eroski:"Eroski",dia:"DIA",lidl:"Lidl"};
-
-export function cachedProductPrice(product, prices = [], favorite = "") {
-  if (!product) return null;
-  const valid = offer => offer.price != null && offer.price !== "" && Number.isFinite(Number(offer.price)) &&
-    Number(offer.price) >= 0 && /^[A-Z]{3}$/.test(offer.currency ?? "");
-  const offers = prices.filter(offer => offer.catalog_product_id === product.id && valid(offer));
-  offers.sort((a,b) => Number(b.store === favorite) - Number(a.store === favorite) || (b.checked_at ?? 0) - (a.checked_at ?? 0));
-  return offers[0] ?? (valid(product) ? {price:product.price,currency:product.currency} : null);
-}
 
 function element(tag, className, text) {
   const node = document.createElement(tag);
@@ -40,18 +30,10 @@ function iconButton(mdi, label, className = "") {
   return button;
 }
 
-export function imageSource(value) {
-  if (!value) return "";
-  try {
-    const url = new URL(value, location.origin);
-    return ["http:", "https:"].includes(url.protocol) ? url.href : "";
-  } catch { return ""; }
-}
-
 class ImprovedShoppingCatalog extends HTMLElement {
   createProduct(suggestedName) {
-    if(!this._built||this._saving||this._receiptCreate)throw new Error('Espera a que termine la edición del producto.');
-    this._receiptCreate=true;this._receiptCreated=null;
+    if(this._saving||this._receiptCreate)throw new Error('Espera a que termine la edición del producto.');
+    this._receiptCreate=true;this._receiptCreated=null;this._ensureBuilt();
     this.hidden=false;this.setAttribute('receipt-editor','');
     const dialog=this.shadowRoot.querySelector('dialog');
     return new Promise(resolve=>{
@@ -76,6 +58,16 @@ class ImprovedShoppingCatalog extends HTMLElement {
     try { const saved=localStorage.getItem("isl-catalog-grouping"); if (["suggestions","store"].includes(saved)) this._groupBy = saved; } catch { /* Storage may be disabled. */ }
     this._pendingNames = new Set();
     this._listItems = [];
+  }
+
+  set session(value) {
+    if (value === this._catalog) return;
+    this._catalogUnsubscribe?.();
+    if (!this._sharedCatalog) this._catalog.stop();
+    this._catalog = value;
+    this._sharedCatalog = true;
+    this._started = false;
+    this._start();
   }
 
   set hass(value) {
@@ -117,8 +109,9 @@ class ImprovedShoppingCatalog extends HTMLElement {
   set active(value) {
     if (this._active === Boolean(value)) return;
     this._active = Boolean(value);
+    if (this._active)this._ensureBuilt();
     if (!this._active) this._stopCodeCapture();
-    this._renderProducts();
+    if (this._active) this._render();
   }
   set stores(value) {
     const key=JSON.stringify(value??{});
@@ -164,20 +157,27 @@ class ImprovedShoppingCatalog extends HTMLElement {
   }
 
   connectedCallback() {
-    if (!this._built) this._build();
+    if(this._active||this._receiptCreate)this._ensureBuilt();
+  }
+
+  _ensureBuilt() {
+    if(!this._built)this._build();
     this._start();
-    this._lastSeasonMonth = this._seasonMonth();
-    this._seasonTimer = setInterval(() => {
-      const month = this._seasonMonth();
-      if (month !== this._lastSeasonMonth) { this._lastSeasonMonth = month; this._renderProducts(); }
-    }, 60000);
+    if(!this._seasonTimer){
+      this._lastSeasonMonth=this._seasonMonth();
+      this._seasonTimer=setInterval(()=>{
+        const month=this._seasonMonth();
+        if(month!==this._lastSeasonMonth){this._lastSeasonMonth=month;this._renderProducts();}
+      },60000);
+    }
   }
 
   disconnectedCallback() {
     this._active = false;
     this._stopCodeCapture();
-    clearInterval(this._seasonTimer);
-    this._catalog.stop();
+    clearInterval(this._seasonTimer);this._seasonTimer=null;
+    this._catalogUnsubscribe?.();this._catalogUnsubscribe=null;
+    if (!this._sharedCatalog) this._catalog.stop();
     this._started = false;
     this.shadowRoot.querySelectorAll("dialog").forEach(dialog => dialog.close());
     this.shadowRoot.querySelector("isl-icon-picker")?.close();
@@ -186,7 +186,10 @@ class ImprovedShoppingCatalog extends HTMLElement {
   _start() {
     if (!this.isConnected || !this._built || !this._hass || this._started) return;
     this._started = true;
-    void this._catalog.start();
+    if (this._sharedCatalog) {
+      this._catalogUnsubscribe ??= this._catalog.subscribe(() => this._render());
+      this._render();
+    } else void this._catalog.start();
   }
 
   _build() {
@@ -644,6 +647,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
   }
 
   _render() {
+    if (!this._hass || !this._active && !this._receiptCreate) return;
     if (!this._built) return;
     const root = this.shadowRoot;
     const error = root.querySelector("#catalog-error");
@@ -672,6 +676,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
   }
 
   _renderRecipes() {
+    if (!this._hass || !this._active && !this._receiptCreate) return;
     if (!this._built) return;
     const root=this.shadowRoot, recipes=this._catalog.recipes??[];
     root.querySelector('isl-recipe-editor').products=this._catalog.products;
@@ -816,6 +821,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
   }
 
   _renderSuggestions() {
+    if (!this._hass || !this._active && !this._receiptCreate) return;
     if (!this._built) return;
     const root = this.shadowRoot;
     const error = root.querySelector("#suggestions-error");
@@ -1166,6 +1172,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
   }
 
   _renderProducts() {
+    if (!this._hass || !this._active && !this._receiptCreate) return;
     if (!this._built) return;
     const root = this.shadowRoot;
     const query = productNameKey(root.querySelector("#catalog-search").value);

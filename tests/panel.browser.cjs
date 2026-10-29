@@ -984,7 +984,11 @@ async function checkReferenceFormats(browser,url,errors){
   assert.equal(await first.getByLabel('Contenido por envase',{exact:true}).inputValue(),'24');
   assert.equal(await dialog.getByLabel('Nombre del producto',{exact:true}).inputValue(),'Huevos');
   assert.match(await first.textContent(),/Último precio: 2,50/);
-  assert.match(await first.textContent(),/Nutri-Score: A/);
+  const nutritionBadge=dialog.locator('.product-option').first().locator('.option-nutriscore');
+  assert.equal(await nutritionBadge.textContent(),'A');
+  assert.equal(await nutritionBadge.evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(3, 129, 65)');
+  assert.ok(await nutritionBadge.evaluate(el=>{const r=el.getBoundingClientRect();return r.width===r.height;}));
+  assert.equal(await dialog.locator('#product-nutriscore').count(),0);
   assert.equal(await page.evaluate(()=>window.catalogProducts.find(p=>p.id==='eggs').commercial_references[0].last_price),undefined);
   for(const width of [320,1280]){await page.setViewportSize({width,height:960});assert.ok(await dialog.evaluate(el=>el.scrollWidth<=el.clientWidth+1));}
   await page.setViewportSize({width:390,height:844});
@@ -3007,8 +3011,10 @@ async function main() {
     for(const code of ['8410109115543','08410109115543','3017620422003','https://private.test/qr','3017620422004'])await captureProductCode(nutriPage,nutriForm,'barcode',code);
     await captureProductCode(nutriPage,nutriForm,'nfc','AA:BB:CC:DD');
     await nutriForm.getByRole('button',{name:'Opciones',exact:true}).click();
-    await nutriForm.getByText('Nutri-Score: D',{exact:true}).waitFor();
-    assert.equal(await nutriForm.locator('.nutriscore-item').count(),2);
+    await nutriForm.getByLabel('Nutri-Score D',{exact:true}).waitFor();
+    assert.equal(await nutriForm.locator('.option-nutriscore').count(),2);
+    assert.equal(await nutriForm.locator('.product-option').filter({hasText:'3017620422003'}).locator('.option-nutriscore').textContent(),'D');
+    assert.equal(await nutriForm.locator('#product-nutriscore').count(),0);
     assert.deepEqual(await nutriPage.evaluate(()=>window.nutriCalls),['8410109115543','3017620422003']);
     await nutriForm.getByRole('button',{name:'Características',exact:true}).click();
     await nutriForm.getByRole('button',{name:'Opciones',exact:true}).click();
@@ -3030,7 +3036,7 @@ async function main() {
     await nutriCatalog.getByRole('button',{name:'Nuevo producto',exact:true}).click();
     await nutriPage.evaluate(()=>window.releaseNutri());
     await nutriForm.getByRole('button',{name:'Opciones',exact:true}).click();
-    assert.equal(await nutriForm.locator('#product-nutriscore').isVisible(),false);
+    assert.equal(await nutriForm.locator('.option-nutriscore').count(),0);
     await nutriForm.getByRole('button',{name:'Automatización',exact:true}).click();
     const captureGroup=nutriForm.locator('#product-barcode-codes');
     await nutriPage.evaluate(()=>{window.failCapture=true;});

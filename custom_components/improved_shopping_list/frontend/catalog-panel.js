@@ -295,6 +295,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
         .option-heading { display:grid;gap:5px;min-width:0;flex:1; }
         .option-name { font-size:14px;font-weight:650;overflow-wrap:anywhere; }
         .option-meta { font-size:12px;color:var(--secondary-text-color,#63766b);overflow-wrap:anywhere; }
+        .option-nutriscore { display:grid;place-items:center;width:32px;height:32px;flex:0 0 32px;box-sizing:border-box;border-radius:4px;font-size:18px;font-weight:700;line-height:1; }
         .option-store { font-size:12px; }
         .option-brand { margin-top:12px; }
         .commercial-reference-title { display:flex;gap:8px;align-items:center; }.commercial-reference-title input { min-width:0;flex:1;margin:0; }
@@ -387,10 +388,6 @@ class ImprovedShoppingCatalog extends HTMLElement {
         .recurrence-controls label { display:flex; align-items:center; gap:8px; }
         .recurrence-controls input[type=checkbox] { width:20px; min-height:20px; margin:0; padding:0; accent-color:var(--primary-color,#267052); }
         .recurrence-controls input[type=number] { width:88px; margin:0; }
-        .nutriscore-item { display:flex; align-items:center; flex-wrap:wrap; gap:12px; padding:12px 0; border-top:1px solid var(--divider-color,#dfe7e1); }
-        .nutriscore-item img { width:130px; height:auto; flex:none; }
-        .nutriscore-item p { margin:4px 0; overflow-wrap:anywhere; }
-        .nutriscore-item a { color:var(--primary-color,#267052); }
         .fields { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin:22px 0; }
         .wide { grid-column:1/-1; }
         .form-actions { display:flex; justify-content:flex-end; gap:10px; margin-top:22px; }
@@ -503,7 +500,6 @@ class ImprovedShoppingCatalog extends HTMLElement {
           </section>
           <section id="product-additional" class="fields" aria-label="Opciones" hidden>
             <div class="wide"><h3 id="product-options-title">Opciones para comprar</h3><div class="store-link-add"><input id="product-link-value" type="url" pattern="https://.*" aria-label="URL del producto" maxlength="2048" placeholder="URL del producto" title="La tienda se detecta automáticamente a partir de la URL."><button id="retrieve-product-data" class="retrieve-option" type="button"><ha-icon icon="mdi:download" aria-hidden="true"></ha-icon>Recuperar datos</button><button id="add-product-store-link" type="button" aria-label="Añadir vinculación"><ha-icon icon="mdi:plus-thick" aria-hidden="true"></ha-icon></button></div><p id="option-lookup-status" class="helper" role="status" aria-live="polite"></p><div id="product-store-links"></div></div>
-            <div id="product-nutriscore" class="wide" hidden><h3>Nutri-Score</h3><div id="nutriscore-results"></div></div>
           </section>
           <section id="product-automation" class="fields" aria-label="Automatización" hidden>
             ${[["barcode","Códigos de barras/QR","mdi:barcode-scan"],["nfc","Etiquetas NFC","mdi:nfc-variant"]].map(([kind,title,icon])=>`<section id="product-${kind}-codes" class="wide product-codes" aria-label="${title}"><h3>${title}</h3><div id="${kind}-code-list" class="code-list"></div><div class="code-capture-controls"><select id="${kind}-capture-reader" aria-label="Lector para ${title}"></select><button id="${kind}-capture-start" type="button"><ha-icon icon="${icon}" aria-hidden="true"></ha-icon>Escanear</button><button id="${kind}-capture-stop" type="button" hidden>Detener</button></div><p id="${kind}-capture-status" class="helper" role="status"></p></section>`).join("")}
@@ -1437,8 +1433,6 @@ class ImprovedShoppingCatalog extends HTMLElement {
   _resetNutriscores() {
     this._nutriGeneration = (this._nutriGeneration || 0) + 1;
     this._nutriCodesKey = "";
-    this.shadowRoot.querySelector("#nutriscore-results").replaceChildren();
-    this.shadowRoot.querySelector("#product-nutriscore").hidden = true;
   }
 
   _updateOptionTitle() {
@@ -1473,7 +1467,10 @@ class ImprovedShoppingCatalog extends HTMLElement {
       const title=element('span','option-name',ref?.name|| (ref?.ean?`EAN ${ref.ean}`:ref?.reference_id?`Referencia ${ref.reference_id}`:'Opción sin detalle'));
       const meta=element('span','option-meta');
       const updateSummary=()=>{title.textContent=ref?.name||(ref?.ean?`EAN ${ref.ean}`:ref?.reference_id?`Referencia ${ref.reference_id}`:'Opción sin detalle');meta.textContent=[ref?.brand,ref?.content_quantity&&ref?.content_unit?`${new Intl.NumberFormat('es-ES',{maximumFractionDigits:3}).format(ref.content_quantity)} ${ref.content_unit}`:''].filter(Boolean).join(' · ');meta.hidden=!meta.textContent;};updateSummary();
-      heading.append(title,meta,reference);summary.append(heading);card.append(summary);
+      heading.append(title,meta,reference);summary.append(heading);
+      const grade=ref?.nutriscore?.grade,colors={a:['#038141','#fff'],b:['#85bb2f','#182b22'],c:['#fecb02','#182b22'],d:['#ee8100','#182b22'],e:['#e63e11','#fff']};
+      if(Object.hasOwn(colors,grade)){const badge=element('span','option-nutriscore',grade.toUpperCase());badge.style.backgroundColor=colors[grade][0];badge.style.color=colors[grade][1];badge.setAttribute('aria-label',`Nutri-Score ${grade.toUpperCase()}`);badge.title=`Nutri-Score ${grade.toUpperCase()}`;summary.append(badge);}
+      card.append(summary);
       const source=document.createElement('div');source.className='association-source';
       for(const text of [value?'Web':'',fromTicket?'Ticket/factura confirmado':''].filter(Boolean)){const badge=document.createElement('span');badge.textContent=text;source.append(badge);}
       const header=document.createElement('div');header.className='product-store-header';header.append(source);card.append(header);
@@ -1506,7 +1503,6 @@ class ImprovedShoppingCatalog extends HTMLElement {
     const update=()=>{renderPrice();onChange();};
     card.append(referenceContentControls(ref,update));update();
     const offers=[...(ref.last_price?[ref.last_price]:[]),...(this._priceData?.offers??[]).filter(offer=>offer.catalog_product_id===this._editing?.id&&(offer.commercial_reference_id===ref.id||offer.store===ref.store&&(ref.ean&&offer.ean===ref.ean||ref.reference_id&&offer.reference_id===ref.reference_id)))].sort((a,b)=>(b.checked_at??0)-(a.checked_at??0));
-    if(ref.nutriscore?.grade)card.append(element('p','helper',`Nutri-Score: ${ref.nutriscore.grade.toUpperCase()}`));
     if(offers.length){const price=offers[0],text=element('p','helper');renderPrice=()=>{const money=value=>new Intl.NumberFormat('es-ES',{style:'currency',currency:price.currency}).format(value),rate=referenceRate(price.price,ref);text.textContent='Último precio: '+money(price.price)+' / envase';if(rate)text.textContent+=' · '+money(rate.price)+' / '+rate.unit;};renderPrice();card.append(text);}
     return card;
   }
@@ -1557,7 +1553,6 @@ class ImprovedShoppingCatalog extends HTMLElement {
 
   async _loadNutriscores() {
     const root = this.shadowRoot;
-    const form = root.querySelector("#product-form");
     const seen = new Set();
     const codes = [...(this._productCodes?.barcode ?? []),...(this._commercialReferences??[]).filter(ref=>ref.active!==false&&ref.ean).map(ref=>ref.ean)]
       .map(code => code.trim()).filter(code => {
@@ -1578,41 +1573,20 @@ class ImprovedShoppingCatalog extends HTMLElement {
       try {
         const result = await this._hass.callWS({type:"improved_shopping_list/catalog/nutriscore",code});
         if (generation !== this._nutriGeneration || !root.querySelector("dialog").open || !this.isConnected) return;
+        const data = result.nutriscore;
+        const validNutrition=data&&/^[a-e]$/.test(data.grade)&&Number.isFinite(data.checked_at)&&data.checked_at>0;
         let enriched=false;
         for(const ref of this._commercialReferences??[]){
           if(ref.active===false||!ref.ean||barcodeIdentity(ref.ean)!==barcodeIdentity(code))continue;
           if(!ref.brand&&result.brand){ref.brand=result.brand;enriched=true;}
           if(!ref.name&&result.product_name){ref.name=result.product_name;enriched=true;}
           if(ref.content_quantity==null&&!ref.content_confirmed&&result.content_quantity>0&&result.content_unit){ref.content_quantity=result.content_quantity;ref.content_unit=result.content_unit;enriched=true;}
+          if(validNutrition&&(!ref.nutriscore||(data.checked_at>=ref.nutriscore.checked_at))){ref.nutriscore={grade:data.grade,checked_at:data.checked_at};enriched=true;}
         }
         if(enriched)this._renderStoreLinks();
-        const data = result.nutriscore;
         if (!data || !/^[a-e]$/.test(data.grade)) continue;
         this._renderProducts();
         this.dispatchEvent(new CustomEvent("product-nutriscore",{detail:{code,nutriscore:data}}));
-        const row = document.createElement("div"); row.className = "nutriscore-item";
-        row.dataset.code = code;
-        const image = document.createElement("img");
-        image.src = `https://static.openfoodfacts.org/images/attributes/dist/nutriscore-${data.grade}${data.version === "2023" ? "-new-en" : ""}.svg`;
-        image.alt = `Nutri-Score ${data.grade.toUpperCase()}`;
-        image.referrerPolicy = "no-referrer";
-        const info = document.createElement("div");
-        const title = document.createElement("p");
-        title.textContent = result.product_name ? `${result.product_name} · ${code}` : code;
-        const grade = document.createElement("p"); grade.textContent = `Nutri-Score: ${data.grade.toUpperCase()}`;
-        const source = document.createElement("a");
-        source.textContent = "Open Food Facts · ODbL";
-        source.href = `https://world.openfoodfacts.org/product/${code}`;
-        source.target = "_blank"; source.rel = "noopener noreferrer";
-        info.append(title, grade, source);
-        if (Number.isFinite(data.checked_at) && data.checked_at > 0) {
-          const date = document.createElement("p"); date.className = "helper";
-          date.textContent = `Consultado: ${new Date(data.checked_at * 1000).toLocaleDateString("es-ES")}`;
-          info.append(date);
-        }
-        row.append(image, info);
-        root.querySelector("#nutriscore-results").append(row);
-        root.querySelector("#product-nutriscore").hidden = false;
       } catch { /* Optional nutrition must never prevent editing or saving. */ }
     }
   }

@@ -7,6 +7,7 @@
 - [Stock](#stock)
 - [Analítica](#analítica)
 - [Ajustes](#ajustes)
+- [Marketing de afiliados](#marketing-de-afiliados)
 
 ## Lista de la compra
 
@@ -57,3 +58,7 @@ Para volver a la vista habitual de productos, **pulsa el badge del número de pr
 ## Analítica
 
 ## Ajustes
+
+## Marketing de afiliados
+
+Algunos enlaces para consultar productos en las tiendas pueden ser enlaces de afiliado. Si accedes a través de ellos y realizas una compra, el mantenedor del proyecto puede recibir una comisión. Actualmente, esto se aplica a los enlaces «Ver ficha de la tienda» de Carrefour, mediante Awin.

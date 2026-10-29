@@ -266,8 +266,8 @@ class ImprovedShoppingCatalog extends HTMLElement {
         .category-products { padding:0 16px 16px; }
         .category-group-title { display:flex; align-items:center; gap:8px; margin:0; font-size:18px; overflow-wrap:anywhere; }
         .category-group-title ha-icon { --mdc-icon-size:22px; width:22px; height:22px; flex:none; color:#fff; }
-        .category-store-logo { display:grid; place-items:center; width:32px; height:32px; flex:none; padding:3px; border-radius:50%; background:#fff; }
-        .category-store-logo img { display:block; width:100%; height:100%; object-fit:contain; }
+        .category-store-logo { display:block; width:32px; height:32px; aspect-ratio:1; flex:none; padding:0; overflow:hidden; border-radius:50%; background:#fff; }
+        .category-store-logo img { display:block; width:100%; height:100%; object-fit:cover; }
         .product-category-controls { display:flex; align-items:end; gap:8px; }
         .product-category-controls select { flex:1; min-width:0; }
         #add-product-category { display:grid; place-items:center; flex:0 0 46px; width:46px; height:46px; padding:0; }

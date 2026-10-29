@@ -1,5 +1,11 @@
 # Historial de cambios
 
+## 0.51.1 — 2026-10-29
+
+- Corregido el arranque automático de la asociación de URL por EAN: los temporizadores se ejecutan en el bucle de eventos de Home Assistant, permitiendo iniciar y continuar las resoluciones en segundo plano.
+- Añadida una prueba que activa el temporizador real de Home Assistant y comprueba la descarga del diccionario y la incorporación de la URL a la opción correspondiente.
+- Sin nuevas dependencias.
+
 ## 0.51.0 — 2026-10-29
 
 - Índice público de enlaces por EAN con columnas EAN y Carrefour: carga inicial de 15.764 códigos válidos procedentes del feed de Awin conservado. Sin actualización programada del feed ni precios en el diccionario.

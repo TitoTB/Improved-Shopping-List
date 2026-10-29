@@ -309,7 +309,6 @@ class ImprovedShoppingCatalog extends HTMLElement {
         .store-reference img { width:32px; height:32px; object-fit:contain; background:white; border-radius:8px; padding:3px; flex:none; }
         .association-source { display:flex; align-items:center; flex-wrap:wrap; gap:5px; margin:0 0 0 auto; }
         .association-source span { display:inline-flex; align-items:center; min-height:24px; padding:3px 8px; border-radius:7px; background:var(--secondary-background-color,#edf4ee); font-size:11px; line-height:1.3; color:var(--secondary-text-color,#63766b); }
-        #product-ean-summary { overflow-wrap:anywhere; }
         .product-store-link { display:grid; grid-template-columns:minmax(0,1fr) 42px; gap:8px; align-items:center; margin-top:12px; }
         .product-store-link input { min-width:0; width:100%; height:44px; min-height:44px; margin:0; font-size:12px; }
         .remove-store-link { display:grid; place-items:center; width:42px; height:44px; min-height:44px; padding:0; background:#d32f2f; color:white; border:0; }
@@ -505,7 +504,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
             <isl-icon-picker class="wide"></isl-icon-picker>
           </section>
           <section id="product-additional" class="fields" aria-label="Opciones" hidden>
-            <div class="wide"><h3 id="product-options-title">Opciones para comprar</h3><p id="product-ean-summary" class="helper"></p><div id="product-store-links"></div><div class="store-link-add"><select id="product-link-store" aria-label="Tienda del producto"></select><input id="product-link-value" aria-label="Enlace o ID del producto" maxlength="2048" placeholder="URL del producto"><button id="retrieve-product-data" class="retrieve-option" type="button"><ha-icon icon="mdi:download" aria-hidden="true"></ha-icon>Recuperar datos</button><button id="add-product-store-link" type="button" aria-label="Añadir vinculación"><ha-icon icon="mdi:plus-thick" aria-hidden="true"></ha-icon></button></div><p id="option-lookup-status" class="helper" role="status" aria-live="polite"></p></div>
+            <div class="wide"><h3 id="product-options-title">Opciones para comprar</h3><div id="product-store-links"></div><div class="store-link-add"><select id="product-link-store" aria-label="Tienda del producto"></select><input id="product-link-value" aria-label="Enlace o ID del producto" maxlength="2048" placeholder="URL del producto"><button id="retrieve-product-data" class="retrieve-option" type="button"><ha-icon icon="mdi:download" aria-hidden="true"></ha-icon>Recuperar datos</button><button id="add-product-store-link" type="button" aria-label="Añadir vinculación"><ha-icon icon="mdi:plus-thick" aria-hidden="true"></ha-icon></button></div><p id="option-lookup-status" class="helper" role="status" aria-live="polite"></p></div>
             <div id="product-nutriscore" class="wide" hidden><h3>Nutri-Score</h3><div id="nutriscore-results"></div></div>
             <div id="product-store-prices" class="wide" hidden><h3>Precios de tiendas</h3><div id="store-price-results"></div></div>
           </section>
@@ -1493,12 +1492,6 @@ class ImprovedShoppingCatalog extends HTMLElement {
     this._commercialReferences??=[];
     for(const code of this._productCodes?.barcode??[]){if(barcodeIdentity(code)&&!this._commercialReferences.some(ref=>ref.ean&&barcodeIdentity(ref.ean)===barcodeIdentity(code)))this._commercialReferences.push({store:'',ean:code,name:'',reference_id:'',url:'',content_quantity:null,content_unit:'',content_confirmed:false});}
     const stores=[...new Set([...Object.keys(this._storeLinks??{}),...receiptStores,...this._commercialReferences.filter(ref=>ref.active!==false).map(ref=>ref.store)])].filter(store=>store in names).sort((a,b)=>names[a].localeCompare(names[b],"es"));
-    const eans=[...new Map([...(this._productCodes?.barcode??[]),...this._commercialReferences.filter(ref=>ref.active!==false&&ref.ean).map(ref=>ref.ean)].filter(code=>{
-      if(!/^(?:\d{8}|\d{12,14})$/.test(code))return false;
-      const total=[...code.slice(0,-1)].reverse().reduce((sum,digit,index)=>sum+Number(digit)*(index%2?1:3),0);
-      return (10-total%10)%10===Number(code.at(-1));
-    }).map(code=>[code.padStart(14,"0"),code])).values()];
-    root.querySelector('#product-ean-summary').textContent=eans.length?'EAN del producto: '+eans.join(' · '):'Sin EAN informado';
     const options=stores.flatMap(store=>{
       const refs=this._commercialReferences.filter(ref=>ref.active!==false&&ref.store===store);
       return refs.length?refs.map(ref=>({store,ref})):[{store,ref:null}];

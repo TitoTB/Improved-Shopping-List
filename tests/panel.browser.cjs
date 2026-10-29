@@ -968,6 +968,8 @@ async function checkReferenceFormats(browser,url,errors){
   assert.equal(await dialog.getByRole('button',{name:'Opciones',exact:true}).locator('ha-icon').getAttribute('icon'),'mdi:format-list-text');
   await dialog.locator('.product-option > summary').first().click();
   const first=dialog.locator('.commercial-reference').first();
+  assert.equal(await dialog.locator('#product-ean-summary').count(),0);
+  assert.match(await first.textContent(),/EAN: 1234567890128/);
   assert.equal(await first.getByLabel('Contenido por envase',{exact:true}).inputValue(),'12');
   assert.equal(await first.getByLabel('Formato confirmado',{exact:true}).isChecked(),false);
   await first.getByLabel('Formato confirmado',{exact:true}).check();
@@ -4048,7 +4050,7 @@ async function main() {
     assert.equal(await storesProductForm.locator('.product-store-association[data-store="dia"]').count(),1);
     assert.ok((await storesProductForm.locator('.product-store-association[data-store="carrefour"]').textContent()).includes('Ticket/factura confirmado'));
     assert.equal(await storesProductForm.getByLabel('Enlace o ID de Carrefour',{exact:true}).count(),0);
-    assert.equal(await storesProductForm.locator('#product-ean-summary').textContent(),'EAN del producto: 1234567890128');
+    assert.equal(await storesProductForm.locator('#product-ean-summary').count(),0);
     await storesProductForm.getByLabel('Tienda del producto',{exact:true}).selectOption('carrefour');
     await storesProductForm.getByLabel('Enlace o ID del producto',{exact:true}).fill('https://www.carrefour.es/supermercado/producto/R-prod1/p');
     await storesProductForm.getByRole('button',{name:'Añadir vinculación',exact:true}).click();

@@ -11,6 +11,7 @@ from homeassistant.core import callback
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.event import async_track_time_interval
 from homeassistant.helpers.storage import Store
+from homeassistant.util import dt as dt_util
 
 from .const import DOMAIN
 from .todo_names import item_name
@@ -23,6 +24,21 @@ _LOGGER = logging.getLogger(__name__)
 
 def signature(rule):
     return json.dumps([rule["enabled"], rule["threshold"], sorted(rule["targets"])], ensure_ascii=True)
+
+
+def recent_pending_purchase(receipt, now):
+    """Only purchases from the last 30 days require navigation attention."""
+    if not (receipt.get("pending_review") or receipt.get("needs_details") or
+            receipt.get("summary_only") and receipt.get("account_key") and receipt.get("ticket_available") is not False):
+        return False
+    value=receipt.get("purchased_at")
+    when=dt_util.parse_datetime(value) if isinstance(value,str) else None
+    if when is None:
+        return False
+    if when.tzinfo is None:
+        when=when.replace(tzinfo=dt_util.DEFAULT_TIME_ZONE)
+    when=dt_util.as_utc(when)
+    return now-timedelta(days=30)<=when<=now
 
 
 def render_message(text, values):
@@ -44,11 +60,10 @@ class NotificationManager:
         """Small local counters for navigation, without loading private receipt details."""
         candidates = self._catalog_candidates(self.settings.snapshot, require_available=False) or []
         history = getattr(self.stock, "receipts", {}).get("history", {})
+        now=dt_util.utcnow()
         return {"catalog_new": len(candidates),
                 "low_stock": sum(bool(stock_needs_reorder(item)) for item in self.stock.snapshot["items"]),
-                "purchases": sum(bool(receipt.get("pending_review") or receipt.get("needs_details") or
-                    receipt.get("summary_only") and receipt.get("account_key") and
-                    receipt.get("ticket_available") is not False) for receipt in history.values())}
+                "purchases": sum(recent_pending_purchase(receipt,now) for receipt in history.values())}
 
     @callback
     def subscribe_attention(self, listener):

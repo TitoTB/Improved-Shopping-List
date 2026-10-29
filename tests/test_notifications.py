@@ -1,17 +1,19 @@
 """Threshold notifications: multiple lists, multiple targets, restart latches and failures."""
 from copy import deepcopy
+from datetime import timedelta
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock
 
 import pytest
 from homeassistant.components.todo import DATA_COMPONENT, TodoItem, TodoItemStatus
 from homeassistant.exceptions import HomeAssistantError
+from homeassistant.util import dt as dt_util
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.improved_shopping_list.const import CONF_TODO_ENTITY, CONF_TODO_ENTITIES, DOMAIN
 from custom_components.improved_shopping_list.list_settings import ListSettings
 from custom_components.improved_shopping_list.notification_settings import DEFAULT_NOTIFICATIONS, normalize_notifications
-from custom_components.improved_shopping_list.notifications import NotificationManager
+from custom_components.improved_shopping_list.notifications import NotificationManager, recent_pending_purchase
 
 
 class Todo:
@@ -107,6 +109,10 @@ async def test_navigation_attention_updates_even_with_notifications_disabled(has
         "downloaded": {"summary_only": True, "pending_review": True},
         "detected": {"needs_details": True},
         "account": {"summary_only": True, "account_key": "ticket"}}}
+    for receipt in env.stock.receipts["history"].values():
+        receipt["purchased_at"]=dt_util.utcnow().isoformat()
+    env.stock.receipts["history"]["old"]={"pending_review":True,"purchased_at":(dt_util.utcnow()-timedelta(days=31)).isoformat()}
+    env.stock.receipts["history"]["undated"]={"needs_details":True}
     env.manager._queue()
     assert received[-1]["purchases"] == 3
     env.stock.receipts["history"] = {}
@@ -119,6 +125,18 @@ async def test_navigation_attention_updates_even_with_notifications_disabled(has
     count = len(received)
     env.todos["todo.other"].emit(2)
     assert len(received) == count
+
+
+def test_purchase_attention_uses_purchase_date_and_a_rolling_month():
+    now=dt_util.utcnow()
+    for days,expected in [(0,True),(29,True),(30,True),(31,False),(365,False),(-1,False)]:
+        receipt={"pending_review":True,"purchased_at":(now-timedelta(days=days)).isoformat(),"imported_at":now.timestamp()}
+        assert recent_pending_purchase(receipt,now) is expected
+    for value in (None,"not a date",123):
+        assert not recent_pending_purchase({"pending_review":True,"purchased_at":value},now)
+    assert not recent_pending_purchase({"summary_only":False,"purchased_at":now.isoformat()},now)
+    local=dt_util.as_local(now-timedelta(days=29)).replace(tzinfo=None).isoformat()
+    assert recent_pending_purchase({"needs_details":True,"purchased_at":local},now)
 
 
 async def test_navigation_attention_websocket_subscribes_and_cleans_up(hass, hass_ws_client):

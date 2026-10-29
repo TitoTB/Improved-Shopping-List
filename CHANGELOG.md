@@ -1,5 +1,12 @@
 # Historial de cambios
 
+## 0.51.0 — 2026-10-29
+
+- Índice público de enlaces por EAN con columnas EAN y Carrefour: carga inicial de 15.764 códigos válidos procedentes del feed de Awin conservado. Sin actualización programada del feed ni precios en el diccionario.
+- La integración descarga y conserva el índice localmente, comprobando cambios como máximo una vez cada 24 horas mediante ETag. Completa las URL por coincidencia exacta de EAN en opciones nuevas, existentes y vinculadas durante la revisión de tickets, conservando enlaces manuales y opciones desactivadas.
+- Los enlaces de Awin se resuelven solo para EAN del catálogo mediante HEAD, sin seguir redirecciones publicitarias. Guarda las URL oficiales de Carrefour, espacia las consultas y conserva su caché si no hay conexión. No recupera precios ni modifica stock como parte de este proceso.
+- Sin nuevas dependencias ni necesidad de claves de Awin o autorización de GitHub.
+
 ## 0.50.6 — 2026-10-29
 
 - El aviso que impide importar otra reposición de un producto todavía pendiente en la lista identifica ahora su nombre e indica qué producto debe marcarse como comprado.

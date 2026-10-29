@@ -7,3 +7,5 @@ La integración requiere Home Assistant Core 2026.10 o posterior y utiliza sus e
 - **OpenStreetMap:** proporciona las teselas del mapa, con atribución visible. El navegador necesita acceso a Internet para mostrar ese fondo.
 
 Las consultas opcionales a tiendas, Open Food Facts, Iconify y MyMemory requieren acceso a Internet. No son tarjetas ni componentes adicionales que el usuario deba instalar.
+
+El [índice de enlaces por EAN](../data/README.md) se descarga de GitHub y se guarda localmente. La primera resolución de un enlace de Carrefour procedente del feed puede consultar Awin mediante HEAD; no requiere claves de Awin ni complementos. No descarga precios ni datos de fichas y no envía el catálogo del usuario a GitHub.

@@ -20,6 +20,7 @@ from .store_links import normalize_links
 from .community_data import fingerprint
 from .quantity_values import DEFAULT_PURCHASE, normalize_purchase, positive_quantity, purchase_defaults
 from .product_references import normalized_references, merge_reference, reference_from_line, gtin
+from .ean_links import enrich_product
 
 STORAGE_KEY = f"{DOMAIN}.catalog"
 FIELDS = {
@@ -202,6 +203,7 @@ class Catalog:
         self._lock = Lock()
         self._listeners: set = set()
         self.recurrence_peer = lambda _product: 0
+        self.ean_links = None
 
     async def async_load(self) -> None:
         """Load existing products without overwriting an unreadable catalog."""
@@ -332,6 +334,21 @@ class Catalog:
     async def async_apply_community(self, community):
         return  # Community data is reserved for icon suggestions.
 
+    async def async_apply_ean_links(self, resolved):
+        """Complete existing options locally, without resetting stock or prices."""
+        changed = False
+        async with self._lock:
+            products = deepcopy(self._products)
+            for product in products.values():
+                if enrich_product(product, resolved):
+                    product["revision"] += 1
+                    product["updated_at"] = datetime.now(UTC).isoformat()
+                    changed = True
+            if changed:
+                await self._persist(products, self._categories)
+        if changed:
+            self._notify()
+
     async def async_save_product(self, data: dict[str, Any], *, from_suggestion: bool = False) -> dict[str, Any]:
         """Persist before publishing, preserving the previous state on write failure."""
         product = normalize_product(data)
@@ -375,6 +392,8 @@ class Catalog:
             for ref in references:
                 if ref.get("active",True) and ref["ean"] and not any(gtin(code)==gtin(ref["ean"]) for code in product_codes(product,"barcode")):
                     product["barcodes"].append(ref["ean"])
+            if self.ean_links:
+                enrich_product(product, self.ean_links.resolved)
             if len(references)>200 or len(product["barcodes"])>50:
                 raise CatalogError("Revisa el límite de referencias o códigos de barras del producto.")
             if product["category"]:
@@ -465,6 +484,8 @@ class Catalog:
                 except ValueError as err:
                     raise CatalogError(str(err)) from err
             for product_id,product in products.items():
+                if self.ean_links:
+                    enrich_product(product, self.ean_links.resolved)
                 if product!=self._products[product_id]:
                     product["revision"]+=1
                     product["updated_at"]=datetime.now(UTC).isoformat()

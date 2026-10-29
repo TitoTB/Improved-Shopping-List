@@ -10,6 +10,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.typing import ConfigType
 
 from .catalog import Catalog
+from .ean_links import EANLinks
 from .activity import ActivityLog
 from .community import CommunityLibrary
 from .community_sync import CommunitySync
@@ -57,6 +58,9 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         stock = StockManager(hass, catalog)
         await stock.async_load()
         await catalog.async_migrate_references(stock.receipts)
+        ean_links = EANLinks(hass, catalog)
+        await ean_links.async_load()
+        catalog.ean_links = ean_links
         readers = ReaderManager(hass, catalog, settings)
         readers.stock = stock
         await readers.async_load()
@@ -141,6 +145,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         hass.data[DOMAIN]["entity_data"] = EntityData(hass, hass.data[DOMAIN])
         hass.data[DOMAIN]["notifications"] = notifications
         hass.data[DOMAIN]["option_lookup"] = OptionLookup(hass)
+        hass.data[DOMAIN]["ean_links"] = ean_links
         async_register_commands(hass)
     return True
 
@@ -162,6 +167,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.data[DOMAIN]["readers"].start()
     hass.data[DOMAIN]["recurrence"].start()
     hass.data[DOMAIN]["community_sync"].start()
+    hass.data[DOMAIN]["ean_links"].start()
     hass.data[DOMAIN]["price_manager"].start()
     hass.data[DOMAIN]["alcampo"].start()
     hass.data[DOMAIN]["entity_data"].start()
@@ -207,6 +213,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     await hass.data[DOMAIN]["quantities"].async_stop()
     await hass.data[DOMAIN]["gateway_lists"].async_stop()
     await hass.data[DOMAIN]["community_sync"].async_stop()
+    await hass.data[DOMAIN]["ean_links"].async_stop()
     hass.data[DOMAIN]["stock"].stop()
     await hass.data[DOMAIN]["stock_automation"].async_stop()
     await hass.data[DOMAIN]["alcampo"].async_stop()

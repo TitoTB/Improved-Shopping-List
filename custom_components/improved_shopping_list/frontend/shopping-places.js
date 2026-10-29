@@ -1,5 +1,5 @@
-import './zone-map.js?v=0.50.6';
-import { installDialogCloseButtons } from './dialog-controls.js?v=0.50.6';
+import './zone-map.js?v=0.51.0';
+import { installDialogCloseButtons } from './dialog-controls.js?v=0.51.0';
 const el=(tag,text)=>{const n=document.createElement(tag);if(text!==undefined)n.textContent=text;return n;};
 // getRandomValues also works when Home Assistant is opened over local HTTP.
 const newShopId=()=>`shop_${Array.from(crypto.getRandomValues(new Uint8Array(16)),value=>value.toString(16).padStart(2,'0')).join('')}`;

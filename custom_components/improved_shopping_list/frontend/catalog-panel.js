@@ -475,7 +475,6 @@ class ImprovedShoppingCatalog extends HTMLElement {
               <label>Nombre del producto<input name="name" required maxlength="160" placeholder="Por ejemplo, Cacao"></label>
               <div><label for="product-category">Categoría</label><div class="product-category-controls"><select id="product-category" name="category"><option value="">Sin categoría</option></select><button id="add-product-category" type="button" aria-label="Nueva categoría" title="Nueva categoría"><ha-icon icon="mdi:plus-thick"></ha-icon></button></div></div>
             </div>
-            <label class="wide">Etiquetas<input name="tags" maxlength="840" placeholder="Marca, tienda, otros términos…"></label>
             <div class="wide product-quantity-row">
             <label>Unidades<input name="purchase_unit" list="purchase-unit-options" maxlength="32" value="uds" required><datalist id="purchase-unit-options">${['uds','kg','g','l','ml','Latas','Paquetes'].map(unit=>`<option value="${unit}"></option>`).join('')}</datalist></label>
             <label>Cantidad unitaria<input name="unit_quantity" type="number" min="0.001" max="1000000" step="0.001" value="1" required></label>
@@ -1591,7 +1590,6 @@ class ImprovedShoppingCatalog extends HTMLElement {
     this._readerActionDraft = {...(product?.reader_actions ?? {})};
     this._readerSignature = null;
     form.reset();
-    form.elements.tags.value = (product?.tags ?? []).join(", ");
     for(const key of ['purchase_unit','unit_quantity','quantity_step'])form.elements[key].value=product?.[key]??(key==='purchase_unit'?'uds':1);
     this._resetNutriscores();
     this._switchProductView("main");
@@ -1632,7 +1630,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
     const root = this.shadowRoot;
     const form = root.querySelector("form");
     const fields = Object.fromEntries(new FormData(form));
-    const product = { ...fields, price: this._editing?.price ?? null, currency: this._editing?.currency ?? "EUR", tags: fields.tags.split(",").map(tag=>tag.trim()).filter(Boolean), icon: this._editing?.icon ?? "", notes: this._editing?.notes ?? "" };
+    const product = { ...fields, price: this._editing?.price ?? null, currency: this._editing?.currency ?? "EUR", tags: structuredClone(this._editing?.tags ?? []), icon: this._editing?.icon ?? "", notes: this._editing?.notes ?? "" };
     product.unit_quantity=Number(fields.unit_quantity);
     product.quantity_step=Number(fields.quantity_step);
     product.store_links = structuredClone(this._storeLinks ?? {});

@@ -1194,7 +1194,7 @@ async function main() {
     assert.equal(await catalog.locator("#product-category").inputValue(), "Lácteos");
     assert.equal(await catalog.getByLabel("Nombre del producto", { exact:true }).inputValue(), "Yogur natural");
     assert.equal(await page.evaluate(() => window.catalogProducts.length), 0);
-    assert.equal(await catalog.getByLabel("Etiquetas", { exact:true }).count(),1);
+    assert.equal(await catalog.getByLabel("Etiquetas", { exact:true }).count(),0);
     assert.equal(await catalog.getByLabel("Icono del producto", { exact:true }).count(),0);
     assert.equal(await catalog.getByLabel("Notas", { exact:true }).count(),0);
     await catalog.getByRole("button",{name:"Automatización",exact:true}).click();
@@ -1282,15 +1282,14 @@ async function main() {
       const bounds = card.getBoundingClientRect();
       return Math.abs((image.left + image.right) / 2 - (bounds.left + bounds.right) / 2) < 2 && image.bottom <= title.top;
     }));
-    // Existing tags load in the editor; edited tags support catalog and list searches.
+    // Tags are no longer editable; legacy metadata survives unrelated product edits.
     await page.evaluate(async()=>{
       const product=window.catalogProducts[0];
-      await window.testPanel._hass.callWS({type:'improved_shopping_list/catalog/save',product:{...product,icon:'mdi:view-grid',tags:['Legacy'],notes:'Existing note'}});
+      await window.testPanel._hass.callWS({type:'improved_shopping_list/catalog/save',product:{...product,icon:'mdi:view-grid',tags:['Danóne','Carrefour','Desayuno'],notes:'Existing note'}});
     });
     await editCatalogProduct(catalog,"Editar Yogur natural");
     assert.equal(await catalog.locator("#product-main").isVisible(),true);
-    assert.equal(await catalog.getByLabel("Etiquetas",{exact:true}).inputValue(),"Legacy");
-    await catalog.getByLabel("Etiquetas",{exact:true}).fill("Danóne, Carrefour, Desayuno");
+    assert.equal(await catalog.getByLabel("Etiquetas",{exact:true}).count(),0);
     await catalog.getByLabel("Nombre del producto", { exact: true }).fill("Yogur sin azúcar");
     assert.equal(await catalog.getByLabel("Icono del producto",{exact:true}).count(),0);
     await catalog.getByRole("button", { name: "Guardar producto", exact: true }).click();
@@ -1311,7 +1310,7 @@ async function main() {
     await page.getByRole('combobox',{name:'Añadir producto',exact:true}).fill('');
     await page.getByRole('button',{name:'Catálogo',exact:true}).click();
     await editCatalogProduct(catalog,'Editar Yogur sin azúcar');
-    assert.equal(await catalog.getByLabel('Etiquetas',{exact:true}).inputValue(),'Danóne, Carrefour, Desayuno');
+    assert.equal(await catalog.getByLabel('Etiquetas',{exact:true}).count(),0);
     await catalog.getByRole('dialog',{name:'Editar producto',exact:true}).getByRole('button',{name:'Cerrar ventana',exact:true}).click();
     await catalog.getByRole('button',{name:'Cambiar a vista de cuadrícula',exact:true}).click();
     await catalog.getByRole("button", { name: "Categorías", exact: true }).click();
@@ -1699,7 +1698,7 @@ async function main() {
     assert.deepEqual(await suggestions.locator("h2").allTextContents(), ["Arroz", "Cacao"]);
     await suggestions.getByRole("button", { name:"Añadir al catálogo: Cacao", exact:true }).click();
     await suggestionDialog.getByLabel("Categoría", { exact:true }).selectOption("Despensa");
-    assert.equal(await suggestionDialog.getByLabel("Etiquetas", { exact:true }).count(),1);
+    assert.equal(await suggestionDialog.getByLabel("Etiquetas", { exact:true }).count(),0);
     await suggestionPage.evaluate(() => { window.failCatalog=true; });
     await suggestionDialog.getByRole("button", { name:"Guardar producto", exact:true }).click();
     await suggestionDialog.getByRole("alert").filter({ hasText:"No se ha podido guardar" }).waitFor();
@@ -3987,13 +3986,13 @@ async function main() {
       await storeGroupingPage.setViewportSize({width,height:960});
       const layout=await storesProductForm.evaluate(form=>{
         const bounds=name=>form.elements[name].getBoundingClientRect();
-        const name=bounds('name'),category=bounds('category'),tags=bounds('tags');
+        const name=bounds('name'),category=bounds('category');
         const unit=bounds('purchase_unit'),quantity=bounds('unit_quantity'),step=bounds('quantity_step');
-        return {top:[name.bottom,category.bottom],tagsBelow:tags.top>=name.bottom,units:[unit.bottom,quantity.bottom,step.bottom],order:form.querySelector('[name="image_url"]').getBoundingClientRect().bottom<=form.querySelector('isl-icon-picker').getBoundingClientRect().top,overflow:form.scrollWidth>form.clientWidth};
+        return {top:[name.bottom,category.bottom],tagsAbsent:!form.elements.tags,units:[unit.bottom,quantity.bottom,step.bottom],order:form.querySelector('[name="image_url"]').getBoundingClientRect().bottom<=form.querySelector('isl-icon-picker').getBoundingClientRect().top,overflow:form.scrollWidth>form.clientWidth};
       });
       assert.ok(Math.max(...layout.top)-Math.min(...layout.top)<=1);
       assert.ok(Math.max(...layout.units)-Math.min(...layout.units)<=1);
-      assert.equal(layout.tagsBelow,true);assert.equal(layout.order,true);assert.equal(layout.overflow,false);
+      assert.equal(layout.tagsAbsent,true);assert.equal(layout.order,true);assert.equal(layout.overflow,false);
       await storeGroupingPage.screenshot({path:'test-results/product-form-main-'+width+'.png',fullPage:true});
     }
     await storesProductForm.getByRole('button',{name:'Tiendas',exact:true}).click();

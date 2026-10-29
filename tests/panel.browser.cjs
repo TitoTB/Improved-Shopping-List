@@ -972,7 +972,6 @@ async function checkReferenceFormats(browser,url,errors){
   assert.match(await first.textContent(),/EAN: 1234567890128/);
   assert.equal(await first.getByLabel('Contenido por envase',{exact:true}).inputValue(),'12');
   assert.equal(await first.getByLabel('Formato confirmado',{exact:true}).count(),0);
-  await first.getByLabel('Contenido por envase',{exact:true}).fill('12');
   await first.getByLabel('Marca',{exact:true}).fill('Granja');
   assert.match(await dialog.locator('.product-option > summary').first().textContent(),/Granja.*12 uds/);
   assert.equal(await first.getByLabel('Enlace o ID de Lidl',{exact:true}).count(),1);
@@ -981,7 +980,7 @@ async function checkReferenceFormats(browser,url,errors){
   await first.getByRole('button',{name:'Recuperar datos',exact:true}).click();
   await dialog.getByText('Datos recuperados. Guarda el producto para conservarlos.',{exact:true}).waitFor();
   assert.equal(await first.getByLabel('Nombre comercial',{exact:true}).inputValue(),'Huevos frescos 12 uds');
-  assert.equal(await first.getByLabel('Contenido por envase',{exact:true}).inputValue(),'12');
+  assert.equal(await first.getByLabel('Contenido por envase',{exact:true}).inputValue(),'24');
   assert.equal(await dialog.getByLabel('Nombre del producto',{exact:true}).inputValue(),'Huevos');
   assert.match(await first.textContent(),/Último precio: 2,50/);
   assert.match(await first.textContent(),/Nutri-Score: A/);

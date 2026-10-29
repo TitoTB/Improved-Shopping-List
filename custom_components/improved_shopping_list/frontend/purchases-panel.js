@@ -1,7 +1,7 @@
 import { ListSettingsSession } from "./list-settings-client.js?v=0.50.0";
 import { installDialogCloseButtons } from "./dialog-controls.js?v=0.50.0";
 import { productNameKey } from "./product-names.js?v=0.50.0";
-import { referenceFor, suggestedContent, referenceContentControls } from "./reference-formats.js?v=0.50.0";
+import { referenceFor, suggestedContent, referenceContentControls, validReferenceContent } from "./reference-formats.js?v=0.50.0";
 
 const node=(tag,cls,text)=>{const el=document.createElement(tag);if(cls)el.className=cls;if(text!==undefined)el.textContent=text;return el;};
 const money=value=>new Intl.NumberFormat('es-ES',{style:'currency',currency:'EUR'}).format(value);
@@ -424,7 +424,7 @@ class ImprovedShoppingPurchases extends HTMLElement {
     this._setBusy(true);
     try{
       await this._hass.callWS({type:'improved_shopping_list/receipts/confirm',token:this._draft.token,update_prices:Boolean(updatePrices&&this._pricesEnabled),
-        lines:this._edits.map(edit=>({id:edit.id,product_id:edit.product_id,replenish:Boolean(edit.product_id&&edit.replenish),quantity:edit.replenish?edit.quantity:null,unit:edit.unit,purchase_id:edit.purchase_id??'',save_price:Boolean(edit.product_id&&edit.save_price&&updatePrices&&this._pricesEnabled),pack_quantity:edit.packageFormat.content_confirmed?edit.packageFormat.content_quantity:null,pack_unit:edit.packageFormat.content_confirmed?edit.packageFormat.content_unit:''}))});
+        lines:this._edits.map(edit=>({id:edit.id,product_id:edit.product_id,replenish:Boolean(edit.product_id&&edit.replenish),quantity:edit.replenish?edit.quantity:null,unit:edit.unit,purchase_id:edit.purchase_id??'',save_price:Boolean(edit.product_id&&edit.save_price&&updatePrices&&this._pricesEnabled),pack_quantity:validReferenceContent(edit.packageFormat)?edit.packageFormat.content_quantity:null,pack_unit:validReferenceContent(edit.packageFormat)?edit.packageFormat.content_unit:''}))});
       this._draft=null;this.shadowRoot.querySelector('dialog').close();await this._session.refresh();this.dispatchEvent(new CustomEvent('receipt-imported'));
     }catch(error){this._errorMessage(error.message??'No se ha podido guardar el ticket.');}
     finally{this._setBusy(false);}

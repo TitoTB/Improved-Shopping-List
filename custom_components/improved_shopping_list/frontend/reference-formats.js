@@ -34,13 +34,17 @@ export function referenceRate(price,reference){
   const scale=scales[reference.content_unit];
   return reference.content_confirmed&&reference.content_quantity>0&&scale?{price:Number(price)/(reference.content_quantity*scale[1]),unit:scale[0]}:null;
 }
+export function validReferenceContent(reference){
+  const quantity=reference.content_quantity;
+  return Number.isFinite(quantity)&&quantity>0&&quantity<=1000000&&Object.hasOwn(contentUnits,reference.content_unit)&&(reference.content_unit!=='uds'||Number.isInteger(quantity));
+}
 export function referenceContentControls(reference,onChange){
   const row=document.createElement('div');row.className='reference-content-controls';
   const quantityLabel=document.createElement('label');quantityLabel.textContent='Contenido por envase';
   const quantity=document.createElement('input');quantity.type='number';quantity.min='0.001';quantity.max='1000000';quantity.step='any';quantity.value=reference.content_quantity??'';quantity.setAttribute('aria-label','Contenido por envase');quantityLabel.append(quantity);
   const unitLabel=document.createElement('label');unitLabel.textContent='Unidades';
   const unit=document.createElement('select');unit.setAttribute('aria-label','Unidades del envase');unit.append(new Option('Sin confirmar',''),...Object.keys(contentUnits).map(value=>new Option(value,value)));unit.value=reference.content_unit??'';unitLabel.append(unit);
-  const update=()=>{reference.content_quantity=quantity.value===''?null:Number(quantity.value);reference.content_unit=unit.value;reference.content_confirmed=Number.isFinite(reference.content_quantity)&&reference.content_quantity>0&&reference.content_quantity<=1000000&&Boolean(contentUnits[reference.content_unit])&&(reference.content_unit!=='uds'||Number.isInteger(reference.content_quantity));onChange?.();};
+  const update=()=>{reference.content_quantity=quantity.value===''?null:Number(quantity.value);reference.content_unit=unit.value;reference.content_confirmed=validReferenceContent(reference);onChange?.();};
   quantity.addEventListener('input',update);unit.addEventListener('change',update);
   row.append(quantityLabel,unitLabel);return row;
 }

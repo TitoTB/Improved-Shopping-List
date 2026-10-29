@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 globalThis.HTMLElement=class {};globalThis.customElements={get:()=>true};
 const {normalizeObservation,analyzeCatalog,analyzePurchase}=await import('../custom_components/improved_shopping_list/frontend/analytics-panel.js');
-const {packageCost,referenceRate,suggestedContent}=await import('../custom_components/improved_shopping_list/frontend/reference-formats.js');
+const {packageCost,referenceRate,suggestedContent,validReferenceContent}=await import('../custom_components/improved_shopping_list/frontend/reference-formats.js');
 const {cachedProductPrice}=await import('../custom_components/improved_shopping_list/frontend/product-display.js');
 const now=1800000000,ean='1234567890128';
 const offer=(store,price,extra={})=>({store,product_id:'p',price,currency:'EUR',at:now-3600,ean,...extra});
@@ -10,6 +10,8 @@ const products=[{id:'p',name:'Arroz',category:'Despensa'},{id:'q',name:'Pavo',ca
 const purchase=(extra={})=>({id:'receipt',store:'carrefour',currency:'EUR',at:now,total:8,discount:0,shipping:0,lines:[{id:'l',product_id:'p',description:'ARROZ',count:2,amount:8,ean}],...extra});
 
 test('list estimates select whole packages for the requested amount and leave pending formats unknown',()=>{
+ for(const ref of [{content_quantity:250,content_unit:'g',content_confirmed:false},{content_quantity:12,content_unit:'uds'}])assert.equal(validReferenceContent(ref),true);
+ for(const ref of [{content_quantity:null,content_unit:'g'},{content_quantity:0,content_unit:'g'},{content_quantity:1.5,content_unit:'uds'},{content_quantity:250,content_unit:''}])assert.equal(validReferenceContent(ref),false);
  const p={id:'p',purchase_unit:'uds',unit_quantity:6};
  const obs=[{catalog_product_id:'p',store:'lidl',price:1.8,currency:'EUR',pack_quantity:6,pack_unit:'uds'},
  {catalog_product_id:'p',store:'lidl',price:3,currency:'EUR',pack_quantity:12,pack_unit:'uds'}];

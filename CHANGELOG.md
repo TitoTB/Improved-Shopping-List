@@ -1,5 +1,13 @@
 # Historial de cambios
 
+## 0.53.2 — 2026-10-29
+
+- La ficha de productos deja de mostrar el Nutri-Score en las opciones de compra.
+- Nuevo campo editable «Precio por envase (€)» en cada opción de tienda. Permite introducir o corregir el precio y conservarlo al guardar el producto, sin modificar el de las otras opciones.
+- Las opciones con el mismo EAN comparten un único bloque superior para marca, contenido por envase y unidades. Sus cambios se aplican a las opciones de ese EAN; cada tienda conserva su nombre comercial, URL, referencia y precio propios.
+- Verificados el guardado, la reapertura y el descarte de cambios sin guardar, manteniendo separados los formatos con EAN diferente.
+- Sin nuevas dependencias.
+
 ## 0.53.1 — 2026-10-29
 
 - Alcampo espera al menos veinte segundos entre peticiones, incluidas redirecciones y consultas complementarias.

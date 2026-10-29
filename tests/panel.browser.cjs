@@ -3159,10 +3159,8 @@ async function main() {
     for(const code of ['8410109115543','08410109115543','3017620422003','https://private.test/qr','3017620422004'])await captureProductCode(nutriPage,nutriForm,'barcode',code);
     await captureProductCode(nutriPage,nutriForm,'nfc','AA:BB:CC:DD');
     await nutriForm.getByRole('button',{name:'Opciones',exact:true}).click();
-    await nutriForm.getByLabel('Nutri-Score D',{exact:true}).waitFor({state:'attached'});
-    assert.equal(await nutriForm.getByLabel('Nutri-Score D',{exact:true}).isVisible(),false);
-    assert.equal(await nutriForm.locator('.option-nutriscore').count(),2);
-    assert.equal(await nutriForm.locator('.product-option').filter({hasText:'3017620422003'}).locator('.option-nutriscore').textContent(),'D');
+    await nutriPage.waitForFunction(()=>document.querySelector('improved-shopping-list-panel').shadowRoot.querySelector('isl-catalog')._commercialReferences.some(ref=>ref.nutriscore?.grade==='d'));
+    assert.equal(await nutriForm.locator('.option-nutriscore').count(),0);
     assert.equal(await nutriForm.locator('#product-nutriscore').count(),0);
     assert.deepEqual(await nutriPage.evaluate(()=>window.nutriCalls),['8410109115543','3017620422003']);
     await nutriForm.getByRole('button',{name:'Características',exact:true}).click();

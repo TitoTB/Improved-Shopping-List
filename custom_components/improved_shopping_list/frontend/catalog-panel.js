@@ -1,12 +1,12 @@
-import { purchaseQuantity, quantityLabel } from "./quantity-client.js?v=0.53.1";
-import { referenceContentControls, referenceRate, barcodeIdentity, validReferenceContent } from "./reference-formats.js?v=0.53.1";
-import { installDialogCloseButtons } from "./dialog-controls.js?v=0.53.1";
-import { CatalogSession } from "./catalog-client.js?v=0.53.1";
-import { matchCatalogProducts } from "./product-matching.js?v=0.53.1";
-import "./category-panel.js?v=0.53.1";
-import "./recipe-editor.js?v=0.53.1";
-import "./icon-picker.js?v=0.53.1";
-import { imageSource, normalizedName, productNameKey, cachedProductPrice, storeProductLink, storeFromProductUrl } from "./product-display.js?v=0.53.1";
+import { purchaseQuantity, quantityLabel } from "./quantity-client.js?v=0.53.2";
+import { referenceContentControls, referenceRate, barcodeIdentity, validReferenceContent } from "./reference-formats.js?v=0.53.2";
+import { installDialogCloseButtons } from "./dialog-controls.js?v=0.53.2";
+import { CatalogSession } from "./catalog-client.js?v=0.53.2";
+import { matchCatalogProducts } from "./product-matching.js?v=0.53.2";
+import "./category-panel.js?v=0.53.2";
+import "./recipe-editor.js?v=0.53.2";
+import "./icon-picker.js?v=0.53.2";
+import { imageSource, normalizedName, productNameKey, cachedProductPrice, storeProductLink, storeFromProductUrl } from "./product-display.js?v=0.53.2";
 export { imageSource, normalizedName, productNameKey, cachedProductPrice };
 
 const MONTHS = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];

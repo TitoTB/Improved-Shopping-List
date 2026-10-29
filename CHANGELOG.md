@@ -1,5 +1,13 @@
 # Historial de cambios
 
+## 0.53.3 — 2026-10-29
+
+- La vista Opciones de la ficha del producto pasa a llamarse Alternativas, incluido su título y la documentación.
+- Al recuperar manualmente una URL que devuelve otro EAN válido, sus datos se incorporan a una alternativa independiente, sin copiar el precio o el formato del envase original.
+- Si el enlace incorrecto ya estaba guardado, se desvincula del envase original y se asigna a la alternativa recuperada. Repetir la consulta reutiliza la alternativa sin duplicarla.
+- Los cambios se conservan al guardar el producto. Las consultas automáticas mantienen la comprobación estricta de EAN.
+- Sin nuevas dependencias.
+
 ## 0.53.2 — 2026-10-29
 
 - La ficha de productos deja de mostrar el Nutri-Score en las opciones de compra.

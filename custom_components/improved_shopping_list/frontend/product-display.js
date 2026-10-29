@@ -4,6 +4,16 @@ import { packageCost } from "./reference-formats.js?v=0.50.2";
 export { productNameKey };
 export const normalizedName = value => String(value ?? "").normalize("NFKC").trim().replace(/\s+/g, " ").toLocaleLowerCase("es");
 
+export function storeFromProductUrl(value) {
+  try {
+    const url=new URL(value);
+    if(url.protocol!=="https:"||url.username||url.password||url.port&&url.port!=="443")return "";
+    return ({"www.carrefour.es":"carrefour","carrefour.es":"carrefour","www.compraonline.alcampo.es":"alcampo","compraonline.alcampo.es":"alcampo",
+      "tienda.mercadona.es":"mercadona","tienda.consum.es":"consum","www.lasirena.es":"lasirena","supermercado.eroski.es":"eroski",
+      "www.dia.es":"dia","dia.es":"dia","www.lidl.es":"lidl"})[url.hostname]??"";
+  } catch { return ""; }
+}
+
 export function storeProductLink(store, value) {
   if (store !== "carrefour") return value;
   try {

@@ -6,7 +6,7 @@ import { matchCatalogProducts } from "./product-matching.js?v=0.50.2";
 import "./category-panel.js?v=0.50.2";
 import "./recipe-editor.js?v=0.50.2";
 import "./icon-picker.js?v=0.50.2";
-import { imageSource, normalizedName, productNameKey, cachedProductPrice, storeProductLink } from "./product-display.js?v=0.50.2";
+import { imageSource, normalizedName, productNameKey, cachedProductPrice, storeProductLink, storeFromProductUrl } from "./product-display.js?v=0.50.2";
 export { imageSource, normalizedName, productNameKey, cachedProductPrice };
 
 const MONTHS = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
@@ -281,6 +281,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
         .retrieve-option { display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:46px;padding:8px 10px;font-size:12px;background:var(--primary-color,#267052);color:#fff; }
         .retrieve-option ha-icon { width:18px;height:18px;--mdc-icon-size:18px;flex:none; }
         @media(max-width:550px){.store-link-add{grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"store add" "url retrieve";}.option-url-row{gap:6px;}.retrieve-option{padding:8px;font-size:11px;}.retrieve-option ha-icon{display:none;}}
+        .store-link-add[data-url-mode="true"] { grid-template-columns:minmax(0,1fr) auto 46px;grid-template-areas:"url retrieve add"; }
         .store-link-add input,.store-link-add select,.store-link-add button { width:100%; min-width:0; height:46px; min-height:46px; margin:0; }
         .store-link-add select { appearance:none; -webkit-appearance:none; padding-right:32px; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right 12px center; }
         #add-product-store-link { display:grid; place-items:center; padding:0; }
@@ -549,7 +550,9 @@ class ImprovedShoppingCatalog extends HTMLElement {
     installDialogCloseButtons(root);
     root.querySelector("#product-link-store").addEventListener("change",()=>this._storeLinkHint());
     const addStoreLink = () => {
-      const store = root.querySelector("#product-link-store").value, value = root.querySelector("#product-link-value").value.trim();
+      const value = root.querySelector("#product-link-value").value.trim();
+      const store = value.includes('://')?storeFromProductUrl(value):root.querySelector("#product-link-store").value;
+      if(value&&!store){const status=root.querySelector('#option-lookup-status');status.textContent='Introduce una URL HTTPS de una tienda compatible.';status.dataset.error='true';return;}
       if (!store || !value) return;
       if(!this._storeLinks[store])this._storeLinks[store] = value;
       const url=value.startsWith('https://')?value:'',reference_id=url?'':value;
@@ -564,6 +567,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
     root.querySelector("#product-link-value").addEventListener("keydown", event => {
       if (event.key === "Enter" && !event.isComposing) { event.preventDefault(); addStoreLink(); }
     });
+    root.querySelector("#product-link-value").addEventListener("input",()=>this._storeLinkHint());
     for (const button of root.querySelectorAll("[data-product-view]")) button.addEventListener("click", () => this._switchProductView(button.dataset.productView));
     root.querySelector("#product-form").addEventListener("invalid", event => {
       const panel = event.target.closest("section[id^=product-]");
@@ -1560,10 +1564,15 @@ class ImprovedShoppingCatalog extends HTMLElement {
   }
 
   _storeLinkHint() {
-    const root=this.shadowRoot, eroski=root.querySelector("#product-link-store").value === "eroski";
+    const root=this.shadowRoot, select=root.querySelector("#product-link-store");
     const input=root.querySelector("#product-link-value");
-    input.placeholder=eroski ? "Enlace completo del producto de Eroski" : "Enlace o ID del producto";
-    input.title=eroski ? "Eroski necesita el enlace completo; la ID sola no es suficiente." : "";
+    const manualId=Boolean(input.value.trim())&&!input.value.includes('://');
+    select.hidden=!manualId;
+    input.closest('.store-link-add').dataset.urlMode=String(!manualId);
+    const detected=storeFromProductUrl(input.value.trim());if(detected)select.value=detected;
+    const eroski=manualId&&select.value==='eroski';
+    input.placeholder=eroski ? "Enlace completo del producto de Eroski" : "URL del producto";
+    input.title=eroski ? "Eroski necesita el enlace completo; la ID sola no es suficiente." : "La tienda se detecta automáticamente a partir de la URL.";
   }
 
   async _loadNutriscores() {

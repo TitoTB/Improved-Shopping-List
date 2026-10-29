@@ -1020,6 +1020,20 @@ async function checkReferenceFormats(browser,url,errors){
   await dialog.getByRole('button',{name:'Guardar producto',exact:true}).click();await dialog.waitFor({state:'hidden'});
   const moved=await page.evaluate(()=>{const p=window.catalogProducts.find(p=>p.id==='eggs');return {ref:p.commercial_references.find(r=>r.store==='alcampo'),links:p.store_links,lidl:p.commercial_references.filter(r=>r.store==='lidl').length};});
   assert.equal(moved.ref.reference_id,'540978');assert.equal(moved.ref.last_price,undefined);assert.equal(moved.links.lidl,undefined);assert.equal(moved.links.alcampo,correctedUrl);assert.equal(moved.lidl,1);
+  await catalog.getByRole('button',{name:'Editar Huevos',exact:true}).click();
+  await dialog.getByRole('button',{name:'Opciones',exact:true}).click();
+  assert.equal(await dialog.locator('#product-link-store').isVisible(),false);
+  await dialog.locator('#product-link-value').fill('R-521002958');
+  assert.equal(await dialog.locator('#product-link-store').isVisible(),true);
+  await dialog.locator('#product-link-store').selectOption('carrefour');
+  await dialog.locator('#product-link-value').fill(correctedUrl);
+  assert.equal(await dialog.locator('#product-link-store').isVisible(),false);
+  await dialog.locator('#retrieve-product-data').click();
+  await dialog.getByText('Datos recuperados. Guarda el producto para conservarlos.',{exact:true}).waitFor();
+  assert.equal(await page.evaluate(()=>window.lastOptionLookup.store),'alcampo');
+  assert.equal(await dialog.locator('.product-option[data-store="alcampo"]').count(),1);
+  for(const width of [320,1280]){await page.setViewportSize({width,height:960});assert.ok(await dialog.evaluate(el=>el.scrollWidth<=el.clientWidth+1));}
+  await dialog.getByRole('button',{name:'Cerrar ventana',exact:true}).click();
   await context.close();
 }
 

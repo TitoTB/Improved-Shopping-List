@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 globalThis.HTMLElement=class {};globalThis.customElements={get:()=>true};
 const {normalizeObservation,analyzeCatalog,analyzePurchase}=await import('../custom_components/improved_shopping_list/frontend/analytics-panel.js');
 const {packageCost,referenceRate,suggestedContent,validReferenceContent}=await import('../custom_components/improved_shopping_list/frontend/reference-formats.js');
-const {cachedProductPrice,storeProductLink}=await import('../custom_components/improved_shopping_list/frontend/product-display.js');
+const {cachedProductPrice,storeProductLink,storeFromProductUrl}=await import('../custom_components/improved_shopping_list/frontend/product-display.js');
 const now=1800000000,ean='1234567890128';
 const offer=(store,price,extra={})=>({store,product_id:'p',price,currency:'EUR',at:now-3600,ean,...extra});
 const products=[{id:'p',name:'Arroz',category:'Despensa'},{id:'q',name:'Pavo',category:'Fresco'},{id:'none',name:'Sin precio'}];
@@ -16,6 +16,11 @@ test('Carrefour outgoing product links use the affiliate destination without cha
  assert.equal(affiliate.searchParams.get('awinmid'),'25399');assert.equal(affiliate.searchParams.get('awinaffid'),'1535625');assert.equal(affiliate.searchParams.get('ued'),original);
  assert.equal(storeProductLink('lidl',original),original);
  for(const url of ['https://www.awin1.com/cread.php?awinmid=25399','https://www.carrefour.es.example.org/supermercado/a/R-prod1/p','R-prod310215'])assert.equal(storeProductLink('carrefour',url),url);
+});
+
+test('official product URLs identify their store without a selected store',()=>{
+ for(const [host,store] of [['www.carrefour.es','carrefour'],['www.compraonline.alcampo.es','alcampo'],['tienda.mercadona.es','mercadona'],['tienda.consum.es','consum'],['www.lasirena.es','lasirena'],['supermercado.eroski.es','eroski'],['www.dia.es','dia'],['www.lidl.es','lidl']])assert.equal(storeFromProductUrl(`https://${host}/product`),store);
+ for(const value of ['R-521002958','http://www.carrefour.es/a','https://www.carrefour.es.example.org/a','https://user:password@www.carrefour.es/a'])assert.equal(storeFromProductUrl(value),'');
 });
 
 test('list estimates select whole packages for the requested amount and leave pending formats unknown',()=>{

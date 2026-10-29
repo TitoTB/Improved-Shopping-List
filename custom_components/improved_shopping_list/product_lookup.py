@@ -12,6 +12,7 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.storage import Store
 
 from .const import DOMAIN, VERSION
+from .product_references import brand_name
 
 _LOGGER = logging.getLogger(__name__)
 BASE_URL = "https://world.openfoodfacts.org"
@@ -43,7 +44,7 @@ def product_hint(data, code):
                "source": "Open Food Facts", "url": f"{BASE_URL}/product/{code}", "license": "ODbL"}
               if name else {"status": "not_found"})
     if brand := field("brands", 160):
-        result["brand"] = brand
+        result["brand"] = brand_name(brand)
     if quantity := field("quantity", 160):
         from .product_references import content, inferred_content
         amount, unit = inferred_content({"description": quantity})

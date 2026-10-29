@@ -13,9 +13,13 @@ refs=importlib.util.module_from_spec(spec);spec.loader.exec_module(refs)
 
 
 class ReferenceTests(unittest.TestCase):
+    def test_brand_initial_is_uppercase_without_lowercasing_the_rest(self):
+        for raw, expected in [("carrefour", "Carrefour"), ("marca API", "Marca API"), ("DIA", "DIA"), (' "nestlé" ', '"Nestlé"'), ("", "")]:
+            self.assertEqual(refs.brand_name(raw), expected)
+
     def test_distinct_packs_remain_separate_and_confirmed_content_survives_later_tickets(self):
         values=[]
-        small={"description":"HUEVOS 6 UDS","ean":"4006381333931","brand":"Granja"}
+        small={"description":"HUEVOS 6 UDS","ean":"4006381333931","brand":"granja"}
         large={"description":"HUEVOS 12 UDS","ean":"1234567890128"}
         refs.merge_reference(values,"lidl",small,confirmed=True)
         refs.merge_reference(values,"lidl",large,confirmed=True)

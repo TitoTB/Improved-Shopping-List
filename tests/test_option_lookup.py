@@ -16,7 +16,7 @@ CODE = "3017620422003"
 
 
 def html_product(**changes):
-    product = {"@type":"Product", "url":URL, "name":"Pavo 250 g", "brand":{"name":"Marca"},
+    product = {"@type":"Product", "url":URL, "name":"Pavo 250 g", "brand":{"name":"marca"},
         "gtin13":CODE, "offers":{"price":"2.50","priceCurrency":"EUR"},
         "image":"https://example.test/pavo.png", "additionalProperty":[{"name":"Nutri-Score","value":"A"}]}
     product.update(changes)
@@ -55,7 +55,7 @@ async def test_lookup_uses_public_metadata_cache_and_checks_the_ean(hass, aiocli
 async def test_blocked_page_can_use_the_existing_official_endpoint(hass, aioclient_mock, monkeypatch):
     lookup = OptionLookup(hass)
     monkeypatch.setattr(lookup,"_before_request",AsyncMock())
-    fetch = AsyncMock(return_value={"store_name":"Pavo 250 g","brand":{"name":"Marca API"},"price":"2.75","currency":"EUR","ean":CODE})
+    fetch = AsyncMock(return_value={"store_name":"Pavo 250 g","brand":{"name":"marca API"},"price":"2.75","currency":"EUR","ean":CODE})
     monkeypatch.setattr(lookup.sources,"fetch",fetch)
     aioclient_mock.get(URL,status=403)
     try:

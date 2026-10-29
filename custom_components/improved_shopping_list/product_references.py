@@ -9,6 +9,15 @@ UNITS = {"uds", "g", "kg", "ml", "cl", "l"}
 SCALES = {"uds":("uds",1), "g":("kg",.001), "kg":("kg",1), "ml":("l",.001), "cl":("l",.01), "l":("l",1)}
 
 
+def brand_name(value):
+    """Uppercase the first letter without changing the brand's remaining casing."""
+    value = value.strip() if isinstance(value, str) else ""
+    for index, char in enumerate(value):
+        if char.isalpha():
+            return value[:index] + char.upper() + value[index + 1:]
+    return value
+
+
 def name_key(value):
     return " ".join("".join(c for c in normalize("NFKD", value) if not combining(c)).casefold().split())
 
@@ -56,7 +65,7 @@ def reference_from_line(store, line):
     quantity, unit = inferred_content(line)
     return {"id":reference_key(store,line), "store":store, "name":line.get("name") or line.get("description", ""),
             "ean":line.get("ean", "") if gtin(line.get("ean")) else "", "reference_id":line.get("reference_id", ""),
-            "url":line.get("url", ""), "brand":line.get("brand", ""), "content_quantity":quantity, "content_unit":unit, "content_confirmed":False}
+            "url":line.get("url", ""), "brand":brand_name(line.get("brand", "")), "content_quantity":quantity, "content_unit":unit, "content_confirmed":False}
 
 
 def matching_reference(product, store, line):
@@ -84,6 +93,7 @@ def normalized_references(values):
             if not isinstance(row[key],str) or len(row[key])>limit or any(ord(c)<32 for c in row[key]):
                 raise ValueError("La referencia comercial no es válida.")
             row[key]=row[key].strip()
+        row["brand"] = brand_name(row["brand"])
         if row["store"] and row["store"] not in STORES:
             raise ValueError("Selecciona una tienda válida para la referencia.")
         if row["ean"] and not gtin(row["ean"]):

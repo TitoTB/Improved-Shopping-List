@@ -10,7 +10,7 @@ import aiohttp
 from homeassistant.helpers.aiohttp_client import async_create_clientsession
 
 from .price_sources import PriceError, PriceSources, amount
-from .product_references import content, gtin, inferred_content
+from .product_references import brand_name, content, gtin, inferred_content
 from .store_links import HOSTS, normalize_link
 from .store_location import reference_location
 
@@ -46,7 +46,7 @@ def metadata(product):
     brand = product.get("brand", product.get("brands", product.get("item_brand", "")))
     if isinstance(brand, dict):
         brand = brand.get("name", "")
-    result = {"brand": text(brand, 160)}
+    result = {"brand": brand_name(text(brand, 160))}
     name = text(product.get("name") or product.get("display_name") or product.get("item_name") or product.get("store_name"))
     if name:
         result["name"] = name

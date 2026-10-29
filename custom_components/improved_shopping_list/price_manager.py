@@ -54,6 +54,12 @@ class PriceManager:
             return []
         receipts=getattr(self,"receipts",None)
         offers = [deepcopy(price) for price in receipts.offers_for(product) if price.get("source")=="receipt"] if receipts else []
+        from .product_references import format_observation
+        for ref in product.get("commercial_references", []):
+            if ref.get("active") is not False and ref.get("last_price"):
+                offers.append(format_observation(product,ref["store"],{**ref["last_price"],"store":ref["store"],
+                    "reference_id":ref["reference_id"],"ean":ref["ean"],"name":ref["name"],"store_name":ref["name"],
+                    "url":ref["url"],"source":"web"}))
         for store, attribute in (("alcampo", "alcampo"), ("dia", "dia_prices")):
             manager = getattr(self, attribute, None)
             offer = manager.offer_for(product) if manager else None

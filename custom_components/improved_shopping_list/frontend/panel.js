@@ -1176,7 +1176,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
         categoryTag.append(icon,label); metadata.append(categoryTag);
       }
       const offer = this._listLayout === "rows" ? this._quantityOffer(item,this._listPrice(product)) : null;
-      const nutrition = this._listLayout === "rows" ? this._nutritionCodes(product).map(code=>this._nutrition.get(code.padStart(14,"0"))).find(value=>value?.grade) : null;
+      const nutrition = this._listLayout === "rows" ? (this._nutritionCodes(product).map(code=>this._nutrition.get(code.padStart(14,"0"))).find(value=>value?.grade)??product?.commercial_references?.filter(ref=>ref.active!==false).map(ref=>ref.nutriscore).find(value=>/^[a-e]$/.test(value?.grade??''))) : null;
       if (nutrition) {
         const badge=document.createElement("span");badge.className="row-nutriscore";badge.dataset.grade=nutrition.grade;
         badge.textContent=nutrition.grade.toUpperCase();badge.title=`Nutri-Score ${badge.textContent} · ${nutrition.code}`;

@@ -101,6 +101,7 @@ class ProductLookup:
         counts = dict.fromkeys("abcde", 0)
         product_ids = {grade: [] for grade in counts}
         for product in products:
+            found = False
             for code in dict.fromkeys([product.get("barcode", ""), *product.get("barcodes", [])]):
                 if not is_product_barcode(code):
                     continue
@@ -109,7 +110,15 @@ class ProductLookup:
                 if grade in counts:
                     counts[grade] += 1
                     product_ids[grade].append(product["id"])
+                    found = True
                     break
+            if not found:
+                for reference in product.get("commercial_references", []):
+                    grade = (reference.get("nutriscore") or {}).get("grade")
+                    if reference.get("active") is not False and grade in counts:
+                        counts[grade] += 1
+                        product_ids[grade].append(product["id"])
+                        break
         return {"counts": counts, "total": sum(counts.values()), "product_ids": product_ids}
 
     async def async_lookup(self, code):

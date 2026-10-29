@@ -59,7 +59,7 @@ def carrefour_offer(data, link):
     if isinstance(codes, str):
         codes = [codes]
     ean = next((code for code in codes if isinstance(code, str) and re.fullmatch(r"[0-9]{8,14}", code)), "") if isinstance(codes, list) else ""
-    return {"store_name":str(product.get("item_name", "")).replace("-", " ")[:300],
+    return {"store_name":str(product.get("item_name", "")).replace("-", " ")[:300], "brand":product.get("item_brand", ""),
         "price":amount(product.get("price")), "currency":"EUR", "ean":ean, "available":None}
 
 
@@ -77,7 +77,7 @@ def consum_offer(data, link):
     price = amount(value.get("centAmount"))
     if Decimal(price) <= 0 or product.get("temporaryOutOfStock") is True:
         return None
-    return {"store_name":str(product.get("description") or product.get("name") or "")[:300],
+    return {"store_name":str(product.get("description") or product.get("name") or "")[:300], "brand":product.get("brand", ""),
         "price":price, "currency":"EUR", "ean":str(data.get("ean") or "")[:14], "available":True,
         "reference_price":amount(value["centUnitAmount"]) if value.get("centUnitAmount") is not None else None,
         "reference_unit":str(prices.get("unitPriceUnitType") or "")[:40]}
@@ -112,7 +112,7 @@ def sirena_offer(data, product, sku, configuration):
     if type(cents) is not int or cents <= 0:
         raise PriceError("La Sirena no ha devuelto un precio válido.", response_class="invalid_price")
     # Checkout simulation returns integer cents, unlike the catalog endpoint.
-    return {"store_name":str(product.get("productName") or "")[:300], "price":amount(Decimal(cents)/100),
+    return {"store_name":str(product.get("productName") or "")[:300], "brand":product.get("brand", ""), "price":amount(Decimal(cents)/100),
         "currency":"EUR", "ean":str(sku.get("ean") or "")[:14], "available":True}
 
 
@@ -215,7 +215,7 @@ class PriceSources:
                     if not isinstance(prices, dict):
                         raise PriceError("Mercadona no ha devuelto un precio válido.", response_class="invalid_price")
                     reference = prices.get("reference_price", prices.get("bulk_price"))
-                    result = {"store_name":str(product.get("display_name", ""))[:300],
+                    result = {"store_name":str(product.get("display_name", ""))[:300], "brand":product.get("brand", ""), "image":product.get("thumbnail", ""),
                         "price":amount(prices.get("unit_price")), "currency":"EUR", "ean":str(product.get("ean") or ""),
                         "reference_price":amount(reference) if reference is not None else None,
                         "reference_unit":str(prices.get("reference_format", ""))[:40],
@@ -228,7 +228,7 @@ class PriceSources:
                     unit = product.get("unitPrice") or {}
                     if not isinstance(unit, dict):
                         unit = {}
-                    result = {"store_name":str(product.get("name", ""))[:300], "price":amount(price.get("amount")),
+                    result = {"store_name":str(product.get("name", ""))[:300], "brand":product.get("brand", ""), "price":amount(price.get("amount")),
                         "currency":"EUR", "available":product.get("available") if type(product.get("available")) is bool else None,
                         "reference_price":amount(unit["price"]["amount"]) if isinstance(unit.get("price"), dict) and unit["price"].get("amount") is not None else None,
                         "reference_unit":str(unit.get("unitName", ""))[:40], "ean":""}

@@ -6,7 +6,7 @@ Una interfaz propia para gestionar las listas de la compra que ya tienes integra
 
 Versión actual: **0.49.1**. Interfaz en español, pensada para móvil y ordenador. Requiere **Home Assistant Core 2026.10 o posterior**. La referencia de desarrollo es Core 2026.10.2.
 
-Los precios proceden de tickets y facturas confirmados por el usuario. Alcampo y DIA están archivados: no aparecen en Ajustes → Tiendas ni inician consultas, pero conservan su código y sus datos guardados. Las demás tiendas permanecen disponibles. El catálogo comunitario se dedica exclusivamente a sugerencias de iconos y no proporciona precios.
+Los precios proceden de tickets y facturas confirmados por el usuario o de recuperaciones manuales de una ficha oficial desde Opciones, guardadas en el catálogo. Alcampo y DIA están archivados: no aparecen en Ajustes → Tiendas ni inician consultas, pero conservan su código y sus datos guardados. Las demás tiendas permanecen disponibles. El catálogo comunitario se dedica exclusivamente a sugerencias de iconos y no proporciona precios.
 
 El diccionario comunitario sirve exclusivamente para sugerir iconos por nombre o traducción del producto. No intercambia precios, EAN, referencias, Nutri-Score ni documentos de compra.
 
@@ -266,7 +266,7 @@ Se reutiliza la caché persistente de identificación (30 días para productos e
 
 ## Tiendas y vinculaciones
 
-Las tiendas se utilizan para clasificar compras y precios guardados en documentos. Las vinculaciones manuales ya configuradas se conservan, pero no generan consultas de precios. El catálogo comunitario no aporta ni publica referencias o enlaces comerciales. La cuenta Carrefour permite recuperar compras y tickets con las opciones indicadas al final. Las facturas online siguen admitiéndose por subida manual.
+Las tiendas se utilizan para clasificar compras y precios guardados en documentos. Las vinculaciones manuales se conservan y no generan consultas automáticas; el botón Recuperar datos de Opciones permite consultar explícitamente una ficha concreta. El catálogo comunitario no aporta ni publica referencias o enlaces comerciales. La cuenta Carrefour permite recuperar compras y tickets con las opciones indicadas al final. Las facturas online siguen admitiéndose por subida manual.
 
 ## Compras recurrentes
 
@@ -490,6 +490,12 @@ Lista inicia los datos compartidos que necesita para los productos, categorías,
 El catálogo de datos usa una sola sesión compartida, también al crear productos desde un ticket. Los apartados ocultos no reconstruyen sus listados y las conexiones de stock y lectores se detienen cuando dejan de ser necesarias en la interfaz. Las automatizaciones siguen funcionando en Home Assistant con la interfaz cerrada. Cambiar de apartado conserva la sesión y las preferencias, sin recargar Home Assistant ni necesitar otras tarjetas de HACS.
 
 ### Referencias comerciales y contenido por envase
+
+En **Opciones** siempre hay un campo de URL, también en las referencias que solo tienen EAN, con **Recuperar datos** a su derecha. Los administradores pueden consultar una ficha HTTPS de una tienda compatible (Mercadona, Carrefour, Lidl, Alcampo, Consum, La Sirena, Eroski o DIA). Se leen los datos estructurados de esa ficha y, cuando hace falta y existe un conector, su endpoint oficial. Se utiliza la ubicación de referencia y no se emplean credenciales de las cuentas conectadas. Esto no reactiva tiendas archivadas ni programa consultas periódicas.
+
+La recuperación puede aportar nombre comercial, EAN válido, marca, contenido, unidades, imagen, precio en EUR y Nutri-Score. Si se conoce el EAN, la consulta existente a Open Food Facts puede completar los campos disponibles que falten. Se conserva el nombre genérico del catálogo, los contenidos ya confirmados y la imagen existente; una imagen recuperada solo completa el campo si estaba vacío. Si el EAN de la web contradice el de la opción, se rechaza la asociación. Los cambios, incluido el precio de la opción y su fecha, se guardan al pulsar **Guardar producto**. Ese precio participa en las estimaciones y comparativas según las reglas de formato confirmado y la configuración de precios existente, sin alterar Stock ni compras. El historial conserva la observación al guardar.
+
+Las consultas están limitadas a dominios y rutas de producto reconocidos, con tamaños y tiempos acotados, cinco segundos entre peticiones y reutilización durante un minuto de resultados de la misma referencia. No se sortean bloqueos: una web puede devolver información parcial, no publicar alguno de estos campos o rechazar el acceso. En ese caso se informa en la ficha, se conserva el enlace y se pueden completar los datos manualmente. No se comparten estos datos con el diccionario comunitario ni se añaden dependencias nuevas.
 
 Un producto genérico, como **Huevos**, puede contener varias referencias comerciales de una misma tienda o de distintas tiendas. En su ficha → **Opciones** (`mdi:format-list-text`) aparece un bloque independiente por referencia, comprimido por defecto y desplegable al pulsarlo. Su cabecera muestra el nombre comercial, la tienda y, cuando están disponibles, la marca y el contenido. Dentro encontrarás el EAN o ID y podrás editar el nombre comercial, marca, enlace y **Contenido por envase** con sus unidades (`uds`, `g`, `kg`, `ml`, `cl`, `l`). Marca **Formato confirmado** y guarda la ficha para utilizar ese contenido en las comparativas. Puedes corregirlo o desvincular una referencia sin borrar el historial de compras ni modificar el stock. Las unidades de compra, cantidad unitaria y tamaño del paso dejan de mostrarse en Características; sus valores anteriores se conservan para no modificar las listas existentes. El contenido de cada opción es independiente de la reposición configurada en Stock. Cuando hay EAN válido, la consulta existente a Open Food Facts puede proponer la marca y el contenido que falten, sin sobrescribir los datos informados ni confirmar automáticamente el formato; al guardar la ficha se conservan esos datos.
 

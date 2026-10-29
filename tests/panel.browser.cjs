@@ -194,6 +194,10 @@ const hass={
     if(msg.type==='improved_shopping_list/readers/dismiss'){window.readerFixture.pending=window.readerFixture.pending.filter(item=>item.id!==msg.pending_id);window.emitReaders();return null;}
     if(msg.type==='improved_shopping_list/stock/get')return {items:structuredClone(window.stockItems),receipt_stores:structuredClone(window.receiptStores)};
     if(msg.type==='improved_shopping_list/attention/get')return structuredClone(window.attentionFixture);
+    if(msg.type==='improved_shopping_list/catalog/retrieve_option'){
+      if(window.failOptionLookup)throw new Error('La web ha rechazado la consulta (HTTP 403).');
+      window.lastOptionLookup=structuredClone(msg);return structuredClone(window.optionLookupFixture);
+    }
     if(msg.type==='improved_shopping_list/receipts/get')return {receipts:structuredClone(window.receiptHistory),shops:structuredClone(window.listSettings.purchase_detection?.shops??[]),persons:window.listSettings.purchase_detection?.persons??[]};
     if(msg.type==='improved_shopping_list/receipts/discard')return null;
     if(msg.type==='improved_shopping_list/receipts/options')return receiptOptions();
@@ -969,6 +973,17 @@ async function checkReferenceFormats(browser,url,errors){
   await first.getByLabel('Formato confirmado',{exact:true}).check();
   await first.getByLabel('Marca',{exact:true}).fill('Granja');
   assert.match(await dialog.locator('.product-option > summary').first().textContent(),/Granja.*12 uds/);
+  assert.equal(await first.getByLabel('Enlace o ID de Lidl',{exact:true}).count(),1);
+  await first.getByLabel('Enlace o ID de Lidl',{exact:true}).fill('https://www.lidl.es/p/huevos/p100');
+  await page.evaluate(()=>{window.optionLookupFixture={store:'lidl',reference_id:'100',url:'https://www.lidl.es/p/huevos/p100',name:'Huevos frescos 12 uds',brand:'Granja Web',ean:'1234567890128',content_quantity:24,content_unit:'uds',price:2.5,currency:'EUR',checked_at:1800000000,nutriscore:{grade:'a',checked_at:1800000000}};});
+  await first.getByRole('button',{name:'Recuperar datos',exact:true}).click();
+  await dialog.getByText('Datos recuperados. Guarda el producto para conservarlos.',{exact:true}).waitFor();
+  assert.equal(await first.getByLabel('Nombre comercial',{exact:true}).inputValue(),'Huevos frescos 12 uds');
+  assert.equal(await first.getByLabel('Contenido por envase',{exact:true}).inputValue(),'12');
+  assert.equal(await dialog.getByLabel('Nombre del producto',{exact:true}).inputValue(),'Huevos');
+  assert.match(await first.textContent(),/Último precio: 2,50/);
+  assert.match(await first.textContent(),/Nutri-Score: A/);
+  assert.equal(await page.evaluate(()=>window.catalogProducts.find(p=>p.id==='eggs').commercial_references[0].last_price),undefined);
   for(const width of [320,1280]){await page.setViewportSize({width,height:960});assert.ok(await dialog.evaluate(el=>el.scrollWidth<=el.clientWidth+1));}
   await page.setViewportSize({width:390,height:844});
   await page.screenshot({path:'test-results/commercial-references-mobile.png',fullPage:true});
@@ -982,7 +997,12 @@ async function checkReferenceFormats(browser,url,errors){
   assert.equal(await dialog.locator('.product-option[open]').count(),0);
   await dialog.locator('.product-option > summary').first().click();
   assert.equal(await first.getByLabel('Formato confirmado',{exact:true}).isChecked(),true);
-  assert.equal(await first.getByLabel('Marca',{exact:true}).inputValue(),'Granja');
+  assert.equal(await first.getByLabel('Marca',{exact:true}).inputValue(),'Granja Web');
+  assert.equal(await page.evaluate(()=>window.catalogProducts.find(p=>p.id==='eggs').commercial_references[0].last_price.price),2.5);
+  await page.evaluate(()=>window.failOptionLookup=true);
+  await first.getByRole('button',{name:'Recuperar datos',exact:true}).click();
+  await dialog.getByText('La web ha rechazado la consulta (HTTP 403).',{exact:true}).waitFor();
+  assert.equal(await first.getByLabel('Enlace o ID de Lidl',{exact:true}).inputValue(),'https://www.lidl.es/p/huevos/p100');
   await dialog.getByRole('button',{name:'Cerrar ventana',exact:true}).click();await context.close();
 }
 

@@ -77,7 +77,7 @@ def normalized_references(values):
     result=[]; seen=set()
     from .store_links import STORES, normalize_link
     for raw in values:
-        if not isinstance(raw,dict) or set(raw)-{"id","store","name","ean","reference_id","url","brand","content_quantity","content_unit","content_confirmed","active"}:
+        if not isinstance(raw,dict) or set(raw)-{"id","store","name","ean","reference_id","url","brand","content_quantity","content_unit","content_confirmed","active","last_price","nutriscore"}:
             raise ValueError("La referencia comercial contiene campos no admitidos.")
         row={key:raw.get(key,"") for key in ("store","name","ean","reference_id","url","brand")}
         for key,limit in (("store",40),("name",500),("ean",14),("reference_id",512),("url",2048),("brand",160)):
@@ -103,6 +103,20 @@ def normalized_references(values):
         if type(active) is not bool:
             raise ValueError("La referencia comercial no es válida.")
         row.update(id=reference_key(row["store"],row),content_quantity=quantity,content_unit=unit,content_confirmed=confirmed,active=active)
+        price = raw.get("last_price")
+        if price is not None:
+            if (not isinstance(price,dict) or set(price)-{"price","currency","checked_at"}
+                or type(price.get("price")) not in (int,float) or not math.isfinite(price["price"]) or not 0<=price["price"]<=1000000
+                or price.get("currency")!="EUR" or type(price.get("checked_at")) not in (int,float)
+                or not math.isfinite(price["checked_at"]) or price["checked_at"]<=0 or not row["store"]):
+                raise ValueError("El precio recuperado de la opción no es válido.")
+            row["last_price"] = deepcopy(price)
+        nutrition = raw.get("nutriscore")
+        if nutrition is not None:
+            if (not isinstance(nutrition,dict) or nutrition.get("grade") not in tuple("abcde")
+                or type(nutrition.get("checked_at")) not in (int,float) or not math.isfinite(nutrition["checked_at"]) or nutrition["checked_at"]<=0):
+                raise ValueError("El Nutri-Score de la opción no es válido.")
+            row["nutriscore"] = {"grade":nutrition["grade"],"checked_at":nutrition["checked_at"]}
         if row["id"] in seen:
             raise ValueError("Esta referencia comercial está repetida.")
         seen.add(row["id"]);result.append(row)
@@ -114,6 +128,9 @@ def merge_reference(references, store, line, *, confirmed=False):
     existing=matching_reference({"commercial_references":references},store,line)
     if existing:
         row["brand"]=row["brand"] or existing.get("brand", "")
+        for key in ("last_price","nutriscore"):
+            if key in existing:
+                row[key]=deepcopy(existing[key])
     if existing and not existing["store"] and store:
         if existing.get("content_confirmed") and not confirmed:
             row.update({key:existing[key] for key in ("content_quantity","content_unit","content_confirmed")})

@@ -19,6 +19,7 @@ from .gateway_lists import GatewayLists
 from .entity_data import EntityData
 from .quantities import ListQuantities
 from .notifications import NotificationManager
+from .option_lookup import OptionLookup
 from .readers import ReaderManager
 from .stock import StockManager
 from .stock_automation import StockAutomation
@@ -139,6 +140,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         hass.data[DOMAIN]["quantities"] = quantities
         hass.data[DOMAIN]["entity_data"] = EntityData(hass, hass.data[DOMAIN])
         hass.data[DOMAIN]["notifications"] = notifications
+        hass.data[DOMAIN]["option_lookup"] = OptionLookup(hass)
         async_register_commands(hass)
     return True
 
@@ -196,6 +198,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.data[DOMAIN]["entity_data"].stop()
     frontend.async_remove_panel(hass, PANEL_PATH)
     hass.data[DOMAIN]["active"] = False
+    hass.data[DOMAIN]["option_lookup"].close()
     await hass.data[DOMAIN]["purchase_detection"].async_stop()
     await hass.data[DOMAIN]["carrefour_account"].async_stop()
     await hass.data[DOMAIN]["dia_account"].async_stop()

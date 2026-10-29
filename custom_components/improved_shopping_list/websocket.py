@@ -16,6 +16,7 @@ from .catalog import Catalog, CatalogError
 from .const import DOMAIN
 from .list_settings import ListSettingsError
 from .stores import StoreError
+from .price_sources import PriceError
 from .store_location import reference_location
 from .icons import IconError
 from .community import build_export
@@ -72,6 +73,7 @@ def async_register_commands(hass: HomeAssistant) -> None:
                     ws_carrefour_account_verify, ws_carrefour_account_disconnect, ws_carrefour_account_purchases, ws_carrefour_account_sync_history, ws_carrefour_account_options, ws_carrefour_account_preview, ws_carrefour_account_preview_saved):
         websocket_api.async_register_command(hass, command)
     websocket_api.async_register_command(hass, ws_catalog_get)
+    websocket_api.async_register_command(hass, ws_option_retrieve)
     websocket_api.async_register_command(hass, ws_attention_get)
     websocket_api.async_register_command(hass, ws_attention_subscribe)
     websocket_api.async_register_command(hass, ws_stock_get)
@@ -423,6 +425,32 @@ async def ws_nutriscore(hass, connection, msg):
                                       "brand": result.get("brand", ""), "content_quantity": result.get("content_quantity"),
                                       "content_unit": result.get("content_unit", ""),
                                       "source_url": f"https://world.openfoodfacts.org/product/{code}" if is_product_barcode(code) else ""})
+
+
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/catalog/retrieve_option",
+    vol.Required("url"):vol.All(str,vol.Length(min=1,max=2048)),
+    vol.Optional("store",default=""):vol.In(("",*STORES)),
+    vol.Optional("ean",default=""):vol.All(str,vol.Length(max=14))})
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_option_retrieve(hass, connection, msg):
+    if not _catalog(hass, connection, msg):
+        return
+    try:
+        if msg["ean"] and not is_product_barcode(msg["ean"]):
+            raise ValueError("El EAN de la opción no es válido.")
+        result = await hass.data[DOMAIN]["option_lookup"].retrieve(msg["url"], msg["store"], msg["ean"])
+        if result.get("ean"):
+            hint = await hass.data[DOMAIN]["readers"].lookup.async_lookup(result["ean"])
+            for key in ("brand","content_quantity","content_unit","nutriscore"):
+                if result.get(key) in (None, "") and hint.get(key) is not None:
+                    result[key] = hint[key]
+    except (ValueError, OSError, TimeoutError) as err:
+        hass.data[DOMAIN]["activity"].record("store.option_error", "No se han podido recuperar los datos de la opción: "+str(err),
+            source="user", diagnostics={"store":msg["store"], **(err.diagnostics if isinstance(err, PriceError) else {})})
+        connection.send_error(msg["id"], "option_lookup_error", str(err))
+    else:
+        connection.send_result(msg["id"], result)
 
 
 @websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/readers/get"})
@@ -844,6 +872,13 @@ async def ws_catalog_save(hass: HomeAssistant, connection, msg: dict[str, Any]) 
         _LOGGER.exception("Could not persist catalog product")
         connection.send_error(msg["id"], "storage_error", "No se ha podido guardar el catálogo. Inténtalo de nuevo.")
     else:
+        try:
+            for ref in product.get("commercial_references", []):
+                if ref.get("active") is not False and ref.get("last_price"):
+                    await hass.data[DOMAIN]["price_history"].async_record({**ref["last_price"],"store":ref["store"],
+                        "reference_id":ref["reference_id"],"ean":ref["ean"],"name":ref["name"],"store_name":ref["name"]})
+        except (OSError, HomeAssistantError):
+            _LOGGER.warning("Product saved, but its public price history could not be written")
         connection.send_result(msg["id"], {"product": product})
 
 

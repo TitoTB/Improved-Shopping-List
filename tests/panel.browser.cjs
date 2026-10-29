@@ -1227,8 +1227,8 @@ async function checkCatalogComparison(browser,url,errors){
   await page.evaluate(()=>{
     const at=Date.now()/1000-60;
     window.comparisonFixture={stores:['carrefour','alcampo'],observations:[
-      {product_id:'compared',store:'carrefour',price:2,currency:'EUR',ean:'8410199023094',at},
-      {product_id:'compared',store:'alcampo',price:1.5,currency:'EUR',ean:'8410199023094',at},
+      {product_id:'compared',store:'carrefour',price:2,currency:'EUR',ean:'8410199023094',pack_quantity:500,pack_unit:'g',at},
+      {product_id:'compared',store:'alcampo',price:1.5,currency:'EUR',ean:'4006381333931',pack_quantity:1,pack_unit:'kg',at},
       {product_id:'single',store:'alcampo',price:3,currency:'EUR',ean:'8410199023094',at}
     ]};
   });
@@ -1237,6 +1237,8 @@ async function checkCatalogComparison(browser,url,errors){
   const analytics=page.locator('isl-analytics');await analytics.locator('tbody tr').waitFor();
   assert.equal(await analytics.locator('tbody tr').count(),1);
   assert.equal(await analytics.locator('tbody tr').getAttribute('data-product-id'),'compared');
+  assert.match(await analytics.locator('tbody tr').textContent(),/4,00/);
+  assert.match(await analytics.locator('tbody tr').textContent(),/Por kg/);
   assert.equal(await analytics.locator('.rank-row[data-store="alcampo"]').count(),1);
   assert.equal(await analytics.getByRole('button',{name:'Compras pasadas',exact:true}).count(),0);
   await analytics.getByLabel('Tienda',{exact:true}).selectOption('alcampo');
@@ -2327,8 +2329,8 @@ async function main() {
       const now=Date.now()/1000,stores=['carrefour','alcampo','consum','eroski','lasirena'];
       window.catalogProducts.push({id:'not-in-list',name:'Galletas',revision:1,category:'Despensa',barcodes:[],tags:[],store_links:{}});window.emitCatalog();
       window.comparisonFixture={stores,historical_window_days:30,observations:[
-        ...stores.map((store,index)=>({product_id:'ticket-cacao',store,price:10-index,currency:'EUR',ean:'1234567890128',at:now-2*86400})),
-        {product_id:'ticket-cacao',store:'alcampo',price:1,currency:'EUR',ean:'1234567890128',at:now-3600},
+        ...stores.map((store,index)=>({product_id:'ticket-cacao',store,price:10-index,currency:'EUR',ean:'1234567890128',pack_quantity:1,pack_unit:'uds',at:now-2*86400})),
+        {product_id:'ticket-cacao',store:'alcampo',price:1,currency:'EUR',ean:'1234567890128',pack_quantity:1,pack_unit:'uds',at:now-3600},
         {product_id:'ticket-milk',store:'carrefour',price:20,currency:'EUR',ean:'4006381333931',at:now-2*86400},
         {product_id:'not-in-list',store:'carrefour',price:1.2,currency:'EUR',pack_quantity:200,pack_unit:'g',at:now-3600},
         {product_id:'not-in-list',store:'alcampo',price:1.5,currency:'EUR',pack_quantity:250,pack_unit:'g',at:now-3600}

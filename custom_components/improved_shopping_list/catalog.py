@@ -431,7 +431,7 @@ class Catalog:
         self._notify()
         return deepcopy(product)
 
-    async def async_bind_receipt_eans(self, bindings):
+    async def async_bind_receipt_eans(self, bindings, *, references=None):
         """Learn only confirmed ticket associations, preserving concurrent product edits."""
         from .product_lookup import is_product_barcode
 
@@ -454,19 +454,7 @@ class Catalog:
                 if len(codes) >= 50:
                     raise CatalogError("El producto ya tiene 50 códigos de barras. Revisa sus códigos antes de vincular el ticket.")
                 current["barcodes"] = [*codes, ean]
-                current["revision"] += 1
-                current["updated_at"] = datetime.now(UTC).isoformat()
-                changed = True
-            if changed:
-                await self._persist(products, self._categories)
-        if changed:
-            self._notify()
-
-    async def async_register_references(self, bindings):
-        """Keep confirmed associations even when no stock or price is imported."""
-        async with self._lock:
-            products=deepcopy(self._products)
-            for product_id,store,line,confirmed in bindings:
+            for product_id,store,line,confirmed in references or []:
                 product=products.get(product_id)
                 if not product:
                     continue
@@ -482,9 +470,13 @@ class Catalog:
                     product["updated_at"]=datetime.now(UTC).isoformat()
             changed=products!=self._products
             if changed:
-                await self._persist(products,self._categories)
+                await self._persist(products, self._categories)
         if changed:
             self._notify()
+
+    async def async_register_references(self, bindings):
+        """Keep confirmed associations even when no stock or price is imported."""
+        await self.async_bind_receipt_eans([],references=bindings)
 
     async def async_migrate_references(self, receipt_data):
         """One-time conservative migration; never infer package size from stock."""

@@ -1,5 +1,5 @@
 import { purchaseQuantity, quantityLabel } from "./quantity-client.js?v=0.49.0";
-import { referenceContentControls, referenceRate } from "./reference-formats.js?v=0.49.0";
+import { referenceContentControls, referenceRate, barcodeIdentity } from "./reference-formats.js?v=0.49.0";
 import { installDialogCloseButtons } from "./dialog-controls.js?v=0.49.0";
 import { CatalogSession } from "./catalog-client.js?v=0.49.0";
 import { matchCatalogProducts } from "./product-matching.js?v=0.49.0";
@@ -1449,7 +1449,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
     const root = this.shadowRoot, names = {'':'Sin tienda',...STORE_NAMES};
     const receiptStores=this._receiptStores?.[this._editing?.id]??[];
     this._commercialReferences??=[];
-    for(const code of this._productCodes?.barcode??[]){if(/^(?:\d{8}|\d{12,14})$/.test(code)&&!this._commercialReferences.some(ref=>ref.ean&&ref.ean.padStart(14,'0')===code.padStart(14,'0')))this._commercialReferences.push({store:'',ean:code,name:'',reference_id:'',url:'',content_quantity:null,content_unit:'',content_confirmed:false});}
+    for(const code of this._productCodes?.barcode??[]){if(barcodeIdentity(code)&&!this._commercialReferences.some(ref=>ref.ean&&barcodeIdentity(ref.ean)===barcodeIdentity(code)))this._commercialReferences.push({store:'',ean:code,name:'',reference_id:'',url:'',content_quantity:null,content_unit:'',content_confirmed:false});}
     const stores=[...new Set([...Object.keys(this._storeLinks??{}),...receiptStores,...this._commercialReferences.filter(ref=>ref.active!==false).map(ref=>ref.store)])].filter(store=>store in names).sort((a,b)=>names[a].localeCompare(names[b],"es"));
     const eans=[...new Map([...(this._productCodes?.barcode??[]),...this._commercialReferences.filter(ref=>ref.active!==false&&ref.ean).map(ref=>ref.ean)].filter(code=>{
       if(!/^(?:\d{8}|\d{12,14})$/.test(code))return false;

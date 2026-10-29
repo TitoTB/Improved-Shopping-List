@@ -2,6 +2,11 @@
 export const contentUnits={uds:'uds',g:'g',kg:'kg',ml:'ml',cl:'cl',l:'l'};
 const scales={uds:['uds',1],g:['kg',.001],kg:['kg',1],ml:['l',.001],cl:['l',.01],l:['l',1]};
 const key=value=>String(value??'').normalize('NFD').replace(/\p{M}/gu,'').trim().replace(/\s+/g,' ').toLocaleLowerCase('es');
+export function barcodeIdentity(value){
+  if(typeof value!=='string'||!/^(?:\d{8}|\d{12,14})$/.test(value)||value.length===13&&value.startsWith('2'))return '';
+  const sum=[...value.slice(0,-1)].reverse().reduce((total,digit,index)=>total+Number(digit)*(index%2?1:3),0);
+  return (10-sum%10)%10===Number(value.at(-1))?value.padStart(14,'0'):'';
+}
 export function referenceFor(product,store,line){
   const refs=(product?.commercial_references??[]).filter(ref=>ref.active!==false&&(ref.store===store||!ref.store));
   return refs.find(ref=>ref.store===store&&line.reference_id&&ref.reference_id===line.reference_id)

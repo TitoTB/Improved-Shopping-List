@@ -120,10 +120,15 @@ class EntityData:
                 quantity=self.managers["quantities"].value(self.settings["primary_entity"],item,product) if product else None
                 from .product_references import package_cost
                 def cost(offer):
-                    converted=package_cost(offer,quantity["quantity"],quantity.get("unit",product.get("purchase_unit","uds")))
-                    if converted is not None:return converted
-                    if offer.get("format_pending") or offer.get("pack_quantity"):return None
-                    return offer["price"]*quantity["quantity"]/quantity["unit_quantity"]
+                    try:
+                        price=Decimal(str(offer["price"]))
+                        if not price.is_finite() or price<0:return None
+                        converted=package_cost({**offer,"price":float(price)},quantity["quantity"],quantity.get("unit",product.get("purchase_unit","uds")))
+                        if converted is not None:return Decimal(str(converted))
+                        if offer.get("format_pending") or offer.get("pack_quantity"):return None
+                        return price*Decimal(str(quantity["quantity"]))/Decimal(str(quantity["unit_quantity"]))
+                    except (KeyError,InvalidOperation,ValueError,TypeError):
+                        return None
                 candidates=[(offer,cost(offer)) for offer in candidates]
                 candidates=[(offer,value) for offer,value in candidates if value is not None]
                 offer,value=min(candidates,key=lambda pair:pair[1]) if candidates else (None,None)

@@ -37,6 +37,23 @@ class NotificationManager:
         self._store = Store(hass, 1, f"{DOMAIN}.notifications")
         self._above, self._lists, self._items, self._stops = {}, {}, {}, []
         self._active, self._dirty, self._task = False, False, None
+        self._attention_listeners, self._attention = set(), None
+
+    @property
+    def attention(self):
+        """Small local counters for navigation, without loading private receipt details."""
+        candidates = self._catalog_candidates(self.settings.snapshot, require_available=False) or []
+        history = getattr(self.stock, "receipts", {}).get("history", {})
+        return {"catalog_new": len(candidates),
+                "low_stock": sum(bool(stock_needs_reorder(item)) for item in self.stock.snapshot["items"]),
+                "purchases": sum(bool(receipt.get("pending_review") or receipt.get("needs_details") or
+                    receipt.get("summary_only") and receipt.get("account_key") and
+                    receipt.get("ticket_available") is not False) for receipt in history.values())}
+
+    @callback
+    def subscribe_attention(self, listener):
+        self._attention_listeners.add(listener)
+        return lambda: self._attention_listeners.discard(listener)
 
     async def async_load(self):
         saved = await self._store.async_load()
@@ -71,7 +88,7 @@ class NotificationManager:
             return
         config = self.settings.snapshot
         component = self.hass.data.get(DATA_COMPONENT)
-        wanted = set(config["entities"]) if any(config["notifications"][kind]["enabled"] for kind in ("shopping_list", "catalog_new")) else set()
+        wanted = set(config["entities"])
         for entity_id in tuple(self._lists):
             entity = component.get_entity(entity_id) if component else None
             if entity_id not in wanted or entity is not self._lists[entity_id][0]:
@@ -95,11 +112,16 @@ class NotificationManager:
     def _queue(self, *_args):
         if not self._active:
             return
+        attention = self.attention
+        if attention != self._attention:
+            self._attention = attention
+            for listener in tuple(self._attention_listeners):
+                listener()
         self._dirty = True
         if self._task is None or self._task.done():
             self._task = self.hass.async_create_background_task(self._run(), "Shopping list notifications")
 
-    def _catalog_candidates(self, settings):
+    def _catalog_candidates(self, settings, *, require_available=True):
         if self.catalog is None:
             return None
         catalog = self.catalog.snapshot
@@ -109,7 +131,9 @@ class NotificationManager:
         for entity_id in settings["entities"]:
             state, items = self.hass.states.get(entity_id), self._items.get(entity_id)
             if state is None or state.state in ("unknown", "unavailable") or items is None:
-                return None  # Do not rearm from an incomplete list snapshot.
+                if require_available:
+                    return None  # Do not rearm from an incomplete list snapshot.
+                continue
             for item in items:
                 name = item_name(settings, entity_id, item).strip()
                 key = normalized_name(name)

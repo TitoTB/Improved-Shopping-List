@@ -481,6 +481,8 @@ En cuanto se recupera y guarda el ticket, se cierra el popup y la compra detecta
 
 ### Carga de los apartados de la interfaz
 
+El menú muestra un punto rojo en **Catálogo** y su vista **Nuevos** cuando hay nombres pendientes de incorporar en las listas configuradas o códigos escaneados sin asociar; las variantes equivalentes, los nombres descartados y los códigos ya conocidos se excluyen. **Stock** muestra el punto cuando hay productos con stock bajo según su mínimo configurado. **Analítica** y su vista **Compras** lo muestran cuando hay tickets recuperables sin revisar, tickets descargados pendientes o compras detectadas que necesitan completar sus datos. Los indicadores se actualizan con los cambios locales y desaparecen al resolver los pendientes. Solo se transmite un resumen de contadores; no se descargan historiales ni se consulta ninguna tienda para calcularlos.
+
 Las mejoras de carga se incluyen desde la versión 0.49.0.
 
 Lista inicia los datos compartidos que necesita para los productos, categorías, cantidades y precios guardados. Las interfaces de Catálogo, Stock, Ajustes y Analítica se descargan al abrirlas por primera vez; el mapa de zonas no forma parte de la carga inicial de Lista. Los formularios de Stock tampoco se construyen hasta entrar en ese apartado.

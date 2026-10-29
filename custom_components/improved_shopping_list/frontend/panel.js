@@ -4,7 +4,7 @@ import { installDialogCloseButtons } from "./dialog-controls.js?v=0.49.1";
 import { FEATURES, TodoSession, errorMessage, isAvailable, supports } from "./todo-client.js?v=0.49.1";
 import { imageSource, normalizedName, productNameKey, cachedProductPrice } from "./product-display.js?v=0.49.1";
 import { packageCost } from "./reference-formats.js?v=0.49.1";
-import { ListSettingsSession, gradientTextColor } from "./list-settings-client.js?v=0.49.1";
+import { ListSettingsSession, AttentionSession, gradientTextColor } from "./list-settings-client.js?v=0.49.1";
 import { CatalogSession } from "./catalog-client.js?v=0.49.1";
 import { ReadersSession } from "./readers-client.js?v=0.49.1";
 
@@ -26,6 +26,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
     this.attachShadow({ mode: "open" });
     this._session = new TodoSession(() => this._hass, () => this._renderData(), entity=>this._settings?.descriptionAsName?.[entity]===true);
     this._settings = new ListSettingsSession(() => this._hass, () => this._applySettings());
+    this._attention = new AttentionSession(() => this._hass, () => this._renderData());
     this._readers = new ReadersSession(() => this._hass, () => this._renderData());
     this._stock = new StockSession(() => this._hass, () => {this._comparisonRevision=(this._comparisonRevision||0)+1;this._renderData();});
     this._quantities = new QuantitySession(() => this._hass, () => this._renderData());
@@ -59,6 +60,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
       if (document.visibilityState === "visible") {
         void this._session.refresh();
         void this._settings.refresh();
+        void this._attention.refresh();
         if(this._readersRunning)void this._readers.refresh();
         if(this._stockRunning)void this._stock.refresh();
         void this._catalog.refresh();
@@ -85,6 +87,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
     if (this._view === "settings" && this._sectionsReady.has("settings")) this.shadowRoot.querySelector("isl-settings").hass = value;
     if (previousConnection && previousConnection !== value.connection) {
       void this._settings.start();
+      void this._attention.start();
       void this._catalog.start();
       this._syncOptionalSessions();
       void this._quantities.start();
@@ -116,6 +119,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
     document.removeEventListener("visibilitychange", this._onVisibility);
     this._session.dispose();
     this._settings.stop();
+    this._attention.stop();
     this._readers.stop();this._readersRunning=false;
     this._stock.stop();this._stockRunning=false;
     this._catalog.stop();
@@ -134,6 +138,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
     if (!this.isConnected || !this._built || !this._hass || !this._panel || this._started) return;
     this._started = true;
     void this._settings.start();
+    void this._attention.start();
     void this._catalog.start();
     this._syncOptionalSessions();
     void this._quantities.start();
@@ -243,6 +248,8 @@ class ImprovedShoppingListPanel extends HTMLElement {
         .section-nav button { display:inline-flex; align-items:center; gap:8px; padding:10px 12px; min-height:44px; border:0; border-radius:10px; color:var(--secondary-text-color,#63766b); background:transparent; }
         .section-nav button[aria-pressed=true] { background:var(--secondary-background-color,#edf4ee); color:var(--primary-text-color,#20352d); font-weight:650; }
         .section-nav ha-icon { --mdc-icon-size:20px; }
+        #nav-catalog,#nav-stock,#nav-analytics,#purchases-tab { position:relative; }
+        [data-attention=true]::after { content:"";position:absolute;top:3px;right:3px;width:8px;height:8px;border-radius:50%;background:#d32f2f;pointer-events:none; }
         main { max-width:900px; margin:auto; padding:36px 24px 64px; }
         .card { background:var(--card-background-color,#fff); border:1px solid var(--divider-color,#dfe7e1); border-radius:18px; padding:22px; margin-bottom:18px; }
         .label { display:block; font-size:13px; font-weight:650; margin:0 0 10px; }
@@ -647,6 +654,12 @@ class ImprovedShoppingListPanel extends HTMLElement {
 
   _renderNow() {
     if (!this._built || !this._hass) return;
+    const counts=this._attention.counts;
+    for(const [id,key,description] of [['nav-catalog','catalog_new','Productos pendientes de añadir al catálogo'],['nav-stock','low_stock','Productos con stock bajo'],['nav-analytics','purchases','Compras pendientes de revisar'],['purchases-tab','purchases','Compras pendientes de revisar']]){
+      const button=this.shadowRoot.querySelector('#'+id);button.dataset.attention=String(counts[key]>0);
+      if(counts[key]>0)button.setAttribute('aria-description',`${description}: ${counts[key]}`);else button.removeAttribute('aria-description');
+    }
+    if(this._sectionsReady.has('catalog'))this.shadowRoot.querySelector('isl-catalog').attention=counts.catalog_new;
     this._renderOptions();
     const root = this.shadowRoot;
     const session = this._session;

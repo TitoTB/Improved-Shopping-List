@@ -57,6 +57,8 @@ window.emitSettings=()=>{
   localStorage.setItem('settings-fixture',JSON.stringify(window.listSettings));
   for(const listener of listeners.keys())if(listener.settings)listener.callback(settingsSnapshot());
 };
+window.attentionFixture={catalog_new:0,low_stock:0,purchases:0};
+window.emitAttention=()=>{for(const listener of listeners.keys())if(listener.attention)listener.callback(structuredClone(window.attentionFixture));};
 const panel=document.createElement('improved-shopping-list-panel');
 const hass={
   user:{is_admin:true},
@@ -68,6 +70,9 @@ const hass={
     'todo.readonly':{entity_id:'todo.readonly',state:'1',attributes:{friendly_name:'Solo lectura',supported_features:0}}
   },
   connection:{subscribeMessage:async(callback,msg)=>{
+    if(msg.type==='improved_shopping_list/attention/subscribe'){
+      const listener={callback,attention:true};listeners.set(listener,true);callback(structuredClone(window.attentionFixture));return()=>listeners.delete(listener);
+    }
     if(msg.type==='improved_shopping_list/quantities/subscribe'){
       const listener={callback,quantities:true};listeners.set(listener,true);callback({entries:structuredClone(window.quantityEntries)});return()=>listeners.delete(listener);
     }
@@ -188,6 +193,7 @@ const hass={
     if(msg.type==='improved_shopping_list/readers/delete'){window.readerFixture.readers=window.readerFixture.readers.filter(reader=>reader.id!==msg.reader_id);window.emitReaders();return null;}
     if(msg.type==='improved_shopping_list/readers/dismiss'){window.readerFixture.pending=window.readerFixture.pending.filter(item=>item.id!==msg.pending_id);window.emitReaders();return null;}
     if(msg.type==='improved_shopping_list/stock/get')return {items:structuredClone(window.stockItems),receipt_stores:structuredClone(window.receiptStores)};
+    if(msg.type==='improved_shopping_list/attention/get')return structuredClone(window.attentionFixture);
     if(msg.type==='improved_shopping_list/receipts/get')return {receipts:structuredClone(window.receiptHistory),shops:structuredClone(window.listSettings.purchase_detection?.shops??[]),persons:window.listSettings.purchase_detection?.persons??[]};
     if(msg.type==='improved_shopping_list/receipts/discard')return null;
     if(msg.type==='improved_shopping_list/receipts/options')return receiptOptions();
@@ -1001,7 +1007,7 @@ async function checkLazySections(browser,url,errors){
   assert.ok(requests.includes('/analytics-panel.js'));
   await page.getByRole('button',{name:'Ajustes',exact:true}).click();await page.locator('isl-settings #settings-view-lists').waitFor();assert.ok(requests.includes('/settings-panel.js'));
   await page.getByRole('button',{name:'Lista',exact:true}).click();await page.locator('#pending').getByText('Cacao',{exact:true}).waitFor();
-  assert.equal(await page.evaluate(()=>window.listenerCount()),4);
+  assert.equal(await page.evaluate(()=>window.listenerCount()),5);
   await page.evaluate(()=>{
     const old=window.testPanel,fresh=document.createElement('improved-shopping-list-panel');
     fresh.hass=old._hass;fresh.panel=old._panel;old.replaceWith(fresh);window.testPanel=fresh;
@@ -1010,11 +1016,43 @@ async function checkLazySections(browser,url,errors){
   assert.equal(await page.locator('isl-catalog dialog').count(),0);
   assert.equal(await page.locator('isl-settings dialog').count(),0);
   assert.equal(await page.locator('#stock-editor-dialog').count(),0);
-  assert.equal(await page.evaluate(()=>window.listenerCount()),4);
+  assert.equal(await page.evaluate(()=>window.listenerCount()),5);
   await page.getByRole('button',{name:'Stock',exact:true}).click();await page.locator('#stock-editor-dialog').waitFor({state:'attached'});
   await page.getByRole('button',{name:'Catálogo',exact:true}).click();await page.locator('isl-catalog #catalog-grid').waitFor({state:'attached'});
   await page.evaluate(()=>window.testPanel.remove());assert.equal(await page.evaluate(()=>window.listenerCount()),0);
   console.log('Lazy sections: no hidden views, stock/readers/history requests or map at startup; shared catalog and navigation verified.');
+  await context.close();
+}
+
+async function checkAttentionIndicators(browser,url,errors){
+  const context=await browser.newContext({viewport:{width:1280,height:960}}),page=await context.newPage();
+  page.on('pageerror',error=>errors.push(error.message));await page.goto(url);
+  await page.locator('#pending').getByText('Cacao',{exact:true}).waitFor();
+  for(const id of ['nav-catalog','nav-stock','nav-analytics'])assert.equal(await page.locator('#'+id).getAttribute('data-attention'),'false');
+  await page.evaluate(()=>{window.attentionFixture={catalog_new:2,low_stock:1,purchases:3};window.emitAttention();});
+  await page.locator('#nav-catalog[data-attention=true]').waitFor();
+  assert.equal(await page.evaluate(()=>window.wsRequests.some(type=>/\/(stock|readers|receipts)\//.test(type))),false);
+  for(const id of ['nav-catalog','nav-stock','nav-analytics'])assert.equal(await page.locator('#'+id).getAttribute('data-attention'),'true');
+  for(const width of [320,1280]){
+    await page.setViewportSize({width,height:960});
+    assert.deepEqual(await page.locator('#nav-catalog').evaluate(button=>{const dot=getComputedStyle(button,'::after');return [dot.width,dot.height,dot.borderRadius,dot.backgroundColor];}),['8px','8px','50%','rgb(211, 47, 47)']);
+    assert.equal(await page.locator('header').evaluate(header=>header.scrollWidth>innerWidth),false);
+  }
+  await page.getByRole('button',{name:'Catálogo',exact:true}).click();
+  const catalog=page.locator('isl-catalog');await catalog.locator('#view-suggestions[data-attention=true]').waitFor();
+  assert.match(await catalog.locator('#view-suggestions').getAttribute('aria-description'),/2$/);
+  await page.getByRole('button',{name:'Analítica',exact:true}).click();
+  await page.locator('#purchases-tab[data-attention=true]').waitFor();
+  await page.screenshot({path:'test-results/navigation-attention.png',fullPage:true});
+  await page.evaluate(()=>{window.attentionFixture={catalog_new:0,low_stock:0,purchases:0};window.emitAttention();});
+  await page.locator('#nav-analytics[data-attention=false]').waitFor();
+  for(const id of ['nav-catalog','nav-stock','nav-analytics','purchases-tab']){
+    assert.equal(await page.locator('#'+id).getAttribute('data-attention'),'false');
+    assert.equal(await page.locator('#'+id).getAttribute('aria-description'),null);
+  }
+  await page.getByRole('button',{name:'Catálogo',exact:true}).click();
+  assert.equal(await catalog.locator('#view-suggestions').getAttribute('data-attention'),'false');
+  await page.evaluate(()=>window.testPanel.remove());assert.equal(await page.evaluate(()=>window.listenerCount()),0);
   await context.close();
 }
 
@@ -1041,6 +1079,7 @@ async function main() {
   let browser;
   try {
     browser = await chromium.launch({ headless: true, channel: process.env.PLAYWRIGHT_CHANNEL || undefined });
+    if(process.argv.includes('--attention-only')){const errors=[];await checkAttentionIndicators(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Navigation attention indicators passed.');return;}
     if(process.argv.includes('--lazy-only')){const errors=[];await checkLazySections(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);return;}
     if(process.argv.includes('--formats-only')){const errors=[];await checkReferenceFormats(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Commercial reference browser checks passed.');return;}
     if(process.argv.includes('--recovery-only')){const errors=[];await checkDetectedPurchaseRecovery(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Manual purchase recovery browser checks passed.');return;}
@@ -1155,7 +1194,7 @@ async function main() {
     await selectList(page, "todo.local");
     await page.locator("#pending").getByText("Detergente", { exact: true }).waitFor();
     assert.equal(await page.locator("#pending").getByText("Cacao puro", { exact: true }).count(), 0);
-    assert.equal(await page.evaluate(() => window.listenerCount()), 4);
+    assert.equal(await page.evaluate(() => window.listenerCount()), 5);
 
     await selectList(page, "todo.readonly");
     await page.locator("#pending").getByText("Lista compartida", { exact: true }).waitFor();
@@ -4331,6 +4370,7 @@ async function main() {
     await checkDetectedPurchaseRecovery(browser,url,errors);
     await checkLazySections(browser,url,errors);
     await checkReferenceFormats(browser,url,errors);
+    await checkAttentionIndicators(browser,url,errors);
 
     // Shipping policy: Alcampo and DIA are archived; the other stores remain available.
     const archivedContext=await browser.newContext({viewport:{width:390,height:844}});

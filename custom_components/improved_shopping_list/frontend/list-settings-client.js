@@ -202,3 +202,15 @@ export class ListSettingsSession {
     try { Promise.resolve(unsubscribe()).catch(() => {}); } catch { /* Disconnected. */ }
   }
 }
+
+/** Navigation counters only; no receipt history or optional section payloads. */
+export class AttentionSession extends ListSettingsSession {
+  constructor(getHass,onChange) {
+    super(getHass,onChange,'improved_shopping_list/attention/');
+    this.counts={catalog_new:0,low_stock:0,purchases:0};
+  }
+  _receive(data) {
+    this.counts={catalog_new:0,low_stock:0,purchases:0,...data};
+    this.loaded=true;this.loading=false;this.error='';this.onChange();
+  }
+}

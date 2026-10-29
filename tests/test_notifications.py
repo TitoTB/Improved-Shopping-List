@@ -86,6 +86,61 @@ async def env(hass):
     settings.detach()
 
 
+async def test_navigation_attention_updates_even_with_notifications_disabled(hass, env):
+    assert not any(rule["enabled"] for rule in env.settings.snapshot["notifications"].values())
+    received = []
+    stop = env.manager.subscribe_attention(lambda: received.append(env.manager.attention))
+    assert env.manager.attention == {"catalog_new": 0, "low_stock": 0, "purchases": 0}
+    env.todos["todo.other"].emit(1)
+    assert received[-1]["catalog_new"] == 1
+    env.todos["todo.main"].emit(1)
+    assert env.manager.attention["catalog_new"] == 1  # Same name across lists counts once.
+    env.catalog.emit({"products": [], "dismissed_suggestions": ["producto 0"]})
+    assert received[-1]["catalog_new"] == 0
+    env.readers.emit({"pending": [{"kind": "barcode", "code": "new"}]})
+    assert received[-1]["catalog_new"] == 1
+    env.stock.emit(2)
+    assert received[-1]["low_stock"] == 2
+    env.stock.receipts = {"history": {
+        "reviewed": {"summary_only": False},
+        "unavailable": {"summary_only": True, "account_key": "old", "ticket_available": False},
+        "downloaded": {"summary_only": True, "pending_review": True},
+        "detected": {"needs_details": True},
+        "account": {"summary_only": True, "account_key": "ticket"}}}
+    env.manager._queue()
+    assert received[-1]["purchases"] == 3
+    env.stock.receipts["history"] = {}
+    env.stock.emit(0)
+    env.readers.emit({"pending": []})
+    assert received[-1] == {"catalog_new": 0, "low_stock": 0, "purchases": 0}
+    await settled(env.manager)
+    assert env.sent == []
+    stop()
+    count = len(received)
+    env.todos["todo.other"].emit(2)
+    assert len(received) == count
+
+
+async def test_navigation_attention_websocket_subscribes_and_cleans_up(hass, hass_ws_client):
+    entry = MockConfigEntry(domain=DOMAIN, data={CONF_TODO_ENTITY: "todo.main"})
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    manager = hass.data[DOMAIN]["notifications"]
+    client = await hass_ws_client(hass)
+    await client.send_json({"id": 1, "type": f"{DOMAIN}/attention/get"})
+    assert (await client.receive_json())["result"] == {"catalog_new": 0, "low_stock": 0, "purchases": 0}
+    await client.send_json({"id": 2, "type": f"{DOMAIN}/attention/subscribe"})
+    assert (await client.receive_json())["success"]
+    assert (await client.receive_json())["event"] == manager.attention
+    assert len(manager._attention_listeners) == 1
+    await client.send_json({"id": 3, "type": "unsubscribe_events", "subscription": 2})
+    assert (await client.receive_json())["success"]
+    assert not manager._attention_listeners
+    assert await hass.config_entries.async_unload(entry.entry_id)
+    await client.send_json({"id": 4, "type": f"{DOMAIN}/attention/get"})
+    assert (await client.receive_json())["error"]["code"] == "not_loaded"
+
+
 def configure(env, kind="shopping_list", threshold=2, targets=None):
     config = deepcopy(DEFAULT_NOTIFICATIONS)
     config[kind].update(enabled=True, threshold=threshold, targets=targets or ["service:notify.mobile_app_one", "service:notify.mobile_app_two"])

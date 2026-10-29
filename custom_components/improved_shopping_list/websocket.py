@@ -36,6 +36,25 @@ def _catalog(hass: HomeAssistant, connection, msg) -> Catalog | None:
     return data["catalog"]
 
 
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/attention/get"})
+@callback
+def ws_attention_get(hass, connection, msg):
+    if _catalog(hass, connection, msg):
+        connection.send_result(msg["id"], hass.data[DOMAIN]["notifications"].attention)
+
+
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/attention/subscribe"})
+@callback
+def ws_attention_subscribe(hass, connection, msg):
+    if not _catalog(hass, connection, msg):
+        return
+    manager = hass.data[DOMAIN]["notifications"]
+    connection.subscriptions[msg["id"]] = manager.subscribe_attention(
+        lambda: connection.send_event(msg["id"], manager.attention))
+    connection.send_result(msg["id"])
+    connection.send_event(msg["id"], manager.attention)
+
+
 @callback
 def async_register_commands(hass: HomeAssistant) -> None:
     """Register once; commands check that the config entry is still loaded."""
@@ -53,6 +72,8 @@ def async_register_commands(hass: HomeAssistant) -> None:
                     ws_carrefour_account_verify, ws_carrefour_account_disconnect, ws_carrefour_account_purchases, ws_carrefour_account_sync_history, ws_carrefour_account_options, ws_carrefour_account_preview, ws_carrefour_account_preview_saved):
         websocket_api.async_register_command(hass, command)
     websocket_api.async_register_command(hass, ws_catalog_get)
+    websocket_api.async_register_command(hass, ws_attention_get)
+    websocket_api.async_register_command(hass, ws_attention_subscribe)
     websocket_api.async_register_command(hass, ws_stock_get)
     for command in (ws_quantities_get, ws_quantities_subscribe, ws_quantities_adjust):
         websocket_api.async_register_command(hass, command)

@@ -108,6 +108,13 @@ class ImprovedShoppingCatalog extends HTMLElement {
   }
 
   get productLayout() { return this._productLayout; }
+  set attention(count) {
+    this._newProductCount=count;
+    const button=this.shadowRoot.querySelector('#view-suggestions');
+    if(!button)return;
+    button.dataset.attention=String(count>0);
+    if(count>0)button.setAttribute('aria-description',`Productos pendientes de añadir al catálogo: ${count}`);else button.removeAttribute('aria-description');
+  }
   set active(value) {
     if (this._active === Boolean(value)) return;
     this._active = Boolean(value);
@@ -232,6 +239,8 @@ class ImprovedShoppingCatalog extends HTMLElement {
         .link-empty { font-size:13px; margin:8px 0 0; }
         @media(max-width:650px) { .suggestion { flex-wrap:wrap; } .suggestion .actions { margin-left:auto; } }
         .catalog-tabs button[aria-pressed=true] { background:var(--secondary-background-color,#edf4ee); font-weight:650; }
+        #view-suggestions { position:relative; }
+        #view-suggestions[data-attention=true]::after { content:"";position:absolute;top:3px;right:3px;width:8px;height:8px;border-radius:50%;background:#d32f2f;pointer-events:none; }
         h1 { font-size:32px; letter-spacing:-.03em; margin:0; }
         h2 { font-size:23px; margin:0; }
         .helper { color:var(--secondary-text-color,#63766b); font-size:13px; line-height:1.6; margin:8px 0 18px; }
@@ -679,6 +688,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
     if (!this._built) return;
     const root = this.shadowRoot;
     const error = root.querySelector("#catalog-error");
+    this.attention=this._newProductCount??0;
     error.hidden = !this._catalog.error;
     error.textContent = this._catalog.error;
     const status = root.querySelector("#catalog-status");

@@ -6,7 +6,7 @@ El proceso muestra un popup con progreso, producto actual e incidencias. Contin�
 
 El resumen de Logs → Tiendas conserva los detalles técnicos de cada incidencia: referencia, URL, fase de consulta (ficha o API), código HTTP y motivo de rechazo o falta de datos. Una página sin datos estructurados no se identifica automáticamente como un bloqueo por frecuencia. Los bloqueos confirmados detienen el lote y conservan la pausa de reintento.
 
-Las peticiones automáticas se separan al menos cinco segundos, incluidas las redirecciones y consultas complementarias de una misma ficha. La reserva se guarda antes de cada petición y se conserva tras reiniciar. Se reutiliza la caché del recuperador y se respetan las pausas ante bloqueos. Los datos recuperados correctamente no se vuelven a consultar en cada cambio del catálogo. Las coincidencias nuevas se procesan automáticamente mientras la opción siga activada.
+Las peticiones automáticas se separan al menos veinte segundos, incluidas las redirecciones y consultas complementarias de una misma ficha. La reserva se guarda antes de cada petición y se conserva tras reiniciar. Se reutiliza la caché del recuperador y se respetan las pausas ante bloqueos. Los datos recuperados correctamente no se vuelven a consultar en cada cambio del catálogo. Las coincidencias nuevas se procesan automáticamente mientras la opción siga activada.
 
 Se conserva la URL introducida manualmente y no se reactiva una opción que el usuario haya desvinculado. El EAN devuelto por la web, cuando existe, debe coincidir. El enlace del diccionario ya se ha verificado por EAN; tampoco se acepta una respuesta que corresponda a otra referencia interna.
 

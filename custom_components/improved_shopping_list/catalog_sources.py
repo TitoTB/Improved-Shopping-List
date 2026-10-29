@@ -13,7 +13,7 @@ from .ean_links import product_eans, DAY
 from .product_references import gtin
 from .price_sources import PriceError
 
-INTERVAL = 5
+INTERVAL = 20
 
 
 class CatalogSources:

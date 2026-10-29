@@ -122,7 +122,7 @@ const hass={
     (window.wsRequests??=[]).push(msg.type);
     if(msg.type==='improved_shopping_list/catalog_sources/set'){
       window.catalogSourceSets=(window.catalogSourceSets??0)+1;
-      const state={enabled:msg.enabled,phase:msg.enabled?'waiting':'idle',running:msg.enabled,total:2,processed:0,updated:0,errors:[],next_request:Date.now()/1000+5};
+      const state={enabled:msg.enabled,phase:msg.enabled?'waiting':'idle',running:msg.enabled,total:2,processed:0,updated:0,errors:[],next_request:Date.now()/1000+20};
       window.emitCatalogSource?.(state);return state;
     }
     if(msg.type==='improved_shopping_list/settings/name_mode'){

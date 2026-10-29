@@ -1,6 +1,20 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { purchaseQuantity, quantityLabel, QuantitySession } from '../custom_components/improved_shopping_list/frontend/quantity-client.js';
+import { recoveredStockQuantity } from '../custom_components/improved_shopping_list/frontend/reference-formats.js';
+
+test('stock replenishment prioritizes recovered or estimated quantities and leaves unknown amounts to the stock default',()=>{
+  const product={unit:'g',refill_quantity:1000,commercial_references:[]};
+  assert.equal(recoveredStockQuantity({count:1,purchased_quantity:.45,purchased_unit:'kg'},product,'carrefour'),450);
+  assert.equal(recoveredStockQuantity({count:1,purchased_quantity:.5,purchased_unit:'kg',quantity_estimated:true},product,'carrefour'),500);
+  assert.equal(recoveredStockQuantity({count:2,pack_quantity:250,pack_unit:'g'},product,'carrefour'),500);
+  assert.equal(recoveredStockQuantity({count:1,pack_quantity:null,pack_unit:''},product,'carrefour')??product.refill_quantity,1000);
+  assert.equal(recoveredStockQuantity({count:1,purchased_quantity:500,purchased_unit:'ml'},product,'carrefour')??product.refill_quantity,1000);
+  const capsules={unit:'uds',refill_quantity:10,commercial_references:[{store:'carrefour',reference_id:'R-1',name:'Producto',content_quantity:33,content_unit:'uds',content_confirmed:true}]};
+  assert.equal(recoveredStockQuantity({count:2,reference_id:'R-1'},capsules,'carrefour'),66);
+  capsules.commercial_references[0]={...capsules.commercial_references[0],name:'Verdura a granel 1 kg aprox',content_quantity:1,content_unit:'kg'};
+  assert.equal(recoveredStockQuantity({count:1,reference_id:'R-1'},{...capsules,unit:'g'},'carrefour'),null);
+});
 
 test('purchase defaults, physical quantities and custom units share display semantics',()=>{
   assert.deepEqual(purchaseQuantity(null),{quantity:1,unit:'uds',step:1,unit_quantity:1});

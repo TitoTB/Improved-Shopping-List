@@ -38,6 +38,20 @@ export function validReferenceContent(reference){
   const quantity=reference.content_quantity;
   return Number.isFinite(quantity)&&quantity>0&&quantity<=1000000&&Object.hasOwn(contentUnits,reference.content_unit)&&(reference.content_unit!=='uds'||Number.isInteger(quantity));
 }
+export function recoveredStockQuantity(line,product,store){
+  const target=scales[product?.unit];
+  if(!target)return null;
+  const convert=(quantity,unit)=>{
+    const source=scales[unit];
+    return Number.isFinite(quantity)&&quantity>0&&source?.[0]===target[0]?Math.round(quantity*source[1]/target[1]*1000)/1000:null;
+  };
+  if(line.purchased_quantity!=null)return convert(line.purchased_quantity,line.purchased_unit);
+  if(line.pack_quantity>0)return convert(line.count*line.pack_quantity,line.pack_unit);
+  const ref=referenceFor(product,store,line);
+  // Approximate retail presentation weights are not actual purchased weights.
+  if(ref?.content_confirmed&&validReferenceContent(ref)&&!/(?:\bgranel\b|\baprox|\bal peso\b)/i.test(ref.name??''))return convert(line.count*ref.content_quantity,ref.content_unit);
+  return null;
+}
 export function referenceContentControls(reference,onChange){
   const row=document.createElement('div');row.className='reference-content-controls';
   const quantityLabel=document.createElement('label');quantityLabel.textContent='Contenido por envase';

@@ -1,7 +1,7 @@
 import { ListSettingsSession } from "./list-settings-client.js?v=0.52.0";
 import { installDialogCloseButtons } from "./dialog-controls.js?v=0.52.0";
 import { productNameKey } from "./product-names.js?v=0.52.0";
-import { referenceFor, suggestedContent, referenceContentControls, validReferenceContent, barcodeIdentity } from "./reference-formats.js?v=0.52.0";
+import { referenceFor, suggestedContent, referenceContentControls, validReferenceContent, barcodeIdentity, recoveredStockQuantity } from "./reference-formats.js?v=0.52.0";
 
 const node=(tag,cls,text)=>{const el=document.createElement(tag);if(cls)el.className=cls;if(text!==undefined)el.textContent=text;return el;};
 const money=value=>new Intl.NumberFormat('es-ES',{style:'currency',currency:'EUR'}).format(value);
@@ -170,10 +170,10 @@ class ImprovedShoppingPurchases extends HTMLElement {
     const token=this._draft.token;
     this._packageMetadataTask=Promise.resolve().then(()=>this._loadPackageMetadata(token));
   }
-  _defaultQuantity(line,product){return line.purchased_quantity!=null?this._quantity(line,product.unit)??product.refill_quantity:product.refill_quantity??this._quantity(line,product.unit);}
+  _defaultQuantity(line,product){return recoveredStockQuantity(line,product,this._draft.receipt.store)??product.refill_quantity??null;}
   async _completeQuantities(){
     if(this._draft?.reprocess||this._draft?.receipt.store!=='carrefour')return;
-    const token=this._draft.token,edits=this._edits.filter(edit=>edit.product_id&&!edit.quantityEdited&&edit.line.purchased_quantity==null);
+    const token=this._draft.token,edits=this._edits.filter(edit=>edit.product_id&&!edit.quantityEdited&&edit.line.purchased_quantity==null&&recoveredStockQuantity(edit.line,this._product(edit),'carrefour')==null);
     if(!edits.length)return;
     const dialog=this.shadowRoot.querySelector('#quantity-progress');
     const progress=dialog.querySelector('progress'),label=dialog.querySelector('.quantity-progress-label');dialog.showModal();
@@ -188,7 +188,7 @@ class ImprovedShoppingPurchases extends HTMLElement {
           if(result.quantity>0&&result.unit&&!edit.quantityEdited){
             edit.line.purchased_quantity=result.quantity;edit.line.purchased_unit=result.unit;edit.line.quantity_estimated=Boolean(result.estimated);
             if(!product.stock_id)edit.unit=result.unit;
-            const quantity=this._quantity(edit.line,edit.unit);
+            const quantity=recoveredStockQuantity(edit.line,{...product,unit:edit.unit},'carrefour');
             if(quantity!=null){edit.quantity=quantity;edit.quantityEstimated=Boolean(result.estimated);}
           }else if(result.reason)edit.quantityReason=result.reason;
         }catch(error){edit.quantityReason=error.message??'No se ha podido calcular la cantidad.';}
@@ -215,7 +215,8 @@ class ImprovedShoppingPurchases extends HTMLElement {
           // OFF quantities already describe the complete package, including multipacks.
           edit.line.pack_quantity=format.content_quantity;edit.line.pack_unit=format.content_unit;
           edit.packageFormat={...format,content_confirmed:false};
-          if(this._step===2)this._renderStep();
+          if(!edit.quantityEdited){edit.quantity=this._defaultQuantity(edit.line,this._product(edit));edit.quantityEstimated=Boolean(edit.line.quantity_estimated);}
+          if(this._step===1||this._step===2)this._renderStep();
         }
       }catch{/* Missing optional metadata must not prevent receipt review. */}
     }
@@ -468,7 +469,7 @@ class ImprovedShoppingPurchases extends HTMLElement {
       const options=await this._hass.callWS({type:'improved_shopping_list/receipts/link',token:this._draft.token,lines:this._edits.map(e=>({id:e.id,product_id:e.product_id}))});
       this._updateOptions(options);
       if(only){this.shadowRoot.querySelector('dialog').close();this._render();}
-      else{const token=this._draft.token;await this._completeQuantities();this._packageMetadataTask=Promise.resolve(this._packageMetadataTask).then(()=>this._loadPackageMetadata(token));this._step=1;this._renderStep();}
+      else{const token=this._draft.token;this._packageMetadataTask=Promise.resolve(this._packageMetadataTask).then(()=>this._loadPackageMetadata(token));await this._packageMetadataTask;await this._completeQuantities();this._step=1;this._renderStep();}
     }catch(error){this._errorMessage(error.message??'No se han podido guardar las vinculaciones.');}
     finally{this._setBusy(false);}
   }

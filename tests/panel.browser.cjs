@@ -3427,7 +3427,7 @@ async function main() {
     assert.equal(await review.getByRole('button',{name:'2. Stock',exact:true}).getAttribute('aria-current'),'step');
     assert.equal(await review.getByRole('button',{name:'3. Precios',exact:true}).isDisabled(),true);
     const defaultRefill=review.locator('[data-line-id="0"] input[type="number"]');
-    assert.equal(await defaultRefill.inputValue(),'175');
+    assert.equal(await defaultRefill.inputValue(),'250');
     await defaultRefill.evaluate(input=>{input.value='250';input.dispatchEvent(new Event('input',{bubbles:true}));});
     await review.getByRole('button',{name:'1. Vinculación',exact:true}).click();
     assert.equal(await review.locator('#links-only').isVisible(),true);
@@ -3528,7 +3528,7 @@ async function main() {
     await stockOnlyReview.waitFor({state:'hidden'});
     assert.equal(await stockOnlyPage.evaluate(()=>window.lastReceiptConfirmation.update_prices),false);
     assert.equal(await stockOnlyPage.evaluate(()=>window.lastReceiptConfirmation.lines.some(line=>line.save_price)),false);
-    assert.equal(await stockOnlyPage.evaluate(()=>window.stockItems.find(item=>item.catalog_product_id==='cacao').quantity),175);
+    assert.equal(await stockOnlyPage.evaluate(()=>window.stockItems.find(item=>item.catalog_product_id==='cacao').quantity),250);
     assert.equal(await stockOnlyPage.evaluate(()=>window.receiptHistory.length),1);
     await stockOnlyContext.close();
 

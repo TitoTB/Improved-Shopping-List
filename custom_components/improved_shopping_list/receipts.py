@@ -600,7 +600,11 @@ class ReceiptManager:
             line.update(product_id=product["id"] if product else "", matched=bool(ean_product or alias or exact), quantity=None,
                 unit=product["unit"] if product else "uds", stock_id=product["stock_id"] if product else "")
             if product:
-                line["quantity"] = product["refill_quantity"]
+                from .receipt_quantities import SCALES
+                purchased,purchased_unit=purchase_quantity(line)
+                source,target=SCALES.get(purchased_unit),SCALES.get(product["unit"])
+                recovered=converted_quantity(line,product["unit"]) if purchased is not None and source and target and source[0]==target[0] else None
+                line["quantity"] = recovered if recovered is not None else product["refill_quantity"]
             line["replenish"] = bool(line["matched"] and line["stock_id"] and line["quantity"] is not None)
         token = str(uuid4())
         self._drafts = {key:value for key,value in self._drafts.items() if value["expires"] > time.time()}

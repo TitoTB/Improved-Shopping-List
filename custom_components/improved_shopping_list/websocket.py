@@ -399,6 +399,8 @@ async def ws_nutriscore(hass, connection, msg):
     result = await hass.data[DOMAIN]["readers"].lookup.async_lookup(code)
     connection.send_result(msg["id"], {"code": code, "nutriscore": result.get("nutriscore"),
                                       "product_name": result.get("product_name", result.get("name", "")),
+                                      "brand": result.get("brand", ""), "content_quantity": result.get("content_quantity"),
+                                      "content_unit": result.get("content_unit", ""),
                                       "source_url": f"https://world.openfoodfacts.org/product/{code}" if is_product_barcode(code) else ""})
 
 

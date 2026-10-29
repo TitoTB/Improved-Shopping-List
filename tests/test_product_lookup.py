@@ -27,7 +27,8 @@ def test_only_valid_numeric_product_codes(code, expected):
 def test_prefers_common_spanish_name_and_checks_returned_code():
     hint = product_hint(PAYLOAD,CODE)
     assert hint["name"] == "Crema de avellanas"
-    assert "brand" not in hint and "quantity" not in hint
+    assert hint["brand"] == "Ferrero"
+    assert hint["content_quantity"] == 400 and hint["content_unit"] == "g"
     assert hint["url"] == f"{BASE_URL}/product/{CODE}"
     assert product_hint({"product":{"code":CODE,"product_name_es":"Nombre comercial"}},CODE)["name"] == "Nombre comercial"
     assert product_hint({"product":{"code":CODE}},CODE) == {"status":"not_found"}
@@ -136,6 +137,7 @@ async def test_nutriscore_endpoint_reuses_lookup_and_never_sends_qr_or_nfc(hass,
     await client.send_json({"id": 1, "type": f"{DOMAIN}/catalog/nutriscore", "code": CODE})
     result = (await client.receive_json())["result"]
     assert result["nutriscore"]["grade"] == "b" and result["code"] == CODE
+    assert result["brand"] == "Ferrero" and result["content_quantity"] == 400 and result["content_unit"] == "g"
     await client.send_json({"id": 2, "type": f"{DOMAIN}/catalog/nutriscore", "code": "https://private.test/qr"})
     assert (await client.receive_json())["result"]["nutriscore"] is None
     fetch.assert_awaited_once_with(CODE)

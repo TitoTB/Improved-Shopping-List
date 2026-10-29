@@ -15,7 +15,7 @@ from .const import DOMAIN, VERSION
 
 _LOGGER = logging.getLogger(__name__)
 BASE_URL = "https://world.openfoodfacts.org"
-FIELDS = "code,generic_name_es,generic_name,product_name_es,product_name,nutriscore_grade,nutriscore_score,nutriscore_version"
+FIELDS = "code,generic_name_es,generic_name,product_name_es,product_name,brands,quantity,nutriscore_grade,nutriscore_score,nutriscore_version"
 TTLS = {"found": 30 * 86400, "not_found": 86400, "error": 300}
 
 
@@ -42,6 +42,16 @@ def product_hint(data, code):
     result = ({"status": "found", "name": name, "product_name": field("product_name_es", 160) or field("product_name", 160),
                "source": "Open Food Facts", "url": f"{BASE_URL}/product/{code}", "license": "ODbL"}
               if name else {"status": "not_found"})
+    if brand := field("brands", 160):
+        result["brand"] = brand
+    if quantity := field("quantity", 160):
+        from .product_references import content, inferred_content
+        amount, unit = inferred_content({"description": quantity})
+        if amount is not None:
+            try:
+                result["content_quantity"], result["content_unit"] = content(amount, unit)
+            except ValueError:
+                pass
     grade = field("nutriscore_grade", 20).lower()
     if grade in ("a", "b", "c", "d", "e"):
         result["nutriscore"] = {"grade": grade}
@@ -69,9 +79,6 @@ class ProductLookup:
                 self._cache = {key: item for key, item in data.items() if isinstance(item, dict)
                                and isinstance(item.get("expires"), (int, float)) and isinstance(item.get("result"), dict)
                                and item["result"].get("status") in TTLS and item["result"].get("source")!="community"}
-                for item in self._cache.values():
-                    item["result"].pop("brand", None)
-                    item["result"].pop("quantity", None)
         except (OSError, ValueError, HomeAssistantError):
             _LOGGER.warning("Could not load the optional product lookup cache")
 

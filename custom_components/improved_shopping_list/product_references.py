@@ -56,7 +56,7 @@ def reference_from_line(store, line):
     quantity, unit = inferred_content(line)
     return {"id":reference_key(store,line), "store":store, "name":line.get("name") or line.get("description", ""),
             "ean":line.get("ean", "") if gtin(line.get("ean")) else "", "reference_id":line.get("reference_id", ""),
-            "url":line.get("url", ""), "content_quantity":quantity, "content_unit":unit, "content_confirmed":False}
+            "url":line.get("url", ""), "brand":line.get("brand", ""), "content_quantity":quantity, "content_unit":unit, "content_confirmed":False}
 
 
 def matching_reference(product, store, line):
@@ -77,10 +77,10 @@ def normalized_references(values):
     result=[]; seen=set()
     from .store_links import STORES, normalize_link
     for raw in values:
-        if not isinstance(raw,dict) or set(raw)-{"id","store","name","ean","reference_id","url","content_quantity","content_unit","content_confirmed","active"}:
+        if not isinstance(raw,dict) or set(raw)-{"id","store","name","ean","reference_id","url","brand","content_quantity","content_unit","content_confirmed","active"}:
             raise ValueError("La referencia comercial contiene campos no admitidos.")
-        row={key:raw.get(key,"") for key in ("store","name","ean","reference_id","url")}
-        for key,limit in (("store",40),("name",500),("ean",14),("reference_id",512),("url",2048)):
+        row={key:raw.get(key,"") for key in ("store","name","ean","reference_id","url","brand")}
+        for key,limit in (("store",40),("name",500),("ean",14),("reference_id",512),("url",2048),("brand",160)):
             if not isinstance(row[key],str) or len(row[key])>limit or any(ord(c)<32 for c in row[key]):
                 raise ValueError("La referencia comercial no es válida.")
             row[key]=row[key].strip()
@@ -112,6 +112,8 @@ def normalized_references(values):
 def merge_reference(references, store, line, *, confirmed=False):
     row=reference_from_line(store,line)
     existing=matching_reference({"commercial_references":references},store,line)
+    if existing:
+        row["brand"]=row["brand"] or existing.get("brand", "")
     if existing and not existing["store"] and store:
         if existing.get("content_confirmed") and not confirmed:
             row.update({key:existing[key] for key in ("content_quantity","content_unit","content_confirmed")})

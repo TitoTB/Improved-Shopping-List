@@ -164,7 +164,7 @@ const hass={
       (window.nutriCalls??=[]).push(msg.code);
       if(window.delayNutriCode===msg.code)await new Promise(resolve=>{window.releaseNutri=resolve;});
       if(window.failNutri||window.failNutriCode===msg.code)throw new Error('OFF sin conexión');
-      return {code:msg.code,product_name:'Producto '+msg.code,nutriscore:window.nutriFixture?.[msg.code]??null};
+      return {code:msg.code,product_name:'Producto '+msg.code,nutriscore:window.nutriFixture?.[msg.code]??null,...(window.optionMetadata?.[msg.code]??{})};
     }
     if(msg.type==='improved_shopping_list/community/status')return structuredClone(window.communityFixture??{sharing:false,connected:false,account:'',authorization:null});
     if(msg.type==='improved_shopping_list/community/sharing'){
@@ -935,9 +935,10 @@ async function checkDetectedPurchaseRecovery(browser,url,errors){
 async function checkReferenceFormats(browser,url,errors){
   const context=await browser.newContext({viewport:{width:390,height:844}});
   await context.addInitScript(()=>{
+    window.optionMetadata={'4006381333931':{brand:'Granja de origen',content_quantity:999,content_unit:'g'}};
     const base={revision:1,category:'',tags:[],price:null,currency:'EUR',barcode:'',barcodes:[],nfc_tags:[],reader_actions:{},image_url:'',icon:'',notes:'',store_links:{},recurrence:{enabled:false,days:7}};
     localStorage.setItem('catalog-fixture',JSON.stringify([
-      {...base,id:'eggs',name:'Huevos',commercial_references:[{id:'egg12',store:'lidl',name:'HUEVOS 12 UDS',reference_id:'egg12',ean:'1234567890128',url:'',content_quantity:12,content_unit:'uds',content_confirmed:false},
+      {...base,id:'eggs',name:'Huevos',purchase_unit:'g',unit_quantity:250,quantity_step:50,commercial_references:[{id:'egg12',store:'lidl',name:'HUEVOS 12 UDS',reference_id:'egg12',ean:'1234567890128',url:'',content_quantity:12,content_unit:'uds',content_confirmed:false},
         {id:'egg6',store:'lidl',name:'HUEVOS 6 UDS',reference_id:'egg6',ean:'4006381333931',url:'',content_quantity:6,content_unit:'uds',content_confirmed:true}]},
       {...base,id:'bread',name:'Pan',commercial_references:[]},
     ]));
@@ -950,22 +951,32 @@ async function checkReferenceFormats(browser,url,errors){
   assert.deepEqual(await catalog.locator('#catalog-grid .product .title').allTextContents(),['Huevos']);
   await catalog.getByRole('button',{name:'Editar Huevos',exact:true}).click();
   const dialog=catalog.getByRole('dialog',{name:'Editar producto',exact:true});
-  await dialog.getByRole('button',{name:'Tiendas',exact:true}).click();
+  await dialog.getByRole('button',{name:'Opciones',exact:true}).click();
   assert.equal(await dialog.locator('.commercial-reference').count(),2);
+  assert.equal(await dialog.locator('.product-option[open]').count(),0);
+  await dialog.locator('.product-option > summary').last().getByText('Granja de origen · 6 uds',{exact:true}).waitFor();
+  assert.equal(await dialog.getByRole('button',{name:'Opciones',exact:true}).locator('ha-icon').getAttribute('icon'),'mdi:format-list-text');
+  await dialog.locator('.product-option > summary').first().click();
   const first=dialog.locator('.commercial-reference').first();
   assert.equal(await first.getByLabel('Contenido por envase',{exact:true}).inputValue(),'12');
   assert.equal(await first.getByLabel('Formato confirmado',{exact:true}).isChecked(),false);
   await first.getByLabel('Formato confirmado',{exact:true}).check();
+  await first.getByLabel('Marca',{exact:true}).fill('Granja');
+  assert.match(await dialog.locator('.product-option > summary').first().textContent(),/Granja.*12 uds/);
   for(const width of [320,1280]){await page.setViewportSize({width,height:960});assert.ok(await dialog.evaluate(el=>el.scrollWidth<=el.clientWidth+1));}
   await page.setViewportSize({width:390,height:844});
   await page.screenshot({path:'test-results/commercial-references-mobile.png',fullPage:true});
   await dialog.getByRole('button',{name:'Guardar producto',exact:true}).click();await dialog.waitFor({state:'hidden'});
   await page.waitForFunction(()=>window.catalogProducts.find(p=>p.id==='eggs').commercial_references[0].content_confirmed===true);
+  assert.deepEqual(await page.evaluate(()=>{const p=window.catalogProducts.find(p=>p.id==='eggs');return [p.purchase_unit,p.unit_quantity,p.quantity_step];}),['g',250,50]);
   assert.equal(await catalog.locator('#catalog-grid .product').count(),0);
   await catalog.getByRole('button',{name:'Mostrar formatos pendientes de revisar',exact:true}).click();
   await catalog.getByRole('button',{name:'Editar Huevos',exact:true}).click();
-  await dialog.getByRole('button',{name:'Tiendas',exact:true}).click();
+  await dialog.getByRole('button',{name:'Opciones',exact:true}).click();
+  assert.equal(await dialog.locator('.product-option[open]').count(),0);
+  await dialog.locator('.product-option > summary').first().click();
   assert.equal(await first.getByLabel('Formato confirmado',{exact:true}).isChecked(),true);
+  assert.equal(await first.getByLabel('Marca',{exact:true}).inputValue(),'Granja');
   await dialog.getByRole('button',{name:'Cerrar ventana',exact:true}).click();await context.close();
 }
 
@@ -1201,7 +1212,7 @@ async function main() {
     assert.equal(await catalog.getByLabel("Marca", { exact: true }).count(), 0);
     assert.equal(await catalog.getByLabel("Formato", { exact: true }).count(), 0);
     await captureProductCode(page,catalog,"barcode","0012345678905");
-    await catalog.getByRole("button",{name:"Tiendas",exact:true}).click();
+    await catalog.getByRole("button",{name:"Opciones",exact:true}).click();
     assert.equal(await catalog.getByLabel("Precio orientativo", { exact: true }).count(),0);
     assert.equal(await catalog.getByLabel("Moneda", { exact: true }).count(),0);
     await catalog.getByRole("button",{name:"Características",exact:true}).click();
@@ -2439,13 +2450,11 @@ async function main() {
     await quantityCatalog.getByRole('button',{name:'Editar Pavo',exact:true}).click();
     const quantityForm=quantityCatalog.locator('#product-form');
     await quantityForm.getByRole('button',{name:'Características',exact:true}).click();
-    assert.equal(await quantityForm.getByLabel('Unidades',{exact:true}).inputValue(),'g');
-    assert.equal(await quantityForm.getByLabel('Cantidad unitaria',{exact:true}).inputValue(),'250');
-    await quantityForm.getByLabel('Tamaño del paso',{exact:true}).fill('100');
+    for(const label of ['Unidades','Cantidad unitaria','Tamaño del paso'])assert.equal(await quantityForm.getByLabel(label,{exact:true}).count(),0);
     await quantityForm.getByRole('button',{name:'Guardar producto',exact:true}).click();
     await quantityCatalog.locator('dialog[aria-labelledby="product-dialog-title"]').waitFor({state:'hidden'});
     await quantityBadge.getByRole('button',{name:'Disminuir cantidad: Pavo',exact:true}).click();
-    await quantityBadge.locator('.quantity-value').filter({hasText:'200 g'}).waitFor();
+    await quantityBadge.locator('.quantity-value').filter({hasText:'250 g'}).waitFor();
     for(const width of [1280,390,320]){
       await quantityPage.setViewportSize({width,height:844});
       await quantityPage.screenshot({path:'test-results/catalog-quantity-rows-'+width+'.png'});
@@ -2905,17 +2914,17 @@ async function main() {
     await nutriForm.getByRole('button',{name:'Automatización',exact:true}).click();
     for(const code of ['8410109115543','08410109115543','3017620422003','https://private.test/qr','3017620422004'])await captureProductCode(nutriPage,nutriForm,'barcode',code);
     await captureProductCode(nutriPage,nutriForm,'nfc','AA:BB:CC:DD');
-    await nutriForm.getByRole('button',{name:'Tiendas',exact:true}).click();
+    await nutriForm.getByRole('button',{name:'Opciones',exact:true}).click();
     await nutriForm.getByText('Nutri-Score: D',{exact:true}).waitFor();
     assert.equal(await nutriForm.locator('.nutriscore-item').count(),2);
     assert.deepEqual(await nutriPage.evaluate(()=>window.nutriCalls),['8410109115543','3017620422003']);
     await nutriForm.getByRole('button',{name:'Características',exact:true}).click();
-    await nutriForm.getByRole('button',{name:'Tiendas',exact:true}).click();
+    await nutriForm.getByRole('button',{name:'Opciones',exact:true}).click();
     assert.equal(await nutriPage.evaluate(()=>window.nutriCalls.length),2);
     await nutriPage.evaluate(()=>{window.listSettings.stores={carrefour:{enabled:true}};window.emitSettings();});
     await nutriForm.getByRole('button',{name:'Automatización',exact:true}).click();
     await captureProductCode(nutriPage,nutriForm,'barcode','8431876279146');
-    await nutriForm.getByRole('button',{name:'Tiendas',exact:true}).click();
+    await nutriForm.getByRole('button',{name:'Opciones',exact:true}).click();
     await nutriForm.locator('#store-price-results').getByRole('link').waitFor();
     assert.match(await nutriForm.locator('#store-price-results').textContent(),/Carrefour: 1,35/);
     assert.match(await nutriForm.locator('#store-price-results').getByRole('link').getAttribute('href'),/awin1.com\/pclick.php/);
@@ -2924,12 +2933,12 @@ async function main() {
     await nutriForm.getByRole('button',{name:'Automatización',exact:true}).click();
     await captureProductCode(nutriPage,nutriForm,'barcode','3017620422003');
     await nutriPage.evaluate(()=>{window.delayNutriCode='3017620422003';});
-    await nutriForm.getByRole('button',{name:'Tiendas',exact:true}).click();
+    await nutriForm.getByRole('button',{name:'Opciones',exact:true}).click();
     await nutriPage.waitForFunction(()=>typeof window.releaseNutri==='function');
     await nutriForm.locator('..').getByRole('button',{name:'Cerrar ventana',exact:true}).click();
     await nutriCatalog.getByRole('button',{name:'Nuevo producto',exact:true}).click();
     await nutriPage.evaluate(()=>window.releaseNutri());
-    await nutriForm.getByRole('button',{name:'Tiendas',exact:true}).click();
+    await nutriForm.getByRole('button',{name:'Opciones',exact:true}).click();
     assert.equal(await nutriForm.locator('#product-nutriscore').isVisible(),false);
     await nutriForm.getByRole('button',{name:'Automatización',exact:true}).click();
     const captureGroup=nutriForm.locator('#product-barcode-codes');
@@ -3367,7 +3376,7 @@ async function main() {
     await linksCatalog.getByRole('button',{name:'Nuevo producto',exact:true}).click();
     const linksForm=linksCatalog.locator('#product-form');
     await linksForm.getByLabel('Nombre del producto',{exact:true}).fill('Arroz vinculado');
-    await linksForm.getByRole('button',{name:'Tiendas',exact:true}).click();
+    await linksForm.getByRole('button',{name:'Opciones',exact:true}).click();
     await linksForm.getByLabel('Tienda del producto',{exact:true}).selectOption('mercadona');
     await linksForm.getByLabel('Enlace o ID del producto',{exact:true}).fill('69938');
     await linksForm.getByRole('button',{name:'Añadir vinculación',exact:true}).click();
@@ -3376,14 +3385,15 @@ async function main() {
     await linksForm.getByLabel('Enlace o ID del producto',{exact:true}).press('Enter');
     assert.equal(await linksPage.evaluate(()=>window.catalogProducts.length),0);
     assert.equal(await linksForm.getByLabel('Enlace o ID de Mercadona',{exact:true}).inputValue(),'69938');
+    assert.equal(await linksForm.locator('.product-option[open]').count(),0);
+    await linksForm.locator('.product-option > summary').first().click();
     assert.equal(await linksForm.locator('.store-reference').count(),2);
     assert.equal(await linksForm.locator('.store-reference img').count(),2);
     assert.equal(await linksForm.locator('#product-store-links .reference-content-controls').count(),2);
-    assert.equal(await linksForm.getByRole('button',{name:'Quitar vinculación de Mercadona',exact:true}).evaluate(node=>getComputedStyle(node).backgroundColor),'rgb(211, 47, 47)');
-    assert.ok(await linksForm.locator('.product-store-link').first().evaluate(row=>{
+    assert.equal(await linksForm.getByRole('button',{name:'Desvincular referencia',exact:true}).evaluate(node=>getComputedStyle(node).backgroundColor),'rgb(211, 47, 47)');
+    assert.ok(await linksForm.locator('.product-option[open] .commercial-reference-title').evaluate(row=>{
       const [input,remove]=[...row.children].map(node=>node.getBoundingClientRect());
-      const header=row.closest('.product-store-association').querySelector('.product-store-header').getBoundingClientRect();
-      return header.bottom<=input.top && input.right<=remove.left && Math.abs(input.top-remove.top)<1;
+      return input.right<=remove.left && Math.abs((input.top+input.height/2)-(remove.top+remove.height/2))<1;
     }));
     await linksPage.screenshot({path:'test-results/store-links-mobile.png',fullPage:true});
     assert.ok(await linksCatalog.locator('dialog[open]').evaluate(dialog=>dialog.scrollWidth<=dialog.clientWidth+1));
@@ -3391,9 +3401,11 @@ async function main() {
     assert.equal(await linksPage.evaluate(()=>window.catalogProducts[0].barcode),'');
     assert.equal(await linksPage.evaluate(()=>window.catalogProducts[0].store_links.mercadona),'69938');
     await editCatalogProduct(linksCatalog,'Editar Arroz vinculado');
-    await linksForm.getByRole('button',{name:'Tiendas',exact:true}).click();
+    await linksForm.getByRole('button',{name:'Opciones',exact:true}).click();
     assert.match(await linksForm.getByLabel('Enlace o ID de Alcampo',{exact:true}).inputValue(),/24097$/);
-    await linksForm.getByRole('button',{name:'Quitar vinculación de Mercadona',exact:true}).click();
+    await linksForm.locator('.product-option[data-store="mercadona"] > summary').click();
+    linksPage.once('dialog',dialog=>dialog.accept());
+    await linksForm.locator('.product-option[data-store="mercadona"]').getByRole('button',{name:'Desvincular referencia',exact:true}).click();
     await linksForm.getByRole('button',{name:'Guardar producto',exact:true}).click();
     assert.equal(await linksPage.evaluate(()=>window.catalogProducts[0].store_links.mercadona),undefined);
     await linksPage.getByRole('button',{name:'Ajustes',exact:true}).click();
@@ -3971,7 +3983,7 @@ async function main() {
     await storeCatalog.locator('.category-group[aria-label="Carrefour"] > summary').click();
     await storeCatalog.getByRole('button',{name:'Editar Pan',exact:true}).click();
     const storesProductForm=storeCatalog.locator('#product-form');
-    await storesProductForm.getByRole('button',{name:'Tiendas',exact:true}).click();
+    await storesProductForm.getByRole('button',{name:'Opciones',exact:true}).click();
     assert.equal(await storesProductForm.locator('.product-store-association[data-store="carrefour"]').count(),1);
     assert.equal(await storesProductForm.locator('.product-store-association[data-store="dia"]').count(),1);
     assert.ok((await storesProductForm.locator('.product-store-association[data-store="carrefour"]').textContent()).includes('Ticket/factura confirmado'));
@@ -3987,20 +3999,21 @@ async function main() {
       const layout=await storesProductForm.evaluate(form=>{
         const bounds=name=>form.elements[name].getBoundingClientRect();
         const name=bounds('name'),category=bounds('category');
-        const unit=bounds('purchase_unit'),quantity=bounds('unit_quantity'),step=bounds('quantity_step');
-        return {top:[name.bottom,category.bottom],tagsAbsent:!form.elements.tags,units:[unit.bottom,quantity.bottom,step.bottom],order:form.querySelector('[name="image_url"]').getBoundingClientRect().bottom<=form.querySelector('isl-icon-picker').getBoundingClientRect().top,overflow:form.scrollWidth>form.clientWidth};
+        const quantityFieldsAbsent=['purchase_unit','unit_quantity','quantity_step'].every(key=>!form.elements[key]);
+        return {top:[name.bottom,category.bottom],tagsAbsent:!form.elements.tags,quantityFieldsAbsent,order:form.querySelector('[name="image_url"]').getBoundingClientRect().bottom<=form.querySelector('isl-icon-picker').getBoundingClientRect().top,overflow:form.scrollWidth>form.clientWidth};
       });
       assert.ok(Math.max(...layout.top)-Math.min(...layout.top)<=1);
-      assert.ok(Math.max(...layout.units)-Math.min(...layout.units)<=1);
+      assert.equal(layout.quantityFieldsAbsent,true);
       assert.equal(layout.tagsAbsent,true);assert.equal(layout.order,true);assert.equal(layout.overflow,false);
       await storeGroupingPage.screenshot({path:'test-results/product-form-main-'+width+'.png',fullPage:true});
     }
-    await storesProductForm.getByRole('button',{name:'Tiendas',exact:true}).click();
+    await storesProductForm.getByRole('button',{name:'Opciones',exact:true}).click();
+    await storesProductForm.locator('.product-option[data-store="carrefour"] > summary').click();
     for(const width of [320,390,1280]){
       await storeGroupingPage.setViewportSize({width,height:960});
       const storeLayout=await storesProductForm.locator('.product-store-association[data-store="carrefour"]').evaluate(card=>{
-        const header=card.querySelector('.product-store-header').getBoundingClientRect(),input=card.querySelector('input').getBoundingClientRect(),remove=card.querySelector('.remove-store-link').getBoundingClientRect();
-        return {below:input.top>=header.bottom,full:input.width>card.clientWidth*.6,centered:Math.abs((input.top+input.height/2)-(remove.top+remove.height/2))<1,overflow:card.scrollWidth>card.clientWidth};
+        const header=card.querySelector('summary').getBoundingClientRect(),input=card.querySelector('input').getBoundingClientRect(),remove=card.querySelector('.remove-store-link').getBoundingClientRect();
+        return {below:input.top>=header.bottom,full:input.width>card.clientWidth*.5,centered:Math.abs((input.top+input.height/2)-(remove.top+remove.height/2))<1,overflow:card.scrollWidth>card.clientWidth};
       });
       assert.equal(storeLayout.below,true);assert.equal(storeLayout.full,true);assert.equal(storeLayout.centered,true);assert.equal(storeLayout.overflow,false);
       await storeGroupingPage.screenshot({path:'test-results/product-form-stores-'+width+'.png',fullPage:true});

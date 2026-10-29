@@ -32,9 +32,11 @@ async def test_receipt_formats_survive_restart_and_correct_comparisons_without_s
     assert offer['price']==3 and offer['pack_quantity']==12 and not offer['format_pending']
     edited={key:value for key,value in product.items() if key in FIELDS}
     edited['commercial_references'][0]['content_quantity']=6
+    edited['commercial_references'][0]['brand']='Granja'
     await catalog.async_save_product(edited)
     restored=Catalog(hass);await restored.async_load()
     assert restored.products[0]['commercial_references'][0]['content_quantity']==6
+    assert restored.products[0]['commercial_references'][0]['brand']=='Granja'
     history=PriceHistory(hass)
     comparison=history.comparison_data(restored,SimpleNamespace(snapshot={'stores':{'lidl':{'enabled':True}}}),manager,[])
     assert comparison['observations'][0]['pack_quantity']==6

@@ -15,15 +15,17 @@ refs=importlib.util.module_from_spec(spec);spec.loader.exec_module(refs)
 class ReferenceTests(unittest.TestCase):
     def test_distinct_packs_remain_separate_and_confirmed_content_survives_later_tickets(self):
         values=[]
-        small={"description":"HUEVOS 6 UDS","ean":"4006381333931"}
+        small={"description":"HUEVOS 6 UDS","ean":"4006381333931","brand":"Granja"}
         large={"description":"HUEVOS 12 UDS","ean":"1234567890128"}
         refs.merge_reference(values,"lidl",small,confirmed=True)
         refs.merge_reference(values,"lidl",large,confirmed=True)
         self.assertEqual([ref["content_quantity"] for ref in values],[6,12])
-        refs.merge_reference(values,"lidl",{**small,"description":"HUEVOS"})
+        refs.merge_reference(values,"lidl",{**small,"description":"HUEVOS","brand":""})
         found=refs.matching_reference({"commercial_references":values},"lidl",small)
         self.assertTrue(found["content_confirmed"])
         self.assertEqual(found["content_quantity"],6)
+        self.assertEqual(found["brand"],"Granja")
+        self.assertEqual(refs.normalized_references(values)[-1]["brand"],"Granja")
         self.assertEqual(len(refs.normalized_references(values)),2)
 
     def test_pending_content_does_not_borrow_stock_and_corrections_apply_to_observations(self):

@@ -1,5 +1,15 @@
 # Historial de cambios
 
+## 0.54.0 — 2026-10-29
+
+- Lidl puede completar las alternativas al revisar o reprocesar tickets: busca primero en la caché local, después en el diccionario por EAN cuando existe y finalmente en listados públicos con coincidencia exacta de la referencia del ticket (IAN). No se inventan EAN ni se asocian productos por parecido del nombre.
+- Las propuestas de URL, marca y contenido del envase se muestran con progreso y se guardan al confirmar la revisión. Se conserva el precio pagado en el ticket y se respetan las correcciones manuales. Consultas limitadas, espaciadas y con pausas ante bloqueos.
+- Diccionario de enlaces ampliado con una columna Lidl, preparada para incorporar equivalencias verificadas y compatible con las versiones anteriores.
+- Analítica → Comparativa incorpora todas las tiendas con precios guardados, incluido Alcampo, sin depender de tener una cuenta o un catálogo conectado. Incluye los precios editados manualmente en las alternativas.
+- La comparativa muestra solo productos con precios comparables en al menos dos tiendas y utiliza €/kg, €/l o €/ud independientemente de la marca y del EAN. En cada tienda elige la alternativa más barata por la misma unidad; no compara envases de contenido desconocido ni mezcla peso, volumen y unidades.
+- Eliminada la vista «Compras pasadas» de Comparativa; se mantiene la vista independiente Compras de Analítica.
+- Sin nuevas dependencias.
+
 ## 0.53.4 — 2026-10-29
 
 - Al agrupar los productos del catálogo por tienda, cada bloque muestra únicamente un precio guardado de esa tienda. Si no existe, se oculta el badge sin utilizar precios de otras tiendas ni el precio genérico del producto.

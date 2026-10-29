@@ -1045,11 +1045,11 @@ async function checkReferenceFormats(browser,url,errors){
   assert.deepEqual(await catalog.locator('#catalog-grid .product .title').allTextContents(),['Huevos']);
   await catalog.getByRole('button',{name:'Editar Huevos',exact:true}).click();
   const dialog=catalog.getByRole('dialog',{name:'Editar producto',exact:true});
-  await dialog.getByRole('button',{name:'Opciones',exact:true}).click();
+  await dialog.getByRole('button',{name:'Alternativas',exact:true}).click();
   assert.equal(await dialog.locator('.commercial-reference').count(),2);
   assert.equal(await dialog.locator('.product-option[open]').count(),0);
   await dialog.locator('.product-option > summary').last().getByText('HUEVOS 6 UDS',{exact:true}).waitFor();
-  assert.equal(await dialog.getByRole('button',{name:'Opciones',exact:true}).locator('ha-icon').getAttribute('icon'),'mdi:format-list-text');
+  assert.equal(await dialog.getByRole('button',{name:'Alternativas',exact:true}).locator('ha-icon').getAttribute('icon'),'mdi:format-list-text');
   await dialog.locator('.product-option > summary').first().click();
   const first=dialog.locator('.commercial-reference').first();
   assert.equal(await dialog.locator('#product-ean-summary').count(),0);
@@ -1086,7 +1086,7 @@ async function checkReferenceFormats(browser,url,errors){
   assert.equal(await catalog.locator('#catalog-grid .product').count(),0);
   await catalog.getByRole('button',{name:'Mostrar formatos pendientes de revisar',exact:true}).click();
   await catalog.getByRole('button',{name:'Editar Huevos',exact:true}).click();
-  await dialog.getByRole('button',{name:'Opciones',exact:true}).click();
+  await dialog.getByRole('button',{name:'Alternativas',exact:true}).click();
   assert.equal(await dialog.locator('.product-option[open]').count(),0);
   await dialog.locator('.product-option > summary').first().click();
   assert.equal(await first.getByLabel('Formato confirmado',{exact:true}).count(),0);
@@ -1114,7 +1114,7 @@ async function checkReferenceFormats(browser,url,errors){
   const moved=await page.evaluate(()=>{const p=window.catalogProducts.find(p=>p.id==='eggs');return {ref:p.commercial_references.find(r=>r.store==='alcampo'),links:p.store_links,lidl:p.commercial_references.filter(r=>r.store==='lidl').length};});
   assert.equal(moved.ref.reference_id,'540978');assert.equal(moved.ref.last_price,undefined);assert.equal(moved.links.lidl,undefined);assert.equal(moved.links.alcampo,correctedUrl);assert.equal(moved.lidl,1);
   await catalog.getByRole('button',{name:'Editar Huevos',exact:true}).click();
-  await dialog.getByRole('button',{name:'Opciones',exact:true}).click();
+  await dialog.getByRole('button',{name:'Alternativas',exact:true}).click();
   assert.equal(await dialog.locator('#product-link-store').count(),0);
   await dialog.locator('#product-link-value').fill('R-521002958');
   await dialog.locator('#add-product-store-link').click();
@@ -1162,7 +1162,7 @@ async function checkCatalogSources(browser,url,errors){
   const p=await grouped.newPage();p.on('pageerror',error=>errors.push(error.message));await p.goto(url);
   await p.getByRole('button',{name:'Catálogo',exact:true}).click();const catalog=p.locator('isl-catalog');
   await catalog.getByRole('button',{name:'Cambiar a vista de filas',exact:true}).click();await catalog.getByRole('button',{name:'Editar Producto',exact:true}).click();
-  const form=catalog.getByRole('dialog',{name:'Editar producto',exact:true});await form.getByRole('button',{name:'Opciones',exact:true}).click();
+  const form=catalog.getByRole('dialog',{name:'Editar producto',exact:true});await form.getByRole('button',{name:'Alternativas',exact:true}).click();
   assert.equal(await form.locator('.product-ean-group').count(),1);assert.equal(await form.locator('.product-ean-group[open]').count(),0);
   assert.equal(await form.locator('.product-ean-group .product-option').count(),2);
   await form.locator('.product-ean-group > summary').click();
@@ -1185,7 +1185,7 @@ async function checkCatalogSources(browser,url,errors){
   assert.deepEqual(savedOptions.slice(0,2).map(ref=>ref.last_price.price),[3.75,2.5]);
   assert.equal(savedOptions[2].content_quantity,undefined);
   await catalog.getByRole('button',{name:'Editar Producto',exact:true}).click();
-  await form.getByRole('button',{name:'Opciones',exact:true}).click();
+  await form.getByRole('button',{name:'Alternativas',exact:true}).click();
   await form.locator('.product-ean-group > summary').click();
   assert.equal(await shared.getByLabel('Marca',{exact:true}).inputValue(),'Marca compartida');
   assert.equal(await shared.getByLabel('Contenido por envase',{exact:true}).inputValue(),'500');
@@ -1474,7 +1474,7 @@ async function main() {
     assert.equal(await catalog.getByLabel("Marca", { exact: true }).count(), 0);
     assert.equal(await catalog.getByLabel("Formato", { exact: true }).count(), 0);
     await captureProductCode(page,catalog,"barcode","0012345678905");
-    await catalog.getByRole("button",{name:"Opciones",exact:true}).click();
+    await catalog.getByRole("button",{name:"Alternativas",exact:true}).click();
     assert.equal(await catalog.getByLabel("Precio orientativo", { exact: true }).count(),0);
     assert.equal(await catalog.getByLabel("Moneda", { exact: true }).count(),0);
     await catalog.getByRole("button",{name:"Características",exact:true}).click();
@@ -3158,18 +3158,18 @@ async function main() {
     await nutriForm.getByRole('button',{name:'Automatización',exact:true}).click();
     for(const code of ['8410109115543','08410109115543','3017620422003','https://private.test/qr','3017620422004'])await captureProductCode(nutriPage,nutriForm,'barcode',code);
     await captureProductCode(nutriPage,nutriForm,'nfc','AA:BB:CC:DD');
-    await nutriForm.getByRole('button',{name:'Opciones',exact:true}).click();
+    await nutriForm.getByRole('button',{name:'Alternativas',exact:true}).click();
     await nutriPage.waitForFunction(()=>document.querySelector('improved-shopping-list-panel').shadowRoot.querySelector('isl-catalog')._commercialReferences.some(ref=>ref.nutriscore?.grade==='d'));
     assert.equal(await nutriForm.locator('.option-nutriscore').count(),0);
     assert.equal(await nutriForm.locator('#product-nutriscore').count(),0);
     assert.deepEqual(await nutriPage.evaluate(()=>window.nutriCalls),['8410109115543','3017620422003']);
     await nutriForm.getByRole('button',{name:'Características',exact:true}).click();
-    await nutriForm.getByRole('button',{name:'Opciones',exact:true}).click();
+    await nutriForm.getByRole('button',{name:'Alternativas',exact:true}).click();
     assert.equal(await nutriPage.evaluate(()=>window.nutriCalls.length),2);
     await nutriPage.evaluate(()=>{window.listSettings.stores={carrefour:{enabled:true}};window.emitSettings();});
     await nutriForm.getByRole('button',{name:'Automatización',exact:true}).click();
     await captureProductCode(nutriPage,nutriForm,'barcode','8431876279146');
-    await nutriForm.getByRole('button',{name:'Opciones',exact:true}).click();
+    await nutriForm.getByRole('button',{name:'Alternativas',exact:true}).click();
     assert.equal(await nutriForm.locator('#product-store-prices').count(),0);
     assert.equal(await nutriForm.locator('#store-price-results').count(),0);
     await nutriForm.locator('..').getByRole('button',{name:'Cerrar ventana',exact:true}).click();
@@ -3177,12 +3177,12 @@ async function main() {
     await nutriForm.getByRole('button',{name:'Automatización',exact:true}).click();
     await captureProductCode(nutriPage,nutriForm,'barcode','3017620422003');
     await nutriPage.evaluate(()=>{window.delayNutriCode='3017620422003';});
-    await nutriForm.getByRole('button',{name:'Opciones',exact:true}).click();
+    await nutriForm.getByRole('button',{name:'Alternativas',exact:true}).click();
     await nutriPage.waitForFunction(()=>typeof window.releaseNutri==='function');
     await nutriForm.locator('..').getByRole('button',{name:'Cerrar ventana',exact:true}).click();
     await nutriCatalog.getByRole('button',{name:'Nuevo producto',exact:true}).click();
     await nutriPage.evaluate(()=>window.releaseNutri());
-    await nutriForm.getByRole('button',{name:'Opciones',exact:true}).click();
+    await nutriForm.getByRole('button',{name:'Alternativas',exact:true}).click();
     assert.equal(await nutriForm.locator('.option-nutriscore').count(),0);
     await nutriForm.getByRole('button',{name:'Automatización',exact:true}).click();
     const captureGroup=nutriForm.locator('#product-barcode-codes');
@@ -3620,7 +3620,7 @@ async function main() {
     await linksCatalog.getByRole('button',{name:'Nuevo producto',exact:true}).click();
     const linksForm=linksCatalog.locator('#product-form');
     await linksForm.getByLabel('Nombre del producto',{exact:true}).fill('Arroz vinculado');
-    await linksForm.getByRole('button',{name:'Opciones',exact:true}).click();
+    await linksForm.getByRole('button',{name:'Alternativas',exact:true}).click();
     await linksForm.getByLabel('URL del producto',{exact:true}).fill('https://tienda.mercadona.es/product/69938/arroz');
     await linksForm.getByRole('button',{name:'Añadir vinculación',exact:true}).click();
     await linksForm.getByLabel('URL del producto',{exact:true}).fill('https://www.compraonline.alcampo.es/products/arroz/24097');
@@ -3643,7 +3643,7 @@ async function main() {
     assert.equal(await linksPage.evaluate(()=>window.catalogProducts[0].barcode),'');
     assert.equal(await linksPage.evaluate(()=>window.catalogProducts[0].store_links.mercadona),'https://tienda.mercadona.es/product/69938/arroz');
     await editCatalogProduct(linksCatalog,'Editar Arroz vinculado');
-    await linksForm.getByRole('button',{name:'Opciones',exact:true}).click();
+    await linksForm.getByRole('button',{name:'Alternativas',exact:true}).click();
     assert.match(await linksForm.getByLabel('URL de Alcampo',{exact:true}).inputValue(),/24097$/);
     await linksForm.locator('.product-option[data-store="mercadona"] > summary').click();
     linksPage.once('dialog',dialog=>dialog.accept());
@@ -4226,7 +4226,7 @@ async function main() {
     await storeCatalog.locator('.category-group[aria-label="Carrefour"] > summary').click();
     await storeCatalog.getByRole('button',{name:'Editar Pan',exact:true}).click();
     const storesProductForm=storeCatalog.locator('#product-form');
-    await storesProductForm.getByRole('button',{name:'Opciones',exact:true}).click();
+    await storesProductForm.getByRole('button',{name:'Alternativas',exact:true}).click();
     assert.equal(await storesProductForm.locator('.product-store-association[data-store="carrefour"]').count(),1);
     assert.equal(await storesProductForm.locator('.product-store-association[data-store="dia"]').count(),1);
     assert.ok((await storesProductForm.locator('.product-store-association[data-store="carrefour"]').textContent()).includes('Ticket/factura confirmado'));
@@ -4249,7 +4249,7 @@ async function main() {
       assert.equal(layout.tagsAbsent,true);assert.equal(layout.order,true);assert.equal(layout.overflow,false);
       await storeGroupingPage.screenshot({path:'test-results/product-form-main-'+width+'.png',fullPage:true});
     }
-    await storesProductForm.getByRole('button',{name:'Opciones',exact:true}).click();
+    await storesProductForm.getByRole('button',{name:'Alternativas',exact:true}).click();
     await storesProductForm.locator('.product-option[data-store="carrefour"] > summary').click();
     for(const width of [320,390,1280]){
       await storeGroupingPage.setViewportSize({width,height:960});

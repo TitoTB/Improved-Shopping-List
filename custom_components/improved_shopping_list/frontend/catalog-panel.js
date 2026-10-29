@@ -490,7 +490,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
           <div id="product-error" class="notice error" role="alert" hidden></div>
           <nav class="product-views" aria-label="Vistas de la ficha del producto">
             <button type="button" data-product-view="main" aria-label="Características" aria-pressed="true" aria-controls="product-main"><ha-icon icon="mdi:package-variant-closed" aria-hidden="true"></ha-icon><span class="tab-label">Características</span></button>
-            <button type="button" data-product-view="additional" aria-label="Opciones" aria-pressed="false" aria-controls="product-additional"><ha-icon icon="mdi:format-list-text" aria-hidden="true"></ha-icon><span class="tab-label">Opciones</span></button>
+            <button type="button" data-product-view="additional" aria-label="Alternativas" aria-pressed="false" aria-controls="product-additional"><ha-icon icon="mdi:format-list-text" aria-hidden="true"></ha-icon><span class="tab-label">Alternativas</span></button>
             <button type="button" data-product-view="automation" aria-label="Automatización" aria-pressed="false" aria-controls="product-automation"><ha-icon icon="mdi:robot-outline" aria-hidden="true"></ha-icon><span class="tab-label">Automatización</span></button>
           </nav>
           <section id="product-main" class="fields" aria-label="Características">
@@ -501,8 +501,8 @@ class ImprovedShoppingCatalog extends HTMLElement {
             <label class="wide">URL Imagen/Icono<input name="image_url" maxlength="2048" placeholder="https://… o /local/producto.png"></label>
             <isl-icon-picker class="wide"></isl-icon-picker>
           </section>
-          <section id="product-additional" class="fields" aria-label="Opciones" hidden>
-            <div class="wide"><h3 id="product-options-title">Opciones para comprar</h3><div class="store-link-add"><input id="product-link-value" type="url" pattern="https://.*" aria-label="URL del producto" maxlength="2048" placeholder="URL del producto" title="La tienda se detecta automáticamente a partir de la URL."><button id="retrieve-product-data" class="retrieve-option" type="button"><ha-icon icon="mdi:download" aria-hidden="true"></ha-icon>Recuperar datos</button><button id="add-product-store-link" type="button" aria-label="Añadir vinculación"><ha-icon icon="mdi:plus-thick" aria-hidden="true"></ha-icon></button></div><p id="option-lookup-status" class="helper" role="status" aria-live="polite"></p><div id="product-store-links"></div></div>
+          <section id="product-additional" class="fields" aria-label="Alternativas" hidden>
+            <div class="wide"><h3 id="product-options-title">Alternativas para comprar</h3><div class="store-link-add"><input id="product-link-value" type="url" pattern="https://.*" aria-label="URL del producto" maxlength="2048" placeholder="URL del producto" title="La tienda se detecta automáticamente a partir de la URL."><button id="retrieve-product-data" class="retrieve-option" type="button"><ha-icon icon="mdi:download" aria-hidden="true"></ha-icon>Recuperar datos</button><button id="add-product-store-link" type="button" aria-label="Añadir vinculación"><ha-icon icon="mdi:plus-thick" aria-hidden="true"></ha-icon></button></div><p id="option-lookup-status" class="helper" role="status" aria-live="polite"></p><div id="product-store-links"></div></div>
           </section>
           <section id="product-automation" class="fields" aria-label="Automatización" hidden>
             ${[["barcode","Códigos de barras/QR","mdi:barcode-scan"],["nfc","Etiquetas NFC","mdi:nfc-variant"]].map(([kind,title,icon])=>`<section id="product-${kind}-codes" class="wide product-codes" aria-label="${title}"><h3>${title}</h3><div id="${kind}-code-list" class="code-list"></div><div class="code-capture-controls"><select id="${kind}-capture-reader" aria-label="Lector para ${title}"></select><button id="${kind}-capture-start" type="button"><ha-icon icon="${icon}" aria-hidden="true"></ha-icon>Escanear</button><button id="${kind}-capture-stop" type="button" hidden>Detener</button></div><p id="${kind}-capture-status" class="helper" role="status"></p></section>`).join("")}
@@ -1444,7 +1444,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
 
   _updateOptionTitle() {
     const name=this.shadowRoot.querySelector("#product-form").elements.name.value.trim();
-    this.shadowRoot.querySelector("#product-options-title").textContent=name?`Opciones para comprar ${name}`:"Opciones para comprar";
+    this.shadowRoot.querySelector("#product-options-title").textContent=name?`Alternativas para comprar ${name}`:"Alternativas para comprar";
   }
 
   _renderStoreLinks() {

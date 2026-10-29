@@ -606,7 +606,8 @@ async def test_confirmed_ticket_links_push_store_association_without_stock_or_pr
 
 
 async def test_manual_recovery_confirmation_replaces_unknown_without_automatic_stock(hass):
-    env=await setup_manager(hass);draft=await preview(env)
+    env=await setup_manager(hass)
+    draft=await env.manager.async_preview(base64.b64encode(pdf_bytes(receipt_text())).decode(),'owner',account_reference='manual-account-ticket')
     detected=await env.manager.async_save_detected_purchase('manual-detection',draft['receipt']['purchased_at'],[])
     detected['shoppers']=['person.one']
     env.stock.receipts['history'][detected['id']]=deepcopy(detected)

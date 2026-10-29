@@ -315,7 +315,7 @@ async def test_saved_purchase_ticket_uses_private_reference_after_restart(accoun
     account._session = {"login_token":"private","jwt":"private-jwt","jwt_until":time.time()+500}
     account._http = AsyncMock(return_value={"purchases":[{"purchaseId":reference,"purchaseDate":dt_util.now().isoformat(),"amount":3.75,"orderSource":"TICKET"}]})
     await account.async_purchases("owner", import_summaries=False)
-    saved = {"id":"summary","account_key":key,"store":"carrefour","summary_only":True,"total":3.75}
+    saved = {"id":"summary","account_key":key,"store":"carrefour","summary_only":True,"total":3.75,"purchased_at":dt_util.now().isoformat()}
     account.receipts.stock = SimpleNamespace(receipts={"history":{"summary":saved}})
     restored = CarrefourAccount(hass, account.receipts, account.activity)
     await restored.async_load()
@@ -338,7 +338,7 @@ async def test_legacy_saved_purchase_is_resolved_by_exact_reference_hash(account
     key = sha256(("carrefour:"+reference).encode()).hexdigest()
     account._session = {"login_token":"private","jwt":"private-jwt","jwt_until":time.time()+500}
     account.receipts.stock = SimpleNamespace(receipts={"history":{"summary":{
-        "account_key":key,"store":"carrefour","summary_only":True,"total":3.75}}})
+        "account_key":key,"store":"carrefour","summary_only":True,"total":3.75,"purchased_at":dt_util.now().isoformat()}}})
     row = {"purchaseId":reference,"purchaseDate":dt_util.now().isoformat(),"amount":3.75,"orderSource":"TICKET"}
     account._http = AsyncMock(side_effect=[{"purchases":[row]},{"ticketId":reference,"header":{"netAmount":3.75},"lines":["detail"]}])
     assert await account.async_preview_saved("owner","summary") == {"token":"draft"}

@@ -137,7 +137,6 @@ class ImprovedShoppingCatalog extends HTMLElement {
     const key = JSON.stringify(value);
     if (key === this._priceDataKey) return;
     this._priceDataKey = key; this._priceData = value;
-    if(value?.enabled === false){this.shadowRoot.querySelector('#product-store-prices')?.setAttribute('hidden','');this.shadowRoot.querySelector('#store-price-results')?.replaceChildren();}
     this._renderProducts();
   }
   set quantityData(value) {
@@ -278,6 +277,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
         #product-link-store { grid-area:store; }#product-link-value { grid-area:url; }#retrieve-product-data { grid-area:retrieve; }#add-product-store-link { grid-area:add; }
         .option-url-row { display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:8px;margin-top:12px; }
         .option-url-row input { margin:0;width:100%;min-width:0; }
+        .option-lookup-feedback[data-error="true"],#option-lookup-status[data-error="true"] { color:var(--error-color,#bd3636); }
         .retrieve-option { display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:46px;padding:8px 10px;font-size:12px;background:var(--primary-color,#267052);color:#fff; }
         .retrieve-option ha-icon { width:18px;height:18px;--mdc-icon-size:18px;flex:none; }
         @media(max-width:550px){.store-link-add{grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"store add" "url retrieve";}.option-url-row{gap:6px;}.retrieve-option{padding:8px;font-size:11px;}.retrieve-option ha-icon{display:none;}}
@@ -506,7 +506,6 @@ class ImprovedShoppingCatalog extends HTMLElement {
           <section id="product-additional" class="fields" aria-label="Opciones" hidden>
             <div class="wide"><h3 id="product-options-title">Opciones para comprar</h3><div class="store-link-add"><select id="product-link-store" aria-label="Tienda del producto"></select><input id="product-link-value" aria-label="Enlace o ID del producto" maxlength="2048" placeholder="URL del producto"><button id="retrieve-product-data" class="retrieve-option" type="button"><ha-icon icon="mdi:download" aria-hidden="true"></ha-icon>Recuperar datos</button><button id="add-product-store-link" type="button" aria-label="Añadir vinculación"><ha-icon icon="mdi:plus-thick" aria-hidden="true"></ha-icon></button></div><p id="option-lookup-status" class="helper" role="status" aria-live="polite"></p><div id="product-store-links"></div></div>
             <div id="product-nutriscore" class="wide" hidden><h3>Nutri-Score</h3><div id="nutriscore-results"></div></div>
-            <div id="product-store-prices" class="wide" hidden><h3>Precios de tiendas</h3><div id="store-price-results"></div></div>
           </section>
           <section id="product-automation" class="fields" aria-label="Automatización" hidden>
             ${[["barcode","Códigos de barras/QR","mdi:barcode-scan"],["nfc","Etiquetas NFC","mdi:nfc-variant"]].map(([kind,title,icon])=>`<section id="product-${kind}-codes" class="wide product-codes" aria-label="${title}"><h3>${title}</h3><div id="${kind}-code-list" class="code-list"></div><div class="code-capture-controls"><select id="${kind}-capture-reader" aria-label="Lector para ${title}"></select><button id="${kind}-capture-start" type="button"><ha-icon icon="${icon}" aria-hidden="true"></ha-icon>Escanear</button><button id="${kind}-capture-stop" type="button" hidden>Detener</button></div><p id="${kind}-capture-status" class="helper" role="status"></p></section>`).join("")}
@@ -558,7 +557,6 @@ class ImprovedShoppingCatalog extends HTMLElement {
       if(!ref){ref={store,name:'',ean:'',reference_id,url,content_quantity:null,content_unit:'',content_confirmed:false};this._commercialReferences.push(ref);}else ref.active=true;
       root.querySelector("#product-link-value").value = "";
       this._renderStoreLinks();
-      void this._loadRetailPrices();
       return ref;
     };
     root.querySelector("#add-product-store-link").addEventListener("click", addStoreLink);
@@ -1434,7 +1432,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
       button.setAttribute("aria-pressed", String(selected));
       this.shadowRoot.querySelector(`#${button.getAttribute("aria-controls")}`).hidden = !selected;
     }
-    if (view === "additional") { this._renderStoreLinks(); void this._loadNutriscores(); void this._loadRetailPrices(); }
+    if (view === "additional") { this._renderStoreLinks(); void this._loadNutriscores(); }
   }
 
   _resetNutriscores() {
@@ -1442,42 +1440,6 @@ class ImprovedShoppingCatalog extends HTMLElement {
     this._nutriCodesKey = "";
     this.shadowRoot.querySelector("#nutriscore-results").replaceChildren();
     this.shadowRoot.querySelector("#product-nutriscore").hidden = true;
-    this.shadowRoot.querySelector("#store-price-results").replaceChildren();
-    this.shadowRoot.querySelector("#product-store-prices").hidden = true;
-  }
-
-  async _loadRetailPrices() {
-    const root = this.shadowRoot, form = root.querySelector("#product-form"), generation = this._nutriGeneration;
-    root.querySelector("#store-price-results").replaceChildren();
-    root.querySelector("#product-store-prices").hidden = true;
-    try {
-      if(this._priceData?.enabled === false)return;
-      const linksKey = JSON.stringify(this._storeLinks ?? {});
-      const data = await this._hass.callWS({type:"improved_shopping_list/catalog/store_prices",product_id:this._editing?.id??'',links:this._storeLinks ?? {},codes:this._productCodes?.barcode ?? []});
-      if (this._priceData?.enabled === false || generation !== this._nutriGeneration || linksKey !== JSON.stringify(this._storeLinks ?? {}) || !root.querySelector("dialog").open || !this.isConnected) return;
-      const names = {mercadona:"Mercadona",carrefour:"Carrefour",alcampo:"Alcampo",consum:"Consum",lasirena:"La Sirena",eroski:"Eroski",dia:"DIA",lidl:"Lidl"};
-      const offers=new Map();
-      for(const offer of [...(data.products??[]),...(this._priceData?.offers??[]).filter(offer=>offer.catalog_product_id===this._editing?.id)]){
-        const previous=offers.get(offer.store);
-        if(!previous||(offer.checked_at??0)>=(previous.checked_at??0))offers.set(offer.store,offer);
-      }
-      const rows = [...offers.values()].map(product => {
-        const row = document.createElement("div"); row.className = "nutriscore-item";
-        const link = document.createElement(product.url ? "a" : "span"); link.textContent = `${names[product.store] ?? product.store}: ${new Intl.NumberFormat("es-ES",{style:"currency",currency:product.currency}).format(Number(product.price))} · ${product.store_name || product.name || "Ver producto"}${product.reference_id ? ` · ID ${product.reference_id}` : ""}`;
-        if(product.url){link.href = product.url; link.target = "_blank"; link.rel = "noopener noreferrer";}
-        const date = document.createElement("p"); date.className = "helper"; date.textContent = `Último precio conocido: ${new Date(product.checked_at*1000).toLocaleString("es-ES")}${product.error ? " · No se pudo actualizar" : ""}${product.available === false ? " · No disponible" : ""}${product.expired ? " · Oferta finalizada" : ""}`;
-        row.append(link);
-        if(product.reference_price != null && Number.isFinite(Number(product.reference_price)) && product.reference_unit){
-          const unit=document.createElement("p");unit.className="helper";
-          const units={PER_1KG:"kg",PER_1L:"l",PER_100G:"100 g",PER_100ML:"100 ml",PER_EACH:"ud"};
-          unit.textContent=`${new Intl.NumberFormat("es-ES",{style:"currency",currency:product.currency}).format(Number(product.reference_price))}/${units[product.reference_unit] ?? product.reference_unit}`;
-          row.append(unit);
-        }
-        row.append(date); return row;
-      });
-      root.querySelector("#store-price-results").replaceChildren(...rows);
-      root.querySelector("#product-store-prices").hidden = !rows.length;
-    } catch { /* Optional store data must never prevent editing. */ }
   }
 
   _updateOptionTitle() {
@@ -1559,7 +1521,8 @@ class ImprovedShoppingCatalog extends HTMLElement {
     const root=this.shadowRoot,status=root.querySelector('#option-lookup-status'),generation=this._optionGeneration;
     if(!value){status.textContent='Indica la URL del producto para recuperar sus datos.';return;}
     this._retrievingOption=true;status.textContent='Recuperando datos…';
-    if(feedback){feedback.hidden=false;feedback.textContent='Recuperando datos…';}
+    status.dataset.error='false';
+    if(feedback){feedback.hidden=false;feedback.dataset.error='false';feedback.textContent='Recuperando datos…';}
     root.querySelector('#save-product').disabled=true;
     root.querySelectorAll('.retrieve-option').forEach(button=>{button.disabled=true;});
     try{
@@ -1590,7 +1553,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
       this._expandedOptions.add(ref.id||`${ref.store}:${ref.reference_id||ref.url||ref.ean}`);
       this._renderStoreLinks();this._renderProductCodes();
       status.textContent=changedStore?`Opción reclasificada en ${STORE_NAMES[data.store]??data.store}. Datos recuperados. Guarda el producto para conservarlos.`:'Datos recuperados. Guarda el producto para conservarlos.';
-    }catch(error){if(generation===this._optionGeneration&&root.querySelector('dialog').open){status.textContent=error.message||'No se han podido recuperar los datos. Puedes conservar el enlace y completar la opción manualmente.';if(feedback){feedback.hidden=false;feedback.textContent=status.textContent;}}}
+    }catch(error){if(generation===this._optionGeneration&&root.querySelector('dialog').open){const message=error.message||'No se han podido recuperar los datos. Puedes conservar el enlace y completar la opción manualmente.';status.textContent=feedback?'':message;status.dataset.error=String(!feedback);if(feedback){feedback.hidden=false;feedback.dataset.error='true';feedback.textContent=message;}}}
     finally{
       if(generation===this._optionGeneration){this._retrievingOption=false;root.querySelector('#save-product').disabled=Boolean(this._saving);root.querySelectorAll('.retrieve-option').forEach(button=>{button.disabled=this._hass?.user?.is_admin!==true;});}
     }

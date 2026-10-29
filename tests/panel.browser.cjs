@@ -1005,6 +1005,8 @@ async function checkReferenceFormats(browser,url,errors){
   await page.evaluate(()=>window.failOptionLookup=true);
   await first.getByRole('button',{name:'Recuperar datos',exact:true}).click();
   await first.locator('.option-lookup-feedback').getByText('La web ha rechazado la consulta (HTTP 403).',{exact:true}).waitFor();
+  assert.equal(await first.locator('.option-lookup-feedback').getAttribute('data-error'),'true');
+  assert.equal(await first.locator('.option-lookup-feedback').evaluate(el=>getComputedStyle(el).color),await dialog.locator('#product-error').evaluate(el=>getComputedStyle(el).color));
   assert.equal(await first.getByLabel('Enlace o ID de Lidl',{exact:true}).inputValue(),'https://www.lidl.es/p/huevos/p100');
   const correctedUrl='https://www.compraonline.alcampo.es/products/huevos/540978';
   await first.getByLabel('Enlace o ID de Lidl',{exact:true}).fill(correctedUrl+'?srsltid=tracking');
@@ -2999,9 +3001,8 @@ async function main() {
     await nutriForm.getByRole('button',{name:'Automatización',exact:true}).click();
     await captureProductCode(nutriPage,nutriForm,'barcode','8431876279146');
     await nutriForm.getByRole('button',{name:'Opciones',exact:true}).click();
-    await nutriForm.locator('#store-price-results').getByRole('link').waitFor();
-    assert.match(await nutriForm.locator('#store-price-results').textContent(),/Carrefour: 1,35/);
-    assert.match(await nutriForm.locator('#store-price-results').getByRole('link').getAttribute('href'),/awin1.com\/pclick.php/);
+    assert.equal(await nutriForm.locator('#product-store-prices').count(),0);
+    assert.equal(await nutriForm.locator('#store-price-results').count(),0);
     await nutriForm.locator('..').getByRole('button',{name:'Cerrar ventana',exact:true}).click();
     await nutriCatalog.getByRole('button',{name:'Nuevo producto',exact:true}).click();
     await nutriForm.getByRole('button',{name:'Automatización',exact:true}).click();

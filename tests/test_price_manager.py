@@ -140,6 +140,18 @@ def test_carrefour_empty_and_ambiguous_responses():
             carrefour_offer(data,link)
 
 
+def test_carrefour_numeric_internal_reference_can_differ_from_analytics_id():
+    link=normalize_link("carrefour","R-521002958")
+    data=carrefour_response(item_internal_id="521002958",item_id="150306",item_ean=["8410100024264"],price=5.99)
+    offer=carrefour_offer(data,link)
+    assert offer["price"]=="5.99" and offer["ean"]=="8410100024264"
+    for internal in ("521002959","VC4AECOMM-150306"):
+        with pytest.raises(PriceError):
+            carrefour_offer(carrefour_response(item_internal_id=internal,item_id="150306"),link)
+    with pytest.raises(PriceError):
+        carrefour_offer({"impressions":data["impressions"]*2},link)
+
+
 def test_carrefour_legacy_prod_reference_has_a_different_numeric_analytics_id():
     link = normalize_link("carrefour","R-prod310215")
     data = carrefour_response(item_internal_id="prod310215",item_id="371977",

@@ -84,6 +84,23 @@ async def test_official_url_corrects_the_store_and_keeps_ean_validation(hass, ai
         lookup.close()
 
 
+async def test_numeric_carrefour_option_recovers_when_html_is_blocked(hass, aioclient_mock, monkeypatch):
+    lookup=OptionLookup(hass)
+    monkeypatch.setattr(lookup,"_before_request",AsyncMock())
+    url="https://www.carrefour.es/supermercado/cafe-molido-natural-puro-colombia-cultivo-sostenible-bonka-nestle-250-g/R-521002958/p"
+    aioclient_mock.get(url,status=403)
+    aioclient_mock.get("https://www.carrefour.es/cloud-api/pdp-food-analytics/v1/impressions?product_id=R-521002958",json={"impressions":[{
+        "item_internal_id":"521002958","item_id":"150306","item_name":"cafe-molido-natural-puro-colombia-cultivo-sostenible-bonka-nestle-250-g",
+        "item_brand":"bonka","item_ean":["8410100024264"],"price":5.99,"currency":"EUR"}]})
+    try:
+        result=await lookup.retrieve(url,"carrefour")
+        assert result["reference_id"]=="R-521002958" and result["ean"]=="8410100024264"
+        assert result["price"]==5.99 and result["brand"]=="Bonka" and result["content_quantity"]==250 and result["content_unit"]=="g"
+        assert aioclient_mock.call_count==2
+    finally:
+        lookup.close()
+
+
 async def test_unknown_hosts_and_external_redirects_are_never_requested(hass, aioclient_mock, monkeypatch):
     lookup = OptionLookup(hass)
     monkeypatch.setattr(lookup,"_before_request",AsyncMock())

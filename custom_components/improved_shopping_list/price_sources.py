@@ -37,13 +37,14 @@ def carrefour_offer(data, link):
     if not data["impressions"]:
         return None
     reference = link["id"].removeprefix("R-")
-    # Legacy prod references and their numeric analytics IDs are different IDs.
-    # Only numeric references carry a numeric suffix that can be cross-checked.
+    # Both prod references and bare numeric internal references can differ from
+    # item_id. Only composite references carry a suffix for cross-checking.
     suffix = reference.rsplit("-", 1)[-1]
     numeric_id = suffix if re.fullmatch(r"[0-9]+", suffix) else None
+    cross_check = "-" in reference and numeric_id is not None
     matches = [item for item in data["impressions"] if isinstance(item, dict)
         and (str(item.get("item_internal_id", "")) == reference
-             and (numeric_id is None or str(item.get("item_id", "")) in ("", numeric_id))
+             and (not cross_check or str(item.get("item_id", "")) in ("", numeric_id))
              or numeric_id is not None and not item.get("item_internal_id")
              and str(item.get("item_id", "")) == numeric_id)]
     if len(matches) != 1:

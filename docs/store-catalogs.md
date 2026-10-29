@@ -4,7 +4,7 @@ En Ajustes → Tiendas → Catálogos, Alcampo está desactivado por defecto. Ac
 
 El proceso muestra un popup con progreso, producto actual, incidencias y la espera para la próxima petición. Continúa en Home Assistant al cerrar el popup o recargar la página; el botón de progreso permite consultarlo de nuevo. No reinicia una revisión que ya está en curso.
 
-Las peticiones automáticas se separan al menos cinco minutos, incluidas las redirecciones y consultas complementarias de una misma ficha. La reserva se guarda antes de cada petición y se conserva tras reiniciar. Se reutiliza la caché del recuperador y se respetan las pausas ante bloqueos. Los datos recuperados correctamente no se vuelven a consultar en cada cambio del catálogo. Las coincidencias nuevas se procesan automáticamente mientras la opción siga activada.
+Las peticiones automáticas se separan al menos cinco segundos, incluidas las redirecciones y consultas complementarias de una misma ficha. La reserva se guarda antes de cada petición y se conserva tras reiniciar. Se reutiliza la caché del recuperador y se respetan las pausas ante bloqueos. Los datos recuperados correctamente no se vuelven a consultar en cada cambio del catálogo. Las coincidencias nuevas se procesan automáticamente mientras la opción siga activada.
 
 Se conserva la URL introducida manualmente y no se reactiva una opción que el usuario haya desvinculado. El EAN devuelto por la web, cuando existe, debe coincidir. El enlace del diccionario ya se ha verificado por EAN; tampoco se acepta una respuesta que corresponda a otra referencia interna.
 

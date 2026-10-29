@@ -180,6 +180,10 @@ const hass={
       if(window.failCommunityExport)throw new Error('No se ha podido exportar el diccionario');
       return {data:'UEsFBgAAAAAAAAAAAAAAAAAAAAAAAA==',entries:2,images:1,skipped:0};
     }
+    if(msg.type==='improved_shopping_list/catalog/export'){
+      if(window.failCatalogExport)throw new Error('Export failed');
+      return {data:btoa(JSON.stringify({products:[{name:'Arroz',barcodes:['8410199023094']}]})),products:1};
+    }
     if(msg.type==='improved_shopping_list/icons/info')return JSON.parse(localStorage.getItem('icon-asset-fixture')??'null');
     if(msg.type==='improved_shopping_list/readers/get')return structuredClone(window.readerFixture);
     if(msg.type==='improved_shopping_list/readers/save'){
@@ -2293,7 +2297,7 @@ async function main() {
         const rect=node.getBoundingClientRect(),icon=node.querySelector("svg, input").getBoundingClientRect();
         return {width:rect.width,iconWidth:icon.width,iconHeight:icon.height};
       }));
-      assert.equal(actions.length,3);
+      assert.equal(actions.length,4);
       assert.ok(actions.every(action=>action.width===actions[0].width && action.iconWidth===16 && action.iconHeight===16));
       await settingsPage.screenshot({path:`test-results/community-${width}.png`,fullPage:true});
     }
@@ -2331,6 +2335,17 @@ async function main() {
     await settingsView.locator('#community-authorization').waitFor({state:'hidden'});
     assert.equal(await settingsPage.evaluate(()=>window.communityFixture.sharing),false);
     assert.equal(await settingsView.locator('#export-community').count(),0);
+    const catalogDownload=settingsPage.waitForEvent('download');
+    await settingsView.getByRole('button',{name:'Exportar mi catálogo',exact:true}).click();
+    const exportedCatalog=await catalogDownload;
+    assert.equal(exportedCatalog.suggestedFilename(),'improved-shopping-list-catalog.json');
+    const exportedData=JSON.parse(await fs.readFile(await exportedCatalog.path(),'utf8'));
+    assert.deepEqual(exportedData.products[0].barcodes,['8410199023094']);
+    await settingsPage.evaluate(()=>window.failCatalogExport=true);
+    await settingsView.getByRole('button',{name:'Exportar mi catálogo',exact:true}).click();
+    await settingsView.locator('#catalog-export-error').waitFor();
+    assert.equal(await settingsView.getByRole('button',{name:'Exportar mi catálogo',exact:true}).isEnabled(),true);
+    await settingsPage.evaluate(()=>window.failCatalogExport=false);
     assert.equal(await settingsView.locator('.community-action #community-sharing').count(),1);
     assert.match(await settingsView.locator('#community-description').textContent(),/una vez al día/);
     assert.equal(await settingsPage.evaluate(()=>window.calls.some(call=>call.type==='improved_shopping_list/community/export')),false);

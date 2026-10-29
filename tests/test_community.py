@@ -12,7 +12,7 @@ import zipfile
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.improved_shopping_list.community import CommunityLibrary, build_export, validate_index
+from custom_components.improved_shopping_list.community import CommunityLibrary, build_export, build_catalog_export, validate_index
 from custom_components.improved_shopping_list.const import DOMAIN, CONF_TODO_ENTITY
 from custom_components.improved_shopping_list.icons import IconLibrary, IconError, ICONS_URL
 
@@ -48,6 +48,26 @@ def test_export_allowlist_dedup_missing_translation_and_paths(tmp_path):
         assert manifest["entries"][1]["name_en"] == ""
         assert all(entry["requires_review"] for entry in manifest["entries"])
         assert not any(".." in name for name in archive.namelist())
+
+
+def test_catalog_export_includes_all_eans_and_options_without_household_data():
+    products = [{"name": "Arroz", "name_en": "Rice", "category": "Despensa", "barcodes": ["8410199023094"],
+                 "image_url": "https://example.test/icon.svg", "nfc_tags": ["PRIVATE"], "notes": "PRIVATE",
+                 "reader_actions": {"PRIVATE": "stock_add"}, "recurrence": {"PRIVATE": True},
+                 "commercial_references": [{"store": "alcampo", "ean": "8410199023094", "name": "Arroz 1 kg",
+                     "url": "https://www.compraonline.alcampo.es/products/arroz/10739", "brand": "Marca",
+                     "content_quantity": 1, "content_unit": "kg", "last_price": {"price": 2, "currency": "EUR", "checked_at": 1},
+                     "unknown": "PRIVATE"}]}, {"name": "Sin icono", "barcode": "4006381333931", "image_url": "/local/PRIVATE.svg"}]
+    before = deepcopy(products)
+    result = build_catalog_export(products, [])
+    text = base64.b64decode(result["data"]).decode()
+    data = json.loads(text)
+    assert result["products"] == 2 and "PRIVATE" not in text
+    assert data["products"][0]["barcodes"] == ["8410199023094"]
+    assert data["products"][0]["category"] == "Despensa"
+    assert data["products"][0]["commercial_references"][0]["content_unit"] == "kg"
+    assert data["products"][1]["barcode"] == "4006381333931"
+    assert products == before
 
 
 @pytest.mark.parametrize("field,value", [("file", "../private.svg"), ("sha256", "0" * 64), ("contributions", True),
@@ -99,8 +119,14 @@ async def test_export_websocket_admin_and_unloaded(hass, hass_ws_client):
     assert response["success"] and response["result"]["entries"] == 1
     with zipfile.ZipFile(io.BytesIO(base64.b64decode(response["result"]["data"]))) as archive:
         assert json.loads(archive.read("dictionary.json"))["entries"][0]["name"] == "Pan"
+    await client.send_json({"id": 3, "type": f"{DOMAIN}/catalog/export"})
+    exported = await client.receive_json()
+    assert exported["success"]
+    assert json.loads(base64.b64decode(exported["result"]["data"]))["products"][0]["name"] == "Pan"
     assert await hass.config_entries.async_unload(entry.entry_id)
     await client.send_json({"id": 2, "type": f"{DOMAIN}/community/export"})
+    assert (await client.receive_json())["error"]["code"] == "not_loaded"
+    await client.send_json({"id": 4, "type": f"{DOMAIN}/catalog/export"})
     assert (await client.receive_json())["error"]["code"] == "not_loaded"
 
 
@@ -111,6 +137,8 @@ async def test_export_denied_for_non_admin(hass, hass_ws_client, hass_read_only_
     token = await hass.auth.async_create_refresh_token(hass_read_only_user, client_id="http://test.local")
     client = await hass_ws_client(hass, hass.auth.async_create_access_token(token))
     await client.send_json({"id": 1, "type": f"{DOMAIN}/community/export"})
+    assert not (await client.receive_json())["success"]
+    await client.send_json({"id": 2, "type": f"{DOMAIN}/catalog/export"})
     assert not (await client.receive_json())["success"]
 
 

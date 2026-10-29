@@ -300,6 +300,11 @@ class ImprovedShoppingSettings extends HTMLElement {
       <section id="settings-community" class="card" aria-labelledby="settings-community-title" hidden>
         <h2 id="settings-community-title">Comunidad</h2>
         <div class="community-export">
+          <button id="export-catalog" class="primary community-action" type="button" aria-describedby="catalog-export-description"><svg viewBox="0 0 512 512" aria-hidden="true"><path d="M256 0c17.7 0 32 14.3 32 32v242.7l73.4-73.4c12.5-12.5 32.8-12.5 45.3 0s12.5 32.8 0 45.3l-128 128c-12.5 12.5-32.8 12.5-45.3 0l-128-128c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l73.3 73.4V32c0-17.7 14.3-32 32-32zM64 352v96h384v-96h64v112c0 26.5-21.5 48-48 48H48c-26.5 0-48-21.5-48-48V352h64z"/></svg>Exportar mi catálogo</button>
+          <p id="catalog-export-description">Descarga un archivo JSON con todos los productos de tu catálogo: nombres, traducciones, categorías, iconos o enlaces públicos de imágenes, EAN y opciones de compra con tiendas, URL, marcas, formatos y precios guardados. Puedes compartirlo con Aguacatec para completar el diccionario de productos. Solo se comparte si envías el archivo; no incluye cuentas, credenciales, tickets, listas, Stock ni automatizaciones. Las imágenes locales no se incluyen.</p>
+        </div>
+        <p id="catalog-export-error" class="notice error" role="alert" hidden></p>
+        <div class="community-export">
           <p id="community-description">El diccionario comunitario propone iconos para tus productos. Activa esta opción y autoriza GitHub para compartir los nombres, traducciones e iconos con licencia comprobable de tu catálogo una vez al día en el <a href="https://github.com/TitoTB/Improved-Shopping-List" target="_blank" rel="noopener noreferrer">repositorio de GitHub</a>. Las aportaciones son públicas, están asociadas a tu cuenta y se validan automáticamente. No se comparten precios, EAN, referencias de tiendas, tickets, facturas, listas, stock ni automatizaciones.</p>
           <label class="primary community-action community-share"><input id="community-sharing" type="checkbox" aria-describedby="community-description"><span>Compartir mis datos de productos</span></label>
         </div>
@@ -415,6 +420,7 @@ class ImprovedShoppingSettings extends HTMLElement {
       this._error = ""; this._render();
     });
     root.querySelector("#community-sharing").addEventListener("change", () => void this._setCommunity(root.querySelector("#community-sharing").checked));
+    root.querySelector("#export-catalog").addEventListener("click", () => void this._exportCatalog());
     root.querySelector("#community-connect").addEventListener("click", () => void this._setCommunity(true));
     root.querySelector("isl-notification-settings").onSave = config => this.onNotifications(config);
     root.querySelector("#appearance-form").addEventListener("input", () => { this._appearanceDirty = true; this._preview(); });
@@ -945,9 +951,24 @@ class ImprovedShoppingSettings extends HTMLElement {
     completed.style.color = gradientTextColor(appearance.completed_gradient_start, appearance.completed_gradient_end);
   }
 
+  async _exportCatalog() {
+    if(this._exportingCatalog || this._data?.hass?.user?.is_admin !== true)return;
+    const button=this.shadowRoot.querySelector('#export-catalog'),error=this.shadowRoot.querySelector('#catalog-export-error');
+    this._exportingCatalog=true;button.disabled=true;error.hidden=true;
+    try {
+      const result=await this._data.hass.callWS({type:'improved_shopping_list/catalog/export'});
+      const bytes=Uint8Array.from(atob(result.data),char=>char.charCodeAt(0));
+      const url=URL.createObjectURL(new Blob([bytes],{type:'application/json;charset=utf-8'}));
+      const link=document.createElement('a');link.href=url;link.download='improved-shopping-list-catalog.json';
+      this.shadowRoot.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
+    } catch {error.textContent='No se ha podido exportar el catálogo. Vuelve a intentarlo.';error.hidden=false;}
+    finally {this._exportingCatalog=false;button.disabled=this._data?.hass?.user?.is_admin !== true;}
+  }
+
   _renderCommunity() {
     const root=this.shadowRoot, admin=this._data?.hass?.user?.is_admin === true;
     const state=this._communityState;
+    root.querySelector('#export-catalog').disabled=!admin || Boolean(this._exportingCatalog);
     root.querySelector("#community-sharing").disabled=!admin || Boolean(this._communityBusy);
     if(state){
       root.querySelector("#community-sharing").checked=Boolean(state.sharing);

@@ -126,6 +126,29 @@ def build_export(products: list[dict], assets: dict, config: Path, directory: Pa
             "entries": len(entries), "images": len(files), "skipped": skipped}
 
 
+def build_catalog_export(products: list[dict], categories: list[dict]) -> dict:
+    """Download commercial catalog data without account or household automation data."""
+    category_names = {item["id"]: item["name"] for item in categories}
+    rows = []
+    for product in products:
+        row = {key: deepcopy(product[key]) for key in ("name", "name_en", "icon", "barcode", "barcodes") if key in product}
+        row["category"] = category_names.get(product.get("category"), product.get("category", ""))
+        row["image_url"] = public_url(product.get("image_url", ""))
+        row["commercial_references"] = []
+        for reference in product.get("commercial_references", []):
+            option = {key: deepcopy(reference[key]) for key in (
+                "store", "name", "ean", "reference_id", "brand", "content_quantity", "content_unit",
+                "content_confirmed", "active", "last_price", "nutriscore", "measure_price") if key in reference}
+            option["url"] = public_url(reference.get("url", ""))
+            row["commercial_references"].append(option)
+        rows.append(row)
+    data = json.dumps({"schema_version": 1, "kind": "improved-shopping-list-catalog-export", "products": rows},
+                      ensure_ascii=False, indent=2, allow_nan=False).encode("utf-8")
+    if len(data) > MAX_EXPORT:
+        raise IconError("El catálogo supera el tamaño máximo de exportación (8 MB).")
+    return {"filename": "improved-shopping-list-catalog.json", "data": base64.b64encode(data).decode(), "products": len(rows)}
+
+
 def validate_index(data: dict) -> list[dict]:
     if not isinstance(data, dict) or data.get("schema_version") != 1 or not isinstance(data.get("icons"), list) or len(data["icons"]) > 5000:
         raise IconError("El índice comunitario no es válido.")

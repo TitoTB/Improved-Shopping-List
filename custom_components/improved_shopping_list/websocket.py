@@ -19,7 +19,7 @@ from .stores import StoreError
 from .price_sources import PriceError
 from .store_location import reference_location
 from .icons import IconError
-from .community import build_export
+from .community import build_export, build_catalog_export
 from .community_sync import CommunityError
 from .product_translation import async_translate_name
 from .product_lookup import is_product_barcode
@@ -131,6 +131,7 @@ def async_register_commands(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_icons_import)
     websocket_api.async_register_command(hass, ws_icons_info)
     websocket_api.async_register_command(hass, ws_community_export)
+    websocket_api.async_register_command(hass, ws_catalog_export)
     websocket_api.async_register_command(hass, ws_community_status)
     websocket_api.async_register_command(hass, ws_community_sharing)
     websocket_api.async_register_command(hass, ws_nutriscore)
@@ -416,6 +417,20 @@ async def ws_community_export(hass, connection, msg):
                                                    Path(hass.config.path()), icons.directory)
     except (IconError, OSError, HomeAssistantError) as err:
         connection.send_error(msg["id"], "community_export_error", str(err))
+    else:
+        connection.send_result(msg["id"], result)
+
+
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/catalog/export"})
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_catalog_export(hass, connection, msg):
+    if not (catalog := _catalog(hass, connection, msg)):
+        return
+    try:
+        result = await hass.async_add_executor_job(build_catalog_export, catalog.products, catalog.categories)
+    except (IconError, ValueError, OSError, HomeAssistantError) as err:
+        connection.send_error(msg["id"], "catalog_export_error", str(err))
     else:
         connection.send_result(msg["id"], result)
 

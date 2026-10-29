@@ -1,5 +1,11 @@
 # Historial de cambios
 
+## 0.49.1 — 2026-10-29
+
+- Los grupos de Catálogo → Productos aparecen cerrados por defecto al agrupar por categoría, tienda o sugerencias. Su cabecera permite desplegarlos con ratón o teclado, y los grupos abiertos se mantienen al actualizar los datos.
+- En Ajustes → Tiendas → Detección automática de compra, cada activación comparte fila con su umbral: productos completados y permanencia mínima en zona. La disposición se adapta también a móvil.
+- Sin nuevas dependencias.
+
 ## 0.49.0 — 2026-10-29
 
 - Referencias comerciales por producto, con EAN o ID, tienda, nombre, enlace y contenido por envase independiente de la compra y de Stock. Admite varios formatos de una misma tienda y conserva sus últimos precios por separado.

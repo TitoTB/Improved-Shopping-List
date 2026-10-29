@@ -200,6 +200,14 @@ const hass={
     }
     if(msg.type==='improved_shopping_list/receipts/get')return {receipts:structuredClone(window.receiptHistory),shops:structuredClone(window.listSettings.purchase_detection?.shops??[]),persons:window.listSettings.purchase_detection?.persons??[]};
     if(msg.type==='improved_shopping_list/receipts/discard')return null;
+    if(msg.type==='improved_shopping_list/receipts/review_saved'){
+      const receipt=structuredClone(window.receiptHistory.find(receipt=>receipt.id===msg.receipt_id));
+      for(const line of receipt.lines)Object.assign(line,{matched:Boolean(line.product_id),replenish:false});
+      return {token:'reprocess-ticket',receipt,...receiptOptions(),reprocess:true};
+    }
+    if(msg.type==='improved_shopping_list/receipts/reprocess'){
+      window.lastReceiptReprocess=structuredClone(msg);return structuredClone(window.receiptHistory[0]);
+    }
     if(msg.type==='improved_shopping_list/receipts/options')return receiptOptions();
     if(msg.type==='improved_shopping_list/receipts/link'){
       const ids=msg.lines.map(line=>line.product_id).filter(Boolean);if(new Set(ids).size!==ids.length)throw new Error('Dos líneas no pueden vincularse al mismo producto.');
@@ -966,6 +974,17 @@ async function checkReceiptPackageFormats(browser,url,errors){
   await dialog.getByRole('button',{name:'Actualizar precios y cerrar',exact:true}).click();await dialog.waitFor({state:'hidden'});
   const saved=await page.evaluate(()=>window.lastReceiptConfirmation);
   assert.deepEqual(saved.lines.map(line=>[line.pack_quantity,line.pack_unit]),[[500,'g'],[1980,'ml']]);
+  await purchases.locator('#history .ticket-open').first().click();
+  await purchases.locator('#purchase-detail').getByRole('button',{name:'Reprocesar datos',exact:true}).click();
+  const reprocess=purchases.getByRole('dialog',{name:'Reprocesar ticket',exact:true});
+  await reprocess.getByRole('button',{name:'Guardar datos',exact:true}).waitFor();
+  assert.equal(await reprocess.locator('#review-steps').isVisible(),false);
+  assert.equal(await reprocess.locator('#stock-only').isVisible(),false);
+  await reprocess.locator('.price-line').first().getByLabel('Contenido por envase',{exact:true}).fill('450');
+  await reprocess.getByRole('button',{name:'Guardar datos',exact:true}).click();await reprocess.waitFor({state:'hidden'});
+  assert.equal(await page.evaluate(()=>window.lastReceiptReprocess.lines[0].pack_quantity),450);
+  assert.equal(await page.evaluate(()=>window.receiptHistory.length),1);
+  assert.deepEqual(await page.evaluate(()=>window.lastReceiptConfirmation),saved);
   await context.close();
 }
 

@@ -310,12 +310,69 @@ class ReceiptManager:
 
     async def async_review_saved(self, identifier, owner):
         saved=self.stock.receipts["history"].get(identifier)
-        if not saved or not saved.get("pending_review"):
+        if not saved:
+            raise CatalogError("El ticket pendiente ya no está disponible.")
+        if not saved.get("summary_only"):
+            receipt=deepcopy(saved)
+            choices=self._choices(receipt["store"])
+            for line in receipt["lines"]:
+                product=next((product for product in choices if product["id"]==line.get("product_id")),None)
+                quantity,unit=inferred_content(line)
+                if quantity is not None:
+                    line["pack_quantity"],line["pack_unit"]=content(quantity,unit)
+                line.update(product_id=product["id"] if product else "",matched=bool(product),replenish=False)
+            self._drafts={key:value for key,value in self._drafts.items() if value["expires"]>time.time()}
+            if len(self._drafts)>=10:
+                raise CatalogError("Hay demasiados tickets pendientes de revisar. Espera unos minutos.")
+            token=str(uuid4())
+            self._drafts[token]={"owner":owner,"expires":time.time()+1800,"receipt":receipt,"products":choices,"reprocess_original":deepcopy(saved)}
+            return {"token":token,"receipt":deepcopy(receipt),"products":choices,"purchases":[],"reprocess":True}
+        if not saved.get("pending_review"):
             raise CatalogError("El ticket pendiente ya no está disponible.")
         receipt=deepcopy(saved)
         for key in ("summary_only","pending_review","imported_at"):
             receipt.pop(key,None)
         return await self._prepare_preview(receipt,owner)
+
+    async def async_reprocess(self, token, owner, selections):
+        draft=self._draft(token,owner)
+        original=draft.get("reprocess_original")
+        if original is None:
+            raise CatalogError("Abre un ticket ya revisado para reprocesar sus datos.")
+        async with self.stock._lock:
+            data=deepcopy(self.stock.receipts)
+            if data["history"].get(original["id"])!=original:
+                raise CatalogError("La compra ha cambiado. Vuelve a abrir el ticket.","conflict")
+            receipt=deepcopy(original)
+            if not isinstance(selections,list) or len(selections)!=len(receipt["lines"]):
+                raise CatalogError("Revisa todos los contenidos del ticket.")
+            seen=set();references=[]
+            for selection in selections:
+                if not isinstance(selection,dict) or set(selection)!={"id","pack_quantity","pack_unit"}:
+                    raise CatalogError("Los datos del envase no son válidos.")
+                line=next((line for line in receipt["lines"] if line["id"]==selection["id"]),None)
+                if not line or line["id"] in seen:
+                    raise CatalogError("Los datos del envase no son válidos.")
+                seen.add(line["id"])
+                try:
+                    quantity,unit=content(selection["pack_quantity"],selection["pack_unit"])
+                except ValueError as err:
+                    raise CatalogError(str(err)) from err
+                product=next((product for product in self.stock.catalog.products if product["id"]==line.get("product_id")),None)
+                reference=matching_reference(product,receipt["store"],line) if product else None
+                if reference and reference.get("active") is False:
+                    continue
+                if product and quantity is not None:
+                    line.update(pack_quantity=quantity,pack_unit=unit,format_confirmed=True)
+                    references.append((product["id"],receipt["store"],line,True))
+            await self.stock.catalog.async_bind_receipt_eans([],references=references)
+            data["history"][receipt["id"]]=receipt
+            await self.stock._persist(deepcopy(self.stock._items),receipts=data)
+            self._drafts.pop(token,None)
+        self.prices._notify()
+        if self.stock.activity:
+            self.stock.activity.record("stock.receipt_reprocessed",f'Datos del ticket de {receipt["store_name"]} reprocesados',source="manual",diagnostics={"receipt_id":receipt["id"],"options":len(references)})
+        return deepcopy(receipt)
 
     def _check_duplicate(self, receipt):
         if any(not old.get("summary_only") and (old["id"] == receipt["id"] or old["digest"] == receipt["digest"] or
@@ -381,6 +438,8 @@ class ReceiptManager:
 
     async def async_link(self, token, owner, selections):
         draft = self._draft(token,owner)
+        if "reprocess_original" in draft:
+            raise CatalogError("Este ticket solo admite reprocesar los datos de sus envases.")
         async with self.stock._lock:
             linked = self._links(draft["receipt"],selections)
             data = deepcopy(self.stock.receipts)
@@ -503,6 +562,8 @@ class ReceiptManager:
         history.pop(detected["id"])
 
     async def async_confirm(self, token, owner, selections, update_prices):
+        if "reprocess_original" in self._draft(token,owner):
+            raise CatalogError("Este ticket solo admite reprocesar los datos de sus envases.")
         draft = self._draft(token,owner)
         if type(update_prices) is not bool or not isinstance(selections,list) or len(selections) != len(draft["receipt"]["lines"]):
             raise CatalogError("Revisa las líneas del ticket antes de confirmar.")

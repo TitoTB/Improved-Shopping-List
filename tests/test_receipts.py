@@ -91,6 +91,33 @@ async def setup_manager(hass):
     return SimpleNamespace(manager=manager,stock=stock,item=item,product=product,automation=automation)
 
 
+async def test_reviewed_receipt_reprocessing_updates_formats_without_repeating_stock_or_purchase(hass):
+    env=await setup_manager(hass)
+    draft=await preview(env)
+    saved=await env.manager.async_confirm(draft['token'],'owner',selections(draft,env.product),True)
+    items=deepcopy(env.stock._items);purchases=deepcopy(env.stock.receipts['purchases']);coverage=deepcopy(env.stock.receipts['coverage'])
+    review=await env.manager.async_review_saved(saved['id'],'owner')
+    assert review['reprocess'] and all(not line['replenish'] for line in review['receipt']['lines'])
+    with pytest.raises(CatalogError):
+        await env.manager.async_confirm(review['token'],'owner',selections(review,env.product),True)
+    updates=[{'id':line['id'],'pack_quantity':500 if line['id']=='0' else None,'pack_unit':'g' if line['id']=='0' else ''} for line in review['receipt']['lines']]
+    with pytest.raises(CatalogError):
+        await env.manager.async_reprocess(review['token'],'other-user',updates)
+    changed=await env.manager.async_reprocess(review['token'],'owner',updates)
+    assert env.stock._items==items and env.stock.receipts['purchases']==purchases and env.stock.receipts['coverage']==coverage
+    assert len(env.stock.receipts['history'])==1
+    assert changed['id']==saved['id'] and changed['total']==saved['total'] and changed['purchased_at']==saved['purchased_at']
+    assert [(line['count'],line['unit_price'],line['price_saved'],line['replenished'],line['quantity']) for line in changed['lines']]==[(line['count'],line['unit_price'],line['price_saved'],line['replenished'],line['quantity']) for line in saved['lines']]
+    assert env.stock.catalog.products[0]['commercial_references'][0]['content_quantity']==500
+    first=await env.manager.async_review_saved(saved['id'],'owner')
+    second=await env.manager.async_review_saved(saved['id'],'owner')
+    updates[0]['pack_quantity']=600
+    await env.manager.async_reprocess(first['token'],'owner',updates)
+    with pytest.raises(CatalogError,match='cambiado'):
+        await env.manager.async_reprocess(second['token'],'owner',updates)
+    assert env.stock._items==items
+
+
 async def preview(env):
     return await env.manager.async_preview(base64.b64encode(pdf_bytes(receipt_text())).decode(),'owner')
 

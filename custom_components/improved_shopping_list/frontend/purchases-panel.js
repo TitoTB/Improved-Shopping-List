@@ -155,13 +155,14 @@ class ImprovedShoppingPurchases extends HTMLElement {
   _buildReview(){
     const root=this.shadowRoot,{receipt,products}=this._draft,used=new Set();
     root.querySelector('#review-summary').replaceChildren(node('strong','',receipt.store_name+(receipt.provisional_store?' · Provisional':receipt.zone_candidates?.length>1&&receipt.needs_details?' · Tiendas por confirmar':'')+(receipt.document_type==='invoice'?' · Factura':'')),node('span','',documentDate(receipt)),node('strong','',money(receipt.total)));
-    this._step=0;
+    this._step=this._draft.reprocess?2:0;
+    root.querySelector('#review-title').textContent=this._draft.reprocess?'Reprocesar ticket':'Revisar ticket';
     this._reviewGroups={};
     root.querySelector('#review-lines').replaceChildren();
     this._edits=receipt.lines.map(line=>{
       const candidate=products.find(p=>p.id===line.product_id&&!used.has(p.id)),product=line.matched===false?null:candidate;if(product)used.add(product.id);
       return {line,id:line.id,product_id:product?.id??'',search:candidate?.name??'',
-        replenish:Boolean(product?.stock_id),quantity:product?this._defaultQuantity(line,product):null,
+        replenish:!this._draft.reprocess&&Boolean(product?.stock_id),quantity:product?this._defaultQuantity(line,product):null,
         unit:product?.unit??'uds',purchase_id:null,save_price:Boolean(this._pricesEnabled),packageFormat:this._lineFormat(line,product)};
     });
     root.querySelector('#review-error').hidden=true;this._renderStep();
@@ -171,7 +172,7 @@ class ImprovedShoppingPurchases extends HTMLElement {
   _defaultQuantity(line,product){return product.refill_quantity??this._quantity(line,product.unit);}
   _lineFormat(line,product){
     const ref=referenceFor(product,this._draft.receipt.store,line),hint=suggestedContent(line);
-    const saved=ref?.content_confirmed;
+    const saved=ref?.content_confirmed&&!this._draft.reprocess;
     return {content_quantity:saved?ref.content_quantity:hint.quantity??ref?.content_quantity??null,content_unit:saved?ref.content_unit:hint.unit||ref?.content_unit||'',content_confirmed:Boolean(saved)};
   }
   async _loadPackageMetadata(token){
@@ -221,12 +222,15 @@ class ImprovedShoppingPurchases extends HTMLElement {
     this._errorMessage('');return true;
   }
   _goToStep(step){
+    if(this._draft?.reprocess)return;
     if(this._busy||!this._draft||!Number.isInteger(step)||step<0||step>=this._step)return;
     this._step=step;this._errorMessage('');this._renderStep();
   }
   _renderStep(){
     if(!this._draft)return;
     const root=this.shadowRoot,step=this._step;
+    const reprocess=Boolean(this._draft.reprocess);
+    root.querySelector('#review-steps').hidden=reprocess;
     root.querySelectorAll('#review-steps button').forEach((button,index)=>{
       if(index===step)button.setAttribute('aria-current','step');else button.removeAttribute('aria-current');
       button.dataset.completed=String(index<step);button.dataset.locked=String(index>=step);button.disabled=this._busy||index>=step;
@@ -240,20 +244,21 @@ class ImprovedShoppingPurchases extends HTMLElement {
     ][step];
     if(step===2&&this._draft.receipt.document_type==='invoice'&&this._pricesEnabled)root.querySelector('#step-help').textContent+=' El precio sugerido es el PVP unitario antes de descuentos y no incluye el envío.';
     if(step===2)root.querySelector('#step-help').textContent+=' El contenido corresponde a un envase de ese EAN; si es un pack, indica el contenido total del pack.';
+    if(reprocess)root.querySelector('#step-help').textContent='Revisa el contenido de un envase de cada EAN. En los packs, indica su contenido total. Se actualizarán los datos de sus opciones en el catálogo.';
     root.querySelector('#step-help').hidden=step===3;
     root.querySelector('#review-summary').hidden=step===3;
-    root.querySelector('#previous-step').hidden=step===0;root.querySelector('#links-only').hidden=step!==0;
+    root.querySelector('#previous-step').hidden=step===0||reprocess;root.querySelector('#links-only').hidden=step!==0||reprocess;
     root.querySelector('#previous-step').textContent=step===1?'Volver a vinculación':'Anterior';
     root.querySelector('#stock-only').hidden=step!==1;
-    root.querySelector('#prices-only').hidden=step!==2||!this._pricesEnabled;
-    root.querySelector('#confirm-ticket').textContent=step===3?'Confirmar compra':'Continuar';
+    root.querySelector('#prices-only').hidden=step!==2||!this._pricesEnabled||reprocess;
+    root.querySelector('#confirm-ticket').textContent=reprocess?'Guardar datos':step===3?'Confirmar compra':'Continuar';
     root.querySelector('#confirm-ticket').classList.toggle('continue',step!==3);
     for(const group of root.querySelectorAll('#review-lines .review-group'))this._reviewGroups[group.dataset.group]=group.open;
     const container=root.querySelector('#review-lines');container.replaceChildren();container.hidden=step===3;
     const grouped=step<2?node('details','review-group'):null;
     const groupedContent=step<2?node('div','review-group-content'):null;
     if(grouped){grouped.dataset.group=step===0?'links':'stock';grouped.id=step===0?'linked-products-group':'unregistered-stock-group';grouped.open=Boolean(this._reviewGroups[grouped.dataset.group]);}
-    if(step===2&&this._pricesEnabled){
+    if(step===2&&this._pricesEnabled&&!reprocess){
       const allLabel=node('label','check select-all-prices'),all=node('input');all.type='checkbox';
       const linked=this._edits.filter(edit=>this._product(edit));all.checked=linked.length>0&&linked.every(edit=>edit.save_price);all.indeterminate=linked.some(edit=>edit.save_price)&&!all.checked;
       all.addEventListener('change',()=>{for(const edit of linked)edit.save_price=all.checked;this._renderStep();});
@@ -268,7 +273,7 @@ class ImprovedShoppingPurchases extends HTMLElement {
         row.classList.add('price-line');
         const toggle=node('button','price-select');toggle.type='button';toggle.setAttribute('aria-label','Guardar precio de '+product.name);
         const selected=Boolean(edit.save_price&&this._pricesEnabled);toggle.setAttribute('aria-pressed',String(selected));row.dataset.selected=String(selected);
-        toggle.dataset.locked=String(!this._pricesEnabled);toggle.disabled=!this._pricesEnabled;
+        toggle.dataset.locked=String(!this._pricesEnabled||reprocess);toggle.disabled=!this._pricesEnabled||reprocess;
         toggle.addEventListener('click',()=>{
           if(this._busy||!this._pricesEnabled)return;
           edit.save_price=!edit.save_price;this._renderStep();
@@ -437,6 +442,7 @@ class ImprovedShoppingPurchases extends HTMLElement {
   }
   async _advance(){
     if(this._busy||!this._draft)return;this._errorMessage('');
+    if(this._draft.reprocess){await this._confirm();return;}
     if(this._step===0){await this._saveLinks();return;}
     if(this._step===1){
       if(this._validateStock()){
@@ -455,7 +461,9 @@ class ImprovedShoppingPurchases extends HTMLElement {
       const token=this._draft.token;
       await this._packageMetadataTask;
       if(this._draft?.token!==token)return;
-      await this._hass.callWS({type:'improved_shopping_list/receipts/confirm',token:this._draft.token,update_prices:Boolean(updatePrices&&this._pricesEnabled),
+      if(this._draft.reprocess){
+        await this._hass.callWS({type:'improved_shopping_list/receipts/reprocess',token,lines:this._edits.map(edit=>({id:edit.id,pack_quantity:validReferenceContent(edit.packageFormat)?edit.packageFormat.content_quantity:null,pack_unit:validReferenceContent(edit.packageFormat)?edit.packageFormat.content_unit:''}))});
+      }else await this._hass.callWS({type:'improved_shopping_list/receipts/confirm',token:this._draft.token,update_prices:Boolean(updatePrices&&this._pricesEnabled),
         lines:this._edits.map(edit=>({id:edit.id,product_id:edit.product_id,replenish:Boolean(edit.product_id&&edit.replenish),quantity:edit.replenish?edit.quantity:null,unit:edit.unit,purchase_id:edit.purchase_id??'',save_price:Boolean(edit.product_id&&edit.save_price&&updatePrices&&this._pricesEnabled),pack_quantity:validReferenceContent(edit.packageFormat)?edit.packageFormat.content_quantity:null,pack_unit:validReferenceContent(edit.packageFormat)?edit.packageFormat.content_unit:''}))});
       this._draft=null;this.shadowRoot.querySelector('dialog').close();await this._session.refresh();this.dispatchEvent(new CustomEvent('receipt-imported'));
     }catch(error){this._errorMessage(error.message??'No se ha podido guardar el ticket.');}
@@ -570,7 +578,20 @@ class ImprovedShoppingPurchases extends HTMLElement {
     }
     if(receipt.shipping)container.append(this._totalRow('Gastos de envío',receipt.shipping));
     if(receipt.discount)container.append(this._totalRow('Descuentos generales',-receipt.discount));
-    container.append(this._totalRow('Total',receipt.total));root.querySelector('#purchase-detail').showModal();
+    container.append(this._totalRow('Total',receipt.total));
+    if(this._hass?.user?.is_admin===true){const actions=node('div','actions'),button=node('button','','Reprocesar datos');button.type='button';button.addEventListener('click',()=>void this._reprocessSaved(receipt));actions.append(button);container.append(actions);}
+    root.querySelector('#purchase-detail').showModal();
+  }
+  async _reprocessSaved(receipt){
+    if(this._busy)return;this._setBusy(true);this._error='';
+    try{
+      const draft=await this._hass.callWS({type:'improved_shopping_list/receipts/review_saved',receipt_id:receipt.id});
+      if(!this.isConnected||!this._active)return;
+      this.shadowRoot.querySelector('#purchase-detail').close();this._draft=draft;this._buildReview();this.shadowRoot.querySelector('dialog').showModal();this._setBusy(true);
+      await this._packageMetadataTask;
+      if(this._draft?.token===draft.token)this._renderStep();
+    }catch(error){this._error=error.message??'No se ha podido reprocesar el ticket.';this._render();}
+    finally{this._setBusy(false);}
   }
   _purchaseRange(){
     const now=new Date(),from=this._spendingRange?new Date(this._spendingRange.from+'T00:00:00'):new Date(now.getFullYear(),now.getMonth()-5,1);

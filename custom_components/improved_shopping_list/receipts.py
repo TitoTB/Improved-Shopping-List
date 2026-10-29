@@ -124,16 +124,13 @@ class ReceiptManager:
         if not detected.get("needs_details") and (detected["store"] != receipt["store"] and not (detected.get('shop_id') and not detected.get('account')) or
                 abs(detected["total"]-receipt["total"]) > .01):
             return False
-        completed = detected.get("completed_products", []) or (detected.get('candidate_products',[]) if detected.get('shop_id') else [])
-        ids = {item.get("product_id") for item in completed if item.get("product_id")}
-        names = {normalized_name(item.get("name", "")) for item in completed if normalized_name(item.get("name", ""))}
-        products = {product["id"]:product for product in self.stock.catalog.products}
-        return any(line.get("product_id") and (line.get("matched") or not receipt.get("summary_only")) and
-            (line["product_id"] in ids or normalized_name(products.get(line["product_id"],{}).get("name", "")) in names)
-            for line in receipt.get("lines", []))
+        # A history summary alone must not stop the connector before it retrieves
+        # the ticket. Its contents need not overlap the list that triggered us.
+        return not receipt.get("summary_only") or bool(receipt.get("pending_review"))
+
 
     async def async_reconcile_detected_purchases(self):
-        """Replace a detection only when one saved receipt on that day shares a confirmed product."""
+        """Replace a detection with one compatible ticket; completed list items are only a trigger."""
         reconciled = []
         async with self.stock._lock:
             data = deepcopy(self.stock.receipts)

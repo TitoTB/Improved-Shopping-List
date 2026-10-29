@@ -4,7 +4,7 @@
 
 Una interfaz propia para gestionar las listas de la compra que ya tienes integradas en Home Assistant.
 
-Versión actual: **0.47.1**. Interfaz en español, pensada para móvil y ordenador. Requiere **Home Assistant Core 2026.10 o posterior**. La referencia de desarrollo es Core 2026.10.2.
+Versión actual: **0.48.0**. Interfaz en español, pensada para móvil y ordenador. Requiere **Home Assistant Core 2026.10 o posterior**. La referencia de desarrollo es Core 2026.10.2.
 
 Los precios proceden de tickets y facturas confirmados por el usuario. Alcampo y DIA están archivados: no aparecen en Ajustes → Tiendas ni inician consultas, pero conservan su código y sus datos guardados. Las demás tiendas permanecen disponibles. El catálogo comunitario se dedica exclusivamente a sugerencias de iconos y no proporciona precios.
 
@@ -444,7 +444,7 @@ Tras superar el umbral se crea una compra por cada combinación de tienda físic
 
 Con una tienda vinculada a Carrefour o Lidl, cuenta conectada y **Descargar ticket automáticamente** activo, se realiza un intento automático por nuevo registro detectado de esa tienda. El intento se guarda antes de consultar para impedir repeticiones al reiniciar o en cada chequeo. Otra tienda física visitada puede provocar otro intento ese día. Se revisan los tickets disponibles del día, con un límite de 100 referencias del listado para Carrefour y una página de hasta 25 para Lidl; el ticket queda pendiente de revisión. No se consulta la cuenta por una tienda sin vinculación. Si no hay ticket compatible, falta conexión o falla la consulta, el registro se conserva para completarlo o subir un PDF. El flujo sin detección activada mantiene su límite anterior de un intento diario tras completar productos y alcanzar el horario configurado.
 
-La asociación automática exige coincidencia de día y productos reconocidos; además respeta la cuenta vinculada a la tienda. Si dos tiendas físicas de la misma cuenta podrían corresponder al mismo ticket, se deja pendiente la elección. Los tickets sustituyen la detección compatible, conservando la tienda física y los compradores. Los registros sin importe no suman un gasto de cero ni inflan los totales. En **Analítica → Compras**, los filtros de tienda y usuario afectan al listado y al gráfico; las imágenes y colores elegidos identifican los establecimientos.
+Los productos completados en la lista son únicamente el disparador: el ticket define los artículos, cantidades e importe realmente comprados, aunque no coincidan con la lista ni estén en el catálogo. La asociación automática exige el mismo día y respeta la cuenta vinculada a la tienda; no exige coincidencia de productos. Un resumen sin ticket descargado no detiene la recuperación. Si dos tiendas físicas de la misma cuenta podrían corresponder al mismo ticket, se deja pendiente la elección. Los tickets sustituyen la detección compatible, conservando la tienda física y los compradores. Los registros sin importe no suman un gasto de cero ni inflan los totales. En **Analítica → Compras**, los filtros de tienda y usuario afectan al listado y al gráfico; las imágenes y colores elegidos identifican los establecimientos.
 
 ## DIA: vinculación manual y precios públicos
 

@@ -122,17 +122,18 @@ def ticket(env, identifier="ticket", **changes):
         "lines":[{"product_id":"cacao","matched":True}],**changes}
 
 
-async def test_receipt_requires_same_day_and_confirmed_overlap_and_merges_only_once(env):
+async def test_receipt_needs_no_product_overlap_and_keeps_actual_ticket_contents(env):
     for uid in "abc":complete(env,uid)
     await env.manager.async_check();identifier=next(iter(env.stock.receipts["history"]))
-    env.stock.receipts["history"]["unrelated"]=ticket(env,"unrelated",lines=[{"product_id":"milk","matched":True}])
     env.stock.receipts["history"]["old"]=ticket(env,"old",purchased_at=(env.clock[0]-timedelta(days=1)).isoformat())
-    env.stock.receipts["history"]["proposed"]=ticket(env,"proposed",lines=[{"product_id":"cacao","matched":False}])
+    env.stock.receipts["history"]["summary"]=ticket(env,"summary",pending_review=False,lines=[])
     await env.manager.async_check();assert identifier in env.stock.receipts["history"]
-    env.stock.receipts["history"]["matching"]=ticket(env,"matching")
+    actual=[{"description":"Producto adicional sin catálogo","count":2,"amount":20}]
+    env.stock.receipts["history"]["actual"]=ticket(env,"actual",lines=actual,article_count=2)
     await env.manager.async_check()
     assert identifier not in env.stock.receipts["history"]
-    assert env.stock.receipts["history"]["matching"]["detection_id"]==identifier
+    saved=env.stock.receipts["history"]["actual"]
+    assert saved["detection_id"]==identifier and saved["lines"]==actual and saved["article_count"]==2
     complete(env,"d");await env.manager.async_check()
     assert identifier not in env.stock.receipts["history"]
 

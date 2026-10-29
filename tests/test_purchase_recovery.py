@@ -108,3 +108,10 @@ class PurchaseRecoveryTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(CatalogError):await self.accounts.async_preview_manual(self.receipts,"admin",result["recovery_token"],"saved")
         self.assertNotIn("draft",self.receipts._drafts)
         self.assertEqual(self.receipts.stock.receipts["history"]["detected"],self.detected)
+
+    async def test_automatic_association_uses_ticket_not_completed_product_overlap(self):
+        receipt={**self.summary,"pending_review":True,"lines":[{"description":"Producto extra","count":2,"amount":5.22}]}
+        self.assertTrue(self.receipts._detection_matches(self.detected,receipt))
+        self.assertFalse(self.receipts._detection_matches(self.detected,{**receipt,"pending_review":False}))
+        self.assertFalse(self.receipts._detection_matches(self.detected,{**receipt,"purchased_at":(dt_util.now()-timedelta(days=1)).isoformat()}))
+        self.assertFalse(self.receipts._detection_matches({**self.detected,"account":"lidl"},receipt))

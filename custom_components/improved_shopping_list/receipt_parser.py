@@ -232,6 +232,33 @@ def _carrefour_account_items(detail):
         raise CatalogError("El número de artículos no coincide con el detalle de Carrefour.")
     if "numberLinesItems" in header and number(header["numberLinesItems"]) != len(items):
         raise CatalogError("El número de líneas no coincide con el detalle de Carrefour.")
+    if adjustment == 0 and subtotal > total + Decimal("0.02"):
+        # Some account responses omit discounts from totalDiscount. Require the
+        # independently checked printed ticket and an explicit discount amount.
+        printed_lines=detail.get("lines")
+        if (isinstance(printed_lines,list) and 1 <= len(printed_lines) <= 2000
+            and all(isinstance(line,str) and len(line)<=2000 for line in printed_lines)):
+            printed_text="\n".join(printed_lines)
+            if len(printed_text)<=100000:
+                try:
+                    printed=parse_carrefour(printed_text)
+                    key=lambda row:(re.sub(r"\s+"," ",row["description"]).strip().casefold(),row["count"],Decimal(str(row["amount"])))
+                    discounts=re.findall(rf"(?mi)^\s*(?:DTOS?\.?|DESCUENTOS?)(?:\s|:).+?(-{MONEY})\s*(?:EUR|€)?\s*$",printed_text)
+                    summaries=re.findall(rf"(?mi)^\s*DESCUENTOS?\s*:\s*({MONEY})\s*(?:EUR|€)?\s*$",printed_text)
+                    amounts=[]
+                    if discounts:amounts.append(sum(Decimal(value.replace(".","").replace(",",".")) for value in discounts))
+                    if len(summaries)==1:amounts.append(-Decimal(summaries[0].replace(".","").replace(",",".")))
+                    printed_date=datetime.fromisoformat(printed["purchased_at"])
+                    structured_date=datetime.fromisoformat(purchased_at)
+                    # Printed dates have local wall time and may omit seconds.
+                    same_minute=printed_date.replace(tzinfo=None,second=0,microsecond=0)==structured_date.replace(tzinfo=None,second=0,microsecond=0)
+                    if (amounts and len(summaries)<=1 and all(abs(subtotal+amount-total)<=Decimal("0.02") for amount in amounts)
+                        and printed["article_count"]==count and sorted(map(key,printed["lines"]))==sorted(map(key,items))
+                        and same_minute and abs(Decimal(str(printed["subtotal"]))-subtotal)<=Decimal("0.02")
+                        and abs(Decimal(str(printed["total"]))-total)<=Decimal("0.02")):
+                        adjustment=total-subtotal
+                except CatalogError:
+                    pass  # Do not infer a discount from a difference alone.
     if abs(subtotal+adjustment-total) > Decimal("0.02"):
         error=CatalogError("Los artículos, descuentos y total del detalle de Carrefour no coinciden.","receipt_detail_amount")
         error.diagnostics={"items_subtotal":float(subtotal),"total_discount":float(adjustment),"reported_total":float(total),"difference":float(subtotal+adjustment-total)}

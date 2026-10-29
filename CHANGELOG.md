@@ -1,5 +1,13 @@
 # Historial de cambios
 
+## 0.48.0 — 2026-10-29
+
+- Los productos completados solo disparan la detección de compra: el ticket determina los artículos, cantidades e importe, sin exigir coincidencias con la lista o el catálogo. Se conservan las comprobaciones de fecha, cuenta y ambigüedad entre varias compras.
+- Carrefour puede recuperar descuentos omitidos en totalDiscount cuando el texto impreso confirma el descuento y coincide con artículos, cantidades, fecha y totales. Conserva los EAN y evita depender del PDF en ese caso.
+- Los perecederos reducen proporcionalmente cantidad estimada, porcentaje y barra hasta la caducidad. La reposición mínima usa el mismo cálculo, con persistencia entre reinicios y ajustes que no descuentan dos veces el stock.
+- Botón de eliminación de Stock simplificado a «Eliminar». Debajo del icono sugerido seleccionado solo aparece «Fuente» con enlace a la página del icono.
+- Sin nuevas dependencias.
+
 ## 0.47.1 — 2026-10-29
 
 - Recuperar una compra guarda el ticket pendiente de revisión, cierra el popup y sustituye inmediatamente el registro de tienda desconocida. Se conserva la tienda física y los compradores, sin modificar stock ni precios hasta la revisión.

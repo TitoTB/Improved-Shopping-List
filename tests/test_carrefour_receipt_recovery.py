@@ -73,3 +73,36 @@ class CarrefourReceiptRecoveryTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(CatalogError) as error:extract_carrefour_account_ticket(self.detail,"test-ticket",5)
         self.assertEqual(error.exception.code,"receipt_detail_amount")
         self.receipts._prepare_preview.assert_not_awaited()
+
+
+class CarrefourPrintedDiscountTests(unittest.TestCase):
+    def detail(self):
+        prices=[2]*13+[3.78]
+        items=[{"description":"PRODUCTO "+str(i),"numberUnits":1,"netAmount":price,"code":"1234567890128" if i==0 else "internal"} for i,price in enumerate(prices)]
+        lines=["Carrefour"]+[row["description"]+" "+format(row["netAmount"],".2f").replace(".",",") for row in items]
+        lines+=["SUBTOTAL 29,78","DTO. CUPON -0,87","14 ART. TOTAL A PAGAR : 28,91","DESCUENTOS: 0,87","29/10/2026 07:10:00","NRF: PRINTED01"]
+        return {"ticketId":"test-ticket","date":"2026-10-29T07:10:00","header":{"netAmount":28.91,"numberItems":14,"numberLinesItems":14},"totalDiscount":0,"items":items,"lines":lines}
+
+    def test_missing_structured_discount_uses_checked_print_and_keeps_ean(self):
+        receipt=extract_carrefour_account_ticket(self.detail(),"test-ticket",28.91)
+        self.assertEqual(receipt["subtotal"],29.78)
+        self.assertEqual(receipt["discount"],0.87)
+        self.assertEqual(receipt["total"],28.91)
+        self.assertEqual(receipt["lines"][0]["ean"],"1234567890128")
+
+    def test_no_arbitrary_difference_is_assumed_to_be_discount(self):
+        for change in ("no-discount","other-discount","other-summary","other-product","other-date","other-total","reported-discount"):
+            detail=self.detail()
+            if change=="no-discount":detail["lines"]=[line for line in detail["lines"] if not line.startswith(("DTO.","DESCUENTOS:"))]
+            elif change=="other-discount":detail["lines"][16]="DTO. CUPON -0,80"
+            elif change=="other-summary":detail["lines"][18]="DESCUENTOS: 0,80"
+            elif change=="other-product":detail["lines"][1]="OTRO PRODUCTO 2,00"
+            elif change=="other-date":detail["date"]="2026-10-28T07:10:00"
+            elif change=="other-total":detail["header"]["netAmount"]=27.91
+            else:detail["totalDiscount"]=-0.20
+            with self.subTest(change=change),self.assertRaises(CatalogError):
+                extract_carrefour_account_ticket(detail,"test-ticket",28.91)
+
+    def test_printed_discount_summary_without_separate_coupon_line(self):
+        detail=self.detail();detail["lines"]=[line for line in detail["lines"] if not line.startswith("DTO.")]
+        self.assertEqual(extract_carrefour_account_ticket(detail,"test-ticket",28.91)["discount"],0.87)

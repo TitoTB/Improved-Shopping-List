@@ -1,9 +1,13 @@
 """Exact EAN links, conditional public downloads and preservation of user choices."""
 from copy import deepcopy
+from datetime import timedelta
 from pathlib import Path
 import time
 
 import pytest
+from homeassistant.util import dt as dt_util
+from homeassistant.core import is_callback
+from pytest_homeassistant_custom_component.common import async_fire_time_changed
 
 from custom_components.improved_shopping_list.catalog import Catalog
 from custom_components.improved_shopping_list.ean_links import EANLinks, URL, DAY, enrich_product, parse_dictionary, redirect_product
@@ -14,6 +18,26 @@ EAN = "3560071237950"
 WEB = "https://www.carrefour.es/supermercado/anacardo/R-VC4AECOMM-491998/p"
 AWIN = "https://www.awin1.com/pclick.php?p=35556761179&a=1535625&m=25399"
 CSV = f"EAN,Carrefour\n{EAN},{AWIN}\n".encode()
+
+
+async def test_startup_timer_launches_resolution_on_the_home_assistant_event_loop(hass, aioclient_mock):
+    catalog = Catalog(hass); await catalog.async_load()
+    await catalog.async_save_product({"name":"Anacardos", "barcodes":[EAN]})
+    manager = EANLinks(hass, catalog); await manager.async_load(); catalog.ean_links = manager
+    aioclient_mock.get(URL, content=CSV)
+    aioclient_mock.head(AWIN, status=302, headers={"Location":WEB})
+    try:
+        manager.start()
+        assert is_callback(manager._queue) and is_callback(manager._launch)
+        # Fire the actual HA timer instead of calling async_sync directly.
+        async_fire_time_changed(hass, dt_util.utcnow()+timedelta(seconds=2))
+        await hass.async_block_till_done()
+        assert manager._task is not None
+        await manager._task
+        assert aioclient_mock.call_count == 2
+        assert catalog.products[0]["commercial_references"][0]["url"] == WEB
+    finally:
+        await manager.async_stop()
 
 
 def test_published_initial_dictionary_has_only_ean_and_shop_links():

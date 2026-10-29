@@ -9,6 +9,7 @@ import time
 from urllib.parse import parse_qs, unquote, urlsplit
 
 from aiohttp import ClientError, ClientTimeout
+from homeassistant.core import callback
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.event import async_call_later, async_track_time_interval
 from homeassistant.helpers.storage import Store
@@ -145,10 +146,12 @@ class EANLinks:
         self._stop = async_track_time_interval(self.hass, self._queue, timedelta(hours=1))
         self._queue()
 
+    @callback
     def _queue(self, *_args):
         if self._active and self._timer is None:
             self._timer = async_call_later(self.hass, max(1, self._next_request-time.time()), self._launch)
 
+    @callback
     def _launch(self, *_args):
         self._timer = None
         if self._active and (self._task is None or self._task.done()):

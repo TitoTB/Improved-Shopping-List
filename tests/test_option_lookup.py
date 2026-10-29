@@ -62,6 +62,47 @@ async def test_blocked_page_can_use_the_existing_official_endpoint(hass, aioclie
         result = await lookup.retrieve(URL,"carrefour")
         assert result["price"] == 2.75 and result["content_quantity"] == 250 and result["brand"] == "Marca API"
         assert fetch.await_count == 1
+        assert not lookup._blocked_until.get("carrefour")
+    finally:
+        lookup.close()
+
+
+async def test_missing_product_and_rejected_api_keep_both_diagnostics(hass, aioclient_mock, monkeypatch):
+    lookup=OptionLookup(hass)
+    monkeypatch.setattr(lookup,"_before_request",AsyncMock())
+    url="https://www.compraonline.alcampo.es/products/allioli/722018"
+    body="<html><body>Contenido sin producto</body></html>"
+    aioclient_mock.get(url,text=body,headers={"Content-Type":"text/html","Server":"test-edge"})
+    fetch=AsyncMock(side_effect=PriceError("Consulta rechazada",http_status=403,response_class="access_denied",
+        endpoint="/api/webproductpagews/v5/products/bop",server="CloudFront"))
+    monkeypatch.setattr(lookup.sources,"fetch",fetch)
+    try:
+        with pytest.raises(PriceError,match="HTTP 403") as raised:
+            await lookup.retrieve(url)
+        info=raised.value.diagnostics
+        assert info["http_status"]==403 and info["retry_seconds"]>0
+        page,api=info["attempts"]
+        assert page["stage"]=="product_page" and page["http_status"]==200
+        assert page["response_class"]=="structured_product_missing" and page["response_bytes"]==len(body)
+        assert api["stage"]=="product_api" and api["http_status"]==403 and api["server"]=="CloudFront"
+        assert lookup._blocked_until["alcampo"]>0 and aioclient_mock.call_count==1
+    finally:
+        lookup.close()
+
+
+async def test_rate_limit_keeps_http_details_and_does_not_try_the_api(hass, aioclient_mock, monkeypatch):
+    lookup=OptionLookup(hass)
+    monkeypatch.setattr(lookup,"_before_request",AsyncMock())
+    fetch=AsyncMock()
+    monkeypatch.setattr(lookup.sources,"fetch",fetch)
+    aioclient_mock.get(URL,status=429,headers={"Retry-After":"1800","Server":"test-edge"})
+    try:
+        with pytest.raises(PriceError) as raised:
+            await lookup.retrieve(URL)
+        info=raised.value.diagnostics
+        assert info["response_class"]=="rate_limited" and info["retry_seconds"]>=1790
+        assert info["attempts"][0]["http_status"]==429
+        fetch.assert_not_awaited()
     finally:
         lookup.close()
 

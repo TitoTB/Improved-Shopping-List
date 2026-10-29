@@ -2,7 +2,9 @@
 
 En Ajustes → Tiendas → Catálogos, Alcampo está desactivado por defecto. Activarlo utiliza las coincidencias exactas de EAN del diccionario público para añadir opciones de Alcampo a los productos del catálogo y recuperar sus datos desde la ficha oficial.
 
-El proceso muestra un popup con progreso, producto actual, incidencias y la espera para la próxima petición. Continúa en Home Assistant al cerrar el popup o recargar la página; el botón de progreso permite consultarlo de nuevo. No reinicia una revisión que ya está en curso.
+El proceso muestra un popup con progreso, producto actual e incidencias. Continúa en Home Assistant al cerrar el popup o recargar la página; el botón de progreso permite consultarlo de nuevo. No reinicia una revisión que ya está en curso.
+
+El resumen de Logs → Tiendas conserva los detalles técnicos de cada incidencia: referencia, URL, fase de consulta (ficha o API), código HTTP y motivo de rechazo o falta de datos. Una página sin datos estructurados no se identifica automáticamente como un bloqueo por frecuencia. Los bloqueos confirmados detienen el lote y conservan la pausa de reintento.
 
 Las peticiones automáticas se separan al menos cinco segundos, incluidas las redirecciones y consultas complementarias de una misma ficha. La reserva se guarda antes de cada petición y se conserva tras reiniciar. Se reutiliza la caché del recuperador y se respetan las pausas ante bloqueos. Los datos recuperados correctamente no se vuelven a consultar en cada cambio del catálogo. Las coincidencias nuevas se procesan automáticamente mientras la opción siga activada.
 

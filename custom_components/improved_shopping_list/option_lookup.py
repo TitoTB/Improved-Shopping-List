@@ -195,13 +195,22 @@ class OptionLookup:
                         if response.status in (429,503):
                             retry=response.headers.get("Retry-After", "")
                             self._blocked_until[store]=time.monotonic()+min(86400,max(900,int(retry) if retry.isdigit() else 900))
-                        raise PriceError(f"La web ha rechazado la consulta (HTTP {response.status}).", http_status=response.status)
+                        raise PriceError(f"La web ha rechazado la consulta (HTTP {response.status}).", http_status=response.status,
+                            response_class="access_denied" if response.status == 403 else "rate_limited" if response.status in (429,503) else "http_error",
+                            endpoint=urlsplit(current).path, content_type=response.headers.get("Content-Type", "")[:120],
+                            server=response.headers.get("Server", "")[:80])
                     body = bytearray()
                     async for chunk in response.content.iter_chunked(65536):
                         body.extend(chunk)
                         if len(body) > 2*1024*1024:
                             raise PriceError("La ficha supera el tamaño máximo permitido.")
-                    return page_product(body.decode("utf-8", errors="replace"), store, link)
+                    result = page_product(body.decode("utf-8", errors="replace"), store, link)
+                    if result is None:
+                        raise PriceError("La página no contiene un único producto estructurado coincidente.",
+                            http_status=response.status, response_class="structured_product_missing", endpoint=urlsplit(current).path,
+                            content_type=response.headers.get("Content-Type", "")[:120], response_bytes=len(body),
+                            server=response.headers.get("Server", "")[:80])
+                    return result
             raise PriceError("La ficha redirige demasiadas veces.")
         finally:
             session.detach()
@@ -222,15 +231,19 @@ class OptionLookup:
             else:
                 if self._blocked_until.get(store,0)>time.monotonic():
                     raise PriceError("La tienda está en pausa de reintento. Puedes indicar la cantidad manualmente.",response_class="rate_limited")
-                warnings, result = [], {}
+                warnings, attempts, result = [], [], {}
                 statuses=[]
                 try:
                     result = await (self._page(store, link, before_request) if before_request else self._page(store, link)) or {}
                 except (aiohttp.ClientError, TimeoutError, ValueError) as err:
                     warnings.append(str(err))
                     statuses.append(getattr(err,"diagnostics",{}).get("http_status"))
+                    attempts.append({"stage":"product_page", "error_type":type(err).__name__,
+                                     **getattr(err,"diagnostics",{})})
                     if self._blocked_until.get(store,0)>time.monotonic():
-                        raise PriceError("La tienda ha solicitado una pausa. Puedes indicar la cantidad manualmente.",response_class="rate_limited") from err
+                        raise PriceError("La tienda ha solicitado una pausa. Puedes indicar la cantidad manualmente.",
+                            response_class="rate_limited", attempts=attempts, errors=warnings,
+                            retry_seconds=max(0,int(self._blocked_until[store]-time.monotonic()))) from err
                 if store != "lidl" and (not result.get("name") or result.get("price") is None or not result.get("brand") or result.get("content_quantity") is None):
                     try:
                         offer = await self.sources.fetch(store, link, reference_location(store), before_request or self._before_request)
@@ -239,14 +252,25 @@ class OptionLookup:
                             for key, val in safe.items():
                                 if val not in (None, "") and result.get(key) in (None, ""):
                                     result[key] = val
+                        else:
+                            attempts.append({"stage":"product_api", "response_class":"no_offer"})
                     except (aiohttp.ClientError, TimeoutError, ValueError) as err:
                         warnings.append(str(err))
                         statuses.append(getattr(err,"diagnostics",{}).get("http_status"))
-                if any(status in (403,429,503) for status in statuses) and not web_measure_price(result):
+                        attempts.append({"stage":"product_api", "error_type":type(err).__name__,
+                                         **getattr(err,"diagnostics",{})})
+                if any(status in (403,429,503) for status in statuses) and result.get("price") is None:
                     self._blocked_until[store]=time.monotonic()+900
                 if not any(result.get(key) for key in ("name", "brand", "ean", "content_quantity", "image_url", "nutriscore")) and result.get("price") is None:
-                    raise PriceError("No se han podido recuperar datos de esta ficha. Puedes conservar la URL y completar la opción manualmente.", errors=warnings)
+                    blocked=max(0,int(self._blocked_until.get(store,0)-time.monotonic()))
+                    status=next((status for status in statuses if status in (403,429,503)),None)
+                    message=f"La tienda ha rechazado la consulta (HTTP {status}). Se conservan los datos anteriores." if status else "No se han podido recuperar datos de esta ficha. Puedes conservar la URL y completar la opción manualmente."
+                    raise PriceError(message, errors=warnings, attempts=attempts, reference_id=link["id"],
+                        response_class="access_denied" if status == 403 else "rate_limited" if status else "product_data_missing",
+                        **({"http_status":status} if status else {}), retry_seconds=blocked)
                 result.update(store=store, reference_id=link["id"], url=link["url"], checked_at=int(time.time()))
+                if result.get("price") is None and attempts:
+                    result["retrieval_diagnostics"] = {"attempts":attempts,"errors":warnings}
                 if result.get("price") is not None:
                     result["price"] = float(amount(result["price"]))
                 if not gtin(result.get("ean", "")):

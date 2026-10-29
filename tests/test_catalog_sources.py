@@ -1,7 +1,7 @@
 """Consent, exact identities, durable spacing, cancellation and safe merges."""
 import asyncio
 from types import SimpleNamespace
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, Mock
 import time
 
 from pytest_homeassistant_custom_component.common import MockConfigEntry
@@ -13,6 +13,7 @@ from custom_components.improved_shopping_list.const import DOMAIN, CONF_TODO_ENT
 from custom_components.improved_shopping_list.ean_links import EANLinks
 from custom_components.improved_shopping_list.product_references import gtin, reference_from_line
 from custom_components.improved_shopping_list.store_links import normalize_link
+from custom_components.improved_shopping_list.price_sources import PriceError
 
 EAN = '8410422111086'
 OTHER = '8410199023094'
@@ -102,6 +103,33 @@ async def test_mismatched_ean_cannot_save_price(hass):
     try:
         await sources.async_run()
         assert sources.snapshot['errors'] and 'last_price' not in catalog.products[0]['commercial_references'][0]
+    finally:
+        await sources.async_stop()
+
+
+async def test_block_stops_batch_and_keeps_technical_details_in_one_summary(hass):
+    catalog,product,links,lookup,sources=await setup(hass)
+    await catalog.async_save_product({'name':'Patatas','barcodes':[OTHER]})
+    links._data['links']['alcampo:'+gtin(OTHER)]=WEB2
+    details={'http_status':403,'response_class':'access_denied','attempts':[
+        {'stage':'product_api','http_status':403,'server':'CloudFront'}]}
+    async def rejected(*args,**kwargs):
+        lookup._blocked_until['alcampo']=time.monotonic()+900
+        raise PriceError('Consulta rechazada (HTTP 403)',**details)
+    lookup.retrieve=AsyncMock(side_effect=rejected)
+    sources.activity=SimpleNamespace(record=Mock())
+    await sources.async_set_enabled(True);sources._active=True
+    try:
+        await sources.async_run()
+        assert lookup.retrieve.await_count==1
+        assert sources.snapshot['phase']=='paused' and sources.snapshot['processed']==1
+        sources.activity.record.assert_called_once()
+        info=sources.activity.record.call_args.kwargs['diagnostics']
+        assert info['errors'][0]['diagnostics']==details
+        assert info['errors'][0]['reference_id']=='722018'
+        assert info['interval_seconds']==INTERVAL and info['retry_at']>time.time()
+        restored=CatalogSources(hass,catalog,links,lookup,None);await restored.async_load()
+        assert restored.snapshot['retry_at']==sources.snapshot['retry_at']
     finally:
         await sources.async_stop()
 

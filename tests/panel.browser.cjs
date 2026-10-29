@@ -1139,7 +1139,7 @@ async function checkCatalogSources(browser,url,errors){
   const source=settings.locator('isl-catalog-sources'),toggle=source.getByRole('switch',{name:'Completar productos con Alcampo'});
   await toggle.waitFor();assert.equal(await toggle.isChecked(),false);
   await toggle.check();const popup=source.getByRole('dialog',{name:'Catálogo de Alcampo',exact:true});await popup.waitFor();
-  await popup.getByText(/Siguiente petición/).waitFor();
+  assert.equal(await popup.getByText(/Siguiente petición|aunque cierres este popup/).count(),0);
   await page.evaluate(()=>window.emitCatalogSource({...window.catalogSourceFixture,processed:1,updated:1}));
   assert.equal(await popup.locator('#percentage').textContent(),'50 %');
   await popup.getByRole('button',{name:'Cerrar ventana',exact:true}).click();

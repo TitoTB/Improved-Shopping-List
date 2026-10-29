@@ -182,12 +182,15 @@ class CatalogSources:
                     self._status["updated"] += changed
                     success = data.get("price") is not None
                     if not success:
-                        self._status["errors"].append({"product":name,"ean":code,"message":"La ficha no ha devuelto un precio; se conservan los datos anteriores."})
+                        self._status["errors"].append({"product":name,"ean":code,"message":"La ficha no ha devuelto un precio; se conservan los datos anteriores.",
+                            "reference_id":link["id"],"url":link["url"],"diagnostics":deepcopy(data.get("retrieval_diagnostics",{}))})
                 except (ValueError,OSError,TimeoutError) as err:
-                    self._status["errors"].append({"product":name,"ean":code,"message":str(err)[:500]})
-                    blocked = max(0,self.lookup._blocked_until.get("alcampo",0)-time.monotonic())
-                    if blocked:
-                        self._data["retry_at"] = time.time()+blocked
+                    self._status["errors"].append({"product":name,"ean":code,"message":str(err)[:500],
+                        "reference_id":link["id"],"url":link["url"],"error_type":type(err).__name__,
+                        "diagnostics":deepcopy(getattr(err,"diagnostics",{}))})
+                blocked = max(0,self.lookup._blocked_until.get("alcampo",0)-time.monotonic())
+                if blocked:
+                    self._data["retry_at"] = time.time()+blocked
                 self._data["attempts"][identity] = {"at":time.time(),"success":success,**({"data":deepcopy(data)} if success else {})}
                 self._status["processed"] += 1
                 await self._store.async_save(deepcopy(self._data)); self._notify()
@@ -196,7 +199,8 @@ class CatalogSources:
             self._status.update(running=False,phase="paused" if self._data["retry_at"]>time.time() else "finished",current="")
             if pending and self.activity:
                 self.activity.record("stores.catalog","Alcampo: revisión del catálogo finalizada",source="automatic",
-                                     diagnostics=deepcopy(self._status))
+                                     diagnostics={**deepcopy(self._status),"interval_seconds":INTERVAL,
+                                                  "retry_at":self._data["retry_at"]})
         except (ValueError,OSError,TimeoutError) as err:
             self._status.update(running=False,phase="error",errors=[{"message":str(err)[:500]}])
         finally:

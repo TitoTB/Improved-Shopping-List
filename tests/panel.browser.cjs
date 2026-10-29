@@ -3894,6 +3894,7 @@ async function main() {
     await seasonPage.goto(url);
     await seasonPage.getByRole('button',{name:'Catálogo',exact:true}).click();
     const seasonCatalog=seasonPage.locator('isl-catalog');
+    await seasonCatalog.getByRole('button',{name:'Nuevos',exact:true}).waitFor();
     assert.deepEqual(await seasonCatalog.locator('.catalog-tabs .tab-label').allTextContents(),['Productos','Categorías','Recetas','Sugerencias','Nuevos']);
     await seasonCatalog.getByRole('button',{name:'Sugerencias',exact:true}).click();
     await seasonCatalog.getByRole('button',{name:'Productos de temporada',exact:true}).click();

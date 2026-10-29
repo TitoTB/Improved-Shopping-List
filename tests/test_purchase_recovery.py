@@ -1,4 +1,5 @@
 """Manual recovery: explicit account/day, scoped selections and atomic detection replacement."""
+import asyncio
 from copy import deepcopy
 from datetime import timedelta
 from types import SimpleNamespace
@@ -15,16 +16,20 @@ from custom_components.improved_shopping_list.ticket_accounts import TicketAccou
 class PurchaseRecoveryTests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
         now=dt_util.now().isoformat()
-        self.detected={"id":"detected","detected_purchase":True,"store":"unknown","purchased_at":now,"needs_details":True,"total":None,"completed_products":[{"name":"Pan"}],"shoppers":["person.one"]}
+        self.detected={"id":"detected","detected_purchase":True,"store":"unknown","purchased_at":now,"needs_details":True,"summary_only":True,"total":None,"completed_products":[{"name":"Pan"}],"shoppers":["person.one"]}
         self.summary={"id":"saved","store":"carrefour","purchased_at":now,"summary_only":True,"account_key":"private-ref","total":5.22,"ticket_available":True}
         stock=SimpleNamespace(receipts={"history":{"detected":deepcopy(self.detected),"saved":deepcopy(self.summary)},"purchases":{}})
+        stock._lock=asyncio.Lock();stock._items={}
+        async def persist(items, *, receipts):
+            stock._items=items;stock.receipts=receipts
+        stock._persist=AsyncMock(side_effect=persist)
         self.receipts=ReceiptManager(None,stock,None,None)
         self.receipts.settings=SimpleNamespace(snapshot={"purchase_detection":{"shops":[{"id":"local","name":"Mi Carrefour","account":"carrefour","image_url":"/local/store.png","color":"#2388dc"}]}})
         self.account=SimpleNamespace(status=Mock(return_value={"connected":True}),async_sync_history=AsyncMock(),async_preview_saved=AsyncMock(side_effect=self.preview),_options={"auto_ticket":False,"history_enabled":False,"ticket_day":"already-tried"})
         self.accounts=TicketAccounts({"carrefour":self.account},SimpleNamespace(record=Mock()))
 
     async def preview(self, owner, identifier):
-        receipt={"id":"ticket","store":"carrefour","purchased_at":self.summary["purchased_at"],"total":5.22,"lines":[]}
+        receipt={"id":"ticket","store":"carrefour","purchased_at":self.summary["purchased_at"],"total":5.22,"lines":[],"digest":"digest","account_key":"private-ref"}
         self.receipts._drafts["draft"]={"owner":owner,"expires":time.time()+600,"receipt":deepcopy(receipt)}
         return {"token":"draft","receipt":receipt}
 
@@ -39,17 +44,19 @@ class PurchaseRecoveryTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.account._options["ticket_day"],"already-tried")
         self.assertEqual(rows["detected"],self.detected)
 
-    async def test_manual_preview_does_not_commit_and_confirmation_replaces_detection(self):
+    async def test_recovery_replaces_detection_immediately_and_saves_pending_ticket(self):
         result=await self.accounts.async_search_manual(self.receipts,"admin","detected","shop:local")
-        draft=await self.accounts.async_preview_manual(self.receipts,"admin",result["recovery_token"],"saved")
-        self.assertEqual(self.receipts.stock.receipts["history"]["detected"],self.detected)
-        history=deepcopy(self.receipts.stock.receipts["history"])
-        receipt=deepcopy(draft["receipt"])
-        self.receipts._apply_manual_detection(self.receipts._draft("draft","admin"),receipt,history)
-        self.assertNotIn("detected",history)
+        recovered=await self.accounts.async_preview_manual(self.receipts,"admin",result["recovery_token"],"saved")
+        receipt=recovered["receipt"]
+        self.assertEqual(list(self.receipts.stock.receipts["history"]),["ticket"])
+        self.assertTrue(receipt["pending_review"])
         self.assertEqual(receipt["detection_id"],"detected")
         self.assertEqual(receipt["shop_name"],"Mi Carrefour")
         self.assertEqual(receipt["shoppers"],["person.one"])
+        self.assertEqual(self.receipts.stock._items,{})
+        self.assertNotIn("draft",self.receipts._drafts)
+        with self.assertRaises(CatalogError):
+            await self.accounts.async_preview_manual(self.receipts,"admin",result["recovery_token"],"saved")
 
     async def test_owner_expiry_and_unoffered_ticket_are_rejected(self):
         result=await self.accounts.async_search_manual(self.receipts,"admin","detected","carrefour")
@@ -60,12 +67,27 @@ class PurchaseRecoveryTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(CatalogError):await self.accounts.async_preview_manual(self.receipts,"admin",token,"saved")
         self.account.async_preview_saved.assert_not_awaited()
 
-    async def test_changed_detection_is_not_overwritten_at_confirmation(self):
+    async def test_changed_detection_is_not_overwritten_during_download(self):
         result=await self.accounts.async_search_manual(self.receipts,"admin","detected","carrefour")
-        draft=await self.accounts.async_preview_manual(self.receipts,"admin",result["recovery_token"],"saved")
-        history=deepcopy(self.receipts.stock.receipts["history"]);history["detected"]["total"]=8
-        with self.assertRaises(CatalogError):self.receipts._apply_manual_detection(self.receipts._draft("draft","admin"),draft["receipt"],history)
-        self.assertIn("detected",history)
+        async def changed(owner,identifier):
+            draft=await self.preview(owner,identifier)
+            self.receipts.stock.receipts["history"]["detected"]["total"]=8
+            return draft
+        self.account.async_preview_saved.side_effect=changed
+        with self.assertRaises(CatalogError):
+            await self.accounts.async_preview_manual(self.receipts,"admin",result["recovery_token"],"saved")
+        self.assertEqual(self.receipts.stock.receipts["history"]["detected"]["total"],8)
+        self.receipts.stock._persist.assert_not_awaited()
+        self.assertNotIn("draft",self.receipts._drafts)
+
+    async def test_save_failure_keeps_unknown_purchase_and_allows_retry(self):
+        result=await self.accounts.async_search_manual(self.receipts,"admin","detected","carrefour")
+        self.receipts.stock._persist.side_effect=OSError("storage unavailable")
+        with self.assertRaises(OSError):
+            await self.accounts.async_preview_manual(self.receipts,"admin",result["recovery_token"],"saved")
+        self.assertEqual(self.receipts.stock.receipts["history"]["detected"],self.detected)
+        self.assertIn(result["recovery_token"],self.accounts._recoveries)
+        self.assertNotIn("draft",self.receipts._drafts)
 
     async def test_unlinked_disconnected_or_missing_detection_never_contacts_provider(self):
         for identifier,store in [("missing","carrefour"),("detected","other")]:

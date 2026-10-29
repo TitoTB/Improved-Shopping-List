@@ -1,11 +1,11 @@
-import { purchaseQuantity, quantityLabel } from "./quantity-client.js?v=0.47.0";
-import { installDialogCloseButtons } from "./dialog-controls.js?v=0.47.0";
-import { CatalogSession } from "./catalog-client.js?v=0.47.0";
-import { matchCatalogProducts } from "./product-matching.js?v=0.47.0";
-import "./category-panel.js?v=0.47.0";
-import "./recipe-editor.js?v=0.47.0";
-import "./icon-picker.js?v=0.47.0";
-import { productNameKey } from "./product-names.js?v=0.47.0";
+import { purchaseQuantity, quantityLabel } from "./quantity-client.js?v=0.47.1";
+import { installDialogCloseButtons } from "./dialog-controls.js?v=0.47.1";
+import { CatalogSession } from "./catalog-client.js?v=0.47.1";
+import { matchCatalogProducts } from "./product-matching.js?v=0.47.1";
+import "./category-panel.js?v=0.47.1";
+import "./recipe-editor.js?v=0.47.1";
+import "./icon-picker.js?v=0.47.1";
+import { productNameKey } from "./product-names.js?v=0.47.1";
 export { productNameKey };
 
 export const normalizedName = value => String(value ?? "").normalize("NFKC").trim().replace(/\s+/g, " ").toLocaleLowerCase("es");

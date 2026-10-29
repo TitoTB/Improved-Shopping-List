@@ -1,6 +1,6 @@
-import { ListSettingsSession } from "./list-settings-client.js?v=0.47.0";
-import { installDialogCloseButtons } from "./dialog-controls.js?v=0.47.0";
-import { productNameKey } from "./product-names.js?v=0.47.0";
+import { ListSettingsSession } from "./list-settings-client.js?v=0.47.1";
+import { installDialogCloseButtons } from "./dialog-controls.js?v=0.47.1";
+import { productNameKey } from "./product-names.js?v=0.47.1";
 
 const node=(tag,cls,text)=>{const el=document.createElement(tag);if(cls)el.className=cls;if(text!==undefined)el.textContent=text;return el;};
 const money=value=>new Intl.NumberFormat('es-ES',{style:'currency',currency:'EUR'}).format(value);
@@ -488,9 +488,9 @@ class ImprovedShoppingPurchases extends HTMLElement {
     try{await this._openRecoveredTicket(id);}catch(error){root.querySelector('#detected-error').textContent=error.message??'No se ha podido recuperar el ticket.';root.querySelector('#detected-error').hidden=false;}finally{this._setBusy(false);}
   }
   async _openRecoveredTicket(id){
-    const root=this.shadowRoot,draft=await this._hass.callWS({type:'improved_shopping_list/receipts/preview_detection_ticket',recovery_token:this._recoveryToken,purchase_id:id});
-    if(!this.isConnected||!this._active||!root.querySelector('#detected-purchase-dialog').open){void this._hass.callWS({type:'improved_shopping_list/receipts/discard',token:draft.token}).catch(()=>{});return;}
-    this._draft=draft;this._buildReview();root.querySelector('#detected-purchase-dialog').close();this._detectedReceipt=null;root.querySelector('dialog').showModal();
+    const root=this.shadowRoot;await this._hass.callWS({type:'improved_shopping_list/receipts/preview_detection_ticket',recovery_token:this._recoveryToken,purchase_id:id});
+    root.querySelector('#detected-purchase-dialog').close();this._detectedReceipt=null;this._recoveryToken=null;
+    if(this.isConnected&&this._active)await this._session.refresh();
   }
   async _saveDetectedPurchase(discard=false){
     if(this._busy||!this._detectedReceipt)return;const root=this.shadowRoot;this._setBusy(true);

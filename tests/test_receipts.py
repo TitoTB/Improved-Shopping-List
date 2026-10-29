@@ -611,9 +611,12 @@ async def test_manual_recovery_confirmation_replaces_unknown_without_automatic_s
     detected['shoppers']=['person.one']
     env.stock.receipts['history'][detected['id']]=deepcopy(detected)
     env.manager._draft(draft['token'],'owner')['manual_detection']={'snapshot':deepcopy(detected),'shop':None}
-    edits=selections(draft,env.product)
+    saved=await env.manager.async_archive_account_ticket(draft['token'],'owner')
+    assert saved['pending_review']
+    reviewed=await env.manager.async_review_saved(saved['id'],'owner')
+    edits=selections(reviewed,env.product)
     for edit in edits:edit['replenish']=False
-    saved=await env.manager.async_confirm(draft['token'],'owner',edits,False)
+    saved=await env.manager.async_confirm(reviewed['token'],'owner',edits,False)
     assert saved['detection_id']=='manual-detection' and saved['shoppers']==['person.one']
     assert len(env.stock.receipts['history'])==1 and 'manual-detection' not in env.stock.receipts['history']
     assert env.stock.snapshot['items'][0]['quantity']==20

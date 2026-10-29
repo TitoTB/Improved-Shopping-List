@@ -298,7 +298,10 @@ class ReceiptManager:
             data=deepcopy(self.stock.receipts)
             previous=self._summary_match(receipt,data["history"])
             if previous:
+                for key in ("detection_id","shop_id","zone_id","shop_name","shop_image","shop_color","shoppers","purchase_group","completed_products"):
+                    if key in previous:receipt[key]=deepcopy(previous[key])
                 data["history"].pop(previous["id"])
+            self._apply_manual_detection(draft,receipt,data["history"])
             if len(data["history"])>=1000:
                 raise CatalogError("El historial ha alcanzado los 1000 tickets.")
             receipt.update(summary_only=True,pending_review=True,imported_at=time.time())
@@ -388,7 +391,7 @@ class ReceiptManager:
             await self.stock._persist(deepcopy(self.stock._items),receipts=data)
         return await self.async_options(token,owner)
 
-    async def async_preview(self, encoded, owner, *, account_reference=None):
+    async def async_preview(self, encoded, owner, *, account_reference=None, expected_total=None, expected_purchased_at=None):
         if len(encoded) > (MAX_PDF_BYTES + 2) // 3 * 4:
             raise CatalogError("Sube un PDF de hasta 2 MB.")
         try:
@@ -399,6 +402,10 @@ class ReceiptManager:
             raise CatalogError("Ya se está leyendo un ticket. Espera a que termine.")
         async with self._parse_lock:
             receipt = await self.hass.async_add_executor_job(extract_receipt, content)
+        if expected_total is not None and (type(expected_total) not in (int,float) or not math.isfinite(expected_total) or abs(receipt["total"]-expected_total)>.02):
+            raise CatalogError("El importe del PDF no coincide con la compra de Carrefour seleccionada.","receipt_purchase_mismatch")
+        if expected_purchased_at is not None and self._purchase_day(receipt)!=self._purchase_day({"purchased_at":expected_purchased_at}):
+            raise CatalogError("La fecha del PDF no coincide con la compra de Carrefour seleccionada.","receipt_purchase_mismatch")
         if account_reference:
             receipt["account_key"] = self._account_key(account_reference)
         return await self._prepare_preview(receipt, owner)

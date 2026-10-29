@@ -4,7 +4,7 @@
 
 Una interfaz propia para gestionar las listas de la compra que ya tienes integradas en Home Assistant.
 
-Versión actual: **0.47.0**. Interfaz en español, pensada para móvil y ordenador. Requiere **Home Assistant Core 2026.10 o posterior**. La referencia de desarrollo es Core 2026.10.2.
+Versión actual: **0.47.1**. Interfaz en español, pensada para móvil y ordenador. Requiere **Home Assistant Core 2026.10 o posterior**. La referencia de desarrollo es Core 2026.10.2.
 
 Los precios proceden de tickets y facturas confirmados por el usuario. Alcampo y DIA están archivados: no aparecen en Ajustes → Tiendas ni inician consultas, pero conservan su código y sus datos guardados. Las demás tiendas permanecen disponibles. El catálogo comunitario se dedica exclusivamente a sugerencias de iconos y no proporciona precios.
 
@@ -472,6 +472,6 @@ El mapa utiliza **Leaflet 1.9.4**, incluido localmente en la integración con su
 
 ### Recuperar manualmente una compra detectada
 
-En Analítica → Compras, abre la edición de una compra detectada, selecciona la tienda y pulsa **Recuperar compra**. La tienda debe tener una cuenta conectada (Carrefour o Lidl, o una tienda física vinculada a esas cuentas). Esta búsqueda es explícita: no depende del horario, de la descarga automática ni de que ya se haya realizado un intento ese día. Incorpora los resúmenes que falten y busca los tickets pendientes del mismo día. Si hay varios, permite elegir uno; si solo hay uno, abre su revisión.
+En Analítica → Compras, abre la edición de una compra detectada, selecciona la tienda y pulsa **Recuperar compra**. La tienda debe tener una cuenta conectada (Carrefour o Lidl, o una tienda física vinculada a esas cuentas). Esta búsqueda es explícita: no depende del horario, de la descarga automática ni de que ya se haya realizado un intento ese día. Incorpora los resúmenes que falten y busca los tickets pendientes del mismo día. Si hay varios, permite elegir uno; si solo hay uno, lo recupera directamente.
 
-El ticket se revisa con el asistente habitual de productos, stock y precios. La compra detectada solo se sustituye al confirmar el ticket, conservando la tienda física y compradores seleccionados. Si no hay resultados o falla el acceso, la compra se mantiene para completarla manualmente o subir un documento. No se aplican cambios de stock o precios por el hecho de buscar o abrir el ticket.
+En cuanto se recupera y guarda el ticket, se cierra el popup y la compra detectada se sustituye por el ticket pendiente de revisión, conservando la tienda física y los compradores. Puedes revisarlo después con el asistente habitual de productos, stock y precios, pulsando el icono del ticket. Si no hay resultados o falla el acceso, la compra se mantiene para completarla manualmente o subir un documento. No se aplican cambios de stock o precios por el hecho de buscar o abrir el ticket.

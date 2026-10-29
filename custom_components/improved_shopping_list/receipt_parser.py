@@ -233,7 +233,9 @@ def _carrefour_account_items(detail):
     if "numberLinesItems" in header and number(header["numberLinesItems"]) != len(items):
         raise CatalogError("El número de líneas no coincide con el detalle de Carrefour.")
     if abs(subtotal+adjustment-total) > Decimal("0.02"):
-        raise CatalogError("Los artículos, descuentos y total del detalle de Carrefour no coinciden.")
+        error=CatalogError("Los artículos, descuentos y total del detalle de Carrefour no coinciden.","receipt_detail_amount")
+        error.diagnostics={"items_subtotal":float(subtotal),"total_discount":float(adjustment),"reported_total":float(total),"difference":float(subtotal+adjustment-total)}
+        raise error
     # Only the receipt number is used from printable lines; never customer/payment data.
     lines = detail.get("lines")
     text = "\n".join(lines) if isinstance(lines, list) and len(lines) <= 2000 and all(isinstance(line, str) and len(line) <= 2000 for line in lines) else ""

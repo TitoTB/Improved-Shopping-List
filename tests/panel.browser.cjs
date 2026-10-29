@@ -874,7 +874,7 @@ async function checkSpendingChart(browser,url,errors){
 
 async function checkDetectedPurchaseRecovery(browser,url,errors){
   const context=await browser.newContext({viewport:{width:390,height:844}});
-  await context.addInitScript(()=>localStorage.setItem('receipt-fixture',JSON.stringify([{id:'unknown-purchase',detected_purchase:true,needs_details:true,summary_only:true,store:'unknown',store_name:'Tienda desconocida',purchased_at:new Date().toISOString(),total:null,article_count:6,lines:[],completed_products:[{name:'Pan'}]}])));
+  await context.addInitScript(()=>{if(!localStorage.getItem('receipt-fixture'))localStorage.setItem('receipt-fixture',JSON.stringify([{id:'unknown-purchase',detected_purchase:true,needs_details:true,summary_only:true,store:'unknown',store_name:'Tienda desconocida',purchased_at:new Date().toISOString(),total:null,article_count:6,lines:[],completed_products:[{name:'Pan'}]}]));});
   const page=await context.newPage();page.on('pageerror',error=>errors.push(error.message));await page.goto(url);
   await page.evaluate(()=>{
     const hass=window.testPanel._hass,original=hass.callWS,subscribe=hass.connection.subscribeMessage;
@@ -886,7 +886,7 @@ async function checkDetectedPurchaseRecovery(browser,url,errors){
         window.recoveryCalls.push(message);return {recovery_token:'manual-search',purchases:window.recoveryMode==='none'?[]:Array.from({length:window.recoveryMode==='many'?2:1},(_,index)=>({id:'candidate-'+index,purchased_at:new Date().toISOString(),amount:5.22+index}))};
       }
       if(message.type==='improved_shopping_list/receipts/preview_detection_ticket'){
-        window.recoveryCalls.push(message);const draft=await original({type:'improved_shopping_list/carrefour_account/preview_saved',receipt_id:message.purchase_id});draft.receipt.store='lidl';draft.receipt.store_name='Lidl';draft.receipt.purchased_at=new Date().toISOString();return draft;
+        window.recoveryCalls.push(message);const draft=await original({type:'improved_shopping_list/carrefour_account/preview_saved',receipt_id:message.purchase_id});draft.receipt.store='lidl';draft.receipt.store_name='Lidl';draft.receipt.purchased_at=new Date().toISOString();const receipt={...draft.receipt,summary_only:true,pending_review:true,detection_id:'unknown-purchase'};window.receiptHistory=[receipt];localStorage.setItem('receipt-fixture',JSON.stringify(window.receiptHistory));return {receipt};
       }
       return original(message);
     };
@@ -904,15 +904,30 @@ async function checkDetectedPurchaseRecovery(browser,url,errors){
   assert.equal(await dialog.locator('.recovery-choice').count(),2);
   await page.screenshot({path:'test-results/manual-purchase-recovery-mobile.png',fullPage:true});
   assert.ok(await dialog.evaluate(el=>el.scrollWidth<=el.clientWidth));
-  await dialog.locator('.recovery-choice').first().click();const review=purchases.getByRole('dialog',{name:'Revisar ticket',exact:true});await review.waitFor();
-  assert.equal(await dialog.isVisible(),false);
-  assert.equal(await page.evaluate(()=>window.recoveryCalls.filter(call=>call.type.endsWith('/preview_detection_ticket')).length),1);
-  assert.equal(await page.evaluate(()=>window.receiptHistory[0].store),'unknown');
+  await dialog.locator('.recovery-choice').first().click();await dialog.waitFor({state:'hidden'});
+  assert.equal(await purchases.getByRole('dialog',{name:'Revisar ticket',exact:true}).isVisible(),false);
+  await edit.waitFor({state:'hidden'});
+  assert.equal(await page.evaluate(()=>window.receiptHistory.length),1);
+  assert.equal(await page.evaluate(()=>window.receiptHistory[0].store),'lidl');
+  assert.equal(await page.evaluate(()=>window.receiptHistory[0].pending_review),true);
   assert.equal(await page.evaluate(()=>window.stockItems.length),0);
-  await review.getByRole('button',{name:'Cerrar ventana',exact:true}).click();
-  await edit.click();await dialog.getByLabel('Tienda',{exact:true}).selectOption('lidl');await page.evaluate(()=>window.recoveryMode='one');await recover.click();await review.waitFor();
-  assert.equal(await page.evaluate(()=>window.recoveryCalls.filter(call=>call.type.endsWith('/preview_detection_ticket')).length),2);
-  assert.equal(await page.evaluate(()=>window.recoveryCalls.find(call=>call.type.endsWith('/search_detection_ticket')).receipt_id),'unknown-purchase');
+  await page.reload();await page.getByRole('button',{name:'Analítica',exact:true}).click();await page.getByRole('tab',{name:'Compras',exact:true}).click();
+  assert.equal(await edit.count(),0);
+  await page.evaluate(()=>{window.receiptHistory=[{id:'unknown-purchase',detected_purchase:true,needs_details:true,summary_only:true,store:'unknown',store_name:'Tienda desconocida',purchased_at:new Date().toISOString(),total:null,article_count:6,lines:[]}];localStorage.setItem('receipt-fixture',JSON.stringify(window.receiptHistory));});
+  await page.reload();
+  await page.evaluate(()=>{
+    const hass=window.testPanel._hass,original=hass.callWS,subscribe=hass.connection.subscribeMessage;
+    hass.connection.subscribeMessage=(callback,message)=>subscribe(data=>callback(message.type==='improved_shopping_list/receipts/subscribe'?{...data,ticket_accounts:{lidl:true}}:data),message);
+    hass.callWS=async message=>{
+      if(message.type==='improved_shopping_list/receipts/get')return {...await original(message),ticket_accounts:{lidl:true}};
+      if(message.type.endsWith('/search_detection_ticket'))return {recovery_token:'single',purchases:[{id:'one',purchased_at:new Date().toISOString(),amount:5}]};
+      if(message.type.endsWith('/preview_detection_ticket')){window.receiptHistory=[{id:'recovered',store:'lidl',store_name:'Lidl',purchased_at:new Date().toISOString(),total:5,summary_only:true,pending_review:true,lines:[]}];return {receipt:window.receiptHistory[0]};}
+      return original(message);
+    };
+  });
+  await page.getByRole('button',{name:'Analítica',exact:true}).click();await page.getByRole('tab',{name:'Compras',exact:true}).click();
+  await edit.click();await dialog.getByLabel('Tienda',{exact:true}).selectOption('lidl');await recover.click();await dialog.waitFor({state:'hidden'});await edit.waitFor({state:'hidden'});
+  assert.equal(await page.evaluate(()=>window.receiptHistory[0].store),'lidl');
   await context.close();
 }
 

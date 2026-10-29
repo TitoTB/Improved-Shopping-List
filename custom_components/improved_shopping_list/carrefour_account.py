@@ -500,7 +500,7 @@ class CarrefourAccount:
                 references[sha256(("carrefour:"+identifier).encode()).hexdigest()] = {"id":identifier,"amount":amount,"supported":supported}
                 key = str(uuid4())
                 supported = purchase.get("orderSource") == "TICKET"
-                self._purchases[key] = {"id": identifier, "owner": owner, "expires": time.time()+1800, "supported": supported, "amount": amount}
+                self._purchases[key] = {"id": identifier, "owner": owner, "expires": time.time()+1800, "supported": supported, "amount": amount,"purchased_at":at}
                 output.append({"id": key, "purchased_at": at, "amount": amount,
                     "store": str(purchase.get("mallName", "Carrefour"))[:150], "reviewable": supported,
                     "kind": "Ticket" if supported else "Pedido online · factura pendiente de soporte"})
@@ -569,7 +569,7 @@ class CarrefourAccount:
         if not purchase:
             raise CarrefourAccountError("Carrefour ya no ofrece esta compra en el historial de la cuenta conectada.", "purchase_unavailable")
         key = str(uuid4())
-        self._purchases[key] = {**purchase, "owner":owner, "expires":time.time()+1800}
+        self._purchases[key] = {**purchase, "purchased_at":saved["purchased_at"], "owner":owner, "expires":time.time()+1800}
         try:
             return await self.async_preview(owner, key)
         finally:
@@ -596,17 +596,17 @@ class CarrefourAccount:
                 try:
                     return await self.receipts.async_preview_carrefour_ticket(detail, purchase["id"], purchase["amount"], owner)
                 except CatalogError as err:
-                    # Only unsupported structure: totals, identity and duplicates stay errors.
-                    if err.code not in ("receipt_unrecognized_lines", "receipt_detail_format"):
+                    # A mismatched item breakdown may use a separately validated PDF; identity and duplicates stay errors.
+                    if err.code not in ("receipt_unrecognized_lines", "receipt_detail_format", "receipt_detail_amount"):
                         raise
-                    fallback = {"detail_format_error":err.code,
+                    fallback = {"detail_format_error":err.code,**getattr(err,"diagnostics",{}),
                         "detail_items_count":len(detail["items"]) if isinstance(detail.get("items"), list) else None,
                         "detail_lines_count":len(detail["lines"]) if isinstance(detail.get("lines"), list) else None}
             try:
                 pdf = await self._http("GET", endpoint + "/pdf", headers=headers, pdf=True)
-                draft = await self.receipts.async_preview(base64.b64encode(pdf).decode(), owner, account_reference=purchase["id"])
+                draft = await self.receipts.async_preview(base64.b64encode(pdf).decode(), owner, account_reference=purchase["id"],expected_total=purchase["amount"],expected_purchased_at=purchase.get("purchased_at"))
             except CatalogError as err:
-                if err.code in ("receipt_unrecognized_lines", "carrefour_account_error"):
+                if err.code in ("receipt_unrecognized_lines", "carrefour_account_error", "receipt_purchase_mismatch") or fallback.get("detail_format_error")=="receipt_detail_amount":
                     error = CarrefourAccountError(
                         "No se ha podido recuperar este ticket desde el detalle ni desde el PDF. Consulta la información técnica en Logs → Tiendas.",
                         "ticket_pdf_fallback")

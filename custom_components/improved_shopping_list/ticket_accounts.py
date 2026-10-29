@@ -99,6 +99,7 @@ class TicketAccounts:
         if not session or session["owner"]!=owner or session["until"]<=time.time() or purchase_id not in session["candidates"]:
             raise CatalogError("La búsqueda ha caducado o el ticket no pertenece a este intento. Vuelve a recuperar la compra.","expired")
         account,provider,shop,detected,day=self._manual_target(receipts,owner,session["identifier"],session["store"])
+        detected,shop=deepcopy(detected),deepcopy(shop)
         if provider!=session["provider"] or day!=session["day"]:
             raise CatalogError("La tienda o la fecha han cambiado. Repite la búsqueda.","conflict")
         saved=receipts.stock.receipts["history"].get(purchase_id)
@@ -112,4 +113,10 @@ class TicketAccounts:
                 receipts.discard(draft["token"],owner)
                 raise CatalogError("El ticket recuperado no corresponde al día y la tienda seleccionados.","conflict")
             receipts._draft(draft["token"],owner)["manual_detection"]={"snapshot":deepcopy(detected),"shop":deepcopy(shop)}
-            return draft
+            try:
+                receipt=await receipts.async_archive_account_ticket(draft["token"],owner)
+            except Exception:
+                receipts.discard(draft["token"],owner)
+                raise
+            self._recoveries.pop(token,None)
+            return {"receipt":receipt}

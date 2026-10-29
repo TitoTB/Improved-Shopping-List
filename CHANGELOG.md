@@ -1,5 +1,12 @@
 # Historial de cambios
 
+## 0.47.1 — 2026-10-29
+
+- Recuperar una compra guarda el ticket pendiente de revisión, cierra el popup y sustituye inmediatamente el registro de tienda desconocida. Se conserva la tienda física y los compradores, sin modificar stock ni precios hasta la revisión.
+- Protección frente a cambios simultáneos y errores de guardado durante la recuperación; la compra original se conserva si la operación falla.
+- Carrefour intenta el PDF alternativo cuando los artículos y descuentos del detalle no cuadran. El PDF debe superar su propia lectura y coincidir con la fecha y el importe de la compra seleccionada.
+- Diagnóstico numérico del subtotal, descuento, total y diferencia si falla el detalle de Carrefour, sin datos personales. Sin nuevas dependencias.
+
 ## 0.47.0 — 2026-10-28
 
 - Recuperación manual de compras detectadas: selecciona una tienda con cuenta conectada en Analítica → Compras y busca sus tickets de ese día sin esperar a la consulta automática.

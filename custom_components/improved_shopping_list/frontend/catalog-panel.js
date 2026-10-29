@@ -505,7 +505,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
             <isl-icon-picker class="wide"></isl-icon-picker>
           </section>
           <section id="product-additional" class="fields" aria-label="Opciones" hidden>
-            <div class="wide"><h3>Opciones del producto</h3><p id="product-ean-summary" class="helper"></p><div id="product-store-links"></div><div class="store-link-add"><select id="product-link-store" aria-label="Tienda del producto"></select><input id="product-link-value" aria-label="Enlace o ID del producto" maxlength="2048" placeholder="URL del producto"><button id="retrieve-product-data" class="retrieve-option" type="button"><ha-icon icon="mdi:download" aria-hidden="true"></ha-icon>Recuperar datos</button><button id="add-product-store-link" type="button" aria-label="Añadir vinculación"><ha-icon icon="mdi:plus-thick" aria-hidden="true"></ha-icon></button></div><p id="option-lookup-status" class="helper" role="status" aria-live="polite"></p></div>
+            <div class="wide"><h3 id="product-options-title">Opciones para comprar</h3><p id="product-ean-summary" class="helper"></p><div id="product-store-links"></div><div class="store-link-add"><select id="product-link-store" aria-label="Tienda del producto"></select><input id="product-link-value" aria-label="Enlace o ID del producto" maxlength="2048" placeholder="URL del producto"><button id="retrieve-product-data" class="retrieve-option" type="button"><ha-icon icon="mdi:download" aria-hidden="true"></ha-icon>Recuperar datos</button><button id="add-product-store-link" type="button" aria-label="Añadir vinculación"><ha-icon icon="mdi:plus-thick" aria-hidden="true"></ha-icon></button></div><p id="option-lookup-status" class="helper" role="status" aria-live="polite"></p></div>
             <div id="product-nutriscore" class="wide" hidden><h3>Nutri-Score</h3><div id="nutriscore-results"></div></div>
             <div id="product-store-prices" class="wide" hidden><h3>Precios de tiendas</h3><div id="store-price-results"></div></div>
           </section>
@@ -585,7 +585,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
     };
     iconPicker.onSelect = asset => { root.querySelector("form").elements.image_url.value = asset.url; };
     iconPicker.onBusyChange = busy => { root.querySelector("#save-product").disabled = Boolean(this._saving || busy); };
-    root.querySelector('[name="name"]').addEventListener("input", () => iconPicker.suggest());
+    root.querySelector('[name="name"]').addEventListener("input", () => { this._updateOptionTitle(); iconPicker.suggest(); });
     root.querySelector('[name="image_url"]').addEventListener("input", event => { iconPicker.value = event.target.value; });
     root.querySelector("dialog").addEventListener("close", () => { this._stopCodeCapture(); iconPicker.close(); this._optionGeneration=(this._optionGeneration||0)+1; this._resetNutriscores(); });
     for (const kind of ["barcode","nfc"]) {
@@ -1481,7 +1481,13 @@ class ImprovedShoppingCatalog extends HTMLElement {
     } catch { /* Optional store data must never prevent editing. */ }
   }
 
+  _updateOptionTitle() {
+    const name=this.shadowRoot.querySelector("#product-form").elements.name.value.trim();
+    this.shadowRoot.querySelector("#product-options-title").textContent=name?`Opciones para comprar ${name}`:"Opciones para comprar";
+  }
+
   _renderStoreLinks() {
+    this._updateOptionTitle();
     const root = this.shadowRoot, names = {'':'Sin tienda',...STORE_NAMES};
     const receiptStores=this._receiptStores?.[this._editing?.id]??[];
     this._commercialReferences??=[];

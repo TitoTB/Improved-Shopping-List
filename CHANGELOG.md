@@ -1,5 +1,14 @@
 # Historial de cambios
 
+## 0.53.0 — 2026-10-29
+
+- Nuevo bloque Catálogos en Ajustes → Tiendas, con Alcampo desactivado por defecto. Al activarlo, incorpora opciones por coincidencia exacta de EAN en el diccionario y recupera precios y datos faltantes de las fichas oficiales.
+- Consultas secuenciales separadas al menos cinco segundos, con caché, pausas ante bloqueos y progreso en un popup que puede cerrarse y reabrirse sin reiniciar el proceso. Se conservan los datos manuales y las opciones existentes al desactivarlo.
+- Las opciones de compra con el mismo EAN se agrupan en la ficha del producto, mostrando dentro las distintas tiendas. Las opciones sin EAN o con otro EAN permanecen separadas.
+- Diccionario ampliado con once enlaces de Alcampo verificados y formato compatible para las versiones anteriores.
+- Ajustes → Comunidad simplificado: exportación del catálogo a la derecha del texto y retirada del control de envío automático. Los logos de tienda del catálogo quedan recortados dentro de su círculo.
+- Sin nuevas dependencias.
+
 ## 0.52.1 — 2026-10-29
 
 - La reposición de Stock prioriza la cantidad recuperada o estimada del ticket, convirtiendo unidades compatibles. Si falta, utiliza la cantidad predeterminada de Stock; las correcciones manuales se conservan aunque lleguen datos adicionales durante la revisión.

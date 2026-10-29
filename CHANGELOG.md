@@ -1,5 +1,13 @@
 # Historial de cambios
 
+## 0.50.1 — 2026-10-29
+
+- El selector de tienda y la recuperación de datos por enlace aparecen antes de las opciones de compra guardadas.
+- Cada opción conserva y muestra una miniatura del producto original cuando se ha podido recuperar su imagen; se mantiene al guardar y en posteriores revisiones de tickets.
+- El contenido del envase se acepta al guardar la ficha o confirmar la revisión del ticket, sin casilla adicional ni necesidad de volver a introducir los datos recuperados. Se mantienen las comprobaciones de cantidad y unidades válidas.
+- Las marcas recuperadas empiezan por mayúscula, respetando el resto del nombre. Los EAN se muestran únicamente dentro de su opción correspondiente.
+- README reorganizado por apartados, con la documentación de Lista de la compra y el resto de secciones pendientes de completar. Dependencias documentadas por separado. Sin nuevas dependencias.
+
 ## 0.50.0 — 2026-10-29
 
 - La ficha sustituye Tiendas por Opciones, con el título «Opciones para comprar [producto]» y bloques independientes, comprimidos por defecto, para cada referencia comercial. Muestra marca y contenido cuando están disponibles.

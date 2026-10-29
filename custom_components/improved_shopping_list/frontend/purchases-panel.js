@@ -1,7 +1,7 @@
-import { ListSettingsSession } from "./list-settings-client.js?v=0.50.0";
-import { installDialogCloseButtons } from "./dialog-controls.js?v=0.50.0";
-import { productNameKey } from "./product-names.js?v=0.50.0";
-import { referenceFor, suggestedContent, referenceContentControls, validReferenceContent } from "./reference-formats.js?v=0.50.0";
+import { ListSettingsSession } from "./list-settings-client.js?v=0.50.1";
+import { installDialogCloseButtons } from "./dialog-controls.js?v=0.50.1";
+import { productNameKey } from "./product-names.js?v=0.50.1";
+import { referenceFor, suggestedContent, referenceContentControls, validReferenceContent } from "./reference-formats.js?v=0.50.1";
 
 const node=(tag,cls,text)=>{const el=document.createElement(tag);if(cls)el.className=cls;if(text!==undefined)el.textContent=text;return el;};
 const money=value=>new Intl.NumberFormat('es-ES',{style:'currency',currency:'EUR'}).format(value);

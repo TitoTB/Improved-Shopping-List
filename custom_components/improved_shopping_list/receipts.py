@@ -665,7 +665,7 @@ class ReceiptManager:
                         if candidates:
                             key = ":".join(candidates[0])
                             if key in data["coverage"]:
-                                raise CatalogError("Ya hay una compra importada para este producto pendiente. Marca la compra en la lista antes de importar otra.", "conflict")
+                                raise CatalogError(f'Ya hay una compra importada para «{item["name"]}» pendiente. Marca «{item["name"]}» como comprado en la lista antes de importar otra.', "conflict")
                             data["coverage"][key] = {"quantity":quantity,"receipt_id":receipt["id"],"item_id":item_id,"unit":item["unit"]}
                 receipt.update(imported_at=time.time(),prices_enabled=update_prices)
                 data["history"][receipt["id"]] = receipt

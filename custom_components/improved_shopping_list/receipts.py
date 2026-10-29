@@ -422,6 +422,7 @@ class ReceiptManager:
         line=next((line for line in draft["receipt"]["lines"] if line["id"]==line_id),None)
         if not line or draft.get("quantity_products",{}).get(line_id)!=product_id:
             raise CatalogError("Confirma primero la vinculación del producto.","conflict")
+        draft["expires"]=time.time()+1800
         quantity,unit=purchase_quantity(line)
         if quantity is not None and not line.get("quantity_estimated"):
             return {"quantity":quantity,"unit":unit,"estimated":False}
@@ -465,8 +466,6 @@ class ReceiptManager:
         if not result:
             return {"quantity":None}
         line.update(purchased_quantity=result["quantity"],purchased_unit=result["unit"],quantity_estimated=True)
-        if ref.get("reference_id"):
-            line.update(reference_id=ref["reference_id"],url=ref.get("url",""))
         return result
 
     def _links(self, receipt, selections):
@@ -504,6 +503,10 @@ class ReceiptManager:
             raise CatalogError("Este ticket solo admite reprocesar los datos de sus envases.")
         async with self.stock._lock:
             linked = self._links(draft["receipt"],selections)
+            for line,product in linked:
+                if line.get("quantity_estimated") and draft.get("quantity_products",{}).get(line["id"])!=(product or {}).get("id"):
+                    for field in ("purchased_quantity","purchased_unit","quantity_estimated"):
+                        line.pop(field,None)
             data = deepcopy(self.stock.receipts)
             for line,product in linked:
                 if product:

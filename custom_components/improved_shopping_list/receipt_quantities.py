@@ -9,6 +9,8 @@ def measure_price(raw):
     if not isinstance(raw,dict) or set(raw)-{"price","quantity","unit","currency","checked_at","source"}:
         raise ValueError("El precio por unidad de medida no es válido.")
     price, quantity = raw.get("price"), raw.get("quantity",1)
+    if not isinstance(raw.get("unit"),str):
+        raise ValueError("La unidad de medida no es válida.")
     unit, scale = SCALES.get(raw.get("unit"), (None,None))
     at = raw.get("checked_at")
     if (type(price) not in (int,float) or not math.isfinite(price) or not 0<price<=1000000

@@ -1,5 +1,13 @@
 # Improved Shopping List
 
+## Índice
+
+- [Lista de la compra](#lista-de-la-compra)
+- [Catálogo](#catálogo)
+- [Stock](#stock)
+- [Analítica](#analítica)
+- [Ajustes](#ajustes)
+
 ## Lista de la compra
 
 Desde este apartado puedes consultar y gestionar los productos de la lista seleccionada. En la parte superior aparecen los productos **pendientes de compra** y, debajo, el bloque desplegable **Compras recientes**, con los productos que has marcado como comprados y que todavía se conservan en la lista.

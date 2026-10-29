@@ -1166,7 +1166,21 @@ async function checkCatalogSources(browser,url,errors){
   await form.locator('.product-ean-group > summary').click();
   await form.locator('.product-ean-group .product-option[data-store="alcampo"] > summary').click();
   await p.screenshot({path:'test-results/product-ean-group-mobile.png',fullPage:true});
-  assert.ok(await form.evaluate(el=>el.scrollWidth<=el.clientWidth+1));await grouped.close();
+  assert.ok(await form.evaluate(el=>el.scrollWidth<=el.clientWidth+1));
+  await form.getByRole('button',{name:'Cerrar ventana',exact:true}).click();
+  await catalog.getByRole('button',{name:'Agrupar por categorías',exact:true}).click();
+  await catalog.getByRole('button',{name:'Cambiar criterio de agrupación',exact:true}).click();
+  await catalog.getByRole('dialog',{name:'Agrupar productos por',exact:true}).getByRole('button',{name:'Tienda',exact:true}).click();
+  assert.deepEqual(await catalog.locator('.category-group-title').allTextContents(),['Alcampo (1)','Carrefour (1)']);
+  assert.equal(await catalog.locator('.category-group[open]').count(),0);
+  // Explicit options work without legacy store_links or an enabled account.
+  await p.evaluate(()=>{window.listSettings.stores={alcampo:{enabled:false},carrefour:{enabled:false}};window.emitSettings();});
+  assert.deepEqual(await catalog.locator('.category-group-title').allTextContents(),['Alcampo (1)','Carrefour (1)']);
+  await catalog.locator('.category-group[aria-label="Alcampo"] > summary').click();
+  assert.equal(await catalog.locator('.category-group[aria-label="Alcampo"] .product').count(),1);
+  await p.evaluate(()=>{window.catalogProducts[0].commercial_references.find(ref=>ref.store==='alcampo').active=false;window.emitCatalog();});
+  assert.deepEqual(await catalog.locator('.category-group-title').allTextContents(),['Carrefour (1)']);
+  await grouped.close();
 }
 
 async function checkLazySections(browser,url,errors){

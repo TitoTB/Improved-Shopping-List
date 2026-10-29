@@ -15,3 +15,5 @@ El precio recuperado se guarda en la opción de Alcampo con fecha de consulta. N
 Al desactivar el catálogo se cancela la consulta pendiente y se detienen las asociaciones y consultas nuevas. Los enlaces, datos y precios ya guardados permanecen disponibles. No requiere conectar una cuenta de Alcampo ni añadir dependencias.
 
 En la ficha del producto → Opciones, las referencias que comparten EAN aparecen dentro de un bloque común, comprimido por defecto, con las opciones de cada tienda en su interior. Los EAN distintos permanecen separados y las opciones sin EAN no se consideran equivalentes entre sí.
+
+Catálogo → Productos → Agrupar por tienda incluye las opciones de compra activas guardadas, también las de Alcampo. No requiere conectar una cuenta ni mantener activada la descarga de datos. Las opciones desvinculadas no generan grupos.

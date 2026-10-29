@@ -1,5 +1,10 @@
 # Historial de cambios
 
+## 0.50.6 — 2026-10-29
+
+- El aviso que impide importar otra reposición de un producto todavía pendiente en la lista identifica ahora su nombre e indica qué producto debe marcarse como comprado.
+- Sin nuevas dependencias.
+
 ## 0.50.5 — 2026-10-29
 
 - Corregido «Unknown command» al guardar los datos de un ticket reprocesado: el comando se registra al iniciar Home Assistant. Verificado mediante una prueba del WebSocket real, conservando una sola compra y sin alterar el stock ni los precios guardados.

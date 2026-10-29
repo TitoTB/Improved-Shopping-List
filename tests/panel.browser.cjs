@@ -225,6 +225,11 @@ const hass={
       window.lastReceiptReprocess=structuredClone(msg);return structuredClone(window.receiptHistory[0]);
     }
     if(msg.type==='improved_shopping_list/receipts/options')return receiptOptions();
+    if(msg.type==='improved_shopping_list/receipts/lidl_metadata'){
+      (window.lidlMetadataCalls??=[]).push(structuredClone(msg));
+      if(window.lidlMetadataWait)await window.lidlMetadataWait;
+      return structuredClone(window.lidlMetadataResult??{reason:'Sin coincidencia pública'});
+    }
     if(msg.type==='improved_shopping_list/receipts/estimate_quantity'){
       if(window.quantityWait)await window.quantityWait;
       return structuredClone(window.quantityResult??{quantity:null});
@@ -1133,6 +1138,35 @@ async function checkReferenceFormats(browser,url,errors){
   await context.close();
 }
 
+async function checkLidlMetadata(browser,url,errors){
+  const context=await browser.newContext({viewport:{width:390,height:844}}),page=await context.newPage();
+  page.on('pageerror',error=>errors.push(error.message));await page.goto(url);
+  await page.getByRole('button',{name:'Analítica',exact:true}).click();const purchases=page.locator('isl-purchases');
+  await page.waitForFunction(()=>Boolean(document.querySelector('improved-shopping-list-panel').shadowRoot.querySelector('isl-purchases')?._session));
+  await purchases.evaluate(el=>{
+    const products=[{id:'cacao',name:'Yogur',unit:'g',refill_quantity:1000,stock_id:'s1',revision:1,commercial_references:[]}];
+    const receipt={id:'lidl-web-format',store:'lidl',store_name:'Lidl',purchased_at:new Date().toISOString(),total:1.89,lines:[{id:'0',description:'GRIEGO LIGHT',count:1,unit_price:1.89,amount:1.89,reference_id:'5720480',product_id:'cacao',matched:true,pack_quantity:null,pack_unit:''}]};
+    window.lidlMetadataResult={url:'https://www.lidl.es/p/milbona-griego-natural-light/p11139074',web_reference_id:'11139074',brand:'Milbona',content_quantity:1000,content_unit:'g',format_provisional:true};
+    window.lidlMetadataWait=new Promise(resolve=>window.finishLidlMetadata=resolve);
+    window.receiptDraft=structuredClone(receipt);el.openPreview({token:'lidl-web-format',receipt,products,purchases:[]});
+  });
+  const progress=purchases.getByRole('dialog',{name:'Completando datos de Lidl',exact:true});await progress.waitFor();
+  assert.equal(await progress.getByRole('progressbar').count(),1);
+  await page.evaluate(()=>{window.finishLidlMetadata();window.lidlMetadataWait=null;});await progress.waitFor({state:'hidden'});
+  const dialog=purchases.getByRole('dialog',{name:'Revisar ticket',exact:true});
+  await dialog.getByRole('button',{name:'Continuar',exact:true}).click();
+  await dialog.getByRole('button',{name:'Continuar',exact:true}).click();
+  assert.equal(await dialog.getByLabel('Contenido por envase',{exact:true}).inputValue(),'1000');
+  assert.equal(await dialog.getByLabel('Unidades del envase',{exact:true}).inputValue(),'g');
+  assert.equal(await dialog.getByText(/Formato propuesto desde una oferta de Lidl/).count(),1);
+  await dialog.getByLabel('Contenido por envase',{exact:true}).fill('750');
+  await dialog.getByRole('button',{name:'Actualizar precios y cerrar',exact:true}).click();await dialog.waitFor({state:'hidden'});
+  assert.equal(await page.evaluate(()=>window.lastReceiptConfirmation.lines[0].pack_quantity),750);
+  assert.equal(await page.evaluate(()=>window.lastReceiptConfirmation.lines[0].pack_unit),'g');
+  assert.equal(await page.evaluate(()=>window.lidlMetadataCalls.length),1);
+  await context.close();
+}
+
 async function checkDifferentOptionEAN(browser,url,errors){
   for(const previouslySavedWrongLink of [false,true]){
     const context=await browser.newContext({viewport:{width:390,height:844}});
@@ -1369,6 +1403,7 @@ async function main() {
     browser = await chromium.launch({ headless: true, channel: process.env.PLAYWRIGHT_CHANNEL || undefined });
     if(process.argv.includes('--attention-only')){const errors=[];await checkAttentionIndicators(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Navigation attention indicators passed.');return;}
     if(process.argv.includes('--lazy-only')){const errors=[];await checkLazySections(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);return;}
+    if(process.argv.includes('--lidl-metadata-only')){const errors=[];await checkLidlMetadata(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Lidl receipt metadata passed.');return;}
     if(process.argv.includes('--option-ean-only')){const errors=[];await checkDifferentOptionEAN(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Alternative EAN discovery passed.');return;}
     if(process.argv.includes('--catalog-sources-only')){const errors=[];await checkCatalogSources(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Catalog sources and EAN grouping passed.');return;}
     if(process.argv.includes('--formats-only')){const errors=[];await checkReferenceFormats(browser,`http://127.0.0.1:${server.address().port}`,errors);await checkReceiptPackageFormats(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Commercial reference browser checks passed.');return;}
@@ -4641,6 +4676,7 @@ async function main() {
     await checkLazySections(browser,url,errors);
     await checkCatalogSources(browser,url,errors);
     await checkDifferentOptionEAN(browser,url,errors);
+    await checkLidlMetadata(browser,url,errors);
     await checkReferenceFormats(browser,url,errors);
     await checkReceiptPackageFormats(browser,url,errors);
     await checkAttentionIndicators(browser,url,errors);

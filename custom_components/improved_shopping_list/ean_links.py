@@ -18,7 +18,7 @@ from .const import DOMAIN
 from .product_references import gtin, normalized_references, reference_from_line
 from .store_links import normalize_link
 
-URL = "https://raw.githubusercontent.com/TitoTB/Improved-Shopping-List/main/data/ean-links-v2.csv"
+URL = "https://raw.githubusercontent.com/TitoTB/Improved-Shopping-List/main/data/ean-links-v3.csv"
 DAY = 86400
 MAX_BYTES = 8 * 1024 * 1024
 
@@ -41,7 +41,7 @@ def dictionary_url(value, store="carrefour"):
 
 def key_store(key):
     """Keep historical Carrefour cache keys; namespace the additional shop."""
-    store, code = ("alcampo", key[8:]) if key.startswith("alcampo:") else ("carrefour", key)
+    store, code = tuple(key.split(":",1)) if key.startswith(("alcampo:","lidl:")) else ("carrefour", key)
     if not code or gtin(code) != code:
         raise ValueError("Invalid EAN cache key")
     return store
@@ -58,12 +58,12 @@ def parse_dictionary(raw):
         if number >= 100000:
             raise ValueError("Too many EAN entries")
         code = gtin(row.get("EAN", ""))
-        if not code or not any(row.get(column) for column in ("Carrefour", "Alcampo")):
+        if not code or not any(row.get(column) for column in ("Carrefour", "Alcampo", "Lidl")):
             raise ValueError("Invalid EAN entry")
-        for store, column in (("carrefour", "Carrefour"), ("alcampo", "Alcampo")):
+        for store, column in (("carrefour", "Carrefour"), ("alcampo", "Alcampo"), ("lidl", "Lidl")):
             if not row.get(column):
                 continue
-            key = code if store == "carrefour" else "alcampo:"+code
+            key = code if store == "carrefour" else store+":"+code
             value = dictionary_url(row[column], store)
             if key in result and result[key] != value:
                 raise ValueError("Conflicting EAN entry")
@@ -82,7 +82,7 @@ def product_eans(product):
 def enrich_product(product, resolved):
     """Fill exact EAN matches; preserve user URLs, exclusions, formats and prices."""
     changed = False
-    for store in ("carrefour", "alcampo"):
+    for store in ("carrefour", "alcampo", "lidl"):
         changed = _enrich_store(product, resolved, store) or changed
     return changed
 
@@ -91,7 +91,7 @@ def _enrich_store(product, resolved, store):
     refs = product.setdefault("commercial_references", [])
     changed = False
     for key, code in product_eans(product).items():
-        link = resolved.get(key if store == "carrefour" else "alcampo:"+key)
+        link = resolved.get(key if store == "carrefour" else store+":"+key)
         if not link:
             continue
         matches = [ref for ref in refs if ref["store"] == store and gtin(ref.get("ean")) == key]
@@ -157,7 +157,7 @@ class EANLinks:
                 if any(ord(char)<32 for char in etag):
                     etag = ""
                 self._data.update(links=links, resolved=resolved, failed=failed, etag=etag, checked_at=checked)
-                if data.get("index_version") != 2:
+                if data.get("index_version") != 3:
                     self._data.update(etag="", checked_at=0)
             except (ValueError, TypeError, AttributeError):
                 pass  # A damaged optional cache must not prevent Home Assistant startup.
@@ -177,6 +177,18 @@ class EANLinks:
         codes = {key for product in self.catalog.products for key in product_eans(product)}
         return {key:normalize_link(store,value) for key,value in self._data["links"].items()
                 if key_store(key) == store and key.rsplit(":",1)[-1] in codes}
+
+    async def async_find_link(self, store, code):
+        """Exact URL lookup for a user-initiated receipt review, keeping offline data."""
+        key=gtin(code)
+        if not key or store not in ("carrefour","alcampo","lidl"):
+            return None
+        try:
+            await self._download()
+        except (ClientError,TimeoutError,OSError,ValueError) as err:
+            self.error=str(err)
+        value=self._data["links"].get(key if store=="carrefour" else store+":"+key)
+        return normalize_link(store,value) if value and urlsplit(value).hostname!="www.awin1.com" else None
 
     def start(self):
         if self._active:
@@ -227,14 +239,14 @@ class EANLinks:
                 if links != self._data["links"]:
                     self._data["resolved"] = {key:value for key,value in self.resolved.items() if links.get(key) == self._data["links"].get(key)}
                     self._data["failed"] = {}
-                self._data.update(links=links, etag=response.headers.get("ETag", "")[:256], checked_at=now, index_version=2)
+                self._data.update(links=links, etag=response.headers.get("ETag", "")[:256], checked_at=now, index_version=3)
             else:
                 raise ValueError(f"GitHub HTTP {response.status}")
         await self._store.async_save(self._data)
 
     def _pending(self):
         codes = {key for product in self.catalog.products for key in product_eans(product)}
-        keys = codes | {"alcampo:"+code for code in codes}
+        keys = codes | {store+":"+code for store in self.enabled_stores if store != "carrefour" for code in codes}
         return sorted(key for key in keys if key_store(key) in self.enabled_stores and key in self._data["links"] and key not in self.resolved
                       and time.time() >= self._data["failed"].get(key, 0))
 

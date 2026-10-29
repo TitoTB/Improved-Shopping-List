@@ -1599,11 +1599,13 @@ class ImprovedShoppingCatalog extends HTMLElement {
         const primary=this._storeLinks[previousStore],primaryValue=typeof primary==='string'?primary:primary?.url||primary?.id;
         if(primaryValue&&(primaryValue===value||primaryValue===ref.url||primaryValue===ref.reference_id||primary?.id===ref.reference_id))delete this._storeLinks[previousStore];
         // IDs and last prices are store-specific; keep historical observations intact.
-        delete ref.id;delete ref.last_price;delete ref.measure_price;
+        delete ref.id;delete ref.last_price;delete ref.measure_price;delete ref.ticket_reference_id;
       }
       const existing=this._commercialReferences.find(item=>item!==ref&&item.active!==false&&item.store===data.store&&
         (!item.ean||!data.ean||barcodeIdentity(item.ean)===barcodeIdentity(data.ean))&&(item.reference_id===data.reference_id||item.url===data.url));
       if(existing){this._commercialReferences=this._commercialReferences.filter(item=>item!==ref);ref=existing;}
+      const originalLink=this._optionLinkOrigins?.get(ref);
+      if(data.store==='lidl'&&!changedStore&&!ref.ticket_reference_id&&originalLink&&!originalLink.url&&/^[0-9]{1,16}$/.test(originalLink.reference_id))ref.ticket_reference_id=originalLink.reference_id;
       Object.assign(ref,{store:data.store,reference_id:data.reference_id,url:data.url,active:true});
       this._optionLinkOrigins?.delete(ref);
       if(data.name)ref.name=data.name;

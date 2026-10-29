@@ -43,6 +43,8 @@ def gtin(value):
 
 
 def reference_key(store, line):
+    if store == "lidl" and line.get("ticket_reference_id"):
+        return sha256((store+":ref:"+line["ticket_reference_id"]).encode()).hexdigest()[:32]
     identity = "ref:"+line["reference_id"] if line.get("reference_id") else "ean:"+gtin(line.get("ean")) if gtin(line.get("ean")) else "name:"+name_key(line.get("name") or line.get("description", ""))
     return sha256((store+":"+identity).encode()).hexdigest()[:32]
 
@@ -77,7 +79,8 @@ def inferred_content(line):
 def reference_from_line(store, line):
     quantity, unit = inferred_content(line)
     return {"id":reference_key(store,line), "store":store, "name":line.get("name") or line.get("description", ""),
-            "ean":line.get("ean", "") if gtin(line.get("ean")) else "", "reference_id":line.get("reference_id", ""),
+            "ean":line.get("ean", "") if gtin(line.get("ean")) else "", "reference_id":line.get("web_reference_id") or line.get("reference_id", ""),
+            **({"ticket_reference_id":line["ticket_reference_id"]} if store=="lidl" and line.get("ticket_reference_id") else {}),
             "url":line.get("url", ""), "brand":brand_name(line.get("brand", "")), "content_quantity":quantity, "content_unit":unit, "content_confirmed":False,
             **({"image_url":image} if (image:=reference_image(line.get("image_url", ""))) else {})}
 
@@ -88,6 +91,10 @@ def matching_reference(product, store, line):
     exact = next((ref for ref in refs if ref["id"]==key and ref["store"]==store), None)
     if exact:
         return exact
+    if store=="lidl" and line.get("reference_id"):
+        matched=next((ref for ref in refs if ref.get("ticket_reference_id")==line["reference_id"]),None)
+        if matched:
+            return matched
     ean = gtin(line.get("ean"))
     if ean:
         return next((ref for ref in refs if gtin(ref.get("ean"))==ean), None)
@@ -100,7 +107,7 @@ def normalized_references(values):
     result=[]; seen=set()
     from .store_links import STORES, normalize_link
     for raw in values:
-        if not isinstance(raw,dict) or set(raw)-{"id","store","name","ean","reference_id","url","brand","image_url","content_quantity","content_unit","content_confirmed","active","last_price","nutriscore","measure_price"}:
+        if not isinstance(raw,dict) or set(raw)-{"id","store","name","ean","reference_id","url","brand","image_url","content_quantity","content_unit","content_confirmed","active","last_price","nutriscore","measure_price","ticket_reference_id"}:
             raise ValueError("La referencia comercial contiene campos no admitidos.")
         row={key:raw.get(key,"") for key in ("store","name","ean","reference_id","url","brand")}
         for key,limit in (("store",40),("name",500),("ean",14),("reference_id",512),("url",2048),("brand",160)):
@@ -108,6 +115,11 @@ def normalized_references(values):
                 raise ValueError("La referencia comercial no es válida.")
             row[key]=row[key].strip()
         row["brand"] = brand_name(row["brand"])
+        if raw.get("ticket_reference_id") is not None:
+            value=raw["ticket_reference_id"]
+            if row["store"]!="lidl" or not isinstance(value,str) or not re.fullmatch(r"[0-9]{1,16}",value):
+                raise ValueError("La referencia del ticket de Lidl no es válida.")
+            row["ticket_reference_id"]=value
         if raw.get("image_url"):
             if not (image:=reference_image(raw["image_url"])):
                 raise ValueError("La imagen de la opción debe tener una URL HTTPS válida.")
@@ -157,6 +169,8 @@ def merge_reference(references, store, line, *, confirmed=False):
     row=reference_from_line(store,line)
     existing=matching_reference({"commercial_references":references},store,line)
     if existing:
+        if store=="lidl" and existing.get("ticket_reference_id") and not row.get("ticket_reference_id"):
+            row.update(ticket_reference_id=existing["ticket_reference_id"],reference_id=existing["reference_id"],url=existing["url"])
         row["brand"]=row["brand"] or existing.get("brand", "")
         if not row.get("image_url") and existing.get("image_url"):
             row["image_url"]=existing["image_url"]

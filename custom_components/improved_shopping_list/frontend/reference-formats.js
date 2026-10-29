@@ -9,7 +9,7 @@ export function barcodeIdentity(value){
 }
 export function referenceFor(product,store,line){
   const refs=(product?.commercial_references??[]).filter(ref=>ref.active!==false&&(ref.store===store||!ref.store));
-  return refs.find(ref=>ref.store===store&&line.reference_id&&ref.reference_id===line.reference_id)
+  return refs.find(ref=>ref.store===store&&line.reference_id&&(ref.reference_id===line.reference_id||store==='lidl'&&ref.ticket_reference_id===line.reference_id))
     ??refs.find(ref=>ref.store===store&&line.ean&&ref.ean&&ref.ean.padStart(14,'0')===line.ean.padStart(14,'0'))
     ??refs.find(ref=>!ref.reference_id&&!ref.ean&&ref.store===store&&key(ref.name)===key(line.description||line.name))
     ??refs.find(ref=>!ref.store&&line.ean&&ref.ean.padStart(14,'0')===line.ean.padStart(14,'0'));

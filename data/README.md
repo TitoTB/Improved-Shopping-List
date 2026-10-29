@@ -1,6 +1,6 @@
 # Enlaces de productos por EAN
 
-[ean-links-v2.csv](ean-links-v2.csv) contiene las columnas `EAN`, `Carrefour` y `Alcampo`. Cada fila relaciona un código comercial válido con los enlaces confirmados de ese producto. Una celda vacía significa que no hay una coincidencia verificada; no demuestra que la tienda no venda ese producto.
+[ean-links-v3.csv](ean-links-v3.csv) contiene las columnas `EAN`, `Carrefour`, `Alcampo` y `Lidl`. Cada fila relaciona un código comercial válido con los enlaces confirmados de ese producto. Una celda vacía significa que no hay una coincidencia verificada; no demuestra que la tienda no venda ese producto.
 
 La ampliación de Alcampo del 29/10/2026 incorpora 11 URL cuyo EAN se ha comprobado en la ficha oficial. Se excluyen los resultados con EAN diferente y aquellos cuya ficha no permite confirmarlo. [alcampo-verification.json](alcampo-verification.json) conserva únicamente los códigos y enlaces públicos verificados. No se publican catálogos personales, nombres internos, compras ni precios de los usuarios.
 
@@ -15,3 +15,5 @@ Home Assistant descarga el índice cuando tiene algún EAN que consultar, conser
 Las URL oficiales de Alcampo se incorporan por coincidencia exacta de EAN solo al activar Ajustes → Tiendas → Catálogos → Alcampo. El diccionario no requiere búsquedas en Google desde Home Assistant. La búsqueda y comprobación de esta carga se han realizado una sola vez; no se programa un rastreo automático. Se conservan las URL manuales y las opciones desactivadas. La recuperación opcional de precios y datos desde las fichas, con progreso y veinte segundos entre peticiones, se explica en [Catálogos de tiendas](../docs/store-catalogs.md).
 
 El catálogo comunitario de iconos es independiente. Estos archivos son públicos y de solo lectura para la integración: no reciben datos de los usuarios ni necesitan autorización de GitHub.
+
+Lidl se consulta durante la revisión o el reprocesamiento de tickets: primero caché local, después el enlace de la columna Lidl por EAN exacto si la alternativa tiene uno y, por último, listados públicos contrastados por IAN. El índice v3 parte de las mismas filas verificadas del v2; las celdas Lidl quedan vacías hasta disponer de una equivalencia EAN–URL comprobada. No se convierten IAN en EAN. Los archivos v1/v2 permanecen disponibles para versiones anteriores. Consulta [Lidl y los formatos de tickets](../docs/lidl-catalog.md).

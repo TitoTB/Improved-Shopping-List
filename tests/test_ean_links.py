@@ -57,6 +57,9 @@ def test_published_initial_dictionary_has_only_ean_and_shop_links():
     for item in evidence['links']:
         assert extended['alcampo:'+gtin(item['ean'])] == item['url']
     assert all(extended[key] == value for key,value in data.items())
+    current = (Path(__file__).resolve().parents[1]/'data/ean-links-v3.csv').read_bytes()
+    assert current.splitlines()[0] == b'EAN,Carrefour,Alcampo,Lidl'
+    assert parse_dictionary(current) == extended
 
 
 async def test_alcampo_only_rows_resolve_locally_restore_and_preserve_user_choices(hass, aioclient_mock):

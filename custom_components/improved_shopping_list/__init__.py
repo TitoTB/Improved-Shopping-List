@@ -22,6 +22,7 @@ from .entity_data import EntityData
 from .quantities import ListQuantities
 from .notifications import NotificationManager
 from .option_lookup import OptionLookup
+from .lidl_catalog import LidlCatalog
 from .readers import ReaderManager
 from .stock import StockManager
 from .stock_automation import StockAutomation
@@ -147,6 +148,10 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         hass.data[DOMAIN]["notifications"] = notifications
         hass.data[DOMAIN]["option_lookup"] = OptionLookup(hass)
         receipts.option_lookup = hass.data[DOMAIN]["option_lookup"]
+        lidl_catalog=LidlCatalog(hass,ean_links,receipts.option_lookup,activity)
+        await lidl_catalog.async_load()
+        receipts.lidl_catalog=lidl_catalog
+        hass.data[DOMAIN]["lidl_catalog"]=lidl_catalog
         hass.data[DOMAIN]["ean_links"] = ean_links
         sources = CatalogSources(hass,catalog,ean_links,hass.data[DOMAIN]["option_lookup"],activity)
         await sources.async_load()
@@ -212,6 +217,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.data[DOMAIN]["active"] = False
     await hass.data[DOMAIN]["catalog_sources"].async_stop()
     hass.data[DOMAIN]["option_lookup"].close()
+    hass.data[DOMAIN]["lidl_catalog"].close()
     await hass.data[DOMAIN]["purchase_detection"].async_stop()
     await hass.data[DOMAIN]["carrefour_account"].async_stop()
     await hass.data[DOMAIN]["dia_account"].async_stop()

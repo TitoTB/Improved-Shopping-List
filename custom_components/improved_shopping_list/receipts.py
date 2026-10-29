@@ -366,12 +366,15 @@ class ReceiptManager:
                 except ValueError as err:
                     raise CatalogError(str(err)) from err
                 product=next((product for product in self.stock.catalog.products if product["id"]==line.get("product_id")),None)
+                enriched=self._apply_lidl_metadata(draft,line,product)
                 reference=matching_reference(product,receipt["store"],line) if product else None
                 if reference and reference.get("active") is False:
                     continue
                 if product and quantity is not None:
                     line.update(pack_quantity=quantity,pack_unit=unit,format_confirmed=True)
                     references.append((product["id"],receipt["store"],line,True))
+                elif product and enriched:
+                    references.append((product["id"],receipt["store"],line,False))
             await self.stock.catalog.async_bind_receipt_eans([],references=references)
             data["history"][receipt["id"]]=receipt
             await self.stock._persist(deepcopy(self.stock._items),receipts=data)
@@ -380,6 +383,38 @@ class ReceiptManager:
         if self.stock.activity:
             self.stock.activity.record("stock.receipt_reprocessed",f'Datos del ticket de {receipt["store_name"]} reprocesados',source="manual",diagnostics={"receipt_id":receipt["id"],"options":len(references)})
         return deepcopy(receipt)
+
+    async def async_lidl_metadata(self,token,owner,line_id,product_id):
+        draft=self._draft(token,owner)
+        line=next((row for row in draft["receipt"]["lines"] if row["id"]==line_id),None)
+        product=next((p for p in self.stock.catalog.products if p["id"]==product_id),None)
+        bound=draft.get("quantity_products",{}).get(line_id) or (line.get("product_id") if line and line.get("matched") is not False else None)
+        if draft["receipt"]["store"]!="lidl" or not line or not product or bound!=product_id:
+            raise CatalogError("Vincula primero esta línea de Lidl con un producto del catálogo.")
+        ref=matching_reference(product,"lidl",line)
+        if ref and ref.get("active") is False:
+            return {"reason":"Esta alternativa está desvinculada."}
+        cached=draft.get("lidl_metadata",{}).get(line_id)
+        if cached and cached["product_id"]==product_id:return deepcopy(cached["data"])
+        try:
+            data=await self.lidl_catalog.resolve(line.get("reference_id",""),line.get("ean") or (ref or {}).get("ean",""),(ref or {}).get("url",""))
+        except (ValueError,OSError,TimeoutError) as err:
+            data={"reason":str(err)[:500]}
+        self._draft(token,owner)  # Discarded/expired previews cannot receive results.
+        draft.setdefault("lidl_metadata",{})[line_id]={"product_id":product_id,"data":deepcopy(data)}
+        return deepcopy(data)
+
+    @staticmethod
+    def _apply_lidl_metadata(draft,line,product):
+        candidate=draft.get("lidl_metadata",{}).get(line["id"],{})
+        data=candidate.get("data",{})
+        if draft["receipt"]["store"]!="lidl" or not product or candidate.get("product_id")!=product["id"] or not data.get("url"):
+            return False
+        line.update(url=data["url"],ticket_reference_id=line["reference_id"],web_reference_id=data["web_reference_id"])
+        for key in ("name","brand"):
+            if data.get(key):line[key]=data[key]
+        if data.get("ean") and not line.get("ean"):line["ean"]=data["ean"]
+        return True
 
     def _check_duplicate(self, receipt):
         if any(not old.get("summary_only") and (old["id"] == receipt["id"] or old["digest"] == receipt["digest"] or
@@ -674,6 +709,7 @@ class ReceiptManager:
                         raise CatalogError("Las líneas seleccionadas no son válidas.")
                     seen.add(line["id"])
                     product = next((p for p in self.stock.catalog.products if p["id"] == selection["product_id"]),None)
+                    self._apply_lidl_metadata(draft,line,product)
                     save_price = selection.get("save_price",update_prices)
                     if type(save_price) is not bool:
                         raise CatalogError("La selección de precios no es válida.")

@@ -159,6 +159,7 @@ class ImprovedShoppingPurchases extends HTMLElement {
     this._step=this._draft.reprocess?2:0;
     root.querySelector('#review-title').textContent=this._draft.reprocess?'Reprocesar ticket':'Revisar ticket';
     this._reviewGroups={};
+    this._lidlMetadataDone=new Map();
     root.querySelector('#review-lines').replaceChildren();
     this._edits=receipt.lines.map(line=>{
       const candidate=products.find(p=>p.id===line.product_id&&!used.has(p.id)),product=line.matched===false?null:candidate;if(product)used.add(product.id);
@@ -176,6 +177,7 @@ class ImprovedShoppingPurchases extends HTMLElement {
     const token=this._draft.token,edits=this._edits.filter(edit=>edit.product_id&&!edit.quantityEdited&&edit.line.purchased_quantity==null&&recoveredStockQuantity(edit.line,this._product(edit),'carrefour')==null);
     if(!edits.length)return;
     const dialog=this.shadowRoot.querySelector('#quantity-progress');
+    dialog.querySelector('h2').textContent='Completando cantidades';
     const progress=dialog.querySelector('progress'),label=dialog.querySelector('.quantity-progress-label');dialog.showModal();
     try{
       for(let index=0;index<edits.length;index++){
@@ -219,6 +221,36 @@ class ImprovedShoppingPurchases extends HTMLElement {
           if(this._step===1||this._step===2)this._renderStep();
         }
       }catch{/* Missing optional metadata must not prevent receipt review. */}
+    }
+    if(this._draft?.token===token&&this._draft.receipt.store==='lidl')await this._loadLidlMetadata(token);
+  }
+  async _loadLidlMetadata(token){
+    const edits=this._edits.filter(edit=>edit.product_id&&this._lidlMetadataDone.get(edit.id)!==edit.product_id);
+    if(!edits.length)return;
+    const dialog=this.shadowRoot.querySelector('#quantity-progress'),progress=dialog.querySelector('progress'),label=dialog.querySelector('.quantity-progress-label');
+    dialog.querySelector('h2').textContent='Completando datos de Lidl';if(!dialog.open)dialog.showModal();
+    try{
+      for(let index=0;index<edits.length;index++){
+        if(this._draft?.token!==token||!this.isConnected)return;
+        const edit=edits[index],productId=edit.product_id;
+        progress.value=index/edits.length*100;label.textContent=`${index} de ${edits.length} · ${edit.line.description}`;
+        try{
+          const data=await this._hass.callWS({type:'improved_shopping_list/receipts/lidl_metadata',token,line_id:edit.id,product_id:productId});
+          if(this._draft?.token!==token||!this.isConnected)return;
+          if(edit.product_id!==productId)continue;
+          this._lidlMetadataDone.set(edit.id,productId);
+          if(data.url){edit.lidlMetadata=data;}
+          const format={content_quantity:data.content_quantity,content_unit:data.content_unit};
+          if(!edit.packageEdited&&!validReferenceContent(edit.packageFormat)&&validReferenceContent(format)){
+            edit.packageFormat={...format,content_confirmed:false};
+            edit.line.pack_quantity=format.content_quantity;edit.line.pack_unit=format.content_unit;
+            if(!edit.quantityEdited)edit.quantity=this._defaultQuantity(edit.line,this._product(edit));
+          }
+        }catch{/* Keep manual review available when a listing cannot be read. */}
+        progress.value=(index+1)/edits.length*100;label.textContent=`${index+1} de ${edits.length}`;
+      }
+    }finally{
+      if(this._draft?.token===token){dialog.close();this._renderStep();}
     }
   }
   _quantity(line,unit){
@@ -314,7 +346,8 @@ class ImprovedShoppingPurchases extends HTMLElement {
         const ref=referenceFor(product,this._draft.receipt.store,edit.line),previous=product.reference_prices?.find(offer=>ref?.id&&offer.commercial_reference_id===ref.id||edit.line.ean&&offer.ean===edit.line.ean)?.price??(product.reference_prices?null:product.price);
         if(previous!=null&&Math.round(previous*100)!==Math.round(edit.line.unit_price*100))price.append(node('del','', '('+money(previous)+')'));
         label.append(node('strong','',product.name),price);name.append(this._productImage(product),label);toggle.append(name);row.append(toggle);
-        row.append(referenceContentControls(edit.packageFormat,()=>{}));
+        row.append(referenceContentControls(edit.packageFormat,()=>{edit.packageEdited=true;}));
+        if(edit.lidlMetadata?.url)row.append(node('p','note',edit.lidlMetadata.format_provisional?'Formato propuesto desde una oferta de Lidl. Confirma que coincide con el envase comprado.':'Datos recuperados de la ficha de Lidl.'));
       }
       if(grouped&&(step===0?Boolean(product):!product?.stock_id))groupedContent.append(row);
       else container.append(row);

@@ -214,6 +214,33 @@ async def test_receipt_prices_only_replace_older_observations_and_respect_disabl
     assert prices.prices_for(product)==[]
 
 
+async def test_reprocess_command_is_registered_and_updates_a_reviewed_receipt(hass,hass_ws_client,hass_user,monkeypatch):
+    entry=MockConfigEntry(domain=DOMAIN,data={CONF_TODO_ENTITY:'todo.bring'})
+    entry.add_to_hass(hass);assert await hass.config_entries.async_setup(entry.entry_id)
+    data=hass.data[DOMAIN];manager=data['receipts'];catalog=data['catalog']
+    monkeypatch.setattr(manager.automation,'async_check',AsyncMock())
+    product=await catalog.async_save_product({'name':'Café'})
+    receipt={'id':'ws-reprocess','digest':'ws-reprocess','store':'carrefour','store_name':'Carrefour','currency':'EUR','purchased_at':dt_util.now().isoformat(),
+        'total':3,'subtotal':3,'discount':0,'article_count':1,'lines':[{'id':'0','description':'CAFE','count':1,'unit_price':3,'amount':3,'pack_quantity':None,'pack_unit':''}]}
+    draft=await manager._prepare_preview(receipt,hass_user.id)
+    saved=await manager.async_confirm(draft['token'],hass_user.id,[{'id':'0','product_id':product['id'],'replenish':False,'quantity':None,'purchase_id':'','save_price':True}],True)
+    before=deepcopy(data['stock']._items)
+    client=await hass_ws_client(hass)
+    await client.send_json({'id':1,'type':f'{DOMAIN}/receipts/review_saved','receipt_id':saved['id']})
+    response=await client.receive_json()
+    assert response['success'] and response['result']['reprocess']
+    token=response['result']['token']
+    await client.send_json({'id':2,'type':f'{DOMAIN}/receipts/reprocess','token':token,'lines':[{'id':'0','pack_quantity':500,'pack_unit':'g'}]})
+    response=await client.receive_json()
+    assert response['success'] and response['result']['id']==saved['id']
+    assert catalog.products[0]['commercial_references'][0]['content_quantity']==500
+    assert data['stock']._items==before and len(data['stock'].receipts['history'])==1
+    assert data['stock'].receipts['history'][saved['id']]['lines'][0]['unit_price']==3
+    assert await hass.config_entries.async_unload(entry.entry_id)
+    await client.send_json({'id':3,'type':f'{DOMAIN}/receipts/reprocess','token':token,'lines':[]})
+    assert (await client.receive_json())['error']['code']=='not_loaded'
+
+
 async def test_receipt_api_is_admin_only_and_inactive_guard(hass,hass_ws_client,hass_read_only_user):
     entry=MockConfigEntry(domain=DOMAIN,data={CONF_TODO_ENTITY:'todo.bring'})
     entry.add_to_hass(hass);assert await hass.config_entries.async_setup(entry.entry_id)
@@ -222,10 +249,10 @@ async def test_receipt_api_is_admin_only_and_inactive_guard(hass,hass_ws_client,
     for i,operation in enumerate(['get','subscribe','preview'],1):
         await client.send_json({'id':i,'type':f'{DOMAIN}/receipts/{operation}',**({'pdf':'invalid'} if operation=='preview' else {})})
         assert (await client.receive_json())['error']['code']=='unauthorized'
-    for i,operation in enumerate(['options','link'],4):
-        await client.send_json({'id':i,'type':f'{DOMAIN}/receipts/{operation}','token':'missing',**({'lines':[]} if operation=='link' else {})})
+    for i,operation in enumerate(['options','link','reprocess'],4):
+        await client.send_json({'id':i,'type':f'{DOMAIN}/receipts/{operation}','token':'missing',**({'lines':[]} if operation in ('link','reprocess') else {})})
         assert (await client.receive_json())['error']['code']=='unauthorized'
-    for i,operation in enumerate(['search_detection_ticket','preview_detection_ticket'],6):
+    for i,operation in enumerate(['search_detection_ticket','preview_detection_ticket'],7):
         fields={'receipt_id':'missing','store':'carrefour'} if operation=='search_detection_ticket' else {'recovery_token':'missing','purchase_id':'missing'}
         await client.send_json({'id':i,'type':f'{DOMAIN}/receipts/{operation}',**fields})
         assert (await client.receive_json())['error']['code']=='unauthorized'

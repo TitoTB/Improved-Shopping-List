@@ -89,7 +89,7 @@ def async_register_commands(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_detected_purchase_discard)
     websocket_api.async_register_command(hass, ws_detected_purchase_search_ticket)
     websocket_api.async_register_command(hass, ws_detected_purchase_preview_ticket)
-    for command in (ws_receipts_get, ws_receipts_subscribe, ws_receipts_preview, ws_receipts_confirm, ws_receipts_discard, ws_receipts_options, ws_receipts_link, ws_receipts_review_saved):
+    for command in (ws_receipts_get, ws_receipts_subscribe, ws_receipts_preview, ws_receipts_confirm, ws_receipts_reprocess, ws_receipts_discard, ws_receipts_options, ws_receipts_link, ws_receipts_review_saved):
         websocket_api.async_register_command(hass, command)
     websocket_api.async_register_command(hass, ws_catalog_subscribe)
     websocket_api.async_register_command(hass, ws_catalog_save)

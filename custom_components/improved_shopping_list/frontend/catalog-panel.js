@@ -363,7 +363,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
         .product-views { display:flex; flex-wrap:wrap; min-width:0; gap:6px; margin-top:18px; overflow-x:auto; scrollbar-width:thin; }
         .product-views button { display:inline-flex; flex:none; align-items:center; justify-content:center; gap:6px; padding:10px; font-size:13px; white-space:nowrap; border:0; background:transparent; }
         .product-views ha-icon { display:flex; align-items:center; justify-content:center; flex:none; width:20px; height:20px; --mdc-icon-size:20px; line-height:0; }
-        .product-views [aria-pressed=true] { background:var(--secondary-background-color,#edf4ee); font-weight:650; }
+        .product-views button[aria-pressed=true] { background:color-mix(in srgb,var(--card-background-color,#fff) 75%,#000); font-weight:650; }
         #product-form h3 { font-size:15px; font-weight:650; line-height:1.4; margin:0 0 12px; }
         .product-main-row { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); align-items:end; gap:12px; }
         .product-main-row>* { min-width:0; }

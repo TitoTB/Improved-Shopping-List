@@ -170,7 +170,7 @@ class ImprovedShoppingPurchases extends HTMLElement {
     const token=this._draft.token;
     this._packageMetadataTask=Promise.resolve().then(()=>this._loadPackageMetadata(token));
   }
-  _defaultQuantity(line,product){return recoveredStockQuantity(line,product,this._draft.receipt.store)??product.refill_quantity??null;}
+  _defaultQuantity(line,product){return recoveredStockQuantity(line,product,this._draft.receipt.store)??(product.stock_id?product.refill_quantity:this._quantity(line,product.unit)??product.refill_quantity)??null;}
   async _completeQuantities(){
     if(this._draft?.reprocess||this._draft?.receipt.store!=='carrefour')return;
     const token=this._draft.token,edits=this._edits.filter(edit=>edit.product_id&&!edit.quantityEdited&&edit.line.purchased_quantity==null&&recoveredStockQuantity(edit.line,this._product(edit),'carrefour')==null);

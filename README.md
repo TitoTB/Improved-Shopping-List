@@ -61,4 +61,4 @@ Para volver a la vista habitual de productos, **pulsa el badge del número de pr
 
 ## Marketing de afiliados
 
-Algunos enlaces para consultar productos en las tiendas pueden ser enlaces de afiliado. Si accedes a través de ellos y realizas una compra, el mantenedor del proyecto puede recibir una comisión. Actualmente, esto se aplica a los enlaces «Ver ficha de la tienda» de Carrefour, mediante Awin.
+Algunos enlaces para consultar productos en las tiendas pueden ser enlaces de afiliado. Si accedes a través de ellos y realizas una compra, Aguacatec puede recibir una comisión.

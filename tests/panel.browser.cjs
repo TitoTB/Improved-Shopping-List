@@ -1069,6 +1069,11 @@ async function checkReferenceFormats(browser,url,errors){
   assert.equal(await first.getByLabel('Contenido por envase',{exact:true}).inputValue(),'24');
   assert.equal(await dialog.getByLabel('Nombre del producto',{exact:true}).inputValue(),'Huevos');
   assert.match(await first.textContent(),/Último precio: 2,50/);
+  const manualPrice=first.getByLabel('Precio por envase',{exact:true});
+  assert.equal(await manualPrice.inputValue(),'2.5');
+  await manualPrice.fill('-1');assert.equal(await manualPrice.evaluate(input=>input.validity.valid),false);
+  await manualPrice.fill('3.75');
+  assert.match(await first.textContent(),/Último precio: 3,75/);
   assert.equal(await dialog.locator('.option-nutriscore').count(),0);
   assert.equal(await dialog.locator('#product-nutriscore').count(),0);
   assert.equal(await page.evaluate(()=>window.catalogProducts.find(p=>p.id==='eggs').commercial_references[0].last_price),undefined);
@@ -1087,7 +1092,9 @@ async function checkReferenceFormats(browser,url,errors){
   assert.equal(await first.getByLabel('Formato confirmado',{exact:true}).count(),0);
   assert.equal(await first.getByLabel('Marca',{exact:true}).inputValue(),'Granja Web');
   assert.equal(await dialog.locator('.option-thumbnail').count(),0);
-  assert.equal(await page.evaluate(()=>window.catalogProducts.find(p=>p.id==='eggs').commercial_references[0].last_price.price),2.5);
+  assert.equal(await first.getByLabel('Precio por envase',{exact:true}).inputValue(),'3.75');
+  assert.equal(await page.evaluate(()=>window.catalogProducts.find(p=>p.id==='eggs').commercial_references[0].last_price.price),3.75);
+  assert.equal(await page.evaluate(()=>window.catalogProducts.find(p=>p.id==='eggs').commercial_references[1].last_price),undefined);
   await page.evaluate(()=>window.failOptionLookup=true);
   await first.getByRole('button',{name:'Recuperar datos',exact:true}).click();
   await first.locator('.option-lookup-feedback').getByText('La web ha rechazado la consulta (HTTP 403).',{exact:true}).waitFor();

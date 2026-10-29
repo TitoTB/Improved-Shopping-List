@@ -299,7 +299,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
         .option-name { font-size:14px;font-weight:650;overflow-wrap:anywhere; }
         .option-store { flex:none; }
         .product-option .option-store img { width:32px;height:32px;object-fit:contain;background:#fff;padding:3px;border-radius:8px;box-sizing:border-box; }
-        .option-brand { margin-top:12px; }
+        .option-brand,.option-price { margin-top:12px; }
         .commercial-reference-title { display:flex;gap:8px;align-items:center; }.commercial-reference-title input { min-width:0;flex:1;margin:0; }
         .reference-content-controls { display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px;margin-top:12px;min-width:0; }
         .reference-content-controls label { margin:0;min-width:0; }.reference-content-controls input,.reference-content-controls select { width:100%;min-width:0; }
@@ -1517,7 +1517,19 @@ class ImprovedShoppingCatalog extends HTMLElement {
     const update=()=>{renderPrice();onChange();};
     card.append(referenceContentControls(ref,update));update();
     const offers=[...(ref.last_price?[ref.last_price]:[]),...(this._priceData?.offers??[]).filter(offer=>offer.catalog_product_id===this._editing?.id&&(offer.commercial_reference_id===ref.id||offer.store===ref.store&&(ref.ean&&offer.ean===ref.ean||ref.reference_id&&offer.reference_id===ref.reference_id)))].sort((a,b)=>(b.checked_at??0)-(a.checked_at??0));
-    if(offers.length){const price=offers[0],text=element('p','helper');renderPrice=()=>{const money=value=>new Intl.NumberFormat('es-ES',{style:'currency',currency:price.currency}).format(value),rate=referenceRate(price.price,ref);text.textContent='Último precio: '+money(price.price)+' / envase';if(rate)text.textContent+=' · '+money(rate.price)+' / '+rate.unit;};renderPrice();card.append(text);}
+    const priceLabel=element('label','option-price','Precio por envase (€)'),priceInput=element('input');
+    priceInput.type='number';priceInput.min='0';priceInput.max='1000000';priceInput.step='0.01';priceInput.inputMode='decimal';priceInput.placeholder='Sin precio';
+    priceInput.setAttribute('aria-label','Precio por envase');priceInput.value=offers[0]?.price??'';priceInput.disabled=!ref.store;
+    priceLabel.append(priceInput);card.append(priceLabel);
+    const priceText=element('p','helper');card.append(priceText);
+    let displayedPrice=offers[0];
+    renderPrice=()=>{priceText.hidden=!displayedPrice;if(!displayedPrice)return;const money=value=>new Intl.NumberFormat('es-ES',{style:'currency',currency:displayedPrice.currency??'EUR'}).format(value),rate=referenceRate(displayedPrice.price,ref);priceText.textContent='Último precio: '+money(displayedPrice.price)+' / envase';if(rate)priceText.textContent+=' · '+money(rate.price)+' / '+rate.unit;};renderPrice();
+    priceInput.addEventListener('input',()=>{
+      if(!priceInput.validity.valid)return;
+      if(priceInput.value===''){delete ref.last_price;displayedPrice=null;}
+      else{ref.last_price={price:priceInput.valueAsNumber,currency:'EUR',checked_at:Date.now()/1000};displayedPrice=ref.last_price;}
+      update();
+    });
     if(ref.measure_price){const rate=ref.measure_price;card.append(element('p','helper','Precio por unidad de medida: '+new Intl.NumberFormat('es-ES',{style:'currency',currency:'EUR',maximumFractionDigits:4}).format(rate.price)+' / '+rate.quantity+' '+rate.unit));}
     return card;
   }

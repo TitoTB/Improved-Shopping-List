@@ -1,5 +1,13 @@
 # Historial de cambios
 
+## 0.54.2 — 2026-10-29
+
+- Comparativa vuelve a mostrar todos los productos con precios guardados en al menos dos tiendas, aunque alguna alternativa no tenga contenido suficiente para calcular su precio por kg, litro o unidad.
+- Los precios sin contenido comparable se indican por envase y no participan en los mínimos ni en los totales de la cesta equivalente. Las tiendas con precios guardados permanecen visibles.
+- Se aprovechan también los precios por unidad de medida guardados en las alternativas, conservando su fecha propia y sin requerir un precio por envase o un contenido fijo.
+- Una observación reciente sin contenido no oculta un precio unitario conocido de la misma alternativa; se respetan los filtros de antigüedad y moneda.
+- Sin nuevas dependencias.
+
 ## 0.54.1 — 2026-10-29
 
 - Al reprocesar un ticket revisado, «Guardar datos» conserva también el precio pagado en las alternativas de los productos vinculados, aunque no se hubiera seleccionado en la revisión original. Respeta la desactivación global de precios.

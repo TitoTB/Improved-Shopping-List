@@ -1,5 +1,13 @@
 # Historial de cambios
 
+## 0.52.1 — 2026-10-29
+
+- La reposición de Stock prioriza la cantidad recuperada o estimada del ticket, convirtiendo unidades compatibles. Si falta, utiliza la cantidad predeterminada de Stock; las correcciones manuales se conservan aunque lleguen datos adicionales durante la revisión.
+- Se aprovecha el contenido confirmado de la opción identificada y los formatos recuperados por EAN antes de proponer una cantidad. Los productos perecederos conservan su plazo de caducidad, independientemente de la cantidad repuesta.
+- Nuevo botón «Exportar mi catálogo» al principio de Ajustes → Comunidad, con una explicación a su derecha. Descarga un JSON con todos los productos, EAN y opciones comerciales, incluidos formatos y precios guardados, sin cuentas, credenciales, tickets, listas, Stock ni automatizaciones. La descarga no activa el envío comunitario.
+- Exportación disponible para administradores sin conectar GitHub, con tratamiento de errores y documentación de los datos incluidos. La participación automática para sugerencias de iconos sigue siendo independiente.
+- Sin nuevas dependencias.
+
 ## 0.52.0 — 2026-10-29
 
 - La revisión de tickets de Carrefour prioriza las cantidades explícitas del documento y propone «Cantidad estimada» cuando puede calcularlas usando el precio por unidad de medida de su opción de compra.

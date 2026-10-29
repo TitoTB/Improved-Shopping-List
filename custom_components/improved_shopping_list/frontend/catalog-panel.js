@@ -1271,7 +1271,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
         section.open=expanded.has(section.dataset.groupKey);
         section.setAttribute("aria-label",group.name);
         const items = element("div",rows ? "grid rows category-products" : "grid category-products");
-        items.append(...group.products.map(product => this._productCard(product)));
+        items.append(...group.products.map(product => this._productCard(product,this._groupBy === 'store' ? group.key : '')));
         const heading=element("h2","category-group-title");
         if(this._groupBy === "category") {
           const category=this._catalog.categories.find(category=>normalizedName(category.name)===group.key);
@@ -1294,7 +1294,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
     this._renderRecipes();
   }
 
-  _productCard(product) {
+  _productCard(product,store = '') {
     const card = element("article", "product");
     card.dataset.productId = product.id;
     const inList = this._pendingNames.has(productNameKey(product.name));
@@ -1334,7 +1334,11 @@ class ImprovedShoppingCatalog extends HTMLElement {
     top.append(title);
     if (this._productLayout === "rows") {
       const metadata = element("div","row-meta");
-      const offer = this._priceData?.enabled === false ? null : cachedProductPrice(product,this._priceData?.offers,this._priceData?.favorite);
+      const prices = this._priceData?.offers ?? [];
+      const offer = this._priceData?.enabled === false ? null : cachedProductPrice(
+        store ? {...product,price:null} : product,
+        store ? prices.filter(offer=>offer.store===store) : prices,
+        this._priceData?.favorite);
       if (offer) {
         const badge = element("span","row-price");
         badge.title = offer.store ? `Último precio guardado · ${({mercadona:"Mercadona",carrefour:"Carrefour",alcampo:"Alcampo",consum:"Consum",lasirena:"La Sirena",eroski:"Eroski",dia:"DIA",lidl:"Lidl"})[offer.store] ?? offer.store}` : "Precio manual";

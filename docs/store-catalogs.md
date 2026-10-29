@@ -18,4 +18,6 @@ En la ficha del producto → Alternativas, las referencias que comparten EAN apa
 
 Catálogo → Productos → Agrupar por tienda incluye las opciones de compra activas guardadas, también las de Alcampo. No requiere conectar una cuenta ni mantener activada la descarga de datos. Las opciones desvinculadas no generan grupos.
 
+En esa agrupación, el precio del bloque de producto corresponde únicamente a la tienda de su grupo. Si no tiene un precio registrado en esa tienda, no aparece el badge. Fuera de la agrupación por tienda se conserva la prioridad de la tienda favorita.
+
 Al recuperar manualmente una URL en Alternativas, si la web devuelve otro EAN válido, sus datos se incorporan a una alternativa independiente. Se conserva el envase original; si tenía guardado ese enlace incorrecto, se desvincula de él. Repetir la consulta reutiliza la alternativa encontrada, sin duplicarla. Los cambios se guardan al pulsar Guardar producto. Las consultas automáticas siguen exigiendo coincidencia exacta de EAN.

@@ -1247,6 +1247,22 @@ async function checkCatalogSources(browser,url,errors){
   await catalog.getByRole('dialog',{name:'Agrupar productos por',exact:true}).getByRole('button',{name:'Tienda',exact:true}).click();
   assert.deepEqual(await catalog.locator('.category-group-title').allTextContents(),['Alcampo (1)','Carrefour (1)']);
   assert.equal(await catalog.locator('.category-group[open]').count(),0);
+  await catalog.evaluate(el=>{
+    el._catalog.products[0].price=99;el._catalog.products[0].currency='EUR';
+    el.priceData={enabled:true,favorite:'carrefour',offers:[
+      {catalog_product_id:'one',store:'carrefour',price:3.75,currency:'EUR'},
+      {catalog_product_id:'one',store:'alcampo',price:2.5,currency:'EUR'}]};
+  });
+  const alcampoPrice=catalog.locator('.category-group[aria-label="Alcampo"] .row-price');
+  const carrefourPrice=catalog.locator('.category-group[aria-label="Carrefour"] .row-price');
+  assert.match(await alcampoPrice.textContent(),/2,50/);
+  assert.match(await carrefourPrice.textContent(),/3,75/);
+  await catalog.evaluate(el=>{el.priceData={...el._priceData,offers:el._priceData.offers.filter(offer=>offer.store==='carrefour')};});
+  assert.equal(await alcampoPrice.count(),0);
+  assert.match(await carrefourPrice.textContent(),/3,75/);
+  await catalog.getByRole('button',{name:'Ordenar alfabéticamente',exact:true}).click();
+  assert.match(await catalog.locator('.product .row-price').textContent(),/3,75/);
+  await catalog.getByRole('button',{name:'Agrupar por tienda',exact:true}).click();
   // Explicit options work without legacy store_links or an enabled account.
   await p.evaluate(()=>{window.listSettings.stores={alcampo:{enabled:false},carrefour:{enabled:false}};window.emitSettings();});
   assert.deepEqual(await catalog.locator('.category-group-title').allTextContents(),['Alcampo (1)','Carrefour (1)']);

@@ -301,6 +301,9 @@ async def test_new_catalog_products_include_scans_and_unique_names_and_exclude_k
     for key, names in (("todo.main", [" SEITAN ", "Arroz", "arroz", "aguacate"]), ("todo.other", ["ARROZ", "Leche"])):
         todo = env.todos[key]
         todo.todo_items = [TodoItem(uid=str(index), summary=name, status=TodoItemStatus.COMPLETED if name == "Leche" else TodoItemStatus.NEEDS_ACTION) for index, name in enumerate(names)]
+        # Navigation already observes lists while notification rules are disabled.
+        for listener in tuple(todo.listeners):
+            listener(todo.todo_items)
     env.readers.emit({"pending": [{"kind": "barcode", "code": "known"}, {"kind": "nfc", "code": "aa-bb"},
                                   {"kind": "barcode", "code": "new", "identification": {"name": "Cacao"}},
                                   {"kind": "barcode", "code": "new"}]})

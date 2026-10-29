@@ -1069,12 +1069,7 @@ async function checkReferenceFormats(browser,url,errors){
   assert.equal(await first.getByLabel('Contenido por envase',{exact:true}).inputValue(),'24');
   assert.equal(await dialog.getByLabel('Nombre del producto',{exact:true}).inputValue(),'Huevos');
   assert.match(await first.textContent(),/Último precio: 2,50/);
-  const nutritionBadge=dialog.locator('.product-option').first().locator('.option-nutriscore');
-  assert.equal(await dialog.locator('.product-option > summary .option-nutriscore').count(),0);
-  assert.equal(await first.evaluate(el=>el.lastElementChild.classList.contains('option-nutriscore')),true);
-  assert.equal(await nutritionBadge.textContent(),'A');
-  assert.equal(await nutritionBadge.evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(3, 129, 65)');
-  assert.ok(await nutritionBadge.evaluate(el=>{const r=el.getBoundingClientRect();return r.width===r.height;}));
+  assert.equal(await dialog.locator('.option-nutriscore').count(),0);
   assert.equal(await dialog.locator('#product-nutriscore').count(),0);
   assert.equal(await page.evaluate(()=>window.catalogProducts.find(p=>p.id==='eggs').commercial_references[0].last_price),undefined);
   for(const width of [320,1280]){await page.setViewportSize({width,height:960});assert.ok(await dialog.evaluate(el=>el.scrollWidth<=el.clientWidth+1));}

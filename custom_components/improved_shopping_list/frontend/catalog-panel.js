@@ -297,7 +297,6 @@ class ImprovedShoppingCatalog extends HTMLElement {
         .product-option>summary:focus-visible { outline:2px solid var(--primary-color,#267052);outline-offset:4px;border-radius:4px; }
         .option-heading { display:block;min-width:0;flex:1; }
         .option-name { font-size:14px;font-weight:650;overflow-wrap:anywhere; }
-        .option-nutriscore { display:grid;place-items:center;width:32px;height:32px;box-sizing:border-box;border-radius:4px;font-size:18px;font-weight:700;line-height:1;margin-top:12px; }
         .option-store { flex:none; }
         .product-option .option-store img { width:32px;height:32px;object-fit:contain;background:#fff;padding:3px;border-radius:8px;box-sizing:border-box; }
         .option-brand { margin-top:12px; }
@@ -1520,8 +1519,6 @@ class ImprovedShoppingCatalog extends HTMLElement {
     const offers=[...(ref.last_price?[ref.last_price]:[]),...(this._priceData?.offers??[]).filter(offer=>offer.catalog_product_id===this._editing?.id&&(offer.commercial_reference_id===ref.id||offer.store===ref.store&&(ref.ean&&offer.ean===ref.ean||ref.reference_id&&offer.reference_id===ref.reference_id)))].sort((a,b)=>(b.checked_at??0)-(a.checked_at??0));
     if(offers.length){const price=offers[0],text=element('p','helper');renderPrice=()=>{const money=value=>new Intl.NumberFormat('es-ES',{style:'currency',currency:price.currency}).format(value),rate=referenceRate(price.price,ref);text.textContent='Último precio: '+money(price.price)+' / envase';if(rate)text.textContent+=' · '+money(rate.price)+' / '+rate.unit;};renderPrice();card.append(text);}
     if(ref.measure_price){const rate=ref.measure_price;card.append(element('p','helper','Precio por unidad de medida: '+new Intl.NumberFormat('es-ES',{style:'currency',currency:'EUR',maximumFractionDigits:4}).format(rate.price)+' / '+rate.quantity+' '+rate.unit));}
-    const grade=ref.nutriscore?.grade,colors={a:['#038141','#fff'],b:['#85bb2f','#182b22'],c:['#fecb02','#182b22'],d:['#ee8100','#182b22'],e:['#e63e11','#fff']};
-    if(Object.hasOwn(colors,grade)){const badge=element('span','option-nutriscore',grade.toUpperCase());badge.style.backgroundColor=colors[grade][0];badge.style.color=colors[grade][1];badge.setAttribute('aria-label',`Nutri-Score ${grade.toUpperCase()}`);badge.title=`Nutri-Score ${grade.toUpperCase()}`;card.append(badge);}
     return card;
   }
 

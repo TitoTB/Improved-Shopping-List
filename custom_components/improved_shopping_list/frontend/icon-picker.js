@@ -65,7 +65,7 @@ class ImprovedShoppingIconPicker extends HTMLElement {
         .helper,.attribution{font-size:12px;line-height:1.5;color:var(--secondary-text-color,#63766b)}a{color:var(--primary-color,#267052)}
         #results{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;margin:14px 0;container-type:inline-size}.option{min-width:0;min-height:0;width:100%;padding:clamp(2px,1cqi,6px);display:flex;align-items:center;justify-content:center;aspect-ratio:1;overflow:hidden}.option img{width:min(56px,100%);height:auto;max-height:100%;aspect-ratio:1;object-fit:contain}.option[aria-pressed=true]{border:2px solid var(--primary-color,#267052)}
         #status{font-size:13px}#status.error{color:var(--error-color,#bd3636)}
-        #selected{display:flex;align-items:center;gap:12px;margin-top:12px}#selected img{width:48px;height:48px;object-fit:contain;flex-shrink:0}
+        #selected{margin-top:12px}
         @media(max-width:400px){#results{gap:4px}}
       </style>
       <section aria-label="Iconos sugeridos">
@@ -219,12 +219,9 @@ class ImprovedShoppingIconPicker extends HTMLElement {
     selected.replaceChildren();
     selected.hidden = !info;
     if (!info) return;
-    const image = node("img");
-    image.src = info.url;
-    image.alt = "Icono seleccionado";
     const text = node("div", undefined, "attribution");
-    text.append(link(info.collection, info.source_url), node("span", " · "), link(info.author, info.author_url), node("span", " · "), link(info.license, info.license_url));
-    selected.append(image, text);
+    text.append(document.createTextNode("Fuente: "), link(info.collection, info.source_url));
+    selected.append(text);
   }
 }
 

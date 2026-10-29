@@ -38,9 +38,12 @@ def quantity_value(value, *, positive=False):
 def stock_config(data):
     fields = {"quantity","unit","mode","days","refill_quantity","reorder_enabled","reorder_at",
         "list_entity","usage_entity","usage_state","usage_amount"}
-    if not isinstance(data, dict) or set(data) - {"reorder_percent"} != fields:
+    if not isinstance(data, dict) or set(data) - {"reorder_percent","quantity_changed"} != fields:
         raise CatalogError("La configuración de Stock no es válida.")
+    if "quantity_changed" in data and type(data["quantity_changed"]) is not bool:
+        raise CatalogError("La edición de la cantidad no es válida.")
     result = deepcopy(data)
+    result.pop("quantity_changed",None)
     result["reorder_percent"] = quantity_value(data.get("reorder_percent",0))
     if result["reorder_percent"] > 100:
         raise CatalogError("El porcentaje mínimo debe estar entre 0 y 100.")
@@ -67,13 +70,34 @@ def stock_config(data):
     return result
 
 
+def remaining_quantity(item, now=None):
+    """Estimate a perishable linearly from its last quantity observation to expiry."""
+    quantity=item.get("quantity",0)
+    if item.get("mode")!="perishable":
+        return quantity
+    if quantity<=0 or item.get("expired"):
+        return 0
+    now=time.time() if now is None else now
+    end=item.get("expires_at",0)
+    if not end:
+        return quantity
+    start=item.get("quantity_at") or end-item.get("days",7)*DAY
+    if end<=now or end<=start:
+        return 0
+    return round(quantity*max(0,min(1,(end-now)/(end-start))),3)
+
+
+def materialized_stock(item, now=None):
+    now=time.time() if now is None else now
+    result=deepcopy(item)
+    if item.get("mode")=="perishable":
+        result.update(quantity=remaining_quantity(item,now),quantity_at=now)
+    return result
+
+
 def remaining_percentage(item, now=None):
-    """Stock as a fraction of one refill; expiry independently invalidates it."""
-    if item.get("quantity",0) <= 0 or item.get("expired"):
-        return 0
-    if item.get("expires_at") and item["expires_at"] <= (time.time() if now is None else now):
-        return 0
-    return max(0,min(100,item["quantity"] / item.get("refill_quantity",1) * 100))
+    """Use exactly the same remaining quantity as the UI and mutations."""
+    return max(0,min(100,remaining_quantity(item,now)/item.get("refill_quantity",1)*100))
 
 
 def stock_needs_reorder(item, now=None):
@@ -131,6 +155,8 @@ class StockManager:
         try:
             for item in items.values():
                 merged = {**DEFAULT_CONFIG, **item}
+                if type(merged.get("quantity_at",0)) not in (int,float) or not 0 <= merged.get("quantity_at",0) <= 100000000000:
+                    raise CatalogError("La fecha de stock no es válida.")
                 stock_config({field:merged[field] for field in ("quantity","unit","mode","days","refill_quantity",
                     "reorder_enabled","reorder_at","reorder_percent","list_entity","usage_entity","usage_state","usage_amount")})
         except CatalogError as err:
@@ -168,9 +194,10 @@ class StockManager:
     @property
     def snapshot(self):
         items = []
+        now=time.time()
         for item in self._items.values():
             product = self._product(item)
-            items.append({**deepcopy(item), "name":product["name"] if product else item["name"],
+            items.append({**materialized_stock(item,now), "name":product["name"] if product else item["name"],
                 "catalog_product_id":product["id"] if product else ""})
         return {"items":sorted(items, key=lambda item: normalized_name(item["name"])), "receipt_stores":self.receipt_stores}
 
@@ -222,6 +249,7 @@ class StockManager:
         current = self._items.get(item_id) if item_id else next((item for item in self._items.values()
             if product_id and item.get("catalog_product_id") == product_id
             or normalized_name((self._product(item) or item)["name"]) == normalized_name(name)), None)
+        current=materialized_stock(current) if current else None
         before = current["quantity"] if current else 0
         quantity = quantity_value(round(max(0, before + delta),3))
         if quantity > MAX_QUANTITY:
@@ -242,12 +270,16 @@ class StockManager:
             current = self._items.get(item_id)
             if current is None or type(revision) is not int or current["revision"] != revision:
                 raise CatalogError("El stock ha cambiado. Cierra y vuelve a abrir la ficha para actualizarla.", "conflict")
-            item = {**deepcopy(current), **config, "configured":True,
+            quantity_changed=data.get("quantity_changed",current["quantity"]!=config["quantity"])
+            item = {**materialized_stock(current), **config, "configured":True,
                 "config_revision":current.get("config_revision",0)+1, "revision":revision+1}
+            if not quantity_changed:
+                item["quantity"]=remaining_quantity(current)
+            item["quantity_at"]=time.time()
             if config["mode"] != "perishable":
                 item.update(expires_at=0,expired=False)
             elif (current.get("mode") != "perishable" or current.get("days") != config["days"]
-                or current["quantity"] != config["quantity"]):
+                or quantity_changed):
                 item.update(expires_at=time.time()+config["days"]*DAY,expired=False)
             if ((current.get("mode") == "perishable") != (config["mode"] == "perishable")
                 or config["mode"] == "perishable" and current.get("days") != config["days"]):
@@ -289,7 +321,7 @@ class StockManager:
             list_purchase = action == "purchase" and "purchase_quantity" in (event or {})
             if not current or not (current.get("configured") or list_purchase) or current.get("config_revision") != config_revision or not self.recurrence_ready(current):
                 return None
-            item = deepcopy(current)
+            item = materialized_stock(current)
             receipts = deepcopy(self.receipts)
             before = item["quantity"]
             if action == "purchase":

@@ -16,7 +16,7 @@ from .catalog import CatalogError, normalized_name, product_codes
 from .receipt_parser import MAX_PDF_BYTES, extract_receipt, extract_carrefour_account_ticket
 from .dia_receipts import extract_dia_account_ticket, reference_id
 from .lidl_receipts import extract_lidl_ticket
-from .stock import DAY, DEFAULT_CONFIG, quantity_value
+from .stock import DAY, DEFAULT_CONFIG, quantity_value, materialized_stock
 from .store_links import STORES
 from .quantity_values import purchase_defaults
 
@@ -561,6 +561,7 @@ class ReceiptManager:
                 for item_id, group in groups.items():
                     if any(event[0] == item_id and event[2] == "purchase" for event in getattr(self.automation,"_events",())):
                         raise CatalogError("Se acaba de registrar una compra de este producto. Vuelve a subir el ticket para conciliarla.", "conflict")
+                    items[item_id]=materialized_stock(items[item_id])
                     item, quantity = items[item_id], group["quantity"]
                     previous = data["purchases"].get(group["purchase_id"]) if group["purchase_id"] else None
                     if group["purchase_id"] and (not previous or previous["item_id"] != item_id or previous.get("receipt_id") or previous.get("unit") != item["unit"]):

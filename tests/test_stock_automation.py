@@ -155,7 +155,8 @@ async def test_perishable_percentage_reorders_before_expiry_and_survives_restart
         reorder_percent=25,list_entity="todo.main",refill_quantity=250))
     assert stock_module.remaining_percentage(item,env.clock[0]) == 100
     env.clock[0] += 2*DAY
-    assert stock_module.remaining_percentage(item,env.clock[0]) == 100
+    assert stock_module.remaining_percentage(item,env.clock[0]) == 50
+    assert env.stock.snapshot["items"][0]["quantity"] == 125
     await env.manager.async_check()
     assert env.calls == []  # The manual quantity threshold is irrelevant for perishables.
     item=await env.stock.async_save(item["id"],item["revision"],config(item,quantity=20,reorder_percent=25))

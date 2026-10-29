@@ -2996,11 +2996,11 @@ async function main() {
     assert.equal(await stockPage.getByRole('button',{name:'Ordenar alfabéticamente',exact:true}).isVisible(),true);
     assert.equal(await stockCard.getByRole('progressbar',{name:'Stock restante'}).getAttribute('aria-valuenow'),'0');
     await stockCard.getByRole('button',{name:'Configurar stock de Cacao',exact:true}).click();
-    await stockForm.getByRole('button',{name:'Eliminar producto del stock',exact:true}).click();
+    await stockForm.getByRole('button',{name:'Eliminar',exact:true}).click();
     const stockDelete=stockPage.getByRole('dialog',{name:'Eliminar de Stock',exact:true});
     await stockDelete.getByRole('button',{name:'Cancelar',exact:true}).click();
     assert.equal(await stockPage.locator('#stock-items li').count(),2);
-    await stockForm.getByRole('button',{name:'Eliminar producto del stock',exact:true}).click();
+    await stockForm.getByRole('button',{name:'Eliminar',exact:true}).click();
     await stockDelete.getByRole('button',{name:'Eliminar producto',exact:true}).click();
     await stockCard.waitFor({state:'hidden'});await stockEditor.waitFor({state:'hidden'});
     assert.equal(await stockPage.evaluate(()=>window.catalogProducts.length),1);
@@ -3428,10 +3428,10 @@ async function main() {
     await iconPage.screenshot({path:"test-results/icon-picker-mobile.png",fullPage:true});
     assert.equal(await pickerDialog.evaluate(dialog=>dialog.scrollWidth<=dialog.clientWidth),true);
     await pickerDialog.getByRole("button",{name:"Elegir Milk 1 (Fluent Emoji Flat)",exact:true}).click();
-    await picker.getByRole("link",{name:"MIT",exact:true}).waitFor();
+    await picker.getByRole("link",{name:"Tabler Icons",exact:true}).waitFor();
     assert.equal(await picker.locator("button.option").count(),6);
     assert.equal(await iconForm.getByLabel("URL Imagen/Icono",{exact:true}).inputValue(),"/improved_shopping_list_icons/fixture.svg");
-    await picker.getByRole("link",{name:"MIT",exact:true}).waitFor();
+    await picker.getByRole("link",{name:"Tabler Icons",exact:true}).waitFor();
     assert.equal(await iconPage.evaluate(()=>window.catalogProducts.length),0);
     await iconForm.getByRole("button",{name:"Guardar producto",exact:true}).click();
     await iconCatalog.getByRole("heading",{name:"Leche",exact:true}).waitFor();
@@ -3445,7 +3445,7 @@ async function main() {
     await iconPage.getByRole("button",{name:"Catálogo",exact:true}).click();
     await editCatalogProduct(iconCatalog,"Editar Leche");
     const editIconForm = iconCatalog.getByRole("dialog",{name:"Editar producto",exact:true});
-    await picker.getByRole("link",{name:"MIT",exact:true}).waitFor();
+    await picker.getByRole("link",{name:"Tabler Icons",exact:true}).waitFor();
     assert.equal(await editIconForm.getByLabel("URL Imagen/Icono",{exact:true}).inputValue(),savedIconProduct.image_url);
     await pickerDialog.getByRole("button",{name:"Elegir Milk 1 (Fluent Emoji Flat)",exact:true}).waitFor();
     assert.equal(await iconPage.evaluate(()=>window.iconCalls?.length??0),1);

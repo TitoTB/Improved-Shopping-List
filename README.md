@@ -303,7 +303,7 @@ pide confirmación y conserva catálogo y listas. Los productos con cero permane
 
 Hay tres tipos de control: **Manual / lectores**, **Perecedero** y **Consumo
 registrado en Home Assistant**. Los perecederos pasan a cero cuando se cumplen
-los días desde la última compra y se añaden a la lista aunque quedase stock. Su fondo muestra la cantidad actual como porcentaje de la reposición configurada: 20 g de 250 g son un 8 %. El indicador está limitado al 100 % y cambia de naranja a rojizo al bajar. El umbral opcional de reposición usa ese mismo porcentaje; en los otros modos se expresa en unidades. La caducidad es independiente del porcentaje y pone el stock a cero al vencer el plazo.
+los días desde la última compra y se añaden a la lista aunque quedase stock. La cantidad estimada disminuye proporcionalmente con el tiempo restante hasta caducar. Por ejemplo, 250 g para siete días pasan a unos 214,286 g tras un día. La cantidad, el porcentaje y la barra usan el mismo cálculo: 20 g de 250 g son un 8 %. El indicador está limitado al 100 % y cambia de naranja a rojizo al bajar. El umbral opcional de reposición usa ese mismo porcentaje; en los otros modos se expresa en unidades. Al vencer el plazo la cantidad y el porcentaje llegan a cero. El cálculo se conserva entre reinicios; guardar otros ajustes no reinicia el plazo ni resta stock dos veces.
 El consumo registrado también muestra una barra de progreso tomando la cantidad de reposición como el 100 %. Descuenta la cantidad indicada cada vez que una entidad
 entra en el estado configurado, por ejemplo al pasar una lavadora a `on`.
 Las actualizaciones de atributos, el arranque y la recuperación desde

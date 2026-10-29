@@ -21,11 +21,16 @@ const STORE_LOGOS = {
 };
 const STORE_NAMES = {mercadona:"Mercadona",carrefour:"Carrefour",alcampo:"Alcampo",consum:"Consum",lasirena:"La Sirena",eroski:"Eroski",dia:"DIA",lidl:"Lidl"};
 const searchText = value => normalizedName(value).normalize("NFD").replace(/\p{M}/gu, "");
-const stockRemaining = (item, now=Date.now()/1000) => {
-  if (item.quantity <= 0 || item.expired) return 0;
-  if (item.expires_at && item.expires_at <= now) return 0;
-  return Math.max(0,Math.min(100,item.quantity/(item.refill_quantity??1)*100));
+const stockQuantity = (item, now=Date.now()/1000) => {
+  if(item.mode!=='perishable')return item.quantity;
+  if(item.quantity<=0||item.expired)return 0;
+  if(!item.expires_at)return item.quantity;
+  const start=item.quantity_at||item.expires_at-(item.days??7)*86400;
+  if(item.expires_at<=now||item.expires_at<=start)return 0;
+  return Math.round(item.quantity*Math.max(0,Math.min(1,(item.expires_at-now)/(item.expires_at-start)))*1000)/1000;
 };
+const stockRemaining = (item, now=Date.now()/1000) => Math.max(0,Math.min(100,stockQuantity(item,now)/(item.refill_quantity??1)*100));
+
 
 class ImprovedShoppingListPanel extends HTMLElement {
   constructor() {
@@ -427,7 +432,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
               <label id="stock-threshold-label" hidden><span id="stock-threshold-title">Stock mínimo</span><input name="reorder_at" type="number" min="0" max="1000000" step="0.001" required></label>
             </div>
             <label id="stock-target-label" class="wide">Lista para reponer<select name="list_entity" aria-label="Lista para reponer"></select></label>
-          </div><div class="dialog-actions"><button id="delete-stock-from-editor" type="button">Eliminar producto del stock</button><button id="save-stock-config" type="submit">Guardar</button></div></form>
+          </div><div class="dialog-actions"><button id="delete-stock-from-editor" type="button">Eliminar</button><button id="save-stock-config" type="submit">Guardar</button></div></form>
         </dialog>
         <dialog id="stock-remove-dialog" aria-labelledby="stock-remove-title"><h2 id="stock-remove-title">Eliminar de Stock</h2><p id="stock-remove-description"></p><p id="stock-remove-error" class="notice error" role="alert" hidden></p><div class="dialog-actions"><button id="cancel-stock-remove" type="button">Cancelar</button><button id="confirm-stock-remove" type="button">Eliminar producto</button></div></dialog>
         <isl-catalog hidden></isl-catalog>
@@ -832,8 +837,8 @@ class ImprovedShoppingListPanel extends HTMLElement {
         const glyph=node("ha-icon");glyph.setAttribute("icon",mdi);glyph.setAttribute("aria-hidden","true");result.append(glyph);result.addEventListener("click",callback);return result;
       };
       const quantity=node("span","stock-quantity");
-      quantity.append(node("strong","stock-amount",new Intl.NumberFormat('es-ES',{maximumFractionDigits:3}).format(item.quantity)+' '+(item.unit??'uds')),document.createTextNode(' '));
-      quantity.setAttribute('aria-label',`Stock de ${item.name}: ${item.quantity} ${item.unit??'uds'}`);
+      quantity.append(node("strong","stock-amount",new Intl.NumberFormat('es-ES',{maximumFractionDigits:3}).format(stockQuantity(item,now))+' '+(item.unit??'uds')),document.createTextNode(' '));
+      quantity.setAttribute('aria-label',`Stock de ${item.name}: ${stockQuantity(item,now)} ${item.unit??'uds'}`);
       const life=node('span','stock-life',`(${Math.round(percent)}%)`);
       if(progress){
         life.setAttribute('role','progressbar');life.setAttribute('aria-label','Stock restante');
@@ -843,8 +848,8 @@ class ImprovedShoppingListPanel extends HTMLElement {
       open.append(media,text,quantity);card.append(open);
       if(this._stockLayout==='rows'){
         const controls=node('div','stock-controls');
-        controls.append(button('decrease','mdi:minus',`Quitar una unidad de ${item.name}`,locked||item.quantity===0,()=>void this._runAction(()=>this._stock.adjust(item,-1),'Stock actualizado.')),
-          button('increase','mdi:plus',`Añadir una unidad de ${item.name}`,locked||item.quantity>=1000000,()=>void this._runAction(()=>this._stock.adjust(item,1),'Stock actualizado.')));
+        controls.append(button('decrease','mdi:minus',`Quitar una unidad de ${item.name}`,locked||stockQuantity(item,now)===0,()=>void this._runAction(()=>this._stock.adjust(item,-1),'Stock actualizado.')),
+          button('increase','mdi:plus',`Añadir una unidad de ${item.name}`,locked||stockQuantity(item,now)>=1000000,()=>void this._runAction(()=>this._stock.adjust(item,1),'Stock actualizado.')));
         card.append(controls);
       }
       li.append(card);return li;
@@ -858,9 +863,9 @@ class ImprovedShoppingListPanel extends HTMLElement {
 
   _openStockEditor(item) {
     const root=this.shadowRoot, form=root.querySelector('#stock-editor-form');
-    this._stockEditing={...item};
+    this._stockEditing={...item,quantity:stockQuantity(item)};
     const defaults={unit:'uds',mode:'manual',days:7,refill_quantity:1,reorder_enabled:false,reorder_at:0,usage_entity:'',usage_state:'',usage_amount:1};
-    const config={...defaults,...item};
+    const config={...defaults,...this._stockEditing};
     this._stockDraftMinimum=config.reorder_at;this._stockDraftPercent=config.reorder_percent??0;this._stockDraftMode=config.mode;
     for(const key of ['quantity','mode','days','refill_quantity','reorder_at','usage_entity','usage_state','usage_amount'])form.elements[key].value=config[key];
     if(config.mode === 'perishable')form.elements.reorder_at.value=this._stockDraftPercent;
@@ -898,7 +903,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
     const root=this.shadowRoot,form=root.querySelector('#stock-editor-form');
     if(!form.reportValidity())return;
     const value=key=>form.elements[key].value;
-    const config={quantity:Number(value('quantity')),unit:value('unit')==='custom'?value('custom_unit').trim():value('unit'),
+    const config={quantity:Number(value('quantity')),quantity_changed:Number(value('quantity'))!==this._stockEditing.quantity,unit:value('unit')==='custom'?value('custom_unit').trim():value('unit'),
       mode:value('mode'),days:Number(value('days')),refill_quantity:Number(value('refill_quantity')),
       reorder_enabled:form.elements.reorder_enabled.checked,
       reorder_at:value('mode') === 'perishable' ? this._stockDraftMinimum : Number(value('reorder_at')),

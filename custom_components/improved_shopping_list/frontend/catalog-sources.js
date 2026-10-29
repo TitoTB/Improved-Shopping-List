@@ -47,7 +47,8 @@ class CatalogSourcesPanel extends HTMLElement {
     root.querySelector('#current').textContent=s.current??'';
     const seconds=Math.max(0,Math.ceil((s.phase==='paused'?s.retry_at:s.next_request??0)-Date.now()/1000));
     root.querySelector('#wait').textContent=seconds&&(s.phase==='waiting'||s.phase==='paused')?`${s.phase==='paused'?'Consultas pausadas':'Siguiente petición'}: ${Math.floor(seconds/60)} min ${seconds%60} s`:(s.running?'Las consultas continúan en Home Assistant aunque cierres este popup.':'');
-    root.querySelector('#issues').replaceChildren(...(s.errors??[]).map(item=>{const p=document.createElement('p');p.textContent=[item.product,item.message].filter(Boolean).join(': ');return p;}));
+    const issues=[...(s.errors??[]),...(this._error?[{message:this._error}]:[])];
+    root.querySelector('#issues').replaceChildren(...issues.map(item=>{const p=document.createElement('p');p.textContent=[item.product,item.message].filter(Boolean).join(': ');return p;}));
   }
 }
 if(!customElements.get('isl-catalog-sources'))customElements.define('isl-catalog-sources',CatalogSourcesPanel);

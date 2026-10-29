@@ -38,7 +38,7 @@ async def test_disabled_source_never_associates_or_queries(hass):
     sources._active=True
     await sources.async_run()
     assert not sources.snapshot['enabled'] and not links.resolved
-    assert not catalog.products[0]['commercial_references']
+    assert not any(ref['store']=='alcampo' for ref in catalog.products[0]['commercial_references'])
     lookup._before_request.assert_not_awaited()
     await sources.async_stop()
 

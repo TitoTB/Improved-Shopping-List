@@ -2326,7 +2326,7 @@ async function main() {
       assert.ok(geometry.difference<2,'Store name and logo are vertically centered');
       assert.ok(geometry.overflow<=1,'Store controls fit the mobile card');
     }
-    assert.match(await settingsView.locator('img[alt="Logo de Alcampo"]').getAttribute('src'),/almeria.online/);
+    assert.match(await settingsView.locator('.stores-grid img[alt="Logo de Alcampo"]').getAttribute('src'),/almeria.online/);
     assert.equal(await settingsView.locator('.stores-grid').evaluate(node=>getComputedStyle(node).gridTemplateColumns.split(' ').length),1);
     assert.match(await settingsView.locator('.stores-footer').textContent(),/Última actualización: 20\/10 20:35/);
     assert.equal(await settingsView.locator('.stores-footer').evaluate(node=>getComputedStyle(node).textAlign),'right');

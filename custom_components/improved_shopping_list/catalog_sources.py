@@ -141,6 +141,8 @@ class CatalogSources:
     async def async_run(self):
         if not self._active or not self._data["enabled"]:
             return
+        if self._timer:
+            self._timer(); self._timer = None
         self._status.update(running=True,phase="preparing",errors=[],current="")
         self._notify()
         try:
@@ -153,8 +155,14 @@ class CatalogSources:
             if not self._active or not self._data["enabled"]:
                 return
             await self.catalog.async_apply_ean_links(links)
+            reused = 0
+            for key,link in links.items():
+                code = key.rsplit(":",1)[-1]
+                saved = self._data["attempts"].get(code+":"+link["id"],{})
+                if saved.get("success") and isinstance(saved.get("data"),dict):
+                    reused += await self.catalog.async_complete_store_option("alcampo",code,link,saved["data"])
             pending = self._pending(links)
-            self._status.update(total=len(pending),processed=0,updated=0)
+            self._status.update(total=len(pending),processed=0,updated=reused)
             self._notify()
             for identity,code,link,name in pending:
                 if not self._active or not self._data["enabled"]:
@@ -163,6 +171,7 @@ class CatalogSources:
                 success = False
                 try:
                     data = await self.lookup.retrieve(link["url"],"alcampo",code,before_request=self._before_request)
+                    data.setdefault("checked_at",int(time.time()))
                     if not self._active or not self._data["enabled"]:
                         break
                     if data.get("store") != "alcampo" or data.get("reference_id") != link["id"]:
@@ -179,7 +188,7 @@ class CatalogSources:
                     blocked = max(0,self.lookup._blocked_until.get("alcampo",0)-time.monotonic())
                     if blocked:
                         self._data["retry_at"] = time.time()+blocked
-                self._data["attempts"][identity] = {"at":time.time(),"success":success}
+                self._data["attempts"][identity] = {"at":time.time(),"success":success,**({"data":deepcopy(data)} if success else {})}
                 self._status["processed"] += 1
                 await self._store.async_save(deepcopy(self._data)); self._notify()
                 if self._data["retry_at"] > time.time():

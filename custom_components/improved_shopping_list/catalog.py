@@ -374,6 +374,7 @@ class Catalog:
         from .store_links import normalize_link
         from .price_sources import amount
         link = normalize_link(store, link)
+        checked_at = int(data.get("checked_at",time.time()))
         changed = 0
         async with self._lock:
             products = deepcopy(self._products)
@@ -401,9 +402,10 @@ class Catalog:
                     if not ref.get("nutriscore") and known_nutrition:
                         grade = known_nutrition.get("grade") if isinstance(known_nutrition,dict) else known_nutrition
                         if grade in tuple("abcde"):
-                            ref["nutriscore"] = {"grade":grade,"checked_at":int(time.time())}
+                            ref["nutriscore"] = {"grade":grade,"checked_at":known_nutrition.get("checked_at",checked_at) if isinstance(known_nutrition,dict) else checked_at}
                 if data.get("price") is not None and data.get("currency") == "EUR":
-                    target["last_price"] = {"price":float(amount(data["price"])),"currency":"EUR","checked_at":int(time.time())}
+                    if checked_at >= target.get("last_price",{}).get("checked_at",0):
+                        target["last_price"] = {"price":float(amount(data["price"])),"currency":"EUR","checked_at":checked_at}
                 if not target.get("measure_price") and data.get("measure_price"):
                     target["measure_price"] = data["measure_price"]
                 validated = normalized_references(refs)

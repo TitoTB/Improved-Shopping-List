@@ -376,8 +376,8 @@ class ImprovedShoppingListPanel extends HTMLElement {
         .section-nav ha-icon { --mdc-icon-size:20px; width:20px; height:20px; flex:none; }
         @media(max-width:540px) { main { padding:26px 14px 40px; } .card { padding:18px 16px; border-radius:14px; } .primary { padding:10px 14px; } }
         .stock-item { min-height:132px; background:linear-gradient(var(--isl-stock-gradient-start,#f59a23),var(--isl-stock-gradient-end,#c65b0c)); color:#fff; border:0; padding:clamp(4px,4cqi,20px); }
-        .stock-item.stock-progress { isolation:isolate; background:linear-gradient(#0005,#0005),linear-gradient(var(--isl-stock-gradient-start,#f59a23),var(--isl-stock-gradient-end,#c65b0c)); }
-        .stock-item.stock-progress::before { content:""; position:absolute; inset:0; width:var(--stock-remaining); background:linear-gradient(color-mix(in srgb,var(--isl-stock-gradient-start,#f59a23) var(--stock-remaining),#d32f2f),color-mix(in srgb,var(--isl-stock-gradient-end,#c65b0c) var(--stock-remaining),#b52a27)); pointer-events:none; z-index:-1; }
+        .stock-item.stock-progress { --stock-progress-start:color-mix(in srgb,var(--isl-stock-gradient-start,#f59a23) var(--stock-remaining),#d32f2f); --stock-progress-end:color-mix(in srgb,var(--isl-stock-gradient-end,#c65b0c) var(--stock-remaining),#b52a27); isolation:isolate; background:linear-gradient(#0005,#0005),linear-gradient(var(--stock-progress-start),var(--stock-progress-end)); }
+        .stock-item.stock-progress::before { content:""; position:absolute; inset:0; width:var(--stock-remaining); background:linear-gradient(var(--stock-progress-start),var(--stock-progress-end)); pointer-events:none; z-index:-1; }
         .stock-life { display:inline; font-weight:400; opacity:.5; white-space:nowrap; }
         .stock-amount { font-weight:750; }
         .stock-item .placeholder { color:inherit; }.stock-item .product-media { width:clamp(18px,26cqi,144px); }

@@ -39,7 +39,7 @@ class ImprovedShoppingSettings extends HTMLElement {
     }
   }
 
-  set active(value) { this._active = Boolean(value); if(!this._active){this.shadowRoot.querySelector("#lidl-dialog")?.close();this.shadowRoot.querySelector("isl-lidl-account")?.deactivate();this.shadowRoot.querySelector('#community-authorization')?.close();this.shadowRoot.querySelector('#carrefour-dialog')?.close();this.shadowRoot.querySelector('isl-carrefour-account')?.deactivate();this.shadowRoot.querySelector('#dia-dialog')?.close();this.shadowRoot.querySelector('isl-dia-prices-settings')?.deactivate();} this._syncLogs(); this._syncReaders(); }
+  set active(value) { this._active = Boolean(value); if(!this._active){this.shadowRoot.querySelector("#lidl-dialog")?.close();this.shadowRoot.querySelector("isl-lidl-account")?.deactivate();this.shadowRoot.querySelector('#carrefour-dialog')?.close();this.shadowRoot.querySelector('isl-carrefour-account')?.deactivate();this.shadowRoot.querySelector('#dia-dialog')?.close();this.shadowRoot.querySelector('isl-dia-prices-settings')?.deactivate();} this._syncLogs(); this._syncReaders(); }
 
   _syncReaders() {
     const readers=this.shadowRoot.querySelector('isl-readers');
@@ -71,8 +71,6 @@ class ImprovedShoppingSettings extends HTMLElement {
     this.shadowRoot.querySelector("#prices-progress-dialog")?.close();
     this.shadowRoot.querySelector("#price-schedule-dialog")?.close();
     this._priceStatusToken = null; this._priceStatusConnection = null; this._stopPriceStatus?.(); this._stopPriceStatus = null;
-    clearTimeout(this._communityTimer); this._communityGeneration = (this._communityGeneration || 0) + 1;
-    this.shadowRoot.querySelector('#community-authorization')?.close();
     this._productsLoading = false; this._productsGeneration = (this._productsGeneration || 0) + 1;
     this._carrefourGeneration = (this._carrefourGeneration || 0) + 1; this._carrefourLoading = false; this._alcampoGeneration = (this._alcampoGeneration || 0) + 1;
     this.shadowRoot.querySelector("#alcampo-dialog")?.close(); this.shadowRoot.querySelector("#carrefour-dialog")?.close(); this.shadowRoot.querySelector("#store-dialog")?.close();
@@ -171,9 +169,6 @@ class ImprovedShoppingSettings extends HTMLElement {
         .community-export { display:flex; align-items:center; gap:24px; }
         .community-export p { flex:1; min-width:0; }
         .community-action { display:inline-flex; align-items:center; justify-content:flex-start; gap:8px; flex:0 0 240px; width:240px; max-width:100%; min-height:46px; padding:10px 14px; border:0; border-radius:10px; text-decoration:none; text-align:left; font:inherit; }
-        .community-share { cursor:pointer; align-self:center; }
-        .community-share input { width:16px; height:16px; min-height:16px; flex:none; margin:0; padding:0; accent-color:var(--isl-green,#267052); }
-        .community-share:has(input:disabled) { opacity:.6; cursor:default; }
         .community-action svg { width:16px; height:16px; flex:none; fill:currentColor; }
         #settings-community a { color:var(--primary-color,#267052); }
         #settings-community .community-join { background:#0088cc; color:#fff; }
@@ -300,28 +295,10 @@ class ImprovedShoppingSettings extends HTMLElement {
       <section id="settings-community" class="card" aria-labelledby="settings-community-title" hidden>
         <h2 id="settings-community-title">Comunidad</h2>
         <div class="community-export">
+          <p id="catalog-export-description">Descarga un archivo JSON con todos los productos de tu catálogo: nombres, traducciones, categorías, iconos o enlaces públicos de imágenes, EAN y opciones de compra con tiendas, URL, marcas, formatos y precios guardados. Puedes compartirlo con Aguacatec para completar el diccionario de productos.</p>
           <button id="export-catalog" class="primary community-action" type="button" aria-describedby="catalog-export-description"><svg viewBox="0 0 512 512" aria-hidden="true"><path d="M256 0c17.7 0 32 14.3 32 32v242.7l73.4-73.4c12.5-12.5 32.8-12.5 45.3 0s12.5 32.8 0 45.3l-128 128c-12.5 12.5-32.8 12.5-45.3 0l-128-128c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l73.3 73.4V32c0-17.7 14.3-32 32-32zM64 352v96h384v-96h64v112c0 26.5-21.5 48-48 48H48c-26.5 0-48-21.5-48-48V352h64z"/></svg>Exportar mi catálogo</button>
-          <p id="catalog-export-description">Descarga un archivo JSON con todos los productos de tu catálogo: nombres, traducciones, categorías, iconos o enlaces públicos de imágenes, EAN y opciones de compra con tiendas, URL, marcas, formatos y precios guardados. Puedes compartirlo con Aguacatec para completar el diccionario de productos. Solo se comparte si envías el archivo; no incluye cuentas, credenciales, tickets, listas, Stock ni automatizaciones. Las imágenes locales no se incluyen.</p>
         </div>
         <p id="catalog-export-error" class="notice error" role="alert" hidden></p>
-        <div class="community-export">
-          <p id="community-description">El diccionario comunitario propone iconos para tus productos. Activa esta opción y autoriza GitHub para compartir los nombres, traducciones e iconos con licencia comprobable de tu catálogo una vez al día en el <a href="https://github.com/TitoTB/Improved-Shopping-List" target="_blank" rel="noopener noreferrer">repositorio de GitHub</a>. Las aportaciones son públicas, están asociadas a tu cuenta y se validan automáticamente. No se comparten precios, EAN, referencias de tiendas, tickets, facturas, listas, stock ni automatizaciones.</p>
-          <label class="primary community-action community-share"><input id="community-sharing" type="checkbox" aria-describedby="community-description"><span>Compartir mis datos de productos</span></label>
-        </div>
-        <div class="community-sharing">
-          <p id="community-connection" role="status"></p>
-          <dialog id="community-authorization" aria-labelledby="community-auth-title">
-            <h2 id="community-auth-title">Autorizar en GitHub</h2>
-            <p id="community-auth-status" role="status"></p>
-            <div id="community-auth-fields" hidden>
-              <p>Introduce este código en GitHub: <strong id="community-user-code"></strong></p>
-              <p>Confirma la autorización de la aplicación en GitHub. La espera no se completa sola: después de autorizarla, Home Assistant lo detectará y enviará el catálogo si corresponde.</p>
-              <p>GitHub se abre en otra pestaña. Si tu navegador lo ha bloqueado o necesitas abrirlo de nuevo:</p>
-              <a href="https://github.com/login/device" target="_blank" rel="noopener noreferrer">Autorizar en GitHub</a>
-            </div>
-          </dialog>
-          <button id="community-connect" type="button" hidden>Conectar con GitHub</button>
-        </div>
         <div class="community-export"><p>Este proyecto ha sido desarrollado por la <a href="https://t.me/aguacatec_es/3" target="_blank" rel="noopener noreferrer">comunidad de Aguacatec</a>. Si tienes cualquier duda o sugerencia para mejorar la integración puedes unirte a través de Telegram.</p><a class="community-action community-join" href="https://t.me/aguacatec_es/3" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 496 512" aria-hidden="true" focusable="false"><!--! Font Awesome Free 6.7.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2024 Fonticons, Inc. --><path d="M248,8C111.033,8,0,119.033,0,256S111.033,504,248,504,496,392.967,496,256,384.967,8,248,8ZM362.952,176.66c-3.732,39.215-19.881,134.378-28.1,178.3-3.476,18.584-10.322,24.816-16.948,25.425-14.4,1.326-25.338-9.517-39.287-18.661-21.827-14.308-34.158-23.215-55.346-37.177-24.485-16.135-8.612-25,5.342-39.5,3.652-3.793,67.107-61.51,68.335-66.746.153-.655.3-3.1-1.154-4.384s-3.59-.849-5.135-.5q-3.283.746-104.608,69.142-14.845,10.194-26.894,9.934c-8.855-.191-25.888-5.006-38.551-9.123-15.531-5.048-27.875-7.717-26.8-16.291q.84-6.7,18.45-13.7,108.446-47.248,144.628-62.3c68.872-28.647,83.183-33.623,92.511-33.789,2.052-.034,6.639.474,9.61,2.885a10.452,10.452,0,0,1,3.53,6.716A43.765,43.765,0,0,1,362.952,176.66Z"/></svg>Unirme a la comunidad</a></div>
         <div class="community-export"><p>Si quieres apoyar a <a href="https://aguacatec.es/" target="_blank" rel="noopener noreferrer">Aguacatec</a> para que podamos seguir desarrollando proyectos como estos, conseguir contenido exclusivo, participar en sorteos y otras ventajas, puedes hacerte <a href="https://www.patreon.com/c/aguacatec/membership" target="_blank" rel="noopener noreferrer">Patreon</a>.</p><a class="community-action community-patreon" href="https://www.patreon.com/c/aguacatec/membership" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 512 512" aria-hidden="true" focusable="false"><!--! Font Awesome Free 6.7.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2024 Fonticons, Inc. --><path d="M489.7 153.8c-.1-65.4-51-119-110.7-138.3C304.8-8.5 207-5 136.1 28.4C50.3 68.9 23.3 157.7 22.3 246.2C21.5 319 28.7 510.6 136.9 512c80.3 1 92.3-102.5 129.5-152.3c26.4-35.5 60.5-45.5 102.4-55.9c72-17.8 121.1-74.7 121-150z"/></svg>Hacerme Patreon</a></div>
       </section>`;
@@ -394,7 +371,6 @@ class ImprovedShoppingSettings extends HTMLElement {
       root.querySelector(`#${id}`).addEventListener("click", () => {
         this._view = view;
         if(view === "nutrition")this._nutritionKey=null;
-        if(view !== 'community')root.querySelector('#community-authorization').close();
         for (const section of ["lists", "appearance", "community", "stores", "logs", "readers", "notifications"]) {
           root.querySelector(`#settings-${section}`).hidden = view !== section;
           root.querySelector(`#settings-view-${section}`).setAttribute("aria-pressed", String(view === section));
@@ -419,9 +395,7 @@ class ImprovedShoppingSettings extends HTMLElement {
       this._productsGeneration = (this._productsGeneration || 0) + 1; this._productsLoading = false;
       this._error = ""; this._render();
     });
-    root.querySelector("#community-sharing").addEventListener("change", () => void this._setCommunity(root.querySelector("#community-sharing").checked));
     root.querySelector("#export-catalog").addEventListener("click", () => void this._exportCatalog());
-    root.querySelector("#community-connect").addEventListener("click", () => void this._setCommunity(true));
     root.querySelector("isl-notification-settings").onSave = config => this.onNotifications(config);
     root.querySelector("#appearance-form").addEventListener("input", () => { this._appearanceDirty = true; this._preview(); });
     root.querySelector("#appearance-form").addEventListener("change", () => { this._appearanceDirty = true; this._preview(); });
@@ -966,57 +940,7 @@ class ImprovedShoppingSettings extends HTMLElement {
   }
 
   _renderCommunity() {
-    const root=this.shadowRoot, admin=this._data?.hass?.user?.is_admin === true;
-    const state=this._communityState;
-    root.querySelector('#export-catalog').disabled=!admin || Boolean(this._exportingCatalog);
-    root.querySelector("#community-sharing").disabled=!admin || Boolean(this._communityBusy);
-    if(state){
-      root.querySelector("#community-sharing").checked=Boolean(state.sharing);
-      const authorization=state.authorization, dialog=root.querySelector('#community-authorization');
-      root.querySelector('#community-auth-fields').hidden=!authorization;
-      root.querySelector('#community-auth-status').textContent=this._communityError || state.error || (authorization ? 'Completa la autorización en la pestaña de GitHub.' : 'La autorización no se ha completado. Cierra esta ventana y vuelve a conectar con GitHub.');
-      root.querySelector("#community-user-code").textContent=state.authorization?.user_code ?? "";
-      if(authorization && this._view === 'community' && !this.hidden && this.isConnected && this._communityShownCode !== authorization.user_code){
-        this._communityShownCode=authorization.user_code;
-        if(!dialog.open)dialog.showModal();
-      }
-      if(!authorization && (state.connected || !state.sharing))dialog.close();
-      root.querySelector("#community-connect").hidden=!state.sharing || state.connected;
-      root.querySelector("#community-connect").textContent=authorization ? 'Ver autorización' : 'Conectar con GitHub';
-      root.querySelector("#community-connect").disabled=!admin || Boolean(this._communityBusy);
-      root.querySelector("#community-connection").hidden=Boolean(authorization);
-      root.querySelector("#community-connection").textContent=this._communityError || state.error || (state.authorization ? "Esperando autorización de GitHub…" : state.connected ? `Conectado como ${state.account}. Sincronización automática cada 24 horas.` : state.sharing ? "Conecta con GitHub para completar la activación." : "Compartir está desactivado. La consulta del diccionario no requiere una cuenta.");
-    }
-    if(this.isConnected && this._view === "community" && admin && !this._communityTimer && !this._communityLoading){
-      this._communityTimer=setTimeout(()=>{this._communityTimer=null;void this._loadCommunity();},state?.authorization ? 3000 : state ? 30000 : 0);
-    }
-  }
-
-  async _loadCommunity() {
-    if(this._communityLoading || !this.isConnected || this._view !== "community")return;
-    this._communityLoading=true;
-    const generation=this._communityGeneration ?? 0;
-    try {
-      const state=await this._data.hass.callWS({type:"improved_shopping_list/community/status"});
-      if(this.isConnected && generation === (this._communityGeneration ?? 0))this._communityState=state;
-    } catch { /* A transient status read cannot change the consent checkbox. */ }
-    finally {this._communityLoading=false;if(this.isConnected)this._renderCommunity();}
-  }
-
-  async _setCommunity(enabled) {
-    if(this._communityBusy || this._data?.hass?.user?.is_admin !== true)return;
-    if(enabled && !this._communityState?.connected){
-      // Open during the click, before awaiting the API, so browsers retain user activation.
-      window.open('https://github.com/login/device','_blank','noopener,noreferrer');
-      this._communityShownCode=null;
-    }
-    this._communityGeneration=(this._communityGeneration || 0)+1;
-    this._communityError="";
-    this._communityBusy=true; this._renderCommunity();
-    try {
-      this._communityState=await this._data.hass.callWS({type:"improved_shopping_list/community/sharing",enabled});
-    } catch {this._communityError="No se ha podido guardar la autorización comunitaria.";}
-    finally {this._communityBusy=false;clearTimeout(this._communityTimer);this._communityTimer=null;this._renderCommunity();}
+    this.shadowRoot.querySelector('#export-catalog').disabled=this._data?.hass?.user?.is_admin !== true || Boolean(this._exportingCatalog);
   }
 
   _renderGateways(locked) {

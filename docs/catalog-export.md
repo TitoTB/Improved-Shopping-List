@@ -6,4 +6,4 @@ Incluye todos los productos, aunque no tengan icono: nombre, traducción disponi
 
 La descarga no envía datos a GitHub ni activa la participación comunitaria. El usuario puede enviar el archivo a Aguacatec para completar los diccionarios de productos y enlaces por EAN. Debe tener en cuenta que el archivo contiene los nombres y precios de su catálogo.
 
-La casilla de participación automática se conserva por separado: sigue compartiendo únicamente los datos permitidos para sugerencias de iconos, sin precios, EAN ni referencias comerciales.
+La vista Comunidad permite exportar el archivo y consultar los enlaces de Aguacatec. Ya no muestra controles de autenticación ni el estado de sincronización con GitHub.

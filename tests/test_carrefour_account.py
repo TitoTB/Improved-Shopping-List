@@ -9,6 +9,7 @@ from unittest.mock import AsyncMock, Mock
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 from homeassistant.util import dt as dt_util
+from custom_components.improved_shopping_list.account_history import twelve_months_ago
 
 from custom_components.improved_shopping_list.carrefour_account import CarrefourAccount, CarrefourAccountError, WEB, API, IDENTITY, OFFSET_KEYS
 from custom_components.improved_shopping_list.const import DOMAIN, CONF_TODO_ENTITY
@@ -225,7 +226,7 @@ async def test_history_sync_reads_all_pages_of_last_year_and_imports_only_summar
     assert account._http.await_count==2
     assert all(request.args[1]==API+"/md-purchasesAccount-v1/purchases" for request in account._http.await_args_list)
     first=account._http.await_args_list[0].kwargs["params"]
-    assert (dt_util.utcnow()-dt_util.parse_datetime(first["from"])).days==365
+    assert abs((dt_util.parse_datetime(first["from"])-twelve_months_ago(dt_util.utcnow())).total_seconds())<2
     assert [[row["purchaseId"] for row in call.args[0]] for call in account.receipts.async_import_carrefour_purchases.await_args_list]==[["a"],["b"]]
     account.receipts.async_preview.assert_not_awaited()
 

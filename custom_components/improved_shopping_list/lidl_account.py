@@ -15,7 +15,7 @@ import urllib.request
 
 from homeassistant.helpers.storage import Store
 from homeassistant.util import dt as dt_util
-from .account_history import account_purchase_check
+from .account_history import account_purchase_check, twelve_months_ago
 from .catalog import CatalogError
 from .const import DOMAIN
 from .dia_account import DiaAccount
@@ -215,7 +215,7 @@ class LidlAccount(DiaAccount):
         if type(page) is not int or not 1 <= page <= 50:
             raise LidlAccountError("La página de compras de Lidl no es válida.", "pagination")
         async with self._lock:
-            response = await self._request("/api/v2/ES/tickets?"+urlencode({"pageNumber":page}))
+            response = await self._request("/api/v2/ES/tickets?"+urlencode({"pageNumber":page, "onlyFavorite":"false"}))
             rows = response.get("tickets"); size = response.get("size", 25); total = response.get("totalCount")
             if (not isinstance(rows,list) or len(rows)>100 or type(size) is not int or not 1 <= size <= 100
                     or type(total) is not int or not 0 <= total <= 100000):
@@ -223,7 +223,7 @@ class LidlAccount(DiaAccount):
             output, summaries = [], []; refs = deepcopy(self._session.get("purchase_refs", {})); now = dt_util.utcnow()
             for raw in rows:
                 purchase = summary(raw); when = dt_util.parse_datetime(purchase["purchased_at"])
-                if not now-timedelta(days=365) <= when <= now+timedelta(days=1) or not purchase["supported"]:
+                if not twelve_months_ago(now) <= when <= now+timedelta(days=1) or not purchase["supported"]:
                     continue
                 key = self.receipts._account_key(purchase["reference"], "lidl"); refs[key] = purchase
                 summaries.append({"purchaseId":purchase["reference"], "purchaseDate":purchase["purchased_at"], "amount":purchase["amount"], "ticket_available":True})

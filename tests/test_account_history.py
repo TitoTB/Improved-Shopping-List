@@ -1,5 +1,6 @@
 """Provider-independent catch-up; runnable without a Home Assistant runtime."""
 import asyncio
+from datetime import datetime, timezone
 import importlib.util
 from pathlib import Path
 import unittest
@@ -11,6 +12,15 @@ SPEC.loader.exec_module(history)
 
 
 class AccountHistoryTests(unittest.IsolatedAsyncioTestCase):
+    def test_rolling_twelve_months_includes_previous_year_and_leap_day(self):
+        for current, expected in [
+            ("2026-01-15T14:30:00+00:00", "2025-01-15T14:30:00+00:00"),
+            ("2025-03-01T00:00:00+00:00", "2024-03-01T00:00:00+00:00"),
+            ("2024-02-29T12:34:56+00:00", "2023-02-28T12:34:56+00:00"),
+        ]:
+            self.assertEqual(history.twelve_months_ago(datetime.fromisoformat(current)), datetime.fromisoformat(expected))
+        self.assertEqual((datetime(2025, 1, 1, tzinfo=timezone.utc)-history.twelve_months_ago(datetime(2025, 1, 1, tzinfo=timezone.utc))).days, 366)
+
     async def test_pages_import_after_current_ticket_without_downloading_older_tickets(self):
         fetch = AsyncMock(side_effect=[{"purchases":["today"], "next_cursor":{"page":2}},
             {"purchases":["older"], "next_cursor":{"page":3}}, {"purchases":[], "next_cursor":None}])

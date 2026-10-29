@@ -106,6 +106,24 @@ async def test_lidl_history_pages_import_and_saved_preview(account):
     with pytest.raises(LidlAccountError):await account.async_purchases('a',{'page':True})
 
 
+async def test_lidl_history_includes_different_stores_and_nonfavorites_across_years(account, monkeypatch):
+    now = dt_util.utcnow()
+    account._session = {'access_token':'access','refresh_token':'refresh'}
+    account._request = AsyncMock(side_effect=[
+        {'tickets':[{'id':'shop-one','date':(now-timedelta(days=30)).isoformat(),'totalAmount':5,'store':'one','isFavorite':False}], 'size':1,'totalCount':3},
+        {'tickets':[{'id':'shop-two','date':(now-timedelta(days=300)).isoformat(),'totalAmount':10,'store':'two','isFavorite':False}], 'size':1,'totalCount':3},
+        {'tickets':[{'id':'too-old','date':(now-timedelta(days=400)).isoformat(),'totalAmount':20,'store':'two'}], 'size':1,'totalCount':3},
+    ])
+    monkeypatch.setattr(module.asyncio, 'sleep', AsyncMock())
+    result = await account.async_sync_history('a')
+    assert result == {'added':0,'available':2,'complete':True}
+    requests = [parse_qs(urlsplit(call.args[0]).query) for call in account._request.await_args_list]
+    assert requests == [{'pageNumber':[str(page)],'onlyFavorite':['false']} for page in (1,2,3)]
+    imported = [row['purchaseId'] for call in account.receipts.async_import_account_purchases.await_args_list for row in call.args[0]]
+    assert imported == ['shop-one','shop-two']
+    account.receipts.async_preview_lidl_ticket.assert_not_awaited()
+
+
 async def test_lidl_automatic_pending_review_and_daily_limit(account):
     detail,when=fixture_ticket();now=dt_util.now()
     account._session={'access_token':'access','refresh_token':'refresh','purchase_refs':{'key':{'reference':detail['id']}}}

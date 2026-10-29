@@ -16,7 +16,7 @@ from homeassistant.helpers.storage import Store
 from homeassistant.helpers.event import async_track_time_interval
 from homeassistant.util import dt as dt_util
 
-from .account_history import account_purchase_check
+from .account_history import account_purchase_check, twelve_months_ago
 from .catalog import CatalogError
 from .const import DOMAIN
 from .receipt_parser import MAX_PDF_BYTES
@@ -471,7 +471,7 @@ class CarrefourAccount:
                     any(type(v) is not int or not 0 <= v <= 100000 for v in cursor.values())):
                 raise CarrefourAccountError("La página de compras no es válida.", "pagination")
             now = dt_util.utcnow()
-            params = {"from": (now-timedelta(days=365)).isoformat(timespec="milliseconds").replace("+00:00", "Z"),
+            params = {"from": twelve_months_ago(now).isoformat(timespec="milliseconds").replace("+00:00", "Z"),
                       "to": (now+timedelta(days=1)).isoformat(timespec="milliseconds").replace("+00:00", "Z"),
                       "count": 10, **(cursor or dict.fromkeys(OFFSET_KEYS, 0))}
             response = await self._http("GET", API + "/md-purchasesAccount-v1/purchases", params=params, headers=await self._headers())
@@ -492,7 +492,7 @@ class CarrefourAccount:
                     continue
                 at_date = dt_util.parse_datetime(at)
                 at_utc = dt_util.as_utc(at_date if at_date.tzinfo else at_date.replace(tzinfo=dt_util.DEFAULT_TIME_ZONE))
-                if not now-timedelta(days=365) <= at_utc <= now+timedelta(days=1):
+                if not twelve_months_ago(now) <= at_utc <= now+timedelta(days=1):
                     continue
                 supported = purchase.get("orderSource") == "TICKET"
                 summaries.append({"purchaseId":identifier,"purchaseDate":at,"amount":amount,"ticket_available":supported})

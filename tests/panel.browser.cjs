@@ -4203,7 +4203,7 @@ async function main() {
     await accountPage.screenshot({path:'test-results/carrefour-account-login-mobile.png',fullPage:true});
     assert.ok(await login.evaluate(el=>el.scrollWidth<=el.clientWidth+1));
     await login.getByRole('button',{name:'Cerrar ventana',exact:true}).click();
-    await account.getByRole('switch',{name:'Recuperar compras del último año',exact:true}).check();
+    await account.getByRole('switch',{name:'Recuperar compras de los últimos 12 meses',exact:true}).check();
     await accountPage.waitForFunction(()=>window.receiptHistory.length===2);
     assert.equal(await account.locator('#account-email').textContent(),'test@example.test');
     await account.getByRole('switch',{name:'Descargar ticket automáticamente',exact:true}).check();

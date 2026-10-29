@@ -1,7 +1,14 @@
 """Shared history catch-up for account checks, without extra ticket downloads."""
 import asyncio
+from calendar import monthrange
 from contextlib import asynccontextmanager
 import json
+
+
+def twelve_months_ago(now):
+    """Rolling calendar year, clamping leap day to the previous February's end."""
+    year = now.year - 1
+    return now.replace(year=year, day=min(now.day, monthrange(year, now.month)[1]))
 
 
 @asynccontextmanager

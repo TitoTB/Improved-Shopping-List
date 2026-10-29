@@ -55,10 +55,10 @@ test('unconfirmed package contents cannot create a per-unit saving for distinct 
  assert.equal(analyzeCatalog(products,obs,{stores:['carrefour','lidl'],now}).comparable,0);
 });
 
-test('catalog normalizes pack weights and compares all catalog products, never absent prices',()=>{
+test('catalog normalizes pack weights and only includes products with prices in two stores',()=>{
  const result=analyzeCatalog(products,[offer('carrefour',2,{ean:'',pack_quantity:200,pack_unit:'g'}),offer('alcampo',4,{ean:'',pack_quantity:500,pack_unit:'g'})],{stores:['carrefour','alcampo'],now});
- const row=result.rows.find(r=>r.product.id==='p');assert.equal(row.min,8);assert.equal(row.max,10);assert.deepEqual(row.bestStores,['alcampo']);assert.equal(result.rows.length,3);assert.equal(result.comparable,1);assert.equal(result.common,1);assert.equal(result.ranking[0].store,'alcampo');
- assert.equal(result.rows.find(r=>r.product.id==='none').min,null);
+ const row=result.rows.find(r=>r.product.id==='p');assert.equal(row.min,8);assert.equal(row.max,10);assert.deepEqual(row.bestStores,['alcampo']);assert.equal(result.rows.length,1);assert.equal(result.comparable,1);assert.equal(result.common,1);assert.equal(result.ranking[0].store,'alcampo');
+ assert.equal(result.rows.some(r=>r.product.id==='none'),false);
 });
 test('unknown formats and distinct GTINs are not declared equivalent; matching padded GTINs are',()=>{
  assert.equal(analyzeCatalog(products,[offer('carrefour',1,{ean:''}),offer('alcampo',2,{ean:''})],{stores:['carrefour','alcampo'],now}).comparable,0);
@@ -67,9 +67,10 @@ test('unknown formats and distinct GTINs are not declared equivalent; matching p
 });
 test('catalog uses latest price per store, filters age/category/store and separates currency',()=>{
  const obs=[offer('carrefour',4),offer('carrefour',3,{at:now-100}),offer('alcampo',1,{at:now+1}),offer('dia',1,{currency:'USD'}),offer('consum',2,{at:now-100*86400})];
- const result=analyzeCatalog(products,obs,{stores:['carrefour','alcampo','dia','consum'],category:'Despensa',maxAge:30,now});assert.equal(result.rows.length,1);assert.equal(result.known,1);assert.equal(result.rows[0].offers[0].price,3);assert.equal(result.comparable,0);
+ const result=analyzeCatalog(products,obs,{stores:['carrefour','alcampo','dia','consum'],category:'Despensa',maxAge:30,now});assert.equal(result.rows.length,0);assert.equal(result.known,0);assert.equal(result.comparable,0);
+ const unfiltered=analyzeCatalog(products,obs,{stores:['carrefour','consum'],now});assert.equal(unfiltered.rows[0].offers.find(o=>o.store==='carrefour').price,3);
  assert.equal(analyzeCatalog(products,obs,{stores:['carrefour'],store:'alcampo',now}).rows.length,0);
- assert.equal(analyzeCatalog(products,obs,{stores:['dia'],currency:'USD',now}).known,1);
+ assert.equal(analyzeCatalog(products,obs,{stores:['dia'],currency:'USD',now}).known,0);
 });
 test('reference price per 100g converts to kg; invalid values are rejected',()=>{
  assert.equal(normalizeObservation(offer('alcampo',3,{reference_price:1.5,reference_unit:'PER_100G'})).rate,15);
@@ -93,4 +94,10 @@ test('partial basket discounts cannot be advertised as net savings; complete com
 });
 test('unreviewed unknown identifiers and missing alternative prices never count as zero-cost products',()=>{
  const result=analyzePurchase(purchase(),[],{stores:['alcampo'],now});assert.equal(result.alternatives.length,0);assert.equal(result.changed,0);assert.equal(result.splitCost,8);
+});
+
+test('several alternatives from one store do not qualify as a two-store comparison',()=>{
+ const obs=[offer('alcampo',2,{reference_id:'one'}),offer('alcampo',3,{reference_id:'two'}),offer('carrefour',null),offer('lidl',5,{at:now+1})];
+ assert.equal(analyzeCatalog(products,obs,{stores:['alcampo','carrefour','lidl'],now}).rows.length,0);
+ assert.equal(analyzeCatalog(products,[...obs,offer('carrefour',4)],{stores:['alcampo','carrefour','lidl'],now}).rows.length,1);
 });

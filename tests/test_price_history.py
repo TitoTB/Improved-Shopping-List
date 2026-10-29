@@ -57,7 +57,9 @@ async def test_comparison_projection_uses_reviewed_selected_receipt_prices_witho
     assert next(o for o in data['observations'] if o['source']=='web')['at']==now
     assert 'PRIVATE_' not in str(data) and 'account_key' not in str(data)
     settings.snapshot['stores']['alcampo']['enabled']=False
-    assert all(o['store']=='carrefour' for o in history.comparison_data(catalog,settings,receipts,[])['observations'])
+    result=history.comparison_data(catalog,settings,receipts,[])
+    assert set(result['stores'])=={'carrefour','alcampo'}
+    assert len(result['observations'])==2
 
 
 async def test_comparison_command_read_only_and_global_price_setting(hass,hass_ws_client):
@@ -69,3 +71,19 @@ async def test_comparison_command_read_only_and_global_price_setting(hass,hass_w
     hass.data[DOMAIN]['settings'].update_price_schedule('01:00',False,1)
     await client.send_json({'id':2,'type':f'{DOMAIN}/analytics/comparison'})
     result=await client.receive_json();assert result['success'] and result['result']['enabled'] is False
+
+
+async def test_comparison_includes_saved_alternative_prices_without_enabled_account(hass,hass_ws_client):
+    entry=MockConfigEntry(domain=DOMAIN,data={CONF_TODO_ENTITY:'todo.main'});entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    data=hass.data[DOMAIN]
+    await data['catalog'].async_save_product({'name':'Patatas','commercial_references':[
+        {'store':'alcampo','reference_id':'10739','ean':'8410199023094','name':'Patatas 170 g','url':'https://www.compraonline.alcampo.es/products/patatas/10739','content_quantity':170,'content_unit':'g','content_confirmed':True,'last_price':{'price':2.5,'currency':'EUR','checked_at':time.time()}},
+        {'store':'carrefour','reference_id':'R-prod123','ean':'8410199023094','name':'Patatas 170 g','url':'https://www.carrefour.es/supermercado/patatas/R-prod123/p','content_quantity':170,'content_unit':'g','content_confirmed':True,'last_price':{'price':3,'currency':'EUR','checked_at':time.time()}}
+    ]})
+    client=await hass_ws_client(hass)
+    await client.send_json({'id':1,'type':f'{DOMAIN}/analytics/comparison'})
+    response=await client.receive_json();assert response['success']
+    assert set(response['result']['stores'])=={'alcampo','carrefour'}
+    assert {o['store']:o['price'] for o in response['result']['observations']}=={'alcampo':2.5,'carrefour':3}
+    assert all(o['pack_quantity']==170 and not o['format_pending'] for o in response['result']['observations'])

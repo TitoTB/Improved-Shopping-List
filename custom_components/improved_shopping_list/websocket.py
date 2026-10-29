@@ -1336,7 +1336,7 @@ def ws_comparison_data(hass, connection, msg):
     if not data["settings"].snapshot.get("price_updates_enabled", True):
         connection.send_result(msg["id"], {"observations":[], "purchases":[], "stores":[], "enabled":False})
         return
-    connection.send_result(msg["id"], data["price_history"].comparison_data(catalog, data["settings"], data["receipts"], [{**offer,"catalog_product_id":product["id"]} for product in catalog.products for key in ("alcampo", "dia_prices") if (manager := data.get(key)) and (offer := manager.offer_for(product))]))
+    connection.send_result(msg["id"], data["price_history"].comparison_data(catalog, data["settings"], data["receipts"], [offer for product in catalog.products for offer in data["price_manager"].prices_for(product)]))
 
 
 @websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/receipts/search_detection_ticket",vol.Required("receipt_id"):str,vol.Required("store"):str})

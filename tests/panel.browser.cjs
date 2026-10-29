@@ -1216,6 +1216,39 @@ async function checkDifferentOptionEAN(browser,url,errors){
   }
 }
 
+async function checkCatalogComparison(browser,url,errors){
+  const context=await browser.newContext({viewport:{width:1280,height:960}});
+  await context.addInitScript(()=>localStorage.setItem('catalog-fixture',JSON.stringify([
+    {id:'compared',name:'Patatas',revision:1,category:'Despensa'},
+    {id:'single',name:'Solo una tienda',revision:1},
+    {id:'none',name:'Sin precio',revision:1}
+  ])));
+  const page=await context.newPage();page.on('pageerror',error=>errors.push(error.message));await page.goto(url);
+  await page.evaluate(()=>{
+    const at=Date.now()/1000-60;
+    window.comparisonFixture={stores:['carrefour','alcampo'],observations:[
+      {product_id:'compared',store:'carrefour',price:2,currency:'EUR',ean:'8410199023094',at},
+      {product_id:'compared',store:'alcampo',price:1.5,currency:'EUR',ean:'8410199023094',at},
+      {product_id:'single',store:'alcampo',price:3,currency:'EUR',ean:'8410199023094',at}
+    ]};
+  });
+  await page.getByRole('button',{name:'Analítica',exact:true}).click();
+  await page.getByRole('tab',{name:'Comparativa',exact:true}).click();
+  const analytics=page.locator('isl-analytics');await analytics.locator('tbody tr').waitFor();
+  assert.equal(await analytics.locator('tbody tr').count(),1);
+  assert.equal(await analytics.locator('tbody tr').getAttribute('data-product-id'),'compared');
+  assert.equal(await analytics.locator('.rank-row[data-store="alcampo"]').count(),1);
+  assert.equal(await analytics.getByRole('button',{name:'Compras pasadas',exact:true}).count(),0);
+  await analytics.getByLabel('Tienda',{exact:true}).selectOption('alcampo');
+  assert.equal(await analytics.locator('tbody tr').count(),1);
+  for(const width of [1280,390,320]){
+    await page.setViewportSize({width,height:960});
+    assert.ok(await analytics.evaluate(node=>node.scrollWidth<=node.clientWidth+1));
+    await page.screenshot({path:`test-results/analytics-comparison-${width}.png`,fullPage:true});
+  }
+  await context.close();
+}
+
 async function checkCatalogSources(browser,url,errors){
   const context=await browser.newContext({viewport:{width:1280,height:960}}),page=await context.newPage();
   page.on('pageerror',error=>errors.push(error.message));await page.goto(url);
@@ -1401,6 +1434,7 @@ async function main() {
   let browser;
   try {
     browser = await chromium.launch({ headless: true, channel: process.env.PLAYWRIGHT_CHANNEL || undefined });
+    if(process.argv.includes('--comparison-only')){const errors=[];await checkCatalogComparison(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Catalog comparison passed.');return;}
     if(process.argv.includes('--attention-only')){const errors=[];await checkAttentionIndicators(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Navigation attention indicators passed.');return;}
     if(process.argv.includes('--lazy-only')){const errors=[];await checkLazySections(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);return;}
     if(process.argv.includes('--lidl-metadata-only')){const errors=[];await checkLidlMetadata(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Lidl receipt metadata passed.');return;}
@@ -2317,17 +2351,9 @@ async function main() {
       assert.ok(await analytics.evaluate(node=>node.scrollWidth<=node.clientWidth+1));
       await receiptPage.screenshot({path:'test-results/analytics-catalog-'+width+'.png',fullPage:true});
     }
-    await analytics.getByRole('button',{name:'Compras pasadas',exact:true}).click();
-    const past=analytics.locator('[data-receipt-id="comparison-ticket"]');await past.locator('summary').first().click();
-    assert.match(await past.locator('.alternative[data-store="alcampo"] .pair-price').last().textContent(),/9,00/);
-    for(const width of [1280,390,320]){
-      await receiptPage.setViewportSize({width,height:960});
-      assert.ok(await analytics.evaluate(node=>node.scrollWidth<=node.clientWidth+1));
-      await receiptPage.screenshot({path:'test-results/analytics-past-'+width+'.png',fullPage:true});
-    }
-    await analytics.getByLabel('Precios para comparar',{exact:true}).selectOption('current');
-    await analytics.locator('[data-receipt-id="comparison-ticket"] summary').first().click();
-    assert.match(await analytics.locator('.alternative[data-store="alcampo"] .pair-price').last().textContent(),/1,00/);
+    assert.equal(await analytics.getByRole('button',{name:'Compras pasadas',exact:true}).count(),0);
+    assert.equal(await analytics.locator('tbody tr[data-product-id="ticket-milk"]').count(),0);
+    assert.equal(await analytics.locator('.rank-row[data-store="alcampo"]').count(),1);
     assert.equal(await receiptPage.evaluate(()=>window.calls.some(call=>/refresh_prices|refresh_all_prices/.test(call.type??''))),false);
     await receiptContext.close();
     const resumeContext=await browser.newContext({viewport:{width:390,height:844}});

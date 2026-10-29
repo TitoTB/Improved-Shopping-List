@@ -401,7 +401,7 @@ async def test_invoice_matches_saved_ean_confirms_stock_prices_and_duplicate(has
     draft = await env.manager.async_preview(encoded, 'owner')
     first = draft['receipt']['lines'][0]
     assert first['product_id'] == env.product['id'] and first['matched'] is True
-    assert first['quantity'] == 250 and first['replenish'] is True
+    assert first['quantity'] == 500 and first['replenish'] is True
     confirmed = await env.manager.async_confirm(draft['token'], 'owner', selections(draft, env.product, 500), True)
     assert confirmed['total'] == 17.07 and confirmed['shipping'] == 3.99
     assert env.stock.snapshot['items'][0]['quantity'] == 520
@@ -618,7 +618,7 @@ async def test_receipt_ean_equivalence_invalid_codes_and_storage_failure(hass, m
     assert catalog.products == before
 
 
-async def test_receipt_quantity_uses_stock_refill_not_ticket_or_learned_pack(hass):
+async def test_receipt_quantity_prefers_recovered_weight_and_preserves_manual_override(hass):
     env = await setup_manager(hass)
     item = env.stock._items[env.item['id']]
     item['refill_quantity'] = 175
@@ -630,9 +630,9 @@ async def test_receipt_quantity_uses_stock_refill_not_ticket_or_learned_pack(has
     assert next(p for p in options['products'] if p['id'] == env.product['id'])['refill_quantity'] == 175
     env.manager.discard(draft['token'], 'owner')
     again = await env.manager.async_preview(base64.b64encode(pdf_bytes(invoice_text())).decode(), 'owner')
-    assert again['receipt']['lines'][0]['quantity'] == 175  # Invoice detects 500 g; default remains 175 g.
+    assert again['receipt']['lines'][0]['quantity'] == 500  # Recovered weight wins over the configured 175 g.
     await env.manager.async_confirm(again['token'], 'owner', selections(again, env.product, 200), False)
-    assert env.stock.item_for(env.product)['quantity'] == 220  # User can override the default.
+    assert env.stock.item_for(env.product)['quantity'] == 220  # User can override the recovered weight.
 
 
 async def test_receipt_quantity_uses_catalog_units_when_not_in_stock(hass):

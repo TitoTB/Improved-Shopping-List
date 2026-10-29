@@ -1,5 +1,14 @@
 # Historial de cambios
 
+## 0.50.3 — 2026-10-29
+
+- Corregida la recuperación de productos de Carrefour cuya referencia interna numérica no coincide con su identificador de analítica, manteniendo las comprobaciones de identidad y de respuestas ambiguas.
+- Las opciones de compra se vinculan únicamente mediante URL, con detección automática de la tienda y sin selector ni entrada manual de IDs.
+- Los errores de recuperación aparecen en rojo debajo de la URL. Retirado el bloque duplicado «Precios de tiendas» de la ficha.
+- El Nutri-Score se muestra como un cuadrado con la letra y su color dentro de cada opción, visible también con el bloque comprimido. Eliminado el apartado inferior de Nutri-Score; los datos se asignan por coincidencia exacta de EAN.
+- La revisión de tickets completa el contenido que falta mediante el EAN en Open Food Facts, sin sobrescribir formatos confirmados. El contenido y el precio corresponden a un envase; los packs incluyen su contenido total y no se multiplican por el número de envases comprados.
+- El aviso de afiliación de la documentación identifica a Aguacatec. Sin nuevas dependencias.
+
 ## 0.50.2 — 2026-10-29
 
 - Recuperar datos detecta la tienda a partir del enlace oficial, aunque la opción estuviera clasificada en otra tienda. Al recuperar correctamente los datos, corrige su clasificación sin trasladar el último precio de la tienda anterior y mantiene la comprobación del EAN.

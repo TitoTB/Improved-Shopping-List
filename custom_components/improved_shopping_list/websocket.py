@@ -740,6 +740,7 @@ async def ws_refresh_all_prices(hass, connection, msg):
 
 @websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/catalog/store_prices",
     vol.Optional("links", default={}):dict, vol.Optional("codes", default=[]):[str],
+    vol.Optional("product_id",default=""):str,
     vol.Optional("store", default=""):vol.In(("", *STORES))})
 @websocket_api.async_response
 async def ws_cached_prices(hass, connection, msg):
@@ -756,7 +757,8 @@ async def ws_cached_prices(hass, connection, msg):
     if msg["store"]:
         result = manager.snapshot(msg["store"])
     else:
-        result = {"products":manager.prices_for({"store_links":links,"barcodes":msg["codes"]}), "nightly":True}
+        product=next((product for product in hass.data[DOMAIN]["catalog"].products if product["id"]==msg["product_id"]),None)
+        result = {"products":manager.prices_for(product or {"store_links":links,"barcodes":msg["codes"]}), "nightly":True}
     connection.send_result(msg["id"], result)
 
 

@@ -1,11 +1,12 @@
-import { purchaseQuantity, quantityLabel } from "./quantity-client.js?v=0.48.1";
-import { installDialogCloseButtons } from "./dialog-controls.js?v=0.48.1";
-import { CatalogSession } from "./catalog-client.js?v=0.48.1";
-import { matchCatalogProducts } from "./product-matching.js?v=0.48.1";
-import "./category-panel.js?v=0.48.1";
-import "./recipe-editor.js?v=0.48.1";
-import "./icon-picker.js?v=0.48.1";
-import { imageSource, normalizedName, productNameKey, cachedProductPrice } from "./product-display.js?v=0.48.1";
+import { purchaseQuantity, quantityLabel } from "./quantity-client.js?v=0.49.0";
+import { referenceContentControls, referenceRate } from "./reference-formats.js?v=0.49.0";
+import { installDialogCloseButtons } from "./dialog-controls.js?v=0.49.0";
+import { CatalogSession } from "./catalog-client.js?v=0.49.0";
+import { matchCatalogProducts } from "./product-matching.js?v=0.49.0";
+import "./category-panel.js?v=0.49.0";
+import "./recipe-editor.js?v=0.49.0";
+import "./icon-picker.js?v=0.49.0";
+import { imageSource, normalizedName, productNameKey, cachedProductPrice } from "./product-display.js?v=0.49.0";
 export { imageSource, normalizedName, productNameKey, cachedProductPrice };
 
 const MONTHS = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
@@ -260,6 +261,13 @@ class ImprovedShoppingCatalog extends HTMLElement {
         #add-product-store-link { display:grid; place-items:center; padding:0; }
         #add-product-store-link ha-icon { display:block; width:24px; height:24px; --mdc-icon-size:24px; }
         #product-store-links { display:grid; gap:12px; }
+        #pending-formats { display:grid;place-items:center;flex:0 0 46px;width:46px;height:46px;padding:0; }
+        #pending-formats[aria-pressed=true] { background:var(--primary-color,#267052);color:#fff; }
+        .commercial-reference { border-top:1px solid var(--divider-color,#dfe7e1);padding-top:12px;margin-top:12px;min-width:0; }
+        .commercial-reference-title { display:flex;gap:8px;align-items:center; }.commercial-reference-title input { min-width:0;flex:1; }
+        .reference-content-controls { display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px;margin-top:12px;min-width:0; }
+        .reference-content-controls label { margin:0;min-width:0; }.reference-content-controls input,.reference-content-controls select { width:100%;min-width:0; }
+        .reference-confirm { grid-column:1/-1;display:flex!important;align-items:center;gap:8px; }.reference-confirm input { width:auto!important;min-height:0!important;margin:0!important; }
         .product-store-association { padding:14px; border:1px solid var(--divider-color,#dfe7e1); border-radius:12px; min-width:0; background:var(--card-background-color,#fff); }
         .product-store-header { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; min-width:0; }
         .store-reference { display:flex; align-items:center; gap:9px; min-width:0; font-size:14px; font-weight:650; }
@@ -516,7 +524,11 @@ class ImprovedShoppingCatalog extends HTMLElement {
     const addStoreLink = () => {
       const store = root.querySelector("#product-link-store").value, value = root.querySelector("#product-link-value").value.trim();
       if (!store || !value) return;
-      this._storeLinks[store] = value;
+      if(!this._storeLinks[store])this._storeLinks[store] = value;
+      const url=value.startsWith('https://')?value:'',reference_id=url?'':value;
+      if(!this._commercialReferences.some(ref=>ref.store===store&&(url?ref.url===url:ref.reference_id===reference_id))){
+        this._commercialReferences.push({store,name:'',ean:'',reference_id,url,content_quantity:null,content_unit:'',content_confirmed:false});
+      }
       root.querySelector("#product-link-value").value = "";
       this._renderStoreLinks();
       void this._loadRetailPrices();
@@ -607,6 +619,9 @@ class ImprovedShoppingCatalog extends HTMLElement {
       this._renderProducts();
     });
     root.querySelector("#configure-catalog-grouping").addEventListener("click", () => root.querySelector("#catalog-grouping-dialog").showModal());
+    const pendingFilter=element('button','','');pendingFilter.type='button';pendingFilter.id='pending-formats';pendingFilter.setAttribute('aria-label','Mostrar formatos pendientes de revisar');pendingFilter.title='Formatos pendientes de revisar';pendingFilter.setAttribute('aria-pressed','false');pendingFilter.innerHTML='<ha-icon icon="mdi:package-variant-closed-alert" aria-hidden="true"></ha-icon>';
+    pendingFilter.addEventListener('click',()=>{this._pendingFormats=!this._pendingFormats;pendingFilter.setAttribute('aria-pressed',String(this._pendingFormats));this._renderProducts();});
+    root.querySelector('.catalog-product-controls').append(pendingFilter);
     for (const button of root.querySelectorAll("[data-group-by]")) button.addEventListener("click", () => {
       this._groupBy = button.dataset.groupBy;
       try { localStorage.setItem("isl-catalog-grouping", this._groupBy); } catch { /* Storage may be disabled. */ }
@@ -1189,7 +1204,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
     const toggle = root.querySelector("#toggle-catalog-layout"), label = rows ? "Cambiar a vista de cuadrícula" : "Cambiar a vista de filas";
     toggle.setAttribute("aria-label", label); toggle.title = label;
     toggle.querySelector("ha-icon").setAttribute("icon", rows ? "mdi:view-comfy" : "mdi:view-sequential");
-    const products = this._catalog.products.filter(product =>
+    const products = this._catalog.products.filter(product =>(!this._pendingFormats||(product.commercial_references??[]).some(ref=>ref.active!==false&&!ref.content_confirmed))).filter(product =>
       [product.name, product.barcode, ...(product.barcodes??[]), ...(product.nfc_tags??[]), product.category, ...(product.tags??[])].some(value=>productNameKey(value).includes(query)))
       .sort((a,b) => a.name.localeCompare(b.name,"es",{sensitivity:"base"}));
     if (grouped) {
@@ -1403,7 +1418,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
     try {
       if(this._priceData?.enabled === false)return;
       const linksKey = JSON.stringify(this._storeLinks ?? {});
-      const data = await this._hass.callWS({type:"improved_shopping_list/catalog/store_prices",links:this._storeLinks ?? {},codes:this._productCodes?.barcode ?? []});
+      const data = await this._hass.callWS({type:"improved_shopping_list/catalog/store_prices",product_id:this._editing?.id??'',links:this._storeLinks ?? {},codes:this._productCodes?.barcode ?? []});
       if (this._priceData?.enabled === false || generation !== this._nutriGeneration || linksKey !== JSON.stringify(this._storeLinks ?? {}) || !root.querySelector("dialog").open || !this.isConnected) return;
       const names = {mercadona:"Mercadona",carrefour:"Carrefour",alcampo:"Alcampo",consum:"Consum",lasirena:"La Sirena",eroski:"Eroski",dia:"DIA",lidl:"Lidl"};
       const offers=new Map();
@@ -1431,10 +1446,12 @@ class ImprovedShoppingCatalog extends HTMLElement {
   }
 
   _renderStoreLinks() {
-    const root = this.shadowRoot, names = STORE_NAMES;
+    const root = this.shadowRoot, names = {'':'Sin tienda',...STORE_NAMES};
     const receiptStores=this._receiptStores?.[this._editing?.id]??[];
-    const stores=[...new Set([...Object.keys(this._storeLinks??{}),...receiptStores])].filter(store=>store in names).sort((a,b)=>names[a].localeCompare(names[b],"es"));
-    const eans=[...new Map((this._productCodes?.barcode??[]).filter(code=>{
+    this._commercialReferences??=[];
+    for(const code of this._productCodes?.barcode??[]){if(/^(?:\d{8}|\d{12,14})$/.test(code)&&!this._commercialReferences.some(ref=>ref.ean&&ref.ean.padStart(14,'0')===code.padStart(14,'0')))this._commercialReferences.push({store:'',ean:code,name:'',reference_id:'',url:'',content_quantity:null,content_unit:'',content_confirmed:false});}
+    const stores=[...new Set([...Object.keys(this._storeLinks??{}),...receiptStores,...this._commercialReferences.filter(ref=>ref.active!==false).map(ref=>ref.store)])].filter(store=>store in names).sort((a,b)=>names[a].localeCompare(names[b],"es"));
+    const eans=[...new Map([...(this._productCodes?.barcode??[]),...this._commercialReferences.filter(ref=>ref.active!==false&&ref.ean).map(ref=>ref.ean)].filter(code=>{
       if(!/^(?:\d{8}|\d{12,14})$/.test(code))return false;
       const total=[...code.slice(0,-1)].reverse().reduce((sum,digit,index)=>sum+Number(digit)*(index%2?1:3),0);
       return (10-total%10)%10===Number(code.at(-1));
@@ -1447,7 +1464,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
       const reference = document.createElement("span"); reference.className = "store-reference";
       const image = document.createElement("img"); image.alt = ""; image.referrerPolicy = "no-referrer";
       const logos = {lidl:"https://upload.wikimedia.org/wikipedia/commons/9/91/Lidl-Logo.svg",carrefour:"https://images.seeklogo.com/logo-png/31/2/carrefour-logo-png_seeklogo-318190.png",alcampo:"https://almeria.online/wp-content/uploads/2024/09/alcampo-logo.png"};
-      image.src = logos[store] ?? new URL(`${store}.${store === "mercadona" || store === "dia" ? "png" : store === "eroski" ? "svg" : "jpg"}`,import.meta.url).href;
+      if(store)image.src = logos[store] ?? new URL(`${store}.${store === "mercadona" || store === "dia" ? "png" : store === "eroski" ? "svg" : "jpg"}`,import.meta.url).href;else image.hidden=true;
       const name = document.createElement("span"); name.textContent = names[store] ?? store;
       reference.append(image,name);
       if(value){
@@ -1461,12 +1478,31 @@ class ImprovedShoppingCatalog extends HTMLElement {
       const source=document.createElement('div');source.className='association-source';
       for(const text of [value?'Web':'',fromTicket?'Ticket/factura confirmado':''].filter(Boolean)){const badge=document.createElement('span');badge.textContent=text;source.append(badge);}
       const header=document.createElement('div');header.className='product-store-header';header.append(reference,source);card.append(header);
-      if(value)card.append(row);return card;
+      if(value)card.append(row);
+      for(const ref of this._commercialReferences.filter(ref=>ref.active!==false&&ref.store===store))card.append(this._commercialReferenceCard(ref));
+      return card;
     }));
     const select = root.querySelector("#product-link-store");
-    select.replaceChildren(...Object.entries(names).filter(([key])=>!(key in this._storeLinks)).map(([key,name])=>new Option(name,key)));
+    const previous=select.value;select.replaceChildren(...Object.entries(STORE_NAMES).map(([key,name])=>new Option(name,key)));if([...select.options].some(option=>option.value===previous))select.value=previous;
     root.querySelector("#add-product-store-link").disabled = !select.options.length;
     this._storeLinkHint();
+  }
+
+  _commercialReferenceCard(ref){
+    const card=element('div','commercial-reference'),heading=element('div','commercial-reference-title'),name=element('input');
+    name.value=ref.name;name.maxLength=500;name.placeholder='Nombre comercial';name.setAttribute('aria-label','Nombre comercial');name.addEventListener('input',()=>{ref.name=name.value;});
+    name.readOnly=Boolean(ref.id&&!ref.ean&&!ref.reference_id);
+    const remove=element('button','remove-store-link');remove.type='button';remove.setAttribute('aria-label','Desvincular referencia');remove.innerHTML='<ha-icon icon="mdi:delete" aria-hidden="true"></ha-icon>';
+    remove.addEventListener('click',()=>{if(!confirm('¿Desvincular esta referencia comercial? Se conserva el historial de compras.'))return;ref.active=false;if(ref.ean){const code=ref.ean.padStart(14,'0');if(!this._commercialReferences.some(item=>item.active!==false&&item.ean?.padStart(14,'0')===code))this._productCodes.barcode=this._productCodes.barcode.filter(value=>value.padStart(14,'0')!==code);}const link=this._storeLinks[ref.store];if(link&&(typeof link==='string'?link===ref.url||link===ref.reference_id:link.id===ref.reference_id))delete this._storeLinks[ref.store];this._renderStoreLinks();this._renderProductCodes();});
+    heading.append(name,remove);card.append(heading);
+    card.append(element('p','helper',[ref.ean?'EAN: '+ref.ean:'',ref.reference_id?'ID: '+ref.reference_id:''].filter(Boolean).join(' · ')));
+    if(ref.url){const link=element('a','helper','Ver ficha de la tienda');link.href=ref.url;link.target='_blank';link.rel='noopener noreferrer';card.append(link);}
+    let renderPrice=()=>{};
+    const status=element('p','helper'),update=()=>{status.textContent='Formato pendiente de revisar';status.hidden=Boolean(ref.content_confirmed);renderPrice();};
+    card.append(referenceContentControls(ref,update),status);update();
+    const offers=(this._priceData?.offers??[]).filter(offer=>offer.catalog_product_id===this._editing?.id&&(offer.commercial_reference_id===ref.id||offer.store===ref.store&&(ref.ean&&offer.ean===ref.ean||ref.reference_id&&offer.reference_id===ref.reference_id))).sort((a,b)=>(b.checked_at??0)-(a.checked_at??0));
+    if(offers.length){const price=offers[0],text=element('p','helper');renderPrice=()=>{const money=value=>new Intl.NumberFormat('es-ES',{style:'currency',currency:price.currency}).format(value),rate=referenceRate(price.price,ref);text.textContent='Último precio: '+money(price.price)+' / envase';if(rate)text.textContent+=' · '+money(rate.price)+' / '+rate.unit;};renderPrice();card.append(text);}
+    return card;
   }
 
   _storeLinkHint() {
@@ -1555,6 +1591,8 @@ class ImprovedShoppingCatalog extends HTMLElement {
     this._editing = product ? structuredClone(product) : null;
     root.querySelector("#delete-product").hidden = !this._editing;
     this._storeLinks = structuredClone(product?.store_links ?? {});
+    this._commercialReferences = structuredClone(product?.commercial_references ?? []);
+    for(const [store,link] of Object.entries(this._storeLinks)){const value=typeof link==='string'?link:link.url||link.id;if(!this._commercialReferences.some(ref=>ref.store===store&&(ref.url===value||ref.reference_id===value||ref.reference_id===link.id)))this._commercialReferences.push({store,name:'',ean:'',reference_id:typeof link==='string'?(value.startsWith('https://')?'':value):link.id,url:value.startsWith('https://')?value:'',content_quantity:null,content_unit:'',content_confirmed:false});}
     this._renderStoreLinks();
     form.elements.recurrence_enabled.checked = product?.recurrence?.enabled === true;
     form.elements.recurrence_days.value = product?.recurrence?.days ?? 7;
@@ -1585,6 +1623,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
     product.unit_quantity=Number(fields.unit_quantity);
     product.quantity_step=Number(fields.quantity_step);
     product.store_links = structuredClone(this._storeLinks ?? {});
+    product.commercial_references = structuredClone(this._commercialReferences ?? []);
     product.barcode = this._productCodes.barcode[0] ?? "";
     product.barcodes = this._productCodes.barcode.slice(1);
     product.nfc_tags = [...this._productCodes.nfc];

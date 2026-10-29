@@ -1,6 +1,7 @@
-import { ListSettingsSession } from "./list-settings-client.js?v=0.48.1";
-import { installDialogCloseButtons } from "./dialog-controls.js?v=0.48.1";
-import { productNameKey } from "./product-names.js?v=0.48.1";
+import { ListSettingsSession } from "./list-settings-client.js?v=0.49.0";
+import { installDialogCloseButtons } from "./dialog-controls.js?v=0.49.0";
+import { productNameKey } from "./product-names.js?v=0.49.0";
+import { referenceFor, suggestedContent, referenceContentControls } from "./reference-formats.js?v=0.49.0";
 
 const node=(tag,cls,text)=>{const el=document.createElement(tag);if(cls)el.className=cls;if(text!==undefined)el.textContent=text;return el;};
 const money=value=>new Intl.NumberFormat('es-ES',{style:'currency',currency:'EUR'}).format(value);
@@ -47,6 +48,9 @@ class ImprovedShoppingPurchases extends HTMLElement {
   _build(){
     this._built=true;
     this.shadowRoot.innerHTML=`<style>
+      .price-line { flex-wrap:wrap; }.reference-content-controls { position:relative;z-index:1;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px;margin-top:12px;flex:1 0 100%;width:100%;min-width:0; }
+      .reference-content-controls label { min-width:0;margin:0;font-size:12px; }.reference-content-controls input,.reference-content-controls select { min-width:0;width:100%; }
+      .reference-confirm { grid-column:1/-1;display:flex!important;align-items:center;gap:8px; }.reference-confirm input { width:auto!important;min-height:0!important;margin:0!important; }
       :host{display:block;color:inherit;font:inherit}*{box-sizing:border-box}[hidden]{display:none!important}
       .purchase-filters{display:flex;gap:12px;margin:16px 0;flex-wrap:wrap}.purchase-filters label{flex:1;min-width:140px}.shoppers{font-size:12px;opacity:.7}.product-choice{display:flex!important;align-items:center;gap:10px}.product-choice input{width:auto!important}button,input,select{font:inherit;color:inherit}button{cursor:pointer}button:disabled{opacity:.5;cursor:default}
       input,select{width:100%;min-width:0;min-height:42px;border:1px solid var(--divider-color,#d9e0dd);background:var(--card-background-color,#fff);border-radius:8px;padding:8px}
@@ -81,7 +85,7 @@ class ImprovedShoppingPurchases extends HTMLElement {
 
       .stock-line-main{grid-template-columns:32px minmax(0,1fr) minmax(0,.8fr);gap:10px}.stock-quantity{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,.8fr);gap:6px;align-items:center;min-width:0}.stock-quantity input{width:100%;min-width:0;padding-inline:4px}
       .select-all-prices{justify-self:end;margin:0 0 4px;text-align:right}
-      .price-line{position:relative}.price-select{position:absolute;inset:0;width:100%;height:100%;border:0;border-radius:inherit;background:transparent;padding:0}.price-select:focus-visible{outline:3px solid var(--isl-green,#267052);outline-offset:-3px}.price-line[data-selected=true]{border-color:var(--isl-green,#267052);background:color-mix(in srgb,var(--secondary-background-color,#f2f4f3) 75%,var(--isl-green,#267052))}.price-product-name{position:relative;pointer-events:none}.price-label{min-width:0}.price-value{margin-top:6px}.price-value del{opacity:.6;font-size:.9em;margin-left:6px}.price-product-name strong{display:block}
+      .price-line{position:relative}.price-select{position:relative;width:100%;height:auto;min-height:52px;flex:1 0 100%;border:0;border-radius:inherit;background:transparent;padding:0;text-align:left}.price-select:focus-visible{outline:3px solid var(--isl-green,#267052);outline-offset:-3px}.price-line[data-selected=true]{border-color:var(--isl-green,#267052);background:color-mix(in srgb,var(--secondary-background-color,#f2f4f3) 75%,var(--isl-green,#267052))}.price-product-name{position:relative;pointer-events:none}.price-label{min-width:0}.price-value{margin-top:6px}.price-value del{opacity:.6;font-size:.9em;margin-left:6px}.price-product-name strong{display:block}
       @media(max-width:750px){.association-row{flex-wrap:wrap;gap:6px}.association-buttons{width:100%;justify-content:flex-end}.association-buttons .small-button{width:30px;height:34px}.association-buttons ha-icon{--mdc-icon-size:20px;width:20px;height:20px}.association-image{width:26px;height:26px}.stock-line-main{grid-template-columns:20px minmax(0,1fr) minmax(0,1.2fr);gap:4px}.stock-line-main .association-image{width:20px;height:20px}.stock-quantity{gap:3px;font-size:.85em}.stock-quantity input{padding-inline:2px;appearance:textfield}.stock-quantity input::-webkit-inner-spin-button,.stock-quantity input::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}.review-line{padding:8px}.association-name strong,.price-label{font-size:.85em}#review-lines,.review-group-content{gap:8px}.review-group-content{padding:0 8px 8px}}
       .review-summary{padding:18px;border:1px solid var(--divider-color,#d9e0dd);border-radius:14px}.purchase-heading{display:flex;align-items:center;gap:12px}.purchase-heading>ha-icon{color:var(--isl-green,#267052);--mdc-icon-size:28px;width:28px;height:28px}.purchase-heading>div{flex:1;min-width:0}.purchase-heading h3{margin:0;font-size:1.1em}.purchase-heading .muted{display:block;font-size:.85em}.purchase-total{font-size:1.25em;white-space:nowrap}.purchase-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:18px 0}.purchase-stats>div{display:flex;flex-direction:column;align-items:center;background:var(--card-background-color,#fff);padding:10px 4px;border-radius:10px}.purchase-stats strong{font-size:1.3em;color:var(--isl-green,#267052)}.purchase-stats span{font-size:.8em}.purchase-summary-line{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--divider-color,#d9e0dd)}.purchase-summary-line>div{min-width:0;overflow-wrap:anywhere}.purchase-summary-line .muted{display:block;font-size:.8em}.purchase-summary-line>span{white-space:nowrap}.review-summary>.totals{font-size:1.1em;border-top:2px dashed var(--divider-color,#d9e0dd);padding-top:14px}.purchase-lines{max-height:40vh;overflow:auto}@media(max-width:550px){#review-steps button{font-size:.7em;padding-inline:2px}.review-summary{padding:12px}.purchase-heading{flex-wrap:wrap;gap:8px}.purchase-total{margin-left:auto}.purchase-stats{gap:4px}.purchase-stats span{font-size:.75em}}
       .ticket{display:flex;align-items:center;gap:12px;min-width:0}.store-image{width:42px;height:42px;object-fit:contain;background:white;border-radius:10px;padding:5px;flex:none}.ticket .title{overflow-wrap:anywhere}.ticket .ticket-open{flex:none;width:40px;height:40px;border:0;border-radius:10px;background:var(--secondary-background-color,#edf2ef);display:grid;place-items:center;padding:0}.ticket-open.reviewed{background:var(--isl-green,#267052);color:white}.ticket-open:focus-visible{outline:3px solid var(--primary-color,#267052);outline-offset:2px}#purchase-detail-info{align-items:center;padding-bottom:12px;border-bottom:1px solid var(--divider-color,#d9e0dd)}#purchase-detail-info .total{margin-left:auto}.spending-chart{background:var(--card-background-color,#fff);padding:18px;border-radius:14px;margin-bottom:16px;min-width:0}.spending-chart h3{margin:0 0 4px;font-size:1.05em}.spending-chart .chart-note{font-size:.8em;opacity:.65;margin:0 0 12px}.chart-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}.chart-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;margin-left:auto;min-width:0;max-width:100%}.chart-navigation{display:flex;align-items:center;gap:6px;min-width:0}.chart-navigation button{flex:none}.upload-ticket{display:grid;place-items:center;flex:none;width:36px;height:36px;padding:0;border:0;border-radius:10px;background:var(--isl-green,#267052);color:#fff}.upload-ticket ha-icon{display:block;width:22px;height:22px;--mdc-icon-size:22px}.upload-ticket:focus-visible{outline:3px solid var(--primary-color,#267052);outline-offset:2px}.chart-period{font-size:.8em;text-align:center}.chart-navigation button{display:grid;place-items:center;width:32px;height:32px;padding:0;border:0;border-radius:8px;background:var(--secondary-background-color,#edf2ef)}.chart-navigation button ha-icon{--mdc-icon-size:22px}.chart-navigation button:focus-visible{outline:3px solid var(--primary-color,#267052);outline-offset:2px}.chart-scroll{width:100%;min-width:0;overflow-x:auto}.chart-range{display:flex;align-items:center;gap:6px;border:0;border-radius:8px;padding:8px;background:var(--secondary-background-color,#edf2ef);font-size:.8em;min-width:0}.chart-range span{overflow-wrap:anywhere}.chart-range ha-icon{flex:none}#purchase-period-dialog{width:min(460px,calc(100vw - 24px))}#purchase-period-form .period-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:20px}.monthly-bars{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));align-items:end;gap:14px;width:100%;padding:8px 0 0;border-bottom:1px solid var(--divider-color,#d9e0dd)}.month-column{min-width:0;text-align:center}.month-total{display:block;font-weight:700;font-size:clamp(.6rem,2vw,.85rem);margin-bottom:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.month-stack{height:130px;display:flex;flex-direction:column;justify-content:end;gap:0;background:repeating-linear-gradient(to top,transparent 0,transparent calc(25% - 1px),var(--divider-color,#d9e0dd) 25%);border-bottom:1px solid var(--divider-color,#d9e0dd)}.store-segment{width:70%;margin-inline:auto;flex:none;min-height:0}.month-label{display:block;font-size:.8em;padding:8px 0}.chart-legend{display:flex;flex-wrap:wrap;gap:10px 16px;margin-top:14px}.chart-key{display:inline-flex;align-items:center;gap:6px;font-size:.8em}.chart-swatch{width:10px;height:10px;border-radius:3px;flex:none}@media(max-width:550px){.ticket{gap:8px}.ticket .store-image{width:34px;height:34px}.ticket .ticket-open{width:32px;height:36px}.ticket .title{font-size:.85em}.ticket .total{font-size:.9em}.spending-chart{padding:14px}.monthly-bars{gap:6px}.month-label{font-size:.7em}.chart-period{font-size:.7em}}
@@ -158,11 +162,15 @@ class ImprovedShoppingPurchases extends HTMLElement {
       const candidate=products.find(p=>p.id===line.product_id&&!used.has(p.id)),product=line.matched===false?null:candidate;if(product)used.add(product.id);
       return {line,id:line.id,product_id:product?.id??'',search:candidate?.name??'',
         replenish:Boolean(product?.stock_id),quantity:product?this._defaultQuantity(line,product):null,
-        unit:product?.unit??'uds',purchase_id:null,save_price:Boolean(this._pricesEnabled)};
+        unit:product?.unit??'uds',purchase_id:null,save_price:Boolean(this._pricesEnabled),packageFormat:this._lineFormat(line,product)};
     });
     root.querySelector('#review-error').hidden=true;this._renderStep();
   }
   _defaultQuantity(line,product){return product.refill_quantity??this._quantity(line,product.unit);}
+  _lineFormat(line,product){
+    const ref=referenceFor(product,this._draft.receipt.store,line),hint=suggestedContent(line);
+    return {content_quantity:ref?.content_quantity??hint.quantity,content_unit:ref?.content_unit||hint.unit,content_confirmed:Boolean(ref?.content_confirmed)};
+  }
   _quantity(line,unit){
     if(unit==='uds')return line.count;
     const scales={g:['mass',1],kg:['mass',1000],ml:['volume',1],cl:['volume',10],l:['volume',1000]},source=scales[line.pack_unit],target=scales[unit];
@@ -187,7 +195,7 @@ class ImprovedShoppingPurchases extends HTMLElement {
       edit.product_id='';this._errorMessage('Este producto ya está vinculado a otra línea. Libera primero esa vinculación.');return false;
     }
     const changed=edit.product_id!==(product?.id??'');edit.product_id=product?.id??'';
-    if(changed){edit.unit=product?.unit??'uds';edit.quantity=product?this._defaultQuantity(edit.line,product):null;edit.replenish=Boolean(product?.stock_id);edit.purchase_id=null;}
+    if(changed){edit.unit=product?.unit??'uds';edit.quantity=product?this._defaultQuantity(edit.line,product):null;edit.replenish=Boolean(product?.stock_id);edit.purchase_id=null;edit.packageFormat=this._lineFormat(edit.line,product);}
     this._errorMessage('');return true;
   }
   _goToStep(step){
@@ -244,8 +252,10 @@ class ImprovedShoppingPurchases extends HTMLElement {
           [...root.querySelectorAll('.review-line')].find(line=>line.dataset.lineId===String(edit.id))?.querySelector('.price-select')?.focus();
         });
         const name=node('div','price-product-name'),label=node('div','price-label'),price=node('div','price-value',money(edit.line.unit_price));
-        if(product.price!=null&&Math.round(product.price*100)!==Math.round(edit.line.unit_price*100))price.append(node('del','', '('+money(product.price)+')'));
-        label.append(node('strong','',product.name),price);name.append(this._productImage(product),label);row.append(toggle,name);
+        const ref=referenceFor(product,this._draft.receipt.store,edit.line),previous=product.reference_prices?.find(offer=>ref?.id&&offer.commercial_reference_id===ref.id||edit.line.ean&&offer.ean===edit.line.ean)?.price??(product.reference_prices?null:product.price);
+        if(previous!=null&&Math.round(previous*100)!==Math.round(edit.line.unit_price*100))price.append(node('del','', '('+money(previous)+')'));
+        label.append(node('strong','',product.name),price);name.append(this._productImage(product),label);toggle.append(name);row.append(toggle);
+        row.append(referenceContentControls(edit.packageFormat,()=>{}));
       }
       if(grouped&&(step===0?Boolean(product):!product?.stock_id))groupedContent.append(row);
       else container.append(row);
@@ -414,7 +424,7 @@ class ImprovedShoppingPurchases extends HTMLElement {
     this._setBusy(true);
     try{
       await this._hass.callWS({type:'improved_shopping_list/receipts/confirm',token:this._draft.token,update_prices:Boolean(updatePrices&&this._pricesEnabled),
-        lines:this._edits.map(edit=>({id:edit.id,product_id:edit.product_id,replenish:Boolean(edit.product_id&&edit.replenish),quantity:edit.replenish?edit.quantity:null,unit:edit.unit,purchase_id:edit.purchase_id??'',save_price:Boolean(edit.product_id&&edit.save_price&&updatePrices&&this._pricesEnabled)}))});
+        lines:this._edits.map(edit=>({id:edit.id,product_id:edit.product_id,replenish:Boolean(edit.product_id&&edit.replenish),quantity:edit.replenish?edit.quantity:null,unit:edit.unit,purchase_id:edit.purchase_id??'',save_price:Boolean(edit.product_id&&edit.save_price&&updatePrices&&this._pricesEnabled),pack_quantity:edit.packageFormat.content_confirmed?edit.packageFormat.content_quantity:null,pack_unit:edit.packageFormat.content_confirmed?edit.packageFormat.content_unit:''}))});
       this._draft=null;this.shadowRoot.querySelector('dialog').close();await this._session.refresh();this.dispatchEvent(new CustomEvent('receipt-imported'));
     }catch(error){this._errorMessage(error.message??'No se ha podido guardar el ticket.');}
     finally{this._setBusy(false);}

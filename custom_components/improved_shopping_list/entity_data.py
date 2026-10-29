@@ -116,16 +116,24 @@ class EntityData:
             cents = coverage = 0
             for item in self.pending:
                 product = products.get(normalized_name(item.get("summary") or ""))
-                offer = next((offer for offer in offers.get(product["id"], []) if offer.get("store") == store), None) if product else None
+                candidates=[offer for offer in offers.get(product["id"],[]) if offer.get("store")==store and offer.get("currency","EUR")=="EUR"] if product else []
+                quantity=self.managers["quantities"].value(self.settings["primary_entity"],item,product) if product else None
+                from .product_references import package_cost
+                def cost(offer):
+                    converted=package_cost(offer,quantity["quantity"],quantity.get("unit",product.get("purchase_unit","uds")))
+                    if converted is not None:return converted
+                    if offer.get("format_pending") or offer.get("pack_quantity"):return None
+                    return offer["price"]*quantity["quantity"]/quantity["unit_quantity"]
+                candidates=[(offer,cost(offer)) for offer in candidates]
+                candidates=[(offer,value) for offer,value in candidates if value is not None]
+                offer,value=min(candidates,key=lambda pair:pair[1]) if candidates else (None,None)
                 if not offer or offer.get("currency", "EUR") != "EUR":
                     continue
                 try:
                     price = Decimal(str(offer["price"]))
                     if not price.is_finite() or price < 0:
                         continue
-                    quantity = self.managers["quantities"].value(self.settings["primary_entity"], item, product)
-                    factor = Decimal(str(quantity["quantity"])) / Decimal(str(quantity["unit_quantity"]))
-                    cents += int((price * factor * 100).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
+                    cents += int((Decimal(str(value))*100).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
                 except (KeyError, InvalidOperation, ValueError):
                     continue
                 coverage += 1

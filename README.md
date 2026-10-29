@@ -4,7 +4,7 @@
 
 Una interfaz propia para gestionar las listas de la compra que ya tienes integradas en Home Assistant.
 
-Versión actual: **0.48.1**. Interfaz en español, pensada para móvil y ordenador. Requiere **Home Assistant Core 2026.10 o posterior**. La referencia de desarrollo es Core 2026.10.2.
+Versión actual: **0.49.0**. Interfaz en español, pensada para móvil y ordenador. Requiere **Home Assistant Core 2026.10 o posterior**. La referencia de desarrollo es Core 2026.10.2.
 
 Los precios proceden de tickets y facturas confirmados por el usuario. Alcampo y DIA están archivados: no aparecen en Ajustes → Tiendas ni inician consultas, pero conservan su código y sus datos guardados. Las demás tiendas permanecen disponibles. El catálogo comunitario se dedica exclusivamente a sugerencias de iconos y no proporciona precios.
 
@@ -481,6 +481,20 @@ En cuanto se recupera y guarda el ticket, se cierra el popup y la compra detecta
 
 ### Carga de los apartados de la interfaz
 
+Las mejoras de carga se incluyen desde la versión 0.49.0.
+
 Lista inicia los datos compartidos que necesita para los productos, categorías, cantidades y precios guardados. Las interfaces de Catálogo, Stock, Ajustes y Analítica se descargan al abrirlas por primera vez; el mapa de zonas no forma parte de la carga inicial de Lista. Los formularios de Stock tampoco se construyen hasta entrar en ese apartado.
 
 El catálogo de datos usa una sola sesión compartida, también al crear productos desde un ticket. Los apartados ocultos no reconstruyen sus listados y las conexiones de stock y lectores se detienen cuando dejan de ser necesarias en la interfaz. Las automatizaciones siguen funcionando en Home Assistant con la interfaz cerrada. Cambiar de apartado conserva la sesión y las preferencias, sin recargar Home Assistant ni necesitar otras tarjetas de HACS.
+
+### Referencias comerciales y contenido por envase
+
+Un producto genérico, como **Huevos**, puede contener varias referencias comerciales de una misma tienda o de distintas tiendas. En su ficha → **Tiendas** aparecen su nombre comercial, EAN o ID, enlace disponible y **Contenido por envase** con sus unidades (`uds`, `g`, `kg`, `ml`, `cl`, `l`). Marca **Formato confirmado** y guarda la ficha para utilizar ese contenido en las comparativas. Puedes corregirlo o desvincular una referencia sin borrar el historial de compras ni modificar el stock. El contenido es independiente de las unidades de compra, el tamaño del paso y la reposición configurada en Stock.
+
+Al revisar un ticket, la vinculación aprende la referencia aunque no repongas stock ni guardes su precio. En el paso **Precios** se propone el contenido detectado para cada referencia: revísalo y marca **Formato confirmado** si es correcto. La cantidad de envases comprados se conserva aparte: dos cajas de doce huevos son dos envases y veinticuatro huevos. Las referencias conocidas reutilizan su formato confirmado en compras posteriores. Un EAN nuevo asociado con un lector queda disponible en Tiendas para completar su formato, incluso antes de asignarle una tienda. Los nuevos enlaces manuales permiten añadir varias referencias de una misma tienda.
+
+En Catálogo → Productos, el botón **Formatos pendientes de revisar** muestra solo los productos con alguna referencia activa sin confirmar. Al actualizar desde una versión anterior se recuperan las referencias de tickets y vinculaciones existentes sin dar por confirmado un tamaño deducido ni copiar la cantidad de Stock. Los datos se conservan en el almacenamiento local de Home Assistant; no se comparten en el diccionario comunitario.
+
+Analítica compara por unidad, kg o litro con contenido confirmado. Sin ese contenido, solo permite la equivalencia directa cuando coincide el EAN exacto. El análisis del catálogo distingue el precio normalizado del coste real de una compra: para estimar la lista y las compras alternativas se cuentan envases completos. Una caja de seis huevos a 1,80 € cuesta 0,30 €/ud; una de doce a 3 € cuesta 0,25 €/ud, pero comprar seis huevos en esa segunda referencia cuesta una caja completa de 3 €. Si hay varios formatos de una tienda, se escoge el más económico para la cantidad solicitada. Los formatos pendientes no se utilizan para calcular una cantidad física ni un ahorro entre referencias diferentes.
+
+Estas funciones no requieren tarjetas de HACS, complementos, servicios ni dependencias adicionales.

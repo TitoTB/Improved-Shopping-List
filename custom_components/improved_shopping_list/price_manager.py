@@ -53,13 +53,19 @@ class PriceManager:
         if not self.prices_enabled:
             return []
         receipts=getattr(self,"receipts",None)
-        offers = {price["store"]:deepcopy(price) for price in receipts.offers_for(product) if price.get("source")=="receipt"} if receipts else {}
+        offers = [deepcopy(price) for price in receipts.offers_for(product) if price.get("source")=="receipt"] if receipts else []
         for store, attribute in (("alcampo", "alcampo"), ("dia", "dia_prices")):
             manager = getattr(self, attribute, None)
             offer = manager.offer_for(product) if manager else None
-            if offer and (store not in offers or offer["checked_at"] > offers[store]["checked_at"]):
-                offers[store] = offer
-        return [{**price,"catalog_product_id":product["id"],"name":product["name"]} for price in offers.values()]
+            if offer:
+                from .product_references import format_observation
+                offers.append(format_observation(product,store,offer))
+        latest={}
+        for price in offers:
+            key=(price["store"],price.get("commercial_reference_id") or price.get("reference_id") or price.get("ean") or "legacy")
+            if key not in latest or price.get("checked_at",0)>latest[key].get("checked_at",0):
+                latest[key]=price
+        return [{**price,"catalog_product_id":product["id"]} for price in latest.values()]
 
     def snapshot(self,store=None):
         return {"products":[price for product in self.catalog.products for price in self.prices_for(product) if store is None or price["store"]==store],

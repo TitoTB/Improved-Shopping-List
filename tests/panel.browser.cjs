@@ -932,6 +932,43 @@ async function checkDetectedPurchaseRecovery(browser,url,errors){
   await context.close();
 }
 
+async function checkReferenceFormats(browser,url,errors){
+  const context=await browser.newContext({viewport:{width:390,height:844}});
+  await context.addInitScript(()=>{
+    const base={revision:1,category:'',tags:[],price:null,currency:'EUR',barcode:'',barcodes:[],nfc_tags:[],reader_actions:{},image_url:'',icon:'',notes:'',store_links:{},recurrence:{enabled:false,days:7}};
+    localStorage.setItem('catalog-fixture',JSON.stringify([
+      {...base,id:'eggs',name:'Huevos',commercial_references:[{id:'egg12',store:'lidl',name:'HUEVOS 12 UDS',reference_id:'egg12',ean:'1234567890128',url:'',content_quantity:12,content_unit:'uds',content_confirmed:false},
+        {id:'egg6',store:'lidl',name:'HUEVOS 6 UDS',reference_id:'egg6',ean:'4006381333931',url:'',content_quantity:6,content_unit:'uds',content_confirmed:true}]},
+      {...base,id:'bread',name:'Pan',commercial_references:[]},
+    ]));
+  });
+  const page=await context.newPage();page.on('pageerror',error=>errors.push(error.message));await page.goto(url);
+  await page.getByRole('button',{name:'Catálogo',exact:true}).click();
+  const catalog=page.locator('isl-catalog');
+  await catalog.getByRole('button',{name:'Cambiar a vista de filas',exact:true}).click();
+  await catalog.getByRole('button',{name:'Mostrar formatos pendientes de revisar',exact:true}).click();
+  assert.deepEqual(await catalog.locator('#catalog-grid .product .title').allTextContents(),['Huevos']);
+  await catalog.getByRole('button',{name:'Editar Huevos',exact:true}).click();
+  const dialog=catalog.getByRole('dialog',{name:'Editar producto',exact:true});
+  await dialog.getByRole('button',{name:'Tiendas',exact:true}).click();
+  assert.equal(await dialog.locator('.commercial-reference').count(),2);
+  const first=dialog.locator('.commercial-reference').first();
+  assert.equal(await first.getByLabel('Contenido por envase',{exact:true}).inputValue(),'12');
+  assert.equal(await first.getByLabel('Formato confirmado',{exact:true}).isChecked(),false);
+  await first.getByLabel('Formato confirmado',{exact:true}).check();
+  for(const width of [320,1280]){await page.setViewportSize({width,height:960});assert.ok(await dialog.evaluate(el=>el.scrollWidth<=el.clientWidth+1));}
+  await page.setViewportSize({width:390,height:844});
+  await page.screenshot({path:'test-results/commercial-references-mobile.png',fullPage:true});
+  await dialog.getByRole('button',{name:'Guardar producto',exact:true}).click();await dialog.waitFor({state:'hidden'});
+  await page.waitForFunction(()=>window.catalogProducts.find(p=>p.id==='eggs').commercial_references[0].content_confirmed===true);
+  assert.equal(await catalog.locator('#catalog-grid .product').count(),0);
+  await catalog.getByRole('button',{name:'Mostrar formatos pendientes de revisar',exact:true}).click();
+  await catalog.getByRole('button',{name:'Editar Huevos',exact:true}).click();
+  await dialog.getByRole('button',{name:'Tiendas',exact:true}).click();
+  assert.equal(await first.getByLabel('Formato confirmado',{exact:true}).isChecked(),true);
+  await dialog.getByRole('button',{name:'Cerrar ventana',exact:true}).click();await context.close();
+}
+
 async function checkLazySections(browser,url,errors){
   const context=await browser.newContext({viewport:{width:1280,height:960}}),page=await context.newPage();
   const requests=[];page.on('request',request=>requests.push(new URL(request.url()).pathname));page.on('pageerror',error=>errors.push(error.message));
@@ -985,7 +1022,7 @@ async function main() {
       return;
     }
     if (pathname === "/") { res.setHeader("content-type", "text/html; charset=utf-8"); res.end(html); return; }
-    if (!["/stock-panel.js", "/product-display.js", "/zone-map.js", "/vendor/leaflet/leaflet.js", "/vendor/leaflet/leaflet.css", "/vendor/leaflet/images/layers.png", "/vendor/leaflet/images/layers-2x.png", "/lidl-account.js", "/toggle-styles.js", "/shopping-places.js", "/dia-prices-settings.js", "/dia-account.js", "/analytics-panel.js", "/alcampo-settings.js", "/carrefour-account.js", "/notification-settings.js", "/recipe-editor.js", "/quantity-client.js", "/panel.js", "/purchases-panel.js", "/stock-client.js", "/dialog-controls.js", "/todo-client.js", "/catalog-panel.js", "/catalog-client.js", "/category-panel.js", "/icon-picker.js", "/list-settings-client.js", "/settings-panel.js", "/readers-client.js", "/readers-panel.js", "/product-matching.js", "/product-names.js", "/logs-panel.js", "/logo.png", "/mercadona.png", "/consum.jpg", "/lasirena.jpg", "/eroski.svg", "/dia.png"].includes(pathname)) { res.writeHead(404).end(); return; }
+    if (!["/stock-panel.js", "/product-display.js", "/reference-formats.js", "/zone-map.js", "/vendor/leaflet/leaflet.js", "/vendor/leaflet/leaflet.css", "/vendor/leaflet/images/layers.png", "/vendor/leaflet/images/layers-2x.png", "/lidl-account.js", "/toggle-styles.js", "/shopping-places.js", "/dia-prices-settings.js", "/dia-account.js", "/analytics-panel.js", "/alcampo-settings.js", "/carrefour-account.js", "/notification-settings.js", "/recipe-editor.js", "/quantity-client.js", "/panel.js", "/purchases-panel.js", "/stock-client.js", "/dialog-controls.js", "/todo-client.js", "/catalog-panel.js", "/catalog-client.js", "/category-panel.js", "/icon-picker.js", "/list-settings-client.js", "/settings-panel.js", "/readers-client.js", "/readers-panel.js", "/product-matching.js", "/product-names.js", "/logs-panel.js", "/logo.png", "/mercadona.png", "/consum.jpg", "/lasirena.jpg", "/eroski.svg", "/dia.png"].includes(pathname)) { res.writeHead(404).end(); return; }
     res.setHeader("content-type", pathname.endsWith(".css") ? "text/css; charset=utf-8" : pathname.endsWith(".svg") ? "image/svg+xml" : pathname.endsWith(".png") ? "image/png" : pathname.endsWith(".jpg") ? "image/jpeg" : "text/javascript; charset=utf-8");
     res.end(await fs.readFile(path.join(root, pathname.slice(1))));
   });
@@ -994,6 +1031,7 @@ async function main() {
   try {
     browser = await chromium.launch({ headless: true, channel: process.env.PLAYWRIGHT_CHANNEL || undefined });
     if(process.argv.includes('--lazy-only')){const errors=[];await checkLazySections(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);return;}
+    if(process.argv.includes('--formats-only')){const errors=[];await checkReferenceFormats(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Commercial reference browser checks passed.');return;}
     if(process.argv.includes('--recovery-only')){const errors=[];await checkDetectedPurchaseRecovery(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Manual purchase recovery browser checks passed.');return;}
     if(process.argv.includes('--purchases-only')){const errors=[];await checkSpendingChart(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Purchase calendar browser checks passed.');return;}
     if(process.argv.includes('--lidl-only')){const errors=[];await checkLidlAccount(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Lidl account browser checks passed.');return;}
@@ -3229,7 +3267,8 @@ async function main() {
     assert.equal(await review.locator('[data-line-id="2"]').count(),0);
     assert.equal(await review.locator('[data-line-id="0"] .price-product-name strong').textContent(),'Seitán');
     assert.equal(await review.locator('[data-line-id="0"] .association-image img').getAttribute('src'),new URL('/local/receipt-seitan.svg',url).href);
-    assert.equal(await review.locator('input[type=checkbox]').count(),1);
+    assert.equal(await review.locator('.select-all-prices input[type=checkbox]').count(),1);
+    assert.equal(await review.locator('.reference-content-controls').count(),2);
     assert.match(await review.locator('[data-line-id="0"] .price-value').textContent(),/2,65.*3,80/);
     assert.equal(await review.locator('[data-line-id="0"] .price-value del').count(),1);
     await purchases.evaluate(panel=>{panel._draft.products.find(p=>p.id==='cacao').price=2.65;panel._renderStep();});
@@ -3340,7 +3379,7 @@ async function main() {
     assert.equal(await linksForm.getByLabel('Enlace o ID de Mercadona',{exact:true}).inputValue(),'69938');
     assert.equal(await linksForm.locator('.store-reference').count(),2);
     assert.equal(await linksForm.locator('.store-reference img').count(),2);
-    assert.equal(await linksForm.locator('#product-store-links label').count(),0);
+    assert.equal(await linksForm.locator('#product-store-links .reference-content-controls').count(),2);
     assert.equal(await linksForm.getByRole('button',{name:'Quitar vinculación de Mercadona',exact:true}).evaluate(node=>getComputedStyle(node).backgroundColor),'rgb(211, 47, 47)');
     assert.ok(await linksForm.locator('.product-store-link').first().evaluate(row=>{
       const [input,remove]=[...row.children].map(node=>node.getBoundingClientRect());
@@ -4261,6 +4300,7 @@ async function main() {
     await checkLidlAccount(browser,url,errors);
     await checkDetectedPurchaseRecovery(browser,url,errors);
     await checkLazySections(browser,url,errors);
+    await checkReferenceFormats(browser,url,errors);
 
     // Shipping policy: Alcampo and DIA are archived; the other stores remain available.
     const archivedContext=await browser.newContext({viewport:{width:390,height:844}});

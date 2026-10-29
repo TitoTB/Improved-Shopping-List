@@ -1,5 +1,15 @@
 # Historial de cambios
 
+## 0.49.0 — 2026-10-29
+
+- Referencias comerciales por producto, con EAN o ID, tienda, nombre, enlace y contenido por envase independiente de la compra y de Stock. Admite varios formatos de una misma tienda y conserva sus últimos precios por separado.
+- Confirmación del contenido al revisar tickets y edición desde la ficha → Tiendas. Migración conservadora de referencias existentes, filtro de formatos pendientes y desvinculación sin eliminar compras históricas ni modificar stock.
+- Comparaciones por unidad, kg o litro; las estimaciones de compra cuentan envases completos y eligen el formato más económico para la cantidad solicitada. Los formatos sin confirmar no generan equivalencias entre EAN diferentes.
+- Carga de interfaces bajo demanda y catálogo compartido: Lista inicia primero y las vistas ocultas dejan de reconstruirse.
+- Crear un producto desde un ticket toma siempre el nombre original de su línea, sin reutilizar el de una coincidencia sugerida.
+- Historial de cuentas de los últimos doce meses exactos, con texto aclarado en la interfaz y consulta de compras no favoritas de Lidl.
+- Sin nuevas dependencias.
+
 ## 0.48.1 — 2026-10-29
 
 - Corregida la lectura de promociones por artículo y vales posteriores al subtotal en tickets de Carrefour. Los descuentos no se suman dos veces y el precio unitario conserva el valor anterior a la promoción.

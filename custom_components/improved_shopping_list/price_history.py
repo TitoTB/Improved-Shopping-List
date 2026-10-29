@@ -9,6 +9,7 @@ from homeassistant.util import dt as dt_util
 
 from .const import DOMAIN
 from .store_links import STORES
+from .product_references import format_observation
 
 MAX_OBSERVATIONS = 12000
 RETENTION = 730 * 86400
@@ -61,6 +62,7 @@ class PriceHistory:
     def comparison_data(self, catalog, settings, receipts, current_offers):
         products = catalog.products
         product_ids = {product["id"] for product in products}
+        product_map = {product["id"]:product for product in products}
         enabled = [store for store in STORES if settings.snapshot.get("stores", {}).get(store, {}).get("enabled")]
         observations, purchases = [], []
         for receipt in receipts.stock.receipts["history"].values():
@@ -74,20 +76,25 @@ class PriceHistory:
                 product_id = line.get("product_id", "")
                 safe = {key:deepcopy(line.get(key)) for key in ("id", "description", "count", "amount", "unit_price", "ean", "pack_quantity", "pack_unit")}
                 safe["product_id"] = product_id if product_id in product_ids else ""
+                if safe["product_id"]:
+                    safe=format_observation(product_map[product_id],receipt.get("store",""),{**safe,"reference_id":line.get("reference_id","")})
+                    if safe.get("reference_excluded"):
+                        safe["product_id"]=""
                 lines.append(safe)
                 if line.get("price_saved") and safe["product_id"] and receipt.get("store") in enabled:
                     observations.append({**safe, "store":receipt["store"], "price":line.get("unit_price"), "currency":receipt.get("currency", "EUR"), "at":at, "source":"receipt"})
             purchases.append({"id":receipt["id"], "store":receipt.get("store", ""), "store_name":receipt.get("store_name", ""), "purchased_at":receipt["purchased_at"], "at":at,
                 "total":receipt.get("total"), "shipping":receipt.get("shipping", 0), "discount":receipt.get("discount", 0), "currency":receipt.get("currency", "EUR"), "lines":lines})
         by_reference = {(store, link.get("id")):product["id"] for product in products for store, link in product.get("store_links", {}).items() if isinstance(link, dict) and link.get("id")}
+        by_reference.update({(ref["store"],ref["reference_id"]):product["id"] for product in products for ref in product.get("commercial_references",[]) if ref.get("store") and ref.get("reference_id")})
         for entry in self._entries:
             product_id = by_reference.get((entry.get("store"), entry.get("reference_id")))
             if product_id and entry.get("store") in enabled:
-                observations.append({**deepcopy(entry), "product_id":product_id, "source":"web"})
+                observations.append({**format_observation(product_map[product_id],entry.get("store",""),entry), "product_id":product_id, "source":"web"})
         for offer in current_offers:
             product_id = offer.get("catalog_product_id")
             at = offer.get("checked_at")
             if product_id in product_ids and offer.get("store") in enabled and offer.get("source") != "receipt" and isinstance(at, (int, float)):
-                observations.append({**{key:deepcopy(offer.get(key)) for key in ("store", "price", "currency", "reference_price", "reference_unit", "ean", "name", "reference_id")}, "product_id":product_id, "at":at, "source":"web"})
+                observations.append({**format_observation(product_map[product_id],offer["store"],{key:deepcopy(offer.get(key)) for key in ("store", "price", "currency", "reference_price", "reference_unit", "ean", "name", "reference_id")}), "product_id":product_id, "at":at, "source":"web"})
         observations = [entry for entry in observations if finite(entry.get("price")) is not None and isinstance(entry.get("at"), (int, float)) and math.isfinite(entry["at"]) and entry["at"] > 0]
         return {"observations":sorted(observations, key=lambda item:item["at"], reverse=True)[:20000], "observations_truncated":len(observations)>20000, "purchases":sorted(purchases, key=lambda item:item["at"], reverse=True), "stores":enabled, "generated_at":time.time(), "historical_window_days":30}

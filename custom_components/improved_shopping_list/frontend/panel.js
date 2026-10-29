@@ -1,11 +1,12 @@
-import { StockSession } from "./stock-client.js?v=0.48.1";
-import { QuantitySession, purchaseQuantity, quantityLabel } from "./quantity-client.js?v=0.48.1";
-import { installDialogCloseButtons } from "./dialog-controls.js?v=0.48.1";
-import { FEATURES, TodoSession, errorMessage, isAvailable, supports } from "./todo-client.js?v=0.48.1";
-import { imageSource, normalizedName, productNameKey, cachedProductPrice } from "./product-display.js?v=0.48.1";
-import { ListSettingsSession, gradientTextColor } from "./list-settings-client.js?v=0.48.1";
-import { CatalogSession } from "./catalog-client.js?v=0.48.1";
-import { ReadersSession } from "./readers-client.js?v=0.48.1";
+import { StockSession } from "./stock-client.js?v=0.49.0";
+import { QuantitySession, purchaseQuantity, quantityLabel } from "./quantity-client.js?v=0.49.0";
+import { installDialogCloseButtons } from "./dialog-controls.js?v=0.49.0";
+import { FEATURES, TodoSession, errorMessage, isAvailable, supports } from "./todo-client.js?v=0.49.0";
+import { imageSource, normalizedName, productNameKey, cachedProductPrice } from "./product-display.js?v=0.49.0";
+import { packageCost } from "./reference-formats.js?v=0.49.0";
+import { ListSettingsSession, gradientTextColor } from "./list-settings-client.js?v=0.49.0";
+import { CatalogSession } from "./catalog-client.js?v=0.49.0";
+import { ReadersSession } from "./readers-client.js?v=0.49.0";
 
 const LOGO_URL = new URL("logo.png", import.meta.url).href;
 const STORE_LOGOS = {
@@ -161,11 +162,11 @@ class ImprovedShoppingListPanel extends HTMLElement {
   _loadSection(name) {
     if(this._modules.has(name))return this._modules.get(name);
     const load={
-      stock:()=>import('./stock-panel.js?v=0.48.1'),
-      catalog:()=>import('./catalog-panel.js?v=0.48.1'),
-      settings:()=>import('./settings-panel.js?v=0.48.1'),
-      purchases:()=>import('./purchases-panel.js?v=0.48.1'),
-      analytics:()=>import('./analytics-panel.js?v=0.48.1'),
+      stock:()=>import('./stock-panel.js?v=0.49.0'),
+      catalog:()=>import('./catalog-panel.js?v=0.49.0'),
+      settings:()=>import('./settings-panel.js?v=0.49.0'),
+      purchases:()=>import('./purchases-panel.js?v=0.49.0'),
+      analytics:()=>import('./analytics-panel.js?v=0.49.0'),
     }[name];
     const pending=load().then(module=>{
       if(name==='stock')module.installStockView(this);
@@ -428,7 +429,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
       </style>
       <header>
         <button class="menu" aria-label="Abrir menú de Home Assistant"><ha-icon icon="mdi:menu"></ha-icon></button>
-        <div class="branding"><img class="brand-logo" src="${LOGO_URL}" alt="" width="44" height="44"><div class="brand-copy"><span class="brand">Improved Shopping List</span><span class="version">0.48.1</span></div></div>
+        <div class="branding"><img class="brand-logo" src="${LOGO_URL}" alt="" width="44" height="44"><div class="brand-copy"><span class="brand">Improved Shopping List</span><span class="version">0.49.0</span></div></div>
         <nav class="section-nav" aria-label="Apartados">
           <button id="nav-shopping" aria-label="Lista" aria-pressed="true"><ha-icon icon="mdi:shopping" aria-hidden="true"></ha-icon><span class="nav-label">Lista</span></button>
           <button id="nav-catalog" aria-label="Catálogo" aria-pressed="false"><ha-icon icon="mdi:view-grid" aria-hidden="true"></ha-icon><span class="nav-label">Catálogo</span></button>
@@ -1242,6 +1243,12 @@ class ImprovedShoppingListPanel extends HTMLElement {
   _quantityOffer(item,offer) {
     if(!offer)return null;
     const value=this._purchaseQuantity(item);
+    const product=this._catalogProducts.get(productNameKey(item.summary));
+    const choices=this._rowPrices.filter(price=>price.store===offer.store&&price.catalog_product_id===product?.id);
+    if(choices.length)offer=cachedProductPrice(product,choices,offer.store,value)??offer;
+    const cost=packageCost(offer,value.quantity,value.unit);
+    if(cost)return {...offer,...cost};
+    if(offer.format_pending||offer.pack_quantity>0)return null;
     return {...offer,price:Number(offer.price)*value.quantity/value.unit_quantity};
   }
 

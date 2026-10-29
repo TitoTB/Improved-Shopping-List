@@ -1,19 +1,19 @@
 const node=(tag,cls,text)=>{const el=document.createElement(tag);if(cls)el.className=cls;if(text!==undefined)el.textContent=text;return el;};
 const names={mercadona:'Mercadona',carrefour:'Carrefour',alcampo:'Alcampo',consum:'Consum',lasirena:'La Sirena',eroski:'Eroski',dia:'DIA',lidl:'Lidl'};
 const money=(cents,currency)=>new Intl.NumberFormat('es-ES',{style:'currency',currency}).format(cents/100);
-const scales={kg:['kg',1],g:['kg',.001],gr:['kg',.001],ml:['l',.001],cl:['l',.01],l:['l',1]};
+const scales={uds:['uds',1],ud:['uds',1],kg:['kg',1],g:['kg',.001],gr:['kg',.001],ml:['l',.001],cl:['l',.01],l:['l',1]};
 const number=value=>typeof value==='boolean'||value===null||value===''?NaN:Number(value);
 const validMoney=value=>Number.isFinite(number(value))&&number(value)>=0;
 const gtin=value=>{if(typeof value!=='string'||!/^(?:\d{8}|\d{12,14})$/.test(value))return '';const sum=[...value.slice(0,-1)].reverse().reduce((total,digit,i)=>total+Number(digit)*(i%2?1:3),0);return (10-sum%10)%10===Number(value.at(-1))?value.padStart(14,'0'):'';};
 export function normalizeObservation(raw){
-  if(!raw||!validMoney(raw.price)||!Number.isFinite(number(raw.at))||number(raw.at)<=0||!/^[A-Z]{3}$/.test(raw.currency??''))return null;
+  if(!raw||raw.reference_excluded||!validMoney(raw.price)||!Number.isFinite(number(raw.at))||number(raw.at)<=0||!/^[A-Z]{3}$/.test(raw.currency??''))return null;
   const price=number(raw.price),ean=gtin(raw.ean),reference=String(raw.reference_unit??'').toLowerCase().trim().replace(/^€\s*\/\s*/,'');
-  const refs={per_1kg:['kg',1],per_1l:['l',1],per_100g:['kg',.1],per_100ml:['l',.1],...scales};
+  const refs={per_each:['uds',1],per_1kg:['kg',1],per_1l:['l',1],per_100g:['kg',.1],per_100ml:['l',.1],...scales};
   let unit='',quantity=null,rate=null;
   const pack=scales[String(raw.pack_unit??'').toLowerCase()];
-  if(pack&&number(raw.pack_quantity)>0){unit=pack[0];quantity=number(raw.pack_quantity)*pack[1];rate=price/quantity;}
-  else if(refs[reference]&&validMoney(raw.reference_price)){unit=refs[reference][0];rate=number(raw.reference_price)/refs[reference][1];quantity=rate>0?price/rate:null;}
-  else if(raw.source==='web'){
+  if(!raw.format_pending&&pack&&number(raw.pack_quantity)>0){unit=pack[0];quantity=number(raw.pack_quantity)*pack[1];rate=price/quantity;}
+  else if(!raw.format_pending&&refs[reference]&&validMoney(raw.reference_price)){unit=refs[reference][0];rate=number(raw.reference_price)/refs[reference][1];quantity=rate>0?price/rate:null;}
+  else if(!raw.format_pending&&raw.source==='web'){
     const match=String(raw.store_name||raw.name||'').match(/(\d+(?:[.,]\d+)?)\s*(kg|g|ml|cl|l)\b/i);
     if(match&&Number(match[1].replace(',','.'))>0){const factor=scales[match[2].toLowerCase()];unit=factor[0];quantity=Number(match[1].replace(',','.'))*factor[1];rate=price/quantity;}
   }
@@ -22,12 +22,13 @@ export function normalizeObservation(raw){
 export function analyzeCatalog(products,observations,options={}){
   const now=options.now??Date.now()/1000,stores=options.stores??[],currency=options.currency??'EUR',age=options.maxAge?options.maxAge*86400:Infinity;
   const latest=new Map();
-  for(const raw of observations){const offer=normalizeObservation(raw);if(!offer||offer.currency!==currency||!stores.includes(offer.store)||offer.at>now||now-offer.at>age)continue;const key=offer.product_id+':'+offer.store;if(!latest.has(key)||latest.get(key).at<offer.at)latest.set(key,offer);}
-  const filtered=products.filter(p=>(!options.category||p.category===options.category)&&(!options.store||latest.has(p.id+':'+options.store)));
+  for(const raw of observations){const offer=normalizeObservation(raw);if(!offer||offer.currency!==currency||!stores.includes(offer.store)||offer.at>now||now-offer.at>age)continue;const key=offer.product_id+':'+offer.store+':'+(offer.commercial_reference_id||offer.reference_id||offer.ean||'legacy');if(!latest.has(key)||latest.get(key).at<offer.at)latest.set(key,offer);}
+  const filtered=products.filter(p=>(!options.category||p.category===options.category)&&(!options.store||[...latest.values()].some(offer=>offer.product_id===p.id&&offer.store===options.store)));
   const rows=filtered.map(product=>{
-    const offers=stores.map(store=>latest.get(product.id+':'+store)).filter(Boolean),groups=new Map();
-    for(const offer of offers)if(offer.basis){if(!groups.has(offer.basis))groups.set(offer.basis,[]);groups.get(offer.basis).push(offer);}
+    const allOffers=[...latest.values()].filter(offer=>offer.product_id===product.id),groups=new Map();
+    for(const offer of allOffers)if(offer.basis){if(!groups.has(offer.basis))groups.set(offer.basis,[]);const group=groups.get(offer.basis),before=group.find(o=>o.store===offer.store);if(!before)group.push(offer);else if(offer.rate<before.rate)group.splice(group.indexOf(before),1,offer);}
     const comparable=[...groups.values()].sort((a,b)=>b.length-a.length||a[0].basis.localeCompare(b[0].basis))[0]??[];
+    const offers=stores.map(store=>comparable.find(offer=>offer.store===store)||allOffers.filter(offer=>offer.store===store).sort((a,b)=>b.at-a.at)[0]).filter(Boolean);
     const min=comparable.length>1?Math.min(...comparable.map(o=>o.rate)):null,max=min===null?null:Math.max(...comparable.map(o=>o.rate));
     return {product,offers,basis:comparable[0]?.basis??null,unit:comparable[0]?.unit??'envase',comparable:comparable.length>1,min,max,difference:min===null?null:max-min,bestStores:min===null?[]:comparable.filter(o=>Math.abs(o.rate-min)<.000001).map(o=>o.store)};
   }).sort((a,b)=>a.product.name.localeCompare(b.product.name,'es'));
@@ -49,9 +50,14 @@ export function analyzePurchase(purchase,observations,options={}){
       if(!line.product_id||!validMoney(line.amount)||!(number(line.count)>0))return null;
       const original=normalizeObservation({...line,price:number(line.amount)/number(line.count),at:purchase.at,currency:purchase.currency});
       if(!original)return null;
-      const offer=(index.get(line.product_id+':'+store+':'+purchase.currency)??[]).find(o=>o.at<=cutoff&&(!historical||cutoff-o.at<=window)&&((original.ean&&o.ean===original.ean)||(original.basis&&original.quantity>0&&o.basis===original.basis)));if(!offer)return null;
-      const cost=original.ean&&offer.ean===original.ean?offer.price*number(line.count):offer.rate*original.quantity*number(line.count);
-      return {line,offer,paid:number(line.amount),cost:Math.round(cost*100)/100};
+      const fresh=new Map();for(const o of index.get(line.product_id+':'+store+':'+purchase.currency)??[]){if(o.at>cutoff||(historical&&cutoff-o.at>window))continue;const key=o.commercial_reference_id||o.reference_id||o.ean||'legacy';if(!fresh.has(key))fresh.set(key,o);}
+      const candidates=[...fresh.values()].filter(o=>(original.ean&&o.ean===original.ean)||(original.basis&&original.quantity>0&&o.basis===original.basis)).map(offer=>{
+        if(original.ean&&offer.ean===original.ean)return {offer,cost:offer.price*number(line.count),packages:number(line.count)};
+        const required=original.quantity*number(line.count),packages=offer.quantity>0?Math.ceil(Math.max(0,required/offer.quantity-1e-9)):null;
+        return {offer,cost:packages===null?offer.rate*required:packages*offer.price,packages};
+      }).sort((a,b)=>a.cost-b.cost);if(!candidates.length)return null;
+      const {offer,cost,packages}=candidates[0];
+      return {line,offer,paid:number(line.amount),cost:Math.round(cost*100)/100,packages};
     }).filter(Boolean);
     const complete=compared.length===lines.length&&lines.length>0;
     const paid=complete?number(purchase.total)-(number(purchase.shipping)||0):compared.reduce((sum,l)=>sum+l.paid,0),cost=compared.reduce((sum,l)=>sum+l.cost,0);
@@ -156,7 +162,7 @@ class ImprovedShoppingAnalytics extends HTMLElement {
     container.append(stats);
     if(data.observations_truncated)container.append(node('p','comparison-note','El análisis usa las 20.000 observaciones de precio más recientes disponibles.'));
     if(!result.rows.length){container.append(this._empty('No hay productos del catálogo que coincidan con estos filtros.'));return;}
-    container.append(node('p','comparison-note','Comparamos por kg o litro cuando el formato está identificado, o por envase cuando coincide el EAN exacto. Las fichas de un mismo producto pueden representar marcas distintas. Los formatos sin confirmar se muestran sin clasificarlos como más baratos.'));
+    container.append(node('p','comparison-note','Comparamos por unidad, kg o litro cuando el contenido del envase está confirmado, o por envase cuando coincide el EAN exacto. Para compras alternativas se calcula el coste de envases completos; no se supone que puedas comprar una fracción de una caja. Las fichas de un mismo producto pueden representar marcas distintas.'));
     if(result.known){
       const chart=node('section','card');chart.append(node('h2','chart-title','Dónde están los precios más bajos'));
       const maximum=Math.max(1,...result.ranking.map(shop=>shop.wins));
@@ -168,7 +174,7 @@ class ImprovedShoppingAnalytics extends HTMLElement {
     }else container.append(this._empty('No hay precios guardados para estos productos en las tiendas activas.'));
     if(result.common){
       const card=node('section','card');card.append(node('h2','','La misma cesta de referencia · '+result.common+(result.common===1?' producto':' productos')));
-      card.append(node('p','muted','Una unidad de referencia por producto: 1 kg, 1 litro o 1 envase, según indica la tabla. Solo los productos con precio equivalente en todas estas tiendas. No es una lista de compra real.'));
+      card.append(node('p','muted','Una unidad de referencia por producto: 1 unidad, 1 kg, 1 litro o 1 envase, según indica la tabla. Solo los productos con precio equivalente en todas estas tiendas. No es una lista de compra real.'));
       const shops=node('div','common-cards');for(const [index,shop] of result.totals.entries()){const block=node('div','common-shop');block.append(this._shopLabel(shop.store),node('strong',Math.abs(shop.total-result.totals[0].total)<.000001?'best':'',this._amount(shop.total,result.currency)));shops.append(block);}card.append(shops);container.append(card);
     }
     const card=node('section','card'),scroll=node('div','scroll'),table=node('table');table.append(node('caption','','Precios del catálogo · '+result.currency));const stores=result.ranking.filter(s=>s.known).map(s=>s.store);

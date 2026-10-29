@@ -19,13 +19,14 @@ from .product_translation import async_translate_name
 from .store_links import normalize_links
 from .community_data import fingerprint
 from .quantity_values import DEFAULT_PURCHASE, normalize_purchase, positive_quantity, purchase_defaults
+from .product_references import normalized_references, merge_reference, reference_from_line, gtin
 
 STORAGE_KEY = f"{DOMAIN}.catalog"
 FIELDS = {
     "id", "revision", "name", "category", "tags", "barcode",
     "price", "currency", "image_url", "icon", "notes",
     "barcodes", "nfc_tags", "reader_actions", "recurrence", "store_links",
-    "purchase_unit", "unit_quantity", "quantity_step",
+    "purchase_unit", "unit_quantity", "quantity_step", "commercial_references",
 }
 READER_ACTIONS = {"none", "add_list", "stock_remove", "stock_add"}
 LEGACY_PRODUCT_FIELDS = {"brand", "format"}
@@ -139,6 +140,7 @@ def normalize_product(data: dict[str, Any]) -> dict[str, Any]:
     product["recurrence"] = dict(recurrence)
     try:
         product["store_links"] = normalize_links(data.get("store_links", {}))
+        product["commercial_references"] = normalized_references(data.get("commercial_references", []))
     except ValueError as err:
         raise CatalogError(str(err)) from err
     tags = data.get("tags", [])
@@ -361,6 +363,20 @@ class Catalog:
                     product["recurrence"] = deepcopy(current.get("recurrence", {"enabled": False, "days": 7}))
                 if "store_links" not in data:
                     product["store_links"] = deepcopy(current.get("store_links", {}))
+                if "commercial_references" not in data:
+                    product["commercial_references"] = deepcopy(current.get("commercial_references", []))
+            references=product["commercial_references"]
+            for store,link in product["store_links"].items():
+                if not any(ref["store"]==store and ref["reference_id"]==link["id"] for ref in references):
+                    references.append(reference_from_line(store,{"reference_id":link["id"],"url":link["url"],"name":product["name"]}))
+            for code in product_codes(product,"barcode"):
+                if gtin(code) and not any(gtin(ref["ean"])==gtin(code) for ref in references):
+                    references.append(reference_from_line("",{"ean":code,"name":product["name"]}))
+            for ref in references:
+                if ref.get("active",True) and ref["ean"] and not any(gtin(code)==gtin(ref["ean"]) for code in product_codes(product,"barcode")):
+                    product["barcodes"].append(ref["ean"])
+            if len(references)>200 or len(product["barcodes"])>50:
+                raise CatalogError("Revisa el límite de referencias o códigos de barras del producto.")
             if product["category"]:
                 category = next((item for item in self._categories.values()
                                  if item["name"].casefold() == product["category"].casefold()), None)
@@ -445,6 +461,53 @@ class Catalog:
                 await self._persist(products, self._categories)
         if changed:
             self._notify()
+
+    async def async_register_references(self, bindings):
+        """Keep confirmed associations even when no stock or price is imported."""
+        async with self._lock:
+            products=deepcopy(self._products)
+            for product_id,store,line,confirmed in bindings:
+                product=products.get(product_id)
+                if not product:
+                    continue
+                refs=product.setdefault("commercial_references",[])
+                merge_reference(refs,store,line,confirmed=confirmed)
+                try:
+                    product["commercial_references"]=normalized_references(refs)
+                except ValueError as err:
+                    raise CatalogError(str(err)) from err
+            for product_id,product in products.items():
+                if product!=self._products[product_id]:
+                    product["revision"]+=1
+                    product["updated_at"]=datetime.now(UTC).isoformat()
+            changed=products!=self._products
+            if changed:
+                await self._persist(products,self._categories)
+        if changed:
+            self._notify()
+
+    async def async_migrate_references(self, receipt_data):
+        """One-time conservative migration; never infer package size from stock."""
+        missing={p["id"] for p in self.products if "commercial_references" not in p}
+        bindings=[]
+        for product in self.products:
+            if product["id"] not in missing:
+                continue
+            for store,link in product.get("store_links",{}).items():
+                bindings.append((product["id"],store,{"reference_id":link["id"],"url":link["url"],"name":product["name"]},False))
+            for code in product_codes(product,"barcode"):
+                if gtin(code):
+                    bindings.append((product["id"],"",{"ean":code,"name":product["name"]},False))
+        for receipt in receipt_data.get("history",{}).values():
+            for line in receipt.get("lines",[]):
+                if line.get("product_id") in missing:
+                    bindings.append((line["product_id"],receipt["store"],line,False))
+        for key,alias in receipt_data.get("aliases",{}).items():
+            if alias.get("product_id") in missing and ":" in key:
+                store,name=key.split(":",1)
+                if not any(product_id==alias["product_id"] and shop==store and name==line.get("description","").lower() for product_id,shop,line,_ in bindings):
+                    bindings.append((alias["product_id"],store,{"description":name,"reference_id":alias.get("reference_id","")},False))
+        await self.async_register_references(bindings)
 
     async def async_bind_alcampo(self, product_id, ean, link):
         """Bind only a still-scanned exact EAN; never replace a user's binding."""

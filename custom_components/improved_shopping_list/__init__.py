@@ -55,6 +55,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         settings = ListSettings(hass)
         stock = StockManager(hass, catalog)
         await stock.async_load()
+        await catalog.async_migrate_references(stock.receipts)
         readers = ReaderManager(hass, catalog, settings)
         readers.stock = stock
         await readers.async_load()

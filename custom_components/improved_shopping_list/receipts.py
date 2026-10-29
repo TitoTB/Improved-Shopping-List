@@ -19,6 +19,7 @@ from .lidl_receipts import extract_lidl_ticket
 from .stock import DAY, DEFAULT_CONFIG, quantity_value, materialized_stock
 from .store_links import STORES
 from .quantity_values import purchase_defaults
+from .product_references import content, format_observation, reference_key, matching_reference
 
 
 def converted_quantity(line, unit):
@@ -337,6 +338,8 @@ class ReceiptManager:
             choices.append({"id":product["id"],"name":product["name"],"image_url":product.get("image_url", ""),"icon":product.get("icon", ""),"barcodes":product_codes(product, "barcode"),"unit":stock["unit"] if stock else defaults["purchase_unit"],
                 "refill_quantity":stock["refill_quantity"] if stock else defaults["unit_quantity"],
                 "stock_id":stock["id"] if stock else "","revision":stock["revision"] if stock else 0,
+                "commercial_references":deepcopy(product.get("commercial_references",[])),
+                "reference_prices":deepcopy(offers),
                 "price":price.get("price") if price else None,"price_date":price.get("checked_at",0) if price else 0})
         return choices
 
@@ -385,6 +388,7 @@ class ReceiptManager:
                 if product:
                     self._remember_alias(data,draft["receipt"]["store"],line,product)
             await self.stock.catalog.async_bind_receipt_eans([(product["id"], line.get("ean", "")) for line, product in linked if product])
+            await self.stock.catalog.async_register_references([(product["id"],draft["receipt"]["store"],line,False) for line,product in linked if product])
             await self.stock._persist(deepcopy(self.stock._items),receipts=data)
         return await self.async_options(token,owner)
 
@@ -440,16 +444,17 @@ class ReceiptManager:
         choices = self._choices(receipt["store"])
         used = set()
         for line in receipt["lines"]:
+            eligible=[p for p in choices if not ((ref:=matching_reference(p,receipt["store"],line)) and ref.get("active") is False)]
             alias = self.stock.receipts["aliases"].get(receipt["store"]+":"+normalized_name(line["description"]))
             ean = line.get("ean", "")
-            ean_product = next((p for p in choices if ean and any(code.isascii() and code.isdigit() and code.zfill(14) == ean.zfill(14) for code in p["barcodes"])), None)
-            product = ean_product or next((p for p in choices if alias and p["id"] == alias["product_id"]),None)
+            ean_product = next((p for p in eligible if ean and any(code.isascii() and code.isdigit() and code.zfill(14) == ean.zfill(14) for code in p["barcodes"])), None)
+            product = ean_product or next((p for p in eligible if alias and p["id"] == alias["product_id"]),None)
             if ean_product and alias and alias["product_id"] != ean_product["id"]:
                 alias = None
             if not product:
                 alias = None
-            exact = next((p for p in choices if normalized_name(p["name"]) == normalized_name(line["description"])),None)
-            ranked = sorted(choices,key=lambda p:SequenceMatcher(None,normalized_name(p["name"]),normalized_name(line["description"])).ratio(),reverse=True)
+            exact = next((p for p in eligible if normalized_name(p["name"]) == normalized_name(line["description"])),None)
+            ranked = sorted(eligible,key=lambda p:SequenceMatcher(None,normalized_name(p["name"]),normalized_name(line["description"])).ratio(),reverse=True)
             product = product or exact or (ranked[0] if ranked and SequenceMatcher(None,normalized_name(ranked[0]["name"]),normalized_name(line["description"])).ratio() >= .45 else None)
             if product and product["id"] in used:
                 product = alias = exact = ean_product = None
@@ -517,7 +522,7 @@ class ReceiptManager:
                     raise CatalogError("Las líneas seleccionadas no son válidas.")
                 self._links(receipt,[{key:selection.get(key) for key in ("id","product_id")} for selection in selections])
                 for selection in selections:
-                    if set(selection)-{"save_price","unit"} != {"id","product_id","replenish","quantity","purchase_id"}:
+                    if set(selection)-{"save_price","unit","pack_quantity","pack_unit"} != {"id","product_id","replenish","quantity","purchase_id"}:
                         raise CatalogError("Las líneas seleccionadas no son válidas.")
                     if any(not isinstance(selection[key],str) or len(selection[key]) > 200 for key in ("id","product_id","purchase_id")):
                         raise CatalogError("Las líneas seleccionadas no son válidas.")
@@ -533,6 +538,12 @@ class ReceiptManager:
                         replenished=False, quantity=None, unit="", price_saved=bool(update_prices and save_price and product))
                     if selection["product_id"] and not product:
                         raise CatalogError("Un producto del catálogo ha cambiado. Vuelve a subir el ticket.", "conflict")
+                    if "pack_quantity" in selection or "pack_unit" in selection:
+                        try:
+                            quantity,unit=content(selection.get("pack_quantity"),selection.get("pack_unit",""))
+                        except ValueError as err:
+                            raise CatalogError(str(err)) from err
+                        line.update(pack_quantity=quantity,pack_unit=unit,format_confirmed=quantity is not None)
                     if selection["replenish"]:
                         stock = self.stock.item_for(product) if product else None
                         expected = next((p for p in draft["products"] if product and p["id"] == product["id"]),None)
@@ -589,6 +600,7 @@ class ReceiptManager:
                 receipt.update(imported_at=time.time(),prices_enabled=update_prices)
                 data["history"][receipt["id"]] = receipt
                 await self.stock.catalog.async_bind_receipt_eans([(line["product_id"], line.get("ean", "")) for line in receipt["lines"] if line.get("product_id")])
+                await self.stock.catalog.async_register_references([(line["product_id"],receipt["store"],line,line.get("format_confirmed",False)) for line in receipt["lines"] if line.get("product_id")])
                 await self.stock._persist(items,receipts=data)
                 self._drafts.pop(token,None)
         self.prices._notify()
@@ -598,15 +610,22 @@ class ReceiptManager:
         return deepcopy(receipt)
 
     def offers_for(self, product):
+        if not product.get("id"):
+            return []
         offers = {}
         for receipt in self.stock.receipts["history"].values():
             for line in receipt["lines"]:
                 if line.get("price_saved") and line.get("product_id") == product["id"]:
                     date = dt_util.parse_datetime(receipt["purchased_at"])
                     at = dt_util.as_utc(date.replace(tzinfo=dt_util.DEFAULT_TIME_ZONE)).timestamp()
-                    if receipt["store"] not in offers or offers[receipt["store"]]["checked_at"] < at:
+                    key=(receipt["store"],reference_key(receipt["store"],line))
+                    if key not in offers or offers[key]["checked_at"] < at:
                         link = product.get("store_links",{}).get(receipt["store"],{})
-                        offers[receipt["store"]] = {"store":receipt["store"],"store_name":receipt["store_name"],"name":product["name"],
+                        details=format_observation(product,receipt["store"],line)
+                        if details.get("reference_excluded"):
+                            continue
+                        offers[key] = {"store":receipt["store"],"store_name":receipt["store_name"],"name":line["description"],
                             "catalog_product_id":product["id"],"price":line["unit_price"],"currency":receipt["currency"],
-                            "checked_at":at,"source":"receipt","reference_id":link.get("id") or line.get("reference_id",""),"url":link.get("url","")}
+                            "checked_at":at,"source":"receipt","reference_id":line.get("reference_id","") or link.get("id"),"url":link.get("url",""),
+                            **{key:details.get(key) for key in ("ean","pack_quantity","pack_unit","commercial_reference_id","format_pending")}}
         return list(offers.values())

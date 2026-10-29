@@ -19,16 +19,18 @@ class ReferenceTests(unittest.TestCase):
 
     def test_distinct_packs_remain_separate_and_confirmed_content_survives_later_tickets(self):
         values=[]
-        small={"description":"HUEVOS 6 UDS","ean":"4006381333931","brand":"granja"}
+        small={"description":"HUEVOS 6 UDS","ean":"4006381333931","brand":"granja","image_url":"https://example.com/eggs.png"}
         large={"description":"HUEVOS 12 UDS","ean":"1234567890128"}
         refs.merge_reference(values,"lidl",small,confirmed=True)
         refs.merge_reference(values,"lidl",large,confirmed=True)
         self.assertEqual([ref["content_quantity"] for ref in values],[6,12])
-        refs.merge_reference(values,"lidl",{**small,"description":"HUEVOS","brand":""})
+        refs.merge_reference(values,"lidl",{**small,"description":"HUEVOS","brand":"","image_url":""})
         found=refs.matching_reference({"commercial_references":values},"lidl",small)
         self.assertTrue(found["content_confirmed"])
         self.assertEqual(found["content_quantity"],6)
         self.assertEqual(found["brand"],"Granja")
+        self.assertEqual(found["image_url"],small["image_url"])
+        self.assertEqual(refs.normalized_references(values)[-1]["image_url"],small["image_url"])
         self.assertEqual(refs.normalized_references(values)[-1]["brand"],"Granja")
         self.assertEqual(len(refs.normalized_references(values)),2)
 
@@ -50,6 +52,8 @@ class ReferenceTests(unittest.TestCase):
         self.assertIsNone(refs.package_cost({"pack_quantity":12,"pack_unit":"uds","price":3},6,"kg"))
 
     def test_invalid_and_ambiguous_formats_are_not_accepted(self):
+        for image in ['javascript:alert(1)','https://user:password@example.com/a.png','//example.com/a.png']:
+            with self.assertRaises(ValueError):refs.normalized_references([{"store":"lidl","reference_id":"eggs","image_url":image}])
         for value,unit in [(float('nan'),'g'),(True,'g'),(-1,'g'),(1.5,'uds'),(6,'boxes')]:
             with self.assertRaises(ValueError):refs.content(value,unit)
         self.assertEqual(refs.inferred_content({"description":"ANACARDO CRUDO 200"}),(None,""))

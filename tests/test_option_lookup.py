@@ -89,17 +89,18 @@ async def test_retrieved_option_is_only_saved_with_the_product_and_feeds_prices(
     assert await hass.config_entries.async_setup(entry.entry_id)
     data = hass.data[DOMAIN]
     monkeypatch.setattr(data["option_lookup"],"retrieve",AsyncMock(return_value={"store":"carrefour","reference_id":"R-prod1", "url":URL,
-        "name":"Pavo 250 g","ean":CODE,"brand":"Marca","content_quantity":250,"content_unit":"g","price":2.5,"currency":"EUR","checked_at":1800000000}))
+        "name":"Pavo 250 g","ean":CODE,"brand":"Marca","image_url":"https://example.com/pavo.png","content_quantity":250,"content_unit":"g","price":2.5,"currency":"EUR","checked_at":1800000000}))
     monkeypatch.setattr(data["readers"].lookup,"async_lookup",AsyncMock(return_value={"nutriscore":{"grade":"b","checked_at":1800000000}}))
     client = await hass_ws_client(hass)
     await client.send_json({"id":1,"type":f"{DOMAIN}/catalog/retrieve_option","url":URL})
     result = (await client.receive_json())["result"]
     assert result["nutriscore"]["grade"] == "b" and data["catalog"].products == []
-    ref = {key:result[key] for key in ("store","reference_id","url","name","ean","brand","content_quantity","content_unit","nutriscore")}
+    ref = {key:result[key] for key in ("store","reference_id","url","name","ean","brand","image_url","content_quantity","content_unit","nutriscore")}
     ref.update(content_confirmed=True,last_price={key:result[key] for key in ("price","currency","checked_at")})
     await client.send_json({"id":2,"type":f"{DOMAIN}/catalog/save","product":{"name":"Pavo","commercial_references":[ref]}})
     product = (await client.receive_json())["result"]["product"]
     assert product["name"] == "Pavo" and product["commercial_references"][0]["last_price"]["price"] == 2.5
+    assert product["commercial_references"][0]["image_url"] == result["image_url"]
     offers = data["price_manager"].prices_for(product)
     assert offers[0]["price"] == 2.5 and offers[0]["pack_quantity"] == 250
     assert data["price_history"]._entries[-1]["price"] == 2.5

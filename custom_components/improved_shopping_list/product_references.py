@@ -4,6 +4,7 @@ from hashlib import sha256
 import math
 import re
 from unicodedata import normalize, combining
+from urllib.parse import urlsplit
 
 UNITS = {"uds", "g", "kg", "ml", "cl", "l"}
 SCALES = {"uds":("uds",1), "g":("kg",.001), "kg":("kg",1), "ml":("l",.001), "cl":("l",.01), "l":("l",1)}
@@ -16,6 +17,17 @@ def brand_name(value):
         if char.isalpha():
             return value[:index] + char.upper() + value[index + 1:]
     return value
+
+
+def reference_image(value):
+    """Keep only plain HTTPS image references, never credentials or script URLs."""
+    if not isinstance(value, str) or len(value)>2048 or "\\" in value or any(ord(c)<32 for c in value):
+        return ""
+    try:
+        parsed=urlsplit(value)
+        return value if parsed.scheme=="https" and parsed.hostname and not parsed.username and not parsed.password else ""
+    except ValueError:
+        return ""
 
 
 def name_key(value):
@@ -65,7 +77,8 @@ def reference_from_line(store, line):
     quantity, unit = inferred_content(line)
     return {"id":reference_key(store,line), "store":store, "name":line.get("name") or line.get("description", ""),
             "ean":line.get("ean", "") if gtin(line.get("ean")) else "", "reference_id":line.get("reference_id", ""),
-            "url":line.get("url", ""), "brand":brand_name(line.get("brand", "")), "content_quantity":quantity, "content_unit":unit, "content_confirmed":False}
+            "url":line.get("url", ""), "brand":brand_name(line.get("brand", "")), "content_quantity":quantity, "content_unit":unit, "content_confirmed":False,
+            **({"image_url":image} if (image:=reference_image(line.get("image_url", ""))) else {})}
 
 
 def matching_reference(product, store, line):
@@ -86,7 +99,7 @@ def normalized_references(values):
     result=[]; seen=set()
     from .store_links import STORES, normalize_link
     for raw in values:
-        if not isinstance(raw,dict) or set(raw)-{"id","store","name","ean","reference_id","url","brand","content_quantity","content_unit","content_confirmed","active","last_price","nutriscore"}:
+        if not isinstance(raw,dict) or set(raw)-{"id","store","name","ean","reference_id","url","brand","image_url","content_quantity","content_unit","content_confirmed","active","last_price","nutriscore"}:
             raise ValueError("La referencia comercial contiene campos no admitidos.")
         row={key:raw.get(key,"") for key in ("store","name","ean","reference_id","url","brand")}
         for key,limit in (("store",40),("name",500),("ean",14),("reference_id",512),("url",2048),("brand",160)):
@@ -94,6 +107,10 @@ def normalized_references(values):
                 raise ValueError("La referencia comercial no es válida.")
             row[key]=row[key].strip()
         row["brand"] = brand_name(row["brand"])
+        if raw.get("image_url"):
+            if not (image:=reference_image(raw["image_url"])):
+                raise ValueError("La imagen de la opción debe tener una URL HTTPS válida.")
+            row["image_url"]=image
         if row["store"] and row["store"] not in STORES:
             raise ValueError("Selecciona una tienda válida para la referencia.")
         if row["ean"] and not gtin(row["ean"]):
@@ -138,6 +155,8 @@ def merge_reference(references, store, line, *, confirmed=False):
     existing=matching_reference({"commercial_references":references},store,line)
     if existing:
         row["brand"]=row["brand"] or existing.get("brand", "")
+        if not row.get("image_url") and existing.get("image_url"):
+            row["image_url"]=existing["image_url"]
         for key in ("last_price","nutriscore"):
             if key in existing:
                 row[key]=deepcopy(existing[key])

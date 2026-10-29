@@ -10,7 +10,7 @@ from unittest.mock import AsyncMock, Mock
 from homeassistant.util import dt as dt_util
 from custom_components.improved_shopping_list.catalog import CatalogError
 from custom_components.improved_shopping_list.carrefour_account import CarrefourAccount, CarrefourAccountError
-from custom_components.improved_shopping_list.receipt_parser import extract_carrefour_account_ticket
+from custom_components.improved_shopping_list.receipt_parser import extract_carrefour_account_ticket, parse_carrefour
 from custom_components.improved_shopping_list.receipts import ReceiptManager
 
 
@@ -106,3 +106,35 @@ class CarrefourPrintedDiscountTests(unittest.TestCase):
     def test_printed_discount_summary_without_separate_coupon_line(self):
         detail=self.detail();detail["lines"]=[line for line in detail["lines"] if not line.startswith("DTO.")]
         self.assertEqual(extract_carrefour_account_ticket(detail,"test-ticket",28.91)["discount"],0.87)
+
+    def promotion_detail(self):
+        prices=[1.88,2.29,2.89,2.79,1.35,3.35,2.25,3.67,1.69,.59,.32,1.87,1.99,4.25]
+        items=[{"description":"ARTICULO "+str(i),"numberUnits":1,"netAmount":price,"code":"1234567890128" if i==6 else "internal"} for i,price in enumerate(prices)]
+        lines=["Carrefour"]
+        for i,row in enumerate(items):
+            code=" EK98" if i in (5,6) else ""
+            lines.append(row["description"]+code+" "+format(row["netAmount"],".2f").replace(".",","))
+            if i==6:lines.append("DESCUENTO EN 2ª UNIDAD EK98 -1,40")
+        lines += ["SUBTOTAL 29,78","DTO. VALE 50QV -0,87","14 ART. TOTAL A PAGAR : 28,91","DESCUENTOS: 2,27","29/10/2026 07:10:00","NRF: PRINTED01"]
+        # The API can allocate a combined promotion across both articles.
+        items[5]["netAmount"]=2.65;items[6]["netAmount"]=1.55
+        return {"ticketId":"test-ticket","date":"2026-10-29T07:10:00","header":{"netAmount":28.91,"numberItems":14,"numberLinesItems":14},"totalDiscount":0,"items":items,"lines":lines}
+
+    def test_line_promotion_and_voucher_are_not_counted_twice(self):
+        detail=self.promotion_detail()
+        parsed=parse_carrefour("\n".join(detail["lines"]))
+        self.assertEqual(parsed["subtotal"],29.78)
+        self.assertEqual(parsed["discount"],.87)
+        self.assertEqual(parsed["lines"][6]["amount"],.85)
+        self.assertEqual(parsed["lines"][6]["unit_price"],2.25)
+        receipt=extract_carrefour_account_ticket(detail,"test-ticket",28.91)
+        self.assertEqual(receipt["total"],28.91)
+        self.assertEqual(receipt["lines"][6]["ean"],"1234567890128")
+        self.assertEqual(receipt["lines"][6]["amount"],.85)
+        self.assertEqual(receipt["lines"][6]["unit_price"],2.25)
+
+    def test_wrong_promotion_code_or_excessive_line_discount_is_rejected(self):
+        for replacement in ("DESCUENTO EN 2ª UNIDAD AB12 -1,40","DESCUENTO EN 2ª UNIDAD EK98 -9,99"):
+            detail=self.promotion_detail()
+            text="\n".join(detail["lines"]).replace("DESCUENTO EN 2ª UNIDAD EK98 -1,40",replacement)
+            with self.assertRaises(CatalogError):parse_carrefour(text)

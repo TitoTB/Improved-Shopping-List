@@ -42,6 +42,20 @@ def parse_carrefour(text):
             items.append({"description": pending, "count": count, "unit_price": unit_price, "amount": amount})
             pending = ""
             continue
+        if match := re.fullmatch(rf"(DESCUENTOS?\b.*?|DTOS?\.?\s.*?)\s+(-{MONEY})",line,re.I):
+            if not items or pending:
+                raise CatalogError("No se ha podido asociar el descuento de una línea del ticket.")
+            promotion=re.search(r"\b([A-Z]{2}\d{2})\s*$",match[1])
+            if promotion and not items[-1]["description"].endswith(" "+promotion[1]):
+                raise CatalogError("El descuento no corresponde al artículo anterior del ticket.")
+            discount=-Decimal(match[2].replace(".","").replace(",","."))
+            previous=items[-1];amount=Decimal(str(previous["amount"]))
+            if discount<0 or discount>amount:
+                raise CatalogError("El descuento de una línea supera el importe del artículo.")
+            previous.setdefault("gross_amount",previous["amount"])
+            previous["line_discount"]=float(Decimal(str(previous.get("line_discount",0)))+discount)
+            previous["amount"]=float(amount-discount)
+            continue
         if match := re.fullmatch(rf"(.+?)\s+({MONEY})", line):
             description = match[1].strip()
             if description.upper().startswith(("CIF", "TEL", "TOTAL", "DTO", "DESCUENTO")):
@@ -70,6 +84,7 @@ def parse_carrefour(text):
     identity = re.search(r"\bNRF:\s*([A-Z0-9]+)", text)
     for index, item in enumerate(items):
         item["id"] = str(index)
+        item["description"]=re.sub(r"\s+[A-Z]{2}\d{2}$","",item["description"])
         # Numbers without an explicit unit (e.g. ANACARDO CRUDO 200) are not weights.
         pack = re.search(r"\b(\d+(?:[,.]\d+)?)\s*(KG|GRS?|G|ML|CL|LITROS?|L)\b", item["description"], re.I)
         item["pack_quantity"] = float(pack[1].replace(",", ".")) if pack else None
@@ -242,12 +257,14 @@ def _carrefour_account_items(detail):
             if len(printed_text)<=100000:
                 try:
                     printed=parse_carrefour(printed_text)
-                    key=lambda row:(re.sub(r"\s+"," ",row["description"]).strip().casefold(),row["count"],Decimal(str(row["amount"])))
-                    discounts=re.findall(rf"(?mi)^\s*(?:DTOS?\.?|DESCUENTOS?)(?:\s|:).+?(-{MONEY})\s*(?:EUR|€)?\s*$",printed_text)
+                    key=lambda row:(re.sub(r"\s+[A-Z]{2}\d{2}$","",re.sub(r"\s+"," ",row["description"]).strip()).casefold(),row["count"])
+                    totals_text=re.split(r"(?mi)^\s*SUBTOTAL\s+",printed_text,maxsplit=1)[-1]
+                    line_discounts=sum(Decimal(str(row.get("line_discount",0))) for row in printed["lines"])
+                    discounts=re.findall(rf"(?mi)^\s*(?:DTOS?\.?|DESCUENTOS?)(?:\s|:).+?(-{MONEY})\s*(?:EUR|€)?\s*$",totals_text)
                     summaries=re.findall(rf"(?mi)^\s*DESCUENTOS?\s*:\s*({MONEY})\s*(?:EUR|€)?\s*$",printed_text)
                     amounts=[]
                     if discounts:amounts.append(sum(Decimal(value.replace(".","").replace(",",".")) for value in discounts))
-                    if len(summaries)==1:amounts.append(-Decimal(summaries[0].replace(".","").replace(",",".")))
+                    if len(summaries)==1:amounts.append(-Decimal(summaries[0].replace(".","").replace(",","."))+line_discounts)
                     printed_date=datetime.fromisoformat(printed["purchased_at"])
                     structured_date=datetime.fromisoformat(purchased_at)
                     # Printed dates have local wall time and may omit seconds.
@@ -257,6 +274,14 @@ def _carrefour_account_items(detail):
                         and same_minute and abs(Decimal(str(printed["subtotal"]))-subtotal)<=Decimal("0.02")
                         and abs(Decimal(str(printed["total"]))-total)<=Decimal("0.02")):
                         adjustment=total-subtotal
+                        # Use the independently validated printed prices, retaining
+                        # EANs only for an unambiguous article/count correspondence.
+                        for printed_item in printed["lines"]:
+                            matching=[row for row in items if key(row)==key(printed_item)]
+                            codes={row.get("ean","") for row in matching}
+                            if len(codes)==1 and next(iter(codes)):
+                                printed_item["ean"]=next(iter(codes))
+                        items=printed["lines"]
                 except CatalogError:
                     pass  # Do not infer a discount from a difference alone.
     if abs(subtotal+adjustment-total) > Decimal("0.02"):

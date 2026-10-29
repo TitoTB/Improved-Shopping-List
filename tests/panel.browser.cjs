@@ -2912,7 +2912,7 @@ async function main() {
     await stockForm.getByLabel('Stock mínimo',{exact:true}).fill('1');
     assert.equal(await stockForm.getByLabel('Lista para reponer',{exact:true}).inputValue(),'todo.local');
     await stockForm.getByRole('button',{name:'Guardar',exact:true}).click();await stockEditor.waitFor({state:'hidden'});
-    await stockCard.getByLabel('Stock de Cacao: 2.5 Latas',{exact:true}).waitFor();
+    await stockCard.getByLabel('Stock de Cacao: 3 Latas',{exact:true}).waitFor();
     assert.equal(await stockCard.getByRole('progressbar',{name:'Stock restante'}).getAttribute('aria-valuenow'),'63');
     assert.equal(await stockCard.locator('.stock-progress').evaluate(node=>node.style.getPropertyValue('--stock-remaining')),'62.5%');
     assert.deepEqual(await stockPage.evaluate(()=>({mode:window.stockItems[0].mode,unit:window.stockItems[0].unit,usage_amount:window.stockItems[0].usage_amount,refill_quantity:window.stockItems[0].refill_quantity})),{mode:'usage',unit:'Latas',usage_amount:0.5,refill_quantity:4});
@@ -2956,7 +2956,7 @@ async function main() {
       return open.right<=controls.left && Math.abs((open.top+open.bottom-controls.top-controls.bottom)/2)<1;
     }));
     await stockCard.getByRole('button',{name:'Añadir una unidad de Cacao',exact:true}).click();
-    await stockCard.getByLabel('Stock de Cacao: 3.5 Latas',{exact:true}).waitFor();
+    await stockCard.getByLabel('Stock de Cacao: 4 Latas',{exact:true}).waitFor();
     await stockPage.evaluate(()=>{window.failStock=true;});
     await stockCard.getByRole('button',{name:'Añadir una unidad de Cacao',exact:true}).click();
     await stockPage.getByRole('alert').filter({hasText:'No se ha podido guardar el stock'}).waitFor();

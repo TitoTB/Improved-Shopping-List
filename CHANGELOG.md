@@ -1,5 +1,12 @@
 # Historial de cambios
 
+## 0.48.1 — 2026-10-29
+
+- Corregida la lectura de promociones por artículo y vales posteriores al subtotal en tickets de Carrefour. Los descuentos no se suman dos veces y el precio unitario conserva el valor anterior a la promoción.
+- La recuperación desde el detalle de la web comprueba el texto impreso y conserva los EAN solo cuando la correspondencia del artículo es inequívoca, incluso si Carrefour reparte una promoción entre varias líneas.
+- Verificado con un ticket real que combina una promoción de segunda unidad y un vale de descuento.
+- El stock restante se muestra redondeado sin decimales; el cálculo y los ajustes internos conservan su precisión. Sin nuevas dependencias.
+
 ## 0.48.0 — 2026-10-29
 
 - Los productos completados solo disparan la detección de compra: el ticket determina los artículos, cantidades e importe, sin exigir coincidencias con la lista o el catálogo. Se conservan las comprobaciones de fecha, cuenta y ambigüedad entre varias compras.

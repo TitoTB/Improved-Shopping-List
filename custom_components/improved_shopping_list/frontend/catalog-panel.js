@@ -295,8 +295,6 @@ class ImprovedShoppingCatalog extends HTMLElement {
         .product-option[open]>summary::after { transform:rotate(225deg);margin-bottom:0; }
         .product-option>summary:focus-visible { outline:2px solid var(--primary-color,#267052);outline-offset:4px;border-radius:4px; }
         .option-heading { display:grid;gap:5px;min-width:0;flex:1; }
-        .option-thumbnail { width:48px;height:48px;flex:0 0 48px;object-fit:contain;padding:4px;box-sizing:border-box;background:#fff;border-radius:8px; }
-        .option-thumbnail[hidden] { display:none; }
         .option-name { font-size:14px;font-weight:650;overflow-wrap:anywhere; }
         .option-meta { font-size:12px;color:var(--secondary-text-color,#63766b);overflow-wrap:anywhere; }
         .option-store { font-size:12px; }
@@ -1514,7 +1512,6 @@ class ImprovedShoppingCatalog extends HTMLElement {
       const title=element('span','option-name',ref?.name|| (ref?.ean?`EAN ${ref.ean}`:ref?.reference_id?`Referencia ${ref.reference_id}`:'Opción sin detalle'));
       const meta=element('span','option-meta');
       const updateSummary=()=>{title.textContent=ref?.name||(ref?.ean?`EAN ${ref.ean}`:ref?.reference_id?`Referencia ${ref.reference_id}`:'Opción sin detalle');meta.textContent=[ref?.brand,ref?.content_quantity&&ref?.content_unit?`${new Intl.NumberFormat('es-ES',{maximumFractionDigits:3}).format(ref.content_quantity)} ${ref.content_unit}`:''].filter(Boolean).join(' · ');meta.hidden=!meta.textContent;};updateSummary();
-      if(ref?.image_url){const thumbnail=element('img','option-thumbnail');thumbnail.src=ref.image_url;thumbnail.alt=ref.name||'Producto original';thumbnail.loading='lazy';thumbnail.referrerPolicy='no-referrer';thumbnail.addEventListener('error',()=>{thumbnail.hidden=true;});summary.append(thumbnail);}
       heading.append(title,meta,reference);summary.append(heading);card.append(summary);
       const source=document.createElement('div');source.className='association-source';
       for(const text of [value?'Web':'',fromTicket?'Ticket/factura confirmado':''].filter(Boolean)){const badge=document.createElement('span');badge.textContent=text;source.append(badge);}

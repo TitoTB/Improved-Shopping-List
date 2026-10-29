@@ -944,7 +944,6 @@ async function checkDetectedPurchaseRecovery(browser,url,errors){
 
 async function checkReferenceFormats(browser,url,errors){
   const context=await browser.newContext({viewport:{width:390,height:844}});
-  await context.route('https://example.test/product.png',route=>route.fulfill({contentType:'image/svg+xml',body:'<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48"><rect width="48" height="48" fill="green"/></svg>'}));
   await context.addInitScript(()=>{
     window.optionMetadata={'4006381333931':{brand:'Granja de origen',content_quantity:999,content_unit:'g'}};
     const base={revision:1,category:'',tags:[],price:null,currency:'EUR',barcode:'',barcodes:[],nfc_tags:[],reader_actions:{},image_url:'',icon:'',notes:'',store_links:{},recurrence:{enabled:false,days:7}};
@@ -980,8 +979,7 @@ async function checkReferenceFormats(browser,url,errors){
   await page.evaluate(()=>{window.optionLookupFixture={store:'lidl',reference_id:'100',url:'https://www.lidl.es/p/huevos/p100',name:'Huevos frescos 12 uds',brand:'Granja Web',image_url:'https://example.test/product.png',ean:'1234567890128',content_quantity:24,content_unit:'uds',price:2.5,currency:'EUR',checked_at:1800000000,nutriscore:{grade:'a',checked_at:1800000000}};});
   await first.getByRole('button',{name:'Recuperar datos',exact:true}).click();
   await dialog.getByText('Datos recuperados. Guarda el producto para conservarlos.',{exact:true}).waitFor();
-  await dialog.locator('.product-option').first().locator('.option-thumbnail').waitFor({state:'visible'});
-  assert.equal(await dialog.locator('.option-thumbnail').first().getAttribute('src'),'https://example.test/product.png');
+  assert.equal(await dialog.locator('.option-thumbnail').count(),0);
   assert.equal(await first.getByLabel('Nombre comercial',{exact:true}).inputValue(),'Huevos frescos 12 uds');
   assert.equal(await first.getByLabel('Contenido por envase',{exact:true}).inputValue(),'24');
   assert.equal(await dialog.getByLabel('Nombre del producto',{exact:true}).inputValue(),'Huevos');
@@ -1002,7 +1000,7 @@ async function checkReferenceFormats(browser,url,errors){
   await dialog.locator('.product-option > summary').first().click();
   assert.equal(await first.getByLabel('Formato confirmado',{exact:true}).count(),0);
   assert.equal(await first.getByLabel('Marca',{exact:true}).inputValue(),'Granja Web');
-  assert.equal(await dialog.locator('.option-thumbnail').first().getAttribute('src'),'https://example.test/product.png');
+  assert.equal(await dialog.locator('.option-thumbnail').count(),0);
   assert.equal(await page.evaluate(()=>window.catalogProducts.find(p=>p.id==='eggs').commercial_references[0].last_price.price),2.5);
   await page.evaluate(()=>window.failOptionLookup=true);
   await first.getByRole('button',{name:'Recuperar datos',exact:true}).click();

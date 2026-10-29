@@ -57,3 +57,27 @@ async def test_reference_migration_is_conservative_idempotent_and_preserves_all_
     revision=catalog.products[0]['revision']
     await catalog.async_migrate_references(data)
     assert catalog.products[0]['revision']==revision
+
+
+async def test_receipt_contents_are_per_ean_including_multipacks_not_purchase_count(hass):
+    catalog=Catalog(hass);await catalog.async_load()
+    coffee=await catalog.async_save_product({'name':'Café'})
+    drink=await catalog.async_save_product({'name':'Bebida'})
+    stock=StockManager(hass,catalog);await stock.async_load()
+    automation=SimpleNamespace(_lock=asyncio.Lock(),async_check=AsyncMock(),_snapshots={},settings=SimpleNamespace(snapshot={'primary_entity':'todo.main'}))
+    manager=ReceiptManager(hass,stock,automation,SimpleNamespace(_notify=lambda:None))
+    receipt={'id':'formats','digest':'formats','store':'carrefour','store_name':'Carrefour','currency':'EUR','purchased_at':dt_util.now().isoformat(),
+        'total':28,'subtotal':28,'discount':0,'article_count':5,'lines':[
+        {'id':'0','description':'CAFE 500 G','count':2,'unit_price':5,'amount':10,'ean':'3017620422003','pack_quantity':500,'pack_unit':'g'},
+        {'id':'1','description':'PACK 6 X 330 ML','count':3,'unit_price':6,'amount':18,'ean':'4006381333931','pack_quantity':330,'pack_unit':'ml'}]}
+    draft=await manager._prepare_preview(receipt,'owner')
+    assert [(line['pack_quantity'],line['pack_unit']) for line in draft['receipt']['lines']]==[(500,'g'),(1980,'ml')]
+    saved=await manager.async_confirm(draft['token'],'owner',[
+        {'id':'0','product_id':coffee['id'],'replenish':False,'quantity':None,'unit':'uds','purchase_id':'','save_price':True,'pack_quantity':500,'pack_unit':'g'},
+        {'id':'1','product_id':drink['id'],'replenish':False,'quantity':None,'unit':'uds','purchase_id':'','save_price':True,'pack_quantity':1980,'pack_unit':'ml'}],True)
+    by_id={product['id']:product for product in catalog.products}
+    for product,quantity,price in [(by_id[coffee['id']],500,5),(by_id[drink['id']],1980,6)]:
+        offer=manager.offers_for(product)[0]
+        assert offer['pack_quantity']==quantity and offer['price']==price
+        assert product['commercial_references'][0]['content_quantity']==quantity
+    assert [line['count'] for line in saved['lines']]==[2,3] and stock.snapshot['items']==[]

@@ -19,7 +19,7 @@ from .lidl_receipts import extract_lidl_ticket
 from .stock import DAY, DEFAULT_CONFIG, quantity_value, materialized_stock
 from .store_links import STORES
 from .quantity_values import purchase_defaults
-from .product_references import content, format_observation, reference_key, matching_reference
+from .product_references import content, format_observation, reference_key, matching_reference, inferred_content
 
 
 def converted_quantity(line, unit):
@@ -436,6 +436,15 @@ class ReceiptManager:
         return await self._prepare_preview(receipt, owner)
 
     async def _prepare_preview(self, receipt, owner):
+        # Contents describe one scanned/sold EAN, never the number purchased.
+        # Re-read multipacks before using a parser's simple weight match.
+        for line in receipt["lines"]:
+            quantity,unit=inferred_content(line)
+            if quantity is not None:
+                try:
+                    line["pack_quantity"],line["pack_unit"]=content(quantity,unit)
+                except ValueError:
+                    pass
         summary = self._summary_match(receipt)
         if summary:
             receipt["account_key"] = summary["account_key"]

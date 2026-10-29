@@ -35,6 +35,8 @@ test('list estimates select whole packages for the requested amount and leave pe
  assert.equal(packageCost({...obs[0],format_pending:true},6,'uds'),null);
  assert.equal(referenceRate(4,{content_quantity:500,content_unit:'g',content_confirmed:true}).price,8);
  assert.deepEqual(suggestedContent({description:'PACK 2 X 6 UDS'}),{quantity:12,unit:'uds'});
+ assert.deepEqual(suggestedContent({description:'CAFE 500 G',count:2}),{quantity:500,unit:'g'});
+ assert.deepEqual(suggestedContent({description:'PACK 6 X 330 ML',count:3,pack_quantity:330,pack_unit:'ml'}),{quantity:1980,unit:'ml'});
 });
 
 test('egg packages compare per egg, retaining multiple formats per store and their latest prices',()=>{

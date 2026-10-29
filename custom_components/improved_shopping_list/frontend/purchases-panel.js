@@ -1,7 +1,7 @@
 import { ListSettingsSession } from "./list-settings-client.js?v=0.50.2";
 import { installDialogCloseButtons } from "./dialog-controls.js?v=0.50.2";
 import { productNameKey } from "./product-names.js?v=0.50.2";
-import { referenceFor, suggestedContent, referenceContentControls, validReferenceContent } from "./reference-formats.js?v=0.50.2";
+import { referenceFor, suggestedContent, referenceContentControls, validReferenceContent, barcodeIdentity } from "./reference-formats.js?v=0.50.2";
 
 const node=(tag,cls,text)=>{const el=document.createElement(tag);if(cls)el.className=cls;if(text!==undefined)el.textContent=text;return el;};
 const money=value=>new Intl.NumberFormat('es-ES',{style:'currency',currency:'EUR'}).format(value);
@@ -165,11 +165,33 @@ class ImprovedShoppingPurchases extends HTMLElement {
         unit:product?.unit??'uds',purchase_id:null,save_price:Boolean(this._pricesEnabled),packageFormat:this._lineFormat(line,product)};
     });
     root.querySelector('#review-error').hidden=true;this._renderStep();
+    const token=this._draft.token;
+    this._packageMetadataTask=Promise.resolve().then(()=>this._loadPackageMetadata(token));
   }
   _defaultQuantity(line,product){return product.refill_quantity??this._quantity(line,product.unit);}
   _lineFormat(line,product){
     const ref=referenceFor(product,this._draft.receipt.store,line),hint=suggestedContent(line);
-    return {content_quantity:ref?.content_quantity??hint.quantity,content_unit:ref?.content_unit||hint.unit,content_confirmed:Boolean(ref?.content_confirmed)};
+    const saved=ref?.content_confirmed;
+    return {content_quantity:saved?ref.content_quantity:hint.quantity??ref?.content_quantity??null,content_unit:saved?ref.content_unit:hint.unit||ref?.content_unit||'',content_confirmed:Boolean(saved)};
+  }
+  async _loadPackageMetadata(token){
+    const cache=new Map();
+    for(const edit of this._edits){
+      if(this._draft?.token!==token||!this.isConnected)return;
+      const code=edit.line.ean,identity=barcodeIdentity(code);
+      if(!edit.product_id||!identity||edit.packageFormat.content_confirmed||validReferenceContent(edit.packageFormat))continue;
+      try{
+        if(!cache.has(identity))cache.set(identity,await this._hass.callWS({type:'improved_shopping_list/catalog/nutriscore',code}));
+        if(this._draft?.token!==token||!this.isConnected)return;
+        const data=cache.get(identity),format={content_quantity:data.content_quantity,content_unit:data.content_unit};
+        if(!edit.packageFormat.content_confirmed&&validReferenceContent(format)){
+          // OFF quantities already describe the complete package, including multipacks.
+          edit.line.pack_quantity=format.content_quantity;edit.line.pack_unit=format.content_unit;
+          edit.packageFormat={...format,content_confirmed:false};
+          if(this._step===2)this._renderStep();
+        }
+      }catch{/* Missing optional metadata must not prevent receipt review. */}
+    }
   }
   _quantity(line,unit){
     if(unit==='uds')return line.count;
@@ -217,6 +239,7 @@ class ImprovedShoppingPurchases extends HTMLElement {
       this._pricesEnabled?'Selecciona los productos cuyo precio quieres actualizar en el catálogo, para esta tienda.':'Los precios están desactivados en Ajustes. Puedes confirmar las vinculaciones y la reposición sin guardar precios.'
     ][step];
     if(step===2&&this._draft.receipt.document_type==='invoice'&&this._pricesEnabled)root.querySelector('#step-help').textContent+=' El precio sugerido es el PVP unitario antes de descuentos y no incluye el envío.';
+    if(step===2)root.querySelector('#step-help').textContent+=' El contenido corresponde a un envase de ese EAN; si es un pack, indica el contenido total del pack.';
     root.querySelector('#step-help').hidden=step===3;
     root.querySelector('#review-summary').hidden=step===3;
     root.querySelector('#previous-step').hidden=step===0;root.querySelector('#links-only').hidden=step!==0;
@@ -408,14 +431,20 @@ class ImprovedShoppingPurchases extends HTMLElement {
       const options=await this._hass.callWS({type:'improved_shopping_list/receipts/link',token:this._draft.token,lines:this._edits.map(e=>({id:e.id,product_id:e.product_id}))});
       this._updateOptions(options);
       if(only){this.shadowRoot.querySelector('dialog').close();this._render();}
-      else{this._step=1;this._renderStep();}
+      else{const token=this._draft.token;this._packageMetadataTask=Promise.resolve(this._packageMetadataTask).then(()=>this._loadPackageMetadata(token));this._step=1;this._renderStep();}
     }catch(error){this._errorMessage(error.message??'No se han podido guardar las vinculaciones.');}
     finally{this._setBusy(false);}
   }
   async _advance(){
     if(this._busy||!this._draft)return;this._errorMessage('');
     if(this._step===0){await this._saveLinks();return;}
-    if(this._step===1){if(this._validateStock()){this._step=2;this._renderStep();}return;}
+    if(this._step===1){
+      if(this._validateStock()){
+        const token=this._draft.token;this._setBusy(true);this.shadowRoot.querySelector('#confirm-ticket').textContent='Completando formatos…';
+        try{await this._packageMetadataTask;if(this._draft?.token===token){this._step=2;this._renderStep();}}finally{this._setBusy(false);}
+      }
+      return;
+    }
     if(this._step===2){this._step=3;this._renderStep();return;}
     await this._confirm();
   }
@@ -423,6 +452,9 @@ class ImprovedShoppingPurchases extends HTMLElement {
     if(this._busy||!this._draft||!this._validateLinks()||!this._validateStock())return;
     this._setBusy(true);
     try{
+      const token=this._draft.token;
+      await this._packageMetadataTask;
+      if(this._draft?.token!==token)return;
       await this._hass.callWS({type:'improved_shopping_list/receipts/confirm',token:this._draft.token,update_prices:Boolean(updatePrices&&this._pricesEnabled),
         lines:this._edits.map(edit=>({id:edit.id,product_id:edit.product_id,replenish:Boolean(edit.product_id&&edit.replenish),quantity:edit.replenish?edit.quantity:null,unit:edit.unit,purchase_id:edit.purchase_id??'',save_price:Boolean(edit.product_id&&edit.save_price&&updatePrices&&this._pricesEnabled),pack_quantity:validReferenceContent(edit.packageFormat)?edit.packageFormat.content_quantity:null,pack_unit:validReferenceContent(edit.packageFormat)?edit.packageFormat.content_unit:''}))});
       this._draft=null;this.shadowRoot.querySelector('dialog').close();await this._session.refresh();this.dispatchEvent(new CustomEvent('receipt-imported'));

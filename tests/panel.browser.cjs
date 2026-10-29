@@ -942,6 +942,33 @@ async function checkDetectedPurchaseRecovery(browser,url,errors){
   await context.close();
 }
 
+async function checkReceiptPackageFormats(browser,url,errors){
+  const context=await browser.newContext({viewport:{width:390,height:844}}),page=await context.newPage();
+  page.on('pageerror',error=>errors.push(error.message));
+  await page.goto(url);
+  await page.getByRole('button',{name:'Analítica',exact:true}).click();
+  const purchases=page.locator('isl-purchases');await purchases.locator('#ticket-file').waitFor({state:'attached'});
+  await purchases.evaluate(el=>{
+    const products=[{id:'coffee',name:'Café',unit:'uds',refill_quantity:1,stock_id:'',commercial_references:[]},{id:'drink',name:'Bebida',unit:'uds',refill_quantity:1,stock_id:'',commercial_references:[]}];
+    window.catalogProducts=products;window.optionMetadata={'3017620422003':{content_quantity:500,content_unit:'g'}};
+    const receipt={id:'package-test',store:'carrefour',store_name:'Carrefour',purchased_at:new Date().toISOString(),total:28,lines:[
+      {id:'0',description:'CAFE',count:2,unit_price:5,amount:10,ean:'3017620422003',product_id:'coffee',matched:true,pack_quantity:null,pack_unit:''},
+      {id:'1',description:'PACK 6 X 330 ML',count:3,unit_price:6,amount:18,ean:'4006381333931',product_id:'drink',matched:true,pack_quantity:330,pack_unit:'ml'}]};
+    window.receiptDraft=structuredClone(receipt);el.openPreview({token:'package-test',receipt,products,purchases:[]});
+  });
+  const dialog=purchases.getByRole('dialog',{name:'Revisar ticket',exact:true});
+  await dialog.getByRole('button',{name:'Continuar',exact:true}).click();
+  await dialog.getByRole('button',{name:'Continuar',exact:true}).click();
+  const rows=dialog.locator('.price-line');
+  assert.equal(await rows.nth(0).getByLabel('Contenido por envase',{exact:true}).inputValue(),'500');
+  assert.equal(await rows.nth(1).getByLabel('Contenido por envase',{exact:true}).inputValue(),'1980');
+  assert.deepEqual(await page.evaluate(()=>window.nutriCalls),['3017620422003']);
+  await dialog.getByRole('button',{name:'Actualizar precios y cerrar',exact:true}).click();await dialog.waitFor({state:'hidden'});
+  const saved=await page.evaluate(()=>window.lastReceiptConfirmation);
+  assert.deepEqual(saved.lines.map(line=>[line.pack_quantity,line.pack_unit]),[[500,'g'],[1980,'ml']]);
+  await context.close();
+}
+
 async function checkReferenceFormats(browser,url,errors){
   const context=await browser.newContext({viewport:{width:390,height:844}});
   await context.addInitScript(()=>{
@@ -1138,7 +1165,7 @@ async function main() {
     browser = await chromium.launch({ headless: true, channel: process.env.PLAYWRIGHT_CHANNEL || undefined });
     if(process.argv.includes('--attention-only')){const errors=[];await checkAttentionIndicators(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Navigation attention indicators passed.');return;}
     if(process.argv.includes('--lazy-only')){const errors=[];await checkLazySections(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);return;}
-    if(process.argv.includes('--formats-only')){const errors=[];await checkReferenceFormats(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Commercial reference browser checks passed.');return;}
+    if(process.argv.includes('--formats-only')){const errors=[];await checkReferenceFormats(browser,`http://127.0.0.1:${server.address().port}`,errors);await checkReceiptPackageFormats(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Commercial reference browser checks passed.');return;}
     if(process.argv.includes('--recovery-only')){const errors=[];await checkDetectedPurchaseRecovery(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Manual purchase recovery browser checks passed.');return;}
     if(process.argv.includes('--purchases-only')){const errors=[];await checkSpendingChart(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Purchase calendar browser checks passed.');return;}
     if(process.argv.includes('--lidl-only')){const errors=[];await checkLidlAccount(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Lidl account browser checks passed.');return;}
@@ -4426,6 +4453,7 @@ async function main() {
     await checkDetectedPurchaseRecovery(browser,url,errors);
     await checkLazySections(browser,url,errors);
     await checkReferenceFormats(browser,url,errors);
+    await checkReceiptPackageFormats(browser,url,errors);
     await checkAttentionIndicators(browser,url,errors);
 
     // Shipping policy: Alcampo and DIA are archived; the other stores remain available.

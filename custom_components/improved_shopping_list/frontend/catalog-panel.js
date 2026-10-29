@@ -11,6 +11,7 @@ export { imageSource, normalizedName, productNameKey, cachedProductPrice };
 
 const MONTHS = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
 const STORE_NAMES = {mercadona:"Mercadona",carrefour:"Carrefour",alcampo:"Alcampo",consum:"Consum",lasirena:"La Sirena",eroski:"Eroski",dia:"DIA",lidl:"Lidl"};
+const storeLogo = store => ({lidl:"https://upload.wikimedia.org/wikipedia/commons/9/91/Lidl-Logo.svg",carrefour:"https://images.seeklogo.com/logo-png/31/2/carrefour-logo-png_seeklogo-318190.png",alcampo:"https://almeria.online/wp-content/uploads/2024/09/alcampo-logo.png"}[store] ?? new URL(`${store}.${store === "mercadona" || store === "dia" ? "png" : store === "eroski" ? "svg" : "jpg"}`,import.meta.url).href);
 
 function element(tag, className, text) {
   const node = document.createElement(tag);
@@ -257,6 +258,8 @@ class ImprovedShoppingCatalog extends HTMLElement {
         .category-products { padding:0 16px 16px; }
         .category-group-title { display:flex; align-items:center; gap:8px; margin:0; font-size:18px; overflow-wrap:anywhere; }
         .category-group-title ha-icon { --mdc-icon-size:22px; width:22px; height:22px; flex:none; color:#fff; }
+        .category-store-logo { display:grid; place-items:center; width:32px; height:32px; flex:none; padding:3px; border-radius:50%; background:#fff; }
+        .category-store-logo img { display:block; width:100%; height:100%; object-fit:contain; }
         .product-category-controls { display:flex; align-items:end; gap:8px; }
         .product-category-controls select { flex:1; min-width:0; }
         #add-product-category { display:grid; place-items:center; flex:0 0 46px; width:46px; height:46px; padding:0; }
@@ -1254,7 +1257,8 @@ class ImprovedShoppingCatalog extends HTMLElement {
           const icon=element("ha-icon");icon.setAttribute("icon",category?.icon || "mdi:label-outline");icon.setAttribute("aria-hidden","true");heading.append(icon);
         }
         if(this._groupBy === "store") {
-          const icon=element("ha-icon");icon.setAttribute("icon","mdi:store");icon.setAttribute("aria-hidden","true");heading.append(icon);
+          const circle=element('span','category-store-logo');circle.setAttribute('aria-hidden','true');
+          const image=element('img');image.src=storeLogo(group.key);image.alt='';image.referrerPolicy='no-referrer';circle.append(image);heading.append(circle);
         }
         heading.append(document.createTextNode(group.name+(this._groupBy === "store"?" ("+group.products.length+")":"")));
         const summary=element('summary','category-group-toggle');summary.append(heading);
@@ -1473,8 +1477,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
       const row = document.createElement("div"); row.className = "product-store-link";
       const reference = document.createElement("span"); reference.className = "store-reference";
       const image = document.createElement("img"); image.alt = ""; image.referrerPolicy = "no-referrer";
-      const logos = {lidl:"https://upload.wikimedia.org/wikipedia/commons/9/91/Lidl-Logo.svg",carrefour:"https://images.seeklogo.com/logo-png/31/2/carrefour-logo-png_seeklogo-318190.png",alcampo:"https://almeria.online/wp-content/uploads/2024/09/alcampo-logo.png"};
-      if(store)image.src = logos[store] ?? new URL(`${store}.${store === "mercadona" || store === "dia" ? "png" : store === "eroski" ? "svg" : "jpg"}`,import.meta.url).href;else image.hidden=true;
+      if(store)image.src = storeLogo(store);else image.hidden=true;
       const name = document.createElement("span"); name.textContent = names[store] ?? store;
       reference.append(image,name);
       if(value){

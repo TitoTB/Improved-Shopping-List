@@ -1345,8 +1345,7 @@ async function checkCatalogSources(browser,url,errors){
   assert.equal(await popup.getByText(/Siguiente petición|aunque cierres este popup/).count(),0);
   await page.evaluate(()=>window.emitCatalogSource({...window.catalogSourceFixture,processed:1,updated:1}));
   assert.equal(await popup.locator('#percentage').textContent(),'50 %');
-  await popup.getByRole('button',{name:'Cerrar ventana',exact:true}).click();
-  await source.getByRole('button',{name:'Ver progreso de Alcampo',exact:true}).click();
+  assert.equal(await source.getByRole('button',{name:'Ver progreso de Alcampo',exact:true}).count(),0);
   assert.equal(await page.evaluate(()=>window.catalogSourceSets),1);
   await page.setViewportSize({width:390,height:844});
   assert.ok(await popup.evaluate(el=>el.scrollWidth<=el.clientWidth+1));

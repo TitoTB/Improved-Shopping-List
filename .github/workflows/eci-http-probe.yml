@@ -1,0 +1,45 @@
+name: ECI HTTP diagnostic
+on:
+  push:
+    branches: [codex/eci-http-probe]
+permissions:
+  contents: read
+jobs:
+  public-search:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+      - run: pip install 'httpx[http2]'
+      - name: Compare anonymous public HTTP clients
+        run: |
+          python - <<'PY'
+          import ast,json,time,ssl,platform
+          from pathlib import Path
+          from urllib.request import HTTPRedirectHandler,Request,build_opener
+          from urllib.error import HTTPError,URLError
+          from html import unescape
+          import re,httpx
+          BASE='https://www.elcorteingles.es';DAY=86400
+          class PriceError(ValueError):
+              def __init__(self,message,**diagnostics):super().__init__(message);self.diagnostics=diagnostics
+          nodes=[n for n in ast.parse(Path('custom_components/improved_shopping_list/eci_catalog.py').read_text()).body if isinstance(n,(ast.ClassDef,ast.FunctionDef)) and n.name in ('_NoRedirect','_request_json')]
+          exec(compile(ast.Module(body=nodes,type_ignores=[]),'eci_catalog.py','exec'))
+          print(json.dumps({'python':platform.python_version(),'ssl':ssl.OPENSSL_VERSION}),flush=True)
+          url=BASE+'/supermercado/buscar/?question=8431876332216&catalog=supermercado&stype=text_box'
+          try:
+              data=_request_json(url);print(json.dumps({'transport':'urllib','status':200,'products':len(data.get('products',[]))}),flush=True)
+          except PriceError as e:print(json.dumps(e.diagnostics),flush=True)
+          time.sleep(20)
+          headers={'Accept':'application/json, text/plain, */*','response_type':'json','Accept-Language':'es-ES,es;q=0.9','User-Agent':'Mozilla/5.0','Referer':BASE+'/supermercado/'}
+          with httpx.Client(http2=True,headers=headers,timeout=25,follow_redirects=False) as c:
+              r=c.get(url);print(json.dumps({'transport':'httpx','protocol':r.http_version,'status':r.status_code,'type':r.headers.get('content-type'),'cookies':len(c.cookies)}),flush=True)
+              if r.status_code==403:
+                  time.sleep(20)
+                  r=c.get(BASE+'/supermercado/',headers={'Accept':'text/html'});print(json.dumps({'transport':'httpx','stage':'homepage','status':r.status_code,'cookies':len(c.cookies)}),flush=True)
+                  if r.status_code==200:
+                      time.sleep(20)
+                      r=c.get(url);print(json.dumps({'transport':'httpx','stage':'session_search','protocol':r.http_version,'status':r.status_code,'type':r.headers.get('content-type'),'cookies':len(c.cookies)}),flush=True)
+          PY

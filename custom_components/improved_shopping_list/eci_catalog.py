@@ -217,11 +217,12 @@ class ECICatalog(CatalogSources):
                     break
                 self._status.update(current=name); self._notify()
                 saved = self._data["attempts"].get(code,{})
-                data = saved.get("data") if saved.get("success") else None
+                data = saved.get("data") if saved.get("matched",saved.get("success")) else None
                 try:
                     if not data and saved.get("at",0)+DAY <= time.time():
                         data = await self.client.search(printed[code],self._before_request)
-                        self._data["attempts"][code] = {"at":time.time(),"success":bool(data),**({"data":deepcopy(data)} if data else {})}
+                        self._data["attempts"][code] = {"at":time.time(),"success":bool(data),"matched":bool(data),**({"data":deepcopy(data)} if data else {})}
+                        await self._save_state()
                     if data and self._active and self._data["enabled"]:
                         self._status["updated"] += await self.catalog.async_complete_store_option(STORE,code,data["url"],data,create=True,show_store=self._data["show_store"],catalog_source=True)
                 except (ValueError,OSError,TimeoutError,aiohttp.ClientError) as err:
@@ -230,9 +231,9 @@ class ECICatalog(CatalogSources):
                     if retry:=diagnostics.get("retry_seconds",0):
                         self._data["retry_at"] = time.time()+retry
                     else:
-                        self._data["attempts"][code] = {"at":time.time(),"success":False}
+                        self._data["attempts"][code] = {"at":time.time(),"success":False,"matched":bool(data),**({"data":deepcopy(data)} if data else {})}
                 self._status["processed"] += 1
-                await self._store.async_save(deepcopy(self._data)); self._notify()
+                await self._save_state(); self._notify()
                 if self._data["retry_at"] > time.time():
                     break
             self._status.update(phase="paused" if self._data["retry_at"]>time.time() else "finished",current="")

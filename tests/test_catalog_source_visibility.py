@@ -75,3 +75,58 @@ async def test_data_only_source_fills_missing_metadata_without_hiding_manual_sho
     option=catalog.products[0]["commercial_references"][0]
     assert option["store"]=="alcampo" and option["brand"]=="Mi marca" and option["last_price"]["price"]==9
     assert option["content_quantity"]==170 and not option.get("catalog_source")
+
+
+@pytest.mark.parametrize("store",tuple(URLS))
+async def test_saved_matches_are_restored_on_startup_after_visibility_was_enabled(hass,store):
+    catalog=Catalog(hass);await catalog.async_load()
+    await catalog.async_save_product({"name":"Patatas","barcodes":[EAN]})
+    links=EANLinks(hass,catalog);await links.async_load()
+    lookup=SimpleNamespace(_before_request=AsyncMock(),_blocked_until={})
+    source=CatalogSources(hass,catalog,links,lookup,None) if store=="alcampo" else ECICatalog(hass,catalog,lookup,None)
+    await source.async_load()
+    data={"store":store,"ean":EAN,"url":URLS[store],"reference_id":normalize_link(store,URLS[store])["id"],
+          "name":"Patatas de marca","brand":"Marca","content_quantity":170,"content_unit":"g","price":2.89,"currency":"EUR","checked_at":int(time.time())}
+    # Simulate a restart after saving the preference but before applying its cached matches.
+    source._data.update(show_store=True,attempts={gtin(EAN):{"at":time.time(),"success":False,"matched":True,"data":data}})
+    await source._store.async_save(deepcopy(source._data))
+    again=CatalogSources(hass,catalog,links,lookup,None) if store=="alcampo" else ECICatalog(hass,catalog,lookup,None)
+    await again.async_load()
+    ref=next(r for r in catalog.products[0]["commercial_references"] if r["store"]==store)
+    assert ref["url"]==URLS[store] and ref["last_price"]["price"]==2.89
+    assert ref["content_quantity"]==170 and again.snapshot["show_store"]
+    lookup._before_request.assert_not_awaited()
+    await again.async_stop();await source.async_stop()
+
+
+@pytest.mark.parametrize("store",tuple(URLS))
+async def test_inflight_completion_uses_the_latest_visibility_in_both_directions(hass,store):
+    catalog=Catalog(hass);await catalog.async_load()
+    await catalog.async_save_product({"name":"Patatas","barcodes":[EAN]})
+    data={"ean":EAN,"url":URLS[store],"name":"Patatas","brand":"Marca","price":2.89,"currency":"EUR"}
+    await catalog.async_source_visibility(store,True)
+    await catalog.async_complete_store_option(store,EAN,URLS[store],data,create=True,show_store=False,catalog_source=True)
+    assert any(r["store"]==store for r in catalog.products[0]["commercial_references"])
+    await catalog.async_source_visibility(store,False)
+    await catalog.async_complete_store_option(store,EAN,URLS[store],data,create=True,show_store=True,catalog_source=True)
+    assert not any(r["store"]==store for r in catalog.products[0]["commercial_references"])
+
+
+async def test_alcampo_metadata_matches_without_a_price_are_kept_for_later_display(hass):
+    catalog=Catalog(hass);await catalog.async_load()
+    await catalog.async_save_product({"name":"Patatas","barcodes":[EAN]})
+    links=EANLinks(hass,catalog);await links.async_load()
+    links._data["links"]={"alcampo:"+gtin(EAN):URLS["alcampo"]};links._data["checked_at"]=time.time()
+    lookup=SimpleNamespace(_before_request=AsyncMock(),_blocked_until={},retrieve=AsyncMock(return_value={
+        "store":"alcampo","reference_id":"10739","ean":EAN,"name":"Patatas","brand":"Marca","content_quantity":170,"content_unit":"g"}))
+    source=CatalogSources(hass,catalog,links,lookup,None);await source.async_load()
+    await source.async_set_enabled(True);source._active=True
+    try:
+        await source.async_run();source._active=False
+        saved=next(iter(source._data["attempts"].values()))
+        assert saved["matched"] and not saved["success"] and saved["data"]["url"]==URLS["alcampo"]
+        await source.async_set_show_store(True)
+        ref=next(r for r in catalog.products[0]["commercial_references"] if r["store"]=="alcampo")
+        assert ref["brand"]=="Marca" and "last_price" not in ref
+        assert lookup.retrieve.await_count==1
+    finally:await source.async_stop()

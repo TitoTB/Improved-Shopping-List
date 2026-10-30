@@ -431,7 +431,7 @@ class Catalog:
         checked_at = int(data.get("checked_at",time.time()))
         changed = 0
         async with self._lock:
-            if catalog_source:show_store=show_store and self._source_visibility.get(store,True)
+            if catalog_source:show_store=self._source_visibility.get(store,show_store)
             products = deepcopy(self._products)
             for product in products.values():
                 refs = product.get("commercial_references", [])

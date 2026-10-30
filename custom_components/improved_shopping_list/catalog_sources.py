@@ -27,6 +27,8 @@ class CatalogSources:
         self._task = self._timer = self._unsubscribe = None
         self._listeners = set()
         self._legacy_source_visibility = False
+        self._config_lock=asyncio.Lock()
+        self._data_lock=asyncio.Lock()
 
     async def async_load(self):
         saved = await self._store.async_load()
@@ -43,8 +45,41 @@ class CatalogSources:
         self._gate()
         await self.catalog.async_source_visibility(self.source_store,self._data["show_store"],self._legacy_options())
         if self._legacy_source_visibility:
-            await self._store.async_save(deepcopy(self._data))
+            await self._save_state()
             self._legacy_source_visibility=False
+        await self._apply_cached_options()
+
+    async def _save_state(self):
+        async with self._data_lock:
+            await self._store.async_save(deepcopy(self._data))
+
+    def _cached_options(self):
+        result={}
+        for identity,saved in deepcopy(list(self._data["attempts"].items())):
+            data=saved.get("data")
+            if not saved.get("matched",saved.get("success")) or not isinstance(data,dict):continue
+            code=gtin(data.get("ean") or identity.split(":",1)[0])
+            url=data.get("url")
+            if not url and self.links:
+                url=self.links._data.get("links",{}).get("alcampo:"+code)
+            try:
+                from .store_links import normalize_link
+                link=normalize_link(self.source_store,url)
+            except ValueError:continue
+            if not code or data.get("store",self.source_store)!=self.source_store or data.get("reference_id",link["id"])!=link["id"]:continue
+            data.update(ean=data.get("ean") or code,url=link["url"],reference_id=link["id"],store=self.source_store)
+            result[(code,link["id"])]=data
+        return list(result.values())
+
+    async def _apply_cached_options(self):
+        changed=0
+        for data in self._cached_options():
+            try:
+                changed+=await self.catalog.async_complete_store_option(self.source_store,data["ean"],data["url"],data,
+                    create=True,show_store=self._data["show_store"],catalog_source=True)
+            except ValueError as err:
+                self._status["errors"].append({"ean":data["ean"],"message":str(err)[:500],"diagnostics":{"stage":"cached_option"}})
+        return changed
 
     def _legacy_options(self):
         if not self._legacy_source_visibility:return set()
@@ -55,16 +90,18 @@ class CatalogSources:
         return pairs
 
     async def async_set_show_store(self, show_store):
+        async with self._config_lock:
+            return await self._set_show_store(show_store)
+
+    async def _set_show_store(self, show_store):
         if type(show_store) is not bool:raise ValueError("Selecciona un estado de visibilidad válido.")
-        updated={**self._data,"show_store":show_store}
-        await self._store.async_save(deepcopy(updated))
-        self._data=updated;self._gate()
+        async with self._data_lock:
+            updated={**self._data,"show_store":show_store}
+            await self._store.async_save(deepcopy(updated))
+            self._data=updated
+        self._gate()
         await self.catalog.async_source_visibility(self.source_store,show_store,self._legacy_options())
-        for saved in self._data["attempts"].values():
-            data=saved.get("data")
-            if saved.get("success") and isinstance(data,dict) and data.get("ean") and data.get("url"):
-                await self.catalog.async_complete_store_option(self.source_store,data["ean"],data["url"],data,
-                    create=True,show_store=show_store,catalog_source=True)
+        await self._apply_cached_options()
         self._queue();self._notify()
         return self.snapshot
 
@@ -115,12 +152,17 @@ class CatalogSources:
         self._status.update(running=False,phase="idle",current="")
 
     async def async_set_enabled(self, enabled):
+        async with self._config_lock:
+            return await self._set_enabled(enabled)
+
+    async def _set_enabled(self, enabled):
         if type(enabled) is not bool:
             raise ValueError("Selecciona un estado válido para el catálogo de Alcampo.")
         if enabled != self._data["enabled"]:
-            updated = {**self._data,"enabled":enabled}
-            await self._store.async_save(deepcopy(updated))
-            self._data = updated
+            async with self._data_lock:
+                updated = {**self._data,"enabled":enabled}
+                await self._store.async_save(deepcopy(updated))
+                self._data = updated
             self._gate()
             if not enabled:
                 await self._cancel()
@@ -153,7 +195,7 @@ class CatalogSources:
             raise asyncio.CancelledError
         await self.lookup._before_request()  # Shared spacing with manual option lookups.
         self._data["next_request"] = time.time()+INTERVAL
-        await self._store.async_save(deepcopy(self._data))
+        await self._save_state()
         self._status["phase"] = "querying"; self._notify()
 
     def _pending(self, links):
@@ -188,12 +230,7 @@ class CatalogSources:
                 return
             if self._data["show_store"]:
                 await self.catalog.async_apply_ean_links(links)
-            reused = 0
-            for key,link in links.items():
-                code = key.rsplit(":",1)[-1]
-                saved = self._data["attempts"].get(code+":"+link["id"],{})
-                if saved.get("success") and isinstance(saved.get("data"),dict):
-                    reused += await self.catalog.async_complete_store_option("alcampo",code,link,saved["data"],create=True,show_store=self._data["show_store"],catalog_source=True)
+            reused = await self._apply_cached_options()
             pending = self._pending(links)
             self._status.update(total=len(pending),processed=0,updated=reused)
             self._notify()
@@ -201,7 +238,11 @@ class CatalogSources:
                 if not self._active or not self._data["enabled"]:
                     break
                 self._status.update(current=name,phase="querying"); self._notify()
+                previous=self._data["attempts"].get(identity,{})
+                previous_data=deepcopy(previous.get("data")) if previous.get("matched",previous.get("success")) else None
                 success = False
+                data = None
+                matched = False
                 try:
                     data = await self.lookup.retrieve(link["url"],"alcampo",code,before_request=self._before_request)
                     data.setdefault("checked_at",int(time.time()))
@@ -213,6 +254,9 @@ class CatalogSources:
                         raise PriceError("El EAN de Alcampo no coincide con el producto.")
                     data.setdefault("ean",code)
                     data.setdefault("url",link["url"])
+                    matched = True
+                    self._data["attempts"][identity]={"at":time.time(),"success":False,"matched":True,"data":deepcopy(data)}
+                    await self._save_state()
                     changed = await self.catalog.async_complete_store_option("alcampo",code,link,data,create=True,show_store=self._data["show_store"],catalog_source=True)
                     self._status["updated"] += changed
                     success = data.get("price") is not None
@@ -226,9 +270,10 @@ class CatalogSources:
                 blocked = max(0,self.lookup._blocked_until.get("alcampo",0)-time.monotonic())
                 if blocked:
                     self._data["retry_at"] = time.time()+blocked
-                self._data["attempts"][identity] = {"at":time.time(),"success":success,**({"data":deepcopy(data)} if success else {})}
+                retained=data if matched else previous_data
+                self._data["attempts"][identity] = {"at":time.time(),"success":success,"matched":bool(retained),**({"data":deepcopy(retained)} if retained else {})}
                 self._status["processed"] += 1
-                await self._store.async_save(deepcopy(self._data)); self._notify()
+                await self._save_state(); self._notify()
                 if self._data["retry_at"] > time.time():
                     break
             self._status.update(running=False,phase="paused" if self._data["retry_at"]>time.time() else "finished",current="")

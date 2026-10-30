@@ -1,4 +1,4 @@
-name: ECI HTTP diagnostic
+name: Mercadona public catalog diagnostic
 on:
   push:
     branches: [codex/eci-http-probe]
@@ -9,38 +9,5 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: main
-      - name: Verify actual ECI session implementation
-        run: |
-          cat > /tmp/eci-probe.py <<'PY'
-          import asyncio,ast,json,time,re,httpx,ssl,sys
-          from homeassistant.helpers.httpx_client import create_async_httpx_client
-          from homeassistant.util.ssl import SSL_ALPN_HTTP11_HTTP2
-          from pathlib import Path
-          from html import unescape
-          BASE='https://www.elcorteingles.es';DAY=86400
-          class PriceError(ValueError):
-              def __init__(self,message,**diagnostics):super().__init__(message);self.diagnostics=diagnostics
-          nodes=[n for n in ast.parse(Path('custom_components/improved_shopping_list/eci_catalog.py').read_text()).body if isinstance(n,ast.ClassDef) and n.name=='ECIClient']
-          exec(compile(ast.Module(body=nodes,type_ignores=[]),'eci_catalog.py','exec'))
-          async def main():
-              print(json.dumps({'python':sys.version,'openssl':ssl.OPENSSL_VERSION,'httpx':httpx.__version__}),flush=True)
-              client=ECIClient(None);last=[0]
-              async def before():
-                  await asyncio.sleep(max(0,20-(time.monotonic()-last[0])));last[0]=time.monotonic()
-              try:
-                  for ean in ('8431876332216','8410199023094'):
-                      d=await client._json(BASE+'/supermercado/buscar/?question='+ean+'&catalog=supermercado&stype=text_box',before)
-                      rows=[p for p in d.get('products',[]) if isinstance(p,dict) and re.fullmatch(r'B[0-9]+',str(p.get('id','')))]
-                      print(json.dumps({'ean':ean,'status':200,'products':len(rows),'cookies':len(client._http.cookies)}),flush=True)
-                      if len(rows)==1:
-                          url=rows[0]['url'];d=await client._json(url if url.startswith('https://') else BASE+url,before)
-                          p=d.get('pdp',{}).get('product',{});actual=p.get('information_alimentary',{}).get('general',{}).get('ean') or p.get('ean')
-                          assert actual==ean
-                          print(json.dumps({'stage':'product','status':200,'ean':actual,'price':p.get('priceSpecification',{}).get('salePrice')}),flush=True)
-              except PriceError as e:print(json.dumps(e.diagnostics),flush=True);raise
-              finally:await client.async_close()
-          asyncio.run(main())
-          PY
-          docker run --rm --entrypoint python -v "$PWD:/work:ro" -v /tmp/eci-probe.py:/tmp/eci-probe.py:ro -w /work ghcr.io/home-assistant/home-assistant:2026.10.2 /tmp/eci-probe.py
+      - name: Check public catalog using official Home Assistant runtime
+        run: docker run --rm --entrypoint python -v "$PWD:/work:ro" -w /work ghcr.io/home-assistant/home-assistant:2026.10.2 scripts/mercadona-public-probe.py

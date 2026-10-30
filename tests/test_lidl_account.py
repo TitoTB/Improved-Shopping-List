@@ -32,7 +32,9 @@ def test_lidl_receipt_weight_continuation_zero_header_and_private_fields():
     receipt = extract_lidl_ticket(detail, detail['id'], 3, when)
     assert len(receipt['lines']) == 2 and receipt['total'] == 3
     fruit = receipt['lines'][1]
-    assert fruit['count'] == 1 and fruit['pack_quantity'] == .5 and fruit['pack_unit'] == 'kg'
+    assert fruit['count'] == 1 and fruit['pack_quantity'] is None and fruit['pack_unit'] == ''
+    assert fruit['purchased_quantity']==.5 and fruit['purchased_unit']=='kg' and not fruit['quantity_estimated']
+    assert fruit['ticket_measure_price']['price']==4 and fruit['ticket_measure_price']['unit']=='kg'
     assert fruit['unit_price'] == 2 and fruit['reference_id'] == '2345678' and fruit['ean'] == ''
     assert 'PRIVATE' not in json.dumps(receipt) and 'htmlPrintedReceipt' not in receipt
     for altered in ({**detail,'id':'other'}, {**detail,'isDeleted':True}, {**detail,'htmlPrintedReceipt':detail['htmlPrintedReceipt'].replace('FRUTA 2,00','FRUTA 9,00')}):
@@ -216,3 +218,25 @@ def test_lidl_explicit_detail_offset_is_preserved():
     assert extract_lidl_ticket(detail, detail["id"], 3, "2026-07-15T17:20:38Z")["total"] == 3
     with pytest.raises(CatalogError, match="fecha"):
         extract_lidl_ticket(detail, detail["id"], 3, "2026-07-15T19:20:38Z")
+
+
+def test_lidl_explicit_weight_and_rate_are_purchase_data_not_package_size():
+    detail,when=fixture_ticket()
+    detail['htmlPrintedReceipt']=detail['htmlPrintedReceipt'].replace('4,00','3,95').replace('0,500','0,464').replace('FRUTA 2,00','FRUTA 1,83').replace('3,00','2,83')
+    receipt=extract_lidl_ticket(detail,detail['id'],2.83,when)
+    line=receipt['lines'][1]
+    assert len(receipt['lines'])==2 and line['purchased_quantity']==.464
+    assert line['ticket_measure_price']['price']==3.95 and line['pack_quantity'] is None
+    detail['htmlPrintedReceipt']=detail['htmlPrintedReceipt'].replace('kg x 3,95','kg x 9,95')
+    with pytest.raises(CatalogError):extract_lidl_ticket(detail,detail['id'],2.83,when)
+
+
+async def test_reprocessing_downloads_only_the_original_verified_ticket(account,monkeypatch):
+    detail,when=fixture_ticket()
+    saved={'store':'lidl','identity':detail['id'],'account_key':ReceiptManager._account_key(detail['id'],'lidl'),'total':3,'purchased_at':when}
+    request=AsyncMock(return_value=detail);monkeypatch.setattr(account,'_request',request)
+    result=await account.async_reprocess_receipt(saved)
+    request.assert_awaited_once_with('/api/v3/ES/tickets/'+detail['id'])
+    assert len(result['lines'])==2 and result['lines'][1]['ticket_measure_price']['price']==4
+    with pytest.raises(CatalogError):await account.async_reprocess_receipt({**saved,'account_key':'wrong-account-key'})
+    assert request.await_count==1

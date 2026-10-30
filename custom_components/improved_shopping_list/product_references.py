@@ -60,6 +60,8 @@ def content(quantity, unit):
 
 
 def inferred_content(line):
+    if line.get("ticket_measure_price") and line.get("purchased_quantity") is not None:
+        return None, ""
     name = line.get("name") or line.get("description", "")
     multiple = re.search(r"\b(\d+)\s*[x×]\s*(\d+(?:[.,]\d+)?)\s*(kg|grs?|g|ml|cl|l|uds?|unidades)\b",name,re.I)
     if multiple:
@@ -181,6 +183,11 @@ def merge_reference(references, store, line, *, confirmed=False):
     price=line.get("last_price")
     if price and price.get("checked_at",0)>=row.get("last_price",{}).get("checked_at",0):
         row["last_price"]=deepcopy(price)
+    rate=line.get("ticket_measure_price")
+    if line.get("price_saved") and rate and rate.get("checked_at"):
+        rate=measure_price(rate)
+        if rate["checked_at"]>=row.get("measure_price",{}).get("checked_at",0):
+            row["measure_price"]=rate
     if existing and not existing["store"] and store:
         if existing.get("content_confirmed") and not confirmed:
             row.update({key:existing[key] for key in ("content_quantity","content_unit","content_confirmed")})
@@ -195,6 +202,8 @@ def merge_reference(references, store, line, *, confirmed=False):
         references.remove(existing)
     if confirmed:
         row["content_confirmed"]=row["content_quantity"] is not None
+    if line.get("ticket_measure_price") and line.get("purchased_quantity") is not None:
+        row.update(content_quantity=None,content_unit="",content_confirmed=False)
     references.append(row)
 
 

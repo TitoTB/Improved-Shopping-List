@@ -167,7 +167,7 @@ class ImprovedShoppingPurchases extends HTMLElement {
         replenish:!this._draft.reprocess&&Boolean(product?.stock_id),quantity:product?this._defaultQuantity(line,product):null,
         unit:product?.unit??'uds',purchase_id:null,save_price:Boolean(this._pricesEnabled),packageFormat:this._lineFormat(line,product)};
     });
-    root.querySelector('#review-error').hidden=true;this._renderStep();
+    root.querySelector('#review-error').hidden=true;this._renderStep();if(this._draft.warning)this._errorMessage(this._draft.warning);
     const token=this._draft.token;
     this._packageMetadataTask=Promise.resolve().then(()=>this._loadPackageMetadata(token));
   }
@@ -199,6 +199,7 @@ class ImprovedShoppingPurchases extends HTMLElement {
     }finally{dialog.close();}
   }
   _lineFormat(line,product){
+    if(line.ticket_measure_price&&line.purchased_quantity!=null)return {content_quantity:null,content_unit:'',content_confirmed:false};
     const ref=referenceFor(product,this._draft.receipt.store,line),hint=suggestedContent(line);
     const saved=ref?.content_confirmed&&!this._draft.reprocess;
     return {content_quantity:saved?ref.content_quantity:hint.quantity??ref?.content_quantity??null,content_unit:saved?ref.content_unit:hint.unit||ref?.content_unit||'',content_confirmed:Boolean(saved)};
@@ -208,7 +209,7 @@ class ImprovedShoppingPurchases extends HTMLElement {
     for(const edit of this._edits){
       if(this._draft?.token!==token||!this.isConnected)return;
       const code=edit.line.ean,identity=barcodeIdentity(code);
-      if(!edit.product_id||!identity||edit.packageFormat.content_confirmed||validReferenceContent(edit.packageFormat))continue;
+      if(edit.line.ticket_measure_price||!edit.product_id||!identity||edit.packageFormat.content_confirmed||validReferenceContent(edit.packageFormat))continue;
       try{
         if(!cache.has(identity))cache.set(identity,await this._hass.callWS({type:'improved_shopping_list/catalog/nutriscore',code}));
         if(this._draft?.token!==token||!this.isConnected)return;
@@ -241,7 +242,7 @@ class ImprovedShoppingPurchases extends HTMLElement {
           this._lidlMetadataDone.set(edit.id,productId);
           if(data.url){edit.lidlMetadata=data;}
           const format={content_quantity:data.content_quantity,content_unit:data.content_unit};
-          if(!edit.packageEdited&&!validReferenceContent(edit.packageFormat)&&validReferenceContent(format)){
+          if(!edit.line.ticket_measure_price&&!edit.packageEdited&&!validReferenceContent(edit.packageFormat)&&validReferenceContent(format)){
             edit.packageFormat={...format,content_confirmed:false};
             edit.line.pack_quantity=format.content_quantity;edit.line.pack_unit=format.content_unit;
             if(!edit.quantityEdited)edit.quantity=this._defaultQuantity(edit.line,this._product(edit));
@@ -328,10 +329,11 @@ class ImprovedShoppingPurchases extends HTMLElement {
       allLabel.append(all,document.createTextNode('Seleccionar todos los precios'));container.append(allLabel);
     }
     for(const edit of step===3?[]:this._edits){
-      const product=this._product(edit);if(step>0&&!product)continue;
+      const product=this._product(edit);if(step>0&&!product&&!reprocess)continue;
       const row=node('div','review-line');row.dataset.lineId=edit.id;
       if(step===0)this._associationRow(row,edit);
       if(step===1)this._stockRow(row,edit,product);
+      if(step===2&&reprocess&&!product){this._associationRow(row,edit);container.append(row);continue;}
       if(step===2){
         row.classList.add('price-line');
         const toggle=node('button','price-select');toggle.type='button';toggle.setAttribute('aria-label','Guardar precio de '+product.name);
@@ -346,7 +348,8 @@ class ImprovedShoppingPurchases extends HTMLElement {
         const ref=referenceFor(product,this._draft.receipt.store,edit.line),previous=product.reference_prices?.find(offer=>ref?.id&&offer.commercial_reference_id===ref.id||edit.line.ean&&offer.ean===edit.line.ean)?.price??(product.reference_prices?null:product.price);
         if(previous!=null&&Math.round(previous*100)!==Math.round(edit.line.unit_price*100))price.append(node('del','', '('+money(previous)+')'));
         label.append(node('strong','',product.name),price);name.append(this._productImage(product),label);toggle.append(name);row.append(toggle);
-        row.append(referenceContentControls(edit.packageFormat,()=>{edit.packageEdited=true;}));
+        if(edit.line.ticket_measure_price){const rate=edit.line.ticket_measure_price;row.append(node('p','note',edit.line.purchased_quantity+' '+edit.line.purchased_unit+' · '+money(rate.price)+'/'+rate.unit));}
+        else row.append(referenceContentControls(edit.packageFormat,()=>{edit.packageEdited=true;}));
         if(edit.lidlMetadata?.url)row.append(node('p','note',edit.lidlMetadata.format_provisional?'Formato propuesto desde una oferta de Lidl. Confirma que coincide con el envase comprado.':'Datos recuperados de la ficha de Lidl.'));
       }
       if(grouped&&(step===0?Boolean(product):!product?.stock_id))groupedContent.append(row);
@@ -521,14 +524,14 @@ class ImprovedShoppingPurchases extends HTMLElement {
     await this._confirm();
   }
   async _confirm(updatePrices=Boolean(this._pricesEnabled)){
-    if(this._busy||!this._draft||!this._validateLinks()||!this._validateStock())return;
+    if(this._busy||!this._draft||!this._validateLinks()||(!this._draft.reprocess&&!this._validateStock()))return;
     this._setBusy(true);
     try{
       const token=this._draft.token;
       await this._packageMetadataTask;
       if(this._draft?.token!==token)return;
       if(this._draft.reprocess){
-        await this._hass.callWS({type:'improved_shopping_list/receipts/reprocess',token,lines:this._edits.map(edit=>({id:edit.id,pack_quantity:validReferenceContent(edit.packageFormat)?edit.packageFormat.content_quantity:null,pack_unit:validReferenceContent(edit.packageFormat)?edit.packageFormat.content_unit:''}))});
+        await this._hass.callWS({type:'improved_shopping_list/receipts/reprocess',token,lines:this._edits.map(edit=>({id:edit.id,product_id:edit.product_id,pack_quantity:validReferenceContent(edit.packageFormat)?edit.packageFormat.content_quantity:null,pack_unit:validReferenceContent(edit.packageFormat)?edit.packageFormat.content_unit:''}))});
       }else await this._hass.callWS({type:'improved_shopping_list/receipts/confirm',token:this._draft.token,update_prices:Boolean(updatePrices&&this._pricesEnabled),
         lines:this._edits.map(edit=>({id:edit.id,product_id:edit.product_id,replenish:Boolean(edit.product_id&&edit.replenish),quantity:edit.replenish?edit.quantity:null,unit:edit.unit,purchase_id:edit.purchase_id??'',save_price:Boolean(edit.product_id&&edit.save_price&&updatePrices&&this._pricesEnabled),quantity_edited:Boolean(edit.quantityEdited),pack_quantity:validReferenceContent(edit.packageFormat)?edit.packageFormat.content_quantity:null,pack_unit:validReferenceContent(edit.packageFormat)?edit.packageFormat.content_unit:''}))});
       this._draft=null;this.shadowRoot.querySelector('dialog').close();await this._session.refresh();this.dispatchEvent(new CustomEvent('receipt-imported'));

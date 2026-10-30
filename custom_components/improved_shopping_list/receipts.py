@@ -321,6 +321,25 @@ class ReceiptManager:
             raise CatalogError("El ticket pendiente ya no está disponible.")
         if not saved.get("summary_only"):
             receipt=deepcopy(saved)
+            account=getattr(self,"lidl_account",None)
+            warning=""
+            if receipt.get("store")=="lidl" and receipt.get("account_key") and account and account.status(owner).get("connected"):
+                try:
+                    fresh=await account.async_reprocess_receipt(saved)
+                    unused=list(fresh["lines"])
+                    for line in receipt["lines"]:
+                        match=next((row for row in unused if row.get("reference_id")==line.get("reference_id") and row["description"]==line["description"] and abs(row["amount"]-line["amount"])<.001 and row["count"]==line["count"]),None)
+                        if not match:
+                            raise CatalogError("El detalle actualizado no coincide con las líneas guardadas.")
+                        unused.remove(match)
+                        if match.get("ticket_measure_price"):
+                            for key in ("purchased_quantity","purchased_unit","quantity_estimated","ticket_measure_price","pack_quantity","pack_unit"):
+                                line[key]=deepcopy(match[key])
+                    if unused:
+                        raise CatalogError("El detalle actualizado contiene otras líneas.")
+                except (CatalogError,OSError,TimeoutError) as err:
+                    receipt=deepcopy(saved)
+                    warning="No se ha podido recuperar el detalle original de Lidl; se muestran los datos guardados. "+str(err)
             choices=self._choices(receipt["store"])
             for line in receipt["lines"]:
                 product=next((product for product in choices if product["id"]==line.get("product_id")),None)
@@ -333,7 +352,7 @@ class ReceiptManager:
                 raise CatalogError("Hay demasiados tickets pendientes de revisar. Espera unos minutos.")
             token=str(uuid4())
             self._drafts[token]={"owner":owner,"expires":time.time()+1800,"receipt":receipt,"products":choices,"reprocess_original":deepcopy(saved)}
-            return {"token":token,"receipt":deepcopy(receipt),"products":choices,"purchases":[],"reprocess":True}
+            return {"token":token,"receipt":deepcopy(receipt),"products":choices,"purchases":[],"reprocess":True,"warning":warning}
         if not saved.get("pending_review"):
             raise CatalogError("El ticket pendiente ya no está disponible.")
         receipt=deepcopy(saved)
@@ -353,12 +372,14 @@ class ReceiptManager:
             receipt=deepcopy(original)
             if not isinstance(selections,list) or len(selections)!=len(receipt["lines"]):
                 raise CatalogError("Revisa todos los contenidos del ticket.")
-            seen=set();references=[]
+            # Review the refreshed draft, while the original remains the conflict baseline.
+            receipt=deepcopy(draft["receipt"])
+            seen=set();references=[];linked_products=set()
             prices_enabled=self.automation.settings.snapshot.get("price_updates_enabled",True)
             date=dt_util.parse_datetime(receipt["purchased_at"])
             price_at=dt_util.as_utc(date.replace(tzinfo=dt_util.DEFAULT_TIME_ZONE) if date.tzinfo is None else date).timestamp() if date else None
             for selection in selections:
-                if not isinstance(selection,dict) or set(selection)!={"id","pack_quantity","pack_unit"}:
+                if not isinstance(selection,dict) or set(selection) not in ({"id","pack_quantity","pack_unit"},{"id","product_id","pack_quantity","pack_unit"}):
                     raise CatalogError("Los datos del envase no son válidos.")
                 line=next((line for line in receipt["lines"] if line["id"]==selection["id"]),None)
                 if not line or line["id"] in seen:
@@ -368,7 +389,19 @@ class ReceiptManager:
                     quantity,unit=content(selection["pack_quantity"],selection["pack_unit"])
                 except ValueError as err:
                     raise CatalogError(str(err)) from err
-                product=next((product for product in self.stock.catalog.products if product["id"]==line.get("product_id")),None)
+                product_id=selection.get("product_id",line.get("product_id",""))
+                if not isinstance(product_id,str):
+                    raise CatalogError("La vinculación no es válida.")
+                if line.get("product_id") and any(p["id"]==line["product_id"] for p in self.stock.catalog.products) and product_id!=line["product_id"]:
+                    raise CatalogError("Conserva la vinculación original al reprocesar este ticket.")
+                product=next((product for product in self.stock.catalog.products if product["id"]==product_id),None)
+                if product_id and not product:
+                    raise CatalogError("El producto vinculado ya no existe.","conflict")
+                if product_id in linked_products:
+                    raise CatalogError("Dos líneas no pueden vincularse al mismo producto del catálogo.")
+                if product:
+                    linked_products.add(product_id);line.update(product_id=product_id,matched=True)
+                    self._remember_alias(data,receipt["store"],line,product)
                 self._apply_lidl_metadata(draft,line,product)
                 reference=matching_reference(product,receipt["store"],line) if product else None
                 if reference and reference.get("active") is False:
@@ -379,11 +412,16 @@ class ReceiptManager:
                     price=line.get("unit_price")
                     save_price=prices_enabled and receipt.get("currency")=="EUR" and price_at and type(price) in (int,float) and math.isfinite(price) and 0<=price<=1000000
                     reference_line=deepcopy(line)
+                    reference_line["price_saved"]=bool(save_price)
                     if save_price:
                         line["price_saved"]=True
+                        reference_line["price_saved"]=True
                         reference_line["last_price"]={"price":price,"currency":"EUR","checked_at":price_at}
+                        if reference_line.get("ticket_measure_price"):
+                            reference_line["ticket_measure_price"].setdefault("checked_at",price_at)
+                            reference_line["ticket_measure_price"].setdefault("source","ticket")
                     references.append((product["id"],receipt["store"],reference_line,quantity is not None))
-            await self.stock.catalog.async_bind_receipt_eans([],references=references)
+            await self.stock.catalog.async_bind_receipt_eans([(line["product_id"],line.get("ean","")) for line in receipt["lines"] if line.get("product_id")],references=references)
             data["history"][receipt["id"]]=receipt
             await self.stock._persist(deepcopy(self.stock._items),receipts=data)
             self._drafts.pop(token,None)
@@ -607,6 +645,11 @@ class ReceiptManager:
         # Contents describe one scanned/sold EAN, never the number purchased.
         # Re-read multipacks before using a parser's simple weight match.
         for line in receipt["lines"]:
+            if line.get("ticket_measure_price"):
+                date=dt_util.parse_datetime(receipt["purchased_at"])
+                if date:
+                    line["ticket_measure_price"].setdefault("checked_at",dt_util.as_utc(date.replace(tzinfo=dt_util.DEFAULT_TIME_ZONE) if date.tzinfo is None else date).timestamp())
+                    line["ticket_measure_price"].setdefault("source","ticket")
             quantity,unit=inferred_content(line)
             if quantity is not None:
                 try:

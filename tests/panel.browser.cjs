@@ -1138,6 +1138,34 @@ async function checkReferenceFormats(browser,url,errors){
   await context.close();
 }
 
+async function checkLidlReprocessLines(browser,url,errors){
+  const context=await browser.newContext({viewport:{width:390,height:844}}),page=await context.newPage();
+  page.on('pageerror',error=>errors.push(error.message));await page.goto(url);
+  await page.getByRole('button',{name:'Analítica',exact:true}).click();const purchases=page.locator('isl-purchases');
+  await page.waitForFunction(()=>Boolean(document.querySelector('improved-shopping-list-panel').shadowRoot.querySelector('isl-purchases')?._session));
+  await purchases.evaluate(el=>{
+    const products=[{id:'cacao',name:'Pan',unit:'uds',refill_quantity:1,stock_id:'',commercial_references:[]},{id:'tomato',name:'Tomate',unit:'g',refill_quantity:500,stock_id:'',commercial_references:[]}];
+    const receipt={id:'all-lines',store:'lidl',store_name:'Lidl',purchased_at:new Date().toISOString(),total:2.83,lines:[
+      {id:'0',description:'PAN',count:1,unit_price:1,amount:1,reference_id:'12345',product_id:'cacao',matched:true,pack_quantity:null,pack_unit:''},
+      {id:'1',description:'TOMATE SWEET',count:1,unit_price:1.83,amount:1.83,reference_id:'83695',product_id:'',matched:false,pack_quantity:null,pack_unit:'',purchased_quantity:.464,purchased_unit:'kg',ticket_measure_price:{price:3.95,quantity:1,unit:'kg',currency:'EUR'}}]};
+    el.openPreview({token:'all-lines',receipt,products,purchases:[],reprocess:true});
+  });
+  const dialog=purchases.getByRole('dialog',{name:'Reprocesar ticket',exact:true});
+  await dialog.waitFor();await page.waitForFunction(()=>!document.querySelector('improved-shopping-list-panel').shadowRoot.querySelector('isl-purchases')._busy);
+  assert.equal(await dialog.locator('.review-line').count(),2);
+  assert.equal(await dialog.getByRole('button',{name:'Crear producto para TOMATE SWEET',exact:true}).count(),1);
+  await dialog.getByRole('button',{name:'Vincular producto para TOMATE SWEET',exact:true}).click();
+  const association=purchases.getByRole('dialog',{name:'Vincular TOMATE SWEET',exact:true});
+  await association.getByLabel('Producto del catálogo',{exact:true}).fill('Tomate');
+  await association.getByRole('button',{name:'Vincular',exact:true}).click();
+  assert.match(await dialog.locator('.review-line[data-line-id="1"]').textContent(),/3,95.*kg/);
+  assert.equal(await dialog.locator('.review-line[data-line-id="1"]').getByLabel('Contenido por envase',{exact:true}).count(),0);
+  await dialog.getByRole('button',{name:'Guardar datos',exact:true}).click();await dialog.waitFor({state:'hidden'});
+  assert.equal(await page.evaluate(()=>window.lastReceiptReprocess.lines[1].product_id),'tomato');
+  assert.equal(await page.evaluate(()=>window.lastReceiptReprocess.lines[1].pack_quantity),null);
+  await context.close();
+}
+
 async function checkLidlMetadata(browser,url,errors){
   const context=await browser.newContext({viewport:{width:390,height:844}}),page=await context.newPage();
   page.on('pageerror',error=>errors.push(error.message));await page.goto(url);
@@ -1452,6 +1480,7 @@ async function main() {
     if(process.argv.includes('--comparison-only')){const errors=[];await checkCatalogComparison(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Catalog comparison passed.');return;}
     if(process.argv.includes('--attention-only')){const errors=[];await checkAttentionIndicators(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Navigation attention indicators passed.');return;}
     if(process.argv.includes('--lazy-only')){const errors=[];await checkLazySections(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);return;}
+    if(process.argv.includes('--lidl-reprocess-only')){const errors=[];await checkLidlReprocessLines(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Lidl full reprocessing passed.');return;}
     if(process.argv.includes('--lidl-metadata-only')){const errors=[];await checkLidlMetadata(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Lidl receipt metadata passed.');return;}
     if(process.argv.includes('--option-ean-only')){const errors=[];await checkDifferentOptionEAN(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Alternative EAN discovery passed.');return;}
     if(process.argv.includes('--catalog-sources-only')){const errors=[];await checkCatalogSources(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Catalog sources and EAN grouping passed.');return;}
@@ -4718,6 +4747,7 @@ async function main() {
     await checkCatalogSources(browser,url,errors);
     await checkDifferentOptionEAN(browser,url,errors);
     await checkLidlMetadata(browser,url,errors);
+    await checkLidlReprocessLines(browser,url,errors);
     await checkReferenceFormats(browser,url,errors);
     await checkReceiptPackageFormats(browser,url,errors);
     await checkAttentionIndicators(browser,url,errors);

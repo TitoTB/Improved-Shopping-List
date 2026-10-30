@@ -109,13 +109,25 @@ def extract_lidl_ticket(detail, reference, expected_total, expected_date):
         if abs((quantity * price).quantize(Decimal(".01"), rounding=ROUND_HALF_UP) - total) > Decimal(".02"):
             raise CatalogError("La cantidad y el precio de Lidl no coinciden.", "lidl_ticket_amount")
         following = parser.articles[index+1] if index+1 < len(parser.articles) else None
-        weighted = quantity != int(quantity) or bool(following and following["attributes"].get("data-art-id") == code and re.search(r"\bkg\b", following["text"], re.I))
+        weighted = quantity != int(quantity) or bool(following and following["attributes"].get("data-art-id") == code and re.search(r"\b(?:kg|g|uds?)\b", following["text"], re.I))
         count = 1 if weighted else int(quantity)
         pack = re.search(r"\b(\d+(?:[,.]\d+)?)\s*(kg|g|ml|cl|l)\b", name, re.I)
-        lines.append({"id": str(len(lines)), "description": name, "count": count,
+        line={"id": str(len(lines)), "description": name, "count": count,
             "unit_price": float(total / count), "amount": float(total), "reference_id": code, "ean": "",
-            "pack_quantity": float(quantity) if weighted else float(pack[1].replace(",", ".")) if pack else None,
-            "pack_unit": "kg" if weighted else pack[2].lower() if pack else ""})
+            "pack_quantity": float(pack[1].replace(",", ".")) if pack and not weighted else None,
+            "pack_unit": pack[2].lower() if pack and not weighted else ""}
+        if weighted:
+            # The purchased weight is not the content of a fixed package.
+            unit="kg"
+            if following and following["attributes"].get("data-art-id")==code:
+                match=re.match(r"^\s*(\d+(?:[.,]\d+)?)\s*(kg|g|uds?)\s*[x×*]\s*(\d+(?:[.,]\d+)?)\s*(?:EUR|€)\s*/\s*(kg|g|uds?)",following["text"],re.I)
+                if not match or match[2].lower()!=match[4].lower() or amount(match[1])!=quantity or amount(match[3])!=price:
+                    raise CatalogError("El peso y el precio por unidad de Lidl no coinciden.", "lidl_ticket_amount")
+                unit="uds" if match[2].lower() in ("ud","uds") else match[2].lower()
+            line.update(purchased_quantity=float(quantity),purchased_unit=unit,quantity_estimated=False,
+                ticket_measure_price={"price":float(price),"quantity":1,"unit":unit,"currency":"EUR",
+                    "checked_at":dt_util.parse_datetime(parsed["purchased_at"]).timestamp(),"source":"ticket"})
+        lines.append(line)
     text = "".join(parser.text)
     totals = re.findall(r"(?:^|\n)\s*TOTAL\s+(\d+[.,]\d{2})(?:\s|$)", text, re.I)
     total = amount(expected_total); subtotal = sum((Decimal(str(line["amount"])) for line in lines), Decimal(0))

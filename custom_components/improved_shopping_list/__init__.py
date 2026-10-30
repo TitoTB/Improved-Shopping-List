@@ -94,6 +94,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         dia_account.settings = settings
         lidl_account = LidlAccount(hass, receipts, activity)
         await lidl_account.async_load()
+        receipts.lidl_account = lidl_account
         lidl_account.settings = settings
         ticket_accounts = TicketAccounts({"carrefour":carrefour_account, "lidl":lidl_account},activity,hass)
         await ticket_accounts.async_load()

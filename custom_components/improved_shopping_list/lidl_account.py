@@ -262,6 +262,16 @@ class LidlAccount(DiaAccount):
             detail = await self._request("/api/v3/ES/tickets/"+quote(ticket_id(purchase["reference"]), safe=""))
             return await self.receipts.async_preview_lidl_ticket(detail, purchase["reference"], purchase["amount"], purchase["purchased_at"], owner)
 
+    async def async_reprocess_receipt(self, saved):
+        """Read one original ticket to recover explicit fields absent in older imports."""
+        reference=ticket_id(saved.get("identity",""))
+        if saved.get("store")!="lidl" or saved.get("account_key")!=self.receipts._account_key(reference,"lidl"):
+            raise LidlAccountError("La referencia del ticket guardado no es válida.","saved_purchase")
+        async with self._lock:
+            detail=await self._request("/api/v3/ES/tickets/"+quote(reference,safe=""))
+        from .lidl_receipts import extract_lidl_ticket
+        return await self.hass.async_add_executor_job(extract_lidl_ticket,detail,reference,saved["total"],saved["purchased_at"])
+
     def _queue_background(self, *_args):
         if self._active and self._options["auto_ticket"] and (self._task is None or self._task.done()):
             self._task = self.hass.async_create_background_task(self._run_background(), "Lidl automatic tickets")

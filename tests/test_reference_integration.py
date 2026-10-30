@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 from homeassistant.util import dt as dt_util
-from custom_components.improved_shopping_list.catalog import Catalog, FIELDS
+from custom_components.improved_shopping_list.catalog import Catalog, CatalogError, FIELDS
 from custom_components.improved_shopping_list.stock import StockManager
 from custom_components.improved_shopping_list.receipts import ReceiptManager
 from custom_components.improved_shopping_list.price_history import PriceHistory
@@ -118,3 +118,43 @@ async def test_reprocess_restores_ticket_price_without_web_or_package_and_preser
     preview=await manager.async_review_saved(saved['id'],'owner')
     await manager.async_reprocess(preview['token'],'owner',[{'id':'0','pack_quantity':6,'pack_unit':'uds'}])
     assert 'last_price' not in catalog.products[0]['commercial_references'][0]
+
+
+async def test_reprocess_keeps_all_lines_and_can_bind_a_previously_ignored_weighted_item(hass):
+    from copy import deepcopy
+    catalog=Catalog(hass);await catalog.async_load()
+    bread=await catalog.async_save_product({'name':'Pan'})
+    tomato=await catalog.async_save_product({'name':'Tomate'})
+    stock=StockManager(hass,catalog);await stock.async_load()
+    settings=SimpleNamespace(snapshot={'primary_entity':'todo.main','price_updates_enabled':True})
+    automation=SimpleNamespace(_lock=asyncio.Lock(),async_check=AsyncMock(),_snapshots={},settings=settings)
+    manager=ReceiptManager(hass,stock,automation,SimpleNamespace(_notify=lambda:None))
+    at=dt_util.now().isoformat()
+    receipt={'id':'all-lines','digest':'all-lines','identity':'original-ticket','account_key':manager._account_key('original-ticket','lidl'),'store':'lidl','store_name':'Lidl','currency':'EUR','purchased_at':at,
+        'total':2.83,'subtotal':2.83,'discount':0,'article_count':2,'lines':[
+        {'id':'0','description':'PAN','count':1,'unit_price':1,'amount':1,'ean':'','reference_id':'12345','pack_quantity':None,'pack_unit':''},
+        {'id':'1','description':'TOMATE SWEET','count':1,'unit_price':1.83,'amount':1.83,'ean':'','reference_id':'83695','pack_quantity':.464,'pack_unit':'kg'}]}
+    draft=await manager._prepare_preview(receipt,'owner')
+    saved=await manager.async_confirm(draft['token'],'owner',[
+        {'id':'0','product_id':bread['id'],'replenish':False,'quantity':None,'unit':'uds','purchase_id':'','save_price':True,'pack_quantity':None,'pack_unit':''},
+        {'id':'1','product_id':'','replenish':False,'quantity':None,'unit':'uds','purchase_id':'','save_price':False,'pack_quantity':None,'pack_unit':''}],True)
+    original=deepcopy(stock.receipts)
+    fresh=deepcopy(receipt)
+    fresh['lines'][1].update(pack_quantity=None,pack_unit='',purchased_quantity=.464,purchased_unit='kg',quantity_estimated=False,
+        ticket_measure_price={'price':3.95,'quantity':1,'unit':'kg','currency':'EUR','checked_at':dt_util.parse_datetime(at).timestamp(),'source':'ticket'})
+    manager.lidl_account=SimpleNamespace(status=lambda owner:{'connected':True},async_reprocess_receipt=AsyncMock(return_value=fresh))
+    preview=await manager.async_review_saved(saved['id'],'owner')
+    assert len(preview['receipt']['lines'])==2 and preview['receipt']['lines'][1]['purchased_quantity']==.464
+    assert stock.receipts==original
+    result=await manager.async_reprocess(preview['token'],'owner',[
+        {'id':'0','product_id':bread['id'],'pack_quantity':None,'pack_unit':''},
+        {'id':'1','product_id':tomato['id'],'pack_quantity':None,'pack_unit':''}])
+    ref=next(p for p in catalog.products if p['id']==tomato['id'])['commercial_references'][0]
+    assert ref['measure_price']['price']==3.95 and ref['measure_price']['unit']=='kg'
+    assert ref['content_quantity'] is None and not ref['content_confirmed']
+    assert result['lines'][1]['product_id']==tomato['id'] and result['lines'][1]['purchased_quantity']==.464
+    assert len(stock.receipts['history'])==1 and stock.snapshot['items']==[]
+    assert stock.receipts['purchases']==original['purchases']
+    manager.lidl_account.async_reprocess_receipt=AsyncMock(side_effect=CatalogError('Sin conexión'))
+    preview=await manager.async_review_saved(saved['id'],'owner')
+    assert preview['warning'] and len(preview['receipt']['lines'])==2

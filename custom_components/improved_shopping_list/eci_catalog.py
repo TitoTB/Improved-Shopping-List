@@ -114,6 +114,7 @@ class ECIClient:
                 diagnostics["elapsed_ms"]=round((time.monotonic()-started)*1000)
                 if response.status_code!=200:
                     retry=response.headers.get("Retry-After","")
+                    diagnostics["retry_after_present"]=bool(retry)
                     reference=re.search(r"Reference\s*#?([a-zA-Z0-9.\-]+)",unescape(body[:4096].decode("utf-8","replace")))
                     if reference:diagnostics["block_reference"]=reference[1][:150]
                     self._ready=False
@@ -150,7 +151,7 @@ class ECIClient:
                 except PriceError as err:
                     # Some anonymous sessions start with cookies on a rejected first page.
                     # Finish this initial handshake once, with normal request spacing.
-                    if not (fresh and err.diagnostics.get("http_status")==403 and len(self._http.cookies)):
+                    if not (fresh and err.diagnostics.get("http_status")==403 and not err.diagnostics.get("retry_after_present") and len(self._http.cookies)):
                         raise
                     await before_request()
                     await self._request(BASE+"/supermercado/",bootstrap=True)

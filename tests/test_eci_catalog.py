@@ -44,7 +44,7 @@ def test_product_parser_uses_single_item_price_and_exact_ean_not_conditional_pro
 @pytest.fixture
 async def eci_http(monkeypatch):
     class HTTP:
-        def __init__(self):self.responses={};self.requests=[];self.clients=[]
+        def __init__(self):self.responses={};self.requests=[];self.clients=[];self.homepage_statuses=[200];self.retry_after=""
         @property
         def call_count(self):return len(self.requests)
         def get(self,url,*,json=None,status=200):self.responses[url]=(json,status)
@@ -53,7 +53,9 @@ async def eci_http(monkeypatch):
             headers={"Content-Type":"application/json","Server":"AkamaiGHost"}
             if str(request.url)==BASE+"/supermercado/":
                 headers["Set-Cookie"]="public_session=anonymous; Path=/; Secure"
-                return httpx.Response(200,text="<html></html>",headers=headers,extensions={"http_version":b"HTTP/2"})
+                status=self.homepage_statuses.pop(0) if len(self.homepage_statuses)>1 else self.homepage_statuses[0]
+                if self.retry_after:headers["Retry-After"]=self.retry_after
+                return httpx.Response(status,text="<html></html>",headers=headers,extensions={"http_version":b"HTTP/2"})
             body,status=self.responses[str(request.url)]
             return httpx.Response(status,json=body if status==200 else None,
                 content=None if status==200 else b"Access Denied Reference&#32;#18.abc.123",headers=headers,
@@ -166,3 +168,29 @@ async def test_blocked_ean_retries_after_pause_instead_of_being_skipped_for_a_da
         await source.async_run();assert source.client.search.await_count==2
         assert source.snapshot["phase"]=="finished" and not source._data["attempts"][gtin(EAN)]["success"]
     finally:await source.async_stop()
+
+
+async def test_initial_public_cookies_are_reused_once_and_each_request_is_paced(hass,eci_http):
+    eci_http.homepage_statuses=[403,200]
+    eci_http.get(BASE+'/supermercado/buscar/?question='+EAN+'&catalog=supermercado&stype=text_box',json={"products":[]})
+    before=AsyncMock();client=ECIClient(hass)
+    try:
+        assert await client.search(EAN,before) is None
+        assert before.await_count==3 and eci_http.call_count==3
+        assert "cookie" not in eci_http.requests[0].headers
+        assert eci_http.requests[1].headers["cookie"]=="public_session=anonymous"
+        assert eci_http.requests[2].headers["cookie"]=="public_session=anonymous"
+        await client.search(EAN,before)
+        assert eci_http.call_count==4  # Session initialization is shared across EANs.
+    finally:await client.async_close()
+
+
+@pytest.mark.parametrize("retry_after,expected_calls",[("",2),("900",1)])
+async def test_session_block_is_bounded_and_explicit_retry_after_is_respected(hass,eci_http,retry_after,expected_calls):
+    eci_http.homepage_statuses=[403];eci_http.retry_after=retry_after
+    client=ECIClient(hass);before=AsyncMock()
+    try:
+        with pytest.raises(PriceError) as error:await client.search(EAN,before)
+        assert error.value.diagnostics["stage"]=="session"
+        assert eci_http.call_count==expected_calls and before.await_count==expected_calls
+    finally:await client.async_close()

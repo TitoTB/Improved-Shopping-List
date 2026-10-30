@@ -1,6 +1,6 @@
 # Historial de cambios
 
-## Próxima versión
+## 0.61.0 — 2026-10-30
 
 - Se elimina el texto introductorio de Catálogo → Pendiente.
 

@@ -491,7 +491,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
             <div class="suggestion-content"><div id="scan-suggestions" class="suggestions"></div><p id="scan-suggestions-empty" class="helper" hidden>No hay códigos escaneados pendientes de identificar.</p></div>
           </details>
           <details id="pending-information-group" class="suggestion-group">
-            <summary><span class="pending-information-title">Productos pendientes de información</span><span id="pending-information-count" class="suggestion-count">0</span><isl-pending-information-refresh></isl-pending-information-refresh></summary>
+            <summary><span class="pending-information-title">Productos pendientes de información</span><isl-pending-information-refresh></isl-pending-information-refresh></summary>
             <div class="suggestion-content"><div id="pending-information-products" class="suggestions"></div><p id="pending-information-empty" class="helper" hidden>No hay productos con información pendiente.</p></div>
           </details>
         </div>
@@ -929,7 +929,6 @@ class ImprovedShoppingCatalog extends HTMLElement {
     for(const offer of this._priceData?.offers??[]){const values=offersByProduct.get(offer.catalog_product_id)??[];values.push(offer);offersByProduct.set(offer.catalog_product_id,values);}
     const pending=this._catalog.products.map(product=>({product,issues:pendingProductInformation(product,offersByProduct.get(product.id)??[])}))
       .filter(item=>item.issues.length);
-    root.querySelector('#pending-information-count').textContent=String(pending.length);
     root.querySelector('isl-pending-information-refresh').data={hass:this._hass,active:this._active&&this._view==='suggestions',eligible:pending.some(({product})=>(product.commercial_references??[]).some(ref=>ref.active!==false&&ref.url))};
     root.querySelector('#pending-information-empty').hidden=Boolean(pending.length)||this._catalog.loading;
     if(this._view!=='suggestions'||!group.open){container.replaceChildren();return;}

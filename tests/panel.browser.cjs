@@ -1344,7 +1344,7 @@ async function checkCatalogViews(browser,url,errors){
     ];window.emitCatalog();
   });
   const information=catalog.locator('#pending-information-group');
-  assert.equal(await catalog.locator('#pending-information-count').textContent(),'1');
+  assert.equal(await catalog.locator('#pending-information-count').count(),0);
   assert.equal(await information.locator('.pending-information-row').count(),0); // Rows are built only on expansion.
   const refresh=information.locator('isl-pending-information-refresh');
   const refreshButton=refresh.getByRole('button',{name:'Recuperar datos',exact:true});
@@ -1370,7 +1370,7 @@ async function checkCatalogViews(browser,url,errors){
   assert.equal(await editor.getByRole('button',{name:'Alternativas',exact:true}).getAttribute('aria-pressed'),'true');
   await editor.getByRole('button',{name:'Cerrar ventana',exact:true}).click();
   await page.evaluate(()=>{window.catalogProducts[0].commercial_references[0].content_quantity=250;window.catalogProducts[0].commercial_references[0].content_unit='g';window.emitCatalog();});
-  assert.equal(await catalog.locator('#pending-information-count').textContent(),'0');
+  assert.equal(await catalog.locator('#pending-information-count').count(),0);
   assert.equal(await information.locator('.pending-information-row').count(),0);
   assert.equal(await catalog.locator('#view-suggestions').isVisible(),true);
   assert.equal(await page.evaluate(()=>window.catalogRecipes[0].id),'kept-recipe');

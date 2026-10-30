@@ -1,5 +1,9 @@
 # Historial de cambios
 
+## Próxima versión
+
+- Se elimina el contador del bloque «Productos pendientes de información», conservando el botón «Recuperar datos».
+
 ## 0.61.0 — 2026-10-30
 
 - Se elimina el texto introductorio de Catálogo → Pendiente.

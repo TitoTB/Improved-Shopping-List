@@ -201,6 +201,7 @@ class Catalog:
         self._recommendation_categories: dict[str, dict[str, Any]] = {}
         self._recipes: dict[str, dict[str, Any]] = {}
         self._source_options = {}
+        self._source_visibility = {}
         self._dismissed_suggestions: set[str] = set()
         self._lock = Lock()
         self._listeners: set = set()
@@ -348,6 +349,7 @@ class Catalog:
         """Complete existing options locally, without resetting stock or prices."""
         changed = False
         async with self._lock:
+            resolved={key:value for key,value in resolved.items() if not any(key.startswith(store+":") and visible is False for store,visible in self._source_visibility.items())}
             products = deepcopy(self._products)
             for product in products.values():
                 if enrich_product(product, resolved):
@@ -415,6 +417,7 @@ class Catalog:
                     product["updated_at"]=datetime.now(UTC).isoformat();changed=True
             if changed or archive!=self._source_options:
                 await self._persist(products,self._categories,source_options=archive)
+            self._source_visibility[store]=visible
         if changed:self._notify()
 
     async def async_complete_store_option(self, store, code, link, data, *, create=False, show_store=True, catalog_source=False):
@@ -428,6 +431,7 @@ class Catalog:
         checked_at = int(data.get("checked_at",time.time()))
         changed = 0
         async with self._lock:
+            if catalog_source:show_store=show_store and self._source_visibility.get(store,True)
             products = deepcopy(self._products)
             for product in products.values():
                 refs = product.get("commercial_references", [])

@@ -18,7 +18,7 @@
   "issue_tracker": "https://github.com/TitoTB/Improved-Shopping-List/issues",
   "requirements": [
     "pypdf==6.21.2",
-    "h2==4.4.1"
+    "h2>=4.4.1"
   ],
   "version": "0.56.1"
 }

@@ -10,4 +10,4 @@ La consulta utiliza las respuestas JSON públicas de la web, sin cuentas ni cook
 
 El progreso aparece al activar el catálogo. El proceso continúa en Home Assistant y deja un resumen técnico al terminar. Desactivarlo detiene las consultas y conserva las alternativas incorporadas. No añade iconos de acceso al progreso a los bloques de tiendas.
 
-No requiere tarjetas de HACS ni cuentas externas. La dependencia `h2==4.4.1` habilita HTTP/2 y Home Assistant la instala automáticamente; HTTPX forma parte de Home Assistant. Las cookies de esta sesión son propias de la integración, permanecen en memoria y no se exportan ni aparecen en los logs.
+No requiere tarjetas de HACS ni cuentas externas. La dependencia `h2>=4.4.1` habilita HTTP/2 y Home Assistant la instala automáticamente; HTTPX forma parte de Home Assistant. Las cookies de esta sesión son propias de la integración, permanecen en memoria y no se exportan ni aparecen en los logs.

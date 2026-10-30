@@ -86,6 +86,7 @@ class ECIClient:
         self.hass = hass
         self._http = None
         self._ready = False
+        self._session_attempted = False
         self._lock = asyncio.Lock()
 
     async def async_close(self):
@@ -93,6 +94,7 @@ class ECIClient:
             await httpx.AsyncClient.aclose(self._http)
             self._http = None
         self._ready = False
+        self._session_attempted = False
 
     async def _request(self, url, *, bootstrap=False):
         started = time.monotonic()
@@ -141,7 +143,17 @@ class ECIClient:
                         "Accept-Language":"es-ES,es;q=0.9", "User-Agent":"Mozilla/5.0", "Referer":BASE+"/supermercado/"})
             if not self._ready:
                 await before_request()
-                await self._request(BASE+"/supermercado/",bootstrap=True)
+                fresh=not self._session_attempted
+                self._session_attempted=True
+                try:
+                    await self._request(BASE+"/supermercado/",bootstrap=True)
+                except PriceError as err:
+                    # Some anonymous sessions start with cookies on a rejected first page.
+                    # Finish this initial handshake once, with normal request spacing.
+                    if not (fresh and err.diagnostics.get("http_status")==403 and len(self._http.cookies)):
+                        raise
+                    await before_request()
+                    await self._request(BASE+"/supermercado/",bootstrap=True)
                 self._ready=True
             await before_request()
             return await self._request(url)

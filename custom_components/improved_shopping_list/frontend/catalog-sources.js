@@ -49,7 +49,7 @@ class CatalogSourcesPanel extends HTMLElement {
       this.shadowRoot.innerHTML=this.shadowRoot.innerHTML.replaceAll('Alcampo','El Corte Inglés').replace('<h3>Catálogos</h3>','').replace('https://almeria.online/wp-content/uploads/2024/09/alcampo-logo.png','https://img.samsungapps.com/productNew/000005314762/SPA/IconImage_20241028224125253_NEW_WAP_ICON_512_512.png');
     }else{
       const grid=document.createElement('div');grid.className='catalog-grid';
-      const row=this.shadowRoot.querySelector('.row');row.before(grid);grid.append(row,document.createElement('isl-eci-catalog'));
+      const row=this.shadowRoot.querySelector('.row');row.before(grid);grid.append(row);
     }
     installToggleStyles(this.shadowRoot);installDialogCloseButtons(this.shadowRoot);
     this.shadowRoot.querySelector('#catalog-progress-dialog').addEventListener('close',()=>this._stopProgressPolling());

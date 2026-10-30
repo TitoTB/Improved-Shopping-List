@@ -10,7 +10,10 @@ def manager(hass,connection,msg):
     if not data.get("active"):
         connection.send_error(msg["id"],"not_loaded","La integración no está cargada.")
         return None
-    return data["eci_catalog"] if msg.get("source")=="elcorteingles" else data["catalog_sources"]
+    if msg.get("source")=="elcorteingles":
+        connection.send_error(msg["id"],"source_unavailable","El catálogo de El Corte Inglés está retirado temporalmente.")
+        return None
+    return data["catalog_sources"]
 
 
 @callback

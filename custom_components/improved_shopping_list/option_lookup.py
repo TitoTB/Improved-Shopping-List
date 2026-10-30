@@ -229,6 +229,8 @@ class OptionLookup:
             host = urlsplit(value).hostname
             store = next((key for key, hosts in HOSTS.items() if host in hosts), "")
         link = normalize_link(store, value)
+        if store == "elcorteingles":
+            raise PriceError("La consulta de El Corte Inglés está retirada temporalmente. Puedes editar los datos manualmente.",response_class="source_unavailable")
         if not link["url"]:
             raise PriceError("Indica el enlace completo de la ficha del producto.")
         async with self._lock:

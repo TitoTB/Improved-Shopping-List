@@ -15,6 +15,17 @@ URL = "https://www.carrefour.es/supermercado/pavo/R-prod1/p"
 CODE = "3017620422003"
 
 
+async def test_retired_eci_lookup_never_queries_the_provider(hass,monkeypatch):
+    lookup=OptionLookup(hass)
+    request=AsyncMock()
+    monkeypatch.setattr(lookup,'_page',request)
+    try:
+        with pytest.raises(PriceError,match='retirada temporalmente'):
+            await lookup.retrieve('https://www.elcorteingles.es/supermercado/B001018009401193-patatas/')
+        request.assert_not_awaited()
+    finally:lookup.close()
+
+
 def html_product(**changes):
     product = {"@type":"Product", "url":URL, "name":"Pavo 250 g", "brand":{"name":"marca"},
         "gtin13":CODE, "offers":{"price":"2.50","priceCurrency":"EUR"},

@@ -1442,34 +1442,8 @@ async function checkCatalogSources(browser,url,errors){
   assert.ok(await popup.evaluate(el=>el.scrollWidth<=el.clientWidth+1));
   await page.screenshot({path:'test-results/catalog-source-progress-mobile.png',fullPage:true});
   await popup.getByRole('button',{name:'Cerrar ventana',exact:true}).click();await toggle.uncheck();
-  const eci=source.locator('isl-eci-catalog'),eciToggle=eci.getByRole('switch',{name:'Completar productos con El Corte Inglés',exact:true});
-  assert.equal(await eciToggle.isChecked(),false);
-  await eci.getByRole('button',{name:'Configurar catálogo de El Corte Inglés',exact:true}).click();
-  const eciOptions=eci.locator('#catalog-options-dialog');
-  assert.equal(await eciOptions.getByRole('switch',{name:'Mostrar tienda en el catálogo',exact:true}).isChecked(),false);
-  await eciOptions.getByRole('switch',{name:'Mostrar tienda en el catálogo',exact:true}).check();
-  assert.equal(await page.evaluate(()=>window.catalogSourceFixture.show_store),true);
-  await eciOptions.getByRole('button',{name:'Cerrar ventana',exact:true}).click();
-  assert.match(await eci.locator('.logo').getAttribute('src'),/IconImage_20241028224125253_NEW_WAP_ICON_512_512/);
-  assert.equal(await eci.getByRole('button',{name:/Ver progreso/}).count(),0);
-  await page.evaluate(()=>{window.eciEnableGate=new Promise(resolve=>window.finishEciEnable=resolve);});
-  await eciToggle.check();const eciPopup=eci.getByRole('dialog',{name:'Catálogo de El Corte Inglés',exact:true});await eciPopup.waitFor();
-  assert.equal(await eciPopup.locator('#percentage').textContent(),'…');
-  await page.evaluate(()=>window.emitEciCatalogSource({...window.eciSourceFixture,enabled:true,phase:'querying',running:true,total:4,processed:2,current:'Café'}));
-  assert.equal(await eciPopup.locator('#percentage').textContent(),'50 %');
-  await page.evaluate(()=>{window.finishEciEnable();window.eciEnableGate=null;});
-  await page.waitForFunction(()=>!document.querySelector('improved-shopping-list-panel').shadowRoot.querySelector('isl-settings').shadowRoot.querySelector('isl-catalog-sources').shadowRoot.querySelector('isl-eci-catalog')._busy);
-  assert.equal(await eciPopup.locator('#percentage').textContent(),'50 %'); // A delayed enable response cannot overwrite newer progress.
-  await page.evaluate(()=>{window.eciSourceFixture={...window.eciSourceFixture,phase:'waiting',processed:3,current:'Toallitas'};});
-  await eciPopup.getByText('75 %',{exact:true}).waitFor(); // No push event: reconcile actual backend status without restarting.
-  assert.equal(await eciPopup.locator('#current').textContent(),'Toallitas');
-  assert.ok(await page.evaluate(()=>window.catalogStatusReads>0));
-  await page.evaluate(()=>window.emitEciCatalogSource({...window.eciSourceFixture,phase:'paused',running:false}));
-  await eciPopup.getByText('Revisión en pausa temporal.',{exact:true}).waitFor();
-  assert.equal(await eciPopup.locator('#percentage').textContent(),'75 %');
-
-  assert.equal(await toggle.isChecked(),false);assert.equal(await page.evaluate(()=>window.eciSourceSets),1);
-  await eciPopup.getByRole('button',{name:'Cerrar ventana',exact:true}).click();await eciToggle.uncheck();
+  assert.equal(await source.locator('isl-eci-catalog').count(),0);
+  assert.equal(await source.getByRole('switch',{name:'Completar productos con El Corte Inglés',exact:true}).count(),0);
   await settings.getByRole('button',{name:'Listas',exact:true}).click();
   assert.equal(await page.evaluate(()=>window.catalogSourceSubscriptions),0);
   await context.close();

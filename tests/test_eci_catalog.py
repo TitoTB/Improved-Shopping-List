@@ -142,14 +142,19 @@ async def test_consent_cache_spacing_new_eans_and_manual_data_survive(hass,monke
     finally:await source.async_stop()
 
 
-async def test_opt_in_is_admin_only_and_independent_of_alcampo(hass,hass_ws_client,hass_admin_user):
+async def test_retired_source_cannot_be_enabled_even_by_admin(hass,hass_ws_client,hass_admin_user):
+    store=module.Store(hass,1,f'{DOMAIN}.eci_catalog')
+    saved={'enabled':True,'show_store':True,'attempts':{gtin(EAN):{'at':time.time(),'matched':True,'data':{'ean':EAN,'url':WEB}}}}
+    await store.async_save(saved)
     entry=MockConfigEntry(domain=DOMAIN,data={CONF_TODO_ENTITY:'todo.main'});entry.add_to_hass(hass)
     assert await hass.config_entries.async_setup(entry.entry_id)
+    assert 'eci_catalog' not in hass.data[DOMAIN]
+    assert await store.async_load()==saved
     client=await hass_ws_client(hass)
     await client.send_json({'id':1,'type':f'{DOMAIN}/catalog_sources/set','source':STORE,'enabled':True})
-    result=await client.receive_json();assert result['success'] and result['result']['enabled']
+    result=await client.receive_json()
+    assert not result['success'] and result['error']['code']=='source_unavailable'
     assert not hass.data[DOMAIN]['catalog_sources'].snapshot['enabled']
-    assert hass.data[DOMAIN]['eci_catalog'].snapshot['enabled']
 
 
 async def test_blocked_ean_retries_after_pause_instead_of_being_skipped_for_a_day(hass,monkeypatch):
@@ -200,21 +205,14 @@ async def test_session_block_is_bounded_and_explicit_retry_after_is_respected(ha
     finally:await client.async_close()
 
 
-async def test_live_progress_and_status_reads_are_scoped_to_eci_without_restarting(hass,hass_ws_client):
+async def test_retired_source_status_and_subscription_fail_cleanly(hass,hass_ws_client):
     entry=MockConfigEntry(domain=DOMAIN,data={CONF_TODO_ENTITY:'todo.main'});entry.add_to_hass(hass)
     assert await hass.config_entries.async_setup(entry.entry_id)
-    source=hass.data[DOMAIN]['eci_catalog'];source.async_run=AsyncMock()
     client=await hass_ws_client(hass)
-    await client.send_json({'id':1,'type':f'{DOMAIN}/catalog_sources/subscribe','source':STORE})
-    assert (await client.receive_json())['success']
-    assert (await client.receive_json())['event']['processed']==0
-    source._status.update(running=True,phase='querying',total=4,processed=1,current='Café');source._notify()
-    assert (await client.receive_json())['event']['processed']==1
-    await client.send_json({'id':2,'type':f'{DOMAIN}/catalog_sources/status','source':STORE})
-    state=(await client.receive_json())['result']
-    assert state['total']==4 and state['processed']==1 and state['current']=='Café'
-    assert hass.data[DOMAIN]['catalog_sources'].snapshot['processed']==0
-    source.async_run.assert_not_awaited()
-    source._status.update(processed=3,phase='waiting');source._notify()
-    assert (await client.receive_json())['event']['processed']==3
+    for identity,command in enumerate(('status','subscribe','visibility'),1):
+        message={'id':identity,'type':f'{DOMAIN}/catalog_sources/{command}','source':STORE}
+        if command=='visibility':message['show_store']=True
+        await client.send_json(message)
+        result=await client.receive_json()
+        assert not result['success'] and result['error']['code']=='source_unavailable'
     assert await hass.config_entries.async_unload(entry.entry_id)

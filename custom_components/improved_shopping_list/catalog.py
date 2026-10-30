@@ -219,7 +219,7 @@ class Catalog:
             if not isinstance(hidden,dict):
                 raise CatalogError("No se han podido leer las alternativas de fuentes.", "storage_error")
             self._source_options={store:{uid:normalized_references(rows) for uid,rows in products.items() if uid in self._products}
-                for store,products in hidden.items() if store in ("alcampo","elcorteingles","mercadona","masymas","bm","consum","lasirena") and isinstance(products,dict)}
+                for store,products in hidden.items() if store in ("alcampo","elcorteingles","mercadona","masymas","bm","consum","lasirena","eroski") and isinstance(products,dict)}
             groups = data.get("recommendation_categories", {})
             if not isinstance(groups, dict) or any(not isinstance(group, dict) or not isinstance(group.get("product_ids", []), list) for group in groups.values()):
                 raise CatalogError("No se han podido leer las categorías de sugerencias.", "storage_error")
@@ -379,7 +379,7 @@ class Catalog:
 
     async def async_source_visibility(self, store, visible, legacy=()):
         """Archive automatic shop alternatives atomically, keeping shared EAN metadata."""
-        if store not in ("alcampo","elcorteingles","mercadona","masymas","bm","consum","lasirena") or type(visible) is not bool:
+        if store not in ("alcampo","elcorteingles","mercadona","masymas","bm","consum","lasirena","eroski") or type(visible) is not bool:
             raise CatalogError("La visibilidad del catálogo no es válida.")
         changed=False
         async with self._lock:

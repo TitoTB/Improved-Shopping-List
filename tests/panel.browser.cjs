@@ -73,7 +73,7 @@ const hass={
     if(msg.type==='improved_shopping_list/catalog_sources/subscribe'){
       window.catalogSourceSubscriptions=(window.catalogSourceSubscriptions??0)+1;
       const listener={callback,catalogSource:true,source:msg.source??'alcampo'};listeners.set(listener,true);
-      callback(structuredClone((msg.source==='mercadona'?window.mercadonaSourceFixture:msg.source==='elcorteingles'?window.eciSourceFixture:['masymas','bm','consum','lasirena'].includes(msg.source)?window.publicSourceFixtures?.[msg.source]:window.catalogSourceFixture)??{enabled:false,phase:'idle',total:0,processed:0,errors:[]}));
+      callback(structuredClone((msg.source==='mercadona'?window.mercadonaSourceFixture:msg.source==='elcorteingles'?window.eciSourceFixture:['masymas','bm','consum','lasirena','eroski'].includes(msg.source)?window.publicSourceFixtures?.[msg.source]:window.catalogSourceFixture)??{enabled:false,phase:'idle',total:0,processed:0,errors:[]}));
       window.emitCatalogSource=state=>{window.catalogSourceFixture=state;for(const item of listeners.keys())if(item.catalogSource&&item.source==='alcampo')item.callback(structuredClone(state));};
       window.emitMercadonaCatalogSource=state=>{window.mercadonaSourceFixture=state;for(const item of listeners.keys())if(item.catalogSource&&item.source==='mercadona')item.callback(structuredClone(state));};
       window.emitEciCatalogSource=state=>{window.eciSourceFixture=state;for(const item of listeners.keys())if(item.catalogSource&&item.source==='elcorteingles')item.callback(structuredClone(state));};
@@ -124,10 +124,10 @@ const hass={
     (window.wsRequests??=[]).push(msg.type);
     if(msg.type==='improved_shopping_list/catalog_sources/status'){
       window.catalogStatusReads=(window.catalogStatusReads??0)+1;
-      return structuredClone((msg.source==='mercadona'?window.mercadonaSourceFixture:msg.source==='elcorteingles'?window.eciSourceFixture:['masymas','bm','consum','lasirena'].includes(msg.source)?window.publicSourceFixtures?.[msg.source]:window.catalogSourceFixture)??{enabled:false,phase:'idle',total:0,processed:0,errors:[]});
+      return structuredClone((msg.source==='mercadona'?window.mercadonaSourceFixture:msg.source==='elcorteingles'?window.eciSourceFixture:['masymas','bm','consum','lasirena','eroski'].includes(msg.source)?window.publicSourceFixtures?.[msg.source]:window.catalogSourceFixture)??{enabled:false,phase:'idle',total:0,processed:0,errors:[]});
     }
     if(msg.type==='improved_shopping_list/catalog_sources/visibility'){
-      if(['masymas','bm','consum','lasirena'].includes(msg.source)){const state={...((window.publicSourceFixtures??={})[msg.source]??{}),show_store:msg.show_store};window.publicSourceFixtures[msg.source]=state;return structuredClone(state);}
+      if(['masymas','bm','consum','lasirena','eroski'].includes(msg.source)){const state={...((window.publicSourceFixtures??={})[msg.source]??{}),show_store:msg.show_store};window.publicSourceFixtures[msg.source]=state;return structuredClone(state);}
       if(msg.source==='mercadona'){window.mercadonaSourceFixture={...(window.mercadonaSourceFixture??{}),show_store:msg.show_store};return structuredClone(window.mercadonaSourceFixture);}
       if(msg.source==='elcorteingles'){window.eciSourceFixture={...(window.eciSourceFixture??{}),show_store:msg.show_store};return structuredClone(window.eciSourceFixture);}
       const state={...(window.catalogSourceFixture??{}),show_store:msg.show_store};window.emitCatalogSource?.(state);return state;
@@ -139,7 +139,7 @@ const hass={
       return structuredClone(window.pendingRefreshFixture);
     }
     if(msg.type==='improved_shopping_list/catalog_sources/set'){
-      if(['masymas','bm','consum','lasirena'].includes(msg.source)){const state={...((window.publicSourceFixtures??={})[msg.source]??{}),enabled:msg.enabled,phase:msg.enabled?'finished':'idle',total:1,processed:1,updated:1,errors:[]};window.publicSourceFixtures[msg.source]=state;for(const item of listeners.keys())if(item.catalogSource&&item.source===msg.source)item.callback(structuredClone(state));return state;}
+      if(['masymas','bm','consum','lasirena','eroski'].includes(msg.source)){const state={...((window.publicSourceFixtures??={})[msg.source]??{}),enabled:msg.enabled,phase:msg.enabled?'finished':'idle',total:1,processed:1,updated:1,errors:[]};window.publicSourceFixtures[msg.source]=state;for(const item of listeners.keys())if(item.catalogSource&&item.source===msg.source)item.callback(structuredClone(state));return state;}
       if(msg.source==='mercadona'){window.mercadonaSourceSets=(window.mercadonaSourceSets??0)+1;const state={...(window.mercadonaSourceFixture??{}),enabled:msg.enabled,total:2,processed:0,phase:msg.enabled?'waiting':'idle'};window.emitMercadonaCatalogSource(state);return state;}
       if(msg.source==='elcorteingles'){window.eciSourceSets=(window.eciSourceSets??0)+1;window.eciSourceFixture={...(window.eciSourceFixture??{}),enabled:msg.enabled,total:0,processed:0,phase:'preparing'};const snapshot=structuredClone(window.eciSourceFixture);if(msg.enabled&&window.eciEnableGate)await window.eciEnableGate;return snapshot;}
       window.catalogSourceSets=(window.catalogSourceSets??0)+1;
@@ -1542,7 +1542,7 @@ async function checkCatalogSources(browser,url,errors){
 
   assert.ok(await page.evaluate(()=>window.catalogStatusReads>0));
   await mercadonaPopup.getByRole('button',{name:'Cerrar ventana',exact:true}).click();await mercadonaToggle.uncheck();
-  for(const [key,name] of [['masymas','Masymas'],['bm','BM'],['consum','Consum'],['lasirena','La Sirena']]){
+  for(const [key,name] of [['masymas','Masymas'],['bm','BM'],['consum','Consum'],['lasirena','La Sirena'],['eroski','Eroski']]){
     const tile=source.locator(`isl-${key}-catalog`),enabled=tile.getByRole('switch',{name:`Completar productos con ${name}`,exact:true});
     assert.equal(await enabled.isChecked(),false);
     await tile.getByRole('button',{name:`Configurar catálogo de ${name}`,exact:true}).click();

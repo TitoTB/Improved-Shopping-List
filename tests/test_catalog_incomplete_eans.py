@@ -80,7 +80,7 @@ async def test_mercadona_skips_index_refresh_for_complete_eans(hass):
     await manager.async_stop()
 
 
-@pytest.mark.parametrize("store", ["masymas", "bm", "consum", "lasirena"])
+@pytest.mark.parametrize("store", ["masymas", "bm", "consum", "lasirena", "eroski"])
 async def test_public_catalog_skips_complete_eans_before_discovery(hass, store):
     base = source(hass, [option()])
     discovery = SimpleNamespace(async_find=AsyncMock())

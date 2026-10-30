@@ -13,7 +13,7 @@ def manager(hass,connection,msg):
     if msg.get("source")=="elcorteingles":
         connection.send_error(msg["id"],"source_unavailable","El catálogo de El Corte Inglés está retirado temporalmente.")
         return None
-    if msg.get("source") in ("masymas","bm","consum","lasirena"):return data["public_catalogs"][msg["source"]]
+    if msg.get("source") in ("masymas","bm","consum","lasirena","eroski"):return data["public_catalogs"][msg["source"]]
     return data["mercadona_catalog"] if msg.get("source")=="mercadona" else data["catalog_sources"]
 
 
@@ -23,14 +23,14 @@ def register(hass):
         websocket_api.async_register_command(hass,command)
 
 
-@websocket_api.websocket_command({vol.Required("type"):f"{DOMAIN}/catalog_sources/status",vol.Optional("source",default="alcampo"):vol.In(("alcampo","elcorteingles","mercadona","masymas","bm","consum","lasirena"))})
+@websocket_api.websocket_command({vol.Required("type"):f"{DOMAIN}/catalog_sources/status",vol.Optional("source",default="alcampo"):vol.In(("alcampo","elcorteingles","mercadona","masymas","bm","consum","lasirena","eroski"))})
 @callback
 def status(hass,connection,msg):
     if source := manager(hass,connection,msg):
         connection.send_result(msg["id"],source.snapshot)
 
 
-@websocket_api.websocket_command({vol.Required("type"):f"{DOMAIN}/catalog_sources/subscribe",vol.Optional("source",default="alcampo"):vol.In(("alcampo","elcorteingles","mercadona","masymas","bm","consum","lasirena"))})
+@websocket_api.websocket_command({vol.Required("type"):f"{DOMAIN}/catalog_sources/subscribe",vol.Optional("source",default="alcampo"):vol.In(("alcampo","elcorteingles","mercadona","masymas","bm","consum","lasirena","eroski"))})
 @callback
 def subscribe(hass,connection,msg):
     if source := manager(hass,connection,msg):
@@ -40,7 +40,7 @@ def subscribe(hass,connection,msg):
         update()
 
 
-@websocket_api.websocket_command({vol.Required("type"):f"{DOMAIN}/catalog_sources/set",vol.Required("enabled"):bool,vol.Optional("source",default="alcampo"):vol.In(("alcampo","elcorteingles","mercadona","masymas","bm","consum","lasirena"))})
+@websocket_api.websocket_command({vol.Required("type"):f"{DOMAIN}/catalog_sources/set",vol.Required("enabled"):bool,vol.Optional("source",default="alcampo"):vol.In(("alcampo","elcorteingles","mercadona","masymas","bm","consum","lasirena","eroski"))})
 @websocket_api.require_admin
 @websocket_api.async_response
 async def set_enabled(hass,connection,msg):
@@ -53,7 +53,7 @@ async def set_enabled(hass,connection,msg):
             connection.send_result(msg["id"],result)
 
 
-@websocket_api.websocket_command({vol.Required("type"):f"{DOMAIN}/catalog_sources/visibility",vol.Required("show_store"):bool,vol.Optional("source",default="alcampo"):vol.In(("alcampo","elcorteingles","mercadona","masymas","bm","consum","lasirena"))})
+@websocket_api.websocket_command({vol.Required("type"):f"{DOMAIN}/catalog_sources/visibility",vol.Required("show_store"):bool,vol.Optional("source",default="alcampo"):vol.In(("alcampo","elcorteingles","mercadona","masymas","bm","consum","lasirena","eroski"))})
 @websocket_api.require_admin
 @websocket_api.async_response
 async def set_visibility(hass,connection,msg):

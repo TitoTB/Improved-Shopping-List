@@ -164,11 +164,14 @@ def web_measure_price(result):
 class OptionLookup:
     def __init__(self, hass):
         self.hass = hass
+        from .eroski_catalog import EroskiCatalogClient
+        self.eroski_catalog = EroskiCatalogClient(hass)
         self.sources = PriceSources(hass)
         self._lock, self._next, self._cache = Lock(), 0, {}
         self._blocked_until = {}
 
     def close(self):
+        self.eroski_catalog.close()
         self.sources.close()
 
     async def _before_request(self):
@@ -178,6 +181,8 @@ class OptionLookup:
         self._next = time.monotonic() + 5
 
     async def _page(self, store, link, before_request=None):
+        if store == "eroski":
+            return await self.eroski_catalog.retrieve(link["url"], before_request or self._before_request)
         if store == "lasirena":
             from .lasirena_product import retrieve
             return await retrieve(self.hass, link["url"], before_request or self._before_request)
@@ -244,7 +249,7 @@ class OptionLookup:
             raise PriceError("Indica el enlace completo de la ficha del producto.")
         async with self._lock:
             cached = self._cache.get((store, link["id"]))
-            if not force and cached and cached[0] > time.monotonic():
+            if not force and cached and cached[0] > time.monotonic() and not (store == "eroski" and expected_ean and not cached[1].get("ean")):
                 result = deepcopy(cached[1])
             else:
                 if self._blocked_until.get(store,0)>time.monotonic():
@@ -252,7 +257,10 @@ class OptionLookup:
                 warnings, attempts, result = [], [], {}
                 statuses=[]
                 try:
-                    result = await (self._page(store, link, before_request) if before_request else self._page(store, link)) or {}
+                    if store == "eroski" and expected_ean:
+                        result = await self.eroski_catalog.retrieve(link["url"], before_request or self._before_request, expected_ean)
+                    else:
+                        result = await (self._page(store, link, before_request) if before_request else self._page(store, link)) or {}
                 except (aiohttp.ClientError, TimeoutError, ValueError) as err:
                     warnings.append(str(err))
                     statuses.append(getattr(err,"diagnostics",{}).get("http_status"))
@@ -262,7 +270,7 @@ class OptionLookup:
                         raise PriceError("La tienda ha solicitado una pausa. Puedes indicar la cantidad manualmente.",
                             response_class="rate_limited", attempts=attempts, errors=warnings,
                             retry_seconds=max(0,int(self._blocked_until[store]-time.monotonic()))) from err
-                if store not in ("lasirena","lidl","elcorteingles","mercadona","masymas","bm","consum") and (not result.get("name") or result.get("price") is None or not result.get("brand") or result.get("content_quantity") is None):
+                if store not in ("eroski","lasirena","lidl","elcorteingles","mercadona","masymas","bm","consum") and (not result.get("name") or result.get("price") is None or not result.get("brand") or result.get("content_quantity") is None):
                     try:
                         offer = await self.sources.fetch(store, link, reference_location(store), before_request or self._before_request)
                         if offer:

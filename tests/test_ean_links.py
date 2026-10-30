@@ -210,3 +210,11 @@ def test_v6_preserves_previous_dictionary_and_adds_verified_sirena_ean():
     current=parse_dictionary((root/'data/ean-links-v6.csv').read_bytes())
     assert {key:value for key,value in current.items() if not key.startswith('lasirena:')} == old
     assert current['lasirena:'+gtin('8414532006553')] == 'https://www.lasirena.es/es/lomos-de-salmon-noruego-premium-655/p'
+
+
+def test_v7_preserves_existing_links_and_adds_verified_eroski_result():
+    root=Path(__file__).resolve().parents[1]
+    old=parse_dictionary((root/'data/ean-links-v6.csv').read_bytes())
+    current=parse_dictionary((root/'data/ean-links-v7.csv').read_bytes())
+    assert {key:value for key,value in current.items() if not key.startswith('eroski:')} == old
+    assert current['eroski:'+gtin('8410199023094')] == 'https://supermercado.eroski.es/es/productdetail/24791428-patatas-lays-gourmet-bolsa-170-g/'

@@ -2,6 +2,8 @@
 
 ## Próxima versión
 
+- Catálogo opcional de Eroski, desactivado por defecto, con sesión anónima, búsqueda por EAN exacto y un único resultado. Incluye progreso, caché, pausas ante bloqueos y veinte segundos entre peticiones; permite completar datos o mostrar alternativas de compra.
+- Diccionario EAN v7 con columna Eroski y la referencia verificada de Lay’s Gourmet 170 g, conservando los enlaces anteriores.
 - Los EAN nuevos se buscan en todos los catálogos activados con «Mostrar tienda en el catálogo», aunque otra tienda ya aporte los datos completos. Las fuentes que solo completan datos siguen limitadas a EAN incompletos; se conservan caché, exclusiones y esperas.
 - Al recuperar una URL nueva en la ficha del producto, la alternativa se muestra después de recibir los datos y agruparla por EAN. Si la consulta falla, se conserva la URL para reintentar sin crear un bloque provisional.
 - «Dónde están los precios más bajos» solo muestra tiendas con al menos un producto al precio mínimo, incluidos los empates.

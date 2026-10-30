@@ -166,7 +166,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         discovery=CatalogDiscovery(hass,catalog,ean_links,hass.data[DOMAIN]["option_lookup"])
         await discovery.async_load()
         public_catalogs={}
-        for store in ("masymas","bm","consum","lasirena"):
+        for store in ("masymas","bm","consum","lasirena","eroski"):
             source=PublicCatalogSource(hass,catalog,ean_links,hass.data[DOMAIN]["option_lookup"],activity,store,discovery)
             await source.async_load()
             public_catalogs[store]=source

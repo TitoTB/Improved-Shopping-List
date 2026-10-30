@@ -448,7 +448,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
       </style>
       <div class="heading"><h1>Catálogo</h1>
       <div class="catalog-toolbar">
-        <nav class="catalog-tabs" aria-label="Vistas del catálogo"><button id="view-products" aria-label="Productos" aria-pressed="true"><ha-icon icon="mdi:view-grid" aria-hidden="true"></ha-icon><span class="tab-label">Productos</span></button><button id="view-categories" aria-label="Categorías" aria-pressed="false"><ha-icon icon="mdi:label" aria-hidden="true"></ha-icon><span class="tab-label">Categorías</span></button><button id="view-recipes" aria-label="Recetas" aria-pressed="false"><ha-icon icon="mdi:chef-hat" aria-hidden="true"></ha-icon><span class="tab-label">Recetas</span></button><button id="view-recommendations" aria-label="Sugerencias" aria-pressed="false"><ha-icon icon="mdi:calendar-star" aria-hidden="true"></ha-icon><span class="tab-label">Sugerencias</span></button><button id="view-suggestions" aria-label="Nuevos" aria-pressed="false"><ha-icon icon="mdi:creation" aria-hidden="true"></ha-icon><span class="tab-label">Nuevos</span></button></nav>
+        <nav class="catalog-tabs" aria-label="Vistas del catálogo"><button id="view-products" aria-label="Productos" aria-pressed="true"><ha-icon icon="mdi:view-grid" aria-hidden="true"></ha-icon><span class="tab-label">Productos</span></button><button id="view-categories" aria-label="Categorías" aria-pressed="false"><ha-icon icon="mdi:label" aria-hidden="true"></ha-icon><span class="tab-label">Categorías</span></button><button id="view-suggestions" aria-label="Nuevos" aria-pressed="false"><ha-icon icon="mdi:creation" aria-hidden="true"></ha-icon><span class="tab-label">Nuevos</span></button></nav>
         <div class="catalog-tools"><button id="new-catalog-category" class="primary" type="button" aria-label="Nueva categoría" title="Nueva categoría" hidden><ha-icon icon="mdi:plus-thick"></ha-icon></button></div>
       </div>
       </div>
@@ -598,12 +598,10 @@ class ImprovedShoppingCatalog extends HTMLElement {
     root.querySelector("#new-product").addEventListener("click", () => this._openProduct());
     root.querySelector("#view-products").addEventListener("click", () => this._switchView("products"));
     root.querySelector("#view-categories").addEventListener("click", () => this._switchView("categories"));
-    root.querySelector("#view-recipes").addEventListener("click", () => this._switchView("recipes"));
     const recipeEditor = root.querySelector("isl-recipe-editor");
     recipeEditor.onSave = recipe => this._catalog.saveRecipe(recipe);
     recipeEditor.onDelete = recipe => this._catalog.deleteRecipe(recipe);
     recipeEditor.onClose = () => root.querySelector("#new-catalog-category").focus();
-    root.querySelector("#view-recommendations").addEventListener("click", () => this._switchView("recommendations"));
     root.querySelector("#open-seasonal").addEventListener("click", () => {
       this._seasonRemoving = false; this._seasonError = ""; this._renderSeasonal();
       root.querySelector("#season-calendar-dialog").showModal();
@@ -666,19 +664,18 @@ class ImprovedShoppingCatalog extends HTMLElement {
   }
 
   _switchView(view) {
+    if (!["products","categories","suggestions"].includes(view)) return;
     this._view = view;
     const root = this.shadowRoot;
     root.querySelector("#products-view").hidden = view !== "products";
     root.querySelector("#new-product").hidden = view !== "products";
-    root.querySelector("#new-catalog-category").hidden = !["categories","recommendations","recipes"].includes(view);
-    root.querySelector("#new-catalog-category").disabled = ["recommendations","recipes"].includes(view) && !this._hass?.user?.is_admin;
-    root.querySelector("#new-catalog-category").setAttribute("aria-label", view === "recipes" ? "Nueva receta" : view === "recommendations" ? "Nueva categoría de sugerencias" : "Nueva categoría");
-    root.querySelector("#new-catalog-category").title = view === "recommendations" ? "Nueva categoría de sugerencias" : "Nueva categoría";
+    root.querySelector("#new-catalog-category").hidden = view !== "categories";
+    root.querySelector("#new-catalog-category").disabled = !this._hass?.user?.is_admin;
+    root.querySelector("#new-catalog-category").setAttribute("aria-label", "Nueva categoría");
+    root.querySelector("#new-catalog-category").title = "Nueva categoría";
     root.querySelector("isl-categories").hidden = view !== "categories";
     root.querySelector("#recipes-view").hidden = view !== "recipes";
-    root.querySelector("#view-recipes").setAttribute("aria-pressed",String(view === "recipes"));
     root.querySelector("#recommendations-view").hidden = view !== "recommendations";
-    root.querySelector("#view-recommendations").setAttribute("aria-pressed", String(view === "recommendations"));
     root.querySelector("#suggestions-view").hidden = view !== "suggestions";
     root.querySelector("#view-products").setAttribute("aria-pressed", String(view === "products"));
     root.querySelector("#view-categories").setAttribute("aria-pressed", String(view === "categories"));
@@ -1290,8 +1287,6 @@ class ImprovedShoppingCatalog extends HTMLElement {
     const empty = root.querySelector("#catalog-empty");
     empty.hidden = grid.childElementCount > 0 || this._catalog.loading || Boolean(this._catalog.error);
     empty.textContent = this._catalog.products.length ? "No hay productos que coincidan con estos filtros." : "Tu catálogo empieza aquí. Añade el primer producto para tenerlo a mano en tu próxima compra.";
-    this._renderSeasonal();
-    this._renderRecipes();
   }
 
   _productCard(product,store = '') {

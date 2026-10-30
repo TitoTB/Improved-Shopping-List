@@ -1,7 +1,7 @@
-import { ListSettingsSession } from "./list-settings-client.js?v=0.57.0";
-import { installDialogCloseButtons } from "./dialog-controls.js?v=0.57.0";
-import { productNameKey } from "./product-names.js?v=0.57.0";
-import { referenceFor, suggestedContent, referenceContentControls, validReferenceContent, barcodeIdentity, recoveredStockQuantity } from "./reference-formats.js?v=0.57.0";
+import { ListSettingsSession } from "./list-settings-client.js?v=0.57.1";
+import { installDialogCloseButtons } from "./dialog-controls.js?v=0.57.1";
+import { productNameKey } from "./product-names.js?v=0.57.1";
+import { referenceFor, suggestedContent, referenceContentControls, validReferenceContent, barcodeIdentity, recoveredStockQuantity } from "./reference-formats.js?v=0.57.1";
 
 const node=(tag,cls,text)=>{const el=document.createElement(tag);if(cls)el.className=cls;if(text!==undefined)el.textContent=text;return el;};
 const money=value=>new Intl.NumberFormat('es-ES',{style:'currency',currency:'EUR'}).format(value);
@@ -11,7 +11,7 @@ const date=value=>new Intl.DateTimeFormat('es-ES',{dateStyle:'short',timeStyle:'
 const icon=name=>{const el=node('ha-icon');el.setAttribute('icon',name);el.setAttribute('aria-hidden','true');return el;};
 
 const STORE_LOGOS={
-  lidl:'https://upload.wikimedia.org/wikipedia/commons/9/91/Lidl-Logo.svg',carrefour:'https://images.seeklogo.com/logo-png/31/2/carrefour-logo-png_seeklogo-318190.png',
+  lidl:'https://logos-world.net/wp-content/uploads/2020/12/Lidl-Emblem.png',carrefour:'https://images.seeklogo.com/logo-png/31/2/carrefour-logo-png_seeklogo-318190.png',
   alcampo:'https://almeria.online/wp-content/uploads/2024/09/alcampo-logo.png',
   ...Object.fromEntries(['mercadona','consum','lasirena','eroski','dia'].map(store=>[store,new URL(store+'.'+(['mercadona','dia'].includes(store)?'png':store==='eroski'?'svg':'jpg'),import.meta.url).href]))
 };

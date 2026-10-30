@@ -1,5 +1,5 @@
-import { installDialogCloseButtons } from "./dialog-controls.js?v=0.57.0";
-import { installToggleStyles } from "./toggle-styles.js?v=0.57.0";
+import { installDialogCloseButtons } from "./dialog-controls.js?v=0.57.1";
+import { installToggleStyles } from "./toggle-styles.js?v=0.57.1";
 export class CarrefourAccountPanel extends HTMLElement {
   get providerId(){return "carrefour";}
   get providerName(){return "Carrefour";}

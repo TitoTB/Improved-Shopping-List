@@ -1,15 +1,15 @@
-import "./shopping-places.js?v=0.57.0";
-import "./dia-prices-settings.js?v=0.57.0";
-import "./alcampo-settings.js?v=0.57.0";
-import "./catalog-sources.js?v=0.57.0";
-import "./carrefour-account.js?v=0.57.0";
-import "./lidl-account.js?v=0.57.0";
-import "./logs-panel.js?v=0.57.0";
-import "./notification-settings.js?v=0.57.0";
-import { installDialogCloseButtons } from "./dialog-controls.js?v=0.57.0";
-import { installToggleStyles } from "./toggle-styles.js?v=0.57.0";
-import { todoEntities, isAvailable } from "./todo-client.js?v=0.57.0";
-import { DEFAULT_APPEARANCE, gradientTextColor } from "./list-settings-client.js?v=0.57.0";
+import "./shopping-places.js?v=0.57.1";
+import "./dia-prices-settings.js?v=0.57.1";
+import "./alcampo-settings.js?v=0.57.1";
+import "./catalog-sources.js?v=0.57.1";
+import "./carrefour-account.js?v=0.57.1";
+import "./lidl-account.js?v=0.57.1";
+import "./logs-panel.js?v=0.57.1";
+import "./notification-settings.js?v=0.57.1";
+import { installDialogCloseButtons } from "./dialog-controls.js?v=0.57.1";
+import { installToggleStyles } from "./toggle-styles.js?v=0.57.1";
+import { todoEntities, isAvailable } from "./todo-client.js?v=0.57.1";
+import { DEFAULT_APPEARANCE, gradientTextColor } from "./list-settings-client.js?v=0.57.1";
 
 const MERCADONA_LOGO_URL = new URL("mercadona.png", import.meta.url).href;
 
@@ -315,7 +315,7 @@ class ImprovedShoppingSettings extends HTMLElement {
       void this._saveRetailSettings(()=>this._data.settings.saveGateway(root.querySelector('#gateway-entity').value,
         root.querySelector('#gateway-target').value,root.querySelector('#gateway-remove').checked));
     });
-    const lidlRow=document.createElement('article');lidlRow.className='store-row';lidlRow.id='lidl-row';lidlRow.innerHTML='<img class="store-logo" src="https://upload.wikimedia.org/wikipedia/commons/9/91/Lidl-Logo.svg" alt="Logo de Lidl" referrerpolicy="no-referrer" loading="lazy" width="56" height="56"><div class="store-name"><h3>Lidl</h3></div><div class="store-controls"><input id="lidl-enabled" class="store-toggle" type="checkbox" role="switch" aria-label="Habilitar Lidl"><button id="configure-lidl" class="store-cog" type="button" aria-label="Ajustes de Lidl" title="Ajustes de Lidl"><ha-icon icon="mdi:cog" aria-hidden="true"></ha-icon></button></div>';root.querySelector('.stores-grid').append(lidlRow);
+    const lidlRow=document.createElement('article');lidlRow.className='store-row';lidlRow.id='lidl-row';lidlRow.innerHTML='<img class="store-logo" src="https://logos-world.net/wp-content/uploads/2020/12/Lidl-Emblem.png" alt="Logo de Lidl" referrerpolicy="no-referrer" loading="lazy" width="56" height="56"><div class="store-name"><h3>Lidl</h3></div><div class="store-controls"><input id="lidl-enabled" class="store-toggle" type="checkbox" role="switch" aria-label="Habilitar Lidl"><button id="configure-lidl" class="store-cog" type="button" aria-label="Ajustes de Lidl" title="Ajustes de Lidl"><ha-icon icon="mdi:cog" aria-hidden="true"></ha-icon></button></div>';root.querySelector('.stores-grid').append(lidlRow);
     const lidlDialog=document.createElement('dialog');lidlDialog.id='lidl-dialog';lidlDialog.setAttribute('aria-label','Lidl');lidlDialog.append(document.createElement('isl-lidl-account'));root.append(lidlDialog);
     root.querySelector('#lidl-enabled').addEventListener('change',()=>void this._saveRetailSettings(()=>this._data.settings.setStoreEnabled('lidl',root.querySelector('#lidl-enabled').checked)));
     root.querySelector('#configure-lidl').addEventListener('click',()=>{lidlDialog.showModal();const account=lidlDialog.querySelector('isl-lidl-account');account.hass=this._data.hass;void account.activate();});

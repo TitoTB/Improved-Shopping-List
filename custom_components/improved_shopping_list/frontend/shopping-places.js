@@ -1,11 +1,11 @@
-import './zone-map.js?v=0.57.0';
-import { installDialogCloseButtons } from './dialog-controls.js?v=0.57.0';
+import './zone-map.js?v=0.57.1';
+import { installDialogCloseButtons } from './dialog-controls.js?v=0.57.1';
 const el=(tag,text)=>{const n=document.createElement(tag);if(text!==undefined)n.textContent=text;return n;};
 // getRandomValues also works when Home Assistant is opened over local HTTP.
 const newShopId=()=>`shop_${Array.from(crypto.getRandomValues(new Uint8Array(16)),value=>value.toString(16).padStart(2,'0')).join('')}`;
 const ACCOUNT_DEFAULTS={
   carrefour:{name:'Carrefour',image:'https://images.seeklogo.com/logo-png/31/2/carrefour-logo-png_seeklogo-318190.png',color:'#2388dc'},
-  lidl:{name:'Lidl',image:'https://upload.wikimedia.org/wikipedia/commons/9/91/Lidl-Logo.svg',color:'#ffcc00'}
+  lidl:{name:'Lidl',image:'https://logos-world.net/wp-content/uploads/2020/12/Lidl-Emblem.png',color:'#ffcc00'}
 };
 class ShoppingPlaces extends HTMLElement {
   constructor(){super();this.attachShadow({mode:'open'});this._localZones={};}

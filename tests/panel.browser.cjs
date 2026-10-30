@@ -2098,7 +2098,7 @@ async function main() {
     assert.equal(await page.locator(".brand-copy").isVisible(), true);
     assert.equal(await page.locator(".section-nav .nav-label:visible").count(), 5);
     await page.getByRole("button",{name:"Catálogo",exact:true}).click();
-    assert.equal(await catalog.locator(".catalog-tabs .tab-label:visible").count(),5);
+    assert.equal(await catalog.locator(".catalog-tabs .tab-label:visible").count(),3);
     await page.getByRole("button",{name:"Lista",exact:true}).click();
     await page.setViewportSize({ width:390, height:844 });
     await page.getByRole("button", { name: "Abrir menú de Home Assistant" }).click();

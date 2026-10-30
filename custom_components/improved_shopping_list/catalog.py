@@ -386,9 +386,14 @@ class Catalog:
             for uid,product in products.items():
                 refs=product.get("commercial_references",[]);before=deepcopy(refs)
                 if visible:
-                    for row in hidden.pop(uid,[]):
+                    remaining=[]
+                    for row in hidden.get(uid,[]):
                         if len(refs)<200 and not any(r["store"]==store and (r["id"]==row["id"] or gtin(r.get("ean"))==gtin(row.get("ean"))) for r in refs):
                             refs.append(row)
+                        else:
+                            remaining.append(row)
+                    if remaining:hidden[uid]=remaining
+                    else:hidden.pop(uid,None)
                 else:
                     removed=[r for r in refs if r["store"]==store and (r.get("catalog_source") or (gtin(r.get("ean")),r.get("url")) in legacy)]
                     refs=[r for r in refs if r not in removed]
@@ -404,7 +409,7 @@ class Catalog:
                             if not other.get("content_quantity") and row.get("content_quantity"):
                                 other.update({key:row[key] for key in ("content_quantity","content_unit","content_confirmed")})
                     if saved:hidden[uid]=list(saved.values())
-                validated=normalized_references(refs)
+                validated=normalized_references(refs) if refs!=before else before
                 if validated!=before:
                     product["commercial_references"]=validated;product["revision"]+=1
                     product["updated_at"]=datetime.now(UTC).isoformat();changed=True

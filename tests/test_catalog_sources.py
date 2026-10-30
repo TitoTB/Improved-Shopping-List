@@ -159,5 +159,5 @@ async def test_source_commands_registered_consent_permissions_and_unload(hass,ha
     await reader.send_json({'id':3,'type':f'{DOMAIN}/catalog_sources/visibility','show_store':False})
     assert not (await reader.receive_json())['success']
     assert await hass.config_entries.async_unload(entry.entry_id)
-    await reader.send_json({'id':2,'type':f'{DOMAIN}/catalog_sources/status'})
+    await reader.send_json({'id':4,'type':f'{DOMAIN}/catalog_sources/status'})
     assert (await reader.receive_json())['error']['code']=='not_loaded'

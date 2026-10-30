@@ -106,6 +106,7 @@ async def test_data_only_source_completes_from_dictionary_without_shop_requests(
     try:
         await source.async_run()
         assert source.snapshot['common_updated']==1 and source.snapshot['updated']==1 and source.snapshot['total']==0
+        assert source.snapshot['ean_summary']=={'catalog_eans':1,'matched_eans':1}
         row=catalog.products[0]['commercial_references'][0]
         assert row['store']=='carrefour' and row['content_quantity']==1.2 and row['pack_count']==6
         assert 'last_price' not in row and len(catalog.products)==1
@@ -135,3 +136,20 @@ async def test_manual_api_edit_removes_only_the_changed_field_provenance(hass):
     row=catalog.products[0]['commercial_references'][0]
     assert row['brand']=='Manual' and 'brand' not in row['common_sources']
     assert row['common_sources']['content_quantity']==SOURCE and row['pack_count']==6
+
+
+async def test_no_matching_ean_is_reported_without_querying_shop(hass):
+    catalog=Catalog(hass);await catalog.async_load()
+    await catalog.async_save_product({'name':'Producto','barcodes':[OTHER]})
+    links=EANLinks(hass,catalog);await links.async_load()
+    lookup=SimpleNamespace(_before_request=AsyncMock(),_blocked_until={},retrieve=AsyncMock())
+    source=MercadonaCatalog(hass,catalog,links,lookup,None);await source.async_load()
+    value={'schema_version':1,'source_revision':'a'*40,'source_updated_at':DATE,'products':{CODE:'69938'},'common_schema_version':1,'common':{CODE:extract(record())}}
+    source.index._data.update(index=parse_index(json.dumps(value).encode()),checked_at=time.time())
+    await source.async_set_enabled(True);source._active=True
+    try:
+        await source.async_run()
+        assert source.snapshot['ean_summary']=={'catalog_eans':1,'matched_eans':0}
+        assert source.snapshot['phase']=='finished' and source.snapshot['updated']==0
+        lookup.retrieve.assert_not_awaited()
+    finally:await source.async_stop()

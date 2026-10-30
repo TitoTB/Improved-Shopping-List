@@ -89,11 +89,16 @@ class CatalogSourcesPanel extends HTMLElement {
     root.querySelector('#options-error').hidden=!this._optionsError;root.querySelector('#options-error').textContent=this._optionsError??'';
     root.querySelector('.row').dataset.enabled=String(Boolean(s.enabled));
     root.querySelector('#error').hidden=!this._error;root.querySelector('#error').textContent=this._error??'';
-    const finished=s.phase==='finished',ratio=total?done/total:finished?1:0,unknown=!total&&!finished&&s.phase!=='paused'&&(s.enabled||this._pendingEnabled);
+    const finished=s.phase==='finished',ratio=total?done/total:finished?1:0,unknown=!total&&!finished&&!['paused','error'].includes(s.phase)&&(s.enabled||this._pendingEnabled);
     root.querySelector('.track').dataset.indeterminate=String(Boolean(unknown));
     if(unknown)root.querySelector('progress').removeAttribute('value');else root.querySelector('progress').value=ratio;
     root.querySelector('#percentage').textContent=unknown?'…':Math.round(ratio*100)+' %';
     root.querySelector('#status').textContent=s.phase==='paused'?'Revisión en pausa temporal.':unknown?'Preparando revisión…':!s.enabled?'Catálogo desactivado.':finished&&!total?(s.updated?`${s.updated} productos completados`:'No hay nuevas coincidencias pendientes de consultar.'):`${done} de ${total} EAN revisados · ${s.updated??0} productos completados${finished?' · Revisión finalizada':''}`;
+    if(s.phase==='error')root.querySelector('#status').textContent='No se ha podido completar la revisión.';
+    if(finished&&!total&&s.ean_summary){
+      const {catalog_eans:codes,matched_eans:matched}=s.ean_summary;
+      root.querySelector('#status').textContent=!codes?'No hay códigos EAN válidos en tu catálogo.':matched===0?`No hay coincidencias exactas para los ${codes} EAN de tu catálogo.`:s.updated?`${s.updated} productos completados · ${matched} EAN coincidentes.`:`${matched} EAN coincidentes. No hay cambios pendientes para esas coincidencias.`;
+    }
     root.querySelector('#current').textContent=s.current??'';
     const issues=[...(s.errors??[]),...(this._error?[{message:this._error}]:[]),...(this._progressError?[{message:this._progressError}]:[])];
     root.querySelector('#issues').replaceChildren(...issues.map(item=>{const p=document.createElement('p');p.textContent=[item.product,item.message].filter(Boolean).join(': ');return p;}));

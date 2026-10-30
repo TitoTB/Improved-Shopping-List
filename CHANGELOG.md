@@ -1,5 +1,9 @@
 # Historial de cambios
 
+## Próxima versión
+
+- El progreso del catálogo de Mercadona distingue entre EAN sin coincidencia exacta y coincidencias ya procesadas. Muestra cuántos EAN se han considerado y un estado claro cuando la revisión falla.
+
 ## 0.59.0 — 2026-10-30
 
 - El diccionario por EAN incorpora datos comunes explícitos del envase: marca, contenido total, unidades y número de unidades por pack cuando esté informado. Conserva la revisión y fecha del origen; los campos contradictorios quedan pendientes.

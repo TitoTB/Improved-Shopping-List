@@ -1459,6 +1459,14 @@ async function checkCatalogSources(browser,url,errors){
   assert.equal(await toggle.isChecked(),false);
   await page.evaluate(()=>{window.mercadonaSourceFixture={...window.mercadonaSourceFixture,processed:2,phase:'finished',running:false};});
   await mercadonaPopup.getByText('100 %',{exact:true}).waitFor();
+  await page.evaluate(()=>window.emitMercadonaCatalogSource({...window.mercadonaSourceFixture,total:0,processed:0,updated:0,phase:'finished',ean_summary:{catalog_eans:79,matched_eans:0}}));
+  await mercadonaPopup.getByText('No hay coincidencias exactas para los 79 EAN de tu catálogo.',{exact:true}).waitFor();
+  await page.evaluate(()=>window.emitMercadonaCatalogSource({...window.mercadonaSourceFixture,ean_summary:{catalog_eans:79,matched_eans:3}}));
+  await mercadonaPopup.getByText('3 EAN coincidentes. No hay cambios pendientes para esas coincidencias.',{exact:true}).waitFor();
+  await page.evaluate(()=>window.emitMercadonaCatalogSource({...window.mercadonaSourceFixture,phase:'error'}));
+  await mercadonaPopup.getByText('No se ha podido completar la revisión.',{exact:true}).waitFor();
+  assert.equal(await mercadonaPopup.locator('.track').getAttribute('data-indeterminate'),'false');
+
   assert.ok(await page.evaluate(()=>window.catalogStatusReads>0));
   await mercadonaPopup.getByRole('button',{name:'Cerrar ventana',exact:true}).click();await mercadonaToggle.uncheck();
   assert.equal(await source.locator('isl-eci-catalog').count(),0);

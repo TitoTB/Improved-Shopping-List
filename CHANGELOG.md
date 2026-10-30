@@ -1,6 +1,6 @@
 # Historial de cambios
 
-## 0.57.1 — 2026-10-30
+## 0.57.2 — 2026-10-30
 
 - Los nuevos logs de productos detallan los campos añadidos, actualizados y eliminados en sus alternativas, indicando EAN y tienda cuando corresponda. Los cambios de fecha de consulta y de orden no generan falsas modificaciones; los detalles se pueden buscar en español.
 - El popup de progreso de catálogos combina los avisos en directo con una lectura de respaldo cada dos segundos mientras está abierto, sin reiniciar la revisión ni aumentar las consultas a la tienda. Las respuestas antiguas no sustituyen avances más recientes; se identifican la preparación y las pausas.

@@ -605,7 +605,7 @@ async function checkUniversalPurchaseSettings(browser,url,errors) {
   assert.equal(await shopEditor.getByLabel('Color',{exact:true}).inputValue(),'#2388dc');
   await shopEditor.getByLabel('Cuenta vinculada',{exact:true}).selectOption('lidl');
   assert.equal(await shopEditor.getByLabel('Nombre',{exact:true}).inputValue(),'Lidl');
-  assert.match(await shopEditor.getByLabel('Imagen',{exact:true}).inputValue(),/Lidl-Logo/);
+  assert.equal(await shopEditor.getByLabel('Imagen',{exact:true}).inputValue(),'https://logos-world.net/wp-content/uploads/2020/12/Lidl-Emblem.png');
   assert.equal(await shopEditor.getByLabel('Color',{exact:true}).inputValue(),'#ffcc00');
   await shopEditor.getByRole('button',{name:'Cerrar ventana',exact:true}).click();
   await universalPage.evaluate(()=>{const panel=window.testPanel;panel.hass={...panel._hass,states:{...panel._hass.states,'zone.shop_one':{entity_id:'zone.shop_one',state:'0',attributes:{friendly_name:'Sucursal uno',latitude:40.41,longitude:-3.7,radius:100}},'zone.shop_two':{entity_id:'zone.shop_two',state:'0',attributes:{friendly_name:'Sucursal dos',latitude:40.42,longitude:-3.71,radius:150}}}};});

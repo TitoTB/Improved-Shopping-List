@@ -1238,19 +1238,27 @@ async function checkCatalogComparison(browser,url,errors){
   await page.getByRole('button',{name:'Analítica',exact:true}).click();
   await page.getByRole('tab',{name:'Comparativa',exact:true}).click();
   const analytics=page.locator('isl-analytics');await analytics.locator('tbody tr').first().waitFor();
-  assert.equal(await analytics.locator('tbody tr').count(),2);
+  assert.equal(await analytics.locator('tbody tr').count(),1);
   assert.equal(await analytics.locator('tbody tr[data-product-id="compared"]').count(),1);
-  assert.match(await analytics.locator('tbody tr[data-product-id="unknown"]').textContent(),/Falta contenido comparable/);
+  assert.equal(await analytics.locator('tbody tr[data-product-id="unknown"]').count(),0);
   assert.equal(await analytics.locator('.rank-row[data-store="lidl"]').count(),1);
   assert.match(await analytics.locator('tbody tr[data-product-id="compared"]').textContent(),/4,00/);
-  assert.match(await analytics.locator('tbody tr[data-product-id="compared"]').textContent(),/Por kg/);
+  assert.match(await analytics.locator('tbody tr[data-product-id="compared"]').textContent(),/€\/kg/);
+  assert.equal(await analytics.locator('tbody th small').count(),0);
+  assert.equal(await analytics.locator('.stats .stat').count(),2);
+  assert.equal(await analytics.getByText('Precio más antiguo del análisis',{exact:true}).count(),0);
   assert.equal(await analytics.locator('.rank-row[data-store="alcampo"]').count(),1);
   assert.equal(await analytics.getByRole('button',{name:'Compras pasadas',exact:true}).count(),0);
-  await analytics.getByLabel('Tienda',{exact:true}).selectOption('alcampo');
+  for(const label of ['Tienda','Antigüedad del precio','Moneda'])assert.equal(await analytics.getByLabel(label,{exact:true}).count(),0);
+  assert.equal(await analytics.getByText(/Comparamos precios por kg|Se cuentan los mínimos/).count(),0);
+  await analytics.getByLabel('Categoría',{exact:true}).selectOption('Despensa');
   assert.equal(await analytics.locator('tbody tr').count(),1);
   for(const width of [1280,390,320]){
     await page.setViewportSize({width,height:960});
     assert.ok(await analytics.evaluate(node=>node.scrollWidth<=node.clientWidth+1));
+    assert.equal(await analytics.locator('tbody td').first().evaluate(node=>getComputedStyle(node).textAlign),'center');
+    assert.equal(await analytics.locator('tbody th').first().evaluate(node=>getComputedStyle(node).textAlign),'left');
+    assert.equal(await analytics.locator('.stat').first().evaluate(node=>getComputedStyle(node).justifyContent),'center');
     await page.screenshot({path:`test-results/analytics-comparison-${width}.png`,fullPage:true});
   }
   await context.close();

@@ -63,7 +63,7 @@ test('catalog normalizes pack weights and only includes products with prices in 
 test('catalog compares units across brands and EANs, never unknown package contents',()=>{
  const options={stores:['carrefour','alcampo'],now};
  const unknown=analyzeCatalog(products,[offer('carrefour',1),offer('alcampo',2)],options);
- assert.equal(unknown.rows.length,1);assert.equal(unknown.comparable,0);assert.deepEqual(unknown.rows[0].bestStores,[]);
+ assert.equal(unknown.rows.length,0);assert.equal(unknown.comparable,0);
  const obs=[offer('carrefour',2,{brand:'Marca A',pack_quantity:500,pack_unit:'g'}),offer('alcampo',3,{brand:'Marca B',ean:'4006381333931',pack_quantity:1,pack_unit:'kg'})];
  const row=analyzeCatalog(products,obs,options).rows[0];
  assert.equal(row.unit,'kg');assert.equal(row.min,3);assert.equal(row.max,4);assert.deepEqual(row.bestStores,['alcampo']);
@@ -110,11 +110,11 @@ test('several alternatives from one store do not qualify as a two-store comparis
  assert.equal(analyzeCatalog(products,[...obs,offer('carrefour',4,{pack_quantity:1,pack_unit:'uds'})],{stores:['alcampo','carrefour','lidl'],now}).rows.length,1);
 });
 
-test('missing content in a third store stays visible without counting as the cheapest',()=>{
+test('prices without comparable units are excluded even when another pair of stores can be compared',()=>{
  const obs=[offer('carrefour',2,{pack_quantity:170,pack_unit:'g'}),offer('alcampo',3,{pack_quantity:250,pack_unit:'g'}),offer('lidl',1)];
  const result=analyzeCatalog(products,obs,{stores:['carrefour','alcampo','lidl'],now});
- assert.equal(result.rows[0].offers.length,3);assert.equal(result.rows[0].offers.find(o=>o.store==='lidl').price,1);
- assert.deepEqual(result.rows[0].bestStores,['carrefour']);assert.equal(result.ranking.find(s=>s.store==='lidl').known,1);assert.equal(result.ranking.find(s=>s.store==='lidl').wins,0);
+ assert.equal(result.rows[0].offers.length,2);assert.equal(result.rows[0].offers.some(o=>o.store==='lidl'),false);
+ assert.deepEqual(result.rows[0].bestStores,['carrefour']);assert.equal(result.ranking.find(s=>s.store==='lidl').known,0);assert.equal(result.ranking.find(s=>s.store==='lidl').wins,0);
 });
 test('a stored measured price remains usable beside a newer package price with missing content',()=>{
  const obs=[offer('carrefour',2,{commercial_reference_id:'r',pack_quantity:1,pack_unit:'kg',at:now-200}),offer('carrefour',1,{commercial_reference_id:'r',format_pending:true,at:now-100}),offer('alcampo',3,{pack_quantity:1,pack_unit:'kg'})];

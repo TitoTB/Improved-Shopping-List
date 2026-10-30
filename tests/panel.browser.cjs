@@ -4168,7 +4168,7 @@ async function main() {
     await renamePage.evaluate(()=>{window.listData['todo.bring'].push({uid:'tea-1',summary:'Té',status:'needs_action'});window.emit('todo.bring');});
     await renamePage.getByRole("button",{name:"Catálogo",exact:true}).click();
     await renameCatalog.getByRole("button",{name:"Nuevos",exact:true}).click();
-    await renameCatalog.locator('#list-suggestions-summary').click();
+    if(!await renameCatalog.locator('#list-suggestions-group').evaluate(el=>el.open))await renameCatalog.locator('#list-suggestions-summary').click();
     await renameSuggestions.getByRole("button",{name:"Descartar: Té",exact:true}).click();
     await renamePage.evaluate(()=>{window.listData['todo.bring'].push({uid:'tea-2',summary:'TE',status:'needs_action'});window.emit('todo.bring');});
     assert.equal(await renameSuggestions.locator("h2").count(),0);

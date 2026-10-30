@@ -390,6 +390,7 @@ const hass={
       return {queued:4,errors:window.manualPriceErrors??[]};
     }
     if(msg.type==='improved_shopping_list/catalog/store_prices'){
+      (window.priceStoreRequests??=[]).push(msg.store??'');
       const products=window.storePriceFixture??((msg.codes??[]).includes('8431876279146')?[{store:'carrefour',store_name:'Alcaparras Carrefour',ean:'8431876279146',price:'1.35',currency:'EUR',url:'https://www.awin1.com/pclick.php?p=123&a=1535625&m=25399',checked_at:1792490400}]:[]);
       return {nightly:true,products:msg.store?products.filter(p=>p.store===msg.store):products,enabled:!!window.listSettings.stores?.[msg.store]?.enabled,warehouse:msg.store==='mercadona'?(window.listSettings.stores?.mercadona?.warehouse??''):'',update_time:window.listSettings.price_update_time??'01:00'};
     }
@@ -1317,6 +1318,28 @@ async function checkCatalogViews(browser,url,errors){
   await context.close();
 }
 
+async function checkLidlCatalogPrices(browser,url,errors){
+  const context=await browser.newContext({viewport:{width:1280,height:960}});
+  await context.addInitScript(()=>{
+    localStorage.setItem('catalog-fixture',JSON.stringify([{id:'yogurt',revision:1,name:'Yogur',category:'',tags:[],store_links:{},commercial_references:[
+      {id:'lidl-option',store:'lidl',name:'GRIEGO NATURAL LIGHT',reference_id:'11139074',ticket_reference_id:'5720480',ean:'',url:''},
+      {id:'carrefour-option',store:'carrefour',name:'YOGUR',reference_id:'R-prod123',ean:'',url:''}]}]));
+    localStorage.setItem('isl-catalog-layout','rows');localStorage.setItem('isl-catalog-order','categories');localStorage.setItem('isl-catalog-grouping','store');
+    window.storePriceFixture=[{catalog_product_id:'yogurt',store:'lidl',price:1.39,currency:'EUR',source:'receipt',reference_id:'5720480',commercial_reference_id:'lidl-option'},
+      {catalog_product_id:'yogurt',store:'carrefour',price:2.99,currency:'EUR',source:'receipt',commercial_reference_id:'carrefour-option'}];
+  });
+  const page=await context.newPage();page.on('pageerror',error=>errors.push(error.message));await page.goto(url);
+  await page.getByRole('button',{name:'Catálogo',exact:true}).click();const catalog=page.locator('isl-catalog');
+  const lidl=catalog.locator('.category-group[data-group-key="store:lidl"]'),carrefour=catalog.locator('.category-group[data-group-key="store:carrefour"]');
+  await lidl.locator('summary').click();await carrefour.locator('summary').click();
+  await lidl.locator('.row-price').waitFor();assert.match(await lidl.locator('.row-price').textContent(),/1,39/);
+  assert.match(await carrefour.locator('.row-price').textContent(),/2,99/);
+  assert.ok(await page.evaluate(()=>window.priceStoreRequests.includes('lidl')));
+  assert.equal(await lidl.locator('.row-price').getAttribute('title'),'Último precio guardado · Lidl');
+  for(const width of [390,320]){await page.setViewportSize({width,height:844});assert.match(await lidl.locator('.row-price').textContent(),/1,39/);}
+  await context.close();
+}
+
 async function checkCatalogComparison(browser,url,errors){
   const context=await browser.newContext({viewport:{width:1280,height:960}});
   await context.addInitScript(()=>localStorage.setItem('catalog-fixture',JSON.stringify([
@@ -1549,6 +1572,7 @@ async function main() {
   let browser;
   try {
     browser = await chromium.launch({ headless: true, channel: process.env.PLAYWRIGHT_CHANNEL || undefined });
+    if(process.argv.includes('--lidl-prices-only')){const errors=[];await checkLidlCatalogPrices(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Lidl catalog prices passed.');return;}
     if(process.argv.includes('--stock-readers-only')){const errors=[];await checkStockReaders(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Stock readers navigation passed.');return;}
     if(process.argv.includes('--catalog-views-only')){const errors=[];await checkCatalogViews(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Catalog views passed.');return;}
     if(process.argv.includes('--comparison-only')){const errors=[];await checkCatalogComparison(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Catalog comparison passed.');return;}
@@ -4249,6 +4273,7 @@ async function main() {
     await notificationContext.close();
 
     await checkCatalogViews(browser,url,errors);
+    await checkLidlCatalogPrices(browser,url,errors);
     await checkStockReaders(browser,url,errors);
 
     // Store grouping uses only active stores with bindings and permits shared products.

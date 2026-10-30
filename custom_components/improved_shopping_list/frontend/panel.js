@@ -943,10 +943,10 @@ class ImprovedShoppingListPanel extends HTMLElement {
     if (!this.isConnected || !this._hass) return;
     if (this._rowPricesLoading) { this._rowPricesAgain = true; return this._rowPricesLoading; }
     const token = this._rowPricesToken;
-    const pending = Promise.allSettled(["mercadona","carrefour","alcampo","consum","lasirena","eroski","dia"].map(store =>
+    const stores=Object.keys(STORE_NAMES);
+    const pending = Promise.allSettled(stores.map(store =>
       this._hass.callWS({type:"improved_shopping_list/catalog/store_prices",store}))).then(results => {
         if (token !== this._rowPricesToken || !this.isConnected) return;
-        const stores = ["mercadona","carrefour","alcampo","consum","lasirena","eroski","dia"];
         this._rowPrices = results.flatMap((result,index) => result.status === "fulfilled" ?
           result.value.products ?? [] : this._rowPrices.filter(offer => offer.store === stores[index]));
         this._renderData();

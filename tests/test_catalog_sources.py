@@ -44,6 +44,35 @@ async def test_disabled_source_never_associates_or_queries(hass):
     await sources.async_stop()
 
 
+async def test_ean_saved_during_running_batch_is_scheduled_immediately_afterwards(hass,monkeypatch):
+    catalog,product,links,lookup,sources=await setup(hass)
+    links._data['links']['alcampo:'+gtin(OTHER)]=WEB2
+    scheduled=Mock(return_value=Mock())
+    monkeypatch.setattr(module,'async_call_later',scheduled)
+    entered,release=asyncio.Event(),asyncio.Event()
+    async def retrieve(url,store,code,**kwargs):
+        if code==gtin(EAN):
+            entered.set();await release.wait()
+        return {'store':store,'reference_id':normalize_link(store,url)['id'],'url':url,'ean':code,
+                'name':'Envase','content_quantity':100,'content_unit':'g','price':2,'currency':'EUR'}
+    lookup.retrieve=AsyncMock(side_effect=retrieve)
+    await sources.async_set_show_store(True)
+    await sources.async_set_enabled(True)
+    sources.start()
+    sources._task=hass.async_create_background_task(sources.async_run(),'Test catalog batch')
+    try:
+        await entered.wait()
+        await catalog.async_save_product({'name':'Patatas','barcodes':[OTHER]})
+        release.set();await sources._task
+        assert scheduled.call_args.args[1]==1
+        await sources.async_run()
+        assert [call.args[2] for call in lookup.retrieve.await_args_list]==[gtin(EAN),gtin(OTHER)]
+        assert any(ref['store']=='alcampo' and ref.get('last_price') for p in catalog.products if p['name']=='Patatas' for ref in p['commercial_references'])
+    finally:
+        release.set()
+        await sources.async_stop()
+
+
 async def test_exact_completion_shared_ean_missing_fields_only_and_persistent_spacing(hass,monkeypatch):
     catalog,product,links,lookup,sources=await setup(hass)
     await sources.async_set_show_store(True)

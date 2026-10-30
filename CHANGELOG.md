@@ -2,9 +2,10 @@
 
 ## Próxima versión
 
+- Los EAN nuevos se buscan en todos los catálogos activados con «Mostrar tienda en el catálogo», aunque otra tienda ya aporte los datos completos. Las fuentes que solo completan datos siguen limitadas a EAN incompletos; se conservan caché, exclusiones y esperas.
 - Al recuperar una URL nueva en la ficha del producto, la alternativa se muestra después de recibir los datos y agruparla por EAN. Si la consulta falla, se conserva la URL para reintentar sin crear un bloque provisional.
 - «Dónde están los precios más bajos» solo muestra tiendas con al menos un producto al precio mínimo, incluidos los empates.
-- Catálogo opcional de La Sirena con búsqueda directa por EAN, prioridad del diccionario, caché, esperas de veinte segundos y progreso. Desactivado por defecto; permite completar los datos sin mostrar la tienda o añadirla como alternativa. Solo revisa EAN incompletos.
+- Catálogo opcional de La Sirena con búsqueda directa por EAN, prioridad del diccionario, caché, esperas de veinte segundos y progreso. Desactivado por defecto; permite completar los datos sin mostrar la tienda o añadirla como alternativa.
 - Diccionario EAN v6 con columna La Sirena y el enlace del salmón verificado desde Home Assistant. Se conservan las columnas y enlaces anteriores.
 
 ## 0.63.0 — 2026-10-30

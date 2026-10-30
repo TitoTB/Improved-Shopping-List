@@ -27,6 +27,7 @@ class CatalogSources:
         self._active = False
         self._task = self._timer = self._unsubscribe = None
         self._listeners = set()
+        self._rescan_requested = False
         self._legacy_source_visibility = False
         self._config_lock=asyncio.Lock()
         self._data_lock=asyncio.Lock()
@@ -175,7 +176,10 @@ class CatalogSources:
 
     @callback
     def _queue(self, *_args):
-        if not self._active or not self._data["enabled"] or self._task and not self._task.done():
+        if not self._active or not self._data["enabled"]:
+            return
+        if self._task and not self._task.done():
+            self._rescan_requested = True
             return
         if self._timer:
             self._timer()
@@ -199,8 +203,8 @@ class CatalogSources:
         await self._save_state()
         self._status["phase"] = "querying"; self._notify()
 
-    def incomplete_eans(self):
-        """Evaluate each package separately, using the same fields as Pending."""
+    def incomplete_eans(self, store=None):
+        """Check a package globally, or its alternatives in one visible store."""
         from .pending_information import pending
 
         prices = self.hass.data.get(DOMAIN, {}).get("price_manager")
@@ -209,14 +213,21 @@ class CatalogSources:
             offers = prices.prices_for(product) if prices else ()
             for code in product_eans(product):
                 refs = [ref for ref in product.get("commercial_references", [])
-                        if ref.get("active") is not False and gtin(ref.get("ean")) == code]
+                        if ref.get("active") is not False and gtin(ref.get("ean")) == code
+                        and (store is None or ref.get("store") == store)]
+                if store and not refs and any(ref.get("store") == store and ref.get("active") is False
+                        and gtin(ref.get("ean")) == code for ref in product.get("commercial_references", [])):
+                    continue  # An explicitly removed alternative stays removed.
                 if pending({**product, "commercial_references": refs}, offers):
                     codes.add(code)
         return codes
 
+    def eligible_eans(self):
+        return self.incomplete_eans(self.source_store if self._data["show_store"] else None)
+
     def _pending(self, links):
         result = []
-        incomplete = self.incomplete_eans()
+        incomplete = self.eligible_eans()
         for key,link in links.items():
             code = key.rsplit(":",1)[-1]
             if code not in incomplete:
@@ -232,7 +243,7 @@ class CatalogSources:
         return result
 
     async def _source_links(self):
-        codes = self.incomplete_eans()
+        codes = self.eligible_eans()
         if not codes:
             return {}
         return {key:link for key,link in (await self.links.async_store_links(self.source_store)).items()
@@ -248,10 +259,11 @@ class CatalogSources:
             self._status.update(phase="paused");self._notify();return
         if self._timer:
             self._timer(); self._timer = None
+        self._rescan_requested = False
         self._status.update(running=True,phase="preparing",errors=[],current="")
         self._notify()
         try:
-            if not self.incomplete_eans():
+            if not self.eligible_eans():
                 self._status.update(phase="finished",total=0,processed=0,updated=0)
                 return
             links = await self._source_links()
@@ -268,7 +280,7 @@ class CatalogSources:
             for identity,code,link,name in pending:
                 if not self._active or not self._data["enabled"]:
                     break
-                if code not in self.incomplete_eans():
+                if code not in self.eligible_eans():
                     self._status["processed"] += 1
                     self._notify()
                     continue
@@ -322,4 +334,4 @@ class CatalogSources:
             self._status["running"] = False
             self._notify()
             if self._active and self._data["enabled"]:
-                self._timer = async_call_later(self.hass,max(3600,self._data["retry_at"]-time.time()),self._launch)
+                self._timer = async_call_later(self.hass,max(1 if self._rescan_requested else 3600,self._data["retry_at"]-time.time()),self._launch)

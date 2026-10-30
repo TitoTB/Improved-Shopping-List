@@ -130,6 +130,31 @@ async def test_data_only_completion_then_visibility_uses_saved_match_without_que
     await source.async_stop()
 
 
+async def test_each_visible_store_adds_its_option_even_after_another_store_is_complete(hass,monkeypatch,aioclient_mock):
+    catalog,product,links,lookup,discovery=await setup(hass,monkeypatch,PUBLIC_SHOPS)
+    ref={'store':'carrefour','ean':EAN,'reference_id':'R-original','url':'','name':'Patatas fritas Gourmet 170 g',
+         'brand':"Lay's",'content_quantity':170,'content_unit':'g','content_confirmed':True,
+         'last_price':{'price':2.5,'currency':'EUR','checked_at':int(time.time())}}
+    await catalog.async_save_product({'id':product['id'],'revision':product['revision'],'name':product['name'],'barcodes':[EAN],'commercial_references':[ref]})
+    for store in PUBLIC_SHOPS:
+        query=EAN if store=='masymas' else 'Patatas fritas Gourmet 170 g'
+        aioclient_mock.get(search_url(store,query),json={'catalog':{'products':[payload(store)]}})
+    try:
+        for store,source in discovery.managers.items():
+            await source.async_set_show_store(True)
+            await source.async_run()
+            assert any(r['store']==store and r.get('last_price') for r in catalog.products[0]['commercial_references'])
+        assert aioclient_mock.call_count==3
+        assert {r['store'] for r in catalog.products[0]['commercial_references']}=={'carrefour',*PUBLIC_SHOPS}
+        for source in discovery.managers.values():
+            await source.async_run()
+            assert source.snapshot['total']==0
+        assert aioclient_mock.call_count==3
+    finally:
+        for source in discovery.managers.values():await source.async_stop()
+        lookup.close()
+
+
 async def test_http_block_pauses_source_without_erasing_previous_data(hass,monkeypatch,aioclient_mock):
     catalog,product,links,lookup,discovery=await setup(hass,monkeypatch,('masymas',))
     aioclient_mock.get(search_url('masymas',EAN),status=403)

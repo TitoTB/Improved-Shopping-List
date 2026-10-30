@@ -268,14 +268,15 @@ class PublicCatalogSource(CatalogSources):
         if self._data["retry_at"]>time.time():
             self._status.update(phase="paused");self._notify();return
         if self._timer:self._timer();self._timer=None
+        self._rescan_requested=False
         products=self.catalog.products
-        codes=sorted(self.incomplete_eans())
+        codes=sorted(self.eligible_eans())
         self._status.update(running=True,phase="preparing",total=len(codes),processed=0,updated=0,errors=[],current="",http_requests=0)
         self._notify()
         try:
             for code in codes:
                 if not self._active or not self._data["enabled"]:break
-                if code not in self.incomplete_eans():
+                if code not in self.eligible_eans():
                     self._status["processed"]+=1;self._notify()
                     continue
                 product=next(p for p in products if code in product_eans(p))
@@ -303,4 +304,4 @@ class PublicCatalogSource(CatalogSources):
                 self.activity.record("stores.catalog",f"{self.source_name}: revisión del catálogo {phase}",source="automatic",diagnostics={**deepcopy(self._status),"retry_at":self._data["retry_at"]})
             if self._active and self._data["enabled"]:
                 from homeassistant.helpers.event import async_call_later
-                self._timer=async_call_later(self.hass,max(3600,self._data["retry_at"]-time.time()),self._launch)
+                self._timer=async_call_later(self.hass,max(1 if self._rescan_requested else 3600,self._data["retry_at"]-time.time()),self._launch)

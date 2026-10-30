@@ -31,6 +31,31 @@ def test_each_ean_is_independent_and_one_complete_option_is_enough(hass):
     assert manager.incomplete_eans() == {gtin(EAN), gtin(OTHER)}
 
 
+def test_visible_store_searches_complete_ean_until_its_own_option_is_complete(hass):
+    manager = source(hass, [option()])
+    assert manager.eligible_eans() == set()
+    manager._data["show_store"] = True
+    assert manager.eligible_eans() == {gtin(EAN)}
+    manager.catalog.products[0]["commercial_references"].append(option(store="alcampo"))
+    assert manager.eligible_eans() == set()
+    manager.catalog.products[0]["commercial_references"][-1]["last_price"] = None
+    assert manager.eligible_eans() == {gtin(EAN)}
+
+
+def test_explicitly_removed_store_alternative_is_not_readded(hass):
+    manager = source(hass, [option(), option(store="alcampo", active=False)])
+    manager._data["show_store"] = True
+    assert manager.eligible_eans() == set()
+
+
+def test_new_ean_in_any_catalog_field_is_eligible_for_visible_store(hass):
+    for field in ("barcode", "barcodes", "commercial_references"):
+        manager = source(hass, [])
+        manager._data["show_store"] = True
+        manager.catalog.products[0][field] = EAN if field == "barcode" else [EAN] if field == "barcodes" else [option()]
+        assert manager.eligible_eans() == {gtin(EAN)}
+
+
 @pytest.mark.parametrize("change", [{"last_price": None}, {"content_quantity": None}, {"content_unit": ""}])
 def test_missing_required_field_keeps_ean_eligible(hass, change):
     assert source(hass, [option(**change)]).incomplete_eans() == {gtin(EAN)}

@@ -2,7 +2,7 @@
 
 La Sirena está disponible como catálogo opcional, desactivado por defecto. Consulta primero los enlaces del diccionario EAN y, si no existe uno, busca el EAN en la API pública de la tienda. El EAN del SKU devuelto debe coincidir exactamente; los resultados ambiguos no se asocian. La búsqueda adapta el GTIN-14 interno al EAN-13 sin el cero de relleno que requiere la tienda. No utiliza nombres genéricos para vincular productos.
 
-Completa marca, contenido total, unidades y número de unidades del pack cuando estén disponibles. El precio público de un envase disponible se incorpora a su alternativa si se activa «Mostrar tienda en el catálogo»; por defecto solo completa datos comunes. Solo revisa EAN incompletos, espera veinte segundos entre consultas, conserva la caché y pausa la revisión ante bloqueos. No necesita una cuenta de La Sirena ni dependencias nuevas.
+Completa marca, contenido total, unidades y número de unidades del pack cuando estén disponibles. El precio público de un envase disponible se incorpora a su alternativa si se activa «Mostrar tienda en el catálogo»; por defecto solo completa datos comunes. Como fuente de datos solo revisa EAN incompletos; al mostrar la tienda busca su alternativa aunque otra tienda ya esté completa. Espera veinte segundos entre consultas, conserva la caché y pausa la revisión ante bloqueos. No necesita una cuenta de La Sirena ni dependencias nuevas.
 
 En Ajustes → Tiendas → Catálogos, Alcampo está desactivado por defecto. Activarlo utiliza las coincidencias exactas de EAN del diccionario público para añadir opciones de Alcampo a los productos del catálogo y recuperar sus datos desde la ficha oficial.
 
@@ -40,9 +40,9 @@ El popup muestra progreso e incidencias y el resumen se registra en Logs → Tie
 
 ## Recuperar información pendiente
 
-Al activar un catálogo opcional solo se revisan los EAN que todavía no tengan una alternativa con precio, contenido por envase y unidades completos. Se omiten los formatos ya completos aunque no tengan alternativa en esa nueva tienda. Los EAN distintos de un mismo producto se evalúan por separado y se vuelven a comprobar antes de consultar cada ficha. «Recuperar datos» manual sigue disponible para consultar una URL concreta.
+Al guardar un EAN nuevo, sea desde una URL, un lector, la revisión de un ticket u otra fuente del catálogo, se comprueban los catálogos activados. Con «Mostrar tienda en el catálogo» activado, cada tienda busca su propia alternativa aunque otra ya tenga precio, contenido y unidades completos. Si ya existe una alternativa completa de esa tienda, o el usuario la ha desvinculado expresamente, no se vuelve a consultar. Sin «Mostrar tienda en el catálogo», la fuente solo busca los EAN que todavía no tengan una alternativa completa en ninguna tienda. Se reutilizan resultados en caché y se respetan esperas y pausas. Los EAN añadidos durante una revisión se procesan al terminar el lote en curso. «Recuperar datos» manual sigue disponible para consultar una URL concreta.
 
-Las URL de La Sirena se pueden consultar desde «Recuperar datos» en las alternativas del producto y en esta revisión por lotes. Se utiliza su API pública para validar el EAN y recuperar marca, precio y formato. Un pack de 4 × 125 g representa 500 g de contenido total y cuatro unidades por pack. No requiere cuenta ni activa un barrido automático de La Sirena.
+Las URL de La Sirena se pueden consultar desde «Recuperar datos» en las alternativas del producto y en esta revisión por lotes. Se utiliza su API pública para validar el EAN y recuperar marca, precio y formato. Un pack de 4 × 125 g representa 500 g de contenido total y cuatro unidades por pack. No requiere cuenta; la consulta manual no activa por sí sola el catálogo automático de La Sirena.
 
 En Catálogo → Pendiente → Productos pendientes de información, «Recuperar datos» inicia una revisión de las alternativas activas con URL de los productos de ese bloque. Los productos con al menos una alternativa completa quedan fuera del lote, igual que los que no tienen URL. Se fuerza la consulta de la ficha y se guardan los datos recuperados sin tener que abrir y guardar cada producto.
 

@@ -118,7 +118,7 @@ class MercadonaCatalog(CatalogSources):
         await super().async_run()
 
     async def _source_links(self):
-        codes=self.incomplete_eans()
+        codes=self.eligible_eans()
         if not codes:return {}
         await self.index.async_refresh()
         if not self._active or not self._data["enabled"]:raise asyncio.CancelledError

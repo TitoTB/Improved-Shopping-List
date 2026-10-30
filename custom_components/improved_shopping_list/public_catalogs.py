@@ -220,6 +220,11 @@ class CatalogDiscovery:
             if store!="masymas" and "masymas" in self.enabled():
                 try:await self._find("masymas",code,[],links.get("masymas"))
                 except (ValueError,OSError,TimeoutError,aiohttp.ClientError):pass
+            if not names:
+                # An earlier exact-EAN result is also a trusted commercial name,
+                # even when its shop is hidden and only common data was applied.
+                known=[entry["data"] for entry in self._entries.values() if isinstance(entry.get("data"),dict) and gtin(entry["data"].get("ean"))==code]
+                names=commercial_terms([{"name":"","commercial_references":known}],code)
             return await self._find(store,code,names)
 
     async def async_hint(self,code):

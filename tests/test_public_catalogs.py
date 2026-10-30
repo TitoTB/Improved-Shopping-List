@@ -105,6 +105,14 @@ async def test_wrong_ean_is_not_associated_and_negative_result_is_cached(hass,mo
     await source.async_stop()
 
 
+async def test_exact_ean_result_supplies_commercial_name_to_lower_priority_shop(hass,monkeypatch,aioclient_mock):
+    catalog,product,links,lookup,discovery=await setup(hass,monkeypatch,('masymas','bm'))
+    aioclient_mock.get(search_url('masymas',EAN),json={'catalog':{'products':[payload('masymas')]}})
+    aioclient_mock.get(search_url('bm','Patatas fritas Gourmet 170 g'),json={'catalog':{'products':[payload('bm')]}})
+    result=await discovery.async_find('bm',CODE,[])
+    assert result['reference_id']=='20073' and aioclient_mock.call_count==2
+
+
 async def test_data_only_completion_then_visibility_uses_saved_match_without_query(hass,monkeypatch,aioclient_mock):
     catalog,product,links,lookup,discovery=await setup(hass,monkeypatch,('masymas',))
     aioclient_mock.get(search_url('masymas',EAN),json={'catalog':{'products':[payload('masymas')]}})

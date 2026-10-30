@@ -6,8 +6,8 @@ Al activarlo, se buscan los EAN del catálogo local, incluidos los añadidos pos
 
 Se conservan URL, referencia interna, nombre comercial, marca, contenido neto y unidades, precio individual y precio por unidad de medida cuando estén disponibles. Las promociones condicionadas a comprar varias unidades no sustituyen al precio individual. Los datos comunes ya informados para ese EAN y los precios guardados más recientes se conservan.
 
-La consulta utiliza las respuestas JSON públicas de la web, sin cuentas ni cookies del usuario, con la ubicación predeterminada del catálogo público. Cada petición del proceso respeta una espera mínima de veinte segundos, incluida la consulta de búsqueda y la de la ficha. La caché se conserva entre reinicios, los EAN sin resultado o con errores no se repiten durante veinticuatro horas y un bloqueo confirmado pausa las siguientes consultas.
+La consulta utiliza las respuestas JSON públicas de la web, sin cuentas ni cookies del usuario. Mantiene una sesión anónima propia con las cookies públicas que entrega la portada, usando HTTP/2, con la ubicación predeterminada del catálogo público. Cada petición del proceso respeta una espera mínima de veinte segundos, incluida la consulta de búsqueda y la de la ficha. La caché se conserva entre reinicios, los EAN sin resultado o con errores no se repiten durante veinticuatro horas y un bloqueo confirmado pausa las siguientes consultas.
 
 El progreso aparece al activar el catálogo. El proceso continúa en Home Assistant y deja un resumen técnico al terminar. Desactivarlo detiene las consultas y conserva las alternativas incorporadas. No añade iconos de acceso al progreso a los bloques de tiendas.
 
-No requiere tarjetas de HACS, cuentas externas ni nuevas dependencias.
+No requiere tarjetas de HACS ni cuentas externas. La dependencia `h2==4.4.1` habilita HTTP/2 y Home Assistant la instala automáticamente; HTTPX forma parte de Home Assistant. Las cookies de esta sesión son propias de la integración, permanecen en memoria y no se exportan ni aparecen en los logs.

@@ -2,10 +2,10 @@
 from copy import deepcopy
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
-from io import BytesIO
 import json
 import time
 
+import httpx
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
@@ -42,24 +42,31 @@ def test_product_parser_uses_single_item_price_and_exact_ean_not_conditional_pro
 
 
 @pytest.fixture
-def eci_http(monkeypatch):
-    class Response(BytesIO):
-        def __init__(self, body, status=200):
-            super().__init__(body)
-            self.status=status
-            self.headers={"Content-Type":"application/json", "Server":"AkamaiGHost"}
+async def eci_http(monkeypatch):
     class HTTP:
-        def __init__(self):self.responses={};self.requests=[]
+        def __init__(self):self.responses={};self.requests=[];self.clients=[]
         @property
         def call_count(self):return len(self.requests)
         def get(self,url,*,json=None,status=200):self.responses[url]=(json,status)
-        def open(self,request,timeout):
+        def handle(self,request):
             self.requests.append(request)
-            body,status=self.responses[request.full_url]
-            return Response(json.dumps(body).encode() if status==200 else b"Access Denied Reference&#32;#18.abc.123",status)
+            headers={"Content-Type":"application/json","Server":"AkamaiGHost"}
+            if str(request.url)==BASE+"/supermercado/":
+                headers["Set-Cookie"]="public_session=anonymous; Path=/; Secure"
+                return httpx.Response(200,text="<html></html>",headers=headers,extensions={"http_version":b"HTTP/2"})
+            body,status=self.responses[str(request.url)]
+            return httpx.Response(status,json=body if status==200 else None,
+                content=None if status==200 else b"Access Denied Reference&#32;#18.abc.123",headers=headers,
+                extensions={"http_version":b"HTTP/2"})
+        def create(self,hass,**kwargs):
+            assert kwargs.pop("alpn_protocols")==module.SSL_ALPN_HTTP11_HTTP2
+            assert kwargs.pop("auto_cleanup") is False
+            client=httpx.AsyncClient(transport=httpx.MockTransport(self.handle),**kwargs)
+            self.clients.append(client);return client
     transport=HTTP()
-    monkeypatch.setattr(module,"build_opener",lambda *handlers:transport)
-    return transport
+    monkeypatch.setattr(module,"create_async_httpx_client",transport.create)
+    yield transport
+    for client in transport.clients:await client.aclose()
 
 
 async def test_public_search_ignores_ads_then_verifies_product_without_cookies(hass,eci_http):
@@ -67,10 +74,13 @@ async def test_public_search_ignores_ads_then_verifies_product_without_cookies(h
     eci_http.get(search,json={'products':[{'id':'advertisement','url':'https://example.org'},{'id':'B001018009401193','url':PATH}]})
     eci_http.get(WEB,json=payload())
     before=AsyncMock();data=await ECIClient(hass).search(EAN,before)
-    assert before.await_count==2 and data['ean']==EAN and eci_http.call_count==2
+    assert before.await_count==3 and data['ean']==EAN and eci_http.call_count==3
     for request in eci_http.requests:
-        assert request.get_header("Response_type")=="json"
-        assert not request.has_header("Cookie") and not request.has_header("Authorization")
+        assert request.headers["response_type"]=="json"
+        assert "authorization" not in request.headers
+    assert "cookie" not in eci_http.requests[0].headers
+    assert eci_http.requests[1].headers["cookie"]=="public_session=anonymous"
+    assert eci_http.requests[2].headers["cookie"]=="public_session=anonymous"
 
 
 @pytest.mark.parametrize("rows", [[], [
@@ -81,7 +91,7 @@ async def test_no_result_or_ambiguous_results_never_create_an_equivalence(hass,e
     search=BASE+'/supermercado/buscar/?question='+EAN+'&catalog=supermercado&stype=text_box'
     eci_http.get(search,json={'products':rows})
     assert await ECIClient(hass).search(EAN,AsyncMock()) is None
-    assert eci_http.call_count==1
+    assert eci_http.call_count==2
 
 
 async def test_blocked_search_requests_a_pause_and_does_not_follow_other_endpoints(hass,eci_http):
@@ -89,9 +99,10 @@ async def test_blocked_search_requests_a_pause_and_does_not_follow_other_endpoin
     eci_http.get(search,status=403)
     with pytest.raises(PriceError) as err:await ECIClient(hass).search(EAN,AsyncMock())
     assert err.value.diagnostics['http_status']==403 and err.value.diagnostics['retry_seconds']>=900
-    assert err.value.diagnostics['transport']=='urllib' and err.value.diagnostics['stage']=='search'
+    assert err.value.diagnostics['transport']=='httpx' and err.value.diagnostics['stage']=='search'
+    assert err.value.diagnostics['http_version']=='HTTP/2'
     assert err.value.diagnostics['server']=='AkamaiGHost' and err.value.diagnostics['block_reference']=='18.abc.123'
-    assert eci_http.call_count==1
+    assert eci_http.call_count==2
 
 
 async def test_consent_cache_spacing_new_eans_and_manual_data_survive(hass,monkeypatch):

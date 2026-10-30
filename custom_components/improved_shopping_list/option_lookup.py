@@ -180,7 +180,11 @@ class OptionLookup:
     async def _page(self, store, link, before_request=None):
         if store == "elcorteingles":
             from .eci_catalog import ECIClient
-            return await ECIClient(self.hass).retrieve(link["url"],before_request or self._before_request)
+            client=ECIClient(self.hass)
+            try:
+                return await client.retrieve(link["url"],before_request or self._before_request)
+            finally:
+                await client.async_close()
         session = async_create_clientsession(self.hass, auto_cleanup=False, cookie_jar=aiohttp.DummyCookieJar())
         try:
             current = link["url"]

@@ -3,3 +3,6 @@ pytest-homeassistant-custom-component==0.13.373
 # The test fixtures skip automatic installation of integration requirements.
 home-assistant-frontend==20260930.4
 pypdf==6.21.2
+
+# HTTP/2 transport used by the public El Corte Inglés session.
+h2==4.4.1

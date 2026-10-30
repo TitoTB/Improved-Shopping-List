@@ -1,15 +1,17 @@
 """Opt-in public EAN search; verified products, no browser session or credentials."""
+import asyncio
 from copy import deepcopy
 import json
 import math
 import re
 import time
 from html import unescape
-from urllib.error import HTTPError, URLError
-from urllib.request import HTTPRedirectHandler, Request, build_opener
 from urllib.parse import urlencode, urljoin
 
 import aiohttp
+import httpx
+from homeassistant.helpers.httpx_client import create_async_httpx_client
+from homeassistant.util.ssl import SSL_ALPN_HTTP11_HTTP2
 from homeassistant.helpers.event import async_call_later
 from homeassistant.helpers.storage import Store
 
@@ -79,61 +81,70 @@ def product_data(payload, link, expected_ean=""):
     return result
 
 
-class _NoRedirect(HTTPRedirectHandler):
-    def redirect_request(self, req, fp, code, msg, headers, newurl):
-        return None
-
-
-def _request_json(url):
-    """Run only in the executor. urllib succeeds where aiohttp receives Akamai 403."""
-    request = Request(url, headers={
-        "Accept":"application/json, text/plain, */*", "response_type":"json",
-        "Accept-Language":"es-ES,es;q=0.9", "User-Agent":"Mozilla/5.0",
-        "Referer":BASE+"/supermercado/",
-    })
-    started = time.monotonic()
-    try:
-        try:
-            response = build_opener(_NoRedirect()).open(request, timeout=25)
-        except HTTPError as err:
-            response = err
-        with response:
-            status, headers = response.status, response.headers
-            body = response.read(2*1024*1024+1)
-        diagnostics = {"http_status":status, "endpoint":url.split("?",1)[0],
-            "stage":"search" if "/buscar/" in url else "product", "transport":"urllib",
-            "server":str(headers.get("Server", ""))[:100],
-            "content_type":str(headers.get("Content-Type", ""))[:100],
-            "elapsed_ms":round((time.monotonic()-started)*1000)}
-        if status != 200:
-            retry = headers.get("Retry-After", "")
-            reference = re.search(r"Reference\s*#?([a-zA-Z0-9.\-]+)", unescape(body[:4096].decode("utf-8","replace")))
-            if reference:
-                diagnostics["block_reference"] = reference[1][:150]
-            raise PriceError(f"El Corte Inglés ha rechazado la consulta (HTTP {status}).",
-                **diagnostics, response_class="access_denied" if status == 403 else "http_error",
-                retry_seconds=min(DAY,max(900,int(retry) if retry.isdigit() else 900)) if status in (403,429,503) else 0)
-        if len(body)>2*1024*1024:
-            raise PriceError("La respuesta de El Corte Inglés supera el tamaño permitido.", **diagnostics, response_class="response_too_large")
-        try:
-            result = json.loads(body)
-        except (ValueError,UnicodeError) as err:
-            raise PriceError("El Corte Inglés no ha devuelto datos reconocidos.", **diagnostics, response_class="invalid_response") from err
-        if not isinstance(result,dict):
-            raise PriceError("El Corte Inglés no ha devuelto datos reconocidos.", **diagnostics, response_class="invalid_response")
-        return result
-    except URLError as err:
-        raise PriceError("No se ha podido conectar con El Corte Inglés.", endpoint=url.split("?",1)[0],
-            transport="urllib", response_class="connection_error") from err
-
-
 class ECIClient:
     def __init__(self, hass):
         self.hass = hass
+        self._http = None
+        self._ready = False
+        self._lock = asyncio.Lock()
+
+    async def async_close(self):
+        if self._http:
+            await httpx.AsyncClient.aclose(self._http)
+            self._http = None
+        self._ready = False
+
+    async def _request(self, url, *, bootstrap=False):
+        started = time.monotonic()
+        try:
+            async with self._http.stream("GET",url,headers={"Accept":"text/html"} if bootstrap else None) as response:
+                diagnostics={"http_status":response.status_code, "endpoint":url.split("?",1)[0],
+                    "stage":"session" if bootstrap else "search" if "/buscar/" in url else "product",
+                    "transport":"httpx", "http_version":response.http_version,
+                    "server":str(response.headers.get("Server",""))[:100],
+                    "content_type":str(response.headers.get("Content-Type",""))[:100]}
+                body=bytearray()
+                limit=4096 if response.status_code!=200 else 2*1024*1024
+                if not bootstrap or response.status_code!=200:
+                    async for chunk in response.aiter_bytes():
+                        body.extend(chunk)
+                        if len(body)>limit:break
+                diagnostics["elapsed_ms"]=round((time.monotonic()-started)*1000)
+                if response.status_code!=200:
+                    retry=response.headers.get("Retry-After","")
+                    reference=re.search(r"Reference\s*#?([a-zA-Z0-9.\-]+)",unescape(body[:4096].decode("utf-8","replace")))
+                    if reference:diagnostics["block_reference"]=reference[1][:150]
+                    self._ready=False
+                    raise PriceError(f"El Corte Inglés ha rechazado la consulta (HTTP {response.status_code}).",
+                        **diagnostics,response_class="access_denied" if response.status_code==403 else "http_error",
+                        retry_seconds=min(DAY,max(900,int(retry) if retry.isdigit() else 900)) if response.status_code in (403,429,503) else 0)
+                if bootstrap:return None
+                if len(body)>limit:
+                    raise PriceError("La respuesta de El Corte Inglés supera el tamaño permitido.",**diagnostics,response_class="response_too_large")
+                try:result=json.loads(body)
+                except (ValueError,UnicodeError) as err:
+                    raise PriceError("El Corte Inglés no ha devuelto datos reconocidos.",**diagnostics,response_class="invalid_response") from err
+                if not isinstance(result,dict):
+                    raise PriceError("El Corte Inglés no ha devuelto datos reconocidos.",**diagnostics,response_class="invalid_response")
+                return result
+        except httpx.HTTPError as err:
+            self._ready=False
+            raise PriceError("No se ha podido conectar con El Corte Inglés.",endpoint=url.split("?",1)[0],
+                stage="session" if bootstrap else "search" if "/buscar/" in url else "product",
+                transport="httpx",response_class="connection_error") from err
 
     async def _json(self, url, before_request):
-        await before_request()
-        return await self.hass.async_add_executor_job(_request_json, url)
+        async with self._lock:
+            if self._http is None:
+                self._http=create_async_httpx_client(self.hass,auto_cleanup=False,alpn_protocols=SSL_ALPN_HTTP11_HTTP2,
+                    timeout=25,follow_redirects=False,headers={"Accept":"application/json, text/plain, */*", "response_type":"json",
+                        "Accept-Language":"es-ES,es;q=0.9", "User-Agent":"Mozilla/5.0", "Referer":BASE+"/supermercado/"})
+            if not self._ready:
+                await before_request()
+                await self._request(BASE+"/supermercado/",bootstrap=True)
+                self._ready=True
+            await before_request()
+            return await self._request(url)
 
     async def retrieve(self, url, before_request, expected_ean=""):
         link = normalize_link(STORE,url)
@@ -167,6 +178,10 @@ class ECICatalog(CatalogSources):
         super().__init__(hass,catalog,None,lookup,activity)
         self._store = Store(hass,1,f"{DOMAIN}.eci_catalog")
         self.client = ECIClient(hass)
+
+    async def async_stop(self):
+        await super().async_stop()
+        await self.client.async_close()
 
     def _gate(self):
         pass  # Consent is independent of the static EAN dictionary and other catalogs.

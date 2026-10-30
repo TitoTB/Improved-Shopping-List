@@ -1,4 +1,4 @@
-name: Mercadona integration live diagnostic
+name: Mercadona complete index live diagnostic
 on:
   push:
     branches: [codex/eci-http-probe]
@@ -12,4 +12,4 @@ jobs:
         with:
           ref: main
       - name: Check actual integration HTTP helper and parser in HA Core
-        run: docker run --rm --entrypoint python -v "$PWD:/work:ro" -w /work ghcr.io/home-assistant/home-assistant:2026.10.2 scripts/probe-mercadona.py
+        run: docker run --rm --entrypoint python -v "$PWD:/work:ro" -w /work ghcr.io/home-assistant/home-assistant:2026.10.2 scripts/probe-mercadona.py --index-only

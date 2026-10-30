@@ -11,24 +11,21 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: main
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.14'
-      - run: pip install 'httpx[http2]==0.28.1' 'h2==4.4.1'
       - name: Verify actual ECI session implementation
         run: |
-          python - <<'PY'
-          import asyncio,ast,json,time,re,httpx
+          cat > /tmp/eci-probe.py <<'PY'
+          import asyncio,ast,json,time,re,httpx,ssl,sys
+          from homeassistant.helpers.httpx_client import create_async_httpx_client
+          from homeassistant.util.ssl import SSL_ALPN_HTTP11_HTTP2
           from pathlib import Path
           from html import unescape
-          BASE='https://www.elcorteingles.es';DAY=86400;SSL_ALPN_HTTP11_HTTP2=('http/1.1','h2')
+          BASE='https://www.elcorteingles.es';DAY=86400
           class PriceError(ValueError):
               def __init__(self,message,**diagnostics):super().__init__(message);self.diagnostics=diagnostics
-          def create_async_httpx_client(hass,**kwargs):
-              kwargs.pop('auto_cleanup');kwargs.pop('alpn_protocols');return httpx.AsyncClient(http2=True,**kwargs)
           nodes=[n for n in ast.parse(Path('custom_components/improved_shopping_list/eci_catalog.py').read_text()).body if isinstance(n,ast.ClassDef) and n.name=='ECIClient']
           exec(compile(ast.Module(body=nodes,type_ignores=[]),'eci_catalog.py','exec'))
           async def main():
+              print(json.dumps({'python':sys.version,'openssl':ssl.OPENSSL_VERSION,'httpx':httpx.__version__}),flush=True)
               client=ECIClient(None);last=[0]
               async def before():
                   await asyncio.sleep(max(0,20-(time.monotonic()-last[0])));last[0]=time.monotonic()
@@ -46,3 +43,4 @@ jobs:
               finally:await client.async_close()
           asyncio.run(main())
           PY
+          docker run --rm --entrypoint python -v "$PWD:/work:ro" -v /tmp/eci-probe.py:/tmp/eci-probe.py:ro -w /work ghcr.io/home-assistant/home-assistant:2026.10.2 /tmp/eci-probe.py

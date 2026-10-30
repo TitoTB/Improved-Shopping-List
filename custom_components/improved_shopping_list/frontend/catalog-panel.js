@@ -923,11 +923,14 @@ class ImprovedShoppingCatalog extends HTMLElement {
     if(!this._built||!this._hass||!this._active)return;
     const root=this.shadowRoot,group=root.querySelector('#pending-information-group'),container=root.querySelector('#pending-information-products');
     if(!group||!container)return;
-    const pending=this._catalog.products.map(product=>({product,issues:pendingProductInformation(product,this._priceData?.offers??[])}))
-      .filter(item=>item.issues.length).sort((a,b)=>a.product.name.localeCompare(b.product.name,'es',{sensitivity:'base'}));
+    const offersByProduct=new Map();
+    for(const offer of this._priceData?.offers??[]){const values=offersByProduct.get(offer.catalog_product_id)??[];values.push(offer);offersByProduct.set(offer.catalog_product_id,values);}
+    const pending=this._catalog.products.map(product=>({product,issues:pendingProductInformation(product,offersByProduct.get(product.id)??[])}))
+      .filter(item=>item.issues.length);
     root.querySelector('#pending-information-count').textContent=String(pending.length);
     root.querySelector('#pending-information-empty').hidden=Boolean(pending.length)||this._catalog.loading;
     if(this._view!=='suggestions'||!group.open){container.replaceChildren();return;}
+    pending.sort((a,b)=>a.product.name.localeCompare(b.product.name,'es',{sensitivity:'base'}));
     const labels={price:'precio',content_quantity:'contenido por envase',content_unit:'unidades'};
     container.replaceChildren(...pending.map(({product,issues})=>{
       const row=element('button','pending-information-row');row.type='button';row.dataset.productId=product.id;

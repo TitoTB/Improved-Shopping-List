@@ -1,6 +1,6 @@
 /** Pantry UI, forms and calculations loaded only when Stock is opened. */
-import { imageSource, normalizedName, productNameKey } from './product-display.js?v=0.55.1';
-import { installDialogCloseButtons } from './dialog-controls.js?v=0.55.1';
+import { imageSource, normalizedName, productNameKey } from './product-display.js?v=0.56.0';
+import { installDialogCloseButtons } from './dialog-controls.js?v=0.56.0';
 const stockQuantity = (item, now=Date.now()/1000) => {
   if(item.mode!=='perishable')return item.quantity;
   if(item.quantity<=0||item.expired)return 0;

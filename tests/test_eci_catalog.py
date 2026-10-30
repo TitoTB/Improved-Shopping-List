@@ -50,9 +50,13 @@ async def test_public_search_ignores_ads_then_verifies_product_without_cookies(h
         assert 'Cookie' not in request[3] and 'Authorization' not in request[3]
 
 
-async def test_no_result_or_ambiguous_results_never_create_an_equivalence(hass,aioclient_mock):
+@pytest.mark.parametrize("rows", [[], [
+    {"id":"B001018009401193","url":PATH},
+    {"id":"B001018009401194","url":PATH.replace("1193", "1194")},
+]])
+async def test_no_result_or_ambiguous_results_never_create_an_equivalence(hass,aioclient_mock,rows):
     search=BASE+'/supermercado/buscar/?question='+EAN+'&catalog=supermercado&stype=text_box'
-    aioclient_mock.get(search,json={'products':[]})
+    aioclient_mock.get(search,json={'products':rows})
     assert await ECIClient(hass).search(EAN,AsyncMock()) is None
     assert aioclient_mock.call_count==1
 

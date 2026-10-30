@@ -1,5 +1,12 @@
 # Historial de cambios
 
+## 0.56.0 — 2026-10-30
+
+- El Corte Inglés disponible en Ajustes → Tiendas → Catálogos, con el logo indicado y activación independiente.
+- Busca productos por EAN y comprueba la coincidencia exacta en la ficha antes de añadir la alternativa, su enlace, referencia y precio. Completa marca y contenido del envase cuando faltan, conservando los datos manuales y los precios más recientes.
+- Reutiliza resultados guardados, procesa los nuevos EAN automáticamente y espera al menos 20 segundos entre peticiones, con pausa ante bloqueos y progreso en pantalla.
+- Sin nuevas dependencias ni necesidad de conectar una cuenta de El Corte Inglés.
+
 ## 0.55.1 — 2026-10-30
 
 - Corregida la carga de precios guardados de Lidl: la interfaz consulta ahora la relación común de tiendas, que incluye Lidl. Sus precios se muestran en los bloques de productos agrupados por tienda y en los demás componentes que utilizan esta carga compartida.

@@ -202,3 +202,11 @@ def test_v5_adds_public_shop_columns_and_verified_exact_match():
     assert raw.splitlines()[0]==b'EAN,Carrefour,Alcampo,Lidl,Mercadona,Masymas,BM,Consum'
     assert {key:value for key,value in current.items() if not key.startswith(('masymas:','bm:','consum:'))}==old
     assert all(store+':'+gtin('8410199023094') in current for store in ('masymas','bm','consum'))
+
+
+def test_v6_preserves_previous_dictionary_and_adds_verified_sirena_ean():
+    root=Path(__file__).resolve().parents[1]
+    old=parse_dictionary((root/'data/ean-links-v5.csv').read_bytes())
+    current=parse_dictionary((root/'data/ean-links-v6.csv').read_bytes())
+    assert {key:value for key,value in current.items() if not key.startswith('lasirena:')} == old
+    assert current['lasirena:'+gtin('8414532006553')] == 'https://www.lasirena.es/es/lomos-de-salmon-noruego-premium-655/p'

@@ -1,5 +1,9 @@
 # Catálogos de tiendas
 
+La Sirena está disponible como catálogo opcional, desactivado por defecto. Consulta primero los enlaces del diccionario EAN y, si no existe uno, busca el EAN en la API pública de la tienda. El EAN del SKU devuelto debe coincidir exactamente; los resultados ambiguos no se asocian. La búsqueda adapta el GTIN-14 interno al EAN-13 sin el cero de relleno que requiere la tienda. No utiliza nombres genéricos para vincular productos.
+
+Completa marca, contenido total, unidades y número de unidades del pack cuando estén disponibles. El precio público de un envase disponible se incorpora a su alternativa si se activa «Mostrar tienda en el catálogo»; por defecto solo completa datos comunes. Solo revisa EAN incompletos, espera veinte segundos entre consultas, conserva la caché y pausa la revisión ante bloqueos. No necesita una cuenta de La Sirena ni dependencias nuevas.
+
 En Ajustes → Tiendas → Catálogos, Alcampo está desactivado por defecto. Activarlo utiliza las coincidencias exactas de EAN del diccionario público para añadir opciones de Alcampo a los productos del catálogo y recuperar sus datos desde la ficha oficial.
 
 El proceso muestra un popup con progreso, producto actual e incidencias. Continúa en Home Assistant al cerrar el popup o recargar la página; el botón de progreso permite consultarlo de nuevo. No reinicia una revisión que ya está en curso.

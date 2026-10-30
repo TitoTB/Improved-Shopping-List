@@ -35,13 +35,12 @@ def product_data(data, link):
     return result
 
 
-async def retrieve(hass, url, before_request):
-    link = normalize_link("lasirena", url)
+async def request(hass, query, before_request):
     endpoint = "https://www.lasirena.es/api/catalog_system/pub/products/search"
     session = async_create_clientsession(hass, auto_cleanup=False, cookie_jar=aiohttp.DummyCookieJar())
     try:
         await before_request()
-        async with session.get(endpoint, params={"fq": f"productId:{link['id']}"}, allow_redirects=False,
+        async with session.get(endpoint, params={"fq": query}, allow_redirects=False,
             timeout=aiohttp.ClientTimeout(total=25), headers={"Accept": "application/json"}) as response:
             diagnostics = {"endpoint": endpoint, "stage": "product_api", "http_status": response.status}
             if response.status != 200:
@@ -58,9 +57,36 @@ async def retrieve(hass, url, before_request):
                 payload = json.loads(raw)
             except (ValueError, UnicodeError) as err:
                 raise PriceError("La Sirena no ha devuelto una ficha reconocida.", **diagnostics, response_class="invalid_response") from err
-            return product_data(payload, link)
+            if not isinstance(payload, list):
+                raise PriceError("La Sirena no ha devuelto un catálogo reconocido.", **diagnostics, response_class="invalid_response")
+            return payload
     except (aiohttp.ClientError, TimeoutError) as err:
         raise PriceError("No se ha podido conectar con La Sirena.", endpoint=endpoint,
             stage="product_api", response_class="connection_error", error_type=type(err).__name__) from err
     finally:
         session.detach()
+
+
+async def retrieve(hass, url, before_request):
+    link = normalize_link("lasirena", url)
+    return product_data(await request(hass, f"productId:{link['id']}", before_request), link)
+
+
+async def search(hass, code, before_request):
+    """Confirm the returned SKU's GTIN, never a similarity in the product name."""
+    code = gtin(code)
+    if not code:
+        raise PriceError("Indica un EAN válido.", response_class="invalid_product")
+    native = code[1:] if code.startswith("0") else code
+    payload = await request(hass, f"alternateIds_Ean:{native}", before_request)
+    matches = [p for p in payload if isinstance(p, dict) and isinstance(p.get("items"), list)
+               and any(isinstance(s, dict) and gtin(s.get("ean")) == code for s in p["items"])]
+    if not matches:
+        return None
+    if len(matches) != 1:
+        raise PriceError("La Sirena devuelve varias referencias para este EAN.", response_class="ambiguous_product")
+    product = matches[0]
+    link = normalize_link("lasirena", product.get("link", ""))
+    result = product_data(matches, link)
+    result.update(store="lasirena", reference_id=link["id"], url=link["url"])
+    return result

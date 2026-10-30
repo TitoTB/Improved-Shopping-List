@@ -190,6 +190,12 @@ class CatalogDiscovery:
         try:
             if link:
                 data=await self.lookup.retrieve(link["url"],store,code,before_request=source._before_request)
+            elif store == "lasirena":
+                from .lasirena_product import search
+                data=await search(self.hass,code,source._before_request)
+                if data:
+                    data["checked_at"]=int(time.time())
+                    if rate:=web_measure_price(data):data["measure_price"]=rate
             elif store in PUBLIC_SHOPS:
                 data=None
                 for query in ([code[1:] if code.startswith("0") else code] if store=="masymas" else names):
@@ -234,7 +240,7 @@ class CatalogDiscovery:
             names=commercial_terms(self.catalog.products,code)
             links=await self._dictionary(code)
             # Cached data and dictionary URLs have priority over all searches.
-            ordered=[*links,*[store for store in ("masymas","mercadona","alcampo","bm","consum") if store in self.enabled() and store not in links]]
+            ordered=[*links,*[store for store in ("masymas","lasirena","mercadona","alcampo","bm","consum") if store in self.enabled() and store not in links]]
             for store in ordered:
                 try:data=await self._find(store,code,names,links.get(store))
                 except (ValueError,OSError,TimeoutError,aiohttp.ClientError):continue

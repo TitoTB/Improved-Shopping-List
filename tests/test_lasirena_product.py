@@ -14,7 +14,7 @@ API = "https://www.lasirena.es/api/catalog_system/pub/products/search?fq=product
 
 
 def payload():
-    return [{"productId": "655", "productName": "Lomos de salmón noruego Premium", "brand": "la Sirena",
+    return [{"productId": "655", "link": URL, "productName": "Lomos de salmón noruego Premium", "brand": "la Sirena",
         "Envase": ["Pack 4 x 125 g"], "items": [{"itemId": "655", "ean": "8414532006553",
         "measurementUnit": "un", "unitMultiplier": 1,
         "sellers": [{"sellerDefault": True, "commertialOffer": {"Price": 16.99, "IsAvailable": True}}]}]}]
@@ -66,6 +66,31 @@ async def test_lookup_uses_api_cache_and_rate_callback_without_html_or_checkout(
         with pytest.raises(PriceError, match="EAN"):
             await lookup.retrieve(URL, expected_ean="3017620422003")
     finally: lookup.close()
+
+
+async def test_search_normalizes_padded_ean_and_checks_returned_sku(hass, aioclient_mock):
+    from custom_components.improved_shopping_list.lasirena_product import search
+    api = "https://www.lasirena.es/api/catalog_system/pub/products/search?fq=alternateIds_Ean:8414532006553"
+    aioclient_mock.get(api, json=payload())
+    before = AsyncMock()
+    result = await search(hass, "08414532006553", before)
+    assert result["ean"] == "8414532006553" and result["url"] == URL
+    assert result["pack_count"] == 4 and result["content_quantity"] == 500
+    before.assert_awaited_once()
+
+
+@pytest.mark.parametrize("data", [[], payload()])
+async def test_search_never_accepts_unrelated_ean(hass, aioclient_mock, data):
+    from custom_components.improved_shopping_list.lasirena_product import search
+    aioclient_mock.get("https://www.lasirena.es/api/catalog_system/pub/products/search?fq=alternateIds_Ean:8410199023094", json=data)
+    assert await search(hass, "8410199023094", AsyncMock()) is None
+
+
+async def test_duplicate_ean_results_are_not_silently_selected(hass, aioclient_mock):
+    from custom_components.improved_shopping_list.lasirena_product import search
+    aioclient_mock.get("https://www.lasirena.es/api/catalog_system/pub/products/search?fq=alternateIds_Ean:8414532006553", json=payload()+payload())
+    with pytest.raises(PriceError, match="varias"):
+        await search(hass, "8414532006553", AsyncMock())
 
 
 async def test_blocked_api_does_not_fall_back_to_html_or_retry(hass, aioclient_mock, monkeypatch):

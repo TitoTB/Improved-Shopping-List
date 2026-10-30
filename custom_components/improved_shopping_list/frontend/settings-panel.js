@@ -96,7 +96,11 @@ class ImprovedShoppingSettings extends HTMLElement {
         .settings-tabs [aria-pressed=true] { background:var(--secondary-background-color,#edf4ee); font-weight:650; }
 
         .appearance-fields { display:grid; grid-template-columns:1fr 1fr; gap:18px; }
-        .appearance-fields.appearance-colors { grid-template-columns:repeat(4,minmax(0,1fr)); align-items:stretch; }
+        .appearance-fields.appearance-colors { grid-template-columns:repeat(2,minmax(0,1fr)); align-items:stretch; gap:8px; }
+        .appearance-palette { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:18px; margin-top:24px; }
+        .appearance-group { min-width:0; display:grid; grid-template-rows:auto auto 1fr; gap:12px; }
+        .appearance-group h3 { margin:0; }
+        @media(max-width:540px) { .appearance-palette { gap:8px; }.appearance-group { gap:8px; }.appearance-group h3 { font-size:12px; }.appearance-group .preview { padding:8px; font-size:11px; }.appearance-group label { font-size:11px; }.appearance-group input[type=color] { padding:2px; } }
         .appearance-colors > div { min-width:0; display:flex; flex-direction:column; justify-content:flex-end; gap:6px; }
         .appearance-colors label { overflow-wrap:anywhere; line-height:1.4; }
         .appearance-colors input { min-width:0; flex-shrink:0; }
@@ -105,6 +109,7 @@ class ImprovedShoppingSettings extends HTMLElement {
         .appearance-actions { display:flex; justify-content:flex-end; flex-wrap:wrap; gap:10px; margin-top:24px; }
         .appearance-previews { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:18px; margin-top:24px; }
         .appearance-previews + .appearance-fields { margin-top:24px; }
+        .appearance-palette ~ .appearance-fields { margin-top:24px; }
         .preview { display:grid; place-items:center; min-width:0; min-height:120px; border-radius:16px; padding:20px; font-weight:650; text-align:center; overflow-wrap:anywhere; }
         @media(max-width:540px) { .appearance-fields { grid-template-columns:1fr; } }
         .store-row { display:grid; grid-template-columns:56px minmax(0,1fr) auto; gap:8px 12px; align-items:center; }
@@ -192,7 +197,7 @@ class ImprovedShoppingSettings extends HTMLElement {
       @media(max-width:540px){.purchase-users-field{grid-template-columns:1fr;gap:8px}.purchase-users-field>span{padding-top:0}.detection-pair{gap:16px}.detection-pair>.detection-row{flex-direction:column;align-items:stretch;gap:10px}.detection-pair input{align-self:flex-end}.detection-pair input[type=number]{width:72px}}
     </style>
       <div class="settings-heading"><h1>Ajustes</h1>
-      <nav class="settings-tabs" aria-label="Vistas de ajustes"><button id="settings-view-lists" aria-label="Listas" aria-pressed="true"><ha-icon icon="mdi:format-list-checks" aria-hidden="true"></ha-icon><span class="tab-label">Listas</span></button><button id="settings-view-appearance" aria-label="Personalización" aria-pressed="false"><ha-icon icon="mdi:palette" aria-hidden="true"></ha-icon><span class="tab-label">Personalización</span></button><button id="settings-view-stores" aria-label="Tiendas" aria-pressed="false"><ha-icon icon="mdi:store" aria-hidden="true"></ha-icon><span class="tab-label">Tiendas</span></button><button id="settings-view-notifications" aria-label="Notificaciones" aria-pressed="false"><ha-icon icon="mdi:bell-outline" aria-hidden="true"></ha-icon><span class="tab-label">Notificaciones</span></button><button id="settings-view-community" aria-label="Comunidad" aria-pressed="false"><ha-icon icon="mdi:account-group" aria-hidden="true"></ha-icon><span class="tab-label">Comunidad</span></button><button id="settings-view-logs" aria-label="Logs" aria-pressed="false"><ha-icon icon="mdi:format-list-group" aria-hidden="true"></ha-icon><span class="tab-label">Logs</span></button></nav></div>
+      <nav class="settings-tabs" aria-label="Vistas de ajustes"><button id="settings-view-lists" aria-label="Listas" aria-pressed="true"><ha-icon icon="mdi:format-list-checks" aria-hidden="true"></ha-icon><span class="tab-label">Listas</span></button><button id="settings-view-stores" aria-label="Tiendas" aria-pressed="false"><ha-icon icon="mdi:store" aria-hidden="true"></ha-icon><span class="tab-label">Tiendas</span></button><button id="settings-view-notifications" aria-label="Notificaciones" aria-pressed="false"><ha-icon icon="mdi:bell-outline" aria-hidden="true"></ha-icon><span class="tab-label">Notificaciones</span></button><button id="settings-view-community" aria-label="Comunidad" aria-pressed="false"><ha-icon icon="mdi:account-group" aria-hidden="true"></ha-icon><span class="tab-label">Comunidad</span></button><button id="settings-view-logs" aria-label="Logs" aria-pressed="false"><ha-icon icon="mdi:format-list-group" aria-hidden="true"></ha-icon><span class="tab-label">Logs</span></button></nav></div>
       <div id="settings-error" class="notice error" role="alert" hidden></div>
       <div id="settings-status" class="notice" role="status" hidden></div>
       <p id="admin-help" hidden>Necesitas una cuenta administradora de Home Assistant para modificar estos ajustes.</p>
@@ -205,31 +210,25 @@ class ImprovedShoppingSettings extends HTMLElement {
       </section>
 
       <section id="settings-notifications" hidden><isl-notification-settings></isl-notification-settings></section>
-      <section id="settings-appearance" class="card" aria-labelledby="settings-appearance-title" hidden>
+      <section id="settings-appearance" class="card" aria-labelledby="settings-appearance-title">
         <h2 id="settings-appearance-title">Personalización</h2>
-        <p>Personaliza las tarjetas del apartado Lista. Pulsa una tarjeta para marcar o desmarcar su compra.</p>
+        <p>Personaliza los colores de los productos pendientes, comprados y en Stock.</p>
         <form id="appearance-form">
-          <div class="appearance-fields appearance-colors">
-            <div><label for="gradient-start">Color inicial del degradado</label><input id="gradient-start" name="gradient_start" type="color" value="#ee524f"></div>
-            <div><label for="gradient-end">Color final del degradado</label><input id="gradient-end" name="gradient_end" type="color" value="#b52a27"></div>
-            <div><label for="completed-gradient-start">Color inicial de Comprados</label><input id="completed-gradient-start" name="completed_gradient_start" type="color" value="#4faba2"></div>
-            <div><label for="completed-gradient-end">Color final de Comprados</label><input id="completed-gradient-end" name="completed_gradient_end" type="color" value="#26857c"></div>
-          </div>
-          <div class="appearance-previews">
-            <div id="appearance-preview" class="preview">Vista previa de producto pendiente</div>
-            <div id="completed-appearance-preview" class="preview">Vista previa de producto comprado</div>
+          <div class="appearance-palette">
+            <div class="appearance-group"><h3>Pendientes</h3><div class="appearance-fields appearance-colors">
+              <div><label for="gradient-start">Inicial</label><input id="gradient-start" name="gradient_start" aria-label="Color inicial del degradado" type="color" value="#ee524f"></div>
+              <div><label for="gradient-end">Final</label><input id="gradient-end" name="gradient_end" aria-label="Color final del degradado" type="color" value="#b52a27"></div>
+            </div><div id="appearance-preview" class="preview">Vista previa de producto pendiente</div></div>
+            <div class="appearance-group"><h3>Comprados</h3><div class="appearance-fields appearance-colors">
+              <div><label for="completed-gradient-start">Inicial</label><input id="completed-gradient-start" name="completed_gradient_start" aria-label="Color inicial de Comprados" type="color" value="#4faba2"></div>
+              <div><label for="completed-gradient-end">Final</label><input id="completed-gradient-end" name="completed_gradient_end" aria-label="Color final de Comprados" type="color" value="#26857c"></div>
+            </div><div id="completed-appearance-preview" class="preview">Vista previa de producto comprado</div></div>
+            <div class="appearance-group"><h3>Stock</h3><div class="appearance-fields appearance-colors">
+              <div><label for="stock-gradient-start">Inicial</label><input id="stock-gradient-start" name="stock_gradient_start" aria-label="Color inicial de Stock" type="color" value="#f59a23"></div>
+              <div><label for="stock-gradient-end">Final</label><input id="stock-gradient-end" name="stock_gradient_end" aria-label="Color final de Stock" type="color" value="#c65b0c"></div>
+            </div><div id="stock-appearance-preview" class="preview">Vista previa de producto en stock</div></div>
           </div>
           <div style="margin-top:18px"><label for="quantity-color">Color del indicador de cantidad</label><input id="quantity-color" name="quantity_color" type="color" value="#267052"></div>
-          <div class="appearance-fields appearance-colors" style="margin-top:24px">
-            <div><label for="stock-gradient-start">Color inicial de Stock</label><input id="stock-gradient-start" name="stock_gradient_start" type="color" value="#f59a23"></div>
-            <div><label for="stock-gradient-end">Color final de Stock</label><input id="stock-gradient-end" name="stock_gradient_end" type="color" value="#c65b0c"></div>
-            <div><label for="recipe-gradient-start">Color inicial de Recetas</label><input id="recipe-gradient-start" name="recipe_gradient_start" type="color" value="#66bb6a"></div>
-            <div><label for="recipe-gradient-end">Color final de Recetas</label><input id="recipe-gradient-end" name="recipe_gradient_end" type="color" value="#2e7d32"></div>
-          </div>
-          <div class="appearance-previews">
-            <div id="stock-appearance-preview" class="preview">Vista previa de producto en stock</div>
-            <div id="recipe-appearance-preview" class="preview">Vista previa de receta</div>
-          </div>
           <div class="appearance-fields">
             <div><label for="desktop-columns">Productos por fila (ordenador)</label><select id="desktop-columns" name="columns">${[1,2,3,4,5,6].map(value => `<option value="${value}">${value}</option>`).join("")}</select></div>
             <div><label for="mobile-columns">Productos por fila (móvil)</label><select id="mobile-columns" name="mobile_columns">${[1,2,3,4].map(value => `<option value="${value}">${value}</option>`).join("")}</select></div>
@@ -354,14 +353,15 @@ class ImprovedShoppingSettings extends HTMLElement {
     root.querySelector("#alcampo-dialog").addEventListener("close",()=>root.querySelector("isl-alcampo-settings")?.deactivate());
     root.querySelector("#alcampo-dialog").addEventListener("cancel",event=>{if(this._busy)event.preventDefault();});
     const alcampoError=document.createElement("div");alcampoError.id="alcampo-error";alcampoError.className="notice error";alcampoError.setAttribute("role","alert");alcampoError.hidden=true;root.querySelector("#alcampo-title").after(alcampoError);
-    for (const [id, view] of [["settings-view-lists", "lists"], ["settings-view-appearance", "appearance"], ["settings-view-community", "community"], ["settings-view-stores", "stores"], ["settings-view-logs", "logs"], ["settings-view-notifications","notifications"]]) {
+    for (const [id, view] of [["settings-view-lists", "lists"], ["settings-view-community", "community"], ["settings-view-stores", "stores"], ["settings-view-logs", "logs"], ["settings-view-notifications","notifications"]]) {
       root.querySelector(`#${id}`).addEventListener("click", () => {
         this._view = view;
         if(view === "nutrition")this._nutritionKey=null;
-        for (const section of ["lists", "appearance", "community", "stores", "logs", "notifications"]) {
+        for (const section of ["lists", "community", "stores", "logs", "notifications"]) {
           root.querySelector(`#settings-${section}`).hidden = view !== section;
           root.querySelector(`#settings-view-${section}`).setAttribute("aria-pressed", String(view === section));
         }
+        root.querySelector("#settings-appearance").hidden = view !== "lists";
         this._notice = "";
         this._error = "";
         this._render();
@@ -859,19 +859,18 @@ class ImprovedShoppingSettings extends HTMLElement {
 
   _fillAppearance(appearance) {
     const form = this.shadowRoot.querySelector("#appearance-form");
-    for (const [key, value] of Object.entries(appearance)) form.elements[key].value = value;
+    for (const [key, value] of Object.entries(appearance)) if(form.elements[key]) form.elements[key].value = value;
     this._preview();
   }
 
   _readAppearance() {
     const form = this.shadowRoot.querySelector("#appearance-form");
     return {
+      ...this._data?.settings?.appearance,
       gradient_start: form.elements.gradient_start.value,
       quantity_color: form.elements.quantity_color.value,
       stock_gradient_start: form.elements.stock_gradient_start.value,
       stock_gradient_end: form.elements.stock_gradient_end.value,
-      recipe_gradient_start: form.elements.recipe_gradient_start.value,
-      recipe_gradient_end: form.elements.recipe_gradient_end.value,
       gradient_end: form.elements.gradient_end.value,
       completed_gradient_start: form.elements.completed_gradient_start.value,
       completed_gradient_end: form.elements.completed_gradient_end.value,
@@ -888,9 +887,6 @@ class ImprovedShoppingSettings extends HTMLElement {
     const stock = this.shadowRoot.querySelector("#stock-appearance-preview");
     stock.style.background = `linear-gradient(${appearance.stock_gradient_start},${appearance.stock_gradient_end})`;
     stock.style.color = "#fff";
-    const recipe = this.shadowRoot.querySelector("#recipe-appearance-preview");
-    recipe.style.background = `linear-gradient(${appearance.recipe_gradient_start},${appearance.recipe_gradient_end})`;
-    recipe.style.color = "#fff";
     const completed = this.shadowRoot.querySelector("#completed-appearance-preview");
     completed.style.background = `linear-gradient(${appearance.completed_gradient_start},${appearance.completed_gradient_end})`;
     completed.style.color = gradientTextColor(appearance.completed_gradient_start, appearance.completed_gradient_end);

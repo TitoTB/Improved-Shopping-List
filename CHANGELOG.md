@@ -2,6 +2,7 @@
 
 ## Próxima versión
 
+- Personalización se integra al final de Ajustes → Listas y deja de tener pestaña independiente. Se eliminan los controles de colores de recetas y se alinean Pendientes, Comprados y Stock en tres columnas con sus colores y vistas previas.
 - Catálogo opcional de Eroski, desactivado por defecto, con sesión anónima, búsqueda por EAN exacto y un único resultado. Incluye progreso, caché, pausas ante bloqueos y veinte segundos entre peticiones; permite completar datos o mostrar alternativas de compra.
 - Diccionario EAN v7 con columna Eroski y la referencia verificada de Lay’s Gourmet 170 g, conservando los enlaces anteriores.
 - Los EAN nuevos se buscan en todos los catálogos activados con «Mostrar tienda en el catálogo», aunque otra tienda ya aporte los datos completos. Las fuentes que solo completan datos siguen limitadas a EAN incompletos; se conservan caché, exclusiones y esperas.

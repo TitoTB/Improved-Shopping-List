@@ -1313,6 +1313,37 @@ async function checkStagedOptionURL(browser,url,errors){
   await context.close();
 }
 
+async function checkAppearanceInLists(browser,url,errors){
+  const context=await browser.newContext({viewport:{width:1280,height:960}}),page=await context.newPage();
+  page.on('pageerror',error=>errors.push(error.message));await page.goto(url);
+  await page.getByRole('button',{name:'Ajustes',exact:true}).click();
+  const settings=page.locator('isl-settings'),appearance=settings.locator('#settings-appearance');
+  await appearance.waitFor();
+  assert.equal(await settings.getByRole('button',{name:'Personalización',exact:true}).count(),0);
+  assert.equal(await settings.locator('#recipe-gradient-start, #recipe-gradient-end, #recipe-appearance-preview').count(),0);
+  const order=await settings.evaluate(el=>{
+    const box=id=>el.shadowRoot.querySelector(id).getBoundingClientRect();
+    return box('#settings-appearance').top>=box('#settings-gateways').bottom&&box('#settings-gateways').top>=box('#settings-lists').bottom;
+  });assert.equal(order,true);
+  for(const width of [1280,390,320]){
+    await page.setViewportSize({width,height:960});
+    const layout=await settings.evaluate(el=>{
+      const ids=['#appearance-preview','#completed-appearance-preview','#stock-appearance-preview'];
+      const boxes=ids.map(id=>el.shadowRoot.querySelector(id).getBoundingClientRect());
+      const card=el.shadowRoot.querySelector('#settings-appearance');
+      return boxes.every(box=>Math.abs(box.y-boxes[0].y)<1)&&boxes[0].right<=boxes[1].left&&boxes[1].right<=boxes[2].left&&card.scrollWidth<=card.clientWidth+1;
+    });assert.equal(layout,true);
+    if(width!==320)await appearance.screenshot({path:`test-results/appearance-in-lists-${width}.png`});
+  }
+  await settings.getByRole('button',{name:'Tiendas',exact:true}).click();assert.equal(await appearance.isVisible(),false);
+  await settings.getByRole('button',{name:'Listas',exact:true}).click();assert.equal(await appearance.isVisible(),true);
+  await settings.getByLabel('Color inicial de Stock',{exact:true}).evaluate(input=>{input.value='#ffcc80';input.dispatchEvent(new Event('input',{bubbles:true}));});
+  await settings.getByRole('button',{name:'Guardar personalización',exact:true}).click();
+  await settings.getByRole('status').filter({hasText:'Personalización guardada'}).waitFor();
+  assert.equal(await page.evaluate(()=>window.listSettings.appearance.stock_gradient_start),'#ffcc80');
+  await context.close();
+}
+
 async function checkStockReaders(browser,url,errors){
   const context=await browser.newContext({viewport:{width:1280,height:960}}),page=await context.newPage();
   page.on('pageerror',error=>errors.push(error.message));await page.goto(url);
@@ -1728,6 +1759,7 @@ async function main() {
     if(process.argv.includes('--stock-readers-only')){const errors=[];await checkStockReaders(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Stock readers navigation passed.');return;}
     if(process.argv.includes('--catalog-views-only')){const errors=[];await checkCatalogViews(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Catalog views passed.');return;}
     if(process.argv.includes('--comparison-only')){const errors=[];await checkCatalogComparison(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Catalog comparison passed.');return;}
+    if(process.argv.includes('--appearance-only')){const errors=[];await checkAppearanceInLists(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Appearance in Lists passed.');return;}
     if(process.argv.includes('--attention-only')){const errors=[];await checkAttentionIndicators(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Navigation attention indicators passed.');return;}
     if(process.argv.includes('--lazy-only')){const errors=[];await checkLazySections(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);return;}
     if(process.argv.includes('--lidl-reprocess-only')){const errors=[];await checkLidlReprocessLines(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Lidl full reprocessing passed.');return;}
@@ -2893,7 +2925,7 @@ async function main() {
     await settingsPage.setViewportSize({ width: 390, height: 844 });
     await settingsPage.screenshot({ path: "test-results/settings-mobile.png", fullPage: true });
     assert.equal(await settingsPage.locator("main").evaluate(node => node.scrollWidth > innerWidth), false);
-    await settingsView.getByRole("button", { name: "Personalización", exact: true }).click();
+    await settingsView.getByRole("button", { name: "Listas", exact: true }).click();
     assert.equal(await settingsView.getByLabel("Color inicial del degradado", { exact: true }).inputValue(), "#ee524f");
     assert.equal(await settingsView.getByLabel("Color final del degradado", { exact: true }).inputValue(), "#b52a27");
     assert.equal(await settingsView.getByLabel("Color inicial de Comprados", { exact:true }).inputValue(), "#4faba2");
@@ -2906,7 +2938,8 @@ async function main() {
     await settingsView.getByLabel('Color inicial de Stock',{exact:true}).evaluate(input=>{input.value='#ffcc80';input.dispatchEvent(new Event('input',{bubbles:true}));});
     await settingsView.getByLabel('Color final de Stock',{exact:true}).evaluate(input=>{input.value='#ef6c00';input.dispatchEvent(new Event('input',{bubbles:true}));});
     assert.equal(await settingsView.locator('#stock-appearance-preview').evaluate(node=>getComputedStyle(node).backgroundImage),'linear-gradient(rgb(255, 204, 128), rgb(239, 108, 0))');
-    assert.equal(await settingsView.locator('#recipe-appearance-preview').evaluate(node=>getComputedStyle(node).color),'rgb(255, 255, 255)');
+    assert.equal(await settingsView.locator('#recipe-appearance-preview, #recipe-gradient-start, #recipe-gradient-end').count(),0);
+    assert.equal(await settingsView.getByRole('button',{name:'Personalización',exact:true}).count(),0);
     await settingsView.getByLabel("Productos por fila (ordenador)", { exact: true }).selectOption("4");
     await settingsView.getByLabel("Productos por fila (móvil)", { exact: true }).selectOption("2");
     assert.equal(await settingsView.locator("#appearance-preview").evaluate(node => getComputedStyle(node).color), "rgb(0, 0, 0)");
@@ -2925,10 +2958,11 @@ async function main() {
       await settingsPage.setViewportSize({width,height:960});
       const positions=await settingsView.evaluate(node=>{
         const bounds=id=>{const box=node.shadowRoot.querySelector(id).getBoundingClientRect();return {x:box.x,y:box.y,width:box.width};};
-        return {stock:bounds('#stock-appearance-preview'),recipe:bounds('#recipe-appearance-preview'),start:bounds('#stock-gradient-start'),end:bounds('#stock-gradient-end'),recipeStart:bounds('#recipe-gradient-start')};
+        return {stock:bounds('#stock-appearance-preview'),pending:bounds('#appearance-preview'),completed:bounds('#completed-appearance-preview'),start:bounds('#stock-gradient-start'),pendingStart:bounds('#gradient-start'),completedStart:bounds('#completed-gradient-start')};
       });
-      assert.equal(positions.stock.y,positions.recipe.y);assert.ok(positions.stock.x<positions.recipe.x);
-      assert.equal(positions.start.y,positions.recipeStart.y);assert.ok(positions.end.x<positions.recipeStart.x);
+      assert.equal(positions.pending.y,positions.completed.y);assert.equal(positions.completed.y,positions.stock.y);
+      assert.ok(positions.pending.x<positions.completed.x&&positions.completed.x<positions.stock.x);
+      assert.equal(positions.start.y,positions.pendingStart.y);assert.equal(positions.start.y,positions.completedStart.y);
     }
     await settingsPage.setViewportSize({width:390,height:844});
     await settingsPage.screenshot({ path: "test-results/personalization-mobile.png", fullPage: true });
@@ -2991,7 +3025,7 @@ async function main() {
     await settingsPage.locator("#pending").getByText("Cacao", { exact:true }).waitFor();
     assert.equal(await settingsPage.locator("#pending").evaluate(node => getComputedStyle(node).gridTemplateColumns.split(" ").length), 4);
     await settingsPage.getByRole("button", { name:"Ajustes", exact:true }).click();
-    await settingsView.getByRole("button", { name:"Personalización", exact:true }).click();
+    await settingsView.getByRole("button", { name:"Listas", exact:true }).click();
     assert.equal(await settingsView.getByLabel("Color inicial del degradado", { exact:true }).inputValue(), "#ffe082");
     assert.equal(await settingsView.getByLabel("Color inicial de Comprados", { exact:true }).inputValue(), "#80cbc4");
     assert.equal(await settingsView.getByLabel("Color final de Comprados", { exact:true }).inputValue(), "#26a69a");
@@ -3132,7 +3166,7 @@ async function main() {
     await quantityPage.evaluate(()=>{window.listData['todo.bring'].push({uid:'pavo-entry',summary:'Pavo',status:'needs_action'});window.emit('todo.bring');});
     await quantityPage.getByRole('button',{name:'Ajustes',exact:true}).click();
     const quantitySettings=quantityPage.locator('isl-settings');
-    await quantitySettings.getByRole('button',{name:'Personalización',exact:true}).click();
+    await quantitySettings.getByRole('button',{name:'Listas',exact:true}).click();
     await quantitySettings.getByLabel('Color del indicador de cantidad',{exact:true}).evaluate(input=>{input.value='#4caf50';input.dispatchEvent(new Event('input',{bubbles:true}));});
     await quantitySettings.getByRole('button',{name:'Guardar personalización',exact:true}).click();
     await quantitySettings.getByRole('status').filter({hasText:'Personalización guardada'}).waitFor();
@@ -3158,7 +3192,7 @@ async function main() {
     assert.equal(await gatewayRow.getByRole('checkbox',{name:'Eliminar de la pasarela tras transferir',exact:true}).isChecked(),true);
     await gatewayRow.getByRole('checkbox',{name:'Eliminar de la pasarela tras transferir',exact:true}).uncheck();
     await gatewayPage.waitForFunction(()=>window.listSettings.gateway_lists[0].remove_after_transfer===false);
-    await gatewaySettings.getByRole('button',{name:'Personalización',exact:true}).click();
+    await gatewaySettings.getByRole('button',{name:'Tiendas',exact:true}).click();
     assert.equal(await gatewaySettings.locator('#settings-gateways').isVisible(),false);
     await gatewayPage.reload();
     await gatewayPage.getByRole('button',{name:'Ajustes',exact:true}).click();

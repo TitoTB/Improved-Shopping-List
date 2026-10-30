@@ -18,7 +18,7 @@ from .const import DOMAIN
 from .product_references import gtin, normalized_references, reference_from_line
 from .store_links import normalize_link
 
-URL = "https://raw.githubusercontent.com/TitoTB/Improved-Shopping-List/main/data/ean-links-v7.csv"
+URL = "https://raw.githubusercontent.com/TitoTB/Improved-Shopping-List/main/data/ean-links-v8.csv"
 DAY = 86400
 MAX_BYTES = 8 * 1024 * 1024
 
@@ -41,7 +41,7 @@ def dictionary_url(value, store="carrefour"):
 
 def key_store(key):
     """Keep historical Carrefour cache keys; namespace the additional shop."""
-    store, code = tuple(key.split(":",1)) if key.startswith(("alcampo:","lidl:","mercadona:","masymas:","bm:","consum:","lasirena:","eroski:")) else ("carrefour", key)
+    store, code = tuple(key.split(":",1)) if key.startswith(("alcampo:","lidl:","mercadona:","masymas:","bm:","consum:","lasirena:","eroski:","dia:")) else ("carrefour", key)
     if not code or gtin(code) != code:
         raise ValueError("Invalid EAN cache key")
     return store
@@ -58,9 +58,9 @@ def parse_dictionary(raw):
         if number >= 100000:
             raise ValueError("Too many EAN entries")
         code = gtin(row.get("EAN", ""))
-        if not code or not any(row.get(column) for column in ("Carrefour", "Alcampo", "Lidl", "Mercadona", "Masymas", "BM", "Consum", "La Sirena", "Eroski")):
+        if not code or not any(row.get(column) for column in ("Carrefour", "Alcampo", "Lidl", "Mercadona", "Masymas", "BM", "Consum", "La Sirena", "Eroski", "DIA")):
             raise ValueError("Invalid EAN entry")
-        for store, column in (("carrefour", "Carrefour"), ("alcampo", "Alcampo"), ("lidl", "Lidl"), ("mercadona", "Mercadona"), ("masymas", "Masymas"), ("bm", "BM"), ("consum", "Consum"), ("lasirena", "La Sirena"), ("eroski", "Eroski")):
+        for store, column in (("carrefour", "Carrefour"), ("alcampo", "Alcampo"), ("lidl", "Lidl"), ("mercadona", "Mercadona"), ("masymas", "Masymas"), ("bm", "BM"), ("consum", "Consum"), ("lasirena", "La Sirena"), ("eroski", "Eroski"), ("dia", "DIA")):
             if not row.get(column):
                 continue
             key = code if store == "carrefour" else store+":"+code
@@ -82,7 +82,7 @@ def product_eans(product):
 def enrich_product(product, resolved):
     """Fill exact EAN matches; preserve user URLs, exclusions, formats and prices."""
     changed = False
-    for store in ("carrefour", "alcampo", "lidl", "mercadona", "masymas", "bm", "consum", "lasirena", "eroski"):
+    for store in ("carrefour", "alcampo", "lidl", "mercadona", "masymas", "bm", "consum", "lasirena", "eroski", "dia"):
         changed = _enrich_store(product, resolved, store) or changed
     return changed
 
@@ -161,7 +161,7 @@ class EANLinks:
                 if any(ord(char)<32 for char in etag):
                     etag = ""
                 self._data.update(links=links, resolved=resolved, failed=failed, etag=etag, checked_at=checked)
-                if data.get("index_version") != 7:
+                if data.get("index_version") != 8:
                     self._data.update(etag="", checked_at=0)
             except (ValueError, TypeError, AttributeError):
                 pass  # A damaged optional cache must not prevent Home Assistant startup.
@@ -185,7 +185,7 @@ class EANLinks:
     async def async_find_link(self, store, code):
         """Exact URL lookup for a user-initiated receipt review, keeping offline data."""
         key=gtin(code)
-        if not key or store not in ("carrefour","alcampo","lidl","mercadona","masymas","bm","consum","lasirena","eroski"):
+        if not key or store not in ("carrefour","alcampo","lidl","mercadona","masymas","bm","consum","lasirena","eroski","dia"):
             return None
         try:
             await self._download()
@@ -243,7 +243,7 @@ class EANLinks:
                 if links != self._data["links"]:
                     self._data["resolved"] = {key:value for key,value in self.resolved.items() if links.get(key) == self._data["links"].get(key)}
                     self._data["failed"] = {}
-                self._data.update(links=links, etag=response.headers.get("ETag", "")[:256], checked_at=now, index_version=7)
+                self._data.update(links=links, etag=response.headers.get("ETag", "")[:256], checked_at=now, index_version=8)
             else:
                 raise ValueError(f"GitHub HTTP {response.status}")
         await self._store.async_save(self._data)

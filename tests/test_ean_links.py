@@ -200,7 +200,7 @@ def test_v5_adds_public_shop_columns_and_verified_exact_match():
     old=parse_dictionary((root/'data/ean-links-v4.csv').read_bytes())
     raw=(root/'data/ean-links-v5.csv').read_bytes();current=parse_dictionary(raw)
     assert raw.splitlines()[0]==b'EAN,Carrefour,Alcampo,Lidl,Mercadona,Masymas,BM,Consum'
-    assert {key:value for key,value in current.items() if not key.startswith(('masymas:','bm:','consum:'))}==old
+    assert all(current.get(key)==value for key,value in old.items())
     assert all(store+':'+gtin('8410199023094') in current for store in ('masymas','bm','consum'))
 
 
@@ -218,3 +218,25 @@ def test_v7_preserves_existing_links_and_adds_verified_eroski_result():
     current=parse_dictionary((root/'data/ean-links-v7.csv').read_bytes())
     assert {key:value for key,value in current.items() if not key.startswith('eroski:')} == old
     assert current['eroski:'+gtin('8410199023094')] == 'https://supermercado.eroski.es/es/productdetail/24791428-patatas-lays-gourmet-bolsa-170-g/'
+
+
+def test_updated_v8_preserves_existing_eans_and_tracks_changed_official_urls():
+    root=Path(__file__).resolve().parents[1]
+    old=parse_dictionary((root/'data/ean-links-v7.csv').read_bytes())
+    raw=(root/'data/ean-links-v8.csv').read_bytes();current=parse_dictionary(raw)
+    audit=json.loads((root/'data/ean-links-v8-changes.json').read_text(encoding='utf-8'))
+    assert raw.splitlines()[0]==b'EAN,Carrefour,Alcampo,Lidl,Mercadona,Masymas,BM,Consum,La Sirena,Eroski,DIA'
+    changes={(item['ean'] if item['store']=='carrefour' else item['store']+':'+item['ean']):item for item in audit['changes']}
+    assert old.keys()<=current.keys()
+    for key,value in old.items():
+        if current[key]!=value:
+            assert changes[key]['url']==current[key]
+            assert changes[key]['action']=='canonical_url'
+    assert 'DIA' in audit['columns']
+    assert audit['conflicts']==[]
+
+
+def test_dictionary_accepts_dia_column_without_enabling_a_catalog():
+    url='https://www.dia.es/aperitivos-y-frutos-secos/patatas-fritas/p/84892'
+    result=parse_dictionary(f'EAN,Carrefour,DIA\n8410199023094,,{url}\n'.encode())
+    assert result=={'dia:'+gtin('8410199023094'):url}

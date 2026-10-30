@@ -2,6 +2,7 @@
 
 ## Próxima versión
 
+- Diccionario EAN v8 actualizado con un catálogo exportado: siete EAN nuevos, cinco enlaces de Carrefour, uno de La Sirena y tres coincidencias nuevas de Alcampo verificadas por EAN. Se actualizan 68 enlaces directos de Carrefour y se incorpora la columna DIA. Las nuevas coincidencias se añaden también a los archivos compatibles v5/v6/v7, sin publicar precios de compras ni referencias inactivas.
 - Personalización se integra al final de Ajustes → Listas y deja de tener pestaña independiente. Se eliminan los controles de colores de recetas y se alinean Pendientes, Comprados y Stock en tres columnas con sus colores y vistas previas.
 - Catálogo opcional de Eroski, desactivado por defecto, con sesión anónima, búsqueda por EAN exacto y un único resultado. Incluye progreso, caché, pausas ante bloqueos y veinte segundos entre peticiones; permite completar datos o mostrar alternativas de compra.
 - Diccionario EAN v7 con columna Eroski y la referencia verificada de Lay’s Gourmet 170 g, conservando los enlaces anteriores.

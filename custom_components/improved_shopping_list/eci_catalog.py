@@ -4,6 +4,8 @@ from copy import deepcopy
 import json
 import math
 import re
+import ssl
+import sys
 import time
 from html import unescape
 from urllib.parse import urlencode, urljoin
@@ -87,6 +89,7 @@ class ECIClient:
         self._http = None
         self._ready = False
         self._session_attempted = False
+        self.request_count = 0
         self._lock = asyncio.Lock()
 
     async def async_close(self):
@@ -98,11 +101,15 @@ class ECIClient:
 
     async def _request(self, url, *, bootstrap=False):
         started = time.monotonic()
+        self.request_count += 1
         try:
             async with self._http.stream("GET",url,headers={"Accept":"text/html"} if bootstrap else None) as response:
                 diagnostics={"http_status":response.status_code, "endpoint":url.split("?",1)[0],
                     "stage":"session" if bootstrap else "search" if "/buscar/" in url else "product",
                     "transport":"httpx", "http_version":response.http_version,
+                    "python_version":sys.version.split()[0], "openssl_version":ssl.OPENSSL_VERSION,
+                    "httpx_version":httpx.__version__, "session_request":self.request_count,
+                    "cookie_count":len(self._http.cookies),
                     "server":str(response.headers.get("Server",""))[:100],
                     "content_type":str(response.headers.get("Content-Type",""))[:100]}
                 body=bytearray()
@@ -210,6 +217,7 @@ class ECICatalog(CatalogSources):
         codes = {code:p["name"] for p in self.catalog.products for code in product_eans(p)}
         printed = {key:value for p in self.catalog.products for key,value in product_eans(p).items()}
         self._status.update(running=True,phase="preparing",total=len(codes),processed=0,updated=0,errors=[],current="")
+        first_request = self.client.request_count
         self._notify()
         try:
             for code,name in codes.items():
@@ -236,11 +244,20 @@ class ECICatalog(CatalogSources):
                 await self._save_state(); self._notify()
                 if self._data["retry_at"] > time.time():
                     break
-            self._status.update(phase="paused" if self._data["retry_at"]>time.time() else "finished",current="")
+            self._status.update(phase="paused" if self._data["retry_at"]>time.time() else
+                "finished" if self._active and self._data["enabled"] else "interrupted",current="")
+        except asyncio.CancelledError:
+            self._status.update(phase="interrupted",current="")
+            raise
+        except Exception:
+            self._status.update(phase="error",current="")
+            raise
         finally:
             self._status["running"] = False; self._notify()
             if codes and self.activity:
-                self.activity.record("stores.catalog","El Corte Inglés: revisión del catálogo finalizada",source="automatic",
-                    diagnostics={**deepcopy(self._status),"interval_seconds":INTERVAL,"retry_at":self._data["retry_at"]})
+                outcome = {"paused":"pausada", "interrupted":"interrumpida", "error":"detenida por un error"}.get(self._status["phase"],"finalizada")
+                self.activity.record("stores.catalog",f"El Corte Inglés: revisión del catálogo {outcome}",source="automatic",
+                    diagnostics={**deepcopy(self._status),"http_requests":self.client.request_count-first_request,
+                        "interval_seconds":INTERVAL,"retry_at":self._data["retry_at"]})
             if self._active and self._data["enabled"]:
                 self._timer = async_call_later(self.hass,max(1,self._data["retry_at"]-time.time()) if self._data["retry_at"]>time.time() else 3600,self._launch)

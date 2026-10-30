@@ -1,7 +1,7 @@
 """Public EAN search, explicit consent, verified metadata and durable bounded calls."""
 from copy import deepcopy
 from types import SimpleNamespace
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, Mock
 import json
 import time
 
@@ -157,16 +157,20 @@ async def test_blocked_ean_retries_after_pause_instead_of_being_skipped_for_a_da
     await catalog.async_save_product({"name":"Aceitunas", "barcodes":[EAN]})
     clock=[time.time()]
     monkeypatch.setattr(module,"time",SimpleNamespace(time=lambda:clock[0]))
-    source=ECICatalog(hass,catalog,SimpleNamespace(_before_request=AsyncMock()),None)
+    activity=SimpleNamespace(record=Mock())
+    source=ECICatalog(hass,catalog,SimpleNamespace(_before_request=AsyncMock()),activity)
     await source.async_load();await source.async_set_enabled(True);source._active=True
     source.client.search=AsyncMock(side_effect=[PriceError("Bloqueo",http_status=403,retry_seconds=900),None])
     try:
         await source.async_run()
         assert source.snapshot["phase"]=="paused" and gtin(EAN) not in source._data["attempts"]
+        assert activity.record.call_args.args[1].endswith("pausada")
+        assert activity.record.call_args.kwargs["diagnostics"]["http_requests"]==0
         await source.async_run();assert source.client.search.await_count==1
         clock[0]+=901
         await source.async_run();assert source.client.search.await_count==2
         assert source.snapshot["phase"]=="finished" and not source._data["attempts"][gtin(EAN)]["success"]
+        assert activity.record.call_args.args[1].endswith("finalizada")
     finally:await source.async_stop()
 
 

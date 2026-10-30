@@ -130,6 +130,14 @@ class ProductLookup:
             return hint
         # Serialise requests, deduplicate UPC/EAN aliases and stay below 15 reads/minute.
         async with self._lock:
+            discovery=getattr(self,"catalog_discovery",None)
+            if discovery and (hint:=await discovery.async_hint(code)):
+                previous=self.cached(code) or {}
+                if previous.get("nutriscore") and not hint.get("nutriscore"):hint["nutriscore"]=previous["nutriscore"]
+                self._cache[code.zfill(14)]={"expires":time.time()+TTLS["found"],"fields":FIELDS,"result":hint}
+                try:await self._store.async_save(self._cache)
+                except (OSError,HomeAssistantError):_LOGGER.warning("Could not persist the optional product lookup cache")
+                return deepcopy(hint)
             if self.is_fresh(code):
                 return self.cached(code)
             delay = self._next_request - time.monotonic()

@@ -1,5 +1,11 @@
 # Historial de cambios
 
+## Próxima versión
+
+- Catálogos opcionales de Masymas, BM y Consum, desactivados por defecto; completan datos vacíos por EAN exacto, conservan resultados y permiten mostrar u ocultar las alternativas de cada tienda.
+- Diccionario EAN v5 con columnas Masymas, BM y Consum y las tres referencias verificadas del producto de prueba. Se conservan los diccionarios anteriores.
+- Prioridad de búsqueda de códigos: diccionario, proveedores con búsqueda directa por EAN y búsquedas comerciales con confirmación de EAN, antes de la fuente general de Open Food Facts. Caché persistente y control de resultados negativos, veinte segundos entre peticiones, pausas ante bloqueos y progreso en tiempo real.
+
 ## 0.60.0 — 2026-10-30
 
 - En Catálogo → Pendiente, un producto solo se considera pendiente de información cuando todas sus alternativas activas están incompletas. Una alternativa con precio, contenido por envase y unidades completos es suficiente para excluirlo.

@@ -15,8 +15,8 @@ const STORE_LOGOS={
   alcampo:'https://almeria.online/wp-content/uploads/2024/09/alcampo-logo.png',
   ...Object.fromEntries(['mercadona','consum','lasirena','eroski','dia'].map(store=>[store,new URL(store+'.'+(['mercadona','dia'].includes(store)?'png':store==='eroski'?'svg':'jpg'),import.meta.url).href]))
 };
-const STORE_NAMES={mercadona:"Mercadona",carrefour:"Carrefour",alcampo:"Alcampo",consum:"Consum",lasirena:"La Sirena",eroski:"Eroski",dia:"DIA",lidl:"Lidl"};
-const STORE_COLORS={lidl:'#ffcc00',mercadona:'#29975b',carrefour:'#2388dc',alcampo:'#e15150',consum:'#ef9639',lasirena:'#42b9ca',eroski:'#a968bd',dia:'#e2608c'};
+const STORE_NAMES={masymas:"Masymas",bm:"BM",mercadona:"Mercadona",carrefour:"Carrefour",alcampo:"Alcampo",consum:"Consum",lasirena:"La Sirena",eroski:"Eroski",dia:"DIA",lidl:"Lidl"};
+const STORE_COLORS={masymas:"#d52b37",bm:"#66a637",lidl:'#ffcc00',mercadona:'#29975b',carrefour:'#2388dc',alcampo:'#e15150',consum:'#ef9639',lasirena:'#42b9ca',eroski:'#a968bd',dia:'#e2608c'};
 
 class PurchaseSession extends ListSettingsSession {
   constructor(getHass,onChange){super(getHass,onChange,'improved_shopping_list/receipts/');this.receipts=[];this.shops=[];this.ticketAccounts={};}

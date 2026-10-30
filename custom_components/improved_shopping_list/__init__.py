@@ -13,6 +13,7 @@ from .catalog import Catalog
 from .ean_links import EANLinks
 from .catalog_sources import CatalogSources
 from .mercadona_catalog import MercadonaCatalog
+from .public_catalogs import CatalogDiscovery, PublicCatalogSource
 from .activity import ActivityLog
 from .community import CommunityLibrary
 from .community_sync import CommunitySync
@@ -161,6 +162,17 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         mercadona_catalog=MercadonaCatalog(hass,catalog,ean_links,hass.data[DOMAIN]["option_lookup"],activity)
         await mercadona_catalog.async_load()
         hass.data[DOMAIN]["mercadona_catalog"]=mercadona_catalog
+        discovery=CatalogDiscovery(hass,catalog,ean_links,hass.data[DOMAIN]["option_lookup"])
+        await discovery.async_load()
+        public_catalogs={}
+        for store in ("masymas","bm","consum"):
+            source=PublicCatalogSource(hass,catalog,ean_links,hass.data[DOMAIN]["option_lookup"],activity,store,discovery)
+            await source.async_load()
+            public_catalogs[store]=source
+        discovery.managers={"alcampo":sources,"mercadona":mercadona_catalog,**public_catalogs}
+        readers.lookup.catalog_discovery=discovery
+        hass.data[DOMAIN]["public_catalogs"]=public_catalogs
+        hass.data[DOMAIN]["catalog_discovery"]=discovery
         async_register_commands(hass)
     return True
 
@@ -185,6 +197,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.data[DOMAIN]["ean_links"].start()
     hass.data[DOMAIN]["catalog_sources"].start()
     hass.data[DOMAIN]["mercadona_catalog"].start()
+    for source in hass.data[DOMAIN]["public_catalogs"].values():source.start()
     hass.data[DOMAIN]["price_manager"].start()
     hass.data[DOMAIN]["alcampo"].start()
     hass.data[DOMAIN]["entity_data"].start()
@@ -223,6 +236,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.data[DOMAIN]["active"] = False
     await hass.data[DOMAIN]["catalog_sources"].async_stop()
     await hass.data[DOMAIN]["mercadona_catalog"].async_stop()
+    for source in hass.data[DOMAIN]["public_catalogs"].values():await source.async_stop()
     hass.data[DOMAIN]["option_lookup"].close()
     hass.data[DOMAIN]["lidl_catalog"].close()
     await hass.data[DOMAIN]["purchase_detection"].async_stop()

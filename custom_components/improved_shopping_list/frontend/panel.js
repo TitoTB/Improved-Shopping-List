@@ -10,6 +10,7 @@ import { ReadersSession } from "./readers-client.js?v=0.60.0";
 
 const LOGO_URL = new URL("logo.png", import.meta.url).href;
 const STORE_LOGOS = {
+  masymas:new URL("masymas.png",import.meta.url).href,bm:new URL("bm.png",import.meta.url).href,
   elcorteingles:"https://img.samsungapps.com/productNew/000005314762/SPA/IconImage_20241028224125253_NEW_WAP_ICON_512_512.png",
   dia:new URL("dia.png", import.meta.url).href,
   eroski:new URL("eroski.svg", import.meta.url).href,
@@ -19,7 +20,7 @@ const STORE_LOGOS = {
   lidl:"https://logos-world.net/wp-content/uploads/2020/12/Lidl-Emblem.png",carrefour:"https://images.seeklogo.com/logo-png/31/2/carrefour-logo-png_seeklogo-318190.png",
   alcampo:"https://almeria.online/wp-content/uploads/2024/09/alcampo-logo.png",
 };
-const STORE_NAMES = {elcorteingles:"El Corte Inglés",mercadona:"Mercadona",carrefour:"Carrefour",alcampo:"Alcampo",consum:"Consum",lasirena:"La Sirena",eroski:"Eroski",dia:"DIA",lidl:"Lidl"};
+const STORE_NAMES = {masymas:"Masymas",bm:"BM",elcorteingles:"El Corte Inglés",mercadona:"Mercadona",carrefour:"Carrefour",alcampo:"Alcampo",consum:"Consum",lasirena:"La Sirena",eroski:"Eroski",dia:"DIA",lidl:"Lidl"};
 const searchText = value => normalizedName(value).normalize("NFD").replace(/\p{M}/gu, "");
 class ImprovedShoppingListPanel extends HTMLElement {
   constructor() {

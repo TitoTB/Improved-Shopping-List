@@ -21,3 +21,14 @@ Catálogo → Productos → Agrupar por tienda incluye las opciones de compra ac
 En esa agrupación, el precio del bloque de producto corresponde únicamente a la tienda de su grupo. Si no tiene un precio registrado en esa tienda, no aparece el badge. Fuera de la agrupación por tienda se conserva la prioridad de la tienda favorita.
 
 Al recuperar manualmente una URL en Alternativas, si la web devuelve otro EAN válido, sus datos se incorporan a una alternativa independiente. Se conserva el envase original; si tenía guardado ese enlace incorrecto, se desvincula de él. Repetir la consulta reutiliza la alternativa encontrada, sin duplicarla. Los cambios se guardan al pulsar Guardar producto. Las consultas automáticas siguen exigiendo coincidencia exacta de EAN.
+
+
+## Masymas, BM y Consum
+
+Cada catálogo está desactivado por defecto en Ajustes → Tiendas → Catálogos. Al activarlo se completan campos vacíos de productos que ya tienen EAN; nunca se crean productos ajenos al catálogo. El engranaje permite activar «Mostrar tienda en el catálogo» (desactivado por defecto): las alternativas y precios verificados se conservan para poder mostrarlos después sin repetir consultas.
+
+Las búsquedas respetan este orden: coincidencias del diccionario por EAN, búsqueda directa por EAN en Masymas y búsquedas por nombres comerciales de alternativas ya vinculadas para BM y Consum. Estas últimas solo aceptan resultados cuyo EAN coincida exactamente. No se usan nombres genéricos del catálogo como sustituto de una identificación comercial ni se asocian productos por parecido. Si falta el nombre comercial o no hay coincidencia, se puede introducir la URL oficial en Alternativas y recuperar sus datos manualmente. Los códigos escaneados consultan los catálogos activos antes de Open Food Facts; activar un catálogo no asocia por sí solo un escaneo a un producto.
+
+El diccionario ean-links-v5.csv añade columnas Masymas, BM y Consum; incluye únicamente las URL que se hayan verificado. Las coincidencias encontradas por cada instancia se conservan en su caché local, sin publicarse automáticamente en GitHub. Una URL evita repetir la búsqueda, pero recuperar información puede requerir consultar la ficha. Las búsquedas sin resultado se conservan un día; se permiten como máximo dos consultas de nombre por tienda y EAN en cada revisión. Los datos positivos se reutilizan hasta treinta días. Se esperan veinte segundos entre peticiones a la misma tienda, también en consultas manuales y después de un reinicio, y los bloqueos HTTP 403/429/503 detienen temporalmente la fuente.
+
+El popup muestra progreso e incidencias y el resumen se registra en Logs → Tiendas. Desactivar una fuente detiene su trabajo; conserva lo ya guardado. No se requiere cuenta de esas tiendas ni dependencias adicionales.

@@ -10,8 +10,8 @@ import { imageSource, normalizedName, productNameKey, cachedProductPrice, storeP
 export { imageSource, normalizedName, productNameKey, cachedProductPrice };
 
 const MONTHS = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
-const STORE_NAMES = {elcorteingles:"El Corte Inglés",mercadona:"Mercadona",carrefour:"Carrefour",alcampo:"Alcampo",consum:"Consum",lasirena:"La Sirena",eroski:"Eroski",dia:"DIA",lidl:"Lidl"};
-const storeLogo = store => ({elcorteingles:"https://img.samsungapps.com/productNew/000005314762/SPA/IconImage_20241028224125253_NEW_WAP_ICON_512_512.png",lidl:"https://logos-world.net/wp-content/uploads/2020/12/Lidl-Emblem.png",carrefour:"https://images.seeklogo.com/logo-png/31/2/carrefour-logo-png_seeklogo-318190.png",alcampo:"https://almeria.online/wp-content/uploads/2024/09/alcampo-logo.png"}[store] ?? new URL(`${store}.${store === "mercadona" || store === "dia" ? "png" : store === "eroski" ? "svg" : "jpg"}`,import.meta.url).href);
+const STORE_NAMES = {masymas:"Masymas",bm:"BM",elcorteingles:"El Corte Inglés",mercadona:"Mercadona",carrefour:"Carrefour",alcampo:"Alcampo",consum:"Consum",lasirena:"La Sirena",eroski:"Eroski",dia:"DIA",lidl:"Lidl"};
+const storeLogo = store => ({elcorteingles:"https://img.samsungapps.com/productNew/000005314762/SPA/IconImage_20241028224125253_NEW_WAP_ICON_512_512.png",lidl:"https://logos-world.net/wp-content/uploads/2020/12/Lidl-Emblem.png",carrefour:"https://images.seeklogo.com/logo-png/31/2/carrefour-logo-png_seeklogo-318190.png",alcampo:"https://almeria.online/wp-content/uploads/2024/09/alcampo-logo.png"}[store] ?? new URL(`${store}.${["mercadona","dia","masymas","bm"].includes(store) ? "png" : store === "eroski" ? "svg" : "jpg"}`,import.meta.url).href);
 
 function element(tag, className, text) {
   const node = document.createElement(tag);

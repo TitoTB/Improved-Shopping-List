@@ -193,3 +193,12 @@ async def test_offline_cache_keeps_links_and_unknown_or_failed_eans_do_not_loop(
         assert not manager._pending()
     finally:
         await manager.async_stop()
+
+
+def test_v5_adds_public_shop_columns_and_verified_exact_match():
+    root=Path(__file__).resolve().parents[1]
+    old=parse_dictionary((root/'data/ean-links-v4.csv').read_bytes())
+    raw=(root/'data/ean-links-v5.csv').read_bytes();current=parse_dictionary(raw)
+    assert raw.splitlines()[0]==b'EAN,Carrefour,Alcampo,Lidl,Mercadona,Masymas,BM,Consum'
+    assert {key:value for key,value in current.items() if not key.startswith(('masymas:','bm:','consum:'))}==old
+    assert all(store+':'+gtin('8410199023094') in current for store in ('masymas','bm','consum'))

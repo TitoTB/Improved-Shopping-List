@@ -1,14 +1,15 @@
 """Opt-in public EAN search; verified products, no browser session or credentials."""
-import asyncio
 from copy import deepcopy
 import json
 import math
 import re
 import time
+from html import unescape
+from urllib.error import HTTPError, URLError
+from urllib.request import HTTPRedirectHandler, Request, build_opener
 from urllib.parse import urlencode, urljoin
 
 import aiohttp
-from homeassistant.helpers.aiohttp_client import async_create_clientsession
 from homeassistant.helpers.event import async_call_later
 from homeassistant.helpers.storage import Store
 
@@ -78,33 +79,61 @@ def product_data(payload, link, expected_ean=""):
     return result
 
 
+class _NoRedirect(HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
+def _request_json(url):
+    """Run only in the executor. urllib succeeds where aiohttp receives Akamai 403."""
+    request = Request(url, headers={
+        "Accept":"application/json, text/plain, */*", "response_type":"json",
+        "Accept-Language":"es-ES,es;q=0.9", "User-Agent":"Mozilla/5.0",
+        "Referer":BASE+"/supermercado/",
+    })
+    started = time.monotonic()
+    try:
+        try:
+            response = build_opener(_NoRedirect()).open(request, timeout=25)
+        except HTTPError as err:
+            response = err
+        with response:
+            status, headers = response.status, response.headers
+            body = response.read(2*1024*1024+1)
+        diagnostics = {"http_status":status, "endpoint":url.split("?",1)[0],
+            "stage":"search" if "/buscar/" in url else "product", "transport":"urllib",
+            "server":str(headers.get("Server", ""))[:100],
+            "content_type":str(headers.get("Content-Type", ""))[:100],
+            "elapsed_ms":round((time.monotonic()-started)*1000)}
+        if status != 200:
+            retry = headers.get("Retry-After", "")
+            reference = re.search(r"Reference\s*#?([a-zA-Z0-9.\-]+)", unescape(body[:4096].decode("utf-8","replace")))
+            if reference:
+                diagnostics["block_reference"] = reference[1][:150]
+            raise PriceError(f"El Corte Inglés ha rechazado la consulta (HTTP {status}).",
+                **diagnostics, response_class="access_denied" if status == 403 else "http_error",
+                retry_seconds=min(DAY,max(900,int(retry) if retry.isdigit() else 900)) if status in (403,429,503) else 0)
+        if len(body)>2*1024*1024:
+            raise PriceError("La respuesta de El Corte Inglés supera el tamaño permitido.", **diagnostics, response_class="response_too_large")
+        try:
+            result = json.loads(body)
+        except (ValueError,UnicodeError) as err:
+            raise PriceError("El Corte Inglés no ha devuelto datos reconocidos.", **diagnostics, response_class="invalid_response") from err
+        if not isinstance(result,dict):
+            raise PriceError("El Corte Inglés no ha devuelto datos reconocidos.", **diagnostics, response_class="invalid_response")
+        return result
+    except URLError as err:
+        raise PriceError("No se ha podido conectar con El Corte Inglés.", endpoint=url.split("?",1)[0],
+            transport="urllib", response_class="connection_error") from err
+
+
 class ECIClient:
     def __init__(self, hass):
         self.hass = hass
 
     async def _json(self, url, before_request):
         await before_request()
-        session = async_create_clientsession(self.hass, auto_cleanup=False, cookie_jar=aiohttp.DummyCookieJar())
-        try:
-            async with session.get(url, allow_redirects=False, timeout=aiohttp.ClientTimeout(total=25),
-                headers={"Accept":"application/json, text/plain, */*", "response_type":"json", "Accept-Language":"es-ES,es;q=0.9",
-                         "User-Agent":"Mozilla/5.0", "Referer":BASE+"/supermercado/"}) as response:
-                if response.status != 200:
-                    retry = response.headers.get("Retry-After", "")
-                    raise PriceError(f"El Corte Inglés ha rechazado la consulta (HTTP {response.status}).", http_status=response.status,
-                        endpoint=url.split("?",1)[0], response_class="access_denied" if response.status == 403 else "http_error",
-                        retry_seconds=min(DAY,max(900,int(retry) if retry.isdigit() else 900)) if response.status in (403,429,503) else 0)
-                body = bytearray()
-                async for chunk in response.content.iter_chunked(65536):
-                    body.extend(chunk)
-                    if len(body) > 2*1024*1024:
-                        raise PriceError("La respuesta de El Corte Inglés supera el tamaño permitido.")
-                result = json.loads(body)
-                if not isinstance(result, dict):
-                    raise PriceError("El Corte Inglés no ha devuelto datos reconocidos.")
-                return result
-        finally:
-            session.detach()
+        return await self.hass.async_add_executor_job(_request_json, url)
 
     async def retrieve(self, url, before_request, expected_ean=""):
         link = normalize_link(STORE,url)
@@ -169,9 +198,10 @@ class ECICatalog(CatalogSources):
                 except (ValueError,OSError,TimeoutError,aiohttp.ClientError) as err:
                     diagnostics = deepcopy(getattr(err,"diagnostics",{}))
                     self._status["errors"].append({"product":name,"ean":code,"message":str(err)[:500],"diagnostics":diagnostics})
-                    self._data["attempts"][code] = {"at":time.time(),"success":False}
                     if retry:=diagnostics.get("retry_seconds",0):
                         self._data["retry_at"] = time.time()+retry
+                    else:
+                        self._data["attempts"][code] = {"at":time.time(),"success":False}
                 self._status["processed"] += 1
                 await self._store.async_save(deepcopy(self._data)); self._notify()
                 if self._data["retry_at"] > time.time():
@@ -183,4 +213,4 @@ class ECICatalog(CatalogSources):
                 self.activity.record("stores.catalog","El Corte Inglés: revisión del catálogo finalizada",source="automatic",
                     diagnostics={**deepcopy(self._status),"interval_seconds":INTERVAL,"retry_at":self._data["retry_at"]})
             if self._active and self._data["enabled"]:
-                self._timer = async_call_later(self.hass,max(3600,self._data["retry_at"]-time.time()),self._launch)
+                self._timer = async_call_later(self.hass,max(1,self._data["retry_at"]-time.time()) if self._data["retry_at"]>time.time() else 3600,self._launch)

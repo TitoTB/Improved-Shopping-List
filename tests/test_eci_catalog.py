@@ -2,6 +2,8 @@
 from copy import deepcopy
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
+from io import BytesIO
+import json
 import time
 
 import pytest
@@ -39,34 +41,57 @@ def test_product_parser_uses_single_item_price_and_exact_ean_not_conditional_pro
     with pytest.raises(ValueError):normalize_link(STORE,'B001018009401193')
 
 
-async def test_public_search_ignores_ads_then_verifies_product_without_cookies(hass,aioclient_mock):
+@pytest.fixture
+def eci_http(monkeypatch):
+    class Response(BytesIO):
+        def __init__(self, body, status=200):
+            super().__init__(body)
+            self.status=status
+            self.headers={"Content-Type":"application/json", "Server":"AkamaiGHost"}
+    class HTTP:
+        def __init__(self):self.responses={};self.requests=[]
+        @property
+        def call_count(self):return len(self.requests)
+        def get(self,url,*,json=None,status=200):self.responses[url]=(json,status)
+        def open(self,request,timeout):
+            self.requests.append(request)
+            body,status=self.responses[request.full_url]
+            return Response(json.dumps(body).encode() if status==200 else b"Access Denied Reference&#32;#18.abc.123",status)
+    transport=HTTP()
+    monkeypatch.setattr(module,"build_opener",lambda *handlers:transport)
+    return transport
+
+
+async def test_public_search_ignores_ads_then_verifies_product_without_cookies(hass,eci_http):
     search=BASE+'/supermercado/buscar/?question='+EAN+'&catalog=supermercado&stype=text_box'
-    aioclient_mock.get(search,json={'products':[{'id':'advertisement','url':'https://example.org'},{'id':'B001018009401193','url':PATH}]})
-    aioclient_mock.get(WEB,json=payload())
+    eci_http.get(search,json={'products':[{'id':'advertisement','url':'https://example.org'},{'id':'B001018009401193','url':PATH}]})
+    eci_http.get(WEB,json=payload())
     before=AsyncMock();data=await ECIClient(hass).search(EAN,before)
-    assert before.await_count==2 and data['ean']==EAN and aioclient_mock.call_count==2
-    for request in aioclient_mock.mock_calls:
-        assert request[3]['response_type']=='json'
-        assert 'Cookie' not in request[3] and 'Authorization' not in request[3]
+    assert before.await_count==2 and data['ean']==EAN and eci_http.call_count==2
+    for request in eci_http.requests:
+        assert request.get_header("Response_type")=="json"
+        assert not request.has_header("Cookie") and not request.has_header("Authorization")
 
 
 @pytest.mark.parametrize("rows", [[], [
     {"id":"B001018009401193","url":PATH},
     {"id":"B001018009401194","url":PATH.replace("1193", "1194")},
 ]])
-async def test_no_result_or_ambiguous_results_never_create_an_equivalence(hass,aioclient_mock,rows):
+async def test_no_result_or_ambiguous_results_never_create_an_equivalence(hass,eci_http,rows):
     search=BASE+'/supermercado/buscar/?question='+EAN+'&catalog=supermercado&stype=text_box'
-    aioclient_mock.get(search,json={'products':rows})
+    eci_http.get(search,json={'products':rows})
     assert await ECIClient(hass).search(EAN,AsyncMock()) is None
-    assert aioclient_mock.call_count==1
+    assert eci_http.call_count==1
 
 
-async def test_blocked_search_requests_a_pause_and_does_not_follow_other_endpoints(hass,aioclient_mock):
+async def test_blocked_search_requests_a_pause_and_does_not_follow_other_endpoints(hass,eci_http):
     search=BASE+'/supermercado/buscar/?question='+EAN+'&catalog=supermercado&stype=text_box'
-    aioclient_mock.get(search,status=403)
+    eci_http.get(search,status=403)
     with pytest.raises(PriceError) as err:await ECIClient(hass).search(EAN,AsyncMock())
     assert err.value.diagnostics['http_status']==403 and err.value.diagnostics['retry_seconds']>=900
-    assert aioclient_mock.call_count==1
+    assert err.value.diagnostics['transport']=='urllib' and err.value.diagnostics['stage']=='search'
+    assert err.value.diagnostics['server']=='AkamaiGHost' and err.value.diagnostics['block_reference']=='18.abc.123'
+    assert eci_http.call_count==1
 
 
 async def test_consent_cache_spacing_new_eans_and_manual_data_survive(hass,monkeypatch):
@@ -112,3 +137,21 @@ async def test_opt_in_is_admin_only_and_independent_of_alcampo(hass,hass_ws_clie
     result=await client.receive_json();assert result['success'] and result['result']['enabled']
     assert not hass.data[DOMAIN]['catalog_sources'].snapshot['enabled']
     assert hass.data[DOMAIN]['eci_catalog'].snapshot['enabled']
+
+
+async def test_blocked_ean_retries_after_pause_instead_of_being_skipped_for_a_day(hass,monkeypatch):
+    catalog=Catalog(hass);await catalog.async_load()
+    await catalog.async_save_product({"name":"Aceitunas", "barcodes":[EAN]})
+    clock=[time.time()]
+    monkeypatch.setattr(module,"time",SimpleNamespace(time=lambda:clock[0]))
+    source=ECICatalog(hass,catalog,SimpleNamespace(_before_request=AsyncMock()),None)
+    await source.async_load();await source.async_set_enabled(True);source._active=True
+    source.client.search=AsyncMock(side_effect=[PriceError("Bloqueo",http_status=403,retry_seconds=900),None])
+    try:
+        await source.async_run()
+        assert source.snapshot["phase"]=="paused" and gtin(EAN) not in source._data["attempts"]
+        await source.async_run();assert source.client.search.await_count==1
+        clock[0]+=901
+        await source.async_run();assert source.client.search.await_count==2
+        assert source.snapshot["phase"]=="finished" and not source._data["attempts"][gtin(EAN)]["success"]
+    finally:await source.async_stop()

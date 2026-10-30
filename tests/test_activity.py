@@ -199,3 +199,48 @@ async def test_durable_summary_is_idempotent_after_failed_save_and_restart(activ
     await restored.async_stop()
 
 
+
+
+async def test_purchase_option_logs_name_added_fields_and_persist_details(hass,activity_env):
+    env=activity_env
+    reference={"id":"ean","store":"","ean":"8410199023094","name":"Toallitas","brand":"","content_quantity":None,"content_unit":""}
+    product={"id":"p","name":"Toallitas","category":"","commercial_references":[reference]}
+    env.catalog.snapshot["products"].append(product);env.catalog.notify()
+    reference.update(brand="Marca",content_quantity=80,content_unit="uds")
+    env.catalog.notify()
+    event=env.activity.snapshot["entries"][0]
+    assert event["changed_fields"]==["commercial_references"]
+    change=event["reference_changes"][0]
+    assert change["ean"]=="8410199023094" and change["store"]==""
+    assert change["added_fields"]==["brand","content_quantity","content_unit"]
+    assert change["updated_fields"]==[] and change["removed_fields"]==[]
+    await env.activity.async_stop()
+    restored=ActivityLog(hass,env.catalog,env.settings,env.readers);await restored.async_load()
+    assert restored.snapshot["entries"][0]["reference_changes"]==event["reference_changes"]
+
+
+async def test_reference_price_updates_ignore_check_dates_and_reordering(activity_env):
+    env=activity_env
+    first={"id":"a","store":"alcampo","ean":"8410199023094","name":"Patatas","brand":"Marca",
+        "last_price":{"price":2,"currency":"EUR","checked_at":1}}
+    second={"id":"b","store":"carrefour","ean":"8410199023094","name":"Patatas"}
+    product={"id":"p","name":"Patatas","category":"","commercial_references":[first,second]}
+    env.catalog.snapshot["products"].append(product);env.catalog.notify();count=len(env.activity.snapshot["entries"])
+    first["last_price"]["checked_at"]=2
+    product["commercial_references"].reverse();env.catalog.notify()
+    assert len(env.activity.snapshot["entries"])==count
+    first["last_price"]["price"]=2.5;del first["brand"];env.catalog.notify()
+    change=env.activity.snapshot["entries"][0]["reference_changes"][0]
+    assert change["store"]=="alcampo" and change["updated_fields"]==["last_price"]
+    assert change["removed_fields"]==["brand"] and not change["added_fields"]
+
+
+async def test_added_and_removed_shop_alternatives_remain_distinct_for_same_ean(activity_env):
+    env=activity_env
+    product={"id":"p","name":"Patatas","category":"","commercial_references":[
+        {"id":"a","store":"alcampo","ean":"8410199023094","name":"Patatas"}]}
+    env.catalog.snapshot["products"].append(product);env.catalog.notify()
+    product["commercial_references"]=[{"id":"b","store":"elcorteingles","ean":"8410199023094","name":"Patatas","brand":"Marca"}]
+    env.catalog.notify();changes=env.activity.snapshot["entries"][0]["reference_changes"]
+    assert [(c["store"],c["action"]) for c in changes]==[("alcampo","removed"),("elcorteingles","added")]
+    assert "brand" in changes[1]["added_fields"]

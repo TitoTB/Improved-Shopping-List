@@ -2,7 +2,15 @@ import { ListSettingsSession } from "./list-settings-client.js?v=0.57.0";
 
 const SOURCES = {manual:"Usuario / API",automatic:"Automático · Home Assistant",reader:"Lector",integration:"Integración",external:"Proveedor externo · origen desconocido",home_assistant:"Home Assistant · origen desconocido"};
 const GROUPS = {notification:"Notificaciones",stock:"Stock",list:"Listas",gateway:"Listas pasarela",catalog:"Catálogo y categorías",reader:"Lectores",settings:"Ajustes",recurrence:"Recurrencias",stores:"Tiendas"};
-const FIELDS = {ingredients:"ingredientes",recipe_ids:"recetas asociadas",product_ids:"productos asociados",season_months:"meses de temporada",name:"nombre",category:"categoría",icon:"icono",color:"color",image_url:"imagen",price:"precio",currency:"moneda",tags:"etiquetas",notes:"notas",barcode:"código",barcodes:"códigos de barras",nfc_tags:"etiquetas NFC",reader_actions:"acciones de lectores",recurrence:"recurrencia",price_updated_at:"fecha del precio"};
+const FIELDS = {commercial_references:"alternativas de compra",ingredients:"ingredientes",recipe_ids:"recetas asociadas",product_ids:"productos asociados",season_months:"meses de temporada",name:"nombre",category:"categoría",icon:"icono",color:"color",image_url:"imagen",price:"precio",currency:"moneda",tags:"etiquetas",notes:"notas",barcode:"código",barcodes:"códigos de barras",nfc_tags:"etiquetas NFC",reader_actions:"acciones de lectores",recurrence:"recurrencia",price_updated_at:"fecha del precio"};
+const REFERENCE_FIELDS={store:"tienda",name:"nombre comercial",ean:"EAN",reference_id:"referencia de la tienda",ticket_reference_id:"referencia del ticket",url:"URL",brand:"marca",image_url:"imagen",content_quantity:"contenido por envase",content_unit:"unidades",last_price:"precio",measure_price:"precio por unidad de medida",nutriscore:"Nutri-Score",active:"disponibilidad de la alternativa"};
+const STORES={alcampo:"Alcampo",elcorteingles:"El Corte Inglés",carrefour:"Carrefour",lidl:"Lidl",mercadona:"Mercadona",dia:"DIA",consum:"Consum",eroski:"Eroski",lasirena:"La Sirena"};
+const referenceDetail=change=>{
+  const identity=change.ean?`EAN ${change.ean}`:change.name||change.reference_id||'Referencia';
+  const label=[STORES[change.store]??change.store,identity].filter(Boolean).join(' · ');
+  const fields=[['added_fields','Añadidos'],['updated_fields','Actualizados'],['removed_fields','Eliminados']].flatMap(([key,title])=>change[key]?.length?[`${title}: ${change[key].map(field=>REFERENCE_FIELDS[field]??field).join(', ')}`]:[]);
+  return [change.action==='added'&&change.store?`Nueva alternativa: ${label}`:change.action==='removed'&&change.store?`Alternativa retirada: ${label}`:label,...fields].join(' · ');
+};
 const node = (tag, text, className) => { const value=document.createElement(tag); if(text!==undefined)value.textContent=text; if(className)value.className=className;return value; };
 
 class LogsSession extends ListSettingsSession {
@@ -80,7 +88,7 @@ class ImprovedShoppingLogs extends HTMLElement {
     const key=value=>String(value??"").normalize("NFD").replace(/\p{M}/gu,"").toLocaleLowerCase("es");
     const search=key(root.querySelector("#search").value.trim());
     const kind=root.querySelector("#kind").value,source=root.querySelector("#source").value;
-    const entries=session.entries.filter(entry=>(!kind||entry.kind.startsWith(kind+"."))&&(!source||entry.source===source)&&(!search||key([entry.message,entry.product,entry.category,entry.reader,entry.list_name,entry.list_entity,entry.code,entry.previous_name,JSON.stringify(entry.diagnostics??{})].join(" ")).includes(search)));
+    const entries=session.entries.filter(entry=>(!kind||entry.kind.startsWith(kind+"."))&&(!source||entry.source===source)&&(!search||key([entry.message,entry.product,entry.category,entry.reader,entry.list_name,entry.list_entity,entry.code,entry.previous_name,...(entry.reference_changes??[]).map(referenceDetail),JSON.stringify(entry.diagnostics??{})].join(" ")).includes(search)));
     const content=entries.slice(0,this._visible).map(entry=>{
       const row=node("li");row.dataset.entryId=entry.id;
       const badge=node("span",undefined,"event-icon"),icon=node("ha-icon");
@@ -93,7 +101,9 @@ class ImprovedShoppingLogs extends HTMLElement {
       if(entry.reader)meta.append(node("span",`Lector: ${entry.reader}`));
       body.append(meta);
       if(entry.previous_name)body.append(node("p",`Nombre anterior: ${entry.previous_name}`,"detail"));
-      if(entry.changed_fields?.length)body.append(node("p",`Campos: ${entry.changed_fields.map(field=>FIELDS[field]??field).join(", ")}`,"detail"));
+      const fields=(entry.changed_fields??[]).filter(field=>field!=='commercial_references'||!entry.reference_changes?.length);
+      if(fields.length)body.append(node("p",`Campos: ${fields.map(field=>FIELDS[field]??field).join(", ")}`,"detail"));
+      for(const change of entry.reference_changes??[])body.append(node("p",referenceDetail(change),"detail reference-change"));
       if(entry.code)body.append(node("p",`Código: ${entry.code}`,"detail"));
       if(entry.diagnostics && typeof entry.diagnostics === "object") {
         const details=node("details",undefined,"technical");

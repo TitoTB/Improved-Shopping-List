@@ -4810,6 +4810,7 @@ async function main() {
         {id:'auto',time:'2026-10-20T10:00:00Z',kind:'list.added',source:'automatic',message:'Añadido a la lista: Seitán',product:'Seitán',list_name:'La compra'},
         {id:'scan',time:'2026-10-20T09:00:00Z',kind:'reader.scan',source:'reader',message:'Código desconocido en Sugerencias',reader:'Cocina',code:'001234'},
         {id:'category',time:'2026-10-20T08:00:00Z',kind:'catalog.categories.updated',source:'integration',message:'Categoría modificada: <img src=x onerror=alert(1)>',category:'Despensa',changed_fields:['color','icon']},
+        {id:'metadata',time:'2026-10-20T07:00:00Z',kind:'catalog.products.updated',source:'integration',message:'Producto modificado: Toallitas',product:'Toallitas',changed_fields:['commercial_references'],reference_changes:[{id:'r',store:'alcampo',ean:'8410199023094',action:'updated',added_fields:['brand','content_quantity','content_unit'],updated_fields:['last_price'],removed_fields:[]}]},
       ];
     });
     await page.getByRole('button',{name:'Ajustes',exact:true}).click();
@@ -4837,6 +4838,11 @@ async function main() {
     await logs.getByLabel('Origen',{exact:true}).selectOption('');
     await logs.getByLabel('Actividad',{exact:true}).selectOption('catalog');
     await logs.getByText('Campos: color, icono',{exact:true}).waitFor();
+    await logs.getByText('Alcampo · EAN 8410199023094 · Añadidos: marca, contenido por envase, unidades · Actualizados: precio',{exact:true}).waitFor();
+    assert.equal(await logs.getByText('Campos: commercial_references',{exact:true}).count(),0);
+    await logs.getByLabel('Buscar en el historial',{exact:true}).fill('marca');
+    assert.equal(await logs.locator('#entries > li').count(),1);
+    await logs.getByLabel('Buscar en el historial',{exact:true}).fill('');
     await logs.getByLabel('Actividad',{exact:true}).selectOption('');
     await page.evaluate(()=>{window.logFixture.entries.unshift({id:'new',time:new Date().toISOString(),kind:'list.removed',source:'manual',message:'Eliminado de la lista: Cacao'});window.emitLogs();});
     await logs.getByText('Eliminado de la lista: Cacao',{exact:true}).waitFor();

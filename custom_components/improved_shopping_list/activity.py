@@ -12,6 +12,7 @@ from homeassistant.core import Context, callback
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.storage import Store
 
+from .activity_references import reference_changes
 from .catalog import normalized_name
 from .const import DOMAIN
 from .todo_names import item_name
@@ -221,13 +222,20 @@ class ActivityLog:
                 before, after = old.get(uid), new.get(uid)
                 ignored = {"id", "revision", "updated_at", "created_at", "product_count", "name_en", "price_updated_at", "recurrence_started_at"}
                 changed = [key for key in set(before or {}) | set(after or {}) if key not in ignored and (before or {}).get(key) != (after or {}).get(key)]
+                details={}
+                if field=="products" and before and after and "commercial_references" in changed:
+                    references=reference_changes(before.get("commercial_references",[]),after.get("commercial_references",[]))
+                    if references:
+                        details["reference_changes"]=references
+                    else:
+                        changed.remove("commercial_references")
                 if before and after and not changed:
                     continue
                 action, verb = ("created", "añadido" if field == "products" else "añadida") if before is None else ("deleted", "eliminado" if field == "products" else "eliminada") if after is None else ("updated", "modificado" if field == "products" else "modificada")
                 item = after or before
                 self.record(f"catalog.{field}.{action}", f"{label} {verb}: {item['name']}",
                             product=item["name"] if field == "products" else "", category=item.get("category", "") if field == "products" else item["name"],
-                            changed_fields=sorted(changed), previous_name=before.get("name") if before and after and before["name"] != after["name"] else "")
+                            changed_fields=sorted(changed), previous_name=before.get("name") if before and after and before["name"] != after["name"] else "", **details)
         self._catalog_state = deepcopy(current)
 
     def _reader_config(self):

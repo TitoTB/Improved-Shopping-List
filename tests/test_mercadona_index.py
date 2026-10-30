@@ -81,7 +81,7 @@ async def test_full_index_matches_only_user_eans_and_new_eans_are_processed_with
     try:
         await source.async_run()
         assert len(catalog.products)==1 and lookup.retrieve.await_count==1
-        option=catalog.products[0]['commercial_references'][0]
+        option=next(ref for ref in catalog.products[0]['commercial_references'] if ref['store']=='mercadona')
         assert option['store']=='mercadona' and option['url']==WEB and option['last_price']['price']==1.45
         assert 'mercadona' not in links.enabled_stores
         await catalog.async_save_product({'name':'Patatas','barcodes':[OTHER]})

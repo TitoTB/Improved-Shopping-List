@@ -10,7 +10,7 @@ import pytest
 from custom_components.improved_shopping_list.catalog import Catalog
 from custom_components.improved_shopping_list.ean_links import EANLinks
 from custom_components.improved_shopping_list.option_lookup import OptionLookup
-from custom_components.improved_shopping_list.product_lookup import ProductLookup
+from custom_components.improved_shopping_list.product_lookup import ProductLookup, FIELDS
 from custom_components.improved_shopping_list.product_references import gtin
 from custom_components.improved_shopping_list.public_catalogs import CatalogDiscovery, PublicCatalogSource, PUBLIC_SHOPS, RequestGate, shop_product, commercial_terms
 from custom_components.improved_shopping_list import public_catalogs as module
@@ -170,7 +170,7 @@ async def test_http_gate_keeps_twenty_second_spacing_after_reload(hass,monkeypat
 
 async def test_enabling_catalog_rechecks_a_previously_cached_general_hint(hass,monkeypatch):
     lookup=ProductLookup(hass)
-    lookup._cache[CODE]={'expires':time.time()+86400,'fields':__import__('custom_components.improved_shopping_list.product_lookup',fromlist=['FIELDS']).FIELDS,'result':{'status':'found','name':'Nombre previo'}}
+    lookup._cache[CODE]={'expires':time.time()+86400,'fields':FIELDS,'result':{'status':'found','name':'Nombre previo'}}
     assert lookup.is_fresh(EAN)
     lookup.catalog_discovery=SimpleNamespace(fingerprint=lambda:'masymas',async_hint=AsyncMock(return_value={'status':'found','name':'Nombre comercial','source':'Masymas','ean':EAN,'url':URLS['masymas']}))
     assert not lookup.is_fresh(EAN)

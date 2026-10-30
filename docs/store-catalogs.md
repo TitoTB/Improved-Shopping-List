@@ -36,6 +36,8 @@ El popup muestra progreso e incidencias y el resumen se registra en Logs → Tie
 
 ## Recuperar información pendiente
 
+Las URL de La Sirena se pueden consultar desde «Recuperar datos» en las alternativas del producto y en esta revisión por lotes. Se utiliza su API pública para validar el EAN y recuperar marca, precio y formato. Un pack de 4 × 125 g representa 500 g de contenido total y cuatro unidades por pack. No requiere cuenta ni activa un barrido automático de La Sirena.
+
 En Catálogo → Pendiente → Productos pendientes de información, «Recuperar datos» inicia una revisión de las alternativas activas con URL de los productos de ese bloque. Los productos con al menos una alternativa completa quedan fuera del lote, igual que los que no tienen URL. Se fuerza la consulta de la ficha y se guardan los datos recuperados sin tener que abrir y guardar cada producto.
 
 El proceso espera veinte segundos entre peticiones, también cuando una ficha necesita consultas complementarias. Respeta las pausas de las tiendas y conserva los datos anteriores ante errores. El popup muestra porcentaje, alternativa actual y errores con el nombre del producto. Cerrar el popup o recargar no cancela el trabajo; volver a pulsar el botón muestra el lote en curso. La cola y la espera se conservan tras reiniciar Home Assistant. Los cambios concurrentes se incorporan desde la ficha actual, sin volver a crear productos eliminados ni recuperar alternativas desvinculadas durante el proceso. Si una URL devuelve otro EAN, se crea una alternativa independiente, como en la recuperación manual.

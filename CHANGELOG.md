@@ -1,7 +1,8 @@
 # Historial de cambios
 
-## Próxima versión
+## 0.62.0 — 2026-10-30
 
+- «Recuperar datos» admite fichas de La Sirena mediante su API pública: EAN verificado, marca, precio, contenido total del envase y número de unidades del pack. Se evita el EAN incorrecto de los datos estructurados HTML y se respetan las esperas y pausas ante bloqueos.
 - Se elimina el contador del bloque «Productos pendientes de información», conservando el botón «Recuperar datos».
 
 ## 0.61.0 — 2026-10-30

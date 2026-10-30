@@ -171,7 +171,7 @@ class ImprovedShoppingAnalytics extends HTMLElement {
       card.append(node('p','muted','Una unidad de referencia por producto: 1 unidad, 1 kg o 1 litro, según indica la tabla. Solo los productos con precio equivalente en todas estas tiendas. No es una lista de compra real.'));
       const shops=node('div','common-cards');for(const [index,shop] of result.totals.entries()){const block=node('div','common-shop');block.append(this._shopLabel(shop.store),node('strong',Math.abs(shop.total-result.totals[0].total)<.000001?'best':'',this._amount(shop.total,result.currency)));shops.append(block);}card.append(shops);container.append(card);
     }
-    const card=node('section','card'),scroll=node('div','scroll'),table=node('table');table.append(node('caption','','Precios del catálogo · '+result.currency));const stores=result.ranking.map(s=>s.store);
+    const card=node('section','card'),scroll=node('div','scroll'),table=node('table');table.append(node('caption','','Precios del catálogo · '+result.currency));const stores=result.ranking.filter(shop=>shop.known>0).map(shop=>shop.store);
     const head=node('tr');head.append(node('th','','Producto'));for(const store of stores){const th=node('th');th.append(this._shopLabel(store));head.append(th);}head.append(node('th','','Diferencia máxima'));const thead=node('thead');thead.append(head);table.append(thead);
     const body=node('tbody');
     for(const row of result.rows.slice(0,this._catalogLimit)){

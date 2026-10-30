@@ -12,34 +12,28 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.14'
-      - run: pip install 'httpx[http2]'
-      - name: Compare anonymous public HTTP clients
+      - name: Test ordinary anonymous session
         run: |
           python - <<'PY'
-          import ast,json,time,ssl,platform
-          from pathlib import Path
-          from urllib.request import HTTPRedirectHandler,Request,build_opener
-          from urllib.error import HTTPError,URLError
-          from html import unescape
-          import re,httpx
-          BASE='https://www.elcorteingles.es';DAY=86400
-          class PriceError(ValueError):
-              def __init__(self,message,**diagnostics):super().__init__(message);self.diagnostics=diagnostics
-          nodes=[n for n in ast.parse(Path('custom_components/improved_shopping_list/eci_catalog.py').read_text()).body if isinstance(n,(ast.ClassDef,ast.FunctionDef)) and n.name in ('_NoRedirect','_request_json')]
-          exec(compile(ast.Module(body=nodes,type_ignores=[]),'eci_catalog.py','exec'))
-          print(json.dumps({'python':platform.python_version(),'ssl':ssl.OPENSSL_VERSION}),flush=True)
-          url=BASE+'/supermercado/buscar/?question=8431876332216&catalog=supermercado&stype=text_box'
-          try:
-              data=_request_json(url);print(json.dumps({'transport':'urllib','status':200,'products':len(data.get('products',[]))}),flush=True)
-          except PriceError as e:print(json.dumps(e.diagnostics),flush=True)
-          time.sleep(20)
+          import json,time
+          from http.cookiejar import CookieJar
+          from urllib.request import Request,build_opener,HTTPCookieProcessor,HTTPRedirectHandler
+          from urllib.error import HTTPError
+          BASE='https://www.elcorteingles.es'
+          class NoRedirect(HTTPRedirectHandler):
+              def redirect_request(self,*args):return None
+          jar=CookieJar();opener=build_opener(NoRedirect(),HTTPCookieProcessor(jar))
           headers={'Accept':'application/json, text/plain, */*','response_type':'json','Accept-Language':'es-ES,es;q=0.9','User-Agent':'Mozilla/5.0','Referer':BASE+'/supermercado/'}
-          with httpx.Client(http2=True,headers=headers,timeout=25,follow_redirects=False) as c:
-              r=c.get(url);print(json.dumps({'transport':'httpx','protocol':r.http_version,'status':r.status_code,'type':r.headers.get('content-type'),'cookies':len(c.cookies)}),flush=True)
-              if r.status_code==403:
-                  time.sleep(20)
-                  r=c.get(BASE+'/supermercado/',headers={'Accept':'text/html'});print(json.dumps({'transport':'httpx','stage':'homepage','status':r.status_code,'cookies':len(c.cookies)}),flush=True)
-                  if r.status_code==200:
-                      time.sleep(20)
-                      r=c.get(url);print(json.dumps({'transport':'httpx','stage':'session_search','protocol':r.http_version,'status':r.status_code,'type':r.headers.get('content-type'),'cookies':len(c.cookies)}),flush=True)
+          urls=[BASE+'/supermercado/',BASE+'/supermercado/buscar/?question=8431876332216&catalog=supermercado&stype=text_box',BASE+'/supermercado/buscar/?question=8410199023094&catalog=supermercado&stype=text_box']
+          for i,url in enumerate(urls):
+              if i:time.sleep(20)
+              request=Request(url,headers={**headers,**({'Accept':'text/html'} if i==0 else {})})
+              try:r=opener.open(request,timeout=25)
+              except HTTPError as e:r=e
+              with r:
+                  body=r.read(2097153);result={'stage':['homepage','no_result','known_ean'][i],'status':r.status,'type':r.headers.get('Content-Type'),'cookies':len(jar)}
+              if r.status==200 and i:
+                  data=json.loads(body);result['products']=[{'id':p.get('id'),'url':p.get('url')} for p in data.get('products',[]) if isinstance(p,dict) and str(p.get('id','')).startswith('B')]
+              print(json.dumps(result),flush=True)
+              if r.status!=200:break
           PY

@@ -178,6 +178,9 @@ class OptionLookup:
         self._next = time.monotonic() + 5
 
     async def _page(self, store, link, before_request=None):
+        if store == "mercadona":
+            from .mercadona_catalog import retrieve
+            return await retrieve(self.hass,link["url"],before_request or self._before_request)
         if store == "elcorteingles":
             from .eci_catalog import ECIClient
             client=ECIClient(self.hass)
@@ -253,7 +256,7 @@ class OptionLookup:
                         raise PriceError("La tienda ha solicitado una pausa. Puedes indicar la cantidad manualmente.",
                             response_class="rate_limited", attempts=attempts, errors=warnings,
                             retry_seconds=max(0,int(self._blocked_until[store]-time.monotonic()))) from err
-                if store not in ("lidl","elcorteingles") and (not result.get("name") or result.get("price") is None or not result.get("brand") or result.get("content_quantity") is None):
+                if store not in ("lidl","elcorteingles","mercadona") and (not result.get("name") or result.get("price") is None or not result.get("brand") or result.get("content_quantity") is None):
                     try:
                         offer = await self.sources.fetch(store, link, reference_location(store), before_request or self._before_request)
                         if offer:
@@ -269,7 +272,9 @@ class OptionLookup:
                         attempts.append({"stage":"product_api", "error_type":type(err).__name__,
                                          **getattr(err,"diagnostics",{})})
                 if any(status in (403,429,503) for status in statuses) and result.get("price") is None:
-                    self._blocked_until[store]=time.monotonic()+900
+                    retry=max([900,*[item["retry_seconds"] for item in attempts
+                        if type(item.get("retry_seconds")) in (int,float) and 0<=item["retry_seconds"]<=86400]])
+                    self._blocked_until[store]=time.monotonic()+retry
                 if not any(result.get(key) for key in ("name", "brand", "ean", "content_quantity", "image_url", "nutriscore")) and result.get("price") is None:
                     blocked=max(0,int(self._blocked_until.get(store,0)-time.monotonic()))
                     status=next((status for status in statuses if status in (403,429,503)),None)

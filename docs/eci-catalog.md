@@ -1,6 +1,6 @@
 # Catálogo opcional de El Corte Inglés
 
-Disponible en Ajustes → Tiendas → Catálogos. Está desactivado inicialmente y utiliza el logo indicado para El Corte Inglés.
+Retirado temporalmente de los catálogos disponibles por los rechazos HTTP 403. No se inician consultas ni se permite activarlo mediante la API; se conservan el código y los datos ya guardados. El resto de este documento describe el conector archivado.
 
 Al activarlo, se buscan los EAN del catálogo local, incluidos los añadidos posteriormente. La búsqueda pública se confirma en la ficha: solo una coincidencia inequívoca con el mismo EAN puede crear o completar una alternativa. No se utiliza parecido de nombres ni publicidad de la página para asociar productos.
 

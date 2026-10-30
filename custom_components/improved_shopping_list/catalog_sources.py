@@ -18,9 +18,10 @@ INTERVAL = 20
 
 class CatalogSources:
     source_store = "alcampo"
+    source_name = "Alcampo"
     def __init__(self, hass, catalog, links, lookup, activity):
         self.hass, self.catalog, self.links, self.lookup, self.activity = hass, catalog, links, lookup, activity
-        self._store = Store(hass,1,f"{DOMAIN}.catalog_sources")
+        self._store = Store(hass,1,f"{DOMAIN}.catalog_sources" if self.source_store=="alcampo" else f"{DOMAIN}.{self.source_store}_catalog")
         self._data = {"enabled":False,"show_store":False,"attempts":{},"next_request":0,"retry_at":0}
         self._status = {"running":False,"phase":"idle","total":0,"processed":0,"updated":0,"errors":[],"current":""}
         self._active = False
@@ -61,7 +62,7 @@ class CatalogSources:
             code=gtin(data.get("ean") or identity.split(":",1)[0])
             url=data.get("url")
             if not url and self.links:
-                url=self.links._data.get("links",{}).get("alcampo:"+code)
+                url=self.links._data.get("links",{}).get(self.source_store+":"+code)
             try:
                 from .store_links import normalize_link
                 link=normalize_link(self.source_store,url)
@@ -86,7 +87,7 @@ class CatalogSources:
         pairs={(gtin(data.get("ean")),data.get("url")) for saved in self._data["attempts"].values()
             if isinstance(data:=saved.get("data"),dict) and gtin(data.get("ean")) and data.get("url")}
         if self.links:
-            pairs.update((key.rsplit(":",1)[-1],link["url"]) for key,link in self.links._data.get("resolved",{}).items() if key.startswith("alcampo:"))
+            pairs.update((key.rsplit(":",1)[-1],link["url"]) for key,link in self.links._data.get("resolved",{}).items() if key.startswith(self.source_store+":"))
         return pairs
 
     async def async_set_show_store(self, show_store):
@@ -107,13 +108,13 @@ class CatalogSources:
 
     def _gate(self):
         if self._data["enabled"]:
-            self.links.catalog_stores.add("alcampo")
+            self.links.catalog_stores.add(self.source_store)
         else:
-            self.links.catalog_stores.discard("alcampo")
+            self.links.catalog_stores.discard(self.source_store)
         if self._data["enabled"] and self._data["show_store"]:
-            self.links.enabled_stores.add("alcampo")
+            self.links.enabled_stores.add(self.source_store)
         else:
-            self.links.enabled_stores.discard("alcampo")
+            self.links.enabled_stores.discard(self.source_store)
 
     @property
     def snapshot(self):
@@ -157,7 +158,7 @@ class CatalogSources:
 
     async def _set_enabled(self, enabled):
         if type(enabled) is not bool:
-            raise ValueError("Selecciona un estado válido para el catálogo de Alcampo.")
+            raise ValueError(f"Selecciona un estado válido para el catálogo de {self.source_name}.")
         if enabled != self._data["enabled"]:
             async with self._data_lock:
                 updated = {**self._data,"enabled":enabled}
@@ -184,7 +185,7 @@ class CatalogSources:
     def _launch(self, *_args):
         self._timer = None
         if self._active and self._data["enabled"] and (self._task is None or self._task.done()):
-            self._task = self.hass.async_create_background_task(self.async_run(),"Shopping Alcampo catalog completion")
+            self._task = self.hass.async_create_background_task(self.async_run(),f"Shopping {self.source_name} catalog completion")
 
     async def _before_request(self):
         delay = self._data["next_request"]-time.time()
@@ -215,6 +216,8 @@ class CatalogSources:
     async def async_run(self):
         if not self._active or not self._data["enabled"]:
             return
+        if self._data["retry_at"]>time.time():
+            self._status.update(phase="paused");self._notify();return
         if self._timer:
             self._timer(); self._timer = None
         self._status.update(running=True,phase="preparing",errors=[],current="")
@@ -223,7 +226,7 @@ class CatalogSources:
             if not any(product_eans(product) for product in self.catalog.products):
                 self._status.update(phase="finished",total=0,processed=0,updated=0)
                 return
-            links = await self.links.async_store_links("alcampo")
+            links = await self.links.async_store_links(self.source_store)
             if not links and self.links.error:
                 raise ValueError("No se ha podido consultar el diccionario: "+self.links.error)
             if not self._active or not self._data["enabled"]:
@@ -244,20 +247,20 @@ class CatalogSources:
                 data = None
                 matched = False
                 try:
-                    data = await self.lookup.retrieve(link["url"],"alcampo",code,before_request=self._before_request)
+                    data = await self.lookup.retrieve(link["url"],self.source_store,code,before_request=self._before_request)
                     data.setdefault("checked_at",int(time.time()))
                     if not self._active or not self._data["enabled"]:
                         break
-                    if data.get("store") != "alcampo" or data.get("reference_id") != link["id"]:
-                        raise PriceError("La respuesta no corresponde a esta ficha de Alcampo.")
-                    if data.get("ean") and gtin(data["ean"]) != code:
-                        raise PriceError("El EAN de Alcampo no coincide con el producto.")
+                    if data.get("store") != self.source_store or data.get("reference_id") != link["id"]:
+                        raise PriceError(f"La respuesta no corresponde a esta ficha de {self.source_name}.")
+                    if (self.source_store=="mercadona" or data.get("ean")) and gtin(data.get("ean", "")) != code:
+                        raise PriceError(f"El EAN de {self.source_name} no coincide con el producto.")
                     data.setdefault("ean",code)
                     data.setdefault("url",link["url"])
                     matched = True
                     self._data["attempts"][identity]={"at":time.time(),"success":False,"matched":True,"data":deepcopy(data)}
                     await self._save_state()
-                    changed = await self.catalog.async_complete_store_option("alcampo",code,link,data,create=True,show_store=self._data["show_store"],catalog_source=True)
+                    changed = await self.catalog.async_complete_store_option(self.source_store,code,link,data,create=True,show_store=self._data["show_store"],catalog_source=True)
                     self._status["updated"] += changed
                     success = data.get("price") is not None
                     if not success:
@@ -267,7 +270,7 @@ class CatalogSources:
                     self._status["errors"].append({"product":name,"ean":code,"message":str(err)[:500],
                         "reference_id":link["id"],"url":link["url"],"error_type":type(err).__name__,
                         "diagnostics":deepcopy(getattr(err,"diagnostics",{}))})
-                blocked = max(0,self.lookup._blocked_until.get("alcampo",0)-time.monotonic())
+                blocked = max(0,self.lookup._blocked_until.get(self.source_store,0)-time.monotonic())
                 if blocked:
                     self._data["retry_at"] = time.time()+blocked
                 retained=data if matched else previous_data
@@ -278,7 +281,7 @@ class CatalogSources:
                     break
             self._status.update(running=False,phase="paused" if self._data["retry_at"]>time.time() else "finished",current="")
             if pending and self.activity:
-                self.activity.record("stores.catalog","Alcampo: revisión del catálogo finalizada",source="automatic",
+                self.activity.record("stores.catalog",f"{self.source_name}: revisión del catálogo {'pausada' if self._status['phase']=='paused' else 'finalizada'}",source="automatic",
                                      diagnostics={**deepcopy(self._status),"interval_seconds":INTERVAL,
                                                   "retry_at":self._data["retry_at"]})
         except (ValueError,OSError,TimeoutError) as err:

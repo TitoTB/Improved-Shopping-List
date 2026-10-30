@@ -73,8 +73,9 @@ const hass={
     if(msg.type==='improved_shopping_list/catalog_sources/subscribe'){
       window.catalogSourceSubscriptions=(window.catalogSourceSubscriptions??0)+1;
       const listener={callback,catalogSource:true,source:msg.source??'alcampo'};listeners.set(listener,true);
-      callback(structuredClone((msg.source==='elcorteingles'?window.eciSourceFixture:window.catalogSourceFixture)??{enabled:false,phase:'idle',total:0,processed:0,errors:[]}));
+      callback(structuredClone((msg.source==='mercadona'?window.mercadonaSourceFixture:msg.source==='elcorteingles'?window.eciSourceFixture:window.catalogSourceFixture)??{enabled:false,phase:'idle',total:0,processed:0,errors:[]}));
       window.emitCatalogSource=state=>{window.catalogSourceFixture=state;for(const item of listeners.keys())if(item.catalogSource&&item.source==='alcampo')item.callback(structuredClone(state));};
+      window.emitMercadonaCatalogSource=state=>{window.mercadonaSourceFixture=state;for(const item of listeners.keys())if(item.catalogSource&&item.source==='mercadona')item.callback(structuredClone(state));};
       window.emitEciCatalogSource=state=>{window.eciSourceFixture=state;for(const item of listeners.keys())if(item.catalogSource&&item.source==='elcorteingles')item.callback(structuredClone(state));};
       return()=>{listeners.delete(listener);window.catalogSourceSubscriptions--;};
     }
@@ -123,13 +124,15 @@ const hass={
     (window.wsRequests??=[]).push(msg.type);
     if(msg.type==='improved_shopping_list/catalog_sources/status'){
       window.catalogStatusReads=(window.catalogStatusReads??0)+1;
-      return structuredClone((msg.source==='elcorteingles'?window.eciSourceFixture:window.catalogSourceFixture)??{enabled:false,phase:'idle',total:0,processed:0,errors:[]});
+      return structuredClone((msg.source==='mercadona'?window.mercadonaSourceFixture:msg.source==='elcorteingles'?window.eciSourceFixture:window.catalogSourceFixture)??{enabled:false,phase:'idle',total:0,processed:0,errors:[]});
     }
     if(msg.type==='improved_shopping_list/catalog_sources/visibility'){
+      if(msg.source==='mercadona'){window.mercadonaSourceFixture={...(window.mercadonaSourceFixture??{}),show_store:msg.show_store};return structuredClone(window.mercadonaSourceFixture);}
       if(msg.source==='elcorteingles'){window.eciSourceFixture={...(window.eciSourceFixture??{}),show_store:msg.show_store};return structuredClone(window.eciSourceFixture);}
       const state={...(window.catalogSourceFixture??{}),show_store:msg.show_store};window.emitCatalogSource?.(state);return state;
     }
     if(msg.type==='improved_shopping_list/catalog_sources/set'){
+      if(msg.source==='mercadona'){window.mercadonaSourceSets=(window.mercadonaSourceSets??0)+1;const state={...(window.mercadonaSourceFixture??{}),enabled:msg.enabled,total:2,processed:0,phase:msg.enabled?'waiting':'idle'};window.emitMercadonaCatalogSource(state);return state;}
       if(msg.source==='elcorteingles'){window.eciSourceSets=(window.eciSourceSets??0)+1;window.eciSourceFixture={...(window.eciSourceFixture??{}),enabled:msg.enabled,total:0,processed:0,phase:'preparing'};const snapshot=structuredClone(window.eciSourceFixture);if(msg.enabled&&window.eciEnableGate)await window.eciEnableGate;return snapshot;}
       window.catalogSourceSets=(window.catalogSourceSets??0)+1;
       const state={...(window.catalogSourceFixture??{}),enabled:msg.enabled,phase:msg.enabled?'waiting':'idle',running:msg.enabled,total:2,processed:0,updated:0,errors:[],next_request:Date.now()/1000+20};
@@ -1442,6 +1445,22 @@ async function checkCatalogSources(browser,url,errors){
   assert.ok(await popup.evaluate(el=>el.scrollWidth<=el.clientWidth+1));
   await page.screenshot({path:'test-results/catalog-source-progress-mobile.png',fullPage:true});
   await popup.getByRole('button',{name:'Cerrar ventana',exact:true}).click();await toggle.uncheck();
+  const mercadona=source.locator('isl-mercadona-catalog'),mercadonaToggle=mercadona.getByRole('switch',{name:'Completar productos con Mercadona',exact:true});
+  assert.equal(await mercadonaToggle.isChecked(),false);
+  await mercadona.getByRole('button',{name:'Configurar catálogo de Mercadona',exact:true}).click();
+  const mercadonaOptions=mercadona.locator('#catalog-options-dialog');
+  assert.equal(await mercadonaOptions.getByRole('switch',{name:'Mostrar tienda en el catálogo',exact:true}).isChecked(),false);
+  await mercadonaOptions.getByRole('switch',{name:'Mostrar tienda en el catálogo',exact:true}).check();
+  assert.equal(await page.evaluate(()=>window.mercadonaSourceFixture.show_store),true);
+  await mercadonaOptions.getByRole('button',{name:'Cerrar ventana',exact:true}).click();
+  await mercadonaToggle.check();const mercadonaPopup=mercadona.getByRole('dialog',{name:'Catálogo de Mercadona',exact:true});await mercadonaPopup.waitFor();
+  await page.evaluate(()=>window.emitMercadonaCatalogSource({...window.mercadonaSourceFixture,running:true,processed:1,total:2,current:'Tomate'}));
+  assert.equal(await mercadonaPopup.locator('#percentage').textContent(),'50 %');
+  assert.equal(await toggle.isChecked(),false);
+  await page.evaluate(()=>{window.mercadonaSourceFixture={...window.mercadonaSourceFixture,processed:2,phase:'finished',running:false};});
+  await mercadonaPopup.getByText('100 %',{exact:true}).waitFor();
+  assert.ok(await page.evaluate(()=>window.catalogStatusReads>0));
+  await mercadonaPopup.getByRole('button',{name:'Cerrar ventana',exact:true}).click();await mercadonaToggle.uncheck();
   assert.equal(await source.locator('isl-eci-catalog').count(),0);
   assert.equal(await source.getByRole('switch',{name:'Completar productos con El Corte Inglés',exact:true}).count(),0);
   await settings.getByRole('button',{name:'Listas',exact:true}).click();

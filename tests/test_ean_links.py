@@ -62,6 +62,17 @@ def test_published_initial_dictionary_has_only_ean_and_shop_links():
     assert parse_dictionary(current) == extended
 
 
+def test_v4_dictionary_adds_only_verified_mercadona_urls_without_changing_older_sources():
+    root=Path(__file__).resolve().parents[1]
+    old=parse_dictionary((root/'data/ean-links-v3.csv').read_bytes())
+    raw=(root/'data/ean-links-v4.csv').read_bytes();current=parse_dictionary(raw)
+    assert raw.splitlines()[0]==b'EAN,Carrefour,Alcampo,Lidl,Mercadona'
+    assert {key:value for key,value in current.items() if not key.startswith('mercadona:')}==old
+    added={key:value for key,value in current.items() if key.startswith('mercadona:')}
+    assert len(added)==195
+    assert all(normalize_link('mercadona',value)['url']==value for value in added.values())
+
+
 async def test_alcampo_only_rows_resolve_locally_restore_and_preserve_user_choices(hass, aioclient_mock):
     code = '8410422111086'
     web = 'https://www.compraonline.alcampo.es/products/allioli/722018'

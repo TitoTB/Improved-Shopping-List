@@ -274,7 +274,7 @@ class CatalogSources:
                 if blocked:
                     self._data["retry_at"] = time.time()+blocked
                 retained=data if matched else previous_data
-                self._data["attempts"][identity] = {"at":time.time(),"success":success,"matched":bool(retained),**({"data":deepcopy(retained)} if retained else {})}
+                self._data["attempts"][identity] = {"at":0 if blocked else time.time(),"success":success,"matched":bool(retained),**({"data":deepcopy(retained)} if retained else {})}
                 self._status["processed"] += 1
                 await self._save_state(); self._notify()
                 if self._data["retry_at"] > time.time():

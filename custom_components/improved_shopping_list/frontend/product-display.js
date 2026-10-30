@@ -1,6 +1,6 @@
 /** Lightweight product display helpers shared without importing any view. */
-import { productNameKey } from "./product-names.js?v=0.57.2";
-import { packageCost } from "./reference-formats.js?v=0.57.2";
+import { productNameKey } from "./product-names.js?v=0.58.0";
+import { packageCost } from "./reference-formats.js?v=0.58.0";
 export { productNameKey };
 export const normalizedName = value => String(value ?? "").normalize("NFKC").trim().replace(/\s+/g, " ").toLocaleLowerCase("es");
 

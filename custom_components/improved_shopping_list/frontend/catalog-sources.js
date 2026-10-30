@@ -1,5 +1,5 @@
-import { installDialogCloseButtons } from './dialog-controls.js?v=0.57.2';
-import { installToggleStyles } from './toggle-styles.js?v=0.57.2';
+import { installDialogCloseButtons } from './dialog-controls.js?v=0.58.0';
+import { installToggleStyles } from './toggle-styles.js?v=0.58.0';
 
 class CatalogSourcesPanel extends HTMLElement {
   constructor(){super();this.attachShadow({mode:'open'});this._state={enabled:false,phase:'idle',total:0,processed:0,errors:[]};this._generation=0;this._stateVersion=0;this._pollGeneration=0;}

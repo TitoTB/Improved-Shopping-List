@@ -14,6 +14,7 @@ import time
 import types
 
 from homeassistant.core import HomeAssistant
+from homeassistant.components.network.network import async_get_network
 
 root=Path(__file__).resolve().parents[1]/"custom_components/improved_shopping_list"
 package=types.ModuleType("_mercadona_probe")
@@ -26,6 +27,7 @@ async def main():
     print(json.dumps({"python":sys.version.split()[0],"openssl":ssl.OPENSSL_VERSION}),flush=True)
     with TemporaryDirectory() as directory:
         hass=HomeAssistant(directory)
+        await async_get_network(hass)
         last=0
         async def before():
             nonlocal last

@@ -1,5 +1,14 @@
 # Historial de cambios
 
+## 0.58.0 — 2026-10-30
+
+- Mercadona disponible en Ajustes → Tiendas → Catálogos, con activación independiente, progreso y «Mostrar tienda en el catálogo». Consulta la API de producto del almacén fijo mad1 por las referencias del diccionario y exige coincidencia exacta de EAN antes de completar datos o precios.
+- Nuevo diccionario v4 con la columna Mercadona y 195 equivalencias por EAN entre los enlaces públicos existentes y las respuestas de producto del índice público de Datania. Se conservan los índices anteriores. La integración no descarga conjuntos externos ni busca por nombre.
+- Recuperación de precio por envase, precio por kg/l/ud, marca y contenido disponibles; respeta envases variables, datos manuales, alternativas desactivadas y la visibilidad de cada fuente. Las peticiones automáticas se separan veinte segundos y los bloqueos conservan la pausa y permiten reintentar la referencia al terminarla.
+- El Corte Inglés retirado de los catálogos y de la recuperación de fichas por los bloqueos 403. Se conservan el código y los datos guardados. Los logs distinguen las revisiones pausadas.
+- La vista Pendiente del catálogo vuelve a estar visible e incorpora los productos con precio, contenido por envase o unidades pendientes, además de los productos nuevos y los códigos escaneados.
+- Documentación de la procedencia del diccionario y prueba manual con la imagen oficial de Home Assistant Core 2026.10.2. Sin nuevas dependencias ni tarjetas adicionales de HACS.
+
 ## 0.57.2 — 2026-10-30
 
 - Los nuevos logs de productos detallan los campos añadidos, actualizados y eliminados en sus alternativas, indicando EAN y tienda cuando corresponda. Los cambios de fecha de consulta y de orden no generan falsas modificaciones; los detalles se pueden buscar en español.

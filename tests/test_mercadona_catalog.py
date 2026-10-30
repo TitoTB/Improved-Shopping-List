@@ -38,6 +38,9 @@ def test_product_fields_use_sellable_package_and_missing_brand_is_not_invented()
     p['is_variable_weight']=True
     d=product_data(p,normalize_link('mercadona',WEB))
     assert 'content_quantity' not in d and d['measure_price']['price']==5
+    p['is_variable_weight']=False
+    p['price_instructions'].update(is_pack=True,pack_size=.037,total_units=4,unit_size=.148)
+    assert product_data(p,normalize_link('mercadona',WEB))['content_quantity']==.148
 
 
 @pytest.mark.parametrize('change',[{'ean':OTHER},{'ean':''},{'id':'999'}])
@@ -115,7 +118,7 @@ async def test_missing_or_wrong_ean_is_not_saved_even_with_dictionary_link(hass)
     finally:await source.async_stop()
 
 
-async def test_real_api_rejection_pauses_and_status_read_does_not_restart(hass,hass_ws_client,aioclient_mock):
+async def test_status_read_does_not_restart_and_consent_is_independent(hass,hass_ws_client):
     entry=MockConfigEntry(domain=DOMAIN,data={CONF_TODO_ENTITY:'todo.main'});entry.add_to_hass(hass)
     assert await hass.config_entries.async_setup(entry.entry_id)
     source=hass.data[DOMAIN]['mercadona_catalog'];source.async_run=AsyncMock()
@@ -128,6 +131,23 @@ async def test_real_api_rejection_pauses_and_status_read_does_not_restart(hass,h
     assert not hass.data[DOMAIN]['catalog_sources'].snapshot['enabled']
     source.async_run.assert_not_awaited()
     assert await hass.config_entries.async_unload(entry.entry_id)
+
+
+async def test_api_rejection_honors_retry_after_and_preserves_retryable_attempt(hass,aioclient_mock):
+    catalog,links,lookup,source=await setup(hass)
+    real=OptionLookup(hass);source.lookup=real
+    aioclient_mock.get(API,status=403,headers={'Retry-After':'3600'})
+    await source.async_set_enabled(True);source._active=True
+    try:
+        await source.async_run()
+        assert source.snapshot['phase']=='paused' and source.snapshot['retry_at']>time.time()+3500
+        assert source.snapshot['errors'][0]['diagnostics']['http_status']==403
+        assert next(iter(source._data['attempts'].values()))['at']==0
+        await source.async_run()
+        assert aioclient_mock.call_count==1
+        assert not any('last_price' in r for r in catalog.products[0]['commercial_references'])
+    finally:
+        await source.async_stop();real.close()
 
 
 def test_dictionary_accepts_mercadona_only_rows_and_rejects_foreign_domains():

@@ -1,0 +1,790 @@
+{
+  "source": "https://huggingface.co/datasets/datania/mercadona-catalog",
+  "source_revision": "b0ac2530018080341bddd64b43728c4b4b45c39f",
+  "source_date": "2026-10-26",
+  "prepared_at": "2026-10-30",
+  "verification": "Exact EAN in the archived public product API response; checked again by the integration against the live API before merging data.",
+  "warehouse": "mad1",
+  "links": [
+    {
+      "EAN": "59095842",
+      "Mercadona": "https://tienda.mercadona.es/product/35965"
+    },
+    {
+      "EAN": "3600521708514",
+      "Mercadona": "https://tienda.mercadona.es/product/75538"
+    },
+    {
+      "EAN": "3600524146146",
+      "Mercadona": "https://tienda.mercadona.es/product/8795"
+    },
+    {
+      "EAN": "3600524146160",
+      "Mercadona": "https://tienda.mercadona.es/product/8796"
+    },
+    {
+      "EAN": "3600524146177",
+      "Mercadona": "https://tienda.mercadona.es/product/8798"
+    },
+    {
+      "EAN": "3600524146191",
+      "Mercadona": "https://tienda.mercadona.es/product/8799"
+    },
+    {
+      "EAN": "3600541176294",
+      "Mercadona": "https://tienda.mercadona.es/product/77783"
+    },
+    {
+      "EAN": "3600541176591",
+      "Mercadona": "https://tienda.mercadona.es/product/77791"
+    },
+    {
+      "EAN": "3600541176690",
+      "Mercadona": "https://tienda.mercadona.es/product/77794"
+    },
+    {
+      "EAN": "3600541176744",
+      "Mercadona": "https://tienda.mercadona.es/product/77795"
+    },
+    {
+      "EAN": "3600541176799",
+      "Mercadona": "https://tienda.mercadona.es/product/77796"
+    },
+    {
+      "EAN": "3600541176942",
+      "Mercadona": "https://tienda.mercadona.es/product/77799"
+    },
+    {
+      "EAN": "3700123300014",
+      "Mercadona": "https://tienda.mercadona.es/product/27232"
+    },
+    {
+      "EAN": "3800020401200",
+      "Mercadona": "https://tienda.mercadona.es/product/17661"
+    },
+    {
+      "EAN": "4005808221950",
+      "Mercadona": "https://tienda.mercadona.es/product/73850"
+    },
+    {
+      "EAN": "4005900130761",
+      "Mercadona": "https://tienda.mercadona.es/product/73984"
+    },
+    {
+      "EAN": "4014400928884",
+      "Mercadona": "https://tienda.mercadona.es/product/17731"
+    },
+    {
+      "EAN": "4015400804406",
+      "Mercadona": "https://tienda.mercadona.es/product/20290"
+    },
+    {
+      "EAN": "4019400440657",
+      "Mercadona": "https://tienda.mercadona.es/product/12431"
+    },
+    {
+      "EAN": "5000157024671",
+      "Mercadona": "https://tienda.mercadona.es/product/26138"
+    },
+    {
+      "EAN": "5000267014203",
+      "Mercadona": "https://tienda.mercadona.es/product/28610"
+    },
+    {
+      "EAN": "5000267024202",
+      "Mercadona": "https://tienda.mercadona.es/product/28630"
+    },
+    {
+      "EAN": "5000281015248",
+      "Mercadona": "https://tienda.mercadona.es/product/28775"
+    },
+    {
+      "EAN": "5056784900826",
+      "Mercadona": "https://tienda.mercadona.es/product/16440"
+    },
+    {
+      "EAN": "5059319023410",
+      "Mercadona": "https://tienda.mercadona.es/product/35987"
+    },
+    {
+      "EAN": "5060166690380",
+      "Mercadona": "https://tienda.mercadona.es/product/28016"
+    },
+    {
+      "EAN": "5060337501316",
+      "Mercadona": "https://tienda.mercadona.es/product/28119"
+    },
+    {
+      "EAN": "5060466513389",
+      "Mercadona": "https://tienda.mercadona.es/product/27913"
+    },
+    {
+      "EAN": "5410126116953",
+      "Mercadona": "https://tienda.mercadona.es/product/18787"
+    },
+    {
+      "EAN": "5411188125808",
+      "Mercadona": "https://tienda.mercadona.es/product/21369"
+    },
+    {
+      "EAN": "5411188131380",
+      "Mercadona": "https://tienda.mercadona.es/product/22981"
+    },
+    {
+      "EAN": "5411188137993",
+      "Mercadona": "https://tienda.mercadona.es/product/8179"
+    },
+    {
+      "EAN": "5411188138013",
+      "Mercadona": "https://tienda.mercadona.es/product/13917"
+    },
+    {
+      "EAN": "5449000018861",
+      "Mercadona": "https://tienda.mercadona.es/product/28113"
+    },
+    {
+      "EAN": "5449000028921",
+      "Mercadona": "https://tienda.mercadona.es/product/28181"
+    },
+    {
+      "EAN": "5449000034298",
+      "Mercadona": "https://tienda.mercadona.es/product/27348"
+    },
+    {
+      "EAN": "5449000055200",
+      "Mercadona": "https://tienda.mercadona.es/product/27321"
+    },
+    {
+      "EAN": "5449000059390",
+      "Mercadona": "https://tienda.mercadona.es/product/27526"
+    },
+    {
+      "EAN": "5449000096197",
+      "Mercadona": "https://tienda.mercadona.es/product/26997"
+    },
+    {
+      "EAN": "5449000096203",
+      "Mercadona": "https://tienda.mercadona.es/product/28180"
+    },
+    {
+      "EAN": "5449000133342",
+      "Mercadona": "https://tienda.mercadona.es/product/27426"
+    },
+    {
+      "EAN": "5449000133724",
+      "Mercadona": "https://tienda.mercadona.es/product/13816"
+    },
+    {
+      "EAN": "5449000136336",
+      "Mercadona": "https://tienda.mercadona.es/product/27449"
+    },
+    {
+      "EAN": "5449000137517",
+      "Mercadona": "https://tienda.mercadona.es/product/28115"
+    },
+    {
+      "EAN": "5449000144881",
+      "Mercadona": "https://tienda.mercadona.es/product/16438"
+    },
+    {
+      "EAN": "5449000171771",
+      "Mercadona": "https://tienda.mercadona.es/product/29612"
+    },
+    {
+      "EAN": "5449000187970",
+      "Mercadona": "https://tienda.mercadona.es/product/27571"
+    },
+    {
+      "EAN": "5449000193278",
+      "Mercadona": "https://tienda.mercadona.es/product/13817"
+    },
+    {
+      "EAN": "5449000205520",
+      "Mercadona": "https://tienda.mercadona.es/product/27845"
+    },
+    {
+      "EAN": "5449000205568",
+      "Mercadona": "https://tienda.mercadona.es/product/26990"
+    },
+    {
+      "EAN": "5449000233011",
+      "Mercadona": "https://tienda.mercadona.es/product/27184"
+    },
+    {
+      "EAN": "5449000325983",
+      "Mercadona": "https://tienda.mercadona.es/product/11691"
+    },
+    {
+      "EAN": "5449000329028",
+      "Mercadona": "https://tienda.mercadona.es/product/11688"
+    },
+    {
+      "EAN": "7322540016413",
+      "Mercadona": "https://tienda.mercadona.es/product/47010"
+    },
+    {
+      "EAN": "7461323129237",
+      "Mercadona": "https://tienda.mercadona.es/product/28757"
+    },
+    {
+      "EAN": "7613032377625",
+      "Mercadona": "https://tienda.mercadona.es/product/9407"
+    },
+    {
+      "EAN": "7613032396350",
+      "Mercadona": "https://tienda.mercadona.es/product/11785"
+    },
+    {
+      "EAN": "7613033174667",
+      "Mercadona": "https://tienda.mercadona.es/product/11801"
+    },
+    {
+      "EAN": "7613036862295",
+      "Mercadona": "https://tienda.mercadona.es/product/11931"
+    },
+    {
+      "EAN": "7613039490266",
+      "Mercadona": "https://tienda.mercadona.es/product/13216"
+    },
+    {
+      "EAN": "7622202039133",
+      "Mercadona": "https://tienda.mercadona.es/product/8950"
+    },
+    {
+      "EAN": "7622210293381",
+      "Mercadona": "https://tienda.mercadona.es/product/12018"
+    },
+    {
+      "EAN": "7622300165628",
+      "Mercadona": "https://tienda.mercadona.es/product/14030"
+    },
+    {
+      "EAN": "8000500003787",
+      "Mercadona": "https://tienda.mercadona.es/product/12157"
+    },
+    {
+      "EAN": "8001841811963",
+      "Mercadona": "https://tienda.mercadona.es/product/13913"
+    },
+    {
+      "EAN": "8002270002045",
+      "Mercadona": "https://tienda.mercadona.es/product/27893"
+    },
+    {
+      "EAN": "8003340073545",
+      "Mercadona": "https://tienda.mercadona.es/product/86496"
+    },
+    {
+      "EAN": "8006530081597",
+      "Mercadona": "https://tienda.mercadona.es/product/17618"
+    },
+    {
+      "EAN": "8006530171540",
+      "Mercadona": "https://tienda.mercadona.es/product/20954"
+    },
+    {
+      "EAN": "8006530171625",
+      "Mercadona": "https://tienda.mercadona.es/product/20955"
+    },
+    {
+      "EAN": "8006530171632",
+      "Mercadona": "https://tienda.mercadona.es/product/20956"
+    },
+    {
+      "EAN": "8006540346679",
+      "Mercadona": "https://tienda.mercadona.es/product/17721"
+    },
+    {
+      "EAN": "8006540429457",
+      "Mercadona": "https://tienda.mercadona.es/product/86352"
+    },
+    {
+      "EAN": "8006540429570",
+      "Mercadona": "https://tienda.mercadona.es/product/86353"
+    },
+    {
+      "EAN": "8006540468173",
+      "Mercadona": "https://tienda.mercadona.es/product/23799"
+    },
+    {
+      "EAN": "8006540532782",
+      "Mercadona": "https://tienda.mercadona.es/product/35614"
+    },
+    {
+      "EAN": "8006540637234",
+      "Mercadona": "https://tienda.mercadona.es/product/17724"
+    },
+    {
+      "EAN": "8006540886540",
+      "Mercadona": "https://tienda.mercadona.es/product/8980"
+    },
+    {
+      "EAN": "8015100565351",
+      "Mercadona": "https://tienda.mercadona.es/product/35926"
+    },
+    {
+      "EAN": "8410014238450",
+      "Mercadona": "https://tienda.mercadona.es/product/13006"
+    },
+    {
+      "EAN": "8410055150018",
+      "Mercadona": "https://tienda.mercadona.es/product/27204"
+    },
+    {
+      "EAN": "8410055151022",
+      "Mercadona": "https://tienda.mercadona.es/product/27597"
+    },
+    {
+      "EAN": "8410076601513",
+      "Mercadona": "https://tienda.mercadona.es/product/14713"
+    },
+    {
+      "EAN": "8410084041110",
+      "Mercadona": "https://tienda.mercadona.es/product/5000"
+    },
+    {
+      "EAN": "8410100021546",
+      "Mercadona": "https://tienda.mercadona.es/product/11101"
+    },
+    {
+      "EAN": "8410100021553",
+      "Mercadona": "https://tienda.mercadona.es/product/11104"
+    },
+    {
+      "EAN": "8410100059839",
+      "Mercadona": "https://tienda.mercadona.es/product/68029"
+    },
+    {
+      "EAN": "8410106023254",
+      "Mercadona": "https://tienda.mercadona.es/product/66352"
+    },
+    {
+      "EAN": "8410108659086",
+      "Mercadona": "https://tienda.mercadona.es/product/7880"
+    },
+    {
+      "EAN": "8410109132625",
+      "Mercadona": "https://tienda.mercadona.es/product/21636"
+    },
+    {
+      "EAN": "8410127012626",
+      "Mercadona": "https://tienda.mercadona.es/product/32030"
+    },
+    {
+      "EAN": "8410128891169",
+      "Mercadona": "https://tienda.mercadona.es/product/10362"
+    },
+    {
+      "EAN": "8410162011127",
+      "Mercadona": "https://tienda.mercadona.es/product/28246"
+    },
+    {
+      "EAN": "8410173072025",
+      "Mercadona": "https://tienda.mercadona.es/product/6856"
+    },
+    {
+      "EAN": "8410175013903",
+      "Mercadona": "https://tienda.mercadona.es/product/9288"
+    },
+    {
+      "EAN": "8410175028129",
+      "Mercadona": "https://tienda.mercadona.es/product/9298"
+    },
+    {
+      "EAN": "8410175050021",
+      "Mercadona": "https://tienda.mercadona.es/product/9058"
+    },
+    {
+      "EAN": "8410175050120",
+      "Mercadona": "https://tienda.mercadona.es/product/9247"
+    },
+    {
+      "EAN": "8410175050229",
+      "Mercadona": "https://tienda.mercadona.es/product/9242"
+    },
+    {
+      "EAN": "8410175051226",
+      "Mercadona": "https://tienda.mercadona.es/product/9259"
+    },
+    {
+      "EAN": "8410175052223",
+      "Mercadona": "https://tienda.mercadona.es/product/9280"
+    },
+    {
+      "EAN": "8410175052421",
+      "Mercadona": "https://tienda.mercadona.es/product/9246"
+    },
+    {
+      "EAN": "8410175073792",
+      "Mercadona": "https://tienda.mercadona.es/product/9579"
+    },
+    {
+      "EAN": "8410225556237",
+      "Mercadona": "https://tienda.mercadona.es/product/60644"
+    },
+    {
+      "EAN": "8410239040333",
+      "Mercadona": "https://tienda.mercadona.es/product/63440"
+    },
+    {
+      "EAN": "8410261151625",
+      "Mercadona": "https://tienda.mercadona.es/product/66944"
+    },
+    {
+      "EAN": "8410261152011",
+      "Mercadona": "https://tienda.mercadona.es/product/66747"
+    },
+    {
+      "EAN": "8410261152417",
+      "Mercadona": "https://tienda.mercadona.es/product/66746"
+    },
+    {
+      "EAN": "8410261271101",
+      "Mercadona": "https://tienda.mercadona.es/product/66107"
+    },
+    {
+      "EAN": "8410261273105",
+      "Mercadona": "https://tienda.mercadona.es/product/66105"
+    },
+    {
+      "EAN": "8410261640228",
+      "Mercadona": "https://tienda.mercadona.es/product/10106"
+    },
+    {
+      "EAN": "8410261641416",
+      "Mercadona": "https://tienda.mercadona.es/product/27951"
+    },
+    {
+      "EAN": "8410261657424",
+      "Mercadona": "https://tienda.mercadona.es/product/27965"
+    },
+    {
+      "EAN": "8410283008006",
+      "Mercadona": "https://tienda.mercadona.es/product/27735"
+    },
+    {
+      "EAN": "8410297011108",
+      "Mercadona": "https://tienda.mercadona.es/product/10599"
+    },
+    {
+      "EAN": "8410297012105",
+      "Mercadona": "https://tienda.mercadona.es/product/10801"
+    },
+    {
+      "EAN": "8410297012150",
+      "Mercadona": "https://tienda.mercadona.es/product/10712"
+    },
+    {
+      "EAN": "8410297111150",
+      "Mercadona": "https://tienda.mercadona.es/product/10502"
+    },
+    {
+      "EAN": "8410300349013",
+      "Mercadona": "https://tienda.mercadona.es/product/18480"
+    },
+    {
+      "EAN": "8410300368489",
+      "Mercadona": "https://tienda.mercadona.es/product/18151"
+    },
+    {
+      "EAN": "8410300370130",
+      "Mercadona": "https://tienda.mercadona.es/product/18499"
+    },
+    {
+      "EAN": "8410320127363",
+      "Mercadona": "https://tienda.mercadona.es/product/53007"
+    },
+    {
+      "EAN": "8410415370728",
+      "Mercadona": "https://tienda.mercadona.es/product/13875"
+    },
+    {
+      "EAN": "8410415510629",
+      "Mercadona": "https://tienda.mercadona.es/product/35730"
+    },
+    {
+      "EAN": "8410436463034",
+      "Mercadona": "https://tienda.mercadona.es/product/8835"
+    },
+    {
+      "EAN": "8410486078042",
+      "Mercadona": "https://tienda.mercadona.es/product/53015"
+    },
+    {
+      "EAN": "8410486081011",
+      "Mercadona": "https://tienda.mercadona.es/product/53500"
+    },
+    {
+      "EAN": "8410490001043",
+      "Mercadona": "https://tienda.mercadona.es/product/28731"
+    },
+    {
+      "EAN": "8410500001360",
+      "Mercadona": "https://tienda.mercadona.es/product/20260"
+    },
+    {
+      "EAN": "8410500002961",
+      "Mercadona": "https://tienda.mercadona.es/product/20946"
+    },
+    {
+      "EAN": "8410500006105",
+      "Mercadona": "https://tienda.mercadona.es/product/20031"
+    },
+    {
+      "EAN": "8410500006143",
+      "Mercadona": "https://tienda.mercadona.es/product/20037"
+    },
+    {
+      "EAN": "8410500006150",
+      "Mercadona": "https://tienda.mercadona.es/product/20057"
+    },
+    {
+      "EAN": "8410500008871",
+      "Mercadona": "https://tienda.mercadona.es/product/23477"
+    },
+    {
+      "EAN": "8410500010614",
+      "Mercadona": "https://tienda.mercadona.es/product/86245"
+    },
+    {
+      "EAN": "8410500010621",
+      "Mercadona": "https://tienda.mercadona.es/product/68243"
+    },
+    {
+      "EAN": "8410500012120",
+      "Mercadona": "https://tienda.mercadona.es/product/20947"
+    },
+    {
+      "EAN": "8410500014421",
+      "Mercadona": "https://tienda.mercadona.es/product/23476"
+    },
+    {
+      "EAN": "8410500015787",
+      "Mercadona": "https://tienda.mercadona.es/product/68124"
+    },
+    {
+      "EAN": "8410500015794",
+      "Mercadona": "https://tienda.mercadona.es/product/68125"
+    },
+    {
+      "EAN": "8410505320145",
+      "Mercadona": "https://tienda.mercadona.es/product/13926"
+    },
+    {
+      "EAN": "8410537600727",
+      "Mercadona": "https://tienda.mercadona.es/product/66324"
+    },
+    {
+      "EAN": "8410569005521",
+      "Mercadona": "https://tienda.mercadona.es/product/28069"
+    },
+    {
+      "EAN": "8410702000215",
+      "Mercadona": "https://tienda.mercadona.es/product/37134"
+    },
+    {
+      "EAN": "8410728180120",
+      "Mercadona": "https://tienda.mercadona.es/product/27216"
+    },
+    {
+      "EAN": "8410751030942",
+      "Mercadona": "https://tienda.mercadona.es/product/46087"
+    },
+    {
+      "EAN": "8411135005921",
+      "Mercadona": "https://tienda.mercadona.es/product/23762"
+    },
+    {
+      "EAN": "8411135006263",
+      "Mercadona": "https://tienda.mercadona.es/product/23763"
+    },
+    {
+      "EAN": "8411135006508",
+      "Mercadona": "https://tienda.mercadona.es/product/23764"
+    },
+    {
+      "EAN": "8411135007147",
+      "Mercadona": "https://tienda.mercadona.es/product/35668"
+    },
+    {
+      "EAN": "8411277063049",
+      "Mercadona": "https://tienda.mercadona.es/product/28908"
+    },
+    {
+      "EAN": "8411300565021",
+      "Mercadona": "https://tienda.mercadona.es/product/75301"
+    },
+    {
+      "EAN": "8411300565038",
+      "Mercadona": "https://tienda.mercadona.es/product/75302"
+    },
+    {
+      "EAN": "8411300565045",
+      "Mercadona": "https://tienda.mercadona.es/product/75303"
+    },
+    {
+      "EAN": "8411300565052",
+      "Mercadona": "https://tienda.mercadona.es/product/75304"
+    },
+    {
+      "EAN": "8411300565069",
+      "Mercadona": "https://tienda.mercadona.es/product/75305"
+    },
+    {
+      "EAN": "8411300565076",
+      "Mercadona": "https://tienda.mercadona.es/product/75306"
+    },
+    {
+      "EAN": "8411300565106",
+      "Mercadona": "https://tienda.mercadona.es/product/75309"
+    },
+    {
+      "EAN": "8411300566196",
+      "Mercadona": "https://tienda.mercadona.es/product/75625"
+    },
+    {
+      "EAN": "8411327022125",
+      "Mercadona": "https://tienda.mercadona.es/product/66027"
+    },
+    {
+      "EAN": "8411500114432",
+      "Mercadona": "https://tienda.mercadona.es/product/17704"
+    },
+    {
+      "EAN": "8411660192011",
+      "Mercadona": "https://tienda.mercadona.es/product/70008"
+    },
+    {
+      "EAN": "8411700010015",
+      "Mercadona": "https://tienda.mercadona.es/product/10723"
+    },
+    {
+      "EAN": "8411700010121",
+      "Mercadona": "https://tienda.mercadona.es/product/10781"
+    },
+    {
+      "EAN": "8411700011111",
+      "Mercadona": "https://tienda.mercadona.es/product/10884"
+    },
+    {
+      "EAN": "8411700011302",
+      "Mercadona": "https://tienda.mercadona.es/product/10282"
+    },
+    {
+      "EAN": "8411700012217",
+      "Mercadona": "https://tienda.mercadona.es/product/9040"
+    },
+    {
+      "EAN": "8411700012415",
+      "Mercadona": "https://tienda.mercadona.es/product/9034"
+    },
+    {
+      "EAN": "8411700412321",
+      "Mercadona": "https://tienda.mercadona.es/product/20321"
+    },
+    {
+      "EAN": "8412598000096",
+      "Mercadona": "https://tienda.mercadona.es/product/66586"
+    },
+    {
+      "EAN": "8412598001819",
+      "Mercadona": "https://tienda.mercadona.es/product/66587"
+    },
+    {
+      "EAN": "8413194098531",
+      "Mercadona": "https://tienda.mercadona.es/product/60600"
+    },
+    {
+      "EAN": "8413681021820",
+      "Mercadona": "https://tienda.mercadona.es/product/27150"
+    },
+    {
+      "EAN": "8414100301752",
+      "Mercadona": "https://tienda.mercadona.es/product/27762"
+    },
+    {
+      "EAN": "8414100302643",
+      "Mercadona": "https://tienda.mercadona.es/product/27759"
+    },
+    {
+      "EAN": "8414100339007",
+      "Mercadona": "https://tienda.mercadona.es/product/86118"
+    },
+    {
+      "EAN": "8414100381631",
+      "Mercadona": "https://tienda.mercadona.es/product/16461"
+    },
+    {
+      "EAN": "8416400052143",
+      "Mercadona": "https://tienda.mercadona.es/product/65298"
+    },
+    {
+      "EAN": "8416400906132",
+      "Mercadona": "https://tienda.mercadona.es/product/65299"
+    },
+    {
+      "EAN": "8437004983411",
+      "Mercadona": "https://tienda.mercadona.es/product/40475"
+    },
+    {
+      "EAN": "8445290686848",
+      "Mercadona": "https://tienda.mercadona.es/product/35601"
+    },
+    {
+      "EAN": "8445290686879",
+      "Mercadona": "https://tienda.mercadona.es/product/35602"
+    },
+    {
+      "EAN": "8445290870698",
+      "Mercadona": "https://tienda.mercadona.es/product/17730"
+    },
+    {
+      "EAN": "8445291083974",
+      "Mercadona": "https://tienda.mercadona.es/product/8920"
+    },
+    {
+      "EAN": "8445291292024",
+      "Mercadona": "https://tienda.mercadona.es/product/9860"
+    },
+    {
+      "EAN": "8700216590846",
+      "Mercadona": "https://tienda.mercadona.es/product/21553"
+    },
+    {
+      "EAN": "8700216680103",
+      "Mercadona": "https://tienda.mercadona.es/product/12076"
+    },
+    {
+      "EAN": "8711000501214",
+      "Mercadona": "https://tienda.mercadona.es/product/11875"
+    },
+    {
+      "EAN": "8711000502518",
+      "Mercadona": "https://tienda.mercadona.es/product/11871"
+    },
+    {
+      "EAN": "8711000530382",
+      "Mercadona": "https://tienda.mercadona.es/product/11874"
+    },
+    {
+      "EAN": "8717163998984",
+      "Mercadona": "https://tienda.mercadona.es/product/74044"
+    },
+    {
+      "EAN": "8719200234857",
+      "Mercadona": "https://tienda.mercadona.es/product/86503"
+    },
+    {
+      "EAN": "8720181481529",
+      "Mercadona": "https://tienda.mercadona.es/product/67908"
+    },
+    {
+      "EAN": "9002490206130",
+      "Mercadona": "https://tienda.mercadona.es/product/24547"
+    },
+    {
+      "EAN": "9012200872739",
+      "Mercadona": "https://tienda.mercadona.es/product/12016"
+    }
+  ]
+}

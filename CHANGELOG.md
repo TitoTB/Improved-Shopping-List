@@ -1,5 +1,11 @@
 # Historial de cambios
 
+## Próxima versión
+
+- Mercadona utiliza un índice público completo de EAN y referencias, sin limitarse a las 195 coincidencias con Carrefour. Caché persistente, descarga condicional cada 24 horas y conservación del índice anterior si la fuente falla.
+- Un workflow diario prepara el índice compacto desde el catálogo público de Datania y lo publica en la rama de datos. No requiere actualizar la integración para recibir nuevas referencias ni añade productos ajenos al catálogo local.
+- Las alternativas de Mercadona solo se crean después de confirmar el EAN en la API. Se mantienen la activación opcional, la visibilidad de la tienda, las esperas de veinte segundos y los datos manuales.
+
 ## 0.58.0 — 2026-10-30
 
 - Mercadona disponible en Ajustes → Tiendas → Catálogos, con activación independiente, progreso y «Mostrar tienda en el catálogo». Consulta la API de producto del almacén fijo mad1 por las referencias del diccionario y exige coincidencia exacta de EAN antes de completar datos o precios.

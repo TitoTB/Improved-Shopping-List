@@ -70,6 +70,7 @@ async def setup(hass):
     links._data.update(links={'mercadona:'+gtin(EAN):WEB},checked_at=time.time())
     lookup=SimpleNamespace(_before_request=AsyncMock(),_blocked_until={},retrieve=AsyncMock(return_value=product_data(payload(),normalize_link('mercadona',WEB))))
     source=MercadonaCatalog(hass,catalog,links,lookup,None);await source.async_load()
+    source.index._data["checked_at"]=time.time()
     return catalog,links,lookup,source
 
 

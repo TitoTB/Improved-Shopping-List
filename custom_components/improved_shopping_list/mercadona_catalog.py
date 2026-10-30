@@ -1,4 +1,5 @@
 """Mercadona catalog: verified dictionary links and anonymous product API only."""
+import asyncio
 from decimal import Decimal, InvalidOperation
 import json
 import time
@@ -12,6 +13,8 @@ from .product_references import brand_name, content, gtin
 from .receipt_quantities import measure_price
 from .store_links import normalize_link
 from .store_location import reference_location
+from .mercadona_index import MercadonaIndex
+from .ean_links import product_eans
 
 STORE = "mercadona"
 
@@ -90,3 +93,34 @@ async def retrieve(hass,url,before_request,expected_ean=""):
 class MercadonaCatalog(CatalogSources):
     source_store=STORE
     source_name="Mercadona"
+
+    def __init__(self,hass,catalog,links,lookup,activity):
+        super().__init__(hass,catalog,links,lookup,activity)
+        self.index=MercadonaIndex(hass)
+
+    async def async_load(self):
+        await self.index.async_load()
+        await super().async_load()
+
+    def _gate(self):
+        if self._data["enabled"]:self.links.catalog_stores.add(STORE)
+        else:self.links.catalog_stores.discard(STORE)
+        # Index entries are candidates until the live API confirms the exact EAN.
+        self.links.enabled_stores.discard(STORE)
+
+    def _source_error(self):
+        return "" if self.index.products else super()._source_error()
+
+    async def _source_links(self):
+        links=await super()._source_links()
+        await self.index.async_refresh()
+        if not self._active or not self._data["enabled"]:raise asyncio.CancelledError
+        self._status["public_index"]=self.index.status
+        codes={code for product in self.catalog.products for code in product_eans(product)}
+        for code in codes:
+            if identifier:=self.index.products.get(code):
+                links.setdefault(STORE+":"+code,normalize_link(STORE,f"https://tienda.mercadona.es/product/{identifier}"))
+        if self.index.error:
+            self._status["errors"].append({"message":self.index.error,"diagnostics":{"stage":"public_index",**self.index.status}})
+            if not links and not self.index.products:raise ValueError(self.index.error)
+        return links

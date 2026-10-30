@@ -213,6 +213,12 @@ class CatalogSources:
             result.append((identity,code,link,products[0]["name"]))
         return result
 
+    async def _source_links(self):
+        return await self.links.async_store_links(self.source_store)
+
+    def _source_error(self):
+        return self.links.error
+
     async def async_run(self):
         if not self._active or not self._data["enabled"]:
             return
@@ -226,12 +232,12 @@ class CatalogSources:
             if not any(product_eans(product) for product in self.catalog.products):
                 self._status.update(phase="finished",total=0,processed=0,updated=0)
                 return
-            links = await self.links.async_store_links(self.source_store)
-            if not links and self.links.error:
-                raise ValueError("No se ha podido consultar el diccionario: "+self.links.error)
+            links = await self._source_links()
+            if not links and self._source_error():
+                raise ValueError("No se ha podido consultar el diccionario: "+self._source_error())
             if not self._active or not self._data["enabled"]:
                 return
-            if self._data["show_store"]:
+            if self._data["show_store"] and self.source_store!="mercadona":
                 await self.catalog.async_apply_ean_links(links)
             reused = await self._apply_cached_options()
             pending = self._pending(links)

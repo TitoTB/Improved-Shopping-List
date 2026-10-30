@@ -67,7 +67,7 @@ async def test_disabled_catalogs_never_query_or_resolve(hass,monkeypatch):
     assert await discovery.async_hint(EAN) is None
     await discovery.managers['masymas'].async_run()
     request.assert_not_awaited();download.assert_not_awaited()
-    assert catalog.products[0]['commercial_references']==[]
+    assert catalog.products[0]==product
 
 
 async def test_dictionary_for_any_enabled_store_precedes_direct_ean_search(hass,monkeypatch,aioclient_mock):
@@ -100,7 +100,7 @@ async def test_wrong_ean_is_not_associated_and_negative_result_is_cached(hass,mo
     await source.async_set_show_store(True)
     await source.async_run()
     await source.async_run()
-    assert not catalog.products[0]['commercial_references'] and aioclient_mock.call_count==1
+    assert catalog.products[0]==product and aioclient_mock.call_count==1
     assert source.snapshot['phase']=='finished' and source.snapshot['processed']==1
     await source.async_stop()
 

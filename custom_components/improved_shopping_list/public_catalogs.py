@@ -18,6 +18,7 @@ from .ean_links import DAY, product_eans
 from .option_lookup import metadata, web_measure_price
 from .price_sources import PriceError, consum_offer
 from .product_references import gtin
+from .receipt_quantities import measure_price
 from .store_links import STORES, normalize_link
 
 PUBLIC_SHOPS = {
@@ -74,7 +75,15 @@ def shop_product(store, data, expected_ean=""):
     else:
         result={**metadata(offer),**{key:offer[key] for key in ("price","currency","ean","reference_price","reference_unit") if key in offer}}
         result["price"]=float(result["price"])
-        if rate:=web_measure_price(result):result["measure_price"]=rate
+        # Public shops use human-readable bases (KILO, 1 Kg, 100 ml).
+        basis=re.fullmatch(r"\s*(?:(\d+(?:[.,]\d+)?)\s*)?(kg|kilo|kilogramos?|g|gr|gramos?|l|litros?|ml|cl|u\.?|uds?|unidades?)\s*",str(result.get("reference_unit", "")),re.I)
+        if basis and result.get("reference_price"):
+            raw_unit=basis[2].lower()
+            unit="kg" if raw_unit.startswith(('kilo','kg')) else "g" if raw_unit.startswith(('gr','g')) else "l" if raw_unit.startswith(('litro','l')) else raw_unit if raw_unit in ('ml','cl') else "uds"
+            try:result["measure_price"]=measure_price({"price":float(result["reference_price"]),"quantity":float((basis[1] or '1').replace(',','.')),"unit":unit,"currency":"EUR","source":"web","checked_at":int(time.time())})
+            except (TypeError,ValueError):pass
+        if "measure_price" not in result:
+            if rate:=web_measure_price({k:v for k,v in result.items() if k not in ('reference_price','reference_unit')}):result["measure_price"]=rate
     result.update(store=store,ean=data["ean"],reference_id=link["id"],url=link["url"],checked_at=int(time.time()))
     return result
 

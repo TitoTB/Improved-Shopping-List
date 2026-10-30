@@ -1,5 +1,18 @@
 # Historial de cambios
 
+## 0.55.0 — 2026-10-30
+
+- Lectores pasa de Ajustes a una vista de Stock. Conserva configuración, acciones y lecturas en directo; el panel se carga al entrar y cierra sus ventanas al salir.
+- Catálogo conserva las vistas Productos, Categorías y Nuevos. Se retiran las vistas Recetas y Sugerencias sin borrar sus datos guardados ni renderizar su contenido oculto.
+- Nuevos solo aparece mientras existan productos o códigos escaneados pendientes de revisar; al revisar el último se regresa a Productos.
+- El buscador de productos ocupa el espacio disponible de la fila y los controles quedan ajustados al margen derecho.
+- Analítica → Comparativa elimina los filtros de tienda, antigüedad y moneda, el resumen de precio más antiguo y los textos explicativos indicados. Los dos resúmenes restantes quedan centrados.
+- La comparación incluye únicamente precios con unidades compatibles en al menos dos tiendas. La tabla muestra €/kg, €/l o €/ud junto al importe y centra las columnas de precios, manteniendo el producto alineado a la izquierda.
+- Al reprocesar tickets se muestran también las líneas no vinculadas, permitiendo asociarlas o crear su producto. Las vinculaciones existentes se conservan y no se repiten la compra ni la reposición de Stock.
+- Lidl conserva el peso comprado y el precio explícito por unidad de medida del ticket, sin confundirlos con el contenido fijo de un envase. Al reprocesar tickets antiguos, si la cuenta está conectada, se intenta recuperar el detalle original y se conserva la revisión local si falla.
+- Retirado el icono de acceso al progreso de los bloques de Ajustes → Tiendas → Catálogos.
+- Sin nuevas dependencias.
+
 ## 0.54.2 — 2026-10-29
 
 - Comparativa vuelve a mostrar todos los productos con precios guardados en al menos dos tiendas, aunque alguna alternativa no tenga contenido suficiente para calcular su precio por kg, litro o unidad.

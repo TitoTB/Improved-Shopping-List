@@ -25,6 +25,7 @@ sys.modules[package.__name__] = package
 sources = importlib.import_module(package.__name__+".price_sources")
 lookup = importlib.import_module(package.__name__+".option_lookup")
 references = importlib.import_module(package.__name__+".product_references")
+public = importlib.import_module(package.__name__+".public_catalogs")
 
 EAN = "8410199023094"
 NEGATIVE = "9999999999994"
@@ -47,7 +48,7 @@ async def check_store(hass, name, base, code):
         next_request = time.monotonic()+20
 
     async def fetch(path, stage):
-        data = await provider._regional_json(session, "consum", base+path, {"id":code}, before)
+        data = await public.request(hass,name,path,before)
         if not isinstance(data, dict):
             raise ValueError("Expected a product JSON object")
         responses.append(stage)
@@ -56,7 +57,7 @@ async def check_store(hass, name, base, code):
     def exact(products):
         return [product for product in products if references.gtin(str(product.get("ean", ""))) == references.gtin(EAN)]
 
-    result = {"store": name, "transport":"HA async_create_clientsession + integration PriceSources._regional_json"}
+    result = {"store": name, "transport":"HA async_create_clientsession + new integration public_catalogs.request/shop_product"}
     try:
         for stage, query in (("ean_search", EAN), ("commercial_name_search", "patatas fritas gourmet"), ("negative_control", NEGATIVE)):
             path = "/api/rest/V1.0/catalog/searcher/products?"+urlencode({"q":query, "limit":5, "offset":0})
@@ -81,6 +82,9 @@ async def check_store(hass, name, base, code):
         parsed = lookup.metadata(offer)
         assert parsed["content_quantity"] == 170 and parsed["content_unit"] == "g"
         assert parsed["brand"] and float(offer["price"]) > 0
+        production=public.shop_product(name,detail,EAN)
+        assert production["content_quantity"]==170 and production["content_unit"]=="g"
+        assert production["measure_price"]["unit"]=="kg" and production["price"]>0
         result["detail"] = {"reference":code,"ean":offer["ean"],"price":offer["price"],"currency":offer["currency"],
             "reference_price":offer["reference_price"],"reference_unit":offer["reference_unit"], **parsed}
         result["success"] = True

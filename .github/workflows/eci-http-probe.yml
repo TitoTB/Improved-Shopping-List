@@ -13,7 +13,7 @@ jobs:
           persist-credentials: false
       - uses: actions/checkout@v4
         with:
-          ref: main
+          ref: codex/public-shop-catalogs
           path: main
           persist-credentials: false
       - name: Check public search and product parsers in HA Core

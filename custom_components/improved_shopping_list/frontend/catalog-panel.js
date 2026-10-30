@@ -559,6 +559,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
     const root = this.shadowRoot;
     installDialogCloseButtons(root);
     const addStoreLink = () => {
+      if(this._retrievingOption)return;
       const value = root.querySelector("#product-link-value").value.trim();
       const store = storeFromProductUrl(value);
       if(value&&!store){const status=root.querySelector('#option-lookup-status');status.textContent='Introduce una URL HTTPS de una tienda compatible.';status.dataset.error='true';return;}
@@ -572,7 +573,11 @@ class ImprovedShoppingCatalog extends HTMLElement {
       return ref;
     };
     root.querySelector("#add-product-store-link").addEventListener("click", addStoreLink);
-    root.querySelector('#retrieve-product-data').addEventListener('click',()=>{const value=root.querySelector('#product-link-value').value.trim(),ref=addStoreLink();if(ref)void this._retrieveOption(ref,value);});
+    root.querySelector('#retrieve-product-data').addEventListener('click',()=>{
+      const value=root.querySelector('#product-link-value').value.trim();
+      const ref={store:storeFromProductUrl(value)||'',name:'',ean:'',reference_id:'',url:value,content_quantity:null,content_unit:'',content_confirmed:false};
+      void this._retrieveOption(ref,value,null,true);
+    });
     root.querySelector("#product-link-value").addEventListener("keydown", event => {
       if (event.key === "Enter" && !event.isComposing) { event.preventDefault(); addStoreLink(); }
     });
@@ -1540,6 +1545,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
     });
     root.querySelector('#product-store-links').replaceChildren(...blocks);
     root.querySelector('#retrieve-product-data').disabled=Boolean(this._retrievingOption)||this._hass?.user?.is_admin!==true;
+    root.querySelector('#add-product-store-link').disabled=Boolean(this._retrievingOption)||this._hass?.user?.is_admin!==true;
   }
 
   _clearCommonSource(ref,fields){
@@ -1608,7 +1614,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
     return card;
   }
 
-  async _retrieveOption(ref,value,feedback=null) {
+  async _retrieveOption(ref,value,feedback=null,newOption=false) {
     if(this._retrievingOption||this._hass?.user?.is_admin!==true)return;
     const root=this.shadowRoot,status=root.querySelector('#option-lookup-status'),generation=this._optionGeneration;
     if(!value){status.textContent='Indica la URL del producto para recuperar sus datos.';return;}
@@ -1617,13 +1623,14 @@ class ImprovedShoppingCatalog extends HTMLElement {
     status.dataset.error='false';
     if(feedback){feedback.hidden=false;feedback.dataset.error='false';feedback.textContent='Recuperando datos…';}
     root.querySelector('#save-product').disabled=true;
+    root.querySelector('#add-product-store-link').disabled=true;
     root.querySelectorAll('.retrieve-option').forEach(button=>{button.disabled=true;});
     try{
       // Explicit URL retrieval can discover another package. Automatic lookups
       // retain their strict expected-EAN check in the backend.
       const data=await this._hass.callWS({type:'improved_shopping_list/catalog/retrieve_option',url:value,store:ref.store||''});
       if(generation!==this._optionGeneration||!root.querySelector('dialog').open||!this.isConnected)return;
-      if((ref.url||ref.reference_id)!==value){status.textContent='El enlace ha cambiado. Pulsa Recuperar datos de nuevo.';return;}
+      if((newOption?root.querySelector('#product-link-value').value.trim():ref.url||ref.reference_id)!==value){status.textContent='El enlace ha cambiado. Pulsa Recuperar datos de nuevo.';return;}
       const differentEAN=Boolean(barcodeIdentity(ref.ean??'')&&barcodeIdentity(data.ean??'')&&barcodeIdentity(ref.ean)!==barcodeIdentity(data.ean));
       if(differentEAN){
         const original=ref,origin=this._optionLinkOrigins?.get(original);
@@ -1653,6 +1660,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
       const existing=this._commercialReferences.find(item=>item!==ref&&item.active!==false&&item.store===data.store&&
         (!item.ean||!data.ean||barcodeIdentity(item.ean)===barcodeIdentity(data.ean))&&(item.reference_id===data.reference_id||item.url===data.url));
       if(existing){this._commercialReferences=this._commercialReferences.filter(item=>item!==ref);ref=existing;}
+      else if(newOption)this._commercialReferences.push(ref);
       const originalLink=this._optionLinkOrigins?.get(ref);
       if(data.store==='lidl'&&!changedStore&&!ref.ticket_reference_id&&originalLink&&!originalLink.url&&/^[0-9]{1,16}$/.test(originalLink.reference_id))ref.ticket_reference_id=originalLink.reference_id;
       Object.assign(ref,{store:data.store,reference_id:data.reference_id,url:data.url,active:true});
@@ -1668,6 +1676,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
       if(data.nutriscore?.grade)ref.nutriscore=data.nutriscore;
       if(!this._storeLinks[data.store])this._storeLinks[data.store]=data.url;
       if(data.ean)this._addProductCode('barcode',data.ean);
+      if(newOption)root.querySelector('#product-link-value').value='';
       const image=root.querySelector('form').elements.image_url;
       if(!image.value&&data.image_url){image.value=data.image_url;root.querySelector('isl-icon-picker').value=data.image_url;}
       this._expandedOptions.add(ref.id||`${ref.store}:${ref.reference_id||ref.url||ref.ean}`);
@@ -1676,7 +1685,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
       status.textContent=differentEAN?'La ficha corresponde a otro EAN. Sus datos se han recuperado en una alternativa independiente. Guarda el producto para conservarlos.':changedStore?`Opción reclasificada en ${STORE_NAMES[data.store]??data.store}. Datos recuperados. Guarda el producto para conservarlos.`:'Datos recuperados. Guarda el producto para conservarlos.';
     }catch(error){if(generation===this._optionGeneration&&root.querySelector('dialog').open){const message=error.message||'No se han podido recuperar los datos. Puedes conservar el enlace y completar la opción manualmente.';status.textContent=feedback?'':message;status.dataset.error=String(!feedback);if(feedback){feedback.hidden=false;feedback.dataset.error='true';feedback.textContent=message;}}}
     finally{
-      if(generation===this._optionGeneration){this._retrievingOption=false;root.querySelector('#save-product').disabled=Boolean(this._saving);root.querySelectorAll('.retrieve-option').forEach(button=>{button.disabled=this._hass?.user?.is_admin!==true;});}
+      if(generation===this._optionGeneration){this._retrievingOption=false;root.querySelector('#save-product').disabled=Boolean(this._saving);root.querySelector('#add-product-store-link').disabled=this._hass?.user?.is_admin!==true;root.querySelectorAll('.retrieve-option').forEach(button=>{button.disabled=this._hass?.user?.is_admin!==true;});}
     }
   }
 

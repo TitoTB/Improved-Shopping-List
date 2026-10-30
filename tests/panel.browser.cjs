@@ -232,6 +232,7 @@ const hass={
     if(msg.type==='improved_shopping_list/stock/get')return {items:structuredClone(window.stockItems),receipt_stores:structuredClone(window.receiptStores)};
     if(msg.type==='improved_shopping_list/attention/get')return structuredClone(window.attentionFixture);
     if(msg.type==='improved_shopping_list/catalog/retrieve_option'){
+      if(window.optionLookupGate)await window.optionLookupGate;
       if(window.failOptionLookup)throw new Error('La web ha rechazado la consulta (HTTP 403).');
       window.lastOptionLookup=structuredClone(msg);return structuredClone(window.optionLookupFixture);
     }
@@ -1267,6 +1268,51 @@ async function checkDifferentOptionEAN(browser,url,errors){
   }
 }
 
+async function checkStagedOptionURL(browser,url,errors){
+  const context=await browser.newContext({viewport:{width:1280,height:960}});
+  await context.addInitScript(()=>{
+    localStorage.setItem('catalog-fixture',JSON.stringify([{id:'staged',revision:1,name:'Producto',category:'',tags:[],image_url:'',icon:'',store_links:{},barcodes:['8410422111086'],commercial_references:[
+      {id:'original',store:'carrefour',name:'Envase original',ean:'8410422111086',reference_id:'R-old',url:'https://www.carrefour.es/supermercado/producto/R-old/p',brand:'Marca',content_quantity:70,content_unit:'ml',content_confirmed:true}]}]));
+  });
+  const page=await context.newPage();page.on('pageerror',error=>errors.push(error.message));await page.goto(url);
+  await page.getByRole('button',{name:'Catálogo',exact:true}).click();const catalog=page.locator('isl-catalog');
+  await catalog.getByRole('button',{name:'Cambiar a vista de filas',exact:true}).click();
+  await catalog.getByRole('button',{name:'Editar Producto',exact:true}).click();
+  const form=catalog.getByRole('dialog',{name:'Editar producto',exact:true});await form.getByRole('button',{name:'Alternativas',exact:true}).click();
+  const value='https://www.compraonline.alcampo.es/products/producto/722018';
+  const input=form.getByRole('textbox',{name:'URL del producto',exact:true}),retrieve=form.locator('#retrieve-product-data');
+  await page.evaluate(value=>{
+    window.optionLookupFixture={store:'alcampo',reference_id:'722018',url:value,ean:'8410422111086',name:'Envase Alcampo',brand:'Marca',content_quantity:70,content_unit:'ml',price:2,currency:'EUR',checked_at:1800000000};
+    window.optionLookupGate=new Promise(resolve=>{window.releaseOptionLookup=resolve;});
+  },value);
+  await input.fill(value);await retrieve.click();
+  await form.getByText('Recuperando datos…',{exact:true}).waitFor();
+  assert.equal(await form.locator('.product-option').count(),1);
+  assert.equal(await catalog.evaluate(el=>el._commercialReferences.length),1);
+  assert.equal(await input.inputValue(),value);
+  await page.evaluate(()=>{window.releaseOptionLookup();delete window.optionLookupGate;});
+  await form.getByText('Datos recuperados. Guarda el producto para conservarlos.',{exact:true}).waitFor();
+  assert.equal(await form.locator('.product-option').count(),2);
+  assert.equal(await form.locator('.product-ean-group').count(),1);
+  assert.equal(await input.inputValue(),'');
+  // A failed new URL stays editable and cannot leave a provisional option behind.
+  await page.evaluate(()=>{window.failOptionLookup=true;});
+  await input.fill(value.replace('722018','722019'));await retrieve.click();
+  await form.getByText('La web ha rechazado la consulta (HTTP 403).',{exact:true}).waitFor();
+  assert.equal(await form.locator('.product-option').count(),2);
+  assert.equal(await catalog.evaluate(el=>el._commercialReferences.length),2);
+  assert.equal(await input.inputValue(),value.replace('722018','722019'));
+  // Editing the URL while waiting discards the old result rather than adding it.
+  await page.evaluate(()=>{window.failOptionLookup=false;window.optionLookupGate=new Promise(resolve=>{window.releaseOptionLookup=resolve;});});
+  await input.fill(value);await retrieve.click();await form.getByText('Recuperando datos…',{exact:true}).waitFor();
+  await input.fill(value.replace('722018','722020'));
+  await page.evaluate(()=>{window.releaseOptionLookup();delete window.optionLookupGate;});
+  await form.getByText('El enlace ha cambiado. Pulsa Recuperar datos de nuevo.',{exact:true}).waitFor();
+  assert.equal(await form.locator('.product-option').count(),2);
+  assert.equal(await input.inputValue(),value.replace('722018','722020'));
+  await context.close();
+}
+
 async function checkStockReaders(browser,url,errors){
   const context=await browser.newContext({viewport:{width:1280,height:960}}),page=await context.newPage();
   page.on('pageerror',error=>errors.push(error.message));await page.goto(url);
@@ -1686,7 +1732,7 @@ async function main() {
     if(process.argv.includes('--lazy-only')){const errors=[];await checkLazySections(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);return;}
     if(process.argv.includes('--lidl-reprocess-only')){const errors=[];await checkLidlReprocessLines(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Lidl full reprocessing passed.');return;}
     if(process.argv.includes('--lidl-metadata-only')){const errors=[];await checkLidlMetadata(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Lidl receipt metadata passed.');return;}
-    if(process.argv.includes('--option-ean-only')){const errors=[];await checkDifferentOptionEAN(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Alternative EAN discovery passed.');return;}
+    if(process.argv.includes('--option-ean-only')){const errors=[];await checkDifferentOptionEAN(browser,`http://127.0.0.1:${server.address().port}`,errors);await checkStagedOptionURL(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Alternative EAN discovery passed.');return;}
     if(process.argv.includes('--catalog-sources-only')){const errors=[];await checkCatalogSources(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Catalog sources and EAN grouping passed.');return;}
     if(process.argv.includes('--formats-only')){const errors=[];await checkReferenceFormats(browser,`http://127.0.0.1:${server.address().port}`,errors);await checkReceiptPackageFormats(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Commercial reference browser checks passed.');return;}
     if(process.argv.includes('--recovery-only')){const errors=[];await checkDetectedPurchaseRecovery(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Manual purchase recovery browser checks passed.');return;}
@@ -4779,6 +4825,7 @@ async function main() {
     await checkLazySections(browser,url,errors);
     await checkCatalogSources(browser,url,errors);
     await checkDifferentOptionEAN(browser,url,errors);
+    await checkStagedOptionURL(browser,url,errors);
     await checkLidlMetadata(browser,url,errors);
     await checkLidlReprocessLines(browser,url,errors);
     await checkReferenceFormats(browser,url,errors);

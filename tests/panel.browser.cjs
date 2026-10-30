@@ -1019,6 +1019,7 @@ async function checkReceiptPackageFormats(browser,url,errors){
   await page.waitForFunction(()=>!document.querySelector('improved-shopping-list-panel').shadowRoot.querySelector('isl-purchases')._busy);
   await purchases.evaluate(el=>{
     const products=[{id:'cacao',name:'Seitán',unit:'g',refill_quantity:1000,stock_id:'s1',revision:1,commercial_references:[]}];
+    window.catalogProducts=products;
     const receipt={id:'weight-test',store:'carrefour',store_name:'Carrefour',purchased_at:new Date().toISOString(),total:2.5,lines:[{id:'0',description:'SEITAN AL PESO',count:1,unit_price:2.5,amount:2.5,product_id:'cacao',matched:true,pack_quantity:null,pack_unit:''}]};
     window.quantityResult={quantity:.5,unit:'kg',estimated:true};window.quantityWait=new Promise(resolve=>window.finishQuantity=resolve);
     window.receiptDraft=structuredClone(receipt);el.openPreview({token:'weight-test',receipt,products,purchases:[]});

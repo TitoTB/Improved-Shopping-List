@@ -4,7 +4,7 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock
 import time
 
-from custom_components.improved_shopping_list.catalog import Catalog
+from custom_components.improved_shopping_list.catalog import Catalog, FIELDS
 from custom_components.improved_shopping_list.pending_information import PendingInformationRefresh, pending, merge_result
 from custom_components.improved_shopping_list import pending_information as module
 from custom_components.improved_shopping_list.price_sources import PriceError
@@ -61,7 +61,7 @@ async def setup(hass,monkeypatch,two=True):
 
 async def test_batch_only_queues_pending_products_with_urls_and_saves_all_options(hass,monkeypatch):
     catalog,product,lookup,manager,clock,waits=await setup(hass,monkeypatch)
-    complete=reference(ean=OTHER,content_quantity=250,content_unit='g',last_price={'price':2,'currency':'EUR'})
+    complete=reference(ean=OTHER,content_quantity=250,content_unit='g',last_price={'price':2,'currency':'EUR','checked_at':int(time.time())})
     await catalog.async_save_product({'name':'Completo','commercial_references':[complete,reference('alcampo',URL2,ean=OTHER)]})
     await catalog.async_save_product({'name':'Sin URL'})
     initial=await manager.async_start();assert initial['total']==2 and initial['products']==[product['id']]
@@ -108,7 +108,7 @@ async def test_concurrent_product_name_edit_survives_refresh(hass,monkeypatch):
     catalog,product,lookup,manager,clock,waits=await setup(hass,monkeypatch,False)
     async def retrieve(url,**kwargs):
         await kwargs['before_request']()
-        current=catalog.products[0];current['name']='Nombre corregido';await catalog.async_save_product(current)
+        current={k:v for k,v in catalog.products[0].items() if k in FIELDS};current['name']='Nombre corregido';await catalog.async_save_product(current)
         return result(url)
     lookup.retrieve.side_effect=retrieve
     await manager.async_start();await manager._task
@@ -119,7 +119,7 @@ async def test_concurrent_product_name_edit_survives_refresh(hass,monkeypatch):
 
 async def test_blocked_shop_does_not_repeat_remaining_urls(hass,monkeypatch):
     catalog,product,lookup,manager,clock,waits=await setup(hass,monkeypatch,False)
-    current=catalog.products[0];current['commercial_references'].append(reference(url='https://www.carrefour.es/supermercado/patatas/R-456/p'))
+    current={k:v for k,v in catalog.products[0].items() if k in FIELDS};current['commercial_references'].append(reference(url='https://www.carrefour.es/supermercado/patatas/R-456/p'))
     await catalog.async_save_product(current)
     lookup.retrieve.side_effect=PriceError('HTTP 403',http_status=403,retry_seconds=900)
     await manager.async_start();await manager._task

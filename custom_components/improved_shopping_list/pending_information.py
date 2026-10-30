@@ -111,7 +111,8 @@ class PendingInformationRefresh:
             if not isinstance(state.get("errors",[]),list) or any(not isinstance(error,dict) for error in state.get("errors",[])):return
             self._queue=queue;self._state.update({k:v for k,v in state.items() if k in self._state})
             self._state["total"]=len(queue)
-            self._cooldowns={key:value for key,value in saved.get("cooldowns",{}).items() if key in HOSTS and number(value) and time.time()<value<=time.time()+86400}
+            cooldowns=saved.get("cooldowns",{})
+            self._cooldowns={key:value for key,value in (cooldowns if isinstance(cooldowns,dict) else {}).items() if key in HOSTS and number(value) and time.time()<value<=time.time()+86400}
             value=saved.get("next",0)
             if number(value) and 0<=value<=time.time()+86400:self._next=value
         except (ValueError,TypeError):return
@@ -201,7 +202,7 @@ class PendingInformationRefresh:
                             if job["product_id"] not in self._state["updated_products"]:self._state["updated_products"].append(job["product_id"])
                 except (ValueError,OSError,TimeoutError,aiohttp.ClientError) as err:
                     diagnostics=deepcopy(getattr(err,"diagnostics",{}))
-                    if diagnostics.get("http_status") in (403,429,503) or diagnostics.get("retry_seconds",0):
+                    if diagnostics.get("http_status") in (403,429,503) or diagnostics.get("retry_seconds",0) or diagnostics.get("response_class") in ("rate_limited","access_denied"):
                         blocked.add(store);reported.add(store)
                         wait=diagnostics.get("retry_seconds",900)
                         self._cooldowns[store]=time.time()+min(86400,max(900,wait if number(wait) else 900))

@@ -19,7 +19,7 @@ test('Carrefour outgoing product links use the affiliate destination without cha
 });
 
 test('official product URLs identify their store without a selected store',()=>{
- for(const [host,store] of [['www.carrefour.es','carrefour'],['www.compraonline.alcampo.es','alcampo'],['tienda.mercadona.es','mercadona'],['tienda.consum.es','consum'],['www.lasirena.es','lasirena'],['supermercado.eroski.es','eroski'],['www.dia.es','dia'],['www.lidl.es','lidl']])assert.equal(storeFromProductUrl(`https://${host}/product`),store);
+ for(const [host,store] of [['www.elcorteingles.es','elcorteingles'],['www.carrefour.es','carrefour'],['www.compraonline.alcampo.es','alcampo'],['tienda.mercadona.es','mercadona'],['tienda.consum.es','consum'],['www.lasirena.es','lasirena'],['supermercado.eroski.es','eroski'],['www.dia.es','dia'],['www.lidl.es','lidl']])assert.equal(storeFromProductUrl(`https://${host}/product`),store);
  for(const value of ['R-521002958','http://www.carrefour.es/a','https://www.carrefour.es.example.org/a','https://user:password@www.carrefour.es/a'])assert.equal(storeFromProductUrl(value),'');
 });
 

@@ -72,9 +72,9 @@ const hass={
   connection:{subscribeMessage:async(callback,msg)=>{
     if(msg.type==='improved_shopping_list/catalog_sources/subscribe'){
       window.catalogSourceSubscriptions=(window.catalogSourceSubscriptions??0)+1;
-      const listener={callback,catalogSource:true};listeners.set(listener,true);
-      callback(structuredClone(window.catalogSourceFixture??{enabled:false,phase:'idle',total:0,processed:0,errors:[]}));
-      window.emitCatalogSource=state=>{window.catalogSourceFixture=state;for(const item of listeners.keys())if(item.catalogSource)item.callback(structuredClone(state));};
+      const listener={callback,catalogSource:true,source:msg.source??'alcampo'};listeners.set(listener,true);
+      callback(structuredClone((msg.source==='elcorteingles'?window.eciSourceFixture:window.catalogSourceFixture)??{enabled:false,phase:'idle',total:0,processed:0,errors:[]}));
+      window.emitCatalogSource=state=>{window.catalogSourceFixture=state;for(const item of listeners.keys())if(item.catalogSource&&item.source==='alcampo')item.callback(structuredClone(state));};
       return()=>{listeners.delete(listener);window.catalogSourceSubscriptions--;};
     }
     if(msg.type==='improved_shopping_list/attention/subscribe'){
@@ -121,6 +121,7 @@ const hass={
   callWS:async(msg)=>{
     (window.wsRequests??=[]).push(msg.type);
     if(msg.type==='improved_shopping_list/catalog_sources/set'){
+      if(msg.source==='elcorteingles'){window.eciSourceSets=(window.eciSourceSets??0)+1;window.eciSourceFixture={...(window.eciSourceFixture??{}),enabled:msg.enabled,total:1,processed:0,phase:'preparing'};return structuredClone(window.eciSourceFixture);}
       window.catalogSourceSets=(window.catalogSourceSets??0)+1;
       const state={enabled:msg.enabled,phase:msg.enabled?'waiting':'idle',running:msg.enabled,total:2,processed:0,updated:0,errors:[],next_request:Date.now()/1000+20};
       window.emitCatalogSource?.(state);return state;
@@ -1406,6 +1407,13 @@ async function checkCatalogSources(browser,url,errors){
   assert.ok(await popup.evaluate(el=>el.scrollWidth<=el.clientWidth+1));
   await page.screenshot({path:'test-results/catalog-source-progress-mobile.png',fullPage:true});
   await popup.getByRole('button',{name:'Cerrar ventana',exact:true}).click();await toggle.uncheck();
+  const eci=source.locator('isl-eci-catalog'),eciToggle=eci.getByRole('switch',{name:'Completar productos con El Corte Inglés',exact:true});
+  assert.equal(await eciToggle.isChecked(),false);
+  assert.match(await eci.locator('.logo').getAttribute('src'),/IconImage_20241028224125253_NEW_WAP_ICON_512_512/);
+  assert.equal(await eci.getByRole('button',{name:/Ver progreso/}).count(),0);
+  await eciToggle.check();const eciPopup=eci.getByRole('dialog',{name:'Catálogo de El Corte Inglés',exact:true});await eciPopup.waitFor();
+  assert.equal(await toggle.isChecked(),false);assert.equal(await page.evaluate(()=>window.eciSourceSets),1);
+  await eciPopup.getByRole('button',{name:'Cerrar ventana',exact:true}).click();await eciToggle.uncheck();
   await settings.getByRole('button',{name:'Listas',exact:true}).click();
   assert.equal(await page.evaluate(()=>window.catalogSourceSubscriptions),0);
   await context.close();

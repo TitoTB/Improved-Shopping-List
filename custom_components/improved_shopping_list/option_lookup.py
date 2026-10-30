@@ -178,6 +178,9 @@ class OptionLookup:
         self._next = time.monotonic() + 5
 
     async def _page(self, store, link, before_request=None):
+        if store == "elcorteingles":
+            from .eci_catalog import ECIClient
+            return await ECIClient(self.hass).retrieve(link["url"],before_request or self._before_request)
         session = async_create_clientsession(self.hass, auto_cleanup=False, cookie_jar=aiohttp.DummyCookieJar())
         try:
             current = link["url"]
@@ -244,7 +247,7 @@ class OptionLookup:
                         raise PriceError("La tienda ha solicitado una pausa. Puedes indicar la cantidad manualmente.",
                             response_class="rate_limited", attempts=attempts, errors=warnings,
                             retry_seconds=max(0,int(self._blocked_until[store]-time.monotonic()))) from err
-                if store != "lidl" and (not result.get("name") or result.get("price") is None or not result.get("brand") or result.get("content_quantity") is None):
+                if store not in ("lidl","elcorteingles") and (not result.get("name") or result.get("price") is None or not result.get("brand") or result.get("content_quantity") is None):
                     try:
                         offer = await self.sources.fetch(store, link, reference_location(store), before_request or self._before_request)
                         if offer:

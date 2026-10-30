@@ -8,7 +8,7 @@ export function storeFromProductUrl(value) {
   try {
     const url=new URL(value);
     if(url.protocol!=="https:"||url.username||url.password||url.port&&url.port!=="443")return "";
-    return ({"www.carrefour.es":"carrefour","carrefour.es":"carrefour","www.compraonline.alcampo.es":"alcampo","compraonline.alcampo.es":"alcampo",
+    return ({"www.elcorteingles.es":"elcorteingles","www.carrefour.es":"carrefour","carrefour.es":"carrefour","www.compraonline.alcampo.es":"alcampo","compraonline.alcampo.es":"alcampo",
       "tienda.mercadona.es":"mercadona","tienda.consum.es":"consum","www.lasirena.es":"lasirena","supermercado.eroski.es":"eroski",
       "www.dia.es":"dia","dia.es":"dia","www.lidl.es":"lidl"})[url.hostname]??"";
   } catch { return ""; }

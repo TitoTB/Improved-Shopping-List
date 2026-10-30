@@ -10,8 +10,8 @@ import { imageSource, normalizedName, productNameKey, cachedProductPrice, storeP
 export { imageSource, normalizedName, productNameKey, cachedProductPrice };
 
 const MONTHS = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
-const STORE_NAMES = {mercadona:"Mercadona",carrefour:"Carrefour",alcampo:"Alcampo",consum:"Consum",lasirena:"La Sirena",eroski:"Eroski",dia:"DIA",lidl:"Lidl"};
-const storeLogo = store => ({lidl:"https://upload.wikimedia.org/wikipedia/commons/9/91/Lidl-Logo.svg",carrefour:"https://images.seeklogo.com/logo-png/31/2/carrefour-logo-png_seeklogo-318190.png",alcampo:"https://almeria.online/wp-content/uploads/2024/09/alcampo-logo.png"}[store] ?? new URL(`${store}.${store === "mercadona" || store === "dia" ? "png" : store === "eroski" ? "svg" : "jpg"}`,import.meta.url).href);
+const STORE_NAMES = {elcorteingles:"El Corte Inglés",mercadona:"Mercadona",carrefour:"Carrefour",alcampo:"Alcampo",consum:"Consum",lasirena:"La Sirena",eroski:"Eroski",dia:"DIA",lidl:"Lidl"};
+const storeLogo = store => ({elcorteingles:"https://img.samsungapps.com/productNew/000005314762/SPA/IconImage_20241028224125253_NEW_WAP_ICON_512_512.png",lidl:"https://upload.wikimedia.org/wikipedia/commons/9/91/Lidl-Logo.svg",carrefour:"https://images.seeklogo.com/logo-png/31/2/carrefour-logo-png_seeklogo-318190.png",alcampo:"https://almeria.online/wp-content/uploads/2024/09/alcampo-logo.png"}[store] ?? new URL(`${store}.${store === "mercadona" || store === "dia" ? "png" : store === "eroski" ? "svg" : "jpg"}`,import.meta.url).href);
 
 function element(tag, className, text) {
   const node = document.createElement(tag);
@@ -1342,7 +1342,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
         this._priceData?.favorite);
       if (offer) {
         const badge = element("span","row-price");
-        badge.title = offer.store ? `Último precio guardado · ${({mercadona:"Mercadona",carrefour:"Carrefour",alcampo:"Alcampo",consum:"Consum",lasirena:"La Sirena",eroski:"Eroski",dia:"DIA",lidl:"Lidl"})[offer.store] ?? offer.store}` : "Precio manual";
+        badge.title = offer.store ? `Último precio guardado · ${({elcorteingles:"El Corte Inglés",mercadona:"Mercadona",carrefour:"Carrefour",alcampo:"Alcampo",consum:"Consum",lasirena:"La Sirena",eroski:"Eroski",dia:"DIA",lidl:"Lidl"})[offer.store] ?? offer.store}` : "Precio manual";
         const icon = element("ha-icon"); icon.setAttribute("icon","mdi:cash-multiple"); icon.setAttribute("aria-hidden","true");
         badge.append(icon,element("span","",new Intl.NumberFormat("es-ES",{style:"currency",currency:offer.currency}).format(Number(offer.price))));
         metadata.append(badge);

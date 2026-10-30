@@ -366,7 +366,7 @@ class Catalog:
             await self._persist(products,self._categories)
         self._notify()
 
-    async def async_complete_store_option(self, store, code, link, data):
+    async def async_complete_store_option(self, store, code, link, data, *, create=False):
         """Merge one verified EAN into current options without losing concurrent edits."""
         key = gtin(code)
         if not key or data.get("ean") and gtin(data["ean"]) != key:
@@ -382,9 +382,19 @@ class Catalog:
                 refs = product.get("commercial_references", [])
                 target = next((ref for ref in refs if ref["store"] == store and gtin(ref.get("ean")) == key
                                and ref.get("active",True) and ref.get("url") == link["url"]), None)
+                before = deepcopy(refs)
+                if not target and create:
+                    from .ean_links import product_eans
+                    if key not in product_eans(product) or any(ref["store"]==store and gtin(ref.get("ean"))==key for ref in refs):
+                        continue
+                    target=next((ref for ref in refs if ref["store"]==store and not gtin(ref.get("ean")) and ref.get("active",True) and ref.get("url")==link["url"]),None)
+                    if target:
+                        target["ean"]=data["ean"]
+                    else:
+                        target=normalized_references([{"store":store,"ean":data["ean"],"reference_id":link["id"],"url":link["url"],"name":data.get("name", "")}])[0]
+                        refs.append(target)
                 if not target:
                     continue
-                before = deepcopy(refs)
                 siblings = [ref for ref in refs if gtin(ref.get("ean")) == key and ref.get("active",True)]
                 known_brand = next((ref["brand"] for ref in siblings if ref.get("brand")),data.get("brand"))
                 known_content = next((ref for ref in siblings if ref.get("content_quantity") and ref.get("content_confirmed")),

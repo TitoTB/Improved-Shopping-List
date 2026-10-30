@@ -2,6 +2,8 @@
 
 ## Próxima versión
 
+- Se elimina el texto introductorio de Catálogo → Pendiente.
+
 - Catálogo → Pendiente incorpora «Recuperar datos»: consulta forzada de las URL de los productos pendientes, guarda sus fichas y muestra progreso. Se esperan veinte segundos entre peticiones; el trabajo continúa al cerrar la interfaz y se recupera tras reiniciar Home Assistant.
 
 - Catálogos opcionales de Masymas, BM y Consum, desactivados por defecto; completan datos vacíos por EAN exacto, conservan resultados y permiten mostrar u ocultar las alternativas de cada tienda.

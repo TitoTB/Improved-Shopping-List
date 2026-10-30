@@ -480,7 +480,6 @@ class ImprovedShoppingCatalog extends HTMLElement {
         <isl-categories id="recommendation-category-editor" editor-only product-assignment></isl-categories>
       </section>
       <section id="suggestions-view" hidden>
-        <p id="suggestions-source" class="helper"></p>
         <div id="suggestions-error" class="notice error" role="alert" hidden></div>
         <div id="suggestions-list" class="suggestion-groups">
           <details id="list-suggestions-group" class="suggestion-group">
@@ -881,9 +880,6 @@ class ImprovedShoppingCatalog extends HTMLElement {
     const error = root.querySelector("#suggestions-error");
     error.hidden = !this._suggestionError;
     error.textContent = this._suggestionError ?? "";
-    root.querySelector("#suggestions-source").textContent = this._listName
-      ? `Productos de «${this._listName}» pendientes de incorporar al catálogo, códigos escaneados y productos con información incompleta.`
-      : "Productos pendientes de incorporar al catálogo, códigos escaneados y productos con información incompleta.";
     const excluded = new Set([
       ...this._catalog.products.map(product => productNameKey(product.name)),
       ...this._catalog.dismissedSuggestions.map(productNameKey),

@@ -194,3 +194,23 @@ async def test_session_block_is_bounded_and_explicit_retry_after_is_respected(ha
         assert error.value.diagnostics["stage"]=="session"
         assert eci_http.call_count==expected_calls and before.await_count==expected_calls
     finally:await client.async_close()
+
+
+async def test_live_progress_and_status_reads_are_scoped_to_eci_without_restarting(hass,hass_ws_client):
+    entry=MockConfigEntry(domain=DOMAIN,data={CONF_TODO_ENTITY:'todo.main'});entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    source=hass.data[DOMAIN]['eci_catalog'];source.async_run=AsyncMock()
+    client=await hass_ws_client(hass)
+    await client.send_json({'id':1,'type':f'{DOMAIN}/catalog_sources/subscribe','source':STORE})
+    assert (await client.receive_json())['success']
+    assert (await client.receive_json())['event']['processed']==0
+    source._status.update(running=True,phase='querying',total=4,processed=1,current='Café');source._notify()
+    assert (await client.receive_json())['event']['processed']==1
+    await client.send_json({'id':2,'type':f'{DOMAIN}/catalog_sources/status','source':STORE})
+    state=(await client.receive_json())['result']
+    assert state['total']==4 and state['processed']==1 and state['current']=='Café'
+    assert hass.data[DOMAIN]['catalog_sources'].snapshot['processed']==0
+    source.async_run.assert_not_awaited()
+    source._status.update(processed=3,phase='waiting');source._notify()
+    assert (await client.receive_json())['event']['processed']==3
+    assert await hass.config_entries.async_unload(entry.entry_id)

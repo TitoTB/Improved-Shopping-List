@@ -75,6 +75,7 @@ const hass={
       const listener={callback,catalogSource:true,source:msg.source??'alcampo'};listeners.set(listener,true);
       callback(structuredClone((msg.source==='elcorteingles'?window.eciSourceFixture:window.catalogSourceFixture)??{enabled:false,phase:'idle',total:0,processed:0,errors:[]}));
       window.emitCatalogSource=state=>{window.catalogSourceFixture=state;for(const item of listeners.keys())if(item.catalogSource&&item.source==='alcampo')item.callback(structuredClone(state));};
+      window.emitEciCatalogSource=state=>{window.eciSourceFixture=state;for(const item of listeners.keys())if(item.catalogSource&&item.source==='elcorteingles')item.callback(structuredClone(state));};
       return()=>{listeners.delete(listener);window.catalogSourceSubscriptions--;};
     }
     if(msg.type==='improved_shopping_list/attention/subscribe'){
@@ -120,12 +121,16 @@ const hass={
   }},
   callWS:async(msg)=>{
     (window.wsRequests??=[]).push(msg.type);
+    if(msg.type==='improved_shopping_list/catalog_sources/status'){
+      window.catalogStatusReads=(window.catalogStatusReads??0)+1;
+      return structuredClone((msg.source==='elcorteingles'?window.eciSourceFixture:window.catalogSourceFixture)??{enabled:false,phase:'idle',total:0,processed:0,errors:[]});
+    }
     if(msg.type==='improved_shopping_list/catalog_sources/visibility'){
       if(msg.source==='elcorteingles'){window.eciSourceFixture={...(window.eciSourceFixture??{}),show_store:msg.show_store};return structuredClone(window.eciSourceFixture);}
       const state={...(window.catalogSourceFixture??{}),show_store:msg.show_store};window.emitCatalogSource?.(state);return state;
     }
     if(msg.type==='improved_shopping_list/catalog_sources/set'){
-      if(msg.source==='elcorteingles'){window.eciSourceSets=(window.eciSourceSets??0)+1;window.eciSourceFixture={...(window.eciSourceFixture??{}),enabled:msg.enabled,total:1,processed:0,phase:'preparing'};return structuredClone(window.eciSourceFixture);}
+      if(msg.source==='elcorteingles'){window.eciSourceSets=(window.eciSourceSets??0)+1;window.eciSourceFixture={...(window.eciSourceFixture??{}),enabled:msg.enabled,total:0,processed:0,phase:'preparing'};const snapshot=structuredClone(window.eciSourceFixture);if(msg.enabled&&window.eciEnableGate)await window.eciEnableGate;return snapshot;}
       window.catalogSourceSets=(window.catalogSourceSets??0)+1;
       const state={...(window.catalogSourceFixture??{}),enabled:msg.enabled,phase:msg.enabled?'waiting':'idle',running:msg.enabled,total:2,processed:0,updated:0,errors:[],next_request:Date.now()/1000+20};
       window.emitCatalogSource?.(state);return state;
@@ -1427,7 +1432,22 @@ async function checkCatalogSources(browser,url,errors){
   await eciOptions.getByRole('button',{name:'Cerrar ventana',exact:true}).click();
   assert.match(await eci.locator('.logo').getAttribute('src'),/IconImage_20241028224125253_NEW_WAP_ICON_512_512/);
   assert.equal(await eci.getByRole('button',{name:/Ver progreso/}).count(),0);
+  await page.evaluate(()=>{window.eciEnableGate=new Promise(resolve=>window.finishEciEnable=resolve);});
   await eciToggle.check();const eciPopup=eci.getByRole('dialog',{name:'Catálogo de El Corte Inglés',exact:true});await eciPopup.waitFor();
+  assert.equal(await eciPopup.locator('#percentage').textContent(),'…');
+  await page.evaluate(()=>window.emitEciCatalogSource({...window.eciSourceFixture,enabled:true,phase:'querying',running:true,total:4,processed:2,current:'Café'}));
+  assert.equal(await eciPopup.locator('#percentage').textContent(),'50 %');
+  await page.evaluate(()=>{window.finishEciEnable();window.eciEnableGate=null;});
+  await page.waitForFunction(()=>!document.querySelector('improved-shopping-list-panel').shadowRoot.querySelector('isl-settings').shadowRoot.querySelector('isl-catalog-sources').shadowRoot.querySelector('isl-eci-catalog')._busy);
+  assert.equal(await eciPopup.locator('#percentage').textContent(),'50 %'); // A delayed enable response cannot overwrite newer progress.
+  await page.evaluate(()=>{window.eciSourceFixture={...window.eciSourceFixture,phase:'waiting',processed:3,current:'Toallitas'};});
+  await eciPopup.getByText('75 %',{exact:true}).waitFor(); // No push event: reconcile actual backend status without restarting.
+  assert.equal(await eciPopup.locator('#current').textContent(),'Toallitas');
+  assert.ok(await page.evaluate(()=>window.catalogStatusReads>0));
+  await page.evaluate(()=>window.emitEciCatalogSource({...window.eciSourceFixture,phase:'paused',running:false}));
+  await eciPopup.getByText('Revisión en pausa temporal.',{exact:true}).waitFor();
+  assert.equal(await eciPopup.locator('#percentage').textContent(),'75 %');
+
   assert.equal(await toggle.isChecked(),false);assert.equal(await page.evaluate(()=>window.eciSourceSets),1);
   await eciPopup.getByRole('button',{name:'Cerrar ventana',exact:true}).click();await eciToggle.uncheck();
   await settings.getByRole('button',{name:'Listas',exact:true}).click();

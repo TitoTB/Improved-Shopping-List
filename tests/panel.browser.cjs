@@ -1362,7 +1362,7 @@ async function checkCatalogViews(browser,url,errors){
   assert.equal(await page.evaluate(()=>window.pendingRefreshStarts),2);
   await page.evaluate(()=>{window.pendingRefreshFixture={...window.pendingRefreshFixture,processed:2,running:false,phase:'finished',updated_products:['pending-info']};});
   await refreshDialog.getByText('100 %',{exact:true}).waitFor();
-  await refreshDialog.getByText('Revisión finalizada · 1 productos actualizados',{exact:true}).waitFor();
+  await refreshDialog.getByText('Revisión finalizada · 1 producto actualizado',{exact:true}).waitFor();
   await refreshDialog.getByRole('button',{name:'Cerrar ventana',exact:true}).click();
   await information.locator('summary').click();
   await information.getByRole('button',{name:'Completar información de Producto incompleto',exact:true}).click();

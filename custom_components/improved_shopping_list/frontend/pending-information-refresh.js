@@ -38,11 +38,11 @@ class PendingInformationRefresh extends HTMLElement {
   }
   _render(){
     if(!this._built)return;
-    const root=this.shadowRoot,s=this._state,total=s.total??0,done=s.processed??0;
+    const root=this.shadowRoot,s=this._state,total=s.total??0,done=s.processed??0,updated=s.updated_products?.length??0;
     root.querySelector('#start').disabled=this._busy||this._data?.hass?.user?.is_admin!==true||!this._data?.eligible&&!s.running;
     const ratio=total?Math.min(1,done/total):s.phase==='finished'?1:0;
     root.querySelector('progress').value=ratio;root.querySelector('#percentage').textContent=Math.round(ratio*100)+' %';
-    root.querySelector('#status').textContent=s.phase==='finished'?`Revisión finalizada · ${s.updated_products?.length??0} productos actualizados${s.skipped?` · ${s.skipped} alternativas omitidas`:''}`:this._busy&&!s.running?'Preparando recuperación…':`${done} de ${total} alternativas revisadas`;
+    root.querySelector('#status').textContent=s.phase==='finished'?`Revisión finalizada · ${updated} producto${updated===1?'':'s'} actualizado${updated===1?'':'s'}${s.skipped?` · ${s.skipped} alternativas omitidas`:''}`:this._busy&&!s.running?'Preparando recuperación…':`${done} de ${total} alternativas revisadas`;
     root.querySelector('#current').textContent=s.current??'';
     root.querySelector('#error').hidden=!this._error;root.querySelector('#error').textContent=this._error??'';
     root.querySelector('#errors').replaceChildren(...(s.errors??[]).map(error=>{const row=document.createElement('li');row.textContent=[error.product,error.message].filter(Boolean).join(': ');return row;}));

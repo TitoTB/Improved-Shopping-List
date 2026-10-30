@@ -709,7 +709,7 @@ class ImprovedShoppingPurchases extends HTMLElement {
     }
     const legend=node('div','chart-legend');
     for(const [store,name] of sortedStores){const key=node('span','chart-key'),swatch=node('span','chart-swatch');swatch.style.background=colors.get(store);key.append(swatch,document.createTextNode(name));legend.append(key);}
-    scroll.append(bars);chart.append(heading,node('p','chart-note','Importes de las compras registradas, por tienda'),scroll,legend);
+    scroll.append(bars);chart.append(heading,scroll,legend);
     return range;
   }
   _totalRow(label,value){const row=node('div','totals');row.append(node('span','',label),node('strong','',money(value)));return row;}

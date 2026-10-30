@@ -3,6 +3,10 @@ import argparse
 import json
 from pathlib import Path
 import re
+import sys
+
+sys.path.insert(0,str(Path(__file__).resolve().parents[1]/"custom_components/improved_shopping_list"))
+from ean_common import consensus, observed_at
 
 SOURCE="https://huggingface.co/datasets/datania/mercadona-catalog"
 
@@ -15,7 +19,8 @@ def gtin(value):
 
 def build(records,revision,updated_at,minimum=1000):
     if not re.fullmatch(r"[a-f0-9]{40}",revision):raise ValueError("Invalid source revision")
-    candidates={};invalid=0
+    candidates={};facts={};invalid=0
+    observed_at(updated_at)
     for filename,record in records:
         if not isinstance(record,dict):raise ValueError("Invalid product JSON")
         identity=record.get("id")
@@ -23,11 +28,14 @@ def build(records,revision,updated_at,minimum=1000):
         if not ean or not isinstance(identity,str) or not re.fullmatch(r"[0-9]{1,12}",identity) or filename!=identity:
             invalid+=1;continue
         candidates.setdefault(ean,set()).add(identity)
+        facts.setdefault(ean,[]).append(record)
         if len(candidates)>20000:raise ValueError("Too many products")
     products={ean:next(iter(ids)) for ean,ids in sorted(candidates.items()) if len(ids)==1}
     if len(products)<minimum:raise ValueError("Incomplete snapshot; keeping the previously published index")
+    common={ean:consensus(facts[ean]) for ean in products}
     return {"schema_version":1,"source_url":SOURCE,"source_revision":revision,"source_updated_at":updated_at,
-        "excluded":{"invalid":invalid,"ambiguous":sum(len(ids)>1 for ids in candidates.values())},"products":products}
+        "excluded":{"invalid":invalid,"ambiguous":sum(len(ids)>1 for ids in candidates.values())},"products":products,
+        "common_schema_version":1,"common":common}
 
 
 def main():

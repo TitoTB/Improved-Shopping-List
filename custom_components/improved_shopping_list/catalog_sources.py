@@ -241,7 +241,7 @@ class CatalogSources:
                 await self.catalog.async_apply_ean_links(links)
             reused = await self._apply_cached_options()
             pending = self._pending(links)
-            self._status.update(total=len(pending),processed=0,updated=reused)
+            self._status.update(total=len(pending),processed=0,updated=reused+self._status.get("common_updated",0))
             self._notify()
             for identity,code,link,name in pending:
                 if not self._active or not self._data["enabled"]:
@@ -286,7 +286,7 @@ class CatalogSources:
                 if self._data["retry_at"] > time.time():
                     break
             self._status.update(running=False,phase="paused" if self._data["retry_at"]>time.time() else "finished",current="")
-            if pending and self.activity:
+            if (pending or self._status.get("common_updated")) and self.activity:
                 self.activity.record("stores.catalog",f"{self.source_name}: revisión del catálogo {'pausada' if self._status['phase']=='paused' else 'finalizada'}",source="automatic",
                                      diagnostics={**deepcopy(self._status),"interval_seconds":INTERVAL,
                                                   "retry_at":self._data["retry_at"]})

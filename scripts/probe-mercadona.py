@@ -40,7 +40,12 @@ async def main():
                 await index.async_refresh()
                 assert not index.error and len(index.products)>1000
                 assert index.products.get("08430543025611")=="69938"
-                print(json.dumps({"public_index":index.status}),flush=True)
+                assert index.has_common_data
+                common=index.common_data({"08430543025611","08411700011302"})
+                assert common["08430543025611"]["content_quantity"]==.29
+                assert common["08411700011302"]["brand"]=="Puleva"
+                assert all("price" not in item and item["source"]["observed_at"]>0 for item in common.values())
+                print(json.dumps({"public_index":index.status,"common_examples":common},ensure_ascii=False),flush=True)
                 return
             for identity,ean in (("69938","8430543025611"),("10282","8411700011302")):
                 data=await provider.retrieve(hass,f"https://tienda.mercadona.es/product/{identity}",before,ean)

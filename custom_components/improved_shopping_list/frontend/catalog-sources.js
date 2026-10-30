@@ -93,7 +93,7 @@ class CatalogSourcesPanel extends HTMLElement {
     root.querySelector('.track').dataset.indeterminate=String(Boolean(unknown));
     if(unknown)root.querySelector('progress').removeAttribute('value');else root.querySelector('progress').value=ratio;
     root.querySelector('#percentage').textContent=unknown?'…':Math.round(ratio*100)+' %';
-    root.querySelector('#status').textContent=s.phase==='paused'?'Revisión en pausa temporal.':unknown?'Preparando revisión…':!s.enabled?'Catálogo desactivado.':finished&&!total?'No hay nuevas coincidencias pendientes de consultar.':`${done} de ${total} EAN revisados · ${s.updated??0} productos completados${finished?' · Revisión finalizada':''}`;
+    root.querySelector('#status').textContent=s.phase==='paused'?'Revisión en pausa temporal.':unknown?'Preparando revisión…':!s.enabled?'Catálogo desactivado.':finished&&!total?(s.updated?`${s.updated} productos completados`:'No hay nuevas coincidencias pendientes de consultar.'):`${done} de ${total} EAN revisados · ${s.updated??0} productos completados${finished?' · Revisión finalizada':''}`;
     root.querySelector('#current').textContent=s.current??'';
     const issues=[...(s.errors??[]),...(this._error?[{message:this._error}]:[]),...(this._progressError?[{message:this._progressError}]:[])];
     root.querySelector('#issues').replaceChildren(...issues.map(item=>{const p=document.createElement('p');p.textContent=[item.product,item.message].filter(Boolean).join(': ');return p;}));

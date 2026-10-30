@@ -1484,6 +1484,7 @@ async function checkCatalogSources(browser,url,errors){
   await shared.getByLabel('Marca',{exact:true}).fill('Marca compartida');
   await shared.getByLabel('Contenido por envase',{exact:true}).fill('500');
   await shared.getByLabel('Unidades del envase',{exact:true}).selectOption('g');
+  await shared.getByLabel('Unidades por pack',{exact:true}).fill('6');
   await form.locator('.product-ean-group .product-option[data-store="alcampo"] > summary').click();
   await form.locator('.product-ean-group .product-option[data-store="alcampo"]').getByLabel('Precio por envase',{exact:true}).fill('2.50');
   await form.locator('.product-ean-group .product-option[data-store="carrefour"] > summary').click();
@@ -1496,6 +1497,7 @@ async function checkCatalogSources(browser,url,errors){
   assert.deepEqual(savedOptions.slice(0,2).map(ref=>[ref.brand,ref.content_quantity,ref.content_unit,ref.content_confirmed]),[['Marca compartida',500,'g',true],['Marca compartida',500,'g',true]]);
   assert.deepEqual(savedOptions.slice(0,2).map(ref=>ref.last_price.price),[3.75,2.5]);
   assert.equal(savedOptions[2].content_quantity,undefined);
+  assert.deepEqual(savedOptions.slice(0,2).map(ref=>ref.pack_count),[6,6]);
   await catalog.getByRole('button',{name:'Editar Producto',exact:true}).click();
   await form.getByRole('button',{name:'Alternativas',exact:true}).click();
   await form.locator('.product-ean-group > summary').click();

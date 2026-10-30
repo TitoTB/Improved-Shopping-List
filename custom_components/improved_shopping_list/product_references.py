@@ -6,6 +6,7 @@ import re
 from unicodedata import normalize, combining
 from urllib.parse import urlsplit
 from .receipt_quantities import measure_price
+from .ean_common import FIELDS as COMMON_FIELDS, source as common_source
 
 UNITS = {"uds", "g", "kg", "ml", "cl", "l"}
 SCALES = {"uds":("uds",1), "g":("kg",.001), "kg":("kg",1), "ml":("l",.001), "cl":("l",.01), "l":("l",1)}
@@ -109,7 +110,7 @@ def normalized_references(values):
     result=[]; seen=set()
     from .store_links import STORES, normalize_link
     for raw in values:
-        if not isinstance(raw,dict) or set(raw)-{"id","store","name","ean","reference_id","url","brand","image_url","content_quantity","content_unit","content_confirmed","active","last_price","nutriscore","measure_price","ticket_reference_id","catalog_source"}:
+        if not isinstance(raw,dict) or set(raw)-{"id","store","name","ean","reference_id","url","brand","image_url","content_quantity","content_unit","content_confirmed","active","last_price","nutriscore","measure_price","ticket_reference_id","catalog_source","pack_count","common_sources"}:
             raise ValueError("La referencia comercial contiene campos no admitidos.")
         row={key:raw.get(key,"") for key in ("store","name","ean","reference_id","url","brand")}
         for key,limit in (("store",40),("name",500),("ean",14),("reference_id",512),("url",2048),("brand",160)):
@@ -117,6 +118,13 @@ def normalized_references(values):
                 raise ValueError("La referencia comercial no es válida.")
             row[key]=row[key].strip()
         row["brand"] = brand_name(row["brand"])
+        if raw.get("pack_count") is not None:
+            if type(raw["pack_count"]) is not int or not 1<=raw["pack_count"]<=1000000:raise ValueError("Indica un número entero de unidades por pack.")
+            row["pack_count"]=raw["pack_count"]
+        if raw.get("common_sources"):
+            sources=raw["common_sources"]
+            if not isinstance(sources,dict) or set(sources)-set(COMMON_FIELDS):raise ValueError("La procedencia de los datos del EAN no es válida.")
+            row["common_sources"]={field:common_source(value) for field,value in sources.items()}
         if raw.get("ticket_reference_id") is not None:
             value=raw["ticket_reference_id"]
             if row["store"]!="lidl" or not isinstance(value,str) or not re.fullmatch(r"[0-9]{1,16}",value):
@@ -208,6 +216,10 @@ def merge_reference(references, store, line, *, confirmed=False):
         row["content_confirmed"]=row["content_quantity"] is not None
     if line.get("ticket_measure_price") and line.get("purchased_quantity") is not None:
         row.update(content_quantity=None,content_unit="",content_confirmed=False)
+    if existing:
+        if existing.get("pack_count"):row["pack_count"]=existing["pack_count"]
+        sources={field:deepcopy(value) for field,value in existing.get("common_sources",{}).items() if row.get(field)==existing.get(field)}
+        if sources:row["common_sources"]=sources
     references.append(row)
 
 

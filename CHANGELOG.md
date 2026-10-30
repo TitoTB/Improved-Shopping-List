@@ -2,6 +2,10 @@
 
 ## Próxima versión
 
+- El diccionario por EAN incorpora datos comunes explícitos del envase: marca, contenido total, unidades y número de unidades por pack cuando esté informado. Conserva la revisión y fecha del origen; los campos contradictorios quedan pendientes.
+- La integración completa los campos vacíos en las alternativas activas de cualquier tienda con el mismo EAN, conservando datos locales, precios, URLs y exclusiones. El modo de Mercadona sin mostrar tienda utiliza esos datos sin consultar fichas; precios y nuevas alternativas de Mercadona siguen verificándose en su API.
+- Las unidades por pack se pueden editar en los datos comunes de la ficha. Se conserva la procedencia de los campos importados y se retira al editarlos manualmente. Sin nuevas dependencias.
+
 - Mercadona utiliza un índice público completo de EAN y referencias, sin limitarse a las 195 coincidencias con Carrefour. Caché persistente, descarga condicional cada 24 horas y conservación del índice anterior si la fuente falla.
 - Un workflow diario prepara el índice compacto desde el catálogo público de Datania y lo publica en la rama de datos. No requiere actualizar la integración para recibir nuevas referencias ni añade productos ajenos al catálogo local.
 - Las alternativas de Mercadona solo se crean después de confirmar el EAN en la API. Se mantienen la activación opcional, la visibilidad de la tienda, las esperas de veinte segundos y los datos manuales.

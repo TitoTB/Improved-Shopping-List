@@ -112,15 +112,18 @@ class MercadonaCatalog(CatalogSources):
         return "" if self.index.products else super()._source_error()
 
     async def _source_links(self):
-        links=await super()._source_links()
         await self.index.async_refresh()
         if not self._active or not self._data["enabled"]:raise asyncio.CancelledError
         self._status["public_index"]=self.index.status
         codes={code for product in self.catalog.products for code in product_eans(product)}
+        self._status["common_updated"]=await self.catalog.async_apply_common_ean_data(self.index.common_data(codes))
+        if self.index.error:
+            self._status["errors"].append({"message":self.index.error,"diagnostics":{"stage":"public_index",**self.index.status}})
+        if self.index.has_common_data and not self._data["show_store"]:return {}
+        links=await super()._source_links()
         for code in codes:
             if identifier:=self.index.products.get(code):
                 links.setdefault(STORE+":"+code,normalize_link(STORE,f"https://tienda.mercadona.es/product/{identifier}"))
         if self.index.error:
-            self._status["errors"].append({"message":self.index.error,"diagnostics":{"stage":"public_index",**self.index.status}})
             if not links and not self.index.products:raise ValueError(self.index.error)
         return links

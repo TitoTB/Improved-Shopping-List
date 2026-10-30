@@ -22,7 +22,7 @@ REV='a'*40
 
 
 def payload(products=None):
-    return {'schema_version':1,'source_revision':REV,'products':products if products is not None else {gtin(EAN):'69938'}}
+    return {'schema_version':1,'source_revision':REV,'source_updated_at':'2026-10-26T23:31:58+00:00','common_schema_version':1,'common':{},'products':products if products is not None else {gtin(EAN):'69938'}}
 
 
 @pytest.mark.parametrize('products',[{}, {'':'69938'}, {'123':'69938'}, {gtin(EAN):'https://evil.test'}, {gtin(EAN):True}, {gtin(EAN):'1/../2'}, {EAN:'69938'}])
@@ -104,7 +104,7 @@ def test_index_builder_excludes_ambiguous_and_invalid_eans_and_refuses_empty_upd
     spec=importlib.util.spec_from_file_location('mercadona_index_builder',root/'scripts/build-mercadona-index.py')
     builder=importlib.util.module_from_spec(spec);spec.loader.exec_module(builder)
     rows=[('1',{'id':'1','ean':EAN}),('2',{'id':'2','ean':EAN}),('3',{'id':'3','ean':OTHER}),('4',{'id':'4','ean':'123'})]
-    data=builder.build(rows,REV,'2026-10-26',minimum=1)
+    data=builder.build(rows,REV,'2026-10-26T00:00:00+00:00',minimum=1)
     assert data['products']=={gtin(OTHER):'3'} and data['excluded']=={'invalid':1,'ambiguous':1}
     assert parse_index(json.dumps(data).encode())['products']==data['products']
-    with pytest.raises(ValueError):builder.build([],REV,'2026-10-26')
+    with pytest.raises(ValueError):builder.build([],REV,'2026-10-26T00:00:00+00:00')

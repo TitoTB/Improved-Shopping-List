@@ -12,6 +12,7 @@ from homeassistant.helpers.storage import Store
 from .const import DOMAIN
 from .ean_links import DAY
 from .product_references import gtin
+from .ean_common import validate as validate_common, observed_at
 
 URL="https://raw.githubusercontent.com/TitoTB/Improved-Shopping-List/data/catalogs/mercadona-index.json"
 INITIAL_URL="https://raw.githubusercontent.com/TitoTB/Improved-Shopping-List/main/data/mercadona-index.json"
@@ -30,7 +31,16 @@ def validate_index(value):
     for ean,identifier in products.items():
         if not gtin(ean) or gtin(ean)!=ean or not isinstance(identifier,str) or not re.fullmatch(r"[0-9]{1,12}",identifier):
             raise ValueError("El índice público de Mercadona contiene una referencia no válida.")
-    return {"schema_version":1,"source_revision":revision,"products":dict(products)}
+    result={"schema_version":1,"source_revision":revision,"products":dict(products),"common_schema_version":0,"common":{}}
+    common_version=value.get("common_schema_version",0)
+    if type(common_version) is not int or common_version not in (0,1):raise ValueError("Invalid common EAN schema")
+    if common_version==1:
+        common=value.get("common")
+        if not isinstance(common,dict) or set(common)-set(products):raise ValueError("Invalid common EAN entries")
+        date=value.get("source_updated_at")
+        observed_at(date)
+        result.update(common_schema_version=1,source_updated_at=date,common={ean:validate_common(row) for ean,row in common.items()})
+    return result
 
 
 def parse_index(raw):
@@ -53,7 +63,22 @@ class MercadonaIndex:
     @property
     def status(self):
         return {"entries":len(self.products),"revision":(self._data["index"] or {}).get("source_revision",""),
-            "checked_at":self._data["checked_at"],"cached_fallback":bool(self.error and self.products)}
+            "checked_at":self._data["checked_at"],"cached_fallback":bool(self.error and self.products),
+            "common_entries":len((self._data["index"] or {}).get("common",{}))}
+
+    @property
+    def has_common_data(self):
+        return (self._data["index"] or {}).get("common_schema_version")==1
+
+    def common_data(self,codes):
+        index=self._data["index"] or {}
+        result={}
+        for code in codes:
+            row=index.get("common",{}).get(code)
+            if row is not None:
+                result[code]={**row,"source":{"store":"mercadona","url":f"https://tienda.mercadona.es/product/{self.products[code]}",
+                    "revision":index["source_revision"],"observed_at":observed_at(index["source_updated_at"])}}
+        return result
 
     async def async_load(self):
         saved=await self._store.async_load()
@@ -68,6 +93,7 @@ class MercadonaIndex:
             if not isinstance(etag,str) or len(etag)>256 or any(ord(c)<32 for c in etag):raise ValueError("Invalid ETag")
             self._data.update(index=index,checked_at=checked,next_attempt=next_attempt,etag=etag,
                 url=saved.get("url") if saved.get("url") in (URL,INITIAL_URL) else "")
+            if not index["common_schema_version"]:self._data.update(checked_at=0,next_attempt=0,etag="")
         except (ValueError,TypeError):pass
 
     async def async_refresh(self):

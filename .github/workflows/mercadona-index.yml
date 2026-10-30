@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths: ['scripts/build-mercadona-index.py', '.github/workflows/mercadona-index.yml']
+    paths: ['scripts/build-mercadona-index.py', 'custom_components/improved_shopping_list/ean_common.py', '.github/workflows/mercadona-index.yml']
 permissions:
   contents: write
 concurrency:

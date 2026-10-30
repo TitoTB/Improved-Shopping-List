@@ -1540,19 +1540,29 @@ class ImprovedShoppingCatalog extends HTMLElement {
     root.querySelector('#retrieve-product-data').disabled=Boolean(this._retrievingOption)||this._hass?.user?.is_admin!==true;
   }
 
+  _clearCommonSource(ref,fields){
+    for(const field of fields)if(ref.common_sources)delete ref.common_sources[field];
+    if(ref.common_sources&&!Object.keys(ref.common_sources).length)delete ref.common_sources;
+  }
+
   _commonReferenceFields(refs,onChange=()=>{}) {
     const fields=element('div','reference-common-fields');
     if(refs[0].ean)fields.append(element('p','helper','EAN: '+refs[0].ean));
     const brandLabel=element('label','option-brand','Marca'),brand=element('input');
     brand.value=refs.find(ref=>ref.brand)?.brand??'';brand.maxLength=160;brand.placeholder='Sin marca informada';
-    brand.addEventListener('input',()=>{for(const ref of refs)ref.brand=brand.value.trim();onChange();});
+    brand.addEventListener('input',()=>{for(const ref of refs){ref.brand=brand.value.trim();this._clearCommonSource(ref,['brand']);}onChange();});
     brandLabel.append(brand);fields.append(brandLabel);
     const original=refs.find(ref=>ref.content_confirmed&&validReferenceContent(ref))??refs.find(ref=>ref.content_quantity>0)??refs[0];
     const draft={content_quantity:original.content_quantity,content_unit:original.content_unit,content_confirmed:original.content_confirmed};
     fields.append(referenceContentControls(draft,()=>{
-      for(const ref of refs)Object.assign(ref,draft);
+      for(const ref of refs){Object.assign(ref,draft);this._clearCommonSource(ref,['content_quantity','content_unit']);}
       onChange();
     }));
+    const packLabel=element('label','option-pack','Unidades por pack'),pack=element('input');
+    pack.type='number';pack.min='1';pack.max='1000000';pack.step='1';pack.placeholder='Sin informar';
+    pack.value=refs.find(ref=>ref.pack_count)?.pack_count??'';
+    pack.addEventListener('input',()=>{for(const ref of refs){if(pack.value==='')delete ref.pack_count;else ref.pack_count=Number(pack.value);this._clearCommonSource(ref,['pack_count']);}onChange();});
+    packLabel.append(pack);fields.append(packLabel);
     return fields;
   }
 

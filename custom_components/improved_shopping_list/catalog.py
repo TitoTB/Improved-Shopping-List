@@ -404,10 +404,11 @@ class Catalog:
                         saved[row["id"]]={**row,"catalog_source":True}
                         siblings=[r for r in refs if gtin(r.get("ean"))==gtin(row.get("ean")) and r.get("active",True)]
                         if not siblings and row.get("ean"):
-                            neutral={key:deepcopy(row[key]) for key in ("ean","name","brand","content_quantity","content_unit","content_confirmed","nutriscore") if key in row}
+                            neutral={key:deepcopy(row[key]) for key in ("ean","name","brand","content_quantity","content_unit","content_confirmed","nutriscore","pack_count","common_sources") if key in row}
                             neutral["store"]="";refs.append(neutral);siblings=[neutral]
                         for other in siblings:
                             if not other.get("brand") and row.get("brand"):other["brand"]=row["brand"]
+                            if not other.get("pack_count") and row.get("pack_count"):other["pack_count"]=row["pack_count"]
                             if not other.get("content_quantity") and row.get("content_quantity"):
                                 other.update({key:row[key] for key in ("content_quantity","content_unit","content_confirmed")})
                     if saved:hidden[uid]=list(saved.values())
@@ -419,6 +420,49 @@ class Catalog:
                 await self._persist(products,self._categories,source_options=archive)
             self._source_visibility[store]=visible
         if changed:self._notify()
+
+    async def async_apply_common_ean_data(self,entries):
+        """Fill active packages by exact EAN, without creating shops or replacing local data."""
+        from .ean_common import validate, source, brand_key, content_key
+        from .ean_links import product_eans
+        prepared={}
+        for code,data in entries.items():
+            if not gtin(code) or gtin(code)!=code:raise CatalogError("El EAN de los datos comunes no es válido.")
+            values=validate({key:value for key,value in data.items() if key!="source"})
+            provenance=source(data.get("source"))
+            if any(values.get(field) for field in ("brand","content_quantity","pack_count")):prepared[code]=(values,provenance)
+        if not prepared:return 0
+        changed=0
+        async with self._lock:
+            products=deepcopy(self._products)
+            for product in products.values():
+                refs=product.get("commercial_references",[]);before=deepcopy(refs)
+                for code in product_eans(product).keys() & prepared.keys():
+                    data,provenance=prepared[code]
+                    siblings=[ref for ref in refs if gtin(ref.get("ean"))==code and ref.get("active",True)]
+                    if not siblings and not any(gtin(ref.get("ean"))==code for ref in refs):
+                        if len(refs)>=200:continue
+                        neutral=reference_from_line("",{"ean":code,"name":product["name"]})
+                        refs.append(neutral);siblings=[neutral]
+                    local_brands={brand_key(ref["brand"]) for ref in siblings if ref.get("brand")}
+                    local_content={content_key(ref.get("content_quantity"),ref.get("content_unit")) for ref in siblings if ref.get("content_quantity")}
+                    local_packs={ref["pack_count"] for ref in siblings if ref.get("pack_count")}
+                    for ref in siblings:
+                        filled=[]
+                        if data.get("brand") and not ref.get("brand") and (not local_brands or local_brands=={brand_key(data["brand"])}):
+                            ref["brand"]=data["brand"];filled.append("brand")
+                        if data.get("content_quantity") and ref.get("content_quantity") is None and (not local_content or local_content=={content_key(data["content_quantity"],data["content_unit"])}):
+                            ref.update(content_quantity=data["content_quantity"],content_unit=data["content_unit"],content_confirmed=True)
+                            filled.extend(("content_quantity","content_unit"))
+                        if data.get("pack_count") and not ref.get("pack_count") and (not local_packs or local_packs=={data["pack_count"]}):
+                            ref["pack_count"]=data["pack_count"];filled.append("pack_count")
+                        for field in filled:ref.setdefault("common_sources",{})[field]=deepcopy(provenance)
+                if refs!=before:
+                    product["commercial_references"]=normalized_references(refs)
+                    product["revision"]+=1;product["updated_at"]=datetime.now(UTC).isoformat();changed+=1
+            if changed:await self._persist(products,self._categories)
+        if changed:self._notify()
+        return changed
 
     async def async_complete_store_option(self, store, code, link, data, *, create=False, show_store=True, catalog_source=False):
         """Merge one verified EAN into current options without losing concurrent edits."""
@@ -462,6 +506,7 @@ class Catalog:
                 known_content = next((ref for ref in siblings if ref.get("content_quantity") and ref.get("content_confirmed")),
                                      next((ref for ref in siblings if ref.get("content_quantity")),data))
                 known_nutrition = next((ref["nutriscore"] for ref in siblings if ref.get("nutriscore")),data.get("nutriscore"))
+                known_pack = next((ref["pack_count"] for ref in siblings if ref.get("pack_count")),data.get("pack_count"))
                 if target and data.get("name") and target.get("name") in ("", product["name"]):
                     target["name"] = data["name"]
                 for ref in refs:
@@ -469,6 +514,7 @@ class Catalog:
                         continue
                     if not ref.get("brand") and known_brand:
                         ref["brand"] = known_brand
+                    if not ref.get("pack_count") and known_pack:ref["pack_count"]=known_pack
                     if ref.get("content_quantity") is None and known_content.get("content_quantity") and known_content.get("content_unit"):
                         ref.update(content_quantity=known_content["content_quantity"], content_unit=known_content["content_unit"], content_confirmed=True)
                     if not ref.get("nutriscore") and known_nutrition:
@@ -526,6 +572,15 @@ class Catalog:
                 if "commercial_references" not in data:
                     product["commercial_references"] = deepcopy(current.get("commercial_references", []))
             references=product["commercial_references"]
+            previous_refs={ref["id"]:ref for ref in (current or {}).get("commercial_references",[])}
+            for ref in references:
+                previous=previous_refs.get(ref["id"])
+                if previous and ref.get("common_sources"):
+                    changed_content=any(ref.get(field)!=previous.get(field) for field in ("content_quantity","content_unit"))
+                    ref["common_sources"]={field:value for field,value in ref["common_sources"].items()
+                        if ref.get("ean")==previous.get("ean") and ref.get(field)==previous.get(field)
+                        and not (changed_content and field in ("content_quantity","content_unit"))}
+                    if not ref["common_sources"]:ref.pop("common_sources")
             for store,link in product["store_links"].items():
                 if not any(ref["store"]==store and ref["reference_id"]==link["id"] for ref in references):
                     references.append(reference_from_line(store,{"reference_id":link["id"],"url":link["url"],"name":product["name"]}))

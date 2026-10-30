@@ -2,7 +2,7 @@
 from .product_references import reference_key
 
 FIELDS=("store","name","ean","reference_id","ticket_reference_id","url","brand","image_url",
-        "content_quantity","content_unit","last_price","measure_price","nutriscore","active")
+        "content_quantity","content_unit","pack_count","last_price","measure_price","nutriscore","active")
 
 
 def values(reference):

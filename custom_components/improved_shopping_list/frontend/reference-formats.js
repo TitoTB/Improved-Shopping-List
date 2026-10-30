@@ -69,7 +69,7 @@ export function pendingProductInformation(product,offers=[]){
   const refs=(product?.commercial_references??[]).filter(ref=>ref.active!==false);
   const validPrice=price=>price?.price!==null&&price?.price!==undefined&&price.price!==''&&Number.isFinite(Number(price.price))&&Number(price.price)>=0&&price.currency==='EUR';
   const prices=offers.filter(offer=>offer.catalog_product_id===product?.id&&validPrice(offer));
-  return (refs.length?refs:[null]).flatMap(ref=>{
+  const issues=(refs.length?refs:[null]).map(ref=>{
     const missing=[];
     const measure=ref?.measure_price,hasMeasure=validPrice(measure)&&Number(measure.price)>0&&Number.isFinite(measure.quantity)&&measure.quantity>0&&Object.hasOwn(contentUnits,measure.unit??'');
     const hasPrice=validPrice(ref?.last_price)||hasMeasure||!ref?.store&&validPrice(product)||ref?.store&&prices.some(offer=>{
@@ -85,6 +85,7 @@ export function pendingProductInformation(product,offers=[]){
     const quantity=ref?.content_quantity,unit=ref?.content_unit;
     if(!Number.isFinite(quantity)||quantity<=0||quantity>1000000||unit==='uds'&&!Number.isInteger(quantity))missing.push('content_quantity');
     if(!Object.hasOwn(contentUnits,unit??''))missing.push('content_unit');
-    return missing.length?[{reference:ref,missing}]:[];
+    return {reference:ref,missing};
   });
+  return issues.every(issue=>issue.missing.length)?issues:[];
 }

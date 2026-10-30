@@ -136,6 +136,20 @@ test('pending product information reports price, package contents and units with
  assert.deepEqual(pendingProductInformation({id:'p',commercial_references:[complete,{store:'alcampo',active:false}]}),[]);
 });
 
+test('a product is pending only when all active alternatives are incomplete',()=>{
+ const complete={store:'carrefour',content_quantity:170,content_unit:'g',last_price:{price:2.45,currency:'EUR'}};
+ const noPrice={...complete,store:'alcampo',last_price:null};
+ const noContent={...complete,content_quantity:null,content_unit:''};
+ assert.deepEqual(pendingProductInformation({commercial_references:[noPrice,complete]}),[]);
+ assert.deepEqual(pendingProductInformation({commercial_references:[complete,noContent]}),[]);
+ assert.deepEqual(pendingProductInformation({commercial_references:[noPrice,noContent]}).map(issue=>issue.missing),[['price'],['content_quantity','content_unit']]);
+ assert.deepEqual(pendingProductInformation({commercial_references:[noPrice,{...complete,active:false}]}).map(issue=>issue.missing),[['price']]);
+ const ref={...noPrice,id:'r',ean:'8410199023094'};
+ const product={id:'p',commercial_references:[noContent,ref]};
+ const offer={catalog_product_id:'p',commercial_reference_id:'r',store:'alcampo',ean:'8410199023094',price:2.5,currency:'EUR'};
+ assert.deepEqual(pendingProductInformation(product,[offer]),[]);
+});
+
 test('pending information uses saved prices for the exact alternative and never borrows another EAN price',()=>{
  const ref={id:'r',store:'carrefour',ean:'8410199023094',content_quantity:170,content_unit:'g'};
  const product={id:'p',commercial_references:[ref]};

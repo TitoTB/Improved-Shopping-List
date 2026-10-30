@@ -1,5 +1,12 @@
 # Historial de cambios
 
+## 0.56.1 — 2026-10-30
+
+- Corregido el cliente HTTP de El Corte Inglés tras reproducir el bloqueo 403 en la búsqueda por EAN. Las consultas se ejecutan fuera del bucle principal de Home Assistant y conservan las esperas entre peticiones y la validación exacta del EAN.
+- Corregido el reintento después de una pausa por bloqueo, evitando que el EAN afectado se omita durante un día. El diagnóstico incluye fase, cliente HTTP, servidor, tipo de respuesta, duración y referencia del bloqueo cuando está disponible.
+- Los catálogos de Alcampo y El Corte Inglés comparten un grid de dos columnas en pantallas grandes y una en móviles. Eliminados sus textos descriptivos.
+- Sin nuevas dependencias.
+
 ## 0.56.0 — 2026-10-30
 
 - El Corte Inglés disponible en Ajustes → Tiendas → Catálogos, con el logo indicado y activación independiente.

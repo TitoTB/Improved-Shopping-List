@@ -1,5 +1,6 @@
 """Optional public shop catalogs: dictionary first, exact EANs, bounded discovery."""
 import asyncio
+from asyncio import sleep
 from copy import deepcopy
 import hashlib
 import json
@@ -37,7 +38,7 @@ class RequestGate:
             if self.next is None:
                 saved=await self.store.async_load()
                 self.next={k:v for k,v in (saved or {}).items() if k in PUBLIC_SHOPS and type(v) in (int,float) and time.time()<v<=time.time()+DAY} if isinstance(saved,dict) else {}
-            await asyncio.sleep(max(0,self.next.get(store,0)-time.time()))
+            await sleep(max(0,self.next.get(store,0)-time.time()))
             self.next[store]=time.time()+HTTP_INTERVAL
             await self.store.async_save(self.next)
 
@@ -84,7 +85,9 @@ async def request(hass,store,path,before_request):
     session=async_create_clientsession(hass,auto_cleanup=False,cookie_jar=aiohttp.DummyCookieJar())
     try:
         await before_request()
-        gate=hass.data.setdefault(DOMAIN,{}).setdefault("public_catalog_http_gate",RequestGate(hass))
+        runtime=hass.data.setdefault(DOMAIN,{})
+        if "public_catalog_http_gate" not in runtime:runtime["public_catalog_http_gate"]=RequestGate(hass)
+        gate=runtime["public_catalog_http_gate"]
         await gate.before(store)
         endpoint=PUBLIC_SHOPS[store]+path
         async with session.get(endpoint,headers={"Accept":"application/json","User-Agent":"Improved-Shopping-List"},allow_redirects=False,timeout=aiohttp.ClientTimeout(total=25)) as response:
@@ -133,6 +136,9 @@ class CatalogDiscovery:
     def enabled(self):
         return {store:source for store,source in self.managers.items() if source._active and source._data["enabled"]}
 
+    def fingerprint(self):
+        return "|".join(sorted(self.enabled()))
+
     async def _save(self):
         self._entries=dict(sorted(self._entries.items(),key=lambda item:item[1].get("expires",0))[-2000:])
         await self._store.async_save(deepcopy(self._entries))
@@ -142,6 +148,10 @@ class CatalogDiscovery:
         result={}
         for store in self.enabled():
             link=await self.links.async_find_link(store,code)
+            source=self.managers[store]
+            if store=="mercadona" and not link:
+                await source.index.async_refresh()
+                if identifier:=source.index.products.get(code):link=normalize_link(store,f"https://tienda.mercadona.es/product/{identifier}")
             if link:result[store]=link
         return result
 
@@ -215,6 +225,10 @@ class PublicCatalogSource(CatalogSources):
         super()._gate()
         self.links.enabled_stores.discard(self.source_store)  # Never create an unverified option.
 
+    async def _before_request(self):
+        await super()._before_request()
+        self._status["http_requests"]=self._status.get("http_requests",0)+1
+
     async def async_run(self):
         if not self._active or not self._data["enabled"]:return
         if self._data["retry_at"]>time.time():
@@ -222,7 +236,7 @@ class PublicCatalogSource(CatalogSources):
         if self._timer:self._timer();self._timer=None
         products=self.catalog.products
         codes=sorted({code for p in products for code in product_eans(p)})
-        self._status.update(running=True,phase="preparing",total=len(codes),processed=0,updated=0,errors=[],current="")
+        self._status.update(running=True,phase="preparing",total=len(codes),processed=0,updated=0,errors=[],current="",http_requests=0)
         self._notify()
         try:
             for code in codes:
@@ -242,9 +256,14 @@ class PublicCatalogSource(CatalogSources):
                 self._status["processed"]+=1;self._notify()
                 if self._data["retry_at"]>time.time():break
             self._status.update(phase="paused" if self._data["retry_at"]>time.time() else "finished")
+        except asyncio.CancelledError:
+            self._status["phase"]="cancelled"
+            raise
         finally:
             self._status.update(running=False,current="");self._notify()
-            if self.activity:self.activity.record("stores.catalog",f"{self.source_name}: revisión del catálogo {'pausada' if self._status['phase']=='paused' else 'finalizada'}",source="automatic",diagnostics={**deepcopy(self._status),"retry_at":self._data["retry_at"]})
+            if self.activity and (self._status["http_requests"] or self._status["updated"] or self._status["errors"]):
+                phase={"paused":"pausada","cancelled":"cancelada"}.get(self._status["phase"],"finalizada")
+                self.activity.record("stores.catalog",f"{self.source_name}: revisión del catálogo {phase}",source="automatic",diagnostics={**deepcopy(self._status),"retry_at":self._data["retry_at"]})
             if self._active and self._data["enabled"]:
                 from homeassistant.helpers.event import async_call_later
                 self._timer=async_call_later(self.hass,max(3600,self._data["retry_at"]-time.time()),self._launch)

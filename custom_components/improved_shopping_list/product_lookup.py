@@ -91,6 +91,9 @@ class ProductLookup:
         return deepcopy(entry["result"]) if entry else None
 
     def is_fresh(self, code):
+        discovery=getattr(self,"catalog_discovery",None)
+        signature=getattr(discovery,"fingerprint",lambda:"")()
+        if self._cache.get(code.zfill(14),{}).get("discovery_signature","")!=signature:return False
         community = getattr(self, "community", None)
         if community and community.product_hint(code):
             return True
@@ -134,7 +137,7 @@ class ProductLookup:
             if discovery and (hint:=await discovery.async_hint(code)):
                 previous=self.cached(code) or {}
                 if previous.get("nutriscore") and not hint.get("nutriscore"):hint["nutriscore"]=previous["nutriscore"]
-                self._cache[code.zfill(14)]={"expires":time.time()+TTLS["found"],"fields":FIELDS,"result":hint}
+                self._cache[code.zfill(14)]={"expires":time.time()+TTLS["found"],"fields":FIELDS,"result":hint,"discovery_signature":getattr(discovery,"fingerprint",lambda:"")()}
                 try:await self._store.async_save(self._cache)
                 except (OSError,HomeAssistantError):_LOGGER.warning("Could not persist the optional product lookup cache")
                 return deepcopy(hint)
@@ -150,7 +153,8 @@ class ProductLookup:
                 result = {"status": "error"}
             if result.get("nutriscore"):
                 result["nutriscore"]["checked_at"] = int(time.time())
-            self._cache[code.zfill(14)] = {"expires": time.time() + TTLS[result["status"]], "fields": FIELDS, "result": result}
+            self._cache[code.zfill(14)] = {"expires": time.time() + TTLS[result["status"]], "fields": FIELDS, "result": result,
+                "discovery_signature":getattr(discovery,"fingerprint",lambda:"")()}
             self._cache = dict(sorted(self._cache.items(), key=lambda item: item[1]["expires"])[-500:])
             try:
                 await self._store.async_save(self._cache)

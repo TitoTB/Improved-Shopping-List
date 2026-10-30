@@ -464,7 +464,7 @@ async def ws_nutriscore(hass, connection, msg):
                                       "product_name": result.get("product_name", result.get("name", "")),
                                       "brand": result.get("brand", ""), "content_quantity": result.get("content_quantity"),
                                       "content_unit": result.get("content_unit", ""),
-                                      "source_url": f"https://world.openfoodfacts.org/product/{code}" if is_product_barcode(code) else ""})
+                                      "source_url": result.get("url","") if is_product_barcode(code) else ""})
 
 
 @websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/catalog/retrieve_option",

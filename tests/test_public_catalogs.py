@@ -157,7 +157,7 @@ async def test_http_gate_keeps_twenty_second_spacing_after_reload(hass,monkeypat
     clock=[1000.0];waits=[]
     monkeypatch.setattr(module,'time',SimpleNamespace(time=lambda:clock[0]))
     async def advance(delay):waits.append(delay);clock[0]+=delay
-    monkeypatch.setattr(module.asyncio,'sleep',advance)
+    monkeypatch.setattr(module,'sleep',advance)
     gate=RequestGate(hass);await gate.before('bm')
     restored=RequestGate(hass);await restored.before('bm')
     assert waits==[0,20]

@@ -132,6 +132,12 @@ const hass={
       if(msg.source==='elcorteingles'){window.eciSourceFixture={...(window.eciSourceFixture??{}),show_store:msg.show_store};return structuredClone(window.eciSourceFixture);}
       const state={...(window.catalogSourceFixture??{}),show_store:msg.show_store};window.emitCatalogSource?.(state);return state;
     }
+    if(msg.type==='improved_shopping_list/catalog/refresh_pending/status')return structuredClone(window.pendingRefreshFixture??{phase:'idle',running:false,total:0,processed:0,errors:[]});
+    if(msg.type==='improved_shopping_list/catalog/refresh_pending/start'){
+      window.pendingRefreshStarts=(window.pendingRefreshStarts??0)+1;
+      if(!window.pendingRefreshFixture?.running)window.pendingRefreshFixture={phase:'running',running:true,total:2,processed:0,updated_products:[],errors:[]};
+      return structuredClone(window.pendingRefreshFixture);
+    }
     if(msg.type==='improved_shopping_list/catalog_sources/set'){
       if(['masymas','bm','consum'].includes(msg.source)){const state={...((window.publicSourceFixtures??={})[msg.source]??{}),enabled:msg.enabled,phase:msg.enabled?'finished':'idle',total:1,processed:1,updated:1,errors:[]};window.publicSourceFixtures[msg.source]=state;for(const item of listeners.keys())if(item.catalogSource&&item.source===msg.source)item.callback(structuredClone(state));return state;}
       if(msg.source==='mercadona'){window.mercadonaSourceSets=(window.mercadonaSourceSets??0)+1;const state={...(window.mercadonaSourceFixture??{}),enabled:msg.enabled,total:2,processed:0,phase:msg.enabled?'waiting':'idle'};window.emitMercadonaCatalogSource(state);return state;}
@@ -1299,7 +1305,7 @@ async function checkCatalogViews(browser,url,errors){
     localStorage.setItem('recipe-fixture',JSON.stringify([{id:'kept-recipe',name:'Receta guardada',ingredients:[]}]));
     localStorage.setItem('recommendation-fixture',JSON.stringify([{id:'kept-group',name:'Grupo guardado',product_ids:[]}]));
   });
-  const page=await context.newPage();page.on('pageerror',error=>errors.push(error.message));await page.goto(url);
+  const page=await context.newPage();page.on('pageerror',error=>{errors.push(error.message);if(process.env.DEBUG_UI_ERRORS)console.error(error.stack);});await page.goto(url);
   await page.getByRole('button',{name:'Catálogo',exact:true}).click();const catalog=page.locator('isl-catalog');
   await catalog.locator('#view-products').waitFor();
   assert.deepEqual(await catalog.locator('.catalog-tabs .tab-label').allTextContents(),['Productos','Categorías','Pendiente']);
@@ -1333,13 +1339,31 @@ async function checkCatalogViews(browser,url,errors){
   assert.equal(await catalog.locator('#suggestions-list > details').count(),3);
   await page.evaluate(()=>{
     window.catalogProducts=[
-      {id:'pending-info',revision:1,name:'Producto incompleto',category:'',tags:[],barcodes:[],nfc_tags:[],image_url:'',icon:'mdi:shopping',store_links:{},commercial_references:[{id:'r1',store:'carrefour',name:'Alternativa',last_price:{price:2,currency:'EUR'}}]},
+      {id:'pending-info',revision:1,name:'Producto incompleto',category:'',tags:[],barcodes:[],nfc_tags:[],image_url:'',icon:'mdi:shopping',store_links:{},commercial_references:[{id:'r1',store:'carrefour',url:'https://www.carrefour.es/supermercado/producto/R-123/p',name:'Alternativa',last_price:{price:2,currency:'EUR'}}]},
       {id:'complete-info',revision:1,name:'Producto completo',category:'',tags:[],barcodes:[],nfc_tags:[],image_url:'',icon:'mdi:shopping',store_links:{},commercial_references:[{id:'r2',store:'carrefour',name:'Alternativa completa',content_quantity:170,content_unit:'g',last_price:{price:2,currency:'EUR'}}]}
     ];window.emitCatalog();
   });
   const information=catalog.locator('#pending-information-group');
   assert.equal(await catalog.locator('#pending-information-count').textContent(),'1');
   assert.equal(await information.locator('.pending-information-row').count(),0); // Rows are built only on expansion.
+  const refresh=information.locator('isl-pending-information-refresh');
+  const refreshButton=refresh.getByRole('button',{name:'Recuperar datos',exact:true});
+  assert.equal(await refreshButton.isEnabled(),true);
+  await refreshButton.click();
+  const refreshDialog=refresh.getByRole('dialog',{name:'Recuperación de datos',exact:true});await refreshDialog.waitFor();
+  assert.equal(await information.getAttribute('open'),null);
+  await page.evaluate(()=>{window.pendingRefreshFixture={...window.pendingRefreshFixture,processed:1,current:'Producto incompleto'};});
+  await refreshDialog.getByText('50 %',{exact:true}).waitFor();
+  await page.screenshot({path:'test-results/pending-information-progress-mobile.png',fullPage:true});
+  await page.setViewportSize({width:1280,height:960});
+  await page.screenshot({path:'test-results/pending-information-progress-desktop.png',fullPage:true});
+  await refreshDialog.getByRole('button',{name:'Cerrar ventana',exact:true}).click();
+  await refreshButton.click();await refreshDialog.getByText('50 %',{exact:true}).waitFor();
+  assert.equal(await page.evaluate(()=>window.pendingRefreshStarts),2);
+  await page.evaluate(()=>{window.pendingRefreshFixture={...window.pendingRefreshFixture,processed:2,running:false,phase:'finished',updated_products:['pending-info']};});
+  await refreshDialog.getByText('100 %',{exact:true}).waitFor();
+  await refreshDialog.getByText('Revisión finalizada · 1 productos actualizados',{exact:true}).waitFor();
+  await refreshDialog.getByRole('button',{name:'Cerrar ventana',exact:true}).click();
   await information.locator('summary').click();
   await information.getByRole('button',{name:'Completar información de Producto incompleto',exact:true}).click();
   const editor=catalog.getByRole('dialog',{name:'Editar producto',exact:true});await editor.waitFor();
@@ -1645,7 +1669,7 @@ async function main() {
     }
     if (pathname === "/") { res.setHeader("content-type", "text/html; charset=utf-8"); res.end(html); return; }
     if (pathname === '/catalog-sources.js') {res.setHeader('content-type','text/javascript; charset=utf-8');res.end(await fs.readFile(path.join(root,'catalog-sources.js')));return;}
-    if (!["/stock-panel.js", "/product-display.js", "/reference-formats.js", "/zone-map.js", "/vendor/leaflet/leaflet.js", "/vendor/leaflet/leaflet.css", "/vendor/leaflet/images/layers.png", "/vendor/leaflet/images/layers-2x.png", "/lidl-account.js", "/toggle-styles.js", "/shopping-places.js", "/dia-prices-settings.js", "/dia-account.js", "/analytics-panel.js", "/alcampo-settings.js", "/carrefour-account.js", "/notification-settings.js", "/recipe-editor.js", "/quantity-client.js", "/panel.js", "/purchases-panel.js", "/stock-client.js", "/dialog-controls.js", "/todo-client.js", "/catalog-panel.js", "/catalog-client.js", "/category-panel.js", "/icon-picker.js", "/list-settings-client.js", "/settings-panel.js", "/readers-client.js", "/readers-panel.js", "/product-matching.js", "/product-names.js", "/logs-panel.js", "/logo.png", "/mercadona.png", "/consum.jpg", "/lasirena.jpg", "/eroski.svg", "/dia.png"].includes(pathname)) { res.writeHead(404).end(); return; }
+    if (!["/pending-information-refresh.js", "/masymas.png", "/bm.png", "/stock-panel.js", "/product-display.js", "/reference-formats.js", "/zone-map.js", "/vendor/leaflet/leaflet.js", "/vendor/leaflet/leaflet.css", "/vendor/leaflet/images/layers.png", "/vendor/leaflet/images/layers-2x.png", "/lidl-account.js", "/toggle-styles.js", "/shopping-places.js", "/dia-prices-settings.js", "/dia-account.js", "/analytics-panel.js", "/alcampo-settings.js", "/carrefour-account.js", "/notification-settings.js", "/recipe-editor.js", "/quantity-client.js", "/panel.js", "/purchases-panel.js", "/stock-client.js", "/dialog-controls.js", "/todo-client.js", "/catalog-panel.js", "/catalog-client.js", "/category-panel.js", "/icon-picker.js", "/list-settings-client.js", "/settings-panel.js", "/readers-client.js", "/readers-panel.js", "/product-matching.js", "/product-names.js", "/logs-panel.js", "/logo.png", "/mercadona.png", "/consum.jpg", "/lasirena.jpg", "/eroski.svg", "/dia.png"].includes(pathname)) { res.writeHead(404).end(); return; }
     res.setHeader("content-type", pathname.endsWith(".css") ? "text/css; charset=utf-8" : pathname.endsWith(".svg") ? "image/svg+xml" : pathname.endsWith(".png") ? "image/png" : pathname.endsWith(".jpg") ? "image/jpeg" : "text/javascript; charset=utf-8");
     res.end(await fs.readFile(path.join(root, pathname.slice(1))));
   });

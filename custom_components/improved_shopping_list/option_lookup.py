@@ -228,7 +228,7 @@ class OptionLookup:
         finally:
             session.detach()
 
-    async def retrieve(self, value, store="", expected_ean="", *, measure=False, before_request=None):
+    async def retrieve(self, value, store="", expected_ean="", *, measure=False, before_request=None, force=False):
         # A full official URL is authoritative, even if the option was filed
         # under another store. normalize_link still validates the complete path.
         if "://" in value or not store:
@@ -241,7 +241,7 @@ class OptionLookup:
             raise PriceError("Indica el enlace completo de la ficha del producto.")
         async with self._lock:
             cached = self._cache.get((store, link["id"]))
-            if cached and cached[0] > time.monotonic():
+            if not force and cached and cached[0] > time.monotonic():
                 result = deepcopy(cached[1])
             else:
                 if self._blocked_until.get(store,0)>time.monotonic():

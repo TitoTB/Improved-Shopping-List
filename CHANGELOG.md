@@ -2,6 +2,8 @@
 
 ## Próxima versión
 
+- Catálogo → Pendiente incorpora «Recuperar datos»: consulta forzada de las URL de los productos pendientes, guarda sus fichas y muestra progreso. Se esperan veinte segundos entre peticiones; el trabajo continúa al cerrar la interfaz y se recupera tras reiniciar Home Assistant.
+
 - Catálogos opcionales de Masymas, BM y Consum, desactivados por defecto; completan datos vacíos por EAN exacto, conservan resultados y permiten mostrar u ocultar las alternativas de cada tienda.
 - Diccionario EAN v5 con columnas Masymas, BM y Consum y las tres referencias verificadas del producto de prueba. Se conservan los diccionarios anteriores.
 - Prioridad de búsqueda de códigos: diccionario, proveedores con búsqueda directa por EAN y búsquedas comerciales con confirmación de EAN, antes de la fuente general de Open Food Facts. Caché persistente y control de resultados negativos, veinte segundos entre peticiones, pausas ante bloqueos y progreso en tiempo real.

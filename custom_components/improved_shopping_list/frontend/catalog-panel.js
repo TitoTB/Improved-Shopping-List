@@ -6,6 +6,7 @@ import { matchCatalogProducts } from "./product-matching.js?v=0.60.0";
 import "./category-panel.js?v=0.60.0";
 import "./recipe-editor.js?v=0.60.0";
 import "./icon-picker.js?v=0.60.0";
+import "./pending-information-refresh.js?v=0.60.0";
 import { imageSource, normalizedName, productNameKey, cachedProductPrice, storeProductLink, storeFromProductUrl } from "./product-display.js?v=0.60.0";
 export { imageSource, normalizedName, productNameKey, cachedProductPrice };
 
@@ -119,7 +120,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
     if (this._active === Boolean(value)) return;
     this._active = Boolean(value);
     if (this._active)this._ensureBuilt();
-    if (!this._active) this._stopCodeCapture();
+    if (!this._active) {this._stopCodeCapture();const refresh=this.shadowRoot.querySelector("isl-pending-information-refresh");if(refresh)refresh.data={hass:this._hass,active:false};}
     if (this._active) this._render();
   }
   set stores(value) {
@@ -223,6 +224,11 @@ class ImprovedShoppingCatalog extends HTMLElement {
         .suggestion-groups { display:grid; gap:16px; }
         .suggestion-group { border:1px solid var(--divider-color,#dfe7e1); border-radius:14px; background:var(--card-background-color,#fff); min-width:0; }
         .suggestion-group summary { padding:16px; cursor:pointer; font-weight:650; line-height:1.5; overflow-wrap:anywhere; }
+        .pending-information-title { flex:1;min-width:0; }
+        #pending-information-group > summary { display:flex;align-items:center;gap:10px;list-style:none; }
+        #pending-information-group > summary::-webkit-details-marker { display:none; }
+        #pending-information-group > summary::before { content:"▸";flex:none; }
+        #pending-information-group[open] > summary::before { content:"▾"; }
         .suggestion-group summary:focus-visible { outline:3px solid var(--primary-color,#267052); outline-offset:3px; border-radius:14px; }
         .suggestion-count { display:inline-block; margin-left:8px; padding:2px 8px; border-radius:20px; font-size:12px; font-weight:500; background:var(--secondary-background-color,#edf4ee); }
         .suggestion-content { padding:0 14px 14px; }
@@ -486,7 +492,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
             <div class="suggestion-content"><div id="scan-suggestions" class="suggestions"></div><p id="scan-suggestions-empty" class="helper" hidden>No hay códigos escaneados pendientes de identificar.</p></div>
           </details>
           <details id="pending-information-group" class="suggestion-group">
-            <summary>Productos pendientes de información<span id="pending-information-count" class="suggestion-count">0</span></summary>
+            <summary><span class="pending-information-title">Productos pendientes de información</span><span id="pending-information-count" class="suggestion-count">0</span><isl-pending-information-refresh></isl-pending-information-refresh></summary>
             <div class="suggestion-content"><div id="pending-information-products" class="suggestions"></div><p id="pending-information-empty" class="helper" hidden>No hay productos con información pendiente.</p></div>
           </details>
         </div>
@@ -928,6 +934,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
     const pending=this._catalog.products.map(product=>({product,issues:pendingProductInformation(product,offersByProduct.get(product.id)??[])}))
       .filter(item=>item.issues.length);
     root.querySelector('#pending-information-count').textContent=String(pending.length);
+    root.querySelector('isl-pending-information-refresh').data={hass:this._hass,active:this._active&&this._view==='suggestions',eligible:pending.some(({product})=>(product.commercial_references??[]).some(ref=>ref.active!==false&&ref.url))};
     root.querySelector('#pending-information-empty').hidden=Boolean(pending.length)||this._catalog.loading;
     if(this._view!=='suggestions'||!group.open){container.replaceChildren();return;}
     pending.sort((a,b)=>a.product.name.localeCompare(b.product.name,'es',{sensitivity:'base'}));

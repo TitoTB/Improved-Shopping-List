@@ -32,3 +32,10 @@ Las búsquedas respetan este orden: coincidencias del diccionario por EAN, búsq
 El diccionario ean-links-v5.csv añade columnas Masymas, BM y Consum; incluye únicamente las URL que se hayan verificado. Las coincidencias encontradas por cada instancia se conservan en su caché local, sin publicarse automáticamente en GitHub. Una URL evita repetir la búsqueda, pero recuperar información puede requerir consultar la ficha. Las búsquedas sin resultado se conservan un día; se permiten como máximo dos consultas de nombre por tienda y EAN en cada revisión. Los datos positivos se reutilizan hasta treinta días. Se esperan veinte segundos entre peticiones a la misma tienda, también en consultas manuales y después de un reinicio, y los bloqueos HTTP 403/429/503 detienen temporalmente la fuente.
 
 El popup muestra progreso e incidencias y el resumen se registra en Logs → Tiendas. Desactivar una fuente detiene su trabajo; conserva lo ya guardado. No se requiere cuenta de esas tiendas ni dependencias adicionales.
+
+
+## Recuperar información pendiente
+
+En Catálogo → Pendiente → Productos pendientes de información, «Recuperar datos» inicia una revisión de las alternativas activas con URL de los productos de ese bloque. Los productos con al menos una alternativa completa quedan fuera del lote, igual que los que no tienen URL. Se fuerza la consulta de la ficha y se guardan los datos recuperados sin tener que abrir y guardar cada producto.
+
+El proceso espera veinte segundos entre peticiones, también cuando una ficha necesita consultas complementarias. Respeta las pausas de las tiendas y conserva los datos anteriores ante errores. El popup muestra porcentaje, alternativa actual y errores con el nombre del producto. Cerrar el popup o recargar no cancela el trabajo; volver a pulsar el botón muestra el lote en curso. La cola y la espera se conservan tras reiniciar Home Assistant. Los cambios concurrentes se incorporan desde la ficha actual, sin volver a crear productos eliminados ni recuperar alternativas desvinculadas durante el proceso. Si una URL devuelve otro EAN, se crea una alternativa independiente, como en la recuperación manual.

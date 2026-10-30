@@ -14,6 +14,7 @@ from .ean_links import EANLinks
 from .catalog_sources import CatalogSources
 from .mercadona_catalog import MercadonaCatalog
 from .public_catalogs import CatalogDiscovery, PublicCatalogSource
+from .pending_information import PendingInformationRefresh
 from .activity import ActivityLog
 from .community import CommunityLibrary
 from .community_sync import CommunitySync
@@ -173,6 +174,9 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         readers.lookup.catalog_discovery=discovery
         hass.data[DOMAIN]["public_catalogs"]=public_catalogs
         hass.data[DOMAIN]["catalog_discovery"]=discovery
+        pending_refresh=PendingInformationRefresh(hass,catalog,hass.data[DOMAIN]["option_lookup"],prices,activity)
+        await pending_refresh.async_load()
+        hass.data[DOMAIN]["pending_information_refresh"]=pending_refresh
         async_register_commands(hass)
     return True
 
@@ -198,6 +202,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.data[DOMAIN]["catalog_sources"].start()
     hass.data[DOMAIN]["mercadona_catalog"].start()
     for source in hass.data[DOMAIN]["public_catalogs"].values():source.start()
+    hass.data[DOMAIN]["pending_information_refresh"].start()
     hass.data[DOMAIN]["price_manager"].start()
     hass.data[DOMAIN]["alcampo"].start()
     hass.data[DOMAIN]["entity_data"].start()
@@ -234,6 +239,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.data[DOMAIN]["entity_data"].stop()
     frontend.async_remove_panel(hass, PANEL_PATH)
     hass.data[DOMAIN]["active"] = False
+    await hass.data[DOMAIN]["pending_information_refresh"].async_stop()
     await hass.data[DOMAIN]["catalog_sources"].async_stop()
     await hass.data[DOMAIN]["mercadona_catalog"].async_stop()
     for source in hass.data[DOMAIN]["public_catalogs"].values():await source.async_stop()

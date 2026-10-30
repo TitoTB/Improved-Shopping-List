@@ -62,3 +62,29 @@ export function referenceContentControls(reference,onChange){
   quantity.addEventListener('input',update);unit.addEventListener('change',update);
   row.append(quantityLabel,unitLabel);return row;
 }
+
+
+/** Stored information only: never fetch missing prices or borrow another EAN's offer. */
+export function pendingProductInformation(product,offers=[]){
+  const refs=(product?.commercial_references??[]).filter(ref=>ref.active!==false);
+  const validPrice=price=>price?.price!==null&&price?.price!==undefined&&price.price!==''&&Number.isFinite(Number(price.price))&&Number(price.price)>=0&&price.currency==='EUR';
+  const prices=offers.filter(offer=>offer.catalog_product_id===product?.id&&validPrice(offer));
+  return (refs.length?refs:[null]).flatMap(ref=>{
+    const missing=[];
+    const measure=ref?.measure_price,hasMeasure=validPrice(measure)&&Number(measure.price)>0&&Number.isFinite(measure.quantity)&&measure.quantity>0&&Object.hasOwn(contentUnits,measure.unit??'');
+    const hasPrice=validPrice(ref?.last_price)||hasMeasure||!ref?.store&&validPrice(product)||ref?.store&&prices.some(offer=>{
+      if(offer.store!==ref.store)return false;
+      const code=barcodeIdentity(ref.ean),offeredCode=barcodeIdentity(offer.ean);
+      if(code&&offeredCode&&code!==offeredCode)return false;
+      if(ref.id&&offer.commercial_reference_id===ref.id)return true;
+      if(code&&offeredCode)return code===offeredCode;
+      if(offer.reference_id&&[ref.reference_id,ref.ticket_reference_id].filter(Boolean).includes(offer.reference_id))return true;
+      return !offer.commercial_reference_id&&!offer.reference_id&&!offer.ean&&refs.filter(other=>other.store===ref.store).length===1;
+    });
+    if(!hasPrice)missing.push('price');
+    const quantity=ref?.content_quantity,unit=ref?.content_unit;
+    if(!Number.isFinite(quantity)||quantity<=0||quantity>1000000||unit==='uds'&&!Number.isInteger(quantity))missing.push('content_quantity');
+    if(!Object.hasOwn(contentUnits,unit??''))missing.push('content_unit');
+    return missing.length?[{reference:ref,missing}]:[];
+  });
+}

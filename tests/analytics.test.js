@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 globalThis.HTMLElement=class {};globalThis.customElements={get:()=>true};
 const {normalizeObservation,analyzeCatalog,analyzePurchase}=await import('../custom_components/improved_shopping_list/frontend/analytics-panel.js');
-const {packageCost,referenceRate,suggestedContent,validReferenceContent}=await import('../custom_components/improved_shopping_list/frontend/reference-formats.js');
+const {packageCost,referenceRate,suggestedContent,validReferenceContent,pendingProductInformation}=await import('../custom_components/improved_shopping_list/frontend/reference-formats.js');
 const {cachedProductPrice,storeProductLink,storeFromProductUrl}=await import('../custom_components/improved_shopping_list/frontend/product-display.js');
 const now=1800000000,ean='1234567890128';
 const offer=(store,price,extra={})=>({store,product_id:'p',price,currency:'EUR',at:now-3600,ean,...extra});
@@ -121,4 +121,27 @@ test('a stored measured price remains usable beside a newer package price with m
  const row=analyzeCatalog(products,obs,{stores:['carrefour','alcampo'],now}).rows[0];
  assert.equal(row.min,2);assert.equal(row.offers.find(o=>o.store==='carrefour').at,now-200);
  const recent=analyzeCatalog(products,obs,{stores:['carrefour','alcampo'],now,maxAge:.002});assert.equal(recent.comparable,0);
+});
+
+
+test('pending product information reports price, package contents and units without requiring a brand',()=>{
+ assert.deepEqual(pendingProductInformation({id:'empty'})[0].missing,['price','content_quantity','content_unit']);
+ const complete={id:'r',store:'carrefour',ean:'8410199023094',brand:'',content_quantity:170,content_unit:'g',last_price:{price:0,currency:'EUR'}};
+ assert.deepEqual(pendingProductInformation({id:'p',commercial_references:[complete]}),[]);
+ assert.deepEqual(pendingProductInformation({id:'p',commercial_references:[{...complete,last_price:null,measure_price:{price:12,currency:'EUR',quantity:1,unit:'kg'}}]}),[]);
+ const noAmount={...complete,content_quantity:null};
+ assert.deepEqual(pendingProductInformation({id:'p',commercial_references:[noAmount]})[0].missing,['content_quantity']);
+ const noUnits={...complete,content_unit:''};
+ assert.deepEqual(pendingProductInformation({id:'p',commercial_references:[noUnits]})[0].missing,['content_unit']);
+ assert.deepEqual(pendingProductInformation({id:'p',commercial_references:[complete,{store:'alcampo',active:false}]}),[]);
+});
+
+test('pending information uses saved prices for the exact alternative and never borrows another EAN price',()=>{
+ const ref={id:'r',store:'carrefour',ean:'8410199023094',content_quantity:170,content_unit:'g'};
+ const product={id:'p',commercial_references:[ref]};
+ const other={catalog_product_id:'p',store:'carrefour',price:2,currency:'EUR',ean:'8410422111086'};
+ assert.deepEqual(pendingProductInformation(product,[other])[0].missing,['price']);
+ const exact={...other,ean:'08410199023094',commercial_reference_id:'old-id'};
+ assert.deepEqual(pendingProductInformation(product,[exact]),[]);
+ assert.deepEqual(pendingProductInformation(product,[{...exact,catalog_product_id:'different'}])[0].missing,['price']);
 });

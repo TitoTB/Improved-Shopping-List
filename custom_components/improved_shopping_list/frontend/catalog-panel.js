@@ -1,5 +1,5 @@
 import { purchaseQuantity, quantityLabel } from "./quantity-client.js?v=0.57.2";
-import { referenceContentControls, referenceRate, barcodeIdentity, validReferenceContent } from "./reference-formats.js?v=0.57.2";
+import { referenceContentControls, referenceRate, barcodeIdentity, validReferenceContent, pendingProductInformation } from "./reference-formats.js?v=0.57.2";
 import { installDialogCloseButtons } from "./dialog-controls.js?v=0.57.2";
 import { CatalogSession } from "./catalog-client.js?v=0.57.2";
 import { matchCatalogProducts } from "./product-matching.js?v=0.57.2";
@@ -137,7 +137,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
     const key = JSON.stringify(value);
     if (key === this._priceDataKey) return;
     this._priceDataKey = key; this._priceData = value;
-    this._renderProducts();
+    this._renderProducts();this._renderPendingInformation();
   }
   set quantityData(value) {
     const key=JSON.stringify(value);
@@ -227,6 +227,11 @@ class ImprovedShoppingCatalog extends HTMLElement {
         .suggestion-count { display:inline-block; margin-left:8px; padding:2px 8px; border-radius:20px; font-size:12px; font-weight:500; background:var(--secondary-background-color,#edf4ee); }
         .suggestion-content { padding:0 14px 14px; }
         .suggestion { display:flex; align-items:center; gap:16px; padding:16px; border:1px solid var(--divider-color,#dfe7e1); border-radius:14px; background:var(--card-background-color,#fff); }
+        .pending-information-row { display:flex;align-items:center;gap:12px;width:100%;text-align:left;padding:14px;background:var(--card-background-color,#fff); }
+        .pending-information-media { width:40px;height:40px;object-fit:contain;flex:none;--mdc-icon-size:36px; }
+        .pending-information-text { min-width:0;flex:1;overflow-wrap:anywhere; }
+        .pending-information-name { display:block;font-size:16px;font-weight:650; }
+        .pending-information-missing { display:block;margin-top:5px;font-size:13px;line-height:1.5;color:var(--secondary-text-color,#63766b); }
         .suggestion h2 { flex:1; font-size:17px; overflow-wrap:anywhere; min-width:0; }
         .suggestion .actions { margin:0; flex-shrink:0; }
         .suggestion .actions button { flex:0 0 40px; width:40px; min-height:40px; padding:8px; }
@@ -448,7 +453,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
       </style>
       <div class="heading"><h1>Catálogo</h1>
       <div class="catalog-toolbar">
-        <nav class="catalog-tabs" aria-label="Vistas del catálogo"><button id="view-products" aria-label="Productos" aria-pressed="true"><ha-icon icon="mdi:view-grid" aria-hidden="true"></ha-icon><span class="tab-label">Productos</span></button><button id="view-categories" aria-label="Categorías" aria-pressed="false"><ha-icon icon="mdi:label" aria-hidden="true"></ha-icon><span class="tab-label">Categorías</span></button><button id="view-suggestions" hidden aria-label="Nuevos" aria-pressed="false"><ha-icon icon="mdi:creation" aria-hidden="true"></ha-icon><span class="tab-label">Nuevos</span></button></nav>
+        <nav class="catalog-tabs" aria-label="Vistas del catálogo"><button id="view-products" aria-label="Productos" aria-pressed="true"><ha-icon icon="mdi:view-grid" aria-hidden="true"></ha-icon><span class="tab-label">Productos</span></button><button id="view-categories" aria-label="Categorías" aria-pressed="false"><ha-icon icon="mdi:label" aria-hidden="true"></ha-icon><span class="tab-label">Categorías</span></button><button id="view-suggestions" aria-label="Pendiente" aria-pressed="false"><ha-icon icon="mdi:circle-slice-5" aria-hidden="true"></ha-icon><span class="tab-label">Pendiente</span></button></nav>
         <div class="catalog-tools"><button id="new-catalog-category" class="primary" type="button" aria-label="Nueva categoría" title="Nueva categoría" hidden><ha-icon icon="mdi:plus-thick"></ha-icon></button></div>
       </div>
       </div>
@@ -479,6 +484,10 @@ class ImprovedShoppingCatalog extends HTMLElement {
           <details id="scan-suggestions-group" class="suggestion-group">
             <summary id="scan-suggestions-summary">Productos escaneados<span id="scan-suggestions-count" class="suggestion-count">0</span></summary>
             <div class="suggestion-content"><div id="scan-suggestions" class="suggestions"></div><p id="scan-suggestions-empty" class="helper" hidden>No hay códigos escaneados pendientes de identificar.</p></div>
+          </details>
+          <details id="pending-information-group" class="suggestion-group">
+            <summary>Productos pendientes de información<span id="pending-information-count" class="suggestion-count">0</span></summary>
+            <div class="suggestion-content"><div id="pending-information-products" class="suggestions"></div><p id="pending-information-empty" class="helper" hidden>No hay productos con información pendiente.</p></div>
           </details>
         </div>
       </section>
@@ -610,6 +619,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
     root.querySelector("#season-add-form").addEventListener("submit", event => { event.preventDefault(); void this._saveSeasonal(); });
     root.querySelector("#season-add-dialog").addEventListener("cancel", event => { if (this._seasonBusy) event.preventDefault(); });
     root.querySelector("#view-suggestions").addEventListener("click", () => this._switchView("suggestions"));
+    root.querySelector("#pending-information-group").addEventListener("toggle",()=>this._renderPendingInformation());
     root.querySelector("isl-categories").onSave = category => this._catalog.saveCategory(category);
     root.querySelector("isl-categories").onDelete = category => this._catalog.deleteCategory(category);
     root.querySelector("isl-categories").onClose = () => root.querySelector("#new-catalog-category").focus();
@@ -866,8 +876,8 @@ class ImprovedShoppingCatalog extends HTMLElement {
     error.hidden = !this._suggestionError;
     error.textContent = this._suggestionError ?? "";
     root.querySelector("#suggestions-source").textContent = this._listName
-      ? `Productos de «${this._listName}» que todavía no están en tu catálogo y códigos desconocidos de tus lectores.`
-      : "Aquí aparecerán los códigos desconocidos de tus lectores. Selecciona una lista para ver también sus productos sugeridos.";
+      ? `Productos de «${this._listName}» pendientes de incorporar al catálogo, códigos escaneados y productos con información incompleta.`
+      : "Productos pendientes de incorporar al catálogo, códigos escaneados y productos con información incompleta.";
     const excluded = new Set([
       ...this._catalog.products.map(product => productNameKey(product.name)),
       ...this._catalog.dismissedSuggestions.map(productNameKey),
@@ -903,14 +913,35 @@ class ImprovedShoppingCatalog extends HTMLElement {
     this._renderLinkDialog();
     root.querySelector("#list-suggestions-count").textContent = String(suggestions.length);
     root.querySelector("#scan-suggestions-count").textContent = String(pending.length);
-    const newTab=root.querySelector("#view-suggestions");
-    newTab.hidden=suggestions.length+pending.length===0;
-    if(newTab.hidden&&this._view==="suggestions"){
-      this._switchView("products");
-      root.querySelector("#view-products").focus();
-    }
+    root.querySelector("#view-suggestions").hidden=false;
+    this._renderPendingInformation();
     root.querySelector("#list-suggestions-empty").hidden = suggestions.length > 0 || this._catalog.loading || Boolean(this._catalog.error);
     root.querySelector("#scan-suggestions-empty").hidden = pending.length > 0 || Boolean(this._readers?.loading) || Boolean(this._readers?.error);
+  }
+
+  _renderPendingInformation(){
+    if(!this._built||!this._hass||!this._active)return;
+    const root=this.shadowRoot,group=root.querySelector('#pending-information-group'),container=root.querySelector('#pending-information-products');
+    if(!group||!container)return;
+    const pending=this._catalog.products.map(product=>({product,issues:pendingProductInformation(product,this._priceData?.offers??[])}))
+      .filter(item=>item.issues.length).sort((a,b)=>a.product.name.localeCompare(b.product.name,'es',{sensitivity:'base'}));
+    root.querySelector('#pending-information-count').textContent=String(pending.length);
+    root.querySelector('#pending-information-empty').hidden=Boolean(pending.length)||this._catalog.loading;
+    if(this._view!=='suggestions'||!group.open){container.replaceChildren();return;}
+    const labels={price:'precio',content_quantity:'contenido por envase',content_unit:'unidades'};
+    container.replaceChildren(...pending.map(({product,issues})=>{
+      const row=element('button','pending-information-row');row.type='button';row.dataset.productId=product.id;
+      row.setAttribute('aria-label',`Completar información de ${product.name}`);
+      row.disabled=this._hass?.user?.is_admin!==true||this._catalog.loading||this._saving;
+      const category=this._catalog.categories.find(item=>normalizedName(item.name)===normalizedName(product.category));
+      const fallback=element('ha-icon','pending-information-media');fallback.setAttribute('icon',product.icon||category?.icon||'mdi:shopping');fallback.setAttribute('aria-hidden','true');
+      const url=imageSource(product.image_url);
+      if(url){const image=element('img','pending-information-media');image.src=url;image.alt='';image.referrerPolicy='no-referrer';image.loading='lazy';image.addEventListener('error',()=>image.replaceWith(fallback),{once:true});row.append(image);}else row.append(fallback);
+      const text=element('span','pending-information-text');text.append(element('span','pending-information-name',product.name));
+      const fields=[...new Set(issues.flatMap(issue=>issue.missing))];
+      text.append(element('span','pending-information-missing','Falta: '+fields.map(field=>labels[field]).join(', ')));
+      row.append(text);row.addEventListener('click',()=>{this._openProduct(product);this._switchProductView('additional');});return row;
+    }));
   }
 
   _codeSuggestion(item) {

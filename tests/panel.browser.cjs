@@ -735,7 +735,7 @@ async function checkTwoLineNames(browser,url,errors) {
   await card.click();await page.waitForFunction(()=>window.listData['todo.bring'][0].status==='needs_action');
   assert.equal(await page.evaluate(()=>window.calls.filter(call=>call.domain==='todo'&&call.service==='add_item').length),0);
   assert.deepEqual(await page.evaluate(()=>window.listData['todo.bring'].map(item=>[item.uid,item.summary,item.description])),[['oat-list','Leche','de avena'],['lactose-list','Leche','sin lactosa']]);
-  await catalog.getByRole('button',{name:'Nuevos',exact:true}).click();
+  await catalog.getByRole('button',{name:'Pendiente',exact:true}).click();
   assert.match(await catalog.locator('#list-suggestions').textContent(),/Leche sin lactosa/);
   assert.doesNotMatch(await catalog.locator('#list-suggestions').textContent(),/Leche de avena/);
   await page.getByRole('button',{name:'Ajustes',exact:true}).click();const settings=page.locator('isl-settings');
@@ -1297,7 +1297,7 @@ async function checkCatalogViews(browser,url,errors){
   const page=await context.newPage();page.on('pageerror',error=>errors.push(error.message));await page.goto(url);
   await page.getByRole('button',{name:'Catálogo',exact:true}).click();const catalog=page.locator('isl-catalog');
   await catalog.locator('#view-products').waitFor();
-  assert.deepEqual(await catalog.locator('.catalog-tabs .tab-label').allTextContents(),['Productos','Categorías','Nuevos']);
+  assert.deepEqual(await catalog.locator('.catalog-tabs .tab-label').allTextContents(),['Productos','Categorías','Pendiente']);
   assert.equal(await catalog.locator('#view-recipes,#view-recommendations').count(),0);
   for(const width of [1280,390,320]){
     await page.setViewportSize({width,height:960});
@@ -1310,20 +1310,40 @@ async function checkCatalogViews(browser,url,errors){
     assert.ok(await catalog.evaluate(el=>el.scrollWidth<=el.clientWidth+1));
   }
   await catalog.evaluate(el=>{el.listItems=[];el.readerData={pending:[]};});
-  assert.equal(await catalog.locator('#view-suggestions').isVisible(),false);
-  assert.equal(await catalog.locator('#view-products').getAttribute('aria-pressed'),'true');
-  assert.equal(await catalog.locator('#products-view').isVisible(),true);
+  assert.equal(await catalog.locator('#view-suggestions').isVisible(),true);
+  assert.equal(await catalog.locator('#view-suggestions').getAttribute('aria-pressed'),'true');
+  assert.equal(await catalog.locator('#suggestions-view').isVisible(),true);
   await catalog.evaluate(el=>{el.listItems=[{summary:'Producto nuevo',status:'needs_action'}];});
   await catalog.locator('#view-suggestions').waitFor();
   await catalog.locator('#view-suggestions').click();
   assert.equal(await catalog.locator('#suggestions-view').isVisible(),true);
   await catalog.evaluate(el=>{el.listItems=[];});
-  assert.equal(await catalog.locator('#view-suggestions').isVisible(),false);
-  assert.equal(await catalog.locator('#view-products').getAttribute('aria-pressed'),'true');
+  assert.equal(await catalog.locator('#view-suggestions').isVisible(),true);
+  assert.equal(await catalog.locator('#view-suggestions').getAttribute('aria-pressed'),'true');
   await catalog.evaluate(el=>{el.readerData={pending:[{id:'scan-test',code:'9999999999999',kind:'barcode',reader_name:'Lector'}]};});
   assert.equal(await catalog.locator('#view-suggestions').isVisible(),true);
   await catalog.evaluate(el=>{el.readerData={pending:[]};});
-  assert.equal(await catalog.locator('#view-suggestions').isVisible(),false);
+  assert.equal(await catalog.locator('#view-suggestions').isVisible(),true);
+  assert.equal(await catalog.locator('#view-suggestions ha-icon').getAttribute('icon'),'mdi:circle-slice-5');
+  assert.equal(await catalog.locator('#suggestions-list > details').count(),3);
+  await page.evaluate(()=>{
+    window.catalogProducts=[
+      {id:'pending-info',revision:1,name:'Producto incompleto',category:'',tags:[],barcodes:[],nfc_tags:[],image_url:'',icon:'mdi:shopping',store_links:{},commercial_references:[{id:'r1',store:'carrefour',name:'Alternativa',last_price:{price:2,currency:'EUR'}}]},
+      {id:'complete-info',revision:1,name:'Producto completo',category:'',tags:[],barcodes:[],nfc_tags:[],image_url:'',icon:'mdi:shopping',store_links:{},commercial_references:[{id:'r2',store:'carrefour',name:'Alternativa completa',content_quantity:170,content_unit:'g',last_price:{price:2,currency:'EUR'}}]}
+    ];window.emitCatalog();
+  });
+  const information=catalog.locator('#pending-information-group');
+  assert.equal(await catalog.locator('#pending-information-count').textContent(),'1');
+  assert.equal(await information.locator('.pending-information-row').count(),0); // Rows are built only on expansion.
+  await information.locator('summary').click();
+  await information.getByRole('button',{name:'Completar información de Producto incompleto',exact:true}).click();
+  const editor=catalog.getByRole('dialog',{name:'Editar producto',exact:true});await editor.waitFor();
+  assert.equal(await editor.getByRole('button',{name:'Alternativas',exact:true}).getAttribute('aria-pressed'),'true');
+  await editor.getByRole('button',{name:'Cerrar ventana',exact:true}).click();
+  await page.evaluate(()=>{window.catalogProducts[0].commercial_references[0].content_quantity=250;window.catalogProducts[0].commercial_references[0].content_unit='g';window.emitCatalog();});
+  assert.equal(await catalog.locator('#pending-information-count').textContent(),'0');
+  assert.equal(await information.locator('.pending-information-row').count(),0);
+  assert.equal(await catalog.locator('#view-suggestions').isVisible(),true);
   assert.equal(await page.evaluate(()=>window.catalogRecipes[0].id),'kept-recipe');
   assert.equal(await page.evaluate(()=>window.recommendationCategories[0].id),'kept-group');
   await context.close();
@@ -2254,8 +2274,8 @@ async function main() {
     await suggestionCategories.getByLabel("Nombre de la categoría", { exact:true }).fill("Despensa");
     await suggestionCategories.getByRole("button", { name:"Guardar categoría", exact:true }).click();
     await suggestionCategories.getByRole("heading", { name:"Despensa", exact:true }).waitFor();
-    await suggestionCatalog.getByRole("button", { name: "Nuevos", exact: true }).click();
-    assert.equal(await suggestionCatalog.locator("#view-suggestions ha-icon").getAttribute("icon"), "mdi:creation");
+    await suggestionCatalog.getByRole("button", { name: "Pendiente", exact: true }).click();
+    assert.equal(await suggestionCatalog.locator("#view-suggestions ha-icon").getAttribute("icon"), "mdi:circle-slice-5");
     const suggestions = suggestionCatalog.locator("#suggestions-list");
     assert.equal(await suggestionCatalog.locator("#list-suggestions-group").evaluate(node => node.open), false);
     assert.equal(await suggestionCatalog.locator("#scan-suggestions-group").evaluate(node => node.open), false);
@@ -2314,7 +2334,7 @@ async function main() {
     assert.equal(await suggestionCatalog.locator("#catalog-grid article").getAttribute("data-in-list"), "true");
     await suggestionPage.reload();
     await suggestionPage.getByRole("button", { name: "Catálogo", exact: true }).click();
-    await suggestionCatalog.getByRole("button", { name: "Nuevos", exact: true }).click();
+    await suggestionCatalog.getByRole("button", { name: "Pendiente", exact: true }).click();
     assert.deepEqual(await suggestions.locator("h2").allTextContents(), ["Arroz"]);
     assert.equal(await suggestionCatalog.locator("#list-suggestions-group").evaluate(node => node.open), false);
     await suggestionCatalog.locator("#list-suggestions-summary").click();
@@ -2326,7 +2346,7 @@ async function main() {
     await suggestionPage.getByRole("button", { name: "Lista", exact: true }).click();
     await selectList(suggestionPage, "todo.local");
     await suggestionPage.getByRole("button", { name: "Catálogo", exact: true }).click();
-    await suggestionCatalog.getByRole("button", { name: "Nuevos", exact: true }).click();
+    await suggestionCatalog.getByRole("button", { name: "Pendiente", exact: true }).click();
     await suggestions.getByRole("heading", { name: "Detergente", exact: true }).waitFor();
     await suggestionPage.evaluate(() => {
       window.listData['todo.local'].push({uid:'dismissed',summary:' LECHE   entera ',status:'needs_action'});
@@ -3269,7 +3289,7 @@ async function main() {
     await readerPage.screenshot({path:"test-results/readers-desktop.png",fullPage:true});
     await readerPage.getByRole("button",{name:"Catálogo",exact:true}).click();
     const readerCatalog=readerPage.locator("isl-catalog");
-    await readerCatalog.getByRole("button",{name:"Nuevos",exact:true}).click();
+    await readerCatalog.getByRole("button",{name:"Pendiente",exact:true}).click();
     assert.equal(await readerCatalog.locator("#list-suggestions-group").evaluate(node => node.open),false);
     assert.equal(await readerCatalog.locator("#scan-suggestions-group").evaluate(node => node.open),false);
     assert.equal(await readerCatalog.locator("#scan-suggestions [data-pending-id]").count(),1);
@@ -3393,7 +3413,7 @@ async function main() {
     await defaultActionsDialog.getByRole('button',{name:'Automatización',exact:true}).click();
     assert.equal(await defaultActionsDialog.getByLabel('Cocina',{exact:true}).inputValue(),'default');
     await defaultActionsDialog.getByRole('button',{name:'Cerrar ventana',exact:true}).click();
-    await readerCatalog.getByRole('button',{name:'Nuevos',exact:true}).click();
+    await readerCatalog.getByRole('button',{name:'Pendiente',exact:true}).click();
     await readerPage.evaluate(()=>{window.readerFixture.pending=[{id:'scan-discard',kind:'barcode',code:'999999',reader_name:'Cocina',time:new Date().toISOString()}];window.emitReaders();});
     await readerCatalog.getByRole("button",{name:"Descartar código 999999",exact:true}).click();
     assert.equal(await readerCatalog.locator('#scan-suggestions [data-pending-id="scan-discard"]').count(),0);
@@ -4220,7 +4240,7 @@ async function main() {
     });
     await renamePage.getByRole("button",{name:"Catálogo",exact:true}).click();
     const renameCatalog=renamePage.locator("isl-catalog");
-    await renameCatalog.getByRole("button",{name:"Nuevos",exact:true}).click();
+    await renameCatalog.getByRole("button",{name:"Pendiente",exact:true}).click();
     await renameCatalog.locator("#list-suggestions-summary").click();
     const renameSuggestions=renameCatalog.locator("#list-suggestions");
     assert.deepEqual(await renameSuggestions.locator("h2").allTextContents(),["Aguacat","Seitan"]);
@@ -4262,7 +4282,7 @@ async function main() {
     assert.equal(await renamePage.getByRole("button",{name:"Marcar como comprado: sEiTaN",exact:true}).locator(".placeholder ha-icon").getAttribute("icon"),"mdi:shopping");
     await renamePage.evaluate(()=>{window.listData['todo.bring'].push({uid:'tea-1',summary:'Té',status:'needs_action'});window.emit('todo.bring');});
     await renamePage.getByRole("button",{name:"Catálogo",exact:true}).click();
-    await renameCatalog.getByRole("button",{name:"Nuevos",exact:true}).click();
+    await renameCatalog.getByRole("button",{name:"Pendiente",exact:true}).click();
     if(!await renameCatalog.locator('#list-suggestions-group').evaluate(el=>el.open))await renameCatalog.locator('#list-suggestions-summary').click();
     await renameSuggestions.getByRole("button",{name:"Descartar: Té",exact:true}).click();
     await renamePage.evaluate(()=>{window.listData['todo.bring'].push({uid:'tea-2',summary:'TE',status:'needs_action'});window.emit('todo.bring');});

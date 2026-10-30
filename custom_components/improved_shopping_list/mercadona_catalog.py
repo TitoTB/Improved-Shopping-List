@@ -118,10 +118,11 @@ class MercadonaCatalog(CatalogSources):
         await super().async_run()
 
     async def _source_links(self):
+        codes=self.incomplete_eans()
+        if not codes:return {}
         await self.index.async_refresh()
         if not self._active or not self._data["enabled"]:raise asyncio.CancelledError
         self._status["public_index"]=self.index.status
-        codes={code for product in self.catalog.products for code in product_eans(product)}
         self._status["ean_summary"]={"catalog_eans":len(codes),"matched_eans":len(codes & self.index.products.keys())}
         self._status["common_updated"]=await self.catalog.async_apply_common_ean_data(self.index.common_data(codes))
         if self.index.error:

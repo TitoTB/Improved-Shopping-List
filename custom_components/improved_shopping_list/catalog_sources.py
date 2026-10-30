@@ -199,10 +199,28 @@ class CatalogSources:
         await self._save_state()
         self._status["phase"] = "querying"; self._notify()
 
+    def incomplete_eans(self):
+        """Evaluate each package separately, using the same fields as Pending."""
+        from .pending_information import pending
+
+        prices = self.hass.data.get(DOMAIN, {}).get("price_manager")
+        codes = set()
+        for product in self.catalog.products:
+            offers = prices.prices_for(product) if prices else ()
+            for code in product_eans(product):
+                refs = [ref for ref in product.get("commercial_references", [])
+                        if ref.get("active") is not False and gtin(ref.get("ean")) == code]
+                if pending({**product, "commercial_references": refs}, offers):
+                    codes.add(code)
+        return codes
+
     def _pending(self, links):
         result = []
+        incomplete = self.incomplete_eans()
         for key,link in links.items():
             code = key.rsplit(":",1)[-1]
+            if code not in incomplete:
+                continue
             products = [p for p in self.catalog.products if code in product_eans(p)]
             if not products:
                 continue
@@ -214,7 +232,11 @@ class CatalogSources:
         return result
 
     async def _source_links(self):
-        return await self.links.async_store_links(self.source_store)
+        codes = self.incomplete_eans()
+        if not codes:
+            return {}
+        return {key:link for key,link in (await self.links.async_store_links(self.source_store)).items()
+                if key.rsplit(":",1)[-1] in codes}
 
     def _source_error(self):
         return self.links.error
@@ -229,7 +251,7 @@ class CatalogSources:
         self._status.update(running=True,phase="preparing",errors=[],current="")
         self._notify()
         try:
-            if not any(product_eans(product) for product in self.catalog.products):
+            if not self.incomplete_eans():
                 self._status.update(phase="finished",total=0,processed=0,updated=0)
                 return
             links = await self._source_links()
@@ -246,6 +268,10 @@ class CatalogSources:
             for identity,code,link,name in pending:
                 if not self._active or not self._data["enabled"]:
                     break
+                if code not in self.incomplete_eans():
+                    self._status["processed"] += 1
+                    self._notify()
+                    continue
                 self._status.update(current=name,phase="querying"); self._notify()
                 previous=self._data["attempts"].get(identity,{})
                 previous_data=deepcopy(previous.get("data")) if previous.get("matched",previous.get("success")) else None

@@ -48,7 +48,7 @@ async def test_exact_completion_shared_ean_missing_fields_only_and_persistent_sp
     catalog,product,links,lookup,sources=await setup(hass)
     await sources.async_set_show_store(True)
     ref=reference_from_line('carrefour',{'ean':EAN,'description':'Allioli 70 ml'})
-    ref.update(brand='Marca manual',content_confirmed=True,last_price={'price':1,'currency':'EUR','checked_at':1})
+    ref.update(brand='Marca manual',content_confirmed=True)
     await catalog.async_save_product({'id':product['id'],'revision':product['revision'],'name':'Allioli','barcodes':[EAN],'commercial_references':[ref]})
     await catalog.async_save_product({'name':'Patatas','barcodes':[OTHER]})
     links._data['links']['alcampo:'+gtin(OTHER)]=WEB2
@@ -68,7 +68,7 @@ async def test_exact_completion_shared_ean_missing_fields_only_and_persistent_sp
         current=next(p for p in catalog.products if p['id']==product['id'])
         old=next(ref for ref in current['commercial_references'] if ref['store']=='carrefour')
         new=next(ref for ref in current['commercial_references'] if ref['store']=='alcampo')
-        assert old['brand']=='Marca manual' and old['content_quantity']==70 and old['last_price']['price']==1
+        assert old['brand']=='Marca manual' and old['content_quantity']==70 and 'last_price' not in old
         assert new['brand']=='Marca manual' and new['last_price']['price']==2.5 and new['content_quantity']==70
         assert new['content_unit']=='ml'
         assert old['nutriscore']['grade']=='b'

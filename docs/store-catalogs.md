@@ -36,6 +36,8 @@ El popup muestra progreso e incidencias y el resumen se registra en Logs → Tie
 
 ## Recuperar información pendiente
 
+Al activar un catálogo opcional solo se revisan los EAN que todavía no tengan una alternativa con precio, contenido por envase y unidades completos. Se omiten los formatos ya completos aunque no tengan alternativa en esa nueva tienda. Los EAN distintos de un mismo producto se evalúan por separado y se vuelven a comprobar antes de consultar cada ficha. «Recuperar datos» manual sigue disponible para consultar una URL concreta.
+
 Las URL de La Sirena se pueden consultar desde «Recuperar datos» en las alternativas del producto y en esta revisión por lotes. Se utiliza su API pública para validar el EAN y recuperar marca, precio y formato. Un pack de 4 × 125 g representa 500 g de contenido total y cuatro unidades por pack. No requiere cuenta ni activa un barrido automático de La Sirena.
 
 En Catálogo → Pendiente → Productos pendientes de información, «Recuperar datos» inicia una revisión de las alternativas activas con URL de los productos de ese bloque. Los productos con al menos una alternativa completa quedan fuera del lote, igual que los que no tienen URL. Se fuerza la consulta de la ficha y se guardan los datos recuperados sin tener que abrir y guardar cada producto.

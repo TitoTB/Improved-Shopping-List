@@ -1,5 +1,9 @@
 # Historial de cambios
 
+## Próxima versión
+
+- Los catálogos opcionales solo consultan EAN con información incompleta: precio, contenido por envase o unidades. Una alternativa completa del mismo EAN evita nuevas búsquedas; los distintos EAN de un producto se comprueban por separado.
+
 ## 0.62.0 — 2026-10-30
 
 - «Recuperar datos» admite fichas de La Sirena mediante su API pública: EAN verificado, marca, precio, contenido total del envase y número de unidades del pack. Se evita el EAN incorrecto de los datos estructurados HTML y se respetan las esperas y pausas ante bloqueos.

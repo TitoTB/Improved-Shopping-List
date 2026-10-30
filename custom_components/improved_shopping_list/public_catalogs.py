@@ -263,12 +263,15 @@ class PublicCatalogSource(CatalogSources):
             self._status.update(phase="paused");self._notify();return
         if self._timer:self._timer();self._timer=None
         products=self.catalog.products
-        codes=sorted({code for p in products for code in product_eans(p)})
+        codes=sorted(self.incomplete_eans())
         self._status.update(running=True,phase="preparing",total=len(codes),processed=0,updated=0,errors=[],current="",http_requests=0)
         self._notify()
         try:
             for code in codes:
                 if not self._active or not self._data["enabled"]:break
+                if code not in self.incomplete_eans():
+                    self._status["processed"]+=1;self._notify()
+                    continue
                 product=next(p for p in products if code in product_eans(p))
                 self._status.update(current=product["name"],phase="querying");self._notify()
                 try:

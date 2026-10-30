@@ -161,3 +161,18 @@ async def test_http_gate_keeps_twenty_second_spacing_after_reload(hass,monkeypat
     gate=RequestGate(hass);await gate.before('bm')
     restored=RequestGate(hass);await restored.before('bm')
     assert waits==[0,20]
+    await restored.pause('bm',900)
+    again=RequestGate(hass)
+    with pytest.raises(ValueError,match='pausa de reintento'):
+        await again.before('bm')
+    assert waits==[0,20]  # A block never silently sleeps through a batch.
+
+
+async def test_enabling_catalog_rechecks_a_previously_cached_general_hint(hass,monkeypatch):
+    lookup=ProductLookup(hass)
+    lookup._cache[CODE]={'expires':time.time()+86400,'fields':__import__('custom_components.improved_shopping_list.product_lookup',fromlist=['FIELDS']).FIELDS,'result':{'status':'found','name':'Nombre previo'}}
+    assert lookup.is_fresh(EAN)
+    lookup.catalog_discovery=SimpleNamespace(fingerprint=lambda:'masymas',async_hint=AsyncMock(return_value={'status':'found','name':'Nombre comercial','source':'Masymas','ean':EAN,'url':URLS['masymas']}))
+    assert not lookup.is_fresh(EAN)
+    assert (await lookup.async_lookup(EAN))['source']=='Masymas'
+    assert lookup.is_fresh(EAN)

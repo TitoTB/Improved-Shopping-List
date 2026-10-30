@@ -4,6 +4,7 @@ from asyncio import sleep
 from copy import deepcopy
 import hashlib
 import json
+import math
 import re
 import time
 from urllib.parse import urlencode
@@ -39,8 +40,16 @@ class RequestGate:
             if self.next is None:
                 saved=await self.store.async_load()
                 self.next={k:v for k,v in (saved or {}).items() if k in PUBLIC_SHOPS and type(v) in (int,float) and time.time()<v<=time.time()+DAY} if isinstance(saved,dict) else {}
-            await sleep(max(0,self.next.get(store,0)-time.time()))
+            wait=max(0,self.next.get(store,0)-time.time())
+            if wait>HTTP_INTERVAL+1:
+                raise PriceError(f"{STORES[store]} está en pausa de reintento.",response_class="rate_limited",retry_seconds=math.ceil(wait))
+            await sleep(wait)
             self.next[store]=time.time()+HTTP_INTERVAL
+            await self.store.async_save(self.next)
+
+    async def pause(self,store,seconds):
+        async with self.lock:
+            self.next[store]=max(self.next.get(store,0),time.time()+seconds)
             await self.store.async_save(self.next)
 
 
@@ -98,14 +107,19 @@ async def request(hass,store,path,before_request):
         if "public_catalog_http_gate" not in runtime:runtime["public_catalog_http_gate"]=RequestGate(hass)
         gate=runtime["public_catalog_http_gate"]
         await gate.before(store)
+        owner=getattr(before_request,"__self__",None)
+        if isinstance(owner,CatalogSources) and (not owner._active or not owner._data["enabled"]):
+            raise PriceError("El catálogo está desactivado.",response_class="source_disabled")
         endpoint=PUBLIC_SHOPS[store]+path
         async with session.get(endpoint,headers={"Accept":"application/json","User-Agent":"Improved-Shopping-List"},allow_redirects=False,timeout=aiohttp.ClientTimeout(total=25)) as response:
             if response.status==404:return None
             if response.status!=200:
                 retry=response.headers.get("Retry-After","")
+                wait=min(DAY,max(900,int(retry) if retry.isdigit() else 900)) if response.status in (403,429,503) else 0
+                if wait:await gate.pause(store,wait)
                 raise PriceError(f"{STORES[store]} ha rechazado la consulta (HTTP {response.status}).",http_status=response.status,
                     endpoint=endpoint.split("?",1)[0],response_class="access_denied" if response.status==403 else "http_error",
-                    retry_seconds=min(DAY,max(900,int(retry) if retry.isdigit() else 900)) if response.status in (403,429,503) else 0)
+                    retry_seconds=wait)
             raw=bytearray()
             async for chunk in response.content.iter_chunked(65536):
                 raw.extend(chunk)

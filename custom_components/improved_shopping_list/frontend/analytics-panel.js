@@ -160,7 +160,7 @@ class ImprovedShoppingAnalytics extends HTMLElement {
     if(result.known){
       const chart=node('section','card');chart.append(node('h2','chart-title','Dónde están los precios más bajos'));
       const maximum=Math.max(1,...result.ranking.map(shop=>shop.wins));
-      for(const shop of result.ranking){
+      for(const shop of result.ranking.filter(shop=>shop.wins>0)){
         const row=node('div','rank-row');row.dataset.store=shop.store;row.append(this._shopLabel(shop.store));const track=node('div','rank-track'),bar=node('div','rank-bar');bar.style.width=shop.wins/maximum*100+'%';track.append(bar);track.setAttribute('role','img');track.setAttribute('aria-label',(names[shop.store]??shop.store)+': '+shop.wins+' productos al menor precio');
         const total=node('span','rank-total',shop.wins+(shop.wins===1?' mínimo':' mínimos'));total.append(node('small','',shop.known+' con precio'));row.append(track,total);chart.append(row);
       }

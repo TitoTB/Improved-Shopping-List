@@ -1425,7 +1425,8 @@ async function checkCatalogComparison(browser,url,errors){
   assert.equal(await analytics.locator('tbody tr').count(),1);
   assert.equal(await analytics.locator('tbody tr[data-product-id="compared"]').count(),1);
   assert.equal(await analytics.locator('tbody tr[data-product-id="unknown"]').count(),0);
-  assert.equal(await analytics.locator('.rank-row[data-store="lidl"]').count(),1);
+  assert.equal(await analytics.locator('.rank-row[data-store="lidl"]').count(),0);
+  assert.equal(await analytics.locator('.rank-row[data-store="carrefour"]').count(),0);
   assert.match(await analytics.locator('tbody tr[data-product-id="compared"]').textContent(),/4,00/);
   assert.match(await analytics.locator('tbody tr[data-product-id="compared"]').textContent(),/€\/kg/);
   assert.equal(await analytics.locator('tbody th small').count(),0);
@@ -2587,8 +2588,8 @@ async function main() {
     assert.equal(await receiptPage.getByRole('tab',{name:'Compras',exact:true}).getAttribute('aria-selected'),'true');
     await receiptPage.getByRole('tab',{name:'Comparativa',exact:true}).click();
     const analytics=receiptPage.locator('isl-analytics');
-    await analytics.locator('.rank-row').nth(4).waitFor();
-    assert.equal(await analytics.locator('.rank-row').count(),5);
+    await analytics.locator('.rank-row').nth(1).waitFor();
+    assert.equal(await analytics.locator('.rank-row').count(),2);
     assert.equal(await analytics.locator('tbody tr[data-product-id="not-in-list"]').count(),1);
     assert.equal(await analytics.getByLabel('Lista para comparar',{exact:true}).count(),0);
     await analytics.getByLabel('Buscar producto',{exact:true}).fill('Galletas');

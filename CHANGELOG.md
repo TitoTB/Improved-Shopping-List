@@ -2,6 +2,7 @@
 
 ## Próxima versión
 
+- «Dónde están los precios más bajos» solo muestra tiendas con al menos un producto al precio mínimo, incluidos los empates.
 - Catálogo opcional de La Sirena con búsqueda directa por EAN, prioridad del diccionario, caché, esperas de veinte segundos y progreso. Desactivado por defecto; permite completar los datos sin mostrar la tienda o añadirla como alternativa. Solo revisa EAN incompletos.
 - Diccionario EAN v6 con columna La Sirena y el enlace del salmón verificado desde Home Assistant. Se conservan las columnas y enlaces anteriores.
 

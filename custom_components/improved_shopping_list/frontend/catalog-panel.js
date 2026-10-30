@@ -245,10 +245,10 @@ class ImprovedShoppingCatalog extends HTMLElement {
         .helper { color:var(--secondary-text-color,#63766b); font-size:13px; line-height:1.6; margin:8px 0 18px; }
         button { min-height:44px; padding:10px 14px; border:1px solid var(--divider-color,#dfe7e1); border-radius:10px; background:transparent; color:inherit; }
         .primary { background:#267052; color:#fff; border:0; font-weight:650; }
-        .filters { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:12px; margin:24px 0 14px; align-items:end; }
-        .filters .search { min-width:0; }
+        .filters { display:flex; width:100%; gap:12px; margin:24px 0 14px; align-items:center; }
+        .filters .search { flex:1 1 0; min-width:0; }
         #catalog-search { margin-top:0; height:46px; }
-        .catalog-product-controls { display:flex; align-items:center; justify-content:flex-end; gap:8px; min-width:0; }
+        .catalog-product-controls { display:flex; flex:0 0 auto; align-items:center; justify-content:flex-end; gap:8px; min-width:0; margin-left:auto; }
         #new-product,#new-catalog-category,#toggle-catalog-order,#configure-catalog-grouping,#toggle-catalog-layout { display:grid; place-items:center; flex:0 0 46px; width:46px; height:46px; padding:0; }
         #new-product ha-icon,#new-catalog-category ha-icon,#toggle-catalog-order ha-icon,#configure-catalog-grouping ha-icon,#toggle-catalog-layout ha-icon { --mdc-icon-size:24px; width:24px; height:24px; }
         #toggle-catalog-layout,#toggle-catalog-order,#configure-catalog-grouping { background:var(--card-background-color,#fff); }

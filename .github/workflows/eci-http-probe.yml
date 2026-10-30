@@ -9,31 +9,40 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: main
       - uses: actions/setup-python@v5
         with:
           python-version: '3.14'
-      - name: Test ordinary anonymous session
+      - run: pip install 'httpx[http2]==0.28.1' 'h2==4.4.1'
+      - name: Verify actual ECI session implementation
         run: |
           python - <<'PY'
-          import json,time
-          from http.cookiejar import CookieJar
-          from urllib.request import Request,build_opener,HTTPCookieProcessor,HTTPRedirectHandler
-          from urllib.error import HTTPError
-          BASE='https://www.elcorteingles.es'
-          class NoRedirect(HTTPRedirectHandler):
-              def redirect_request(self,*args):return None
-          jar=CookieJar();opener=build_opener(NoRedirect(),HTTPCookieProcessor(jar))
-          headers={'Accept':'application/json, text/plain, */*','response_type':'json','Accept-Language':'es-ES,es;q=0.9','User-Agent':'Mozilla/5.0','Referer':BASE+'/supermercado/'}
-          urls=[BASE+'/supermercado/',BASE+'/supermercado/buscar/?question=8431876332216&catalog=supermercado&stype=text_box',BASE+'/supermercado/buscar/?question=8410199023094&catalog=supermercado&stype=text_box']
-          for i,url in enumerate(urls):
-              if i:time.sleep(20)
-              request=Request(url,headers={**headers,**({'Accept':'text/html'} if i==0 else {})})
-              try:r=opener.open(request,timeout=25)
-              except HTTPError as e:r=e
-              with r:
-                  body=r.read(2097153);result={'stage':['homepage','no_result','known_ean'][i],'status':r.status,'type':r.headers.get('Content-Type'),'cookies':len(jar)}
-              if r.status==200 and i:
-                  data=json.loads(body);result['products']=[{'id':p.get('id'),'url':p.get('url')} for p in data.get('products',[]) if isinstance(p,dict) and str(p.get('id','')).startswith('B')]
-              print(json.dumps(result),flush=True)
-              if r.status!=200:break
+          import asyncio,ast,json,time,re,httpx
+          from pathlib import Path
+          from html import unescape
+          BASE='https://www.elcorteingles.es';DAY=86400;SSL_ALPN_HTTP11_HTTP2=('http/1.1','h2')
+          class PriceError(ValueError):
+              def __init__(self,message,**diagnostics):super().__init__(message);self.diagnostics=diagnostics
+          def create_async_httpx_client(hass,**kwargs):
+              kwargs.pop('auto_cleanup');kwargs.pop('alpn_protocols');return httpx.AsyncClient(http2=True,**kwargs)
+          nodes=[n for n in ast.parse(Path('custom_components/improved_shopping_list/eci_catalog.py').read_text()).body if isinstance(n,ast.ClassDef) and n.name=='ECIClient']
+          exec(compile(ast.Module(body=nodes,type_ignores=[]),'eci_catalog.py','exec'))
+          async def main():
+              client=ECIClient(None);last=[0]
+              async def before():
+                  await asyncio.sleep(max(0,20-(time.monotonic()-last[0])));last[0]=time.monotonic()
+              try:
+                  for ean in ('8431876332216','8410199023094'):
+                      d=await client._json(BASE+'/supermercado/buscar/?question='+ean+'&catalog=supermercado&stype=text_box',before)
+                      rows=[p for p in d.get('products',[]) if isinstance(p,dict) and re.fullmatch(r'B[0-9]+',str(p.get('id','')))]
+                      print(json.dumps({'ean':ean,'status':200,'products':len(rows),'cookies':len(client._http.cookies)}),flush=True)
+                      if len(rows)==1:
+                          url=rows[0]['url'];d=await client._json(url if url.startswith('https://') else BASE+url,before)
+                          p=d.get('pdp',{}).get('product',{});actual=p.get('information_alimentary',{}).get('general',{}).get('ean') or p.get('ean')
+                          assert actual==ean
+                          print(json.dumps({'stage':'product','status':200,'ean':actual,'price':p.get('priceSpecification',{}).get('salePrice')}),flush=True)
+              except PriceError as e:print(json.dumps(e.diagnostics),flush=True);raise
+              finally:await client.async_close()
+          asyncio.run(main())
           PY

@@ -15,7 +15,7 @@ def manager(hass,connection,msg):
 
 @callback
 def register(hass):
-    for command in (status, subscribe, set_enabled):
+    for command in (status, subscribe, set_enabled, set_visibility):
         websocket_api.async_register_command(hass,command)
 
 
@@ -43,6 +43,19 @@ async def set_enabled(hass,connection,msg):
     if source := manager(hass,connection,msg):
         try:
             result = await source.async_set_enabled(msg["enabled"])
+        except (ValueError,OSError) as err:
+            connection.send_error(msg["id"],"catalog_source_error",str(err))
+        else:
+            connection.send_result(msg["id"],result)
+
+
+@websocket_api.websocket_command({vol.Required("type"):f"{DOMAIN}/catalog_sources/visibility",vol.Required("show_store"):bool,vol.Optional("source",default="alcampo"):vol.In(("alcampo","elcorteingles"))})
+@websocket_api.require_admin
+@websocket_api.async_response
+async def set_visibility(hass,connection,msg):
+    if source := manager(hass,connection,msg):
+        try:
+            result=await source.async_set_show_store(msg["show_store"])
         except (ValueError,OSError) as err:
             connection.send_error(msg["id"],"catalog_source_error",str(err))
         else:

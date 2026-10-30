@@ -17,19 +17,23 @@ INTERVAL = 20
 
 
 class CatalogSources:
+    source_store = "alcampo"
     def __init__(self, hass, catalog, links, lookup, activity):
         self.hass, self.catalog, self.links, self.lookup, self.activity = hass, catalog, links, lookup, activity
         self._store = Store(hass,1,f"{DOMAIN}.catalog_sources")
-        self._data = {"enabled":False,"attempts":{},"next_request":0,"retry_at":0}
+        self._data = {"enabled":False,"show_store":False,"attempts":{},"next_request":0,"retry_at":0}
         self._status = {"running":False,"phase":"idle","total":0,"processed":0,"updated":0,"errors":[],"current":""}
         self._active = False
         self._task = self._timer = self._unsubscribe = None
         self._listeners = set()
+        self._legacy_source_visibility = False
 
     async def async_load(self):
         saved = await self._store.async_load()
         if isinstance(saved,dict):
+            self._legacy_source_visibility = "show_store" not in saved
             self._data["enabled"] = saved.get("enabled") is True
+            self._data["show_store"] = saved.get("show_store") is True
             self._data["attempts"] = {key:value for key,value in saved.get("attempts",{}).items()
                                       if isinstance(key,str) and isinstance(value,dict) and type(value.get("at")) in (int,float)}
             for key in ("next_request","retry_at"):
@@ -37,16 +41,46 @@ class CatalogSources:
                 if type(value) in (int,float) and 0 <= value <= time.time()+DAY:
                     self._data[key] = value
         self._gate()
+        await self.catalog.async_source_visibility(self.source_store,self._data["show_store"],self._legacy_options())
+        if self._legacy_source_visibility:
+            await self._store.async_save(deepcopy(self._data))
+            self._legacy_source_visibility=False
+
+    def _legacy_options(self):
+        if not self._legacy_source_visibility:return set()
+        pairs={(gtin(data.get("ean")),data.get("url")) for saved in self._data["attempts"].values()
+            if isinstance(data:=saved.get("data"),dict) and gtin(data.get("ean")) and data.get("url")}
+        if self.links:
+            pairs.update((key.rsplit(":",1)[-1],link["url"]) for key,link in self.links._data.get("resolved",{}).items() if key.startswith("alcampo:"))
+        return pairs
+
+    async def async_set_show_store(self, show_store):
+        if type(show_store) is not bool:raise ValueError("Selecciona un estado de visibilidad válido.")
+        updated={**self._data,"show_store":show_store}
+        await self._store.async_save(deepcopy(updated))
+        self._data=updated;self._gate()
+        await self.catalog.async_source_visibility(self.source_store,show_store,self._legacy_options())
+        for saved in self._data["attempts"].values():
+            data=saved.get("data")
+            if saved.get("success") and isinstance(data,dict) and data.get("ean") and data.get("url"):
+                await self.catalog.async_complete_store_option(self.source_store,data["ean"],data["url"],data,
+                    create=True,show_store=show_store,catalog_source=True)
+        self._queue();self._notify()
+        return self.snapshot
 
     def _gate(self):
         if self._data["enabled"]:
+            self.links.catalog_stores.add("alcampo")
+        else:
+            self.links.catalog_stores.discard("alcampo")
+        if self._data["enabled"] and self._data["show_store"]:
             self.links.enabled_stores.add("alcampo")
         else:
             self.links.enabled_stores.discard("alcampo")
 
     @property
     def snapshot(self):
-        return {**deepcopy(self._status),"enabled":self._data["enabled"],"next_request":self._data["next_request"],
+        return {**deepcopy(self._status),"enabled":self._data["enabled"],"show_store":self._data["show_store"],"next_request":self._data["next_request"],
                 "retry_at":self._data["retry_at"],"interval_seconds":INTERVAL}
 
     @callback
@@ -126,9 +160,7 @@ class CatalogSources:
         result = []
         for key,link in links.items():
             code = key.rsplit(":",1)[-1]
-            products = [p for p in self.catalog.products if code in product_eans(p) and any(
-                ref["store"] == "alcampo" and gtin(ref.get("ean")) == code and ref.get("active",True)
-                and ref.get("url") == link["url"] for ref in p.get("commercial_references",[]))]
+            products = [p for p in self.catalog.products if code in product_eans(p)]
             if not products:
                 continue
             identity = code+":"+link["id"]
@@ -154,13 +186,14 @@ class CatalogSources:
                 raise ValueError("No se ha podido consultar el diccionario: "+self.links.error)
             if not self._active or not self._data["enabled"]:
                 return
-            await self.catalog.async_apply_ean_links(links)
+            if self._data["show_store"]:
+                await self.catalog.async_apply_ean_links(links)
             reused = 0
             for key,link in links.items():
                 code = key.rsplit(":",1)[-1]
                 saved = self._data["attempts"].get(code+":"+link["id"],{})
                 if saved.get("success") and isinstance(saved.get("data"),dict):
-                    reused += await self.catalog.async_complete_store_option("alcampo",code,link,saved["data"])
+                    reused += await self.catalog.async_complete_store_option("alcampo",code,link,saved["data"],create=True,show_store=self._data["show_store"],catalog_source=True)
             pending = self._pending(links)
             self._status.update(total=len(pending),processed=0,updated=reused)
             self._notify()
@@ -178,7 +211,9 @@ class CatalogSources:
                         raise PriceError("La respuesta no corresponde a esta ficha de Alcampo.")
                     if data.get("ean") and gtin(data["ean"]) != code:
                         raise PriceError("El EAN de Alcampo no coincide con el producto.")
-                    changed = await self.catalog.async_complete_store_option("alcampo",code,link,data)
+                    data.setdefault("ean",code)
+                    data.setdefault("url",link["url"])
+                    changed = await self.catalog.async_complete_store_option("alcampo",code,link,data,create=True,show_store=self._data["show_store"],catalog_source=True)
                     self._status["updated"] += changed
                     success = data.get("price") is not None
                     if not success:

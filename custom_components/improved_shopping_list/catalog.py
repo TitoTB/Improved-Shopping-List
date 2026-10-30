@@ -200,6 +200,7 @@ class Catalog:
         self._categories: dict[str, dict[str, Any]] = {}
         self._recommendation_categories: dict[str, dict[str, Any]] = {}
         self._recipes: dict[str, dict[str, Any]] = {}
+        self._source_options = {}
         self._dismissed_suggestions: set[str] = set()
         self._lock = Lock()
         self._listeners: set = set()
@@ -213,6 +214,11 @@ class Catalog:
             if not isinstance(data, dict) or not isinstance(data.get("products"), dict):
                 raise CatalogError("No se ha podido leer el catálogo guardado.", "storage_error")
             self._products = data["products"]
+            hidden=data.get("source_options",{})
+            if not isinstance(hidden,dict):
+                raise CatalogError("No se han podido leer las alternativas de fuentes.", "storage_error")
+            self._source_options={store:{uid:normalized_references(rows) for uid,rows in products.items() if uid in self._products}
+                for store,products in hidden.items() if store in ("alcampo","elcorteingles") and isinstance(products,dict)}
             groups = data.get("recommendation_categories", {})
             if not isinstance(groups, dict) or any(not isinstance(group, dict) or not isinstance(group.get("product_ids", []), list) for group in groups.values()):
                 raise CatalogError("No se han podido leer las categorías de sugerencias.", "storage_error")
@@ -257,7 +263,7 @@ class Catalog:
             if migrated:
                 await self._store.async_save({"products": self._products, "categories": categories,
                                               "dismissed_suggestions": sorted(self._dismissed_suggestions),
-                                              "recommendation_categories": self._recommendation_categories, "recipes": self._recipes})
+                                              "recommendation_categories": self._recommendation_categories, "recipes": self._recipes, "source_options":self._source_options})
             self._categories = categories
 
     @property
@@ -296,10 +302,12 @@ class Catalog:
                 "recommendation_categories": self.recommendation_categories, "recipes": self.recipes,
                 "dismissed_suggestions": sorted(self._dismissed_suggestions)}
 
-    async def _persist(self, products, categories, dismissed=None, recommendation_categories=None, recipes=None) -> None:
+    async def _persist(self, products, categories, dismissed=None, recommendation_categories=None, recipes=None, source_options=None) -> None:
         """Commit related category and product changes together under the lock."""
         if dismissed is None:
             dismissed = self._dismissed_suggestions
+        source_options=self._source_options if source_options is None else source_options
+        source_options={store:{uid:rows for uid,rows in entries.items() if uid in products} for store,entries in source_options.items()}
         recipes = self._recipes if recipes is None else recipes
         groups = deepcopy(self._recommendation_categories if recommendation_categories is None else recommendation_categories)
         for group in groups.values():
@@ -309,7 +317,8 @@ class Catalog:
                 group.update(product_ids=members, recipe_ids=recipe_members, revision=group["revision"] + 1,
                              updated_at=datetime.now(UTC).isoformat())
         await self._store.async_save({"products": products, "categories": categories,
-                                      "dismissed_suggestions": sorted(dismissed), "recommendation_categories": groups, "recipes": recipes})
+                                      "dismissed_suggestions": sorted(dismissed), "recommendation_categories": groups, "recipes": recipes, "source_options":source_options})
+        self._source_options = source_options
         self._recipes = recipes
         self._recommendation_categories = groups
         self._products = products
@@ -366,7 +375,44 @@ class Catalog:
             await self._persist(products,self._categories)
         self._notify()
 
-    async def async_complete_store_option(self, store, code, link, data, *, create=False):
+    async def async_source_visibility(self, store, visible, legacy=()):
+        """Archive automatic shop alternatives atomically, keeping shared EAN metadata."""
+        if store not in ("alcampo","elcorteingles") or type(visible) is not bool:
+            raise CatalogError("La visibilidad del catálogo no es válida.")
+        changed=False
+        async with self._lock:
+            products=deepcopy(self._products);archive=deepcopy(self._source_options)
+            hidden=archive.setdefault(store,{})
+            for uid,product in products.items():
+                refs=product.get("commercial_references",[]);before=deepcopy(refs)
+                if visible:
+                    for row in hidden.pop(uid,[]):
+                        if len(refs)<200 and not any(r["store"]==store and (r["id"]==row["id"] or gtin(r.get("ean"))==gtin(row.get("ean"))) for r in refs):
+                            refs.append(row)
+                else:
+                    removed=[r for r in refs if r["store"]==store and (r.get("catalog_source") or (gtin(r.get("ean")),r.get("url")) in legacy)]
+                    refs=[r for r in refs if r not in removed]
+                    saved={r["id"]:r for r in hidden.get(uid,[])}
+                    for row in removed:
+                        saved[row["id"]]={**row,"catalog_source":True}
+                        siblings=[r for r in refs if gtin(r.get("ean"))==gtin(row.get("ean")) and r.get("active",True)]
+                        if not siblings and row.get("ean"):
+                            neutral={key:deepcopy(row[key]) for key in ("ean","name","brand","content_quantity","content_unit","content_confirmed","nutriscore") if key in row}
+                            neutral["store"]="";refs.append(neutral);siblings=[neutral]
+                        for other in siblings:
+                            if not other.get("brand") and row.get("brand"):other["brand"]=row["brand"]
+                            if not other.get("content_quantity") and row.get("content_quantity"):
+                                other.update({key:row[key] for key in ("content_quantity","content_unit","content_confirmed")})
+                    if saved:hidden[uid]=list(saved.values())
+                validated=normalized_references(refs)
+                if validated!=before:
+                    product["commercial_references"]=validated;product["revision"]+=1
+                    product["updated_at"]=datetime.now(UTC).isoformat();changed=True
+            if changed or archive!=self._source_options:
+                await self._persist(products,self._categories,source_options=archive)
+        if changed:self._notify()
+
+    async def async_complete_store_option(self, store, code, link, data, *, create=False, show_store=True, catalog_source=False):
         """Merge one verified EAN into current options without losing concurrent edits."""
         key = gtin(code)
         if not key or data.get("ean") and gtin(data["ean"]) != key:
@@ -383,7 +429,14 @@ class Catalog:
                 target = next((ref for ref in refs if ref["store"] == store and gtin(ref.get("ean")) == key
                                and ref.get("active",True) and ref.get("url") == link["url"]), None)
                 before = deepcopy(refs)
-                if not target and create:
+                if not show_store:
+                    from .ean_links import product_eans
+                    if key not in product_eans(product):continue
+                    target=next((ref for ref in refs if not ref["store"] and gtin(ref.get("ean"))==key and ref.get("active",True)),None)
+                    if not target and not any(gtin(ref.get("ean"))==key and ref.get("active",True) for ref in refs):
+                        target=normalized_references([{"store":"","ean":data.get("ean") or code,"name":data.get("name",product["name"])}])[0]
+                        refs.append(target)
+                if show_store and not target and create:
                     from .ean_links import product_eans
                     if key not in product_eans(product) or any(ref["store"]==store and gtin(ref.get("ean"))==key for ref in refs):
                         continue
@@ -391,16 +444,16 @@ class Catalog:
                     if target:
                         target["ean"]=data["ean"]
                     else:
-                        target=normalized_references([{"store":store,"ean":data["ean"],"reference_id":link["id"],"url":link["url"],"name":data.get("name", "")}])[0]
+                        target=normalized_references([{"store":store,"ean":data["ean"],"reference_id":link["id"],"url":link["url"],"name":data.get("name", ""),**({"catalog_source":True} if catalog_source else {})}])[0]
                         refs.append(target)
-                if not target:
+                if show_store and not target:
                     continue
                 siblings = [ref for ref in refs if gtin(ref.get("ean")) == key and ref.get("active",True)]
                 known_brand = next((ref["brand"] for ref in siblings if ref.get("brand")),data.get("brand"))
                 known_content = next((ref for ref in siblings if ref.get("content_quantity") and ref.get("content_confirmed")),
                                      next((ref for ref in siblings if ref.get("content_quantity")),data))
                 known_nutrition = next((ref["nutriscore"] for ref in siblings if ref.get("nutriscore")),data.get("nutriscore"))
-                if data.get("name") and target.get("name") in ("", product["name"]):
+                if target and data.get("name") and target.get("name") in ("", product["name"]):
                     target["name"] = data["name"]
                 for ref in refs:
                     if gtin(ref.get("ean")) != key or not ref.get("active",True):
@@ -413,10 +466,10 @@ class Catalog:
                         grade = known_nutrition.get("grade") if isinstance(known_nutrition,dict) else known_nutrition
                         if grade in tuple("abcde"):
                             ref["nutriscore"] = {"grade":grade,"checked_at":known_nutrition.get("checked_at",checked_at) if isinstance(known_nutrition,dict) else checked_at}
-                if data.get("price") is not None and data.get("currency") == "EUR":
+                if show_store and data.get("price") is not None and data.get("currency") == "EUR":
                     if checked_at >= target.get("last_price",{}).get("checked_at",0):
                         target["last_price"] = {"price":float(amount(data["price"])),"currency":"EUR","checked_at":checked_at}
-                if not target.get("measure_price") and data.get("measure_price"):
+                if show_store and not target.get("measure_price") and data.get("measure_price"):
                     target["measure_price"] = data["measure_price"]
                 validated = normalized_references(refs)
                 if validated != before:

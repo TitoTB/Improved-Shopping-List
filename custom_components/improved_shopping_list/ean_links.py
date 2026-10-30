@@ -113,6 +113,9 @@ def _enrich_store(product, resolved, store):
                 continue
             ref = reference_from_line(store, {"ean":code, "name":product["name"]})
             refs.append(ref)
+            if store=="alcampo":ref["catalog_source"]=True
+        elif not ref.get("store") and store=="alcampo":
+            ref["catalog_source"]=True
         ref.update(store=store, url=link["url"], reference_id=link["id"])
         changed = True
     if changed:
@@ -141,6 +144,7 @@ class EANLinks:
         self._next_download = self._next_request = 0
         self.error = ""
         self.enabled_stores = {"carrefour"}
+        self.catalog_stores = set()
 
     async def async_load(self):
         data = await self._store.async_load()
@@ -168,7 +172,7 @@ class EANLinks:
 
     async def async_store_links(self, store):
         """Read exact official links for an explicitly enabled catalog source."""
-        if store not in self.enabled_stores:
+        if store not in self.enabled_stores | self.catalog_stores:
             return {}
         try:
             await self._download()

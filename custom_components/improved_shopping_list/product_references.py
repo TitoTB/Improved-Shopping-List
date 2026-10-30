@@ -109,7 +109,7 @@ def normalized_references(values):
     result=[]; seen=set()
     from .store_links import STORES, normalize_link
     for raw in values:
-        if not isinstance(raw,dict) or set(raw)-{"id","store","name","ean","reference_id","url","brand","image_url","content_quantity","content_unit","content_confirmed","active","last_price","nutriscore","measure_price","ticket_reference_id"}:
+        if not isinstance(raw,dict) or set(raw)-{"id","store","name","ean","reference_id","url","brand","image_url","content_quantity","content_unit","content_confirmed","active","last_price","nutriscore","measure_price","ticket_reference_id","catalog_source"}:
             raise ValueError("La referencia comercial contiene campos no admitidos.")
         row={key:raw.get(key,"") for key in ("store","name","ean","reference_id","url","brand")}
         for key,limit in (("store",40),("name",500),("ean",14),("reference_id",512),("url",2048),("brand",160)):
@@ -141,6 +141,10 @@ def normalized_references(values):
         confirmed=raw.get("content_confirmed",False)
         if type(confirmed) is not bool or confirmed and quantity is None:
             raise ValueError("Confirma el contenido del envase antes de utilizarlo para comparar.")
+        if "catalog_source" in raw:
+            if type(raw["catalog_source"]) is not bool:
+                raise ValueError("La procedencia de la referencia no es válida.")
+            row["catalog_source"]=raw["catalog_source"]
         active=raw.get("active",True)
         if type(active) is not bool:
             raise ValueError("La referencia comercial no es válida.")

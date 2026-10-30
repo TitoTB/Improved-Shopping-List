@@ -124,8 +124,6 @@ class ImprovedShoppingSettings extends HTMLElement {
         .stores-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:16px; }
         .stores-heading h2 { margin:0; }
         .stores-heading-actions { display:flex; align-items:center; justify-content:flex-end; gap:10px; margin-left:auto; }
-        .stores-footer { margin-top:14px; text-align:right; font-size:11px; color:var(--secondary-text-color,#63766b); }
-        #stores-last-updated { white-space:nowrap; }
         .store-refresh { display:inline-flex; align-items:center; justify-content:center; flex:none; width:44px; height:44px; min-height:44px; padding:0; }
         .store-refresh ha-icon { width:20px; height:20px; flex:none; --mdc-icon-size:20px; }
         .store-controls { grid-column:3; grid-row:1; display:flex; align-items:center; gap:12px; margin-left:auto; flex:none; }
@@ -251,7 +249,6 @@ class ImprovedShoppingSettings extends HTMLElement {
         <article class="store-row"><img class="store-logo" src="https://almeria.online/wp-content/uploads/2024/09/alcampo-logo.png" alt="Logo de Alcampo" referrerpolicy="no-referrer" loading="lazy" width="56" height="56"><div class="store-name"><h3>Alcampo</h3></div><div class="store-controls"><input id="alcampo-enabled" class="store-toggle" type="checkbox" role="switch" aria-label="Habilitar Alcampo"><button id="configure-alcampo" class="store-cog" type="button" aria-label="Ajustes de Alcampo" title="Ajustes de Alcampo"><ha-icon icon="mdi:cog" aria-hidden="true"></ha-icon></button></div></article>
 
         </div>
-        <div class="stores-footer">Última actualización: <time id="stores-last-updated" title="Última actualización correcta de precios">—</time></div>
         <isl-catalog-sources></isl-catalog-sources>
       </section>
       <dialog id="prices-progress-dialog" aria-labelledby="prices-progress-title">
@@ -432,7 +429,6 @@ class ImprovedShoppingSettings extends HTMLElement {
     this._watchPriceStatus();
     const alcampoOptions=root.querySelector("isl-alcampo-settings");if(alcampoOptions)alcampoOptions.products=this._data.products??[];
     this._renderCommunity();
-    this._renderPriceTimestamp();
     this._renderGlobalPriceProgress();
     for (const store of ["mercadona", "carrefour", "lidl", "alcampo", "consum", "lasirena", "eroski", "dia"]) {
       if(store==="lidl"){root.querySelector("#lidl-enabled").checked=Boolean(settings.stores?.lidl?.enabled);root.querySelector("#lidl-enabled").disabled=locked;}
@@ -550,33 +546,17 @@ class ImprovedShoppingSettings extends HTMLElement {
     if (!this.isConnected || !connection || this._priceStatusConnection === connection) return;
     this._stopPriceStatus?.(); this._stopPriceStatus = null;
     this._priceStatusConnection = connection;
-    this._lastPriceUpdated = 0;
     this._latestPriceProgress = null;
     const token = this._priceStatusToken = {};
     void connection.subscribeMessage(progress=>{
       if (this._priceStatusToken !== token || !this.isConnected) return;
-      if (progress.last_updated !== undefined) this._lastPriceUpdated = progress.last_updated;
       this._latestPriceProgress = progress;
       this._priceProgressReceivedAt = Date.now();
-      this._renderPriceTimestamp();
       this._renderGlobalPriceProgress();
     },{type:"improved_shopping_list/settings/store_progress"}).then(stop=>{
       if (this._priceStatusToken !== token || !this.isConnected) stop();
       else this._stopPriceStatus = stop;
     }).catch(()=>{ if (this._priceStatusToken === token) this._priceStatusConnection = null; });
-  }
-
-  _renderPriceTimestamp() {
-    const node = this.shadowRoot.querySelector("#stores-last-updated");
-    const timestamp = Number(this._lastPriceUpdated);
-    const date = new Date(timestamp*1000);
-    if (!Number.isFinite(timestamp) || timestamp <= 0 || !Number.isFinite(date.getTime())) {
-      node.textContent = "—"; node.removeAttribute("datetime"); node.setAttribute("aria-label","Todavía no hay precios actualizados"); return;
-    }
-    const parts = Object.fromEntries(new Intl.DateTimeFormat("es-ES",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit",hourCycle:"h23",timeZone:this._data?.hass?.config?.time_zone}).formatToParts(date).map(part=>[part.type,part.value]));
-    node.textContent = `${parts.day}/${parts.month} ${parts.hour}:${parts.minute}`;
-    node.dateTime = date.toISOString();
-    node.setAttribute("aria-label",`Última actualización correcta de precios: ${node.textContent}`);
   }
 
   _renderGlobalPriceProgress() {

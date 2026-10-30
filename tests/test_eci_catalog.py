@@ -126,7 +126,7 @@ async def test_consent_cache_spacing_new_eans_and_manual_data_survive(hass,monke
     source.client.search=AsyncMock(side_effect=search)
     source._active=True
     await source.async_run();assert not calls  # Disabled by default.
-    source._active=False;await source.async_set_enabled(True);source._active=True
+    source._active=False;await source.async_set_show_store(True);await source.async_set_enabled(True);source._active=True
     try:
         await source.async_run()
         assert len(calls)==2 and calls[1]-calls[0]>=INTERVAL

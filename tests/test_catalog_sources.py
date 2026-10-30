@@ -46,6 +46,7 @@ async def test_disabled_source_never_associates_or_queries(hass):
 
 async def test_exact_completion_shared_ean_missing_fields_only_and_persistent_spacing(hass,monkeypatch):
     catalog,product,links,lookup,sources=await setup(hass)
+    await sources.async_set_show_store(True)
     ref=reference_from_line('carrefour',{'ean':EAN,'description':'Allioli 70 ml'})
     ref.update(brand='Marca manual',content_confirmed=True,last_price={'price':1,'currency':'EUR','checked_at':1})
     await catalog.async_save_product({'id':product['id'],'revision':product['revision'],'name':'Allioli','barcodes':[EAN],'commercial_references':[ref]})
@@ -82,6 +83,7 @@ async def test_exact_completion_shared_ean_missing_fields_only_and_persistent_sp
 
 async def test_disabling_cancels_inflight_and_retains_existing_options(hass):
     catalog,product,links,lookup,sources=await setup(hass)
+    await sources.async_set_show_store(True)
     entered=asyncio.Event()
     async def retrieve(*args,**kwargs):
         entered.set();await asyncio.Event().wait()
@@ -98,6 +100,7 @@ async def test_disabling_cancels_inflight_and_retains_existing_options(hass):
 
 async def test_mismatched_ean_cannot_save_price(hass):
     catalog,product,links,lookup,sources=await setup(hass)
+    await sources.async_set_show_store(True)
     lookup.retrieve=AsyncMock(return_value={'store':'alcampo','reference_id':'722018','ean':OTHER,'price':9,'currency':'EUR'})
     await sources.async_set_enabled(True);sources._active=True
     try:
@@ -109,6 +112,7 @@ async def test_mismatched_ean_cannot_save_price(hass):
 
 async def test_block_stops_batch_and_keeps_technical_details_in_one_summary(hass):
     catalog,product,links,lookup,sources=await setup(hass)
+    await sources.async_set_show_store(True)
     await catalog.async_save_product({'name':'Patatas','barcodes':[OTHER]})
     links._data['links']['alcampo:'+gtin(OTHER)]=WEB2
     details={'http_status':403,'response_class':'access_denied','attempts':[
@@ -145,9 +149,14 @@ async def test_source_commands_registered_consent_permissions_and_unload(hass,ha
     # The subscription update and response can arrive in either order.
     messages=[await client.receive_json(),await client.receive_json()]
     assert any(m.get('result',{}).get('enabled') for m in messages)
+    await client.send_json({'id':3,'type':f'{DOMAIN}/catalog_sources/visibility','show_store':True})
+    messages=[await client.receive_json(),await client.receive_json()]
+    assert any(m.get('result',{}).get('show_store') for m in messages)
     token=await hass.auth.async_create_refresh_token(hass_read_only_user,client_id='http://test.local')
     reader=await hass_ws_client(hass,hass.auth.async_create_access_token(token))
     await reader.send_json({'id':1,'type':f'{DOMAIN}/catalog_sources/set','enabled':False})
+    assert not (await reader.receive_json())['success']
+    await reader.send_json({'id':3,'type':f'{DOMAIN}/catalog_sources/visibility','show_store':False})
     assert not (await reader.receive_json())['success']
     assert await hass.config_entries.async_unload(entry.entry_id)
     await reader.send_json({'id':2,'type':f'{DOMAIN}/catalog_sources/status'})

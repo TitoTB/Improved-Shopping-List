@@ -187,6 +187,7 @@ class ECIClient:
 
 
 class ECICatalog(CatalogSources):
+    source_store = STORE
     def __init__(self,hass,catalog,lookup,activity):
         super().__init__(hass,catalog,None,lookup,activity)
         self._store = Store(hass,1,f"{DOMAIN}.eci_catalog")
@@ -222,7 +223,7 @@ class ECICatalog(CatalogSources):
                         data = await self.client.search(printed[code],self._before_request)
                         self._data["attempts"][code] = {"at":time.time(),"success":bool(data),**({"data":deepcopy(data)} if data else {})}
                     if data and self._active and self._data["enabled"]:
-                        self._status["updated"] += await self.catalog.async_complete_store_option(STORE,code,data["url"],data,create=True)
+                        self._status["updated"] += await self.catalog.async_complete_store_option(STORE,code,data["url"],data,create=True,show_store=self._data["show_store"],catalog_source=True)
                 except (ValueError,OSError,TimeoutError,aiohttp.ClientError) as err:
                     diagnostics = deepcopy(getattr(err,"diagnostics",{}))
                     self._status["errors"].append({"product":name,"ean":code,"message":str(err)[:500],"diagnostics":diagnostics})

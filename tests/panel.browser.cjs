@@ -120,10 +120,14 @@ const hass={
   }},
   callWS:async(msg)=>{
     (window.wsRequests??=[]).push(msg.type);
+    if(msg.type==='improved_shopping_list/catalog_sources/visibility'){
+      if(msg.source==='elcorteingles'){window.eciSourceFixture={...(window.eciSourceFixture??{}),show_store:msg.show_store};return structuredClone(window.eciSourceFixture);}
+      const state={...(window.catalogSourceFixture??{}),show_store:msg.show_store};window.emitCatalogSource?.(state);return state;
+    }
     if(msg.type==='improved_shopping_list/catalog_sources/set'){
       if(msg.source==='elcorteingles'){window.eciSourceSets=(window.eciSourceSets??0)+1;window.eciSourceFixture={...(window.eciSourceFixture??{}),enabled:msg.enabled,total:1,processed:0,phase:'preparing'};return structuredClone(window.eciSourceFixture);}
       window.catalogSourceSets=(window.catalogSourceSets??0)+1;
-      const state={enabled:msg.enabled,phase:msg.enabled?'waiting':'idle',running:msg.enabled,total:2,processed:0,updated:0,errors:[],next_request:Date.now()/1000+20};
+      const state={...(window.catalogSourceFixture??{}),enabled:msg.enabled,phase:msg.enabled?'waiting':'idle',running:msg.enabled,total:2,processed:0,updated:0,errors:[],next_request:Date.now()/1000+20};
       window.emitCatalogSource?.(state);return state;
     }
     if(msg.type==='improved_shopping_list/settings/name_mode'){
@@ -1397,6 +1401,11 @@ async function checkCatalogSources(browser,url,errors){
   const settings=page.locator('isl-settings');await settings.getByRole('button',{name:'Tiendas',exact:true}).click();
   const source=settings.locator('isl-catalog-sources'),toggle=source.getByRole('switch',{name:'Completar productos con Alcampo'});
   await toggle.waitFor();assert.equal(await toggle.isChecked(),false);
+  await source.getByRole('button',{name:'Configurar catálogo de Alcampo',exact:true}).click();
+  const options=source.locator('#catalog-options-dialog'),visible=options.getByRole('switch',{name:'Mostrar tienda en el catálogo',exact:true});
+  assert.equal(await visible.isChecked(),false);
+  await visible.check();assert.equal(await page.evaluate(()=>window.catalogSourceFixture.show_store),true);
+  await options.getByRole('button',{name:'Cerrar ventana',exact:true}).click();
   await toggle.check();const popup=source.getByRole('dialog',{name:'Catálogo de Alcampo',exact:true});await popup.waitFor();
   assert.equal(await popup.getByText(/Siguiente petición|aunque cierres este popup/).count(),0);
   await page.evaluate(()=>window.emitCatalogSource({...window.catalogSourceFixture,processed:1,updated:1}));
@@ -1409,6 +1418,12 @@ async function checkCatalogSources(browser,url,errors){
   await popup.getByRole('button',{name:'Cerrar ventana',exact:true}).click();await toggle.uncheck();
   const eci=source.locator('isl-eci-catalog'),eciToggle=eci.getByRole('switch',{name:'Completar productos con El Corte Inglés',exact:true});
   assert.equal(await eciToggle.isChecked(),false);
+  await eci.getByRole('button',{name:'Configurar catálogo de El Corte Inglés',exact:true}).click();
+  const eciOptions=eci.locator('#catalog-options-dialog');
+  assert.equal(await eciOptions.getByRole('switch',{name:'Mostrar tienda en el catálogo',exact:true}).isChecked(),false);
+  await eciOptions.getByRole('switch',{name:'Mostrar tienda en el catálogo',exact:true}).check();
+  assert.equal(await page.evaluate(()=>window.catalogSourceFixture.show_store),true);
+  await eciOptions.getByRole('button',{name:'Cerrar ventana',exact:true}).click();
   assert.match(await eci.locator('.logo').getAttribute('src'),/IconImage_20241028224125253_NEW_WAP_ICON_512_512/);
   assert.equal(await eci.getByRole('button',{name:/Ver progreso/}).count(),0);
   await eciToggle.check();const eciPopup=eci.getByRole('dialog',{name:'Catálogo de El Corte Inglés',exact:true});await eciPopup.waitFor();
@@ -2593,13 +2608,11 @@ async function main() {
     assert.equal(await updateAll.count(),1);
     assert.equal(await updateAll.textContent(),'');
     assert.equal(await updateAll.locator('ha-icon').getAttribute('icon'),'mdi:refresh');
-    assert.equal(await settingsView.locator('#stores-last-updated').textContent(),'—');
     await settingsPage.evaluate(()=>{
       document.querySelector('improved-shopping-list-panel').shadowRoot.querySelector('isl-settings')._data.hass.config={time_zone:'Europe/Madrid'};
       window.lastPriceUpdateFixture=Date.parse('2026-10-20T18:35:00Z')/1000;
       for(const callback of window.storeProgressListeners)callback({running:false,last_updated:window.lastPriceUpdateFixture});
     });
-    assert.equal(await settingsView.locator('#stores-last-updated').textContent(),'20/10 20:35');
     await updateAll.click();
     const allPricesDialog=settingsView.getByRole('dialog',{name:'Actualización de precios',exact:true});
     await allPricesDialog.waitFor();
@@ -2627,7 +2640,6 @@ async function main() {
     await settingsPage.evaluate(()=>{for(const callback of window.storeProgressListeners)callback({running:false,total:4,processed:4,batch_id:'finished-batch',finished_at:1792520000,log_pending:false,errors:{},last_updated:window.lastPriceUpdateFixture});});
     assert.match(await allPricesDialog.locator('#prices-progress-time').textContent(),/Resumen disponible/);
     await allPricesDialog.getByRole('button',{name:'Cerrar',exact:true}).click();
-    assert.equal(await settingsView.locator('#stores-last-updated').textContent(),'20/10 20:35'); // Queueing alone must not change a price's timestamp.
     assert.doesNotMatch(await settingsView.locator('#settings-stores').textContent(),/referencias pendientes en cola/);
     await settingsPage.evaluate(()=>{window.failManualPriceRefresh=true;});
     await updateAll.click();
@@ -2646,8 +2658,6 @@ async function main() {
     }
     assert.match(await settingsView.locator('.stores-grid img[alt="Logo de Alcampo"]').getAttribute('src'),/almeria.online/);
     assert.equal(await settingsView.locator('.stores-grid').evaluate(node=>getComputedStyle(node).gridTemplateColumns.split(' ').length),1);
-    assert.match(await settingsView.locator('.stores-footer').textContent(),/Última actualización: 20\/10 20:35/);
-    assert.equal(await settingsView.locator('.stores-footer').evaluate(node=>getComputedStyle(node).textAlign),'right');
     assert.equal(await settingsView.locator('#settings-stores #price-update-time').count(),0);
     await settingsView.getByRole("switch",{name:"Habilitar Mercadona",exact:true}).uncheck();
     assert.equal(await settingsView.getByRole("switch",{name:"Habilitar Mercadona",exact:true}).isChecked(),false);

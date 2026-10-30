@@ -92,7 +92,7 @@ class PendingInformationRefresh:
     def __init__(self,hass,catalog,lookup,prices,activity):
         self.hass,self.catalog,self.lookup,self.prices,self.activity=hass,catalog,lookup,prices,activity
         self._store=Store(hass,1,f"{DOMAIN}.pending_information_refresh")
-        self._queue=[];self._next=0;self._task=None;self._active=False;self._listeners=set();self._lock=asyncio.Lock()
+        self._queue=[];self._next=0;self._cooldowns={};self._task=None;self._active=False;self._listeners=set();self._lock=asyncio.Lock()
         self._state={"running":False,"phase":"idle","total":0,"processed":0,"updated":0,"skipped":0,"current":"","errors":[],"products":[],"updated_products":[]}
 
     async def async_load(self):
@@ -106,14 +106,18 @@ class PendingInformationRefresh:
                 normalize_link(url_store(job["url"]),job["url"])
             done=state.get("processed",0)
             if type(done) is not int or not 0<=done<=len(queue):return
+            if any(type(state.get(key,0)) is not int or state.get(key,0)<0 for key in ("updated","skipped")):return
+            if any(not isinstance(state.get(key,[]),list) or any(not isinstance(value,str) for value in state.get(key,[])) for key in ("products","updated_products")):return
+            if not isinstance(state.get("errors",[]),list) or any(not isinstance(error,dict) for error in state.get("errors",[])):return
             self._queue=queue;self._state.update({k:v for k,v in state.items() if k in self._state})
             self._state["total"]=len(queue)
+            self._cooldowns={key:value for key,value in saved.get("cooldowns",{}).items() if key in HOSTS and number(value) and time.time()<value<=time.time()+86400}
             value=saved.get("next",0)
             if number(value) and 0<=value<=time.time()+86400:self._next=value
         except (ValueError,TypeError):return
 
     async def _save(self):
-        await self._store.async_save({"queue":deepcopy(self._queue),"state":deepcopy(self._state),"next":self._next})
+        await self._store.async_save({"queue":deepcopy(self._queue),"state":deepcopy(self._state),"next":self._next,"cooldowns":deepcopy(self._cooldowns)})
 
     @property
     def snapshot(self):return deepcopy(self._state)
@@ -175,7 +179,8 @@ class PendingInformationRefresh:
         raise ValueError("El producto ha cambiado durante la recuperación. Revisa su ficha.")
 
     async def _run(self):
-        self._state["running"]=True;blocked=set()
+        self._state["running"]=True;blocked={store for store,until in self._cooldowns.items() if until>time.time()}
+        reported={url_store(error.get("url","")) for error in self._state["errors"]}
         try:
             while self._active and self._state["processed"]<len(self._queue):
                 job=self._queue[self._state["processed"]]
@@ -184,7 +189,11 @@ class PendingInformationRefresh:
                 self._state.update(current=(current or {}).get("name",""),phase="running");self._notify()
                 store=url_store(job["url"])
                 try:
-                    if not ref or store in blocked:self._state["skipped"]+=1
+                    if not ref or store in blocked:
+                        self._state["skipped"]+=1
+                        if ref and store not in reported:
+                            self._state["errors"].append({"product":current["name"],"url":job["url"],"message":"La tienda está en pausa de reintento. Se conservan los datos anteriores."})
+                            reported.add(store)
                     else:
                         data=await self.lookup.retrieve(job["url"],before_request=self._before_request,force=True)
                         if await self._apply(job,data):
@@ -192,7 +201,10 @@ class PendingInformationRefresh:
                             if job["product_id"] not in self._state["updated_products"]:self._state["updated_products"].append(job["product_id"])
                 except (ValueError,OSError,TimeoutError,aiohttp.ClientError) as err:
                     diagnostics=deepcopy(getattr(err,"diagnostics",{}))
-                    if diagnostics.get("http_status") in (403,429,503) or diagnostics.get("retry_seconds",0):blocked.add(store)
+                    if diagnostics.get("http_status") in (403,429,503) or diagnostics.get("retry_seconds",0):
+                        blocked.add(store);reported.add(store)
+                        wait=diagnostics.get("retry_seconds",900)
+                        self._cooldowns[store]=time.time()+min(86400,max(900,wait if number(wait) else 900))
                     if len(self._state["errors"])<200:self._state["errors"].append({"product":(current or {}).get("name",""),"url":job["url"],"message":str(err)[:500],"diagnostics":diagnostics})
                 self._state["processed"]+=1;await self._save();self._notify()
             self._state.update(running=False,phase="finished",current="")

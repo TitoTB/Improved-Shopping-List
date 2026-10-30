@@ -8,6 +8,7 @@ from custom_components.improved_shopping_list.catalog import Catalog
 from custom_components.improved_shopping_list.pending_information import PendingInformationRefresh, pending, merge_result
 from custom_components.improved_shopping_list import pending_information as module
 from custom_components.improved_shopping_list.price_sources import PriceError
+from custom_components.improved_shopping_list.option_lookup import OptionLookup
 from custom_components.improved_shopping_list.store_links import normalize_link
 
 EAN='8410199023094'
@@ -125,6 +126,8 @@ async def test_blocked_shop_does_not_repeat_remaining_urls(hass,monkeypatch):
     assert lookup.retrieve.await_count==1 and manager.snapshot['skipped']==1
     assert manager.snapshot['errors'][0]['product']=='Patatas'
     assert all('last_price' not in r for r in catalog.products[0]['commercial_references'])
+    await manager.async_start();await manager._task
+    assert lookup.retrieve.await_count==1 and manager.snapshot['skipped']==2
     await manager.async_stop()
 
 
@@ -133,3 +136,15 @@ def test_different_ean_is_kept_as_a_separate_alternative():
     assert merge_result(product,{'reference_id':'r','url':URL},result(ean=OTHER))
     assert product['commercial_references'][0]['ean']==EAN and product['commercial_references'][0]['url']==''
     assert product['commercial_references'][1]['ean']==OTHER
+
+
+async def test_force_bypasses_the_option_cache(hass,aioclient_mock,monkeypatch):
+    import json
+    product={'@type':'Product','url':URL,'name':'Patatas 170 g','brand':{'name':"Lay's"},'gtin13':EAN,'offers':{'price':2.89,'priceCurrency':'EUR'}}
+    aioclient_mock.get(URL,text='<script type="application/ld+json">'+json.dumps(product)+'</script>')
+    lookup=OptionLookup(hass);monkeypatch.setattr(lookup,'_before_request',AsyncMock())
+    await lookup.retrieve(URL);await lookup.retrieve(URL)
+    assert aioclient_mock.call_count==1
+    await lookup.retrieve(URL,force=True)
+    assert aioclient_mock.call_count==2
+    lookup.close()

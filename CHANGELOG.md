@@ -1,5 +1,13 @@
 # Historial de cambios
 
+## 0.55.1 — 2026-10-30
+
+- Corregida la carga de precios guardados de Lidl: la interfaz consulta ahora la relación común de tiendas, que incluye Lidl. Sus precios se muestran en los bloques de productos agrupados por tienda y en los demás componentes que utilizan esta carga compartida.
+- Cada bloque agrupado por tienda conserva el precio de esa tienda, sin sustituirlo por el de otra.
+- La tabla de Analítica → Comparativa oculta las columnas de tiendas que no tienen ningún precio comparable para los productos filtrados.
+- Eliminado el texto «Importes de las compras registradas, por tienda» de la gráfica de Analítica → Compras.
+- Sin nuevas dependencias.
+
 ## 0.55.0 — 2026-10-30
 
 - Lectores pasa de Ajustes a una vista de Stock. Conserva configuración, acciones y lecturas en directo; el panel se carga al entrar y cierra sus ventanas al salir.

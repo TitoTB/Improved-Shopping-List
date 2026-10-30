@@ -1265,6 +1265,21 @@ async function checkCatalogViews(browser,url,errors){
     }
     assert.ok(await catalog.evaluate(el=>el.scrollWidth<=el.clientWidth+1));
   }
+  await catalog.evaluate(el=>{el.listItems=[];el.readerData={pending:[]};});
+  assert.equal(await catalog.locator('#view-suggestions').isVisible(),false);
+  assert.equal(await catalog.locator('#view-products').getAttribute('aria-pressed'),'true');
+  assert.equal(await catalog.locator('#products-view').isVisible(),true);
+  await catalog.evaluate(el=>{el.listItems=[{summary:'Producto nuevo',status:'needs_action'}];});
+  await catalog.locator('#view-suggestions').waitFor();
+  await catalog.locator('#view-suggestions').click();
+  assert.equal(await catalog.locator('#suggestions-view').isVisible(),true);
+  await catalog.evaluate(el=>{el.listItems=[];});
+  assert.equal(await catalog.locator('#view-suggestions').isVisible(),false);
+  assert.equal(await catalog.locator('#view-products').getAttribute('aria-pressed'),'true');
+  await catalog.evaluate(el=>{el.readerData={pending:[{id:'scan-test',code:'9999999999999',kind:'barcode',reader_name:'Lector'}]};});
+  assert.equal(await catalog.locator('#view-suggestions').isVisible(),true);
+  await catalog.evaluate(el=>{el.readerData={pending:[]};});
+  assert.equal(await catalog.locator('#view-suggestions').isVisible(),false);
   assert.equal(await page.evaluate(()=>window.catalogRecipes[0].id),'kept-recipe');
   assert.equal(await page.evaluate(()=>window.recommendationCategories[0].id),'kept-group');
   await context.close();
@@ -2071,10 +2086,11 @@ async function main() {
         assert.equal(await page.locator(`#nav-${view} .nav-label`).isVisible(), true);
         if (view === "catalog") {
           for (const tab of ["products","categories","suggestions"]) {
+            if(!await catalog.locator(`#view-${tab}`).isVisible())continue;
             await catalog.locator(`#view-${tab}`).click();
             assert.equal(await catalog.locator(".catalog-tabs .tab-label:visible").count(),1);
             assert.equal(await catalog.locator(`#view-${tab} .tab-label`).isVisible(),true);
-            assert.equal(await catalog.locator(".catalog-tabs ha-icon:visible").count(),3);
+            assert.equal(await catalog.locator(".catalog-tabs ha-icon:visible").count(),await catalog.locator(".catalog-tabs button:visible").count());
             const tabLayout = await catalog.locator(".catalog-toolbar").evaluate(toolbar=>{
               const tabs=toolbar.querySelector(".catalog-tabs");
               const bounds=toolbar.getBoundingClientRect();
@@ -2098,7 +2114,7 @@ async function main() {
     assert.equal(await page.locator(".brand-copy").isVisible(), true);
     assert.equal(await page.locator(".section-nav .nav-label:visible").count(), 5);
     await page.getByRole("button",{name:"Catálogo",exact:true}).click();
-    assert.equal(await catalog.locator(".catalog-tabs .tab-label:visible").count(),3);
+    assert.equal(await catalog.locator(".catalog-tabs .tab-label:visible").count(),await catalog.locator(".catalog-tabs button:visible").count());
     await page.getByRole("button",{name:"Lista",exact:true}).click();
     await page.setViewportSize({ width:390, height:844 });
     await page.getByRole("button", { name: "Abrir menú de Home Assistant" }).click();
@@ -2210,6 +2226,7 @@ async function main() {
     await suggestionPage.getByRole("button", { name: "Lista", exact: true }).click();
     await selectList(suggestionPage, "todo.local");
     await suggestionPage.getByRole("button", { name: "Catálogo", exact: true }).click();
+    await suggestionCatalog.getByRole("button", { name: "Nuevos", exact: true }).click();
     await suggestions.getByRole("heading", { name: "Detergente", exact: true }).waitFor();
     await suggestionPage.evaluate(() => {
       window.listData['todo.local'].push({uid:'dismissed',summary:' LECHE   entera ',status:'needs_action'});

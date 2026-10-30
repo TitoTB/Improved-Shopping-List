@@ -448,7 +448,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
       </style>
       <div class="heading"><h1>Catálogo</h1>
       <div class="catalog-toolbar">
-        <nav class="catalog-tabs" aria-label="Vistas del catálogo"><button id="view-products" aria-label="Productos" aria-pressed="true"><ha-icon icon="mdi:view-grid" aria-hidden="true"></ha-icon><span class="tab-label">Productos</span></button><button id="view-categories" aria-label="Categorías" aria-pressed="false"><ha-icon icon="mdi:label" aria-hidden="true"></ha-icon><span class="tab-label">Categorías</span></button><button id="view-suggestions" aria-label="Nuevos" aria-pressed="false"><ha-icon icon="mdi:creation" aria-hidden="true"></ha-icon><span class="tab-label">Nuevos</span></button></nav>
+        <nav class="catalog-tabs" aria-label="Vistas del catálogo"><button id="view-products" aria-label="Productos" aria-pressed="true"><ha-icon icon="mdi:view-grid" aria-hidden="true"></ha-icon><span class="tab-label">Productos</span></button><button id="view-categories" aria-label="Categorías" aria-pressed="false"><ha-icon icon="mdi:label" aria-hidden="true"></ha-icon><span class="tab-label">Categorías</span></button><button id="view-suggestions" hidden aria-label="Nuevos" aria-pressed="false"><ha-icon icon="mdi:creation" aria-hidden="true"></ha-icon><span class="tab-label">Nuevos</span></button></nav>
         <div class="catalog-tools"><button id="new-catalog-category" class="primary" type="button" aria-label="Nueva categoría" title="Nueva categoría" hidden><ha-icon icon="mdi:plus-thick"></ha-icon></button></div>
       </div>
       </div>
@@ -664,7 +664,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
   }
 
   _switchView(view) {
-    if (!["products","categories","suggestions"].includes(view)) return;
+    if (!["products","categories","suggestions"].includes(view) || view === "suggestions" && this.shadowRoot.querySelector("#view-suggestions").hidden) return;
     this._view = view;
     const root = this.shadowRoot;
     root.querySelector("#products-view").hidden = view !== "products";
@@ -903,6 +903,12 @@ class ImprovedShoppingCatalog extends HTMLElement {
     this._renderLinkDialog();
     root.querySelector("#list-suggestions-count").textContent = String(suggestions.length);
     root.querySelector("#scan-suggestions-count").textContent = String(pending.length);
+    const newTab=root.querySelector("#view-suggestions");
+    newTab.hidden=suggestions.length+pending.length===0;
+    if(newTab.hidden&&this._view==="suggestions"){
+      this._switchView("products");
+      root.querySelector("#view-products").focus();
+    }
     root.querySelector("#list-suggestions-empty").hidden = suggestions.length > 0 || this._catalog.loading || Boolean(this._catalog.error);
     root.querySelector("#scan-suggestions-empty").hidden = pending.length > 0 || Boolean(this._readers?.loading) || Boolean(this._readers?.error);
   }

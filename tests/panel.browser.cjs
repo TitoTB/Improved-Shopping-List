@@ -4167,6 +4167,8 @@ async function main() {
     assert.equal(await renamePage.getByRole("button",{name:"Marcar como comprado: sEiTaN",exact:true}).locator(".placeholder ha-icon").getAttribute("icon"),"mdi:shopping");
     await renamePage.evaluate(()=>{window.listData['todo.bring'].push({uid:'tea-1',summary:'Té',status:'needs_action'});window.emit('todo.bring');});
     await renamePage.getByRole("button",{name:"Catálogo",exact:true}).click();
+    await renameCatalog.getByRole("button",{name:"Nuevos",exact:true}).click();
+    await renameCatalog.locator('#list-suggestions-summary').click();
     await renameSuggestions.getByRole("button",{name:"Descartar: Té",exact:true}).click();
     await renamePage.evaluate(()=>{window.listData['todo.bring'].push({uid:'tea-2',summary:'TE',status:'needs_action'});window.emit('todo.bring');});
     assert.equal(await renameSuggestions.locator("h2").count(),0);

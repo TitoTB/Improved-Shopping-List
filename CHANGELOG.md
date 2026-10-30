@@ -1,6 +1,6 @@
 # Historial de cambios
 
-## Próxima versión
+## 0.60.0 — 2026-10-30
 
 - En Catálogo → Pendiente, un producto solo se considera pendiente de información cuando todas sus alternativas activas están incompletas. Una alternativa con precio, contenido por envase y unidades completos es suficiente para excluirlo.
 - El progreso del catálogo de Mercadona distingue entre EAN sin coincidencia exacta y coincidencias ya procesadas. Muestra cuántos EAN se han considerado y un estado claro cuando la revisión falla.

@@ -6,7 +6,6 @@ import "./carrefour-account.js?v=0.54.2";
 import "./lidl-account.js?v=0.54.2";
 import "./logs-panel.js?v=0.54.2";
 import "./notification-settings.js?v=0.54.2";
-import "./readers-panel.js?v=0.54.2";
 import { installDialogCloseButtons } from "./dialog-controls.js?v=0.54.2";
 import { installToggleStyles } from "./toggle-styles.js?v=0.54.2";
 import { todoEntities, isAvailable } from "./todo-client.js?v=0.54.2";
@@ -31,7 +30,7 @@ class ImprovedShoppingSettings extends HTMLElement {
   set data(value) { this._data = value; if(this.isConnected&&!this._built)this._build(); this._render(); }
   set hass(value) {
     if(!this._data)return;
-    this._data={...this._data,hass:value};this._syncReaders();this._syncCatalogSources();
+    this._data={...this._data,hass:value};this._syncCatalogSources();
     const places=this.shadowRoot.querySelector('isl-shopping-places');if(places)places.data=this._data;
     if(this._built){
       const settings=this._data.settings;
@@ -40,17 +39,9 @@ class ImprovedShoppingSettings extends HTMLElement {
     }
   }
 
-  set active(value) { this._active = Boolean(value); if(!this._active){this.shadowRoot.querySelector("#lidl-dialog")?.close();this.shadowRoot.querySelector("isl-lidl-account")?.deactivate();this.shadowRoot.querySelector('#carrefour-dialog')?.close();this.shadowRoot.querySelector('isl-carrefour-account')?.deactivate();this.shadowRoot.querySelector('#dia-dialog')?.close();this.shadowRoot.querySelector('isl-dia-prices-settings')?.deactivate();} this._syncLogs(); this._syncReaders(); this._syncCatalogSources(); }
+  set active(value) { this._active = Boolean(value); if(!this._active){this.shadowRoot.querySelector("#lidl-dialog")?.close();this.shadowRoot.querySelector("isl-lidl-account")?.deactivate();this.shadowRoot.querySelector('#carrefour-dialog')?.close();this.shadowRoot.querySelector('isl-carrefour-account')?.deactivate();this.shadowRoot.querySelector('#dia-dialog')?.close();this.shadowRoot.querySelector('isl-dia-prices-settings')?.deactivate();} this._syncLogs(); this._syncCatalogSources(); }
 
   _syncCatalogSources(){const source=this.shadowRoot.querySelector('isl-catalog-sources');if(source){source.data=this._data;source.active=this._active&&this._view==='stores';}}
-
-  _syncReaders() {
-    const readers=this.shadowRoot.querySelector('isl-readers');
-    if(!readers)return;
-    const active=Boolean(this._active&&this._view==='readers'&&this.isConnected);
-    readers.active=active;
-    if(active&&this._data?.readers)readers.data={hass:this._data.hass,settings:this._data.settings,readers:this._data.readers};
-  }
 
   _syncLogs() {
     const logs = this.shadowRoot.querySelector("isl-logs");
@@ -295,7 +286,6 @@ class ImprovedShoppingSettings extends HTMLElement {
 
       </dialog>
       <section id="settings-logs" class="card" aria-label="Logs" hidden><isl-logs></isl-logs></section>
-      <section id="settings-readers" class="card" aria-label="Lectores" hidden><isl-readers></isl-readers></section>
       <section id="settings-community" class="card" aria-labelledby="settings-community-title" hidden>
         <h2 id="settings-community-title">Comunidad</h2>
         <div class="community-export">
@@ -328,10 +318,6 @@ class ImprovedShoppingSettings extends HTMLElement {
       void this._saveRetailSettings(()=>this._data.settings.saveGateway(root.querySelector('#gateway-entity').value,
         root.querySelector('#gateway-target').value,root.querySelector('#gateway-remove').checked));
     });
-    const readersTab=document.createElement('button');
-    readersTab.id='settings-view-readers';readersTab.type='button';readersTab.setAttribute('aria-label','Lectores');readersTab.setAttribute('aria-pressed','false');
-    readersTab.innerHTML='<ha-icon icon="mdi:barcode-scan" aria-hidden="true"></ha-icon><span class="tab-label">Lectores</span>';
-    root.querySelector('#settings-view-community').before(readersTab);
     const lidlRow=document.createElement('article');lidlRow.className='store-row';lidlRow.id='lidl-row';lidlRow.innerHTML='<img class="store-logo" src="https://upload.wikimedia.org/wikipedia/commons/9/91/Lidl-Logo.svg" alt="Logo de Lidl" referrerpolicy="no-referrer" loading="lazy" width="56" height="56"><div class="store-name"><h3>Lidl</h3></div><div class="store-controls"><input id="lidl-enabled" class="store-toggle" type="checkbox" role="switch" aria-label="Habilitar Lidl"><button id="configure-lidl" class="store-cog" type="button" aria-label="Ajustes de Lidl" title="Ajustes de Lidl"><ha-icon icon="mdi:cog" aria-hidden="true"></ha-icon></button></div>';root.querySelector('.stores-grid').append(lidlRow);
     const lidlDialog=document.createElement('dialog');lidlDialog.id='lidl-dialog';lidlDialog.setAttribute('aria-label','Lidl');lidlDialog.append(document.createElement('isl-lidl-account'));root.append(lidlDialog);
     root.querySelector('#lidl-enabled').addEventListener('change',()=>void this._saveRetailSettings(()=>this._data.settings.setStoreEnabled('lidl',root.querySelector('#lidl-enabled').checked)));
@@ -371,11 +357,11 @@ class ImprovedShoppingSettings extends HTMLElement {
     root.querySelector("#alcampo-dialog").addEventListener("close",()=>root.querySelector("isl-alcampo-settings")?.deactivate());
     root.querySelector("#alcampo-dialog").addEventListener("cancel",event=>{if(this._busy)event.preventDefault();});
     const alcampoError=document.createElement("div");alcampoError.id="alcampo-error";alcampoError.className="notice error";alcampoError.setAttribute("role","alert");alcampoError.hidden=true;root.querySelector("#alcampo-title").after(alcampoError);
-    for (const [id, view] of [["settings-view-lists", "lists"], ["settings-view-appearance", "appearance"], ["settings-view-community", "community"], ["settings-view-stores", "stores"], ["settings-view-logs", "logs"], ["settings-view-readers","readers"], ["settings-view-notifications","notifications"]]) {
+    for (const [id, view] of [["settings-view-lists", "lists"], ["settings-view-appearance", "appearance"], ["settings-view-community", "community"], ["settings-view-stores", "stores"], ["settings-view-logs", "logs"], ["settings-view-notifications","notifications"]]) {
       root.querySelector(`#${id}`).addEventListener("click", () => {
         this._view = view;
         if(view === "nutrition")this._nutritionKey=null;
-        for (const section of ["lists", "appearance", "community", "stores", "logs", "readers", "notifications"]) {
+        for (const section of ["lists", "appearance", "community", "stores", "logs", "notifications"]) {
           root.querySelector(`#settings-${section}`).hidden = view !== section;
           root.querySelector(`#settings-view-${section}`).setAttribute("aria-pressed", String(view === section));
         }
@@ -415,7 +401,7 @@ class ImprovedShoppingSettings extends HTMLElement {
     if (!this._built || !this._data) return;
     this.shadowRoot.querySelector("isl-notification-settings").data = this._data;
     this._syncLogs();
-    this._syncReaders();
+
     this._syncCatalogSources();
 
     const { hass, settings } = this._data;

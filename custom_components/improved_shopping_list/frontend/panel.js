@@ -31,6 +31,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
     this._stock = new StockSession(() => this._hass, () => {this._comparisonRevision=(this._comparisonRevision||0)+1;this._renderData();});
     this._quantities = new QuantitySession(() => this._hass, () => this._renderData());
     this._stockLayout = "grid";
+    this._stockView = "stock";
     this._analyticsView = "purchases";
     this._stockSort = "lowest";
     this._stockGrouped = false;
@@ -157,7 +158,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
     if(!this._started||!this._hass)return;
     const connectionChanged=this._optionalConnection!==this._hass.connection;
     this._optionalConnection=this._hass.connection;
-    for(const [name,wanted] of [['readers',(['catalog','settings'].includes(this._view)||this._receiptCatalogOpen)],['stock',['stock','catalog','settings'].includes(this._view)]]){
+    for(const [name,wanted] of [['readers',(this._view==='catalog'||this._view==='stock'&&this._stockView==='readers'||this._receiptCatalogOpen)],['stock',['stock','catalog','settings'].includes(this._view)]]){
       const session=this['_'+name],flag='_'+name+'Running';
       if(this[flag]&&(!wanted||connectionChanged)){session.stop();this[flag]=false;}
       if(wanted&&!this[flag]){this[flag]=true;void session.start();}
@@ -168,6 +169,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
     if(this._modules.has(name))return this._modules.get(name);
     const load={
       stock:()=>import('./stock-panel.js?v=0.54.2'),
+      readers:()=>import('./readers-panel.js?v=0.54.2'),
       catalog:()=>import('./catalog-panel.js?v=0.54.2'),
       settings:()=>import('./settings-panel.js?v=0.54.2'),
       purchases:()=>import('./purchases-panel.js?v=0.54.2'),
@@ -205,7 +207,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
   }
 
   async _prepareView(view) {
-    const name=['stock','catalog','settings'].includes(view)?view:view==='analytics'?(this._analyticsView==='purchases'?'purchases':'analytics'):null;
+    const name=view==='stock'&&this._stockView==='readers'?'readers':['stock','catalog','settings'].includes(view)?view:view==='analytics'?(this._analyticsView==='purchases'?'purchases':'analytics'):null;
     if(!name)return;
     try{await this._loadSection(name);if(this.isConnected)this._renderData();}
     catch(error){if(this.isConnected&&this._view===view){this._actionError='No se ha podido cargar este apartado. Pulsa de nuevo para reintentar.';this._renderData();}}
@@ -448,7 +450,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
       <main>
         <div id="error" class="notice error" role="alert" hidden></div>
         <div id="status" class="notice" role="status" hidden></div>
-        <div id="stock-heading" hidden><nav class="stock-tabs" role="tablist" aria-label="Vistas de Stock"><button id="stock-tab" type="button" role="tab" aria-label="Stock" aria-selected="true" aria-controls="stock-card"><ha-icon icon="mdi:package-variant" aria-hidden="true"></ha-icon><span>Stock</span></button></nav><div id="stock-actions"><button id="add-stock" class="icon-button" type="button" aria-label="Añadir producto al stock" title="Añadir producto al stock"><ha-icon icon="mdi:plus-thick" aria-hidden="true"></ha-icon></button></div></div>
+        <div id="stock-heading" hidden><nav class="stock-tabs" role="tablist" aria-label="Vistas de Stock"><button id="stock-tab" type="button" role="tab" aria-label="Stock" aria-selected="true" aria-controls="stock-card"><ha-icon icon="mdi:package-variant" aria-hidden="true"></ha-icon><span>Stock</span></button><button id="stock-readers-tab" type="button" role="tab" aria-label="Lectores" aria-selected="false" aria-controls="stock-readers"><ha-icon icon="mdi:barcode-scan" aria-hidden="true"></ha-icon><span>Lectores</span></button></nav><div id="stock-actions"><button id="add-stock" class="icon-button" type="button" aria-label="Añadir producto al stock" title="Añadir producto al stock"><ha-icon icon="mdi:plus-thick" aria-hidden="true"></ha-icon></button></div></div>
         <section id="list-controls" aria-label="Seleccionar lista y añadir productos">
           <form id="add-form">
             <div class="input-wrap"><label class="sr-only" for="product-input">Añadir producto</label><input id="product-input" type="text" maxlength="255" placeholder="Busca o añade un producto" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="product-suggestions" aria-describedby="predictive-count" required><ul id="product-suggestions" class="predictive-results" role="listbox" aria-label="Productos del catálogo" hidden></ul><span id="predictive-count" class="sr-only" role="status" aria-live="polite"></span></div>
@@ -478,6 +480,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
         <p id="view-loading" class="helper" role="status" hidden>Cargando apartado…</p>
         <isl-analytics hidden></isl-analytics>
         <isl-purchases id="purchase-history" hidden></isl-purchases>
+        <isl-readers id="stock-readers" class="card" hidden></isl-readers>
         <isl-catalog hidden></isl-catalog>
         <isl-settings hidden></isl-settings>
         <div id="announcement" class="sr-only" role="status" aria-live="polite"></div>
@@ -486,6 +489,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
     const root = this.shadowRoot;
     installDialogCloseButtons(root);
     for(const [id,view] of [['comparison-tab','comparison'],['purchases-tab','purchases'],['nutrition-tab','nutrition']])root.querySelector('#'+id).addEventListener('click',()=>{this._analyticsView=view;void this._prepareView('analytics');this._renderData();});
+    for(const [id,view] of [['stock-tab','stock'],['stock-readers-tab','readers']])root.querySelector('#'+id).addEventListener('click',()=>{this._stockView=view;this._syncOptionalSessions();void this._prepareView('stock');this._renderData();});
     root.querySelector('#nav-analytics').addEventListener('click',()=>this._switchView('analytics'));
     root.querySelector('isl-purchases').addEventListener('receipt-busy',event=>{this._receiptBusy=event.detail;this._renderData();});
     root.querySelector('isl-purchases').addEventListener('receipt-imported',()=>{this._analyticsView='purchases';void this._stock.refresh();void this._refreshRowPrices();this._renderData();});
@@ -664,7 +668,13 @@ class ImprovedShoppingListPanel extends HTMLElement {
     const root = this.shadowRoot;
     const session = this._session;
     const stockView=this._view === "stock";
-    const stockItemsView=stockView;
+    const stockItemsView=stockView&&this._stockView==='stock';
+    const readersView=stockView&&this._stockView==='readers';
+    root.querySelector('#stock-tab').setAttribute('aria-selected',String(stockItemsView));
+    root.querySelector('#stock-readers-tab').setAttribute('aria-selected',String(readersView));
+    root.querySelector('#stock-actions').hidden=!stockItemsView;
+    const readers=root.querySelector('#stock-readers');readers.hidden=!readersView;
+    if(this._sectionsReady.has('readers')){readers.active=readersView;if(readersView)readers.data={hass:this._hass,settings:this._settings,readers:this._readers};}
     const analyticsView=this._view==='analytics';
     root.querySelector('#analytics-heading').hidden=!analyticsView;
     const analytics=root.querySelector('isl-analytics');
@@ -717,10 +727,10 @@ class ImprovedShoppingListPanel extends HTMLElement {
     this.style.setProperty("--isl-completed-gradient-text", gradientTextColor(appearance.completed_gradient_start, appearance.completed_gradient_end));
     this.style.setProperty("--isl-columns", appearance.columns);
     this.style.setProperty("--isl-mobile-columns", appearance.mobile_columns);
-    if(this._sectionsReady.has('settings')&&this._view==='settings')root.querySelector("isl-settings").data = { hass: this._hass, settings: this._settings, readers:this._readers, products:[...this._catalogProducts.values()], receiptStores:this._stock.receiptStores };
+    if(this._sectionsReady.has('settings')&&this._view==='settings')root.querySelector("isl-settings").data = { hass: this._hass, settings: this._settings, products:[...this._catalogProducts.values()], receiptStores:this._stock.receiptStores };
     if(this._sectionsReady.has('settings'))root.querySelector("isl-settings").active = this._view === "settings";
-    const tag=this._view==='catalog'?'isl-catalog':this._view==='settings'?'isl-settings':analyticsView?(this._analyticsView==='purchases'?'isl-purchases':'isl-analytics'):null;
-    root.querySelector('#view-loading').hidden=Boolean(this._actionError)||(this._view==='stock'?this._stockViewReady:!tag||this._sectionsReady.has(tag.replace('isl-','')));
+    const tag=readersView?'isl-readers':this._view==='catalog'?'isl-catalog':this._view==='settings'?'isl-settings':analyticsView?(this._analyticsView==='purchases'?'isl-purchases':'isl-analytics'):null;
+    root.querySelector('#view-loading').hidden=Boolean(this._actionError)||(stockItemsView?this._stockViewReady:!tag||this._sectionsReady.has(tag.replace('isl-','')));
     const state = this._hass.states[session.entityId];
     const available = isAvailable(state);
     const canCreate = available && supports(state, FEATURES.CREATE);
@@ -769,7 +779,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
     const message = this._actionError || (stockView ? this._stock.error : this._view === "shopping" ? session.error || this._quantities.error || this._settings.error : "");
     error.hidden = !message;
     error.textContent = message;
-    if(stockView&&this._stockViewReady)this._renderStock(stockLocked);
+    if(stockItemsView&&this._stockViewReady)this._renderStock(stockLocked);
     if(this._view!=='shopping')return;
     const pending = session.items.filter((item) => item.status !== "completed");
     const completed = session.items.filter((item) => item.status === "completed");

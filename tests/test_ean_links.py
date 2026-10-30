@@ -240,3 +240,35 @@ def test_dictionary_accepts_dia_column_without_enabling_a_catalog():
     url='https://www.dia.es/aperitivos-y-frutos-secos/patatas-fritas/p/84892'
     result=parse_dictionary(f'EAN,Carrefour,DIA\n8410199023094,,{url}\n'.encode())
     assert result=={'dia:'+gtin('8410199023094'):url}
+
+
+def test_full_carrefour_feed_crossmatch_publishes_only_exact_verified_alcampo_links():
+    """The join covers the full original feed, preserves rows and works for older clients."""
+    import hashlib
+    import re
+
+    root = Path(__file__).resolve().parents[1] / 'data'
+    feed = {gtin(row['EAN']) for row in csv.DictReader(io.StringIO((root / 'ean-links.csv').read_text(encoding='utf-8')))}
+    report = json.loads((root / 'alcampo-feed-crossmatch.json').read_text(encoding='utf-8'))
+    assert report['feed']['eans'] == len(feed) == 15764
+    assert report['feed']['ean_sha256'] == hashlib.sha256('\n'.join(sorted(feed)).encode()).hexdigest()
+    assert report['discovery']['exhaustive_shop_coverage'] is False
+    current = parse_dictionary((root / 'ean-links-v8.csv').read_bytes())
+    assert report['dictionary_alcampo_links'] == sum(key.startswith('alcampo:') for key in current)
+    assert report['matched_eans'] == len(report['links'])
+    assert len({item['ean'] for item in report['links']}) == len(report['links'])
+    added = [item for item in report['links'] if item['action'] == 'added_link']
+    assert report['new_links'] == len(added) > 0
+    assert report['preserved_existing_links'] + len(added) == report['matched_eans']
+    for item in report['links']:
+        assert gtin(item['ean']) == item['ean'] and item['ean'] in feed
+        assert normalize_link('alcampo', item['url'])['url'] == item['url']
+        assert item['source'] == 'official_indexed_product_features'
+        assert re.fullmatch('[a-f0-9]{64}', item['features_sha256'])
+        assert 'alcampo:' + item['ean'] in current
+        for alternative in item['other_verified_urls']:
+            assert normalize_link('alcampo', alternative)['url'] == alternative
+    for version in (5, 6, 7, 8):
+        dictionary = parse_dictionary((root / f'ean-links-v{version}.csv').read_bytes())
+        for item in added:
+            assert dictionary['alcampo:' + item['ean']] == item['url']

@@ -28,7 +28,7 @@
     "canonical_url": 68,
     "incomplete_skipped": 63,
     "unchanged": 12,
-    "added_link": 9,
+    "added_link": 272,
     "inactive_skipped": 7
   },
   "changes": [
@@ -573,7 +573,2112 @@
       "origin": "alcampo_official_indexed_product_ean",
       "action": "added_link",
       "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "03014260209148",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/GILLETTE-Cuchilla-de-afeitar-desechable-con-cabezal-fijo-de-doble-hoja-GILLETTE-Blue-II-20-uds/46164",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "03023290076989",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/nescaf%C3%A9-latte-bebida-de-caf%C3%A9-triple-zero-0-az%C3%BAcares-0-materia-grasa-y-0-sin-lactosa-205-ml/561187",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "03023290084144",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/la-lechera-mousse-crujiente-de-vainilla-de-nestl%C3%A9-4-x-57-g/90161",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "03045320007657",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/bonne-maman-confitura-de-fresa-370-gr/29254",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "03045320007671",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/bonne-maman-mermelada-de-melocot%C3%B3n-370-gr/29238",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "03045320007725",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/bonne-maman-confitura-de-ar%C3%A1ndanos-salvaje-370-g/29264",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "03083681137811",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/bonduelle-ma%C3%ADz-dulce-sin-az%C3%BAcares-a%C3%B1adidos-pack-3-uds-x-140-g/29026",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "03228021920184",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/pr%C3%A9sident-tarrina-de-mantequilla-sin-aditivos-y-f%C3%A1cil-de-untar-president-250-g/54003",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "03273220076484",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/sojasun-especialidad-de-soja-con-sabor-a-caramelo-con-sal-4x100-g/225339",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "03273220085196",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/sojasun-especialidad-de-soja-con-sabor-a-caf%C3%A9-4-x-100-g/225342",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "03273221113195",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/sojasun-especialidad-fermentada-a-base-de-soja-estilo-skyr-natural-400-g/499309",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "03273221114772",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/sojasun-especialidad-de-soja-natural-estilo-griego-100-vegetal-400-gr/222949",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "03415581101935",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/h%C3%A4agen-dazs-tarrina-de-helado-crema-con-sabor-a-vainilla-ml/68249",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "03415581103939",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/h%C3%A4agen-dazs-tarrina-de-helado-de-caf%C3%A9-460-ml/188777",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "03415581113938",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/h%C3%A4agen-dazs-tarrina-de-helado-crema-con-chocolate-belga-500-ml/63516",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "03415581162936",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/h%C3%A4agen-dazs-tarrina-de-helado-de-dulce-de-leche-460-ml/68457",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "03415581187939",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/h%C3%A4agen-dazs-helado-de-vainilla-con-caramelo-y-trocitos-de-brownie-460-ml/20930",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "03415581554915",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/h%C3%A4agen-dazs-chocolate-collection-mini-tarrinas-de-helado-de-diferentes-chocolates-4-x-95-ml/546203",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "03415581569117",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/h%C3%A4agen-dazs-minicups-vainilla-y-macadamia-4-x-95-ml/745048",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "03415587545016",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/h%C3%A4agen-dazs-bomb%C3%B3n-de-helado-de-vainilla-con-trocitos-de-galletas-crujientes-al-cacao-3-x-80-ml/497698",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "04006000272849",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/nivea-men-anti-age-hyaluron-crema-hidratante-y-antiarrugas-que-ayuda-a-reafirmar-la-piel-50-ml/434451",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "04015400884859",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/dodot-activity-pa%C3%B1ales-talla-5-12-17-kg-48-uds/943879",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "05029053036168",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/scottex-fresh-papel-higi%C3%A9nico-h%C3%BAmedo-toallitas-wc-con-agua-micelar-y-vitamina-e-2-x-74-uds/61029",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "05029053563596",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/scottex-tissues-de-celulosa-faciales-en-caja-desechables-scottex-70-uds/61221",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "05029053587097",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/scottex-seda-papel-higi%C3%A9nico-acolchado-con-un-toque-de-seda-y-aroma-suave-6-rollos/511597",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "05050083430442",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/kellogg-s-special-k-barritas-de-cereales-con-chocolate-con-leche-pack-6-uds-x-20-g/27646",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "05053827139229",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/kellogg-s-extra-cereales-granola-con-chocolate-y-avellanas-375-g/625824",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "05059319002293",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/kellogg-s-krave-cereales-rellenos-de-chocolate-con-leche-410-g/679319",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "05059319023472",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/kellogg-s-creales-rice-krispies-360-g/948716",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "05059319024288",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/kellogg-s-special-k-cereales-con-chocolate-negro-500-gr/540227",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "05059319025681",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/kellogg-s-special-k-cereales-classic-700-gr/541083",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "05411188096474",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/alpro-bebida-de-soja-ligera-100-vegetal-1-l/53074",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "05411188115496",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/alpro-bebida-soja-0-az%C3%BAcar-caja-6x1-l/740394",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "05411188127697",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/alpro-barista-bebida-de-avena-100-vegetal-1-l/505670",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "05411188142058",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/alpro-meal-to-go-bebida-vegetal-de-soja-sabor-chocolate-y-pl%C3%A1tano-500-ml/839767",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "05411188142522",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/alpro-bebida-vegetal-de-coco-soja-y-t%C3%A9-matcha-1-l/764991",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "05411188553304",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/alpro-bebida-de-soja-100-vegetal-enriquecida-con-calcio-y-vitaminas-b2-b12-y-d-6-x-1l/52238",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "05449000000453",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/coca-cola-sabor-original-refresco-cola-lata-50-cl/791493",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "05449000028921",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/coca-cola-sabor-original-refresco-de-cola-botella-1-25-l/22010",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "05449000142573",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/minute-maid-lim%C3%B3n-nada-limonada-cl%C3%A1sica-botella-de-1-l/69635",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "05449000187970",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/fanta-refresco-de-naranja-pack-de-lata-de-9-uds-x-330-ml/59087",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "05711953205941",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/starbucks-bebida-de-caf%C3%A9-con-sabor-a-pistacho-edici%C3%B3n-limitada-summer-escape-220-ml/433136",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "05740900401754",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/lurpark-tarrina-de-materia-grasa-para-untar-78-con-mantequilla-sin-sal-200-g/310409",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "07613031913060",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/nesquik-de-nestl%C3%A9-cacao-soluble-con-tila-melisa-y-manzanilla-buenas-noches-400-g/436146",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "07613035314375",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/nestl%C3%A9-dark-chocolate-extrafino-negro-125-g/10678",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "07613039960196",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/nestl%C3%A9-dark-chocolate-negro-85-cacao-120-g/533355",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "07613039994016",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/nestl%C3%A9-dark-chocolate-negro-270-g/15159",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "07613287924988",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/nestl%C3%A9-chocolate-negro-90-110-g/949299",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "07622201109615",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/milka-oreo-chocolate-blanco-con-relleno-sabor-oreo-100-g/788478",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "07622201501143",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/oreo-galletas-de-cacao-rellenas-de-crema-de-vainilla-y-frambuesa-157-g/903567",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "07622201639754",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/belvita-fontaneda-galletas-desayuno-con-5-cereales-caja-300-g/537554",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "07622201639815",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/pim-s-de-fontaneda-galletas-de-bizcocho-rellenas-de-naranja-150-g/12518",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "07622201639983",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/PIM-S-de-Fontaneda-Galletas-de-bizcocho-recubiertas-de-frambuesa-con-una-fina-capa-de-chocolate-150-g/21924",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "07622201640408",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/belvita-fontaneda-galletas-chocolate-y-cereales-ideales-para-el-desayuno-300-g/806193",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "07622201677176",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/milka-chocolate-con-leche-barquillo-y-avellanas-270-g/943166",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "07622202035531",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/fontaneda-finas-barquillos-de-chocolate-con-leche-92-g/188879",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "07622202035685",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/fontaneda-galletas-fontaneda-finas-92-g/188880",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "07622202050725",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/milka-chocolate-con-leche-cremoso-100-g/219678",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "07622202214530",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/fontaneda-galletas-mar%C3%ADa-707-g/11216",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "07622202254178",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/milka-croissant-de-chocolate-50-g/727592",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "07622202261442",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/milka-chocolate-con-leche-y-avellanas-entera-250-gr/496651",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "07622210114648",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/fontaneda-digestive-galletas-con-avena-550-g/19249",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "07622210608765",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/fontaneda-digestive-galletas-finas-de-chocolate-con-leche-170-g/806027",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "07622210625243",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/oreo-galletas-golden-rellenas-de-crema-de-vainilla-220-g/627411",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "07622210693273",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/milka-chocolate-con-leche-triolade-280-g/18380",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "07622210834003",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/milka-chocolate-con-leche-almendras-crema-y-caramelo-300-g/185206",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "07622300086404",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/milka-chocolate-con-leche-sabor-caramelo-100-g/505040",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "07622300134532",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/milka-chocolate-con-leche-con-avellanas-y-crema-de-caramelo-tableta-de-300-g/437385",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "07622300744663",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/oreo-original-galletas-de-chocolate-rellenas-de-crema-de-vainilla-5-uds-44-g/23007",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "07702018621255",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/gillette-gel-de-afeitar-especial-pieles-sensibles-gillette-cl%C3%A1sico-200-ml/47060",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08000430194531",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/el-ventero-reques%C3%B3n-250-g/313590",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08001090362841",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/evax-liberty-compresas-normales-con-alas-14-uds/46699",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08001090370587",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/evax-liberty-compresas-super-con-alas-10-uds/796104",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08001841890173",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/pantene-aceite-capilar-nutritivo-enriquecido-con-arg%C3%A1n-100-ml/46025",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08006530050463",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/EVAX-Salvaslips-maxi-EVAX-Cottonlike-72-uds/20747",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08006540359822",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/ausonia-compresas-ultra-d%C3%ADa-y-noche-para-p%C3%A9rdidas-de-orina-severas-ausonia-discreet-12-uds/761172",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08006540429570",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/evax-compresas-super-con-alas-evax-cottonlike-24-uds/434384",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08006540430200",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/pantene-mascarilla-capilar-con-keratina-para-pelo-da%C3%B1ado-y-fr%C3%A1gil-pantene-repara-protege-500-ml/404795",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08006540763582",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/fairy-original-detergente-todo-en-uno-para-lavavajillas-en-c%C3%A1psulas-con-aroma-a-lim%C3%B3n-71-uds/724177",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08050164300791",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/pr%C3%A9sident-queso-rallado-en-polvo-60-g/313591",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08076808070882",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/barilla-pasta-gourmet-la-collezione-cannelloni-n-88-canelones-250-g/898827",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08076809537711",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/barilla-pasta-trofie-500g/718449",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08410000808940",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/Fontaneda-Digestive-Galletas-Cubiertas-de-Chocolate-con-Leche-300-g/15398",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08410000827446",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/oreo-original-galletas-rellenas-de-crema-de-vainilla-10-uds-44-g/22981",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08410063026510",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/PESCANOVA-Tapeo-Chopis-rebozados-al-huevo-ultracongelados-300-g/68867",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08410063045924",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/pescanova-langostino-20-40-cocido-y-ultracongelado-pescanova-800-g-p-n-e/67064",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08410063065106",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/pescanova-gambas-peladas-bajas-en-grasa-pescanova-240-g/32033",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08410063077789",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/pescanova-langostinos-24-40-crudos-grandes-ultracongelados-pescanova-800-g-p-n-e/67056",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08410063093932",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/pescanova-suced%C3%A1neo-de-angulas-congeladas-receta-original-200-g/67291",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08410063095639",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/pescanova-sepia-limpia-ultracongelada-y-al-punto-de-sal-pescanova-400-g/68126",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08410063098470",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/pescanova-filetes-grandes-de-merluza-argentina-sin-piel-400-g/209965",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08410086311488",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/ybarra-mayonesa-bocabajo-sin-conservantes-ni-colorantes-bote-400-ml/432294",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08410086315042",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/ybarra-mayonesa-sin-conservantes-ni-colorantes-frasco-750-ml/11172",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08410086392265",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/ybarra-salsa-gaucha-original-ideal-para-carnes-y-pizzas-300-ml/43935",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08410086392500",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/ybarra-salsa-gottan-250gr/712718",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08410090031570",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/calvo-at%C3%BAn-claro-al-natural-3-uds-x-56-g/617029",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08410090051356",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/calvo-at%C3%BAn-claro-en-aceite-de-girasol-lata-de-pack-de-6-uds-52-g/25684",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08410090710437",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/calvo-mejillones-en-escabeche-69-g/18516",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08410100021553",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/nescaf%C3%A9-caf%C3%A9-soluble-descafeinado-100-g/18368",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08410100024011",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/bonka-caf%C3%A9-en-grano-natural-500-g/15909",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08410100026312",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/chocapic-cereales-de-chocolate-chocapic-375-g/16873",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08410100060507",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/maggi-jugo-condimento-l%C3%ADquido-a-base-de-prote%C3%ADnas-vegetales-hidrolizadas-100-ml/27199",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08410100063904",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/maggi-pasta-oriental-fideos-instant%C3%A1neos-sabor-curry-sobre-72-g/11711",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08410109115017",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/valor-chocolate-negro-con-almendras-82-cacao-250-g/869746",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08410109132588",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/valor-chocolate-con-leche-relleno-de-almendras-y-caramelo-150-g/451578",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08410128795542",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/pascual-leche-sin-lactosa-enriquecida-con-prote%C3%ADnas-y-8-vitaminas-y-minerales-1-l/511987",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08410148501949",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/borges-almendras-fritas-y-saladas-160g/14310",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08410199023117",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/lay-s-patatas-fritas-lisas-con-sabor-a-sal-y-vinagre-en-bolsa-150-g/13155",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08410199026293",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/lay-s-patatas-fritas-gourmet-wavy-sal-150-g/892341",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08410259102158",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/la-vaca-que-r%C3%ADe-queso-en-porciones-24-uds-375-g/94974",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08410259103049",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/la-vaca-que-r%C3%ADe-queso-en-porciones-light-16-uds/94968",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08410261151625",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/don-simon-sangr%C3%ADa-don-simon-botella-de-1-5-litros/37062",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08410261151717",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/don-simon-sangr%C3%ADa-tradicional-lata-de-33-cl/848847",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08410261210100",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/don-simon-zumo-de-pi%C3%B1a-en-brick-de-1-l/34335",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08410261240107",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/don-simon-zumo-de-melocot%C3%B3n-brick-de-1-l/34344",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08410261603612",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/don-simon-brick-zumo-de-melocot%C3%B3n-y-uva-6-uds-x-20-cl/438253",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08410261657424",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/don-simon-refresco-de-limonada-natural-botella-de-1-5-l/889039",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08410283311946",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/la-casera-tinto-de-verano-original-con-gaseosa-la-casera-y-0-0-alcohol-botella-de-1-5-l/36371",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08410283346405",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/la-casera-tinto-de-verano-cl%C3%A1sico-con-gaseosa-la-casera-botella-de-1-5-l/36684",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08410283381727",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/la-casera-tinto-de-verano-sin-alcohol-y-con-zumo-natural-de-lim%C3%B3n-botella-de-1-5-l/36367",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08410283381734",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/la-casera-tinto-de-verano-con-zumo-natural-de-lim%C3%B3n-botella-de-1-5-l/36626",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08410285100463",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/puleva-batido-con-sabor-a-chocolate-elaborado-con-un-90-de-leche-9-x-200-ml/791169",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08410285101316",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/puleva-batido-de-cacao-1l-50-gratis/949496",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08410285105833",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/gran-capitan-queso-mezcla-curado-vaca-y-oveja-intenso-con-una-maduraci%C3%B3n-m%C3%ADnima-de-10-meses-200-g/725075",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08410297010200",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/central-lechera-asturiana-leche-entera-de-vaca-de-origen-espa%C3%B1ol-1-5-l/50666",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08410300100751",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/gallina-blanca-sopinstant-crema-de-champi%C3%B1ones-con-picatostes-3-uds-19-5-g/11657",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08410300100768",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/gallina-blanca-sopinstant-crema-de-esp%C3%A1rragos-con-picatostes-y-aceite-de-oliva-3-x-19-g/22851",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08410300347361",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/gallina-blanca-caldo-puchero-1-l/183058",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08410300373230",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/yatekomo-fideos-orientales-instant%C3%A1neos-60g/529845",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08410300373247",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/yatekomo-fideos-orientales-instant%C3%A1neos-con-sabor-a-curry-60g/63226",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08410320285544",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/NAVIDUL-Longaniza-del-Pirineo-sin-gluten-y-cortado-en-lonchas-NAVIDUL-45-g/210162",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08410375110365",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/bonduelle-jud%C3%ADas-verdes-finas-troceadas-frasco-de-360-g/21131",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08410500001575",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/activia-b%C3%ADfidus-con-frutos-del-bosque-de-danone-4-x-120-g/59802",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08410500006082",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/danone-yogur-natural-elaborado-con-leche-y-fermentos-naturales-4-x-120-g/51500",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08410500006112",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/danone-yogur-con-sabor-a-lim%C3%B3n-elaborado-con-leche-fresca-de-vaca-4-x-120-g/51578",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08410500008871",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/activia-b%C3%ADfidus-desnatado-0-materia-grasa-y-sabor-natural-0-de-danone-8-x-120-g/54021",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08410500010546",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/activia-b%C3%ADfidus-desnatado-0-materia-grasa-con-melocot%C3%B3n-de-danone-4-x-120-g/53557",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08410500011147",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/activia-b%C3%ADfidus-con-trocitos-jugosos-de-mango-de-danone-4-x-120-g/52560",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08410500014421",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/activia-b%C3%ADfidus-desnatado-0-materia-grasa-y-con-sabor-natural-edulcorado-0-de-danone-8-x-120-g/52012",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08410500016470",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/danone-copa-de-chocolate-y-cremosa-nata-danone-2-x-110-g/89401",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08410500021870",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/oikos-yogur-griego-natural-de-danone-4-x-110-g/89548",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08410500029470",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/DANONE-Yogur-con-sabor-a-galleta-4-x-120-g/721393",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08410500029487",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/danone-yogur-con-sabor-a-vainilla-elaborado-con-fermentos-naturales-4-x-120-g/95326",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08410500030742",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/actimel-kids-de-danone-leche-fermentada-con-lcasei-y-sabor-natural-6-x-100-g/900023",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08410500030827",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/activia-de-danone-k%C3%A9fir-natural-cremoso-con-probi%C3%B3ticos-345-g/898894",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08410500030940",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/danone-yogur-estilo-griego-con-sabor-a-caramelo-4-x-110-g/900026",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08410500031404",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/activia-de-danone-kefir-con-trozos-de-fresa-y-frambuesa-380-g/949982",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08410500031411",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/activia-de-danone-k%C3%A9fir-con-trozos-de-melocot%C3%B3n-y-maracuya-380-g/949988",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08410500032593",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/activia-de-danone-k%C3%A9fir-natural-cremoso-con-probi%C3%B3ticos-naturales-4-x-125-g/837192",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08410505041125",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/luengo-alubia-blanca-larga-en-paquete-1-kg/12135",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08410505181128",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/luengo-extra-lentejas-en-paquete-1-kg/12147",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08410505320145",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/luengo-soja-texturizada-200-g/859803",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08410505510034",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/luengo-lentejas-cocidas-600g/245784",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08410564001313",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/frit-ravich-patatas-fritas-artesanas-bolsa-de-160-g/18679",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08410564004437",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/frit-ravich-patatas-fritas-premium-de-queos-y-trufa-150-gr/199265",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08410564011145",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/frit-ravich-cocktail-de-frutos-secos-sin-c%C3%A1scara-300-g/25939",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08410564012159",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/frit-ravich-cocktail-de-frutos-secos-sin-c%C3%A1scara-180-g/26117",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08410564030344",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/frit-ravich-chips-lenteja-tomate-albahaca/880326",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08410628020229",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/consorcio-filetes-de-anchoa-en-aceite-de-oliva-consorcio-50-g/72416",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08410655001130",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/san-miguel-especial-cervezas-pack-28-uds-x-33-cl/40674",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08410667021126",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/jolca-aceitunas-verdes-manzanilla-fina-sin-hueso-bolsa-de-3-uds-x-50-g/25779",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08410706004462",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/recondo-picatostes-tradicionales-extra-crujientes-80-g/18905",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08410706004547",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/recondo-pan-tostado-hogaza-100-integral-con-7-de-pipas-240-g/12662",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08410706999584",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/recondo-pan-tostado-85-integral-de-trigo-sin-sal-y-sin-az%C3%BAcar-a%C3%B1adido-540-g/904943",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08410706999614",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/recondo-pan-tostado-100-integral-de-trigo-540-g/904945",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08410737000020",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/lea-original-crema-de-afeitar-para-brocha-especial-para-pieles-sensibles-100-ml/40905",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08410740910583",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/lacasa-bola-de-chocolate-negro-relleno-de-naranja-125-g/510685",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08410740929264",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/conguitos-cacahuetes-de-chocolate-y-ma%C3%ADz-mistercorn-110-g/783737",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08410762002228",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/casa-tarradellas-pat%C3%A9-de-at%C3%BAn-frasco-de-125-g/17247",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08410762002273",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/casa-tarradellas-pat%C3%A9-de-salm%C3%B3n-frasco-de-125-g/13266",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08410762002303",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/casa-tarradellas-pat%C3%A9-de-pollo-frasco-de-125-g/43896",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08410762005014",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/casa-tarradellas-espetec-de-categoria-extra-casa-tarradellas-180-g/84069",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08410762005113",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/casa-tarradellas-espetec-de-categoria-extra-casa-tarradellas-2-x-170-g/84096",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08410762120168",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/casa-tarradellas-pat%C3%A9-de-h%C3%ADgado-de-cerdo-ib%C3%A9rico-frasco-de-125-g/24047",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08410762210418",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/casa-tarradellas-bacon-ahumado-natural-cortado-en-c%C3%B3modas-y-practicas-cintas-2-x-100-g/87514",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08410762223104",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/casa-tarradellas-masa-fresca-y-redonda-elaborada-con-quinoa-chia-trigo-sarraceno-amapola-y-espelta-casa-tarradellas-260-g/530520",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08410843005810",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/el-pozo-tarrina-de-sobrasada-elaborada-sin-gluten-y-sin-lactosa-el-pozo-250-g/54136",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08410843012559",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/el-pozo-bienstar-jam%C3%B3n-cocido-extra-con-contenido-reducido-en-sal-y-contado-en-finas-lonchas-65-g/54189",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08410843012566",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/el-pozo-bienstar-pechuga-de-pavo-con-contenido-reducido-en-sal-cortada-en-lonchas-finas-65-g/54183",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08410843129691",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/el-pozo-bienstar-jam%C3%B3n-cocido-extra-bajo-en-grasas-y-con-contenido-reducido-en-sal-340-g/682174",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08410843129707",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/EL-POZO-Bienstar-Pechuga-de-pavo-cocida-sin-grasa-y-con-contenido-reducido-en-sal-340-g/682185",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08410843129738",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/el-pozo-bienstar-pechuga-de-pavo-cocida-sin-grasa-340-g/682183",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08410843129745",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/el-pozo-bienstar-pechuga-de-pollo-cocida-con-sabor-ahumado-sin-grasa-ni-az%C3%BAcares-340-g/682191",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08410981093441",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/kaiku-bebida-de-caf%C3%A9-ar%C3%A1bica-de-guatemala-y-honduras-con-un-toque-de-leche-caffe-latte-230-ml/51121",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08411030015506",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/serrano-pechuga-de-pavo-cortada-en-lonchas-310-g/75116",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08411030015636",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/pechuga-de-pollo-cortada-en-lonchas-serrano-330-g/79754",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08411092700648",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/nestea-bebida-de-t%C3%A9-al-lim%C3%B3n-botella-de-1-5-l/32263",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08411327000086",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/mixta-de-mahou-cerveza-con-lim%C3%B3n-lata-de-33-centilitros/21797",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08411327000857",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/MAHOU-MIXTA-Cerveza-con-lim%C3%B3n-pack-12-uds-x-33-cl/36953",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08411327003971",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/mahou-maestra-cerveza-dunkel-botella-de-33-cl/801707",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08411327010153",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/mahou-5-estrellas-cerveza-sin-filtrar-lata-de-33-cl/640935",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08411327013758",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/mahou-cerveza-rubia-0-0-lata-33-cl/458579",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08411660006127",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/sanytol-limpiador-de-ba%C3%B1o-en-gel-sin-lejia-aroma-a-lim%C3%B3n-1-2-l/883505",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08411660170507",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/sanytol-spray-eliminador-de-olores-y-desinfectante-de-tejidos-y-hogar-con-aroma-a-flor-de-algod%C3%B3n-300-ml/439639",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08412289000879",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/garc%C3%ADa-baquero-queso-semicurado-en-lonchas-garc%C3%ADa-baquero-200-g/98071",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08412289001524",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/garc%C3%ADa-baquero-queso-tierno-ya-cortado-garc%C3%ADa-baquero-cu%C3%B1a-de-250-g/98247",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08412500329253",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/la-piara-pat%C3%A9-de-h%C3%ADgado-de-cerdo-ib%C3%A9rico-tapa-negra-2-ud-x-73-g/432719",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08412540007814",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/martiko-surtido-de-pates-de-oca-y-pato-8-x-20-g/421798",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08412600061947",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/bimbo-pan-de-molde-semillas-sin-gluten-375-g/885985",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08412700065852",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/cacaolat-batido-de-chocolate-cacaolat-original-6-x-200-ml/54225",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08412700130468",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/cacaolat-original-batido-de-cacao-elaborado-seg%C3%BAn-la-receta-original-1-l/50250",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08412700720096",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/CACAOLAT-Batido-de-chocolate-sin-az%C3%BAcares-a%C3%B1adidos-CACAOLAT-0-1-l/90431",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08412800005147",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/dhul-flan-de-huevo-y-queso-elaborado-al-ba%C3%B1o-maria-con-leche-recogida-diariamente-dhul-4-x-110-g/51759",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08412800006922",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/dhul-gourmet-tarta-de-queso-cremosa-2-x-100-g/188917",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08412900401092",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/pompadour-cola-de-caballo-plus-3-40-g/12295",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08412900402037",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/pompadour-manzanilla-25-uds-27-g/16276",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08412900402051",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/pompadour-tila-25-uds-1-2-g/16485",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08412900708207",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/pompadour-infusi%C3%B3n-caf%C3%A9-verde-20-uds-2-2-g/502143",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08412956013133",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/oquendo-natura-caf%C3%A9-molido-natural-100-ar%C3%A1bica-procedente-de-agricultura-ecol%C3%B3gica-250-g/887047",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08413700023156",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/carmencita-piment%C3%B3n-dulce-carmencita-lata-de-75-g/24542",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08414516103476",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/florette-ensalada-de-queso-de-cabra-nueces-y-manzana-lista-para-consumir-180-g/631126",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08414555008008",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/la-vieja-f%C3%A1brica-mermelada-de-melocot%C3%B3n-350-gr/207175",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08422107001186",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/aguinamar-pintxo-donostiarra-sin-gluten-180-g/247020",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08422107002039",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/la-gula-del-norte-suced%C3%A1neo-de-angulas-la-gula-del-norte-pack-2-uds-x-210-g/742513",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08422107005313",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/la-gula-del-norte-suced%C3%A1neo-de-angula-con-gambas-al-ajillo-130-g/73561",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08422107094034",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/krissia-surimi-rallado-krissia-125-g/72328",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08422947900144",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/soria-natural-bio-bebida-de-avena-ecol%C3%B3gica-con-algas-ricas-en-calcio-1-l/422619",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08422947900250",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/soria-natural-bebida-de-alpiste-ecol%C3%B3gica-fuente-natural-de-proteinas-1-l/887048",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08424790107206",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/pastoret-yogur-artesanal-azucarado-con-trozos-de-ar%C3%A1ndano-475-g/247491",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08424790131034",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/pastoret-yogur-artesanal-estilo-griego-con-matcha-2-x-135-g/208677",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08426617008666",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/haribo-regaliz-negro-200-g/319887",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08426617013714",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/haribo-regalices-black-edition-150-g/318051",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08426617023454",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/haribo-happy-cola-golosina-blanda-150-g/951859",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08426617053642",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/haribo-surtido-de-chuches-party-box-75-g/716098",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08426617080037",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/haribo-golosinas-blandas-mix-de-frutas-1-kg/251425",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08428919104107",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/luna-de-miel-miel-de-flores-1-kg/13640",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08431707136280",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/granini-pi%C3%B1a-colada-sin-alcohol-zumo-de-pi%C3%B1a-y-coco-botella-75-cl/882829",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08432425050278",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/kaiku-k%C3%A9fir-natural-con-probi%C3%B3ticos-sin-az%C3%BAcares-a%C3%B1adidos-4-x-125-g/947629",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08432425090854",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/kaiku-bebida-de-caf%C3%A9-ar%C3%A1bica-de-la-india-con-leche-fresca-y-sin-edulcorantes-caff%C3%A9-latt%C3%A9-230-ml/90211",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08432425094043",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/kaiku-bebida-de-caf%C3%A9-con-leche-sin-az%C3%BAcares-a%C3%B1adidos-y-con-alto-contenido-en-prote%C3%ADnas-28g-caff%C3%A9-latte-370-ml/904842",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08432425094111",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/kaiku-plus-k%C3%A9fir-con-probi%C3%B3ticos-y-vitaminas-b6-y-b12-sabor-a-lim%C3%B3n-y-jenjibre-350-g/953911",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08434164444301",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/tosta-rica-oceanix-pastelitos-de-cacao-rellenos-de-leche-y-chocolate-5-uds-160-gr/626501",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08434702004899",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/findus-salto-pappardelle-al-rag%C3%BA-300-g/835889",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08435257038346",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/la-lechera-mousse-de-chocolate-con-leche-y-chocolate-blanco-de-nestl%C3%A9-4-x-59-g/916571",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08436033363232",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/jardin-bio-veggie-morcilla-100-vegetal-de-arroz-con-pi%C3%B1ones-ecol%C3%B3gicos-230-g/52239",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08437007611298",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/interm%C3%B3n-oxfam-chocolate-negro-85-cacao-eco%C3%B3gico-intermon-oxfan-100-g/569369",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08437007611502",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/interm%C3%B3n-oxfam-chocolate-70-cacao-negro-y-naranja-ecol%C3%B3gico-interm%C3%B3n-oxfam-tierra-madre100-g/29708",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08437007611526",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/interm%C3%B3n-oxfam-chocolate-blanco-con-az%C3%BAcar-de-ca%C3%B1a-ecol%C3%B3gico-interm%C3%B3n-oxfam-100-g/19136",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08437010119613",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/aguinamar-colas-de-langostino-al-ajillo-105-g/71540",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08445290092472",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/nesquik-nestl%C3%A9-cacao-en-polvo-700-g/16527",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08445290634887",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/nesquik-de-nestl%C3%A9-cacao-instant%C3%A1neo-0-az%C3%BAcares-a%C3%B1adidos-320-g/251231",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08445290661524",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/maggi-fideos-orientales-instant%C3%A1neos-noodles-cl%C3%A1sicos-121-g/528711",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08445291131569",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/buitoni-masa-rectangular-fina-y-crujiente-para-pizza-260-g/83930",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08445291132122",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/buitoni-masa-redonda-para-pizza-tradicional-330-g/948054",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08445291786752",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/bonka-cafe-en-grano-de-brasil-800-grs/632898",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08445291823914",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/nestl%C3%A9-chocolate-con-leche-ma%C3%ADz-84-g/769506",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08445291833517",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/nesquik-nestl%C3%A9-cacao-en-polvo-5-kg/13477",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08445291837799",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/nesquik-cacao-en-polvo-up-protein-330-g/766783",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08445292015387",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/nescaf%C3%A9-caf%C3%A9-soluble-descafeinado-pack-2-uds-x-200-g/18739",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08445292015929",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/nescaf%C3%A9-caf%C3%A9-soluble-natural-pack-2-uds-x-200-g/18680",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08445292622806",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/nesquik-milk-mix-instant%C3%A1neo-sabor-vainilla-350-g/889844",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08585002442567",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/maggi-fideos-orientales-instant%C3%A1neos-noodles-con-salsa-teriyaki-130-g/528802",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08700216280716",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/ausonia-discreet-compresas-maxi-para-perdidas-de-orina-10-uds/205024",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08700216443333",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/pantene-pro-v-suave-liso-champ%C3%BA-para-cabellos-encrespados-y-apagados-1-l/899356",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08700216444170",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/pantene-pro-v-repara-protege-champ%C3%BA-para-cabellos-secos-y-da%C3%B1ados-1-l/899360",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08700216493536",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/dodot-beb%C3%A9-seco-pa%C3%B1ales-talla-6-13-18-kg-140-uds/791232",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08718951389342",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/sanex-cuidado-experto-pro-hydrate-gel-hidratante-para-ducha-o-ba%C3%B1o-para-pieles-muy-secas-600-ml/888397",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08718951594517",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/sanex-cuidado-experto-gel-nutritivo-para-ducha-o-ba%C3%B1o-para-pieles-reactivas-con-tendencia-at%C3%B3pica-600-ml/627542",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08718951713871",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/colgate-max-white-expert-original-pasta-de-dientes-blanqueadora-con-fl%C3%BAor-sabor-menta-75-ml/431418",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08718951770171",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/sanex-cuidado-experto-gel-para-ducha-o-ba%C3%B1o-hipoalerg%C3%A9nico-especial-pieles-sensibles-600-ml/835543",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "08718951811058",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/sanex-derma-therapy-gel-para-ba%C3%B1o-o-ducha-con-%C3%A1cido-hialur%C3%B3nico-para-pieles-secas-425ml/823327",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "09556001329073",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/nescaf%C3%A9-bebida-concentrada-espresso-de-caramelo-500-ml/510966",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
+    },
+    {
+      "ean": "09556001329127",
+      "store": "alcampo",
+      "url": "https://www.compraonline.alcampo.es/products/nescaf%C3%A9-bebida-concentrada-espresso-vainilla-500-ml/510941",
+      "origin": "alcampo_full_feed_official_indexed_features",
+      "action": "added_link",
+      "verified_on": "2026-10-30"
     }
   ],
-  "conflicts": []
+  "conflicts": [],
+  "full_feed_crossmatch": "alcampo-feed-crossmatch.json"
 }

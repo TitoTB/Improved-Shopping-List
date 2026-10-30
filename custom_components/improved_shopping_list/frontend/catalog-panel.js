@@ -1,12 +1,12 @@
-import { purchaseQuantity, quantityLabel } from "./quantity-client.js?v=0.56.1";
-import { referenceContentControls, referenceRate, barcodeIdentity, validReferenceContent } from "./reference-formats.js?v=0.56.1";
-import { installDialogCloseButtons } from "./dialog-controls.js?v=0.56.1";
-import { CatalogSession } from "./catalog-client.js?v=0.56.1";
-import { matchCatalogProducts } from "./product-matching.js?v=0.56.1";
-import "./category-panel.js?v=0.56.1";
-import "./recipe-editor.js?v=0.56.1";
-import "./icon-picker.js?v=0.56.1";
-import { imageSource, normalizedName, productNameKey, cachedProductPrice, storeProductLink, storeFromProductUrl } from "./product-display.js?v=0.56.1";
+import { purchaseQuantity, quantityLabel } from "./quantity-client.js?v=0.57.0";
+import { referenceContentControls, referenceRate, barcodeIdentity, validReferenceContent } from "./reference-formats.js?v=0.57.0";
+import { installDialogCloseButtons } from "./dialog-controls.js?v=0.57.0";
+import { CatalogSession } from "./catalog-client.js?v=0.57.0";
+import { matchCatalogProducts } from "./product-matching.js?v=0.57.0";
+import "./category-panel.js?v=0.57.0";
+import "./recipe-editor.js?v=0.57.0";
+import "./icon-picker.js?v=0.57.0";
+import { imageSource, normalizedName, productNameKey, cachedProductPrice, storeProductLink, storeFromProductUrl } from "./product-display.js?v=0.57.0";
 export { imageSource, normalizedName, productNameKey, cachedProductPrice };
 
 const MONTHS = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
@@ -251,7 +251,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
         .catalog-product-controls { display:flex; flex:0 0 auto; align-items:center; justify-content:flex-end; gap:8px; min-width:0; margin-left:auto; }
         #new-product,#new-catalog-category,#toggle-catalog-order,#configure-catalog-grouping,#toggle-catalog-layout { display:grid; place-items:center; flex:0 0 46px; width:46px; height:46px; padding:0; }
         #new-product ha-icon,#new-catalog-category ha-icon,#toggle-catalog-order ha-icon,#configure-catalog-grouping ha-icon,#toggle-catalog-layout ha-icon { --mdc-icon-size:24px; width:24px; height:24px; }
-        #toggle-catalog-layout,#toggle-catalog-order,#configure-catalog-grouping { background:var(--card-background-color,#fff); }
+        #toggle-catalog-layout,#toggle-catalog-order,#configure-catalog-grouping,#pending-formats { background:var(--card-background-color,#fff); }
         .grouping-options { display:grid; gap:12px; margin-block-start:16px; }
         .grouping-options button { display:flex; align-items:center; gap:10px; text-align:left; }
         .grouping-options button[aria-pressed=true] { background:var(--secondary-background-color,#edf4ee); font-weight:650; }
@@ -642,7 +642,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
       this._renderProducts();
     });
     root.querySelector("#configure-catalog-grouping").addEventListener("click", () => root.querySelector("#catalog-grouping-dialog").showModal());
-    const pendingFilter=element('button','','');pendingFilter.type='button';pendingFilter.id='pending-formats';pendingFilter.setAttribute('aria-label','Mostrar formatos pendientes de revisar');pendingFilter.title='Formatos pendientes de revisar';pendingFilter.setAttribute('aria-pressed','false');pendingFilter.innerHTML='<ha-icon icon="mdi:package-variant-closed-alert" aria-hidden="true"></ha-icon>';
+    const pendingFilter=element('button','','');pendingFilter.type='button';pendingFilter.id='pending-formats';pendingFilter.setAttribute('aria-label','Mostrar formatos pendientes de revisar');pendingFilter.title='Formatos pendientes de revisar';pendingFilter.setAttribute('aria-pressed','false');pendingFilter.innerHTML='<ha-icon icon="mdi:package-variant" aria-hidden="true"></ha-icon>';
     pendingFilter.addEventListener('click',()=>{this._pendingFormats=!this._pendingFormats;pendingFilter.setAttribute('aria-pressed',String(this._pendingFormats));this._renderProducts();});
     root.querySelector('.catalog-product-controls').append(pendingFilter);
     for (const button of root.querySelectorAll("[data-group-by]")) button.addEventListener("click", () => {
@@ -1219,6 +1219,8 @@ class ImprovedShoppingCatalog extends HTMLElement {
     if (!this._hass || !this._active && !this._receiptCreate) return;
     if (!this._built) return;
     const root = this.shadowRoot;
+    const pendingFilter=root.querySelector('#pending-formats');
+    if(pendingFilter)pendingFilter.hidden=!this._pendingFormats&&!this._catalog.products.some(product=>(product.commercial_references??[]).some(ref=>ref.active!==false&&!ref.content_confirmed));
     const query = productNameKey(root.querySelector("#catalog-search").value);
     const rows = this._productLayout === "rows";
     const grouped = this._productOrder === "categories", grid = root.querySelector("#catalog-grid");

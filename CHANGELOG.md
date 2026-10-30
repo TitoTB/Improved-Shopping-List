@@ -1,5 +1,15 @@
 # Historial de cambios
 
+## 0.57.0 — 2026-10-30
+
+- Cada bloque de Ajustes → Tiendas → Catálogos incorpora un engranaje con «Mostrar tienda en el catálogo», desactivado por defecto. La fuente puede completar los datos comunes del EAN sin añadir la tienda ni su precio como alternativa de compra.
+- Al activar esa opción se reutilizan los datos guardados; al desactivarla se archivan las alternativas automáticas y se conservan marca, contenido y unidades. Las vinculaciones manuales y de tickets se mantienen. El ajuste se guarda por tienda y se respeta también en consultas que ya estaban en curso.
+- El Corte Inglés utiliza HTTP/2 con una sesión pública propia y cookies en memoria. Se ha verificado el recorrido de búsqueda y ficha en Linux, conservando la validación exacta del EAN, las esperas entre peticiones y el respeto de los reintentos indicados por el servidor.
+- Dependencia declarada `h2>=4.4.1`, instalada automáticamente por Home Assistant para HTTP/2; no requiere cuentas ni tarjetas adicionales de HACS. Documentado en `docs/eci-catalog.md`.
+- Eliminado el texto «Última actualización» de Ajustes → Tiendas → Cuentas.
+- El buscador de Catálogo → Productos recupera el espacio que reservaba el control de formatos pendientes. Ese control solo aparece cuando hay pendientes o su filtro está activo, con un icono válido y el mismo fondo que los demás botones. La fila queda alineada al margen derecho en escritorio y móvil.
+- Estabilizada la prueba de revisión de tickets para mantener coherente su catálogo simulado durante las actualizaciones asíncronas.
+
 ## 0.56.1 — 2026-10-30
 
 - Corregido el cliente HTTP de El Corte Inglés tras reproducir el bloqueo 403 en la búsqueda por EAN. Las consultas se ejecutan fuera del bucle principal de Home Assistant y conservan las esperas entre peticiones y la validación exacta del EAN.

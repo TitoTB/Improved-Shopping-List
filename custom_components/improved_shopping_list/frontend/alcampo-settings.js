@@ -1,4 +1,4 @@
-import { installToggleStyles } from './toggle-styles.js?v=0.64.0';
+import { installToggleStyles } from './toggle-styles.js?v=0.65.0';
 class AlcampoSettings extends HTMLElement {
   constructor(){super();this.attachShadow({mode:'open'});this._status={search_enabled:false,refresh_enabled:false,days:30};this._generation=0;this._products=[];}
   set hass(value){this._hass=value;if(!this._built)this._build();this._render();}

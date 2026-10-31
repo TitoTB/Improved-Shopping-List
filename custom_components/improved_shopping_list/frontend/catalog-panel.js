@@ -1,15 +1,15 @@
-import { ReplenishmentEditor, replenishmentMarkup } from './replenishment-editor.js?v=0.72.0';
+import { ReplenishmentEditor, replenishmentMarkup } from './replenishment-editor.js?v=0.73.0';
 const priceValue=value=>value==null||value===''?'':Number(Number(value).toFixed(2));
-import { purchaseQuantity, quantityLabel } from "./quantity-client.js?v=0.72.0";
-import { referenceContentControls, referenceRate, barcodeIdentity, validReferenceContent, validReferenceFormat, weightFormat, pendingProductInformation } from "./reference-formats.js?v=0.72.0";
-import { installDialogCloseButtons } from "./dialog-controls.js?v=0.72.0";
-import { CatalogSession } from "./catalog-client.js?v=0.72.0";
-import { matchCatalogProducts } from "./product-matching.js?v=0.72.0";
-import "./category-panel.js?v=0.72.0";
-import "./recipe-editor.js?v=0.72.0";
-import "./icon-picker.js?v=0.72.0";
-import "./pending-information-refresh.js?v=0.72.0";
-import { imageSource, normalizedName, productNameKey, cachedProductPrice, storeProductLink, storeFromProductUrl } from "./product-display.js?v=0.72.0";
+import { purchaseQuantity, quantityLabel } from "./quantity-client.js?v=0.73.0";
+import { referenceContentControls, referenceRate, barcodeIdentity, validReferenceContent, validReferenceFormat, weightFormat, pendingProductInformation } from "./reference-formats.js?v=0.73.0";
+import { installDialogCloseButtons } from "./dialog-controls.js?v=0.73.0";
+import { CatalogSession } from "./catalog-client.js?v=0.73.0";
+import { matchCatalogProducts } from "./product-matching.js?v=0.73.0";
+import "./category-panel.js?v=0.73.0";
+import "./recipe-editor.js?v=0.73.0";
+import "./icon-picker.js?v=0.73.0";
+import "./pending-information-refresh.js?v=0.73.0";
+import { imageSource, normalizedName, productNameKey, cachedProductPrice, storeProductLink, storeFromProductUrl } from "./product-display.js?v=0.73.0";
 export { imageSource, normalizedName, productNameKey, cachedProductPrice };
 
 const MONTHS = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
@@ -474,6 +474,80 @@ class ImprovedShoppingCatalog extends HTMLElement {
         .season-month-options label { display:flex; align-items:center; gap:8px; font-size:14px; }
         .season-month-options input { width:18px; height:18px; margin:0; }
         @media(max-width:650px) { .season-calendar { grid-template-columns:repeat(2,minmax(0,1fr)); } .season-month-heading { flex-wrap:wrap; } .season-month h3 { flex:1 0 100%; font-size:14px; } .season-month-add { margin-left:auto; } .season-month-options { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+
+        /* Compact product editor. Keep the original fields and event targets. */
+        #product-dialog { --product-field:color-mix(in srgb,var(--card-background-color,#fff) 92%,#000); --product-active:color-mix(in srgb,var(--card-background-color,#fff) 76%,#000); width:min(680px,calc(100vw - 28px)); padding:0; box-shadow:0 18px 48px #0003; }
+        #product-form { min-width:0;padding:24px; }
+        #product-form .dialog-heading { justify-content:flex-start;gap:14px;padding-right:30px; }
+        .product-editor-avatar { flex:none;width:62px;height:62px;display:grid;place-items:center;border-radius:18px;background:var(--product-field);overflow:hidden; }
+        .product-editor-avatar img { display:block;width:100%;height:100%;object-fit:contain;padding:9px; }
+        .product-editor-avatar ha-icon { --mdc-icon-size:36px;width:36px;height:36px; }
+        .product-editor-heading { flex:1;min-width:0;overflow-wrap:anywhere; }
+        #product-dialog-title { font-size:11px;font-weight:500;line-height:1.4;margin:0 0 3px;color:var(--secondary-text-color,#63766b);padding:0; }
+        #product-heading-name { display:block;font-size:23px;font-weight:650;line-height:1.2;letter-spacing:-.4px; }
+        #product-heading-category { font-size:12px;color:var(--secondary-text-color,#63766b);margin:5px 0 0; }
+        #product-dialog .isl-dialog-close { top:18px;right:16px;border-radius:10px; }
+        #product-form .product-views { display:flex;flex-wrap:nowrap;gap:4px;margin:22px 0;padding:5px;border-radius:12px;background:var(--product-field);overflow:visible; }
+        #product-form .product-views button { flex:1;min-width:0;min-height:42px;padding:9px 7px;font-size:13px;border-radius:9px;white-space:normal;color:var(--secondary-text-color,#63766b); }
+        #product-form .product-views button[aria-pressed=true] { background:var(--product-active);color:var(--primary-text-color,#20352d);box-shadow:0 2px 5px #0001; }
+        #product-form .product-views ha-icon { width:18px;height:18px;--mdc-icon-size:18px; }
+        #product-form > .fields { margin:0 0 22px;gap:18px; }
+        #product-form label { font-size:12px;color:var(--secondary-text-color,#63766b);font-weight:550; }
+        #product-form input:not([type=checkbox]),#product-form select { min-width:0;min-height:44px;background:var(--product-field);border:1px solid transparent;border-radius:10px;color:var(--primary-text-color,#20352d);padding:10px 12px; }
+        #product-form select { border-right:10px solid transparent;padding-right:4px; }
+        #product-form input:not([type=checkbox]):focus,#product-form select:focus { outline-offset:1px; }
+        #product-form input:disabled,#product-form select:disabled { opacity:.5; }
+        #product-form .product-main-row { grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:14px; }
+        #product-form #add-product-category { width:44px;flex-basis:44px;height:44px;min-height:44px;border-radius:10px; }
+        #product-form h3 { font-size:13px;font-weight:650;margin:0 0 12px; }
+        #product-form #product-options-title { margin:0 0 10px; }
+        #product-form .store-link-add { margin-top:0;margin-bottom:6px; }
+        #product-form .helper { font-size:12px;line-height:1.5; }
+        #product-form .helper:empty { display:none; }
+        #product-form .product-store-association,#product-form .product-ean-group { padding:0;border:1px solid var(--divider-color,#dfe7e1);border-radius:12px;background:transparent;margin:0; }
+        #product-form #product-store-links { gap:10px;margin-top:16px; }
+        #product-form .product-option>summary,#product-form .product-ean-group>summary { padding:14px;min-height:58px; }
+        #product-form .option-name { font-size:13px; }
+        #product-form .option-summary-price { flex:none;font-size:13px;font-weight:650;white-space:nowrap;font-variant-numeric:tabular-nums; }
+        #product-form .product-option .product-store-header { padding:0 14px; }
+        #product-form .commercial-reference { padding:12px 14px 14px; }
+        #product-form .commercial-reference-title input { margin:0; }
+        #product-form .product-ean-group>.reference-common-fields { margin:0;padding:0 14px 14px; }
+        #product-form .product-ean-group .product-option { border:0;border-top:1px solid var(--divider-color,#dfe7e1);border-radius:0;margin:0; }
+        #product-form .option-brand { margin-top:12px; }
+        #product-form .reference-content-controls { gap:10px; }
+        #product-form .option-sale-row { gap:12px; }
+        #product-form .replenishment-block { border:0;border-bottom:1px solid var(--divider-color,#dfe7e1);border-radius:0;overflow:visible; }
+        #product-form .replenishment-block>summary { padding:15px 0;min-height:48px;font-size:13px; }
+        #product-form .replenishment-block summary ha-icon { width:20px;height:20px;--mdc-icon-size:20px; }
+        #product-form .replenishment-content { padding:4px 0 18px; }
+        #product-form #product-replenishment .replenishment-number { background:var(--product-field);border:1px solid transparent; }
+        #product-form .replenishment-number input { background:transparent; }
+        #product-form #product-replenishment .replenishment-number>span { color:var(--secondary-text-color,#63766b); }
+        #product-form .code-capture-controls { gap:8px; }
+        #product-form .form-actions.product-actions { display:flex;justify-content:space-between;align-items:center;gap:12px;margin:0 -24px -24px;padding:16px 24px;border-top:1px solid var(--divider-color,#dfe7e1); }
+        #product-form .product-actions button { min-height:42px;padding:10px 16px;border-radius:10px; }
+        #product-form .product-actions #save-product { margin-left:auto; }
+        @media(max-width:550px) {
+          #product-form { padding:18px 16px; }
+          #product-form .dialog-heading { gap:12px; }
+          .product-editor-avatar { width:50px;height:50px;border-radius:14px; }
+          .product-editor-avatar ha-icon { --mdc-icon-size:30px;width:30px;height:30px; }
+          #product-heading-name { font-size:21px; }
+          #product-form .product-main-row { grid-template-columns:minmax(0,1fr);gap:14px; }
+          #product-form .product-main-row input { padding-inline:12px; }
+          #product-form .product-main-row select { padding-left:12px; }
+          #product-form .product-category-controls { gap:8px; }
+          #product-form .product-views { margin:20px 0;gap:2px;padding:4px; }
+          #product-form .product-views button { font-size:11px;gap:4px;padding:9px 3px; }
+          #product-form .product-views ha-icon { width:16px;height:16px;--mdc-icon-size:16px; }
+          #product-form .option-summary-price { font-size:12px; }
+          #product-form .product-option>summary { gap:8px;padding:12px; }
+          #product-form input:not([type=checkbox]),#product-form select { font-size:16px; }
+          #product-form .form-actions.product-actions { margin:0 -16px -18px;padding:14px 16px;gap:8px; }
+          #product-form .product-actions button { font-size:12px;padding:10px 12px; }
+        }
+        @media(max-width:360px) { #product-form .product-views button { flex-direction:column;gap:4px;padding:7px 2px; } }
       </style>
       <div class="heading"><h1>Catálogo</h1>
       <div class="catalog-toolbar">
@@ -515,9 +589,9 @@ class ImprovedShoppingCatalog extends HTMLElement {
         </div>
       </section>
       <isl-recipe-editor></isl-recipe-editor>
-      <dialog aria-labelledby="product-dialog-title">
+      <dialog id="product-dialog" aria-labelledby="product-dialog-title">
         <form id="product-form">
-          <div class="dialog-heading"><h2 id="product-dialog-title">Nuevo producto</h2></div>
+          <div class="dialog-heading"><div id="product-heading-avatar" class="product-editor-avatar" aria-hidden="true"></div><div class="product-editor-heading"><h2 id="product-dialog-title">Nuevo producto</h2><strong id="product-heading-name">Nuevo producto</strong><p id="product-heading-category"></p></div></div>
           <div id="product-error" class="notice error" role="alert" hidden></div>
           <nav class="product-views" aria-label="Vistas de la ficha del producto">
             <button type="button" data-product-view="main" aria-label="Características" aria-pressed="true" aria-controls="product-main"><ha-icon icon="mdi:package-variant-closed" aria-hidden="true"></ha-icon><span class="tab-label">Características</span></button>
@@ -613,10 +687,11 @@ class ImprovedShoppingCatalog extends HTMLElement {
       const sameProduct = this._editing && productNameKey(name) === productNameKey(this._editing.name);
       return {translate: !sameProduct || !this._editing.name_en, ...(sameProduct ? {product_id:this._editing.id} : {})};
     };
-    iconPicker.onSelect = asset => { root.querySelector("form").elements.image_url.value = asset.url; };
+    iconPicker.onSelect = asset => { root.querySelector("form").elements.image_url.value = asset.url; this._updateProductHeader(); };
     iconPicker.onBusyChange = busy => { root.querySelector("#save-product").disabled = Boolean(this._saving || busy); };
     root.querySelector('[name="name"]').addEventListener("input", () => { this._updateOptionTitle(); iconPicker.suggest(); });
-    root.querySelector('[name="image_url"]').addEventListener("input", event => { iconPicker.value = event.target.value; });
+    root.querySelector('[name="image_url"]').addEventListener("input", event => { iconPicker.value = event.target.value; this._updateProductHeader(); });
+    root.querySelector("#product-category").addEventListener("change", () => this._updateProductHeader());
     root.querySelector("dialog").addEventListener("close", () => { this._stopCodeCapture(); iconPicker.close(); this._optionGeneration=(this._optionGeneration||0)+1; this._resetNutriscores(); });
     for (const kind of ["barcode","nfc"]) {
       root.querySelector(`#${kind}-capture-start`).addEventListener("click",()=>void this._startCodeCapture(kind));
@@ -661,6 +736,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
     categoryEditor.onSave = async category => {
       const saved = await this._catalog.saveCategory(category);
       root.querySelector("#product-category").value = saved.name;
+      this._updateProductHeader();
       return saved;
     };
     categoryEditor.onClose = () => root.querySelector("#add-product-category").focus();
@@ -1493,7 +1569,25 @@ class ImprovedShoppingCatalog extends HTMLElement {
     this._nutriCodesKey = "";
   }
 
+  _updateProductHeader() {
+    const root=this.shadowRoot,form=root.querySelector('#product-form');
+    if(!form)return;
+    const name=form.elements.name.value.trim()||'Nuevo producto',categoryName=form.elements.category.value;
+    const category=this._catalog.categories.find(item=>normalizedName(item.name)===normalizedName(categoryName));
+    const icon=this._editing?.icon||category?.icon||'mdi:shopping',source=imageSource(form.elements.image_url.value);
+    const signature=JSON.stringify([name,categoryName,icon,source]);
+    if(signature===this._productHeaderSignature)return;
+    this._productHeaderSignature=signature;
+    root.querySelector('#product-heading-name').textContent=name;
+    root.querySelector('#product-heading-category').textContent=categoryName||'Sin categoría';
+    const fallback=element('ha-icon');fallback.setAttribute('icon',icon);fallback.setAttribute('aria-hidden','true');
+    const avatar=root.querySelector('#product-heading-avatar');
+    if(source){const image=element('img');image.src=source;image.alt='';image.referrerPolicy='no-referrer';image.addEventListener('error',()=>image.replaceWith(fallback),{once:true});avatar.replaceChildren(image);}
+    else avatar.replaceChildren(fallback);
+  }
+
   _updateOptionTitle() {
+    this._updateProductHeader();
     const name=this.shadowRoot.querySelector("#product-form").elements.name.value.trim();
     this.shadowRoot.querySelector("#product-options-title").textContent=name?`Alternativas para comprar ${name}`:"Alternativas para comprar";
   }
@@ -1522,13 +1616,15 @@ class ImprovedShoppingCatalog extends HTMLElement {
       reference.append(image);
       reference.classList.add('option-store');
       const title=element('span','option-name',ref?.name|| (ref?.ean?`EAN ${ref.ean}`:ref?.reference_id?`Referencia ${ref.reference_id}`:'Opción sin detalle'));
-      const updateSummary=()=>{title.textContent=ref?.name||(ref?.ean?`EAN ${ref.ean}`:ref?.reference_id?`Referencia ${ref.reference_id}`:'Opción sin detalle');};updateSummary();
-      heading.append(title);summary.append(reference,heading);
+      const priceSummary=element('span','option-summary-price');priceSummary.hidden=true;
+      const updateSummary=()=>{title.textContent=ref?.name||(ref?.ean?`EAN ${ref.ean}`:ref?.reference_id?`Referencia ${ref.reference_id}`:'Opción sin detalle');const input=card.querySelector('.option-price input');priceSummary.hidden=!input||input.value==='';if(!priceSummary.hidden)priceSummary.textContent=new Intl.NumberFormat('es-ES',{style:'currency',currency:'EUR',maximumFractionDigits:2}).format(input.valueAsNumber)+(weightFormat(ref)?' / kg':'');};updateSummary();
+      heading.append(title);summary.append(reference,heading,priceSummary);
       card.append(summary);
       const source=document.createElement('div');source.className='association-source';
       for(const text of [value?'Web':'',fromTicket?'Ticket/factura confirmado':''].filter(Boolean)){const badge=document.createElement('span');badge.textContent=text;source.append(badge);}
       const header=document.createElement('div');header.className='product-store-header';header.append(source);card.append(header);
       if(ref)card.append(this._commercialReferenceCard(ref,updateSummary));
+      updateSummary();
       return card;
     });
     const groups=new Map();
@@ -1816,6 +1912,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
     const iconPicker = root.querySelector("isl-icon-picker");
     iconPicker.hass = this._hass;
     iconPicker.value = form.elements.image_url.value;
+    this._updateProductHeader();
     root.querySelector("dialog").showModal();
     iconPicker.open(iconPicker.getQuery());
     form.elements.name.focus();

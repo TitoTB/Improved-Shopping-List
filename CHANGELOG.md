@@ -1,5 +1,11 @@
 # Historial de cambios
 
+## 0.73.0 — 2026-10-31
+
+- La ficha de producto adopta el diseño compacto: cabecera con su imagen o icono actual, pestañas integradas, campos más limpios, alternativas con resumen de precio y reposición en bloques desplegables. Se conservan los controles y procesos existentes.
+
+- Nueva rutina se simplifica a nombre, personas, franja horaria y días de la semana, sin bloques de comidas ni casilla de activación. La activación se controla desde el toggle de la tarjeta.
+
 ## 0.72.0 — 2026-10-31
 
 - Se retira el texto introductorio de la ficha de productos.

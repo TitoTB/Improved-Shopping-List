@@ -1163,6 +1163,43 @@ async function checkReplenishmentLayout(browser,url,errors){
   await context.close();
 }
 
+async function checkCompactProductEditor(browser,url,errors){
+  const context=await browser.newContext({viewport:{width:390,height:844}});
+  await context.addInitScript(()=>{
+    localStorage.setItem('category-fixture',JSON.stringify([{id:'fresh',revision:1,name:'Frescos',icon:'mdi:leaf',color:'#267052'}]));
+    localStorage.setItem('catalog-fixture',JSON.stringify([{id:'pavo',revision:1,name:'Pavo',category:'Frescos',tags:[],price:null,currency:'EUR',barcode:'',barcodes:[],nfc_tags:[],reader_actions:{},image_url:'',icon:'mdi:food-drumstick',notes:'No borrar',store_links:{},commercial_references:[],recurrence:{enabled:false,days:7}}]));
+  });
+  const page=await context.newPage();page.on('pageerror',error=>errors.push(error.message));await page.goto(url);
+  await page.getByRole('button',{name:'Catálogo',exact:true}).click();const catalog=page.locator('isl-catalog');await editCatalogProduct(catalog,'Editar Pavo');
+  const form=catalog.getByRole('dialog',{name:'Editar producto',exact:true});
+  assert.equal(await form.locator('#product-heading-avatar ha-icon').getAttribute('icon'),'mdi:food-drumstick');
+  assert.equal(await form.locator('#product-heading-name').textContent(),'Pavo');
+  assert.deepEqual(await form.locator('.product-views ha-icon').evaluateAll(icons=>icons.map(icon=>icon.getAttribute('icon'))),['mdi:package-variant-closed','mdi:format-list-text','mdi:reload']);
+  await form.getByLabel('Nombre del producto',{exact:true}).fill('Pavo fresco');
+  assert.equal(await form.locator('#product-heading-name').textContent(),'Pavo fresco');
+  for(const width of [320,390,1280]){
+    await page.setViewportSize({width,height:900});
+    for(const name of ['Características','Alternativas','Reposición']){
+      await form.getByRole('button',{name,exact:true}).click();
+      assert.ok(await form.evaluate(el=>el.scrollWidth<=el.clientWidth+1),name+' overflow at '+width);
+      assert.ok(await form.locator('.product-views').evaluate(nav=>[...nav.querySelectorAll('button')].every(button=>{const label=button.querySelector('.tab-label').getBoundingClientRect(),box=button.getBoundingClientRect();return label.right<=box.right+1&&label.left>=box.left-1;})),'Tab labels fit at '+width);
+    }
+  }
+  assert.equal(await form.locator('#product-barcode-codes summary ha-icon').getAttribute('icon'),'mdi:barcode-scan');
+  assert.equal(await form.locator('#product-nfc-codes summary ha-icon').getAttribute('icon'),'mdi:nfc-variant');
+  await form.getByRole('button',{name:'Características',exact:true}).click();
+  await page.screenshot({path:'test-results/compact-product-desktop.png',fullPage:true});
+  await page.setViewportSize({width:390,height:844});await page.screenshot({path:'test-results/compact-product-mobile.png',fullPage:true});
+  await form.getByRole('button',{name:'Guardar producto',exact:true}).click();await form.waitFor({state:'hidden'});
+  assert.deepEqual(await page.evaluate(()=>[window.catalogProducts[0].name,window.catalogProducts[0].icon,window.catalogProducts[0].notes]),['Pavo fresco','mdi:food-drumstick','No borrar']);
+  await catalog.getByRole('button',{name:'Nuevo producto',exact:true}).click();
+  const fresh=catalog.getByRole('dialog',{name:'Nuevo producto',exact:true});
+  await fresh.getByLabel('Categoría',{exact:true}).selectOption('Frescos');
+  assert.equal(await fresh.locator('#product-heading-avatar ha-icon').getAttribute('icon'),'mdi:leaf');
+  assert.equal(await fresh.getByRole('button',{name:'Eliminar producto',exact:true}).count(),0);
+  await fresh.getByRole('button',{name:'Cerrar ventana',exact:true}).click();await context.close();
+}
+
 async function checkMealRoutines(browser,url,errors){
   const context=await browser.newContext({viewport:{width:390,height:844}}),page=await context.newPage();
   page.on('pageerror',error=>errors.push(error.message));await page.goto(url);
@@ -1177,31 +1214,31 @@ async function checkMealRoutines(browser,url,errors){
   await page.evaluate(()=>{window.savedRandomUUID=crypto.randomUUID;Object.defineProperty(crypto,'randomUUID',{value:undefined,configurable:true});});
   const routines=page.locator('isl-meal-routines');await routines.getByRole('button',{name:'Nueva rutina',exact:true}).click();
   const routine=routines.getByRole('dialog',{name:'Nueva rutina',exact:true});
-  assert.equal(await routine.locator('.meal').count(),0);
-  assert.equal(await routine.getByRole('button',{name:'Añadir comida',exact:true}).count(),0);
+  assert.equal(await routine.getByRole('checkbox',{name:'Rutina activada',exact:true}).count(),0);
+  assert.equal(await routine.getByText('Comidas',{exact:true}).count(),0);
+  assert.equal(await routines.getByRole('button',{name:'Añadir comida',exact:true}).count(),0);
   await routine.getByLabel('Nombre de la rutina',{exact:true}).fill('Comidas en casa');
   await routine.locator('#routine-people > summary').click();
   await routine.getByRole('checkbox',{name:'Ana',exact:true}).check();await routine.getByRole('checkbox',{name:'Luis',exact:true}).check();
-  assert.equal(await routine.getByLabel('Permanencia mínima en casa (minutos)',{exact:true}).count(),0);
+  assert.equal(await routine.getByLabel('Inicio',{exact:true}).inputValue(),'08:30');
+  assert.equal(await routine.getByLabel('Fin',{exact:true}).inputValue(),'09:30');
+  await routine.getByLabel('Fin',{exact:true}).fill('10:00');
+  await routine.getByRole('checkbox',{name:'Domingo',exact:true}).uncheck();
+  await page.screenshot({path:'test-results/meal-routine-mobile.png',fullPage:true});
   await page.evaluate(()=>Object.defineProperty(crypto,'randomUUID',{value:window.savedRandomUUID,configurable:true}));
   await routine.getByRole('button',{name:'Guardar rutina',exact:true}).click();await routine.waitFor({state:'hidden'});
-  const editor=routines.locator('.routine').filter({hasText:'Comidas en casa'});
-  await page.evaluate(()=>Object.defineProperty(crypto,'randomUUID',{value:undefined,configurable:true}));
-  await editor.getByRole('button',{name:'Añadir comida',exact:true}).click();
-  assert.equal(await editor.locator('.meal').count(),4);
-  await editor.getByRole('button',{name:'Eliminar comida 4',exact:true}).click();
-  await page.evaluate(()=>Object.defineProperty(crypto,'randomUUID',{value:window.savedRandomUUID,configurable:true}));
-  assert.equal(await editor.getByLabel('Inicio de comida 1',{exact:true}).inputValue(),'08:30');
-  assert.equal(await editor.getByLabel('Fin de comida 1',{exact:true}).inputValue(),'09:30');
-  await editor.getByLabel('Fin de comida 1',{exact:true}).fill('10:00');
-  await editor.getByRole('checkbox',{name:'Domingo de comida 3',exact:true}).uncheck();
-  await page.screenshot({path:'test-results/meal-routine-mobile.png',fullPage:true});
-  await editor.getByRole('button',{name:'Guardar comidas',exact:true}).click();
-  await page.waitForFunction(()=>window.routinesFixture[0].meals[0].end_time==='10:00');
   assert.deepEqual(await page.evaluate(()=>window.routinesFixture[0].persons),['person.one','person.two']);
-  assert.equal(await page.evaluate(()=>window.routinesFixture[0].meals[2].days.includes(6)),false);
+  assert.equal(await page.evaluate(()=>window.routinesFixture[0].meals.length),1);
+  assert.equal(await page.evaluate(()=>window.routinesFixture[0].meals[0].days.includes(6)),false);
   assert.deepEqual(await page.evaluate(()=>{const meal=window.routinesFixture[0].meals[0];return [meal.start_time,meal.end_time];}),['08:30','10:00']);
   assert.equal(await page.evaluate(()=>Object.hasOwn(window.routinesFixture[0],'minimum_minutes')),false);
+  assert.equal(await routines.getByRole('button',{name:'Guardar comidas',exact:true}).count(),0);
+  const originalId=await page.evaluate(()=>window.routinesFixture[0].meals[0].id);
+  await routines.getByRole('button',{name:'Editar Comidas en casa',exact:true}).click();
+  const editRoutine=routines.getByRole('dialog',{name:'Editar rutina',exact:true});
+  assert.equal(await editRoutine.getByLabel('Fin',{exact:true}).inputValue(),'10:00');
+  await editRoutine.getByRole('button',{name:'Guardar rutina',exact:true}).click();await editRoutine.waitFor({state:'hidden'});
+  assert.equal(await page.evaluate(()=>window.routinesFixture[0].meals[0].id),originalId);
   assert.equal(await routines.getByRole('heading',{name:'Rutinas',exact:true}).count(),1);
   assert.equal(await routines.getByText(/Define quién come en casa/).count(),0);
   const enabled=routines.getByRole('switch',{name:'Activar rutina Comidas en casa',exact:true});
@@ -1224,13 +1261,13 @@ async function checkMealRoutines(browser,url,errors){
   await product.getByRole('button',{name:'Reposición',exact:true}).click();await product.locator('#product-replenishment > summary').click();
   await product.getByRole('combobox',{name:'Reposición automática',exact:true}).selectOption('meals');
   const meals=product.locator('isl-meal-consumption');await meals.getByText('Comidas en casa',{exact:true}).waitFor();
-  for(const name of ['Desayuno','Comida','Cena'])await meals.getByRole('checkbox',{name:'Comidas en casa · '+name,exact:true}).check();
+  await meals.getByRole('checkbox',{name:'Comidas en casa · Franja horaria',exact:true}).check();
   const breakfast=meals.locator('.meal').first();
   await breakfast.getByText('Cantidades distintas por persona',{exact:true}).click();
-  await breakfast.getByLabel('Cantidad de Luis en Desayuno',{exact:true}).fill('2');
+  await breakfast.getByLabel('Cantidad de Luis en Franja horaria',{exact:true}).fill('2');
   await product.getByRole('button',{name:'Guardar producto',exact:true}).click();await product.waitFor({state:'hidden'});
   assert.equal(await page.evaluate(()=>window.lastReplenishment.config.mode),'meals');
-  assert.equal(await page.evaluate(()=>window.lastReplenishment.config.meal_rules.length),3);
+  assert.equal(await page.evaluate(()=>window.lastReplenishment.config.meal_rules.length),1);
   assert.deepEqual(await page.evaluate(()=>window.lastReplenishment.config.meal_rules[0].person_amounts),{'person.two':2});
   await page.getByRole('button',{name:'Stock',exact:true}).click();
   await page.getByRole('tab',{name:'Stock',exact:true}).click();
@@ -1238,14 +1275,22 @@ async function checkMealRoutines(browser,url,errors){
   const stock=page.getByRole('dialog',{name:'Chocolate de comidas · Stock',exact:true});
   assert.equal(await stock.getByLabel('Control del stock',{exact:true}).inputValue(),'meals');
   const stockMeals=stock.locator('isl-meal-consumption');await stockMeals.getByText('Comidas en casa',{exact:true}).waitFor();
-  assert.equal(await stockMeals.getByRole('checkbox',{name:'Comidas en casa · Cena',exact:true}).isChecked(),true);
-  await stockMeals.getByLabel('Cantidad por persona en Comidas en casa · Desayuno',{exact:true}).fill('3');
+  assert.equal(await stockMeals.getByRole('checkbox',{name:'Comidas en casa · Franja horaria',exact:true}).isChecked(),true);
+  await stockMeals.getByLabel('Cantidad por persona en Comidas en casa · Franja horaria',{exact:true}).fill('3');
   await stock.getByRole('button',{name:'Guardar',exact:true}).click();await stock.waitFor({state:'hidden'});
   await page.getByRole('button',{name:'Catálogo',exact:true}).click();await editCatalogProduct(catalog,'Editar Chocolate de comidas');
   const edit=catalog.getByRole('dialog',{name:'Editar producto',exact:true});await edit.getByRole('button',{name:'Reposición',exact:true}).click();await edit.locator('#product-replenishment > summary').click();
   const editedMeals=edit.locator('isl-meal-consumption');await editedMeals.getByText('Comidas en casa',{exact:true}).waitFor();
-  assert.equal(await editedMeals.getByLabel('Cantidad por persona en Comidas en casa · Desayuno',{exact:true}).inputValue(),'3');
+  assert.equal(await editedMeals.getByLabel('Cantidad por persona en Comidas en casa · Franja horaria',{exact:true}).inputValue(),'3');
   await page.screenshot({path:'test-results/meal-product-mobile.png',fullPage:true});
+  await edit.getByRole('button',{name:'Cerrar ventana',exact:true}).click();await edit.waitFor({state:'hidden'});
+  // Existing multi-window routines retain every schedule and product key.
+  await page.evaluate(()=>{const row=window.routinesFixture[0];row.meals.push({...structuredClone(row.meals[0]),id:'legacy_evening',name:'Cena',start_time:'20:00',end_time:'21:00'});});
+  await page.getByRole('button',{name:'Stock',exact:true}).click();await page.getByRole('tab',{name:'Rutinas',exact:true}).click();
+  await routines.getByRole('button',{name:'Editar Comidas en casa',exact:true}).click();
+  assert.equal(await editRoutine.getByLabel('Inicio de franja 2',{exact:true}).inputValue(),'20:00');
+  await editRoutine.getByRole('button',{name:'Guardar rutina',exact:true}).click();await editRoutine.waitFor({state:'hidden'});
+  assert.deepEqual(await page.evaluate(()=>window.routinesFixture[0].meals.map(m=>m.id)),[originalId,'legacy_evening']);
   await context.close();
 }
 
@@ -2263,6 +2308,7 @@ async function main() {
     if(process.argv.includes('--catalog-sources-only')){const errors=[];await checkCatalogSources(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Catalog sources and EAN grouping passed.');return;}
     if(process.argv.includes('--repeated-receipt-product-only')){const errors=[];await checkRepeatedReceiptProduct(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Repeated receipt product passed.');return;}
     if(process.argv.includes('--replenishment-layout-only')){const errors=[];await checkReplenishmentLayout(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Replenishment layout passed.');return;}
+    if(process.argv.includes('--compact-product-only')){const errors=[];await checkCompactProductEditor(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Compact product editor passed.');return;}
     if(process.argv.includes('--meals-only')){const errors=[];await checkMealRoutines(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Meal routines passed.');return;}
     if(process.argv.includes('--replenishment-only')){const errors=[];await checkProductReplenishment(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Product replenishment passed.');return;}
     if(process.argv.includes('--reference-logs-only')){const errors=[];await checkReferenceLogDescriptions(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Reference log descriptions passed.');return;}
@@ -5035,9 +5081,9 @@ async function main() {
         const bounds=name=>form.elements[name].getBoundingClientRect();
         const name=bounds('name'),category=bounds('category');
         const quantityFieldsAbsent=['purchase_unit','unit_quantity','quantity_step'].every(key=>!form.elements[key]);
-        return {top:[name.bottom,category.bottom],tagsAbsent:!form.elements.tags,quantityFieldsAbsent,order:form.querySelector('[name="image_url"]').getBoundingClientRect().bottom<=form.querySelector('isl-icon-picker').getBoundingClientRect().top,overflow:form.scrollWidth>form.clientWidth};
+        return {top:[name.bottom,category.bottom],stacked:category.top>=name.bottom,tagsAbsent:!form.elements.tags,quantityFieldsAbsent,order:form.querySelector('[name="image_url"]').getBoundingClientRect().bottom<=form.querySelector('isl-icon-picker').getBoundingClientRect().top,overflow:form.scrollWidth>form.clientWidth};
       });
-      assert.ok(Math.max(...layout.top)-Math.min(...layout.top)<=1);
+      if(width>550)assert.ok(Math.max(...layout.top)-Math.min(...layout.top)<=1);else assert.equal(layout.stacked,true);
       assert.equal(layout.quantityFieldsAbsent,true);
       assert.equal(layout.tagsAbsent,true);assert.equal(layout.order,true);assert.equal(layout.overflow,false);
       await storeGroupingPage.screenshot({path:'test-results/product-form-main-'+width+'.png',fullPage:true});
@@ -5374,6 +5420,7 @@ async function main() {
     await checkReceiptPackageFormats(browser,url,errors);
     await checkRepeatedReceiptProduct(browser,url,errors);
     await checkReplenishmentLayout(browser,`http://127.0.0.1:${server.address().port}`,errors);
+    await checkCompactProductEditor(browser,url,errors);
     await checkMealRoutines(browser,`http://127.0.0.1:${server.address().port}`,errors);
     await checkProductReplenishment(browser,`http://127.0.0.1:${server.address().port}`,errors);
     await checkReferenceLogDescriptions(browser,url,errors);

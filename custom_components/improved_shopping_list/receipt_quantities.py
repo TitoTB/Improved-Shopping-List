@@ -7,7 +7,7 @@ SCALES = {"kg":("kg",1), "g":("kg",.001), "l":("l",1), "cl":("l",.01), "ml":("l"
 
 def weight_format(reference):
     """A known weight unit with no fixed package size describes sale by weight."""
-    return bool(reference and reference.get("content_quantity") in (None, "") and reference.get("content_unit") in ("g", "kg"))
+    return bool(reference and reference.get("sale_mode")!="package" and reference.get("content_quantity") in (None, "") and reference.get("content_unit") in ("g", "kg"))
 
 
 def weight_purchase(line, reference=None):

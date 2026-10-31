@@ -1,7 +1,9 @@
 # Historial de cambios
 
-## Próxima versión
+## 0.66.0 — 2026-10-31
 
+- En las alternativas individuales, el tipo de venta y el precio se muestran en la misma fila, debajo de Marca.
+- Las alternativas incorporan el selector persistente «Por envase / Al peso». Unidades aparece primero; Al peso mantiene visibles y deshabilitados contenido y pack, sin utilizarlos, y muestra el precio por kg. Elegir g/kg en Por envase conserva el formato de envase.
 - En Analítica → Compras, el botón Subir ticket se coloca a la derecha de los filtros de tienda y usuario, en la misma fila, también en móvil.
 
 ## 0.65.0 — 2026-10-31

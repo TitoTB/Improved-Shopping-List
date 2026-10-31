@@ -1614,6 +1614,19 @@ async function checkCatalogSources(browser,url,errors){
   const shared=form.locator('.product-ean-group > .reference-common-fields');
   assert.equal(await shared.count(),1);
   assert.equal(await form.locator('.product-ean-group .product-option .reference-common-fields').count(),0);
+  const individual=form.locator('.product-option').filter({hasText:'Otro formato'});
+  await individual.locator(':scope > summary').click();
+  for(const width of [1280,390,320]){
+    await p.setViewportSize({width,height:844});
+    assert.ok(await individual.evaluate(el=>{
+      const brand=el.querySelector('.option-brand input').getBoundingClientRect();
+      const mode=el.querySelector('.option-sale-mode select').getBoundingClientRect();
+      const price=el.querySelector('.option-price input').getBoundingClientRect();
+      return mode.top>=brand.bottom&&price.left>=mode.right&&Math.abs(mode.bottom-price.bottom)<2&&el.scrollWidth<=el.clientWidth+1;
+    }),'Sale mode and price must share a row below brand at '+width+'px');
+  }
+  await p.screenshot({path:'test-results/product-sale-price-row-mobile.png',fullPage:true});
+  await individual.locator(':scope > summary').click();
   await shared.getByLabel('Marca',{exact:true}).fill('Marca compartida');
   await shared.getByLabel('Contenido por envase',{exact:true}).fill('500');
   await shared.getByLabel('Unidades del envase',{exact:true}).selectOption('g');
@@ -1624,7 +1637,7 @@ async function checkCatalogSources(browser,url,errors){
       const inputs=['Contenido por envase','Unidades del envase'].map(name=>el.querySelector('[aria-label="'+name+'"]'));
       inputs.push(el.querySelector('.option-pack input'));
       const boxes=inputs.map(input=>input.getBoundingClientRect());
-      return boxes.every(box=>Math.abs(box.bottom-boxes[0].bottom)<2)&&el.scrollWidth<=el.clientWidth+1;
+      return boxes.every(box=>Math.abs(box.bottom-boxes[0].bottom)<2)&&boxes[1].right<=boxes[0].left&&boxes[0].right<=boxes[2].left&&el.scrollWidth<=el.clientWidth+1;
     });
     assert.ok(aligned,'Package fields must fit on one line at '+width+'px');
   }
@@ -1691,13 +1704,45 @@ async function checkCatalogSources(browser,url,errors){
   await form.getByRole('button',{name:'Alternativas',exact:true}).click();
   await form.locator('.product-option > summary').first().click();
   const weighed=form.locator('.reference-common-fields').first();
+  assert.equal(await weighed.getByLabel('Tipo de venta',{exact:true}).inputValue(),'package');
   await weighed.getByLabel('Contenido por envase',{exact:true}).fill('');
   await weighed.getByLabel('Unidades del envase',{exact:true}).selectOption('kg');
-  await form.getByLabel('Precio por kg',{exact:true}).fill('10');
+  assert.equal(await weighed.getByLabel('Contenido por envase',{exact:true}).isVisible(),true);
+  assert.equal(await form.getByLabel('Precio por envase',{exact:true}).count(),2);
+  await weighed.getByLabel('Tipo de venta',{exact:true}).selectOption('weight');
+  assert.equal(await weighed.getByLabel('Contenido por envase',{exact:true}).isVisible(),true);
+  assert.equal(await weighed.getByLabel('Contenido por envase',{exact:true}).isDisabled(),true);
+  assert.equal(await weighed.getByLabel('Unidades por pack',{exact:true}).isVisible(),true);
+  assert.equal(await weighed.getByLabel('Unidades por pack',{exact:true}).isDisabled(),true);
+  assert.deepEqual(await weighed.getByLabel('Unidades del envase',{exact:true}).locator('option:enabled').evaluateAll(options=>options.map(o=>o.value)),['g','kg']);
+  await form.locator('.product-option[data-store="carrefour"]').getByLabel('Precio por kg',{exact:true}).fill('10');
   await form.getByRole('button',{name:'Guardar producto',exact:true}).click();await form.waitFor({state:'hidden'});
   const weightedOption=await p.evaluate(()=>window.catalogProducts[0].commercial_references.find(ref=>ref.active!==false));
   assert.equal(weightedOption.content_confirmed,true);assert.equal(weightedOption.content_quantity,null);
+  assert.equal(weightedOption.sale_mode,'weight');
   assert.equal(weightedOption.measure_price.price,10);assert.equal(weightedOption.measure_price.unit,'kg');
+  await catalog.getByRole('button',{name:'Editar Producto',exact:true}).click();
+  await form.getByRole('button',{name:'Alternativas',exact:true}).click();
+  await form.locator('.product-option > summary').first().click();
+  assert.equal(await weighed.getByLabel('Tipo de venta',{exact:true}).inputValue(),'weight');
+  assert.equal(await weighed.getByLabel('Contenido por envase',{exact:true}).isVisible(),true);
+  assert.equal(await weighed.getByLabel('Contenido por envase',{exact:true}).isDisabled(),true);
+  await p.screenshot({path:'test-results/product-sale-mode-weight-mobile.png',fullPage:true});
+  await weighed.getByLabel('Tipo de venta',{exact:true}).selectOption('package');
+  assert.equal(await weighed.getByLabel('Contenido por envase',{exact:true}).isVisible(),true);
+  assert.equal(await weighed.getByLabel('Contenido por envase',{exact:true}).isDisabled(),false);
+  assert.equal(await weighed.getByLabel('Unidades por pack',{exact:true}).isDisabled(),false);
+  await weighed.getByLabel('Contenido por envase',{exact:true}).fill('500');
+  await weighed.getByLabel('Unidades del envase',{exact:true}).selectOption('g');
+  await weighed.getByLabel('Unidades por pack',{exact:true}).fill('6');
+  assert.equal(await form.getByLabel('Precio por envase',{exact:true}).count(),2);
+  await weighed.getByLabel('Tipo de venta',{exact:true}).selectOption('weight');
+  await weighed.getByLabel('Tipo de venta',{exact:true}).selectOption('package');
+  assert.equal(await weighed.getByLabel('Contenido por envase',{exact:true}).inputValue(),'500');
+  assert.equal(await weighed.getByLabel('Unidades por pack',{exact:true}).inputValue(),'6');
+  await form.getByRole('button',{name:'Guardar producto',exact:true}).click();await form.waitFor({state:'hidden'});
+  const packagedOption=await p.evaluate(()=>window.catalogProducts[0].commercial_references.find(ref=>ref.active!==false));
+  assert.equal(packagedOption.sale_mode,'package');assert.equal(packagedOption.content_quantity,500);assert.equal(packagedOption.content_unit,'g');
   await p.evaluate(()=>{
     const base={revision:1,category:'',image_url:'',icon:'',tags:[],barcodes:[],nfc_tags:[],store_links:{},commercial_references:[]};
     window.catalogProducts=[

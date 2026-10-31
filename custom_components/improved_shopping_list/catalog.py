@@ -372,7 +372,7 @@ class Catalog:
             if not ref or ref.get("url","")!=url:
                 raise CatalogError("La opción de compra ha cambiado. Vuelve a revisar el ticket.","conflict")
             ref["measure_price"]=validated
-            if ref.get("content_quantity") is None and validated["unit"]=="kg":
+            if ref.get("content_quantity") is None and ref.get("sale_mode")!="package" and validated["unit"]=="kg":
                 ref.update(content_unit=ref.get("content_unit") or "kg",content_confirmed=True)
             product["revision"]+=1
             product["updated_at"]=datetime.now(UTC).isoformat()
@@ -406,7 +406,7 @@ class Catalog:
                         saved[row["id"]]={**row,"catalog_source":True}
                         siblings=[r for r in refs if gtin(r.get("ean"))==gtin(row.get("ean")) and r.get("active",True)]
                         if not siblings and row.get("ean"):
-                            neutral={key:deepcopy(row[key]) for key in ("ean","name","brand","content_quantity","content_unit","content_confirmed","nutriscore","pack_count","common_sources") if key in row}
+                            neutral={key:deepcopy(row[key]) for key in ("ean","name","brand","content_quantity","content_unit","content_confirmed","nutriscore","pack_count","common_sources","sale_mode") if key in row}
                             neutral["store"]="";refs.append(neutral);siblings=[neutral]
                         for other in siblings:
                             if not other.get("brand") and row.get("brand"):other["brand"]=row["brand"]

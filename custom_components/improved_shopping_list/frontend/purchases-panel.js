@@ -1,7 +1,7 @@
-import { ListSettingsSession } from "./list-settings-client.js?v=0.65.0";
-import { installDialogCloseButtons } from "./dialog-controls.js?v=0.65.0";
-import { productNameKey } from "./product-names.js?v=0.65.0";
-import { referenceFor, suggestedContent, referenceContentControls, validReferenceContent, validReferenceFormat, weightFormat, receiptCatalogPrice, barcodeIdentity, recoveredStockQuantity } from "./reference-formats.js?v=0.65.0";
+import { ListSettingsSession } from "./list-settings-client.js?v=0.66.0";
+import { installDialogCloseButtons } from "./dialog-controls.js?v=0.66.0";
+import { productNameKey } from "./product-names.js?v=0.66.0";
+import { referenceFor, suggestedContent, referenceContentControls, validReferenceContent, validReferenceFormat, weightFormat, receiptCatalogPrice, barcodeIdentity, recoveredStockQuantity } from "./reference-formats.js?v=0.66.0";
 
 const node=(tag,cls,text)=>{const el=document.createElement(tag);if(cls)el.className=cls;if(text!==undefined)el.textContent=text;return el;};
 const money=value=>new Intl.NumberFormat('es-ES',{style:'currency',currency:'EUR'}).format(value);
@@ -202,7 +202,7 @@ class ImprovedShoppingPurchases extends HTMLElement {
     if(line.ticket_measure_price&&line.purchased_quantity!=null)return {content_quantity:null,content_unit:line.purchased_unit||line.ticket_measure_price.unit,content_confirmed:true};
     const ref=referenceFor(product,this._draft.receipt.store,line),hint=suggestedContent(line);
     const saved=weightFormat(ref)||ref?.content_confirmed&&!this._draft.reprocess;
-    return {content_quantity:saved?ref.content_quantity:hint.quantity??ref?.content_quantity??null,content_unit:saved?ref.content_unit:hint.unit||ref?.content_unit||'',content_confirmed:Boolean(saved)};
+    return {content_quantity:saved?ref.content_quantity:hint.quantity??ref?.content_quantity??null,content_unit:saved?ref.content_unit:hint.unit||ref?.content_unit||'',content_confirmed:Boolean(saved),...(ref?.sale_mode?{sale_mode:ref.sale_mode}:{})};
   }
   async _loadPackageMetadata(token){
     const cache=new Map();

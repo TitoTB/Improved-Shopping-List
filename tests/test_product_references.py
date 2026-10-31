@@ -13,6 +13,20 @@ refs=importlib.util.module_from_spec(spec);spec.loader.exec_module(refs)
 
 
 class ReferenceTests(unittest.TestCase):
+    def test_explicit_sale_mode_preserves_package_and_weight_choices(self):
+        base={'store':'carrefour','ean':'8410199023094','name':'Alternativa','content_quantity':None,'content_unit':'g','content_confirmed':False}
+        package=refs.normalized_references([{**base,'sale_mode':'package'}])[0]
+        self.assertFalse(package['content_confirmed'])
+        self.assertFalse(refs.weight_format(package))
+        weight=refs.normalized_references([{**base,'sale_mode':'weight','content_quantity':500,'pack_count':6}])[0]
+        self.assertTrue(weight['content_confirmed']);self.assertIsNone(weight['content_quantity']);self.assertNotIn('pack_count',weight)
+        self.assertEqual(refs.normalized_references([weight])[0],weight)
+        for option in ({**base,'sale_mode':'invalid'},{**base,'sale_mode':'weight','content_unit':'uds'}):
+            with self.assertRaises(ValueError):refs.normalized_references([option])
+        values=refs.normalized_references([{**base,'sale_mode':'package','content_quantity':500,'content_confirmed':True}])
+        refs.merge_reference(values,'carrefour',{'ean':base['ean'],'description':'Producto','count':1,'unit_price':2,'amount':2},confirmed=False)
+        self.assertEqual(values[0]['sale_mode'],'package');self.assertEqual(values[0]['content_quantity'],500)
+
     def test_partial_optional_package_fields_persist_without_confirming_a_format(self):
         for quantity, unit in [(None, ''), (250, ''), (None, 'uds')]:
             with self.subTest(quantity=quantity, unit=unit):

@@ -115,7 +115,7 @@ def normalized_references(values):
     result=[]; seen=set()
     from .store_links import STORES, normalize_link
     for raw in values:
-        if not isinstance(raw,dict) or set(raw)-{"id","store","name","ean","reference_id","url","brand","image_url","content_quantity","content_unit","content_confirmed","active","last_price","nutriscore","measure_price","ticket_reference_id","catalog_source","pack_count","common_sources"}:
+        if not isinstance(raw,dict) or set(raw)-{"id","store","name","ean","reference_id","url","brand","image_url","content_quantity","content_unit","content_confirmed","active","last_price","nutriscore","measure_price","ticket_reference_id","catalog_source","pack_count","common_sources","sale_mode"}:
             raise ValueError("La referencia comercial contiene campos no admitidos.")
         row={key:raw.get(key,"") for key in ("store","name","ean","reference_id","url","brand")}
         for key,limit in (("store",40),("name",500),("ean",14),("reference_id",512),("url",2048),("brand",160)):
@@ -123,7 +123,10 @@ def normalized_references(values):
                 raise ValueError("La referencia comercial no es válida.")
             row[key]=row[key].strip()
         row["brand"] = brand_name(row["brand"])
-        if raw.get("pack_count") is not None:
+        if "sale_mode" in raw:
+            if raw["sale_mode"] not in ("package","weight"):raise ValueError("Selecciona Por envase o Al peso.")
+            row["sale_mode"]=raw["sale_mode"]
+        if raw.get("pack_count") is not None and row.get("sale_mode")!="weight":
             if type(raw["pack_count"]) is not int or not 1<=raw["pack_count"]<=1000000:raise ValueError("Indica un número entero de unidades por pack.")
             row["pack_count"]=raw["pack_count"]
         if raw.get("common_sources"):
@@ -150,9 +153,11 @@ def normalized_references(values):
             if row["reference_id"] and row["reference_id"]!=link["id"]:
                 raise ValueError("El enlace y la referencia comercial no corresponden al mismo producto.")
             row["reference_id"]=link["id"]
-        quantity,unit=content(raw.get("content_quantity"),raw.get("content_unit",""),allow_partial=True)
+        quantity,unit=content(None if row.get("sale_mode")=="weight" else raw.get("content_quantity"),raw.get("content_unit",""),allow_partial=True)
+        if row.get("sale_mode")=="weight" and unit not in ("g","kg"):
+            raise ValueError("Selecciona g o kg para un producto vendido al peso.")
         confirmed=raw.get("content_confirmed",False)
-        by_weight=weight_format({"content_quantity":quantity,"content_unit":unit})
+        by_weight=weight_format({"content_quantity":quantity,"content_unit":unit,"sale_mode":row.get("sale_mode")})
         if type(confirmed) is not bool or confirmed and not by_weight and (quantity is None or unit not in UNITS):
             raise ValueError("Confirma el contenido del envase antes de utilizarlo para comparar.")
         if by_weight:confirmed=True
@@ -175,7 +180,7 @@ def normalized_references(values):
         nutrition = raw.get("nutriscore")
         if raw.get("measure_price") is not None:
             row["measure_price"] = measure_price(raw["measure_price"])
-            if quantity is None and not unit and row["measure_price"]["unit"]=="kg":
+            if quantity is None and not unit and row.get("sale_mode")!="package" and row["measure_price"]["unit"]=="kg":
                 row.update(content_unit="kg",content_confirmed=True)
         if nutrition is not None:
             if (not isinstance(nutrition,dict) or nutrition.get("grade") not in tuple("abcde")
@@ -192,6 +197,7 @@ def merge_reference(references, store, line, *, confirmed=False):
     row=reference_from_line(store,line)
     existing=matching_reference({"commercial_references":references},store,line)
     if existing:
+        if "sale_mode" in existing:row["sale_mode"]=existing["sale_mode"]
         if store=="lidl" and existing.get("ticket_reference_id") and not row.get("ticket_reference_id"):
             row.update(ticket_reference_id=existing["ticket_reference_id"],reference_id=existing["reference_id"],url=existing["url"])
         row["brand"]=row["brand"] or existing.get("brand", "")
@@ -224,7 +230,7 @@ def merge_reference(references, store, line, *, confirmed=False):
         references.remove(existing)
     if confirmed:
         row["content_confirmed"]=row["content_quantity"] is not None
-    if weighed:
+    if weighed and row.get("sale_mode")!="package":
         unit=(existing or {}).get("content_unit") or line.get("purchased_unit") or line.get("pack_unit") or "kg"
         row.update(content_quantity=None,content_unit=unit if unit in ("g","kg") else "kg",content_confirmed=True)
         if rate and line.get("price_saved"):
@@ -232,7 +238,7 @@ def merge_reference(references, store, line, *, confirmed=False):
             if canonical['checked_at']>=row.get('last_price',{}).get('checked_at',0):
                 row['last_price']={key:canonical[key] for key in ('price','currency','checked_at')}
     if existing:
-        if existing.get("pack_count"):row["pack_count"]=existing["pack_count"]
+        if existing.get("pack_count") and row.get("sale_mode")!="weight":row["pack_count"]=existing["pack_count"]
         sources={field:deepcopy(value) for field,value in existing.get("common_sources",{}).items() if row.get(field)==existing.get(field)}
         if sources:row["common_sources"]=sources
     references.append(row)

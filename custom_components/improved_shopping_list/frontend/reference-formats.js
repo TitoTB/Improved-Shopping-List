@@ -40,7 +40,7 @@ export function validReferenceContent(reference){
   return Number.isFinite(quantity)&&quantity>0&&quantity<=1000000&&Object.hasOwn(contentUnits,reference.content_unit)&&(reference.content_unit!=='uds'||Number.isInteger(quantity));
 }
 export function weightFormat(reference){
-  return Boolean(reference&&(reference.content_quantity==null||reference.content_quantity==='')&&['g','kg'].includes(reference.content_unit));
+  return Boolean(reference&&reference.sale_mode!=='package'&&(reference.content_quantity==null||reference.content_quantity==='')&&['g','kg'].includes(reference.content_unit));
 }
 export function validReferenceFormat(reference){return validReferenceContent(reference)||weightFormat(reference);}
 export function receiptCatalogPrice(line,reference){

@@ -1,13 +1,13 @@
-import { purchaseQuantity, quantityLabel } from "./quantity-client.js?v=0.65.0";
-import { referenceContentControls, referenceRate, barcodeIdentity, validReferenceContent, validReferenceFormat, weightFormat, pendingProductInformation } from "./reference-formats.js?v=0.65.0";
-import { installDialogCloseButtons } from "./dialog-controls.js?v=0.65.0";
-import { CatalogSession } from "./catalog-client.js?v=0.65.0";
-import { matchCatalogProducts } from "./product-matching.js?v=0.65.0";
-import "./category-panel.js?v=0.65.0";
-import "./recipe-editor.js?v=0.65.0";
-import "./icon-picker.js?v=0.65.0";
-import "./pending-information-refresh.js?v=0.65.0";
-import { imageSource, normalizedName, productNameKey, cachedProductPrice, storeProductLink, storeFromProductUrl } from "./product-display.js?v=0.65.0";
+import { purchaseQuantity, quantityLabel } from "./quantity-client.js?v=0.66.0";
+import { referenceContentControls, referenceRate, barcodeIdentity, validReferenceContent, validReferenceFormat, weightFormat, pendingProductInformation } from "./reference-formats.js?v=0.66.0";
+import { installDialogCloseButtons } from "./dialog-controls.js?v=0.66.0";
+import { CatalogSession } from "./catalog-client.js?v=0.66.0";
+import { matchCatalogProducts } from "./product-matching.js?v=0.66.0";
+import "./category-panel.js?v=0.66.0";
+import "./recipe-editor.js?v=0.66.0";
+import "./icon-picker.js?v=0.66.0";
+import "./pending-information-refresh.js?v=0.66.0";
+import { imageSource, normalizedName, productNameKey, cachedProductPrice, storeProductLink, storeFromProductUrl } from "./product-display.js?v=0.66.0";
 export { imageSource, normalizedName, productNameKey, cachedProductPrice };
 
 const MONTHS = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
@@ -317,6 +317,11 @@ class ImprovedShoppingCatalog extends HTMLElement {
         .reference-content-controls label { margin:0;min-width:0; }.reference-content-controls input,.reference-content-controls select { width:100%;min-width:0; }
         .reference-common-fields > .reference-content-controls { grid-template-columns:repeat(3,minmax(0,1fr));align-items:end; }
         .reference-common-fields > .reference-content-controls > label { overflow-wrap:anywhere; }
+        .reference-common-fields > .reference-content-controls input:disabled { opacity:.5; }
+        .option-sale-row { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:end;gap:12px;margin-top:12px;min-width:0; }
+        .option-sale-row > label { margin:0;min-width:0;overflow-wrap:anywhere; }
+        .option-sale-row input,.option-sale-row select { width:100%;min-width:0; }
+        .option-sale-row:not(:has(.option-price)) { grid-template-columns:minmax(0,1fr); }
         .reference-confirm { grid-column:1/-1;display:flex!important;align-items:center;gap:8px; }.reference-confirm input { width:auto!important;min-height:0!important;margin:0!important; }
         .product-store-association { padding:14px; border:1px solid var(--divider-color,#dfe7e1); border-radius:12px; min-width:0; background:var(--card-background-color,#fff); }
         .product-store-header { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; min-width:0; }
@@ -1529,7 +1534,11 @@ class ImprovedShoppingCatalog extends HTMLElement {
       group.open=this._expandedEANs?.has(key)??false;
       group.addEventListener('toggle',()=>{this._expandedEANs??=new Set();if(group.open)this._expandedEANs.add(key);else this._expandedEANs.delete(key);});
       const title=element('summary','',entries.find(item=>item.ref?.name)?.ref.name||`EAN ${entries[0].ref.ean}`);
-      for(const {card} of entries)card.querySelector('.reference-common-fields')?.remove();
+      for(const {card} of entries){
+        const price=card.querySelector('.option-price');
+        if(price)card.querySelector('.commercial-reference').append(price);
+        card.querySelector('.reference-common-fields')?.remove();
+      }
       const common=this._commonReferenceFields(entries.map(item=>item.ref),()=>{
         for(const {card} of entries)card.querySelector('.commercial-reference')?.dispatchEvent(new Event('option-content-change'));
       });
@@ -1554,17 +1563,47 @@ class ImprovedShoppingCatalog extends HTMLElement {
     brand.addEventListener('input',()=>{for(const ref of refs){ref.brand=brand.value.trim();this._clearCommonSource(ref,['brand']);}onChange();});
     brandLabel.append(brand);fields.append(brandLabel);
     const original=refs.find(ref=>ref.content_confirmed&&validReferenceContent(ref))??refs.find(ref=>ref.content_quantity>0)??refs[0];
-    const draft={content_quantity:original.content_quantity,content_unit:original.content_unit,content_confirmed:original.content_confirmed};
-    const contentFields=referenceContentControls(draft,()=>{
-      for(const ref of refs){Object.assign(ref,draft);this._clearCommonSource(ref,['content_quantity','content_unit']);}
+    const draft={content_quantity:original.content_quantity,content_unit:original.content_unit,content_confirmed:original.content_confirmed,
+      sale_mode:original.sale_mode??(weightFormat(original)?'weight':'package')};
+    const modeLabel=element('label','option-sale-mode','Tipo de venta'),mode=element('select');
+    mode.setAttribute('aria-label','Tipo de venta');mode.append(new Option('Por envase','package'),new Option('Al peso','weight'));mode.value=draft.sale_mode;
+    const saleRow=element('div','option-sale-row');
+    modeLabel.append(mode);saleRow.append(modeLabel);fields.append(saleRow);
+    const notify=()=>{
+      draft.content_confirmed=validReferenceFormat(draft);
+      for(const ref of refs){Object.assign(ref,draft);if(draft.sale_mode==='weight')delete ref.pack_count;this._clearCommonSource(ref,['content_quantity','content_unit','pack_count']);}
       onChange();
+    };
+    const contentFields=referenceContentControls(draft,()=>{
+      notify();
     });
+    const unit=contentFields.querySelector('select'),quantity=contentFields.querySelector('input');
+    contentFields.prepend(unit.closest('label'));
     fields.append(contentFields);
     const packLabel=element('label','option-pack','Unidades por pack'),pack=element('input');
     pack.type='number';pack.min='1';pack.max='1000000';pack.step='1';pack.placeholder='Sin informar';
     pack.value=refs.find(ref=>ref.pack_count)?.pack_count??'';
     pack.addEventListener('input',()=>{for(const ref of refs){if(pack.value==='')delete ref.pack_count;else ref.pack_count=Number(pack.value);this._clearCommonSource(ref,['pack_count']);}onChange();});
     packLabel.append(pack);contentFields.append(packLabel);
+    let packageFields={quantity:draft.content_quantity,unit:draft.content_unit,pack:pack.value};
+    const renderMode=()=>{
+      const weighed=draft.sale_mode==='weight';contentFields.dataset.saleMode=draft.sale_mode;
+      quantity.disabled=weighed;pack.disabled=weighed;
+      for(const option of unit.options){option.disabled=weighed&&!['g','kg'].includes(option.value);option.hidden=option.disabled;}
+    };
+    mode.addEventListener('change',()=>{
+      if(mode.value==='weight'){
+        packageFields={quantity:draft.content_quantity,unit:draft.content_unit,pack:pack.value};
+        draft.sale_mode='weight';draft.content_quantity=null;draft.content_unit=['g','kg'].includes(draft.content_unit)?draft.content_unit:'kg';
+        quantity.value='';unit.value=draft.content_unit;pack.value='';
+      }else{
+        draft.sale_mode='package';draft.content_quantity=packageFields.quantity;draft.content_unit=packageFields.unit;
+        quantity.value=draft.content_quantity??'';unit.value=draft.content_unit??'';pack.value=packageFields.pack;
+        for(const ref of refs){if(pack.value==='')delete ref.pack_count;else ref.pack_count=Number(pack.value);}
+      }
+      renderMode();notify();
+    });
+    renderMode();
     return fields;
   }
 
@@ -1594,10 +1633,10 @@ class ImprovedShoppingCatalog extends HTMLElement {
     const priceLabel=element('label','option-price','Precio por envase (€)'),priceInput=element('input');
     priceInput.type='number';priceInput.min='0';priceInput.max='1000000';priceInput.step='0.01';priceInput.inputMode='decimal';priceInput.placeholder='Sin precio';
     priceInput.setAttribute('aria-label',weightFormat(ref)?'Precio por kg':'Precio por envase');priceInput.value=(weightFormat(ref)?ref.measure_price:undefined)?.price??offers[0]?.price??'';priceInput.disabled=!ref.store;
-    priceLabel.append(priceInput);card.append(priceLabel);
+    priceLabel.append(priceInput);card.querySelector('.option-sale-row').append(priceLabel);
     const priceText=element('p','helper');card.append(priceText);
-    let displayedPrice=(weightFormat(ref)?ref.measure_price:undefined)??offers[0];
-    renderPrice=()=>{const weighed=weightFormat(ref);priceLabel.firstChild.textContent=weighed?'Precio por kg (€)':'Precio por envase (€)';priceInput.setAttribute('aria-label',weighed?'Precio por kg':'Precio por envase');if(weighed&&ref.measure_price)displayedPrice=ref.measure_price;priceText.hidden=!displayedPrice;if(!displayedPrice)return;const money=value=>new Intl.NumberFormat('es-ES',{style:'currency',currency:displayedPrice.currency??'EUR'}).format(value),rate=referenceRate(displayedPrice.price,ref);priceText.textContent='Último precio: '+money(displayedPrice.price)+(weighed?' / kg':' / envase');if(rate&&!weighed)priceText.textContent+=' · '+money(rate.price)+' / '+rate.unit;};renderPrice();
+    let displayedPrice=(weightFormat(ref)?ref.measure_price:undefined)??offers[0],priceByWeight=weightFormat(ref);
+    renderPrice=()=>{const weighed=weightFormat(ref);if(weighed!==priceByWeight){displayedPrice=(weighed?ref.measure_price:undefined)??ref.last_price??offers[0];priceInput.value=displayedPrice?.price??'';priceByWeight=weighed;}priceLabel.firstChild.textContent=weighed?'Precio por kg (€)':'Precio por envase (€)';priceInput.setAttribute('aria-label',weighed?'Precio por kg':'Precio por envase');if(weighed&&ref.measure_price)displayedPrice=ref.measure_price;priceText.hidden=!displayedPrice;if(!displayedPrice)return;const money=value=>new Intl.NumberFormat('es-ES',{style:'currency',currency:displayedPrice.currency??'EUR'}).format(value),rate=referenceRate(displayedPrice.price,ref);priceText.textContent='Último precio: '+money(displayedPrice.price)+(weighed?' / kg':' / envase');if(rate&&!weighed)priceText.textContent+=' · '+money(rate.price)+' / '+rate.unit;};renderPrice();
     priceInput.addEventListener('input',()=>{
       if(!priceInput.validity.valid)return;
       if(priceInput.value===''){delete ref.last_price;if(weightFormat(ref))delete ref.measure_price;displayedPrice=null;}

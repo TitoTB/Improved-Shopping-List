@@ -1074,7 +1074,8 @@ async function checkProductReplenishment(browser,url,errors){
   assert.equal(await mode.inputValue(),'manual');await mode.selectOption('perishable');
   await form.getByLabel('Días de recurrencia',{exact:true}).fill('9');
   await form.getByLabel('Cantidad predeterminada de reposición',{exact:true}).fill('250');
-  await form.getByLabel('Unidades de Stock',{exact:true}).fill('g');
+  assert.equal(await form.getByLabel('Unidades de Stock',{exact:true}).count(),0);
+  assert.equal(await form.locator('[data-replenishment=refill_quantity] + [data-stock-unit]').textContent(),'uds');
   await form.getByRole('button',{name:'Guardar producto',exact:true}).click();await form.waitFor({state:'hidden'});
   assert.deepEqual(await page.evaluate(()=>window.lastReplenishment.config.mode),'perishable');
   assert.equal(await page.evaluate(()=>window.stockItems.find(item=>item.name==='Reposición de prueba').quantity),0);
@@ -1113,6 +1114,50 @@ async function checkProductReplenishment(browser,url,errors){
   await context.close();
 }
 
+async function checkReplenishmentLayout(browser,url,errors){
+  const context=await browser.newContext({viewport:{width:390,height:844}});
+  await context.addInitScript(()=>{
+    localStorage.setItem('settings-fixture',JSON.stringify({entities:['todo.bring'],primary_entity:'todo.bring'}));
+    localStorage.setItem('catalog-fixture',JSON.stringify([{id:'pavo-layout',revision:1,name:'Pavo',category:'',image_url:'',icon:'',price:null,currency:'EUR',tags:[],barcodes:[],nfc_tags:[],reader_actions:{},commercial_references:[],recurrence:{enabled:false,days:7},purchase_unit:'uds'}]));
+    localStorage.setItem('stock-fixture',JSON.stringify([{id:'pavo-stock',revision:1,config_revision:1,catalog_product_id:'pavo-layout',name:'Pavo',quantity:250,unit:'g',mode:'usage',days:7,refill_quantity:500,reorder_enabled:true,reorder_at:50,reorder_percent:0,usage_entity:'sensor.lavadora',usage_state:'fin',usage_amount:5,list_entity:'todo.bring',configured:true}]));
+  });
+  const page=await context.newPage();page.on('pageerror',error=>errors.push(error.message));await page.goto(url);
+  await page.getByRole('button',{name:'Catálogo',exact:true}).click();const catalog=page.locator('isl-catalog');await editCatalogProduct(catalog,'Editar Pavo');
+  const form=catalog.getByRole('dialog',{name:'Editar producto',exact:true});await form.getByRole('button',{name:'Reposición',exact:true}).click();await form.locator('#product-replenishment > summary').click();
+  const mode=form.getByRole('combobox',{name:'Reposición automática',exact:true});await mode.selectOption('usage');
+  assert.equal(await form.getByLabel('Mínimo (%)',{exact:true}).inputValue(),'10');
+  assert.equal(await form.locator('[data-replenishment=refill_quantity] + [data-stock-unit]').textContent(),'g');
+  assert.equal(await form.locator('[data-replenishment=unit]').count(),0);
+  assert.equal(await form.locator('#replenishment-list').isVisible(),false);
+  for(const value of ['usage','perishable']){
+    await mode.selectOption(value);
+    for(const width of [1280,390,320]){
+      await page.setViewportSize({width,height:844});
+      assert.equal(await form.locator('#product-replenishment').evaluate(root=>root.scrollWidth<=root.clientWidth+1),true);
+      const first=value==='usage'?'#replenishment-usage':'#replenishment-days';
+      assert.equal(await form.locator('#replenishment-fields').evaluate((root,selector)=>Boolean(root.querySelector(selector).compareDocumentPosition(root.querySelector('[data-replenishment=refill_quantity]'))&Node.DOCUMENT_POSITION_FOLLOWING),first),true);
+      assert.equal(await form.locator('#replenishment-minimum').evaluate(row=>{
+        const label=row.querySelector('label').getBoundingClientRect(),field=row.querySelector('.replenishment-number').getBoundingClientRect();
+        return field.left>=label.right-1&&Math.abs((label.top+label.bottom)-(field.top+field.bottom))<3;
+      }),true);
+      if(value==='perishable')assert.equal(await form.locator('#replenishment-days').evaluate(row=>{
+        const field=row.querySelector('input').getBoundingClientRect(),parent=row.getBoundingClientRect();return Math.abs(field.right-parent.right)<2&&field.left>parent.left;
+      }),true);
+    }
+  }
+  await page.screenshot({path:'test-results/replenishment-layout-mobile.png',fullPage:true});
+  await mode.selectOption('usage');await form.getByLabel('Mínimo (%)',{exact:true}).fill('20');
+  await form.getByRole('button',{name:'Guardar producto',exact:true}).click();await form.waitFor({state:'hidden'});
+  assert.deepEqual(await page.evaluate(()=>{const c=window.lastReplenishment.config;return [c.unit,c.reorder_basis,c.reorder_percent,c.list_entity];}),['g','percent',20,'todo.bring']);
+  assert.equal(await page.evaluate(()=>window.stockItems[0].quantity),250);
+  await page.evaluate(()=>{window.listSettings.entities=['todo.bring','todo.local'];window.emitSettings();});
+  await editCatalogProduct(catalog,'Editar Pavo');await form.getByRole('button',{name:'Reposición',exact:true}).click();await form.locator('#product-replenishment > summary').click();
+  await form.getByLabel('Lista para reponer',{exact:true}).selectOption('todo.local');
+  await form.getByRole('button',{name:'Guardar producto',exact:true}).click();await form.waitFor({state:'hidden'});
+  assert.equal(await page.evaluate(()=>window.lastReplenishment.config.list_entity),'todo.local');
+  await context.close();
+}
+
 async function checkMealRoutines(browser,url,errors){
   const context=await browser.newContext({viewport:{width:390,height:844}}),page=await context.newPage();
   page.on('pageerror',error=>errors.push(error.message));await page.goto(url);
@@ -1122,8 +1167,13 @@ async function checkMealRoutines(browser,url,errors){
     'person.two':{entity_id:'person.two',state:'home',attributes:{friendly_name:'Luis'}}}};});
   await page.getByRole('button',{name:'Ajustes',exact:true}).click();
   await page.locator('isl-settings').getByRole('button',{name:'Rutinas',exact:true}).click();
+  await page.evaluate(()=>{window.savedRandomUUID=crypto.randomUUID;Object.defineProperty(crypto,'randomUUID',{value:undefined,configurable:true});});
   const routines=page.locator('isl-meal-routines');await routines.getByRole('button',{name:'Nueva rutina',exact:true}).click();
   const routine=routines.getByRole('dialog',{name:'Nueva rutina',exact:true});
+  await routine.getByRole('button',{name:'Añadir comida',exact:true}).click();
+  assert.equal(await routine.locator('.meal').count(),4);
+  await routine.getByRole('button',{name:'Eliminar comida 4',exact:true}).click();
+  await page.evaluate(()=>Object.defineProperty(crypto,'randomUUID',{value:window.savedRandomUUID,configurable:true}));
   await routine.getByLabel('Nombre de la rutina',{exact:true}).fill('Comidas en casa');
   await routine.locator('#routine-people > summary').click();
   await routine.getByRole('checkbox',{name:'Ana',exact:true}).check();await routine.getByRole('checkbox',{name:'Luis',exact:true}).check();
@@ -1139,7 +1189,7 @@ async function checkMealRoutines(browser,url,errors){
   const product=catalog.getByRole('dialog',{name:'Nuevo producto',exact:true});await product.getByLabel('Nombre del producto',{exact:true}).fill('Chocolate de comidas');
   await product.getByRole('button',{name:'Reposición',exact:true}).click();await product.locator('#product-replenishment > summary').click();
   await product.getByRole('combobox',{name:'Reposición automática',exact:true}).selectOption('meals');
-  const meals=product.locator('isl-meal-consumption');await meals.getByText('Comidas en casa',{exact:true}).click();
+  const meals=product.locator('isl-meal-consumption');await meals.getByText('Comidas en casa',{exact:true}).waitFor();
   for(const name of ['Desayuno','Comida','Cena'])await meals.getByRole('checkbox',{name:'Comidas en casa · '+name,exact:true}).check();
   const breakfast=meals.locator('.meal').first();
   await breakfast.getByText('Cantidades distintas por persona',{exact:true}).click();
@@ -1152,13 +1202,13 @@ async function checkMealRoutines(browser,url,errors){
   await page.getByRole('button',{name:'Configurar stock de Chocolate de comidas',exact:true}).click();
   const stock=page.getByRole('dialog',{name:'Chocolate de comidas · Stock',exact:true});
   assert.equal(await stock.getByLabel('Control del stock',{exact:true}).inputValue(),'meals');
-  const stockMeals=stock.locator('isl-meal-consumption');await stockMeals.getByText('Comidas en casa',{exact:true}).click();
+  const stockMeals=stock.locator('isl-meal-consumption');await stockMeals.getByText('Comidas en casa',{exact:true}).waitFor();
   assert.equal(await stockMeals.getByRole('checkbox',{name:'Comidas en casa · Cena',exact:true}).isChecked(),true);
   await stockMeals.getByLabel('Cantidad por persona en Comidas en casa · Desayuno',{exact:true}).fill('3');
   await stock.getByRole('button',{name:'Guardar',exact:true}).click();await stock.waitFor({state:'hidden'});
   await page.getByRole('button',{name:'Catálogo',exact:true}).click();await editCatalogProduct(catalog,'Editar Chocolate de comidas');
   const edit=catalog.getByRole('dialog',{name:'Editar producto',exact:true});await edit.getByRole('button',{name:'Reposición',exact:true}).click();await edit.locator('#product-replenishment > summary').click();
-  const editedMeals=edit.locator('isl-meal-consumption');await editedMeals.getByText('Comidas en casa',{exact:true}).click();
+  const editedMeals=edit.locator('isl-meal-consumption');await editedMeals.getByText('Comidas en casa',{exact:true}).waitFor();
   assert.equal(await editedMeals.getByLabel('Cantidad por persona en Comidas en casa · Desayuno',{exact:true}).inputValue(),'3');
   await page.screenshot({path:'test-results/meal-product-mobile.png',fullPage:true});
   await context.close();
@@ -2177,6 +2227,7 @@ async function main() {
     if(process.argv.includes('--option-ean-only')){const errors=[];await checkDifferentOptionEAN(browser,`http://127.0.0.1:${server.address().port}`,errors);await checkStagedOptionURL(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Alternative EAN discovery passed.');return;}
     if(process.argv.includes('--catalog-sources-only')){const errors=[];await checkCatalogSources(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Catalog sources and EAN grouping passed.');return;}
     if(process.argv.includes('--repeated-receipt-product-only')){const errors=[];await checkRepeatedReceiptProduct(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Repeated receipt product passed.');return;}
+    if(process.argv.includes('--replenishment-layout-only')){const errors=[];await checkReplenishmentLayout(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Replenishment layout passed.');return;}
     if(process.argv.includes('--meals-only')){const errors=[];await checkMealRoutines(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Meal routines passed.');return;}
     if(process.argv.includes('--replenishment-only')){const errors=[];await checkProductReplenishment(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Product replenishment passed.');return;}
     if(process.argv.includes('--reference-logs-only')){const errors=[];await checkReferenceLogDescriptions(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Reference log descriptions passed.');return;}
@@ -5287,6 +5338,7 @@ async function main() {
     await checkReferenceFormats(browser,url,errors);
     await checkReceiptPackageFormats(browser,url,errors);
     await checkRepeatedReceiptProduct(browser,url,errors);
+    await checkReplenishmentLayout(browser,`http://127.0.0.1:${server.address().port}`,errors);
     await checkMealRoutines(browser,`http://127.0.0.1:${server.address().port}`,errors);
     await checkProductReplenishment(browser,`http://127.0.0.1:${server.address().port}`,errors);
     await checkReferenceLogDescriptions(browser,url,errors);

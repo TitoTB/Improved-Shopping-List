@@ -92,9 +92,10 @@ class StockView {
     const defaults={unit:'uds',mode:'manual',days:7,refill_quantity:1,reorder_enabled:false,reorder_at:0,usage_entity:'',usage_state:'',usage_amount:1};
     const config={...defaults,...this._stockEditing};
     const meals=root.querySelector('isl-meal-consumption');meals.hass=this._hass;meals.reset(config.meal_rules??[]);
+    this._stockDraftBasis=config.reorder_basis??'quantity';
     this._stockDraftMinimum=config.reorder_at;this._stockDraftPercent=config.reorder_percent??0;this._stockDraftMode=config.mode;
     for(const key of ['quantity','mode','days','refill_quantity','reorder_at','usage_entity','usage_state','usage_amount'])form.elements[key].value=config[key];
-    if(config.mode === 'perishable')form.elements.reorder_at.value=this._stockDraftPercent;
+    if(this._stockUsesPercent(config.mode))form.elements.reorder_at.value=this._stockDraftPercent;
     const standard=['uds','kg','g','l','ml'].includes(config.unit);
     form.elements.unit.value=standard?config.unit:'custom';form.elements.custom_unit.value=standard?'':config.unit;
     form.elements.reorder_enabled.checked=config.reorder_enabled;
@@ -108,15 +109,17 @@ class StockView {
     this._updateStockForm();root.querySelector('#stock-editor-dialog').showModal();
   }
 
+  _stockUsesPercent(mode){return mode==='perishable'||mode!=='manual'&&this._stockDraftBasis==='percent';}
+
   _updateStockForm() {
     const root=this.shadowRoot,form=root.querySelector('#stock-editor-form'),locked=this._busy||this._hass.user?.is_admin!==true;
-    const custom=form.elements.unit.value==='custom',usage=form.elements.mode.value==='usage',perishable=form.elements.mode.value==='perishable';
-    const meals=root.querySelector('isl-meal-consumption');meals.hass=this._hass;meals.active=form.elements.mode.value==='meals';
+    const custom=form.elements.unit.value==='custom',usage=form.elements.mode.value==='usage',perishable=form.elements.mode.value==='perishable',percent=this._stockUsesPercent(form.elements.mode.value);
+    const meals=root.querySelector('isl-meal-consumption');meals.hass=this._hass;meals.unit=custom?form.elements.custom_unit.value.trim():form.elements.unit.value;meals.active=form.elements.mode.value==='meals';
     root.querySelector('#stock-custom-unit-label').hidden=!custom;
     root.querySelector('#stock-days-label').hidden=!perishable;root.querySelector('#stock-usage-fields').hidden=!usage;
-    root.querySelector('#stock-threshold-title').textContent=perishable ? 'Mínimo (%)' : 'Stock mínimo';
-    form.elements.reorder_at.setAttribute('aria-label',perishable ? 'Porcentaje mínimo restante (%)' : 'Stock mínimo');
-    form.elements.reorder_at.max=perishable ? '100' : '1000000';
+    root.querySelector('#stock-threshold-title').textContent=percent ? 'Mínimo (%)' : 'Stock mínimo';
+    form.elements.reorder_at.setAttribute('aria-label',percent ? 'Porcentaje mínimo restante (%)' : 'Stock mínimo');
+    form.elements.reorder_at.max=percent ? '100' : '1000000';
     root.querySelector('#stock-threshold-label').hidden=!form.elements.reorder_enabled.checked;
     for(const input of form.querySelectorAll('input,select,button'))input.disabled=locked;
     form.elements.custom_unit.required=custom;form.elements.days.disabled=locked||!perishable;
@@ -135,9 +138,9 @@ class StockView {
     const config={quantity:Number(value('quantity')),quantity_changed:Number(value('quantity'))!==this._stockEditing.quantity,unit:value('unit')==='custom'?value('custom_unit').trim():value('unit'),
       mode:value('mode'),days:Number(value('days')),refill_quantity:Number(value('refill_quantity')),
       reorder_enabled:form.elements.reorder_enabled.checked,
-      reorder_at:value('mode') === 'perishable' ? this._stockDraftMinimum : Number(value('reorder_at')),
-      reorder_percent:value('mode') === 'perishable' ? Number(value('reorder_at')) : this._stockDraftPercent,
-      list_entity:value('list_entity'),usage_entity:value('usage_entity').trim(),usage_state:value('usage_state'),usage_amount:Number(value('usage_amount')),meal_rules:mealRules};
+      reorder_at:this._stockUsesPercent(value('mode')) ? this._stockDraftMinimum : Number(value('reorder_at')),
+      reorder_percent:this._stockUsesPercent(value('mode')) ? Number(value('reorder_at')) : this._stockDraftPercent,
+      list_entity:value('list_entity'),usage_entity:value('usage_entity').trim(),usage_state:value('usage_state'),usage_amount:Number(value('usage_amount')),meal_rules:mealRules,reorder_basis:this._stockUsesPercent(value('mode'))?'percent':'quantity'};
     const success=await this._runAction(()=>this._stock.save(this._stockEditing,config),'Stock guardado.');
     if(success){root.querySelector('#stock-editor-dialog').close();this._stockEditing=null;}
     else {const error=root.querySelector('#stock-editor-error');error.textContent=this._actionError;error.hidden=!error.textContent;}
@@ -196,10 +199,10 @@ function installStockEvents(root) {
     root.querySelector("#stock-editor-form").addEventListener("submit",event=>{event.preventDefault();void this._saveStockConfig();});
     root.querySelector("#stock-editor-form").addEventListener("change",event=>{
       if(event.target.name === "mode") {
-        const form=event.currentTarget,perishable=form.elements.mode.value === "perishable";
-        if(this._stockDraftMode === "perishable")this._stockDraftPercent=Number(form.elements.reorder_at.value);
+        const form=event.currentTarget,percent=this._stockUsesPercent(form.elements.mode.value);
+        if(this._stockUsesPercent(this._stockDraftMode))this._stockDraftPercent=Number(form.elements.reorder_at.value);
         else this._stockDraftMinimum=Number(form.elements.reorder_at.value);
-        form.elements.reorder_at.value=perishable ? this._stockDraftPercent : this._stockDraftMinimum;
+        form.elements.reorder_at.value=percent ? this._stockDraftPercent : this._stockDraftMinimum;
         this._stockDraftMode=form.elements.mode.value;
       }
       this._updateStockForm();

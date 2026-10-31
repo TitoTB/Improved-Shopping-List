@@ -1,5 +1,10 @@
 # Historial de cambios
 
+## Próxima versión
+
+- La reposición automática ordena primero los campos específicos y después los comunes, con etiquetas a la izquierda, unidades de Stock dentro de las cantidades y mínimo porcentual junto a su casilla. La lista de reposición se oculta cuando solo hay una configurada.
+- Crear rutinas y añadir comidas funciona también desde HTTP local, sin depender de randomUUID. Las comidas se muestran desplegadas en la ficha del producto, con cantidades por persona y unidades visibles, sin los textos explicativos retirados.
+
 ## 0.69.0 — 2026-10-31
 
 - Nuevo control de Stock «Consumo por comidas». Ajustes → Rutinas permite asignar varias personas, comidas, horarios, días de la semana y permanencia mínima en casa. Cada producto puede descontar cantidades distintas por comida y persona. El registro se guarda junto al stock para evitar duplicados; no se recuperan consumos pasados al reiniciar y se ignora la presencia desconocida. Disponible también en Reposición de la ficha del producto.

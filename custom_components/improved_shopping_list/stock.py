@@ -19,7 +19,7 @@ DAY = 86400
 DEFAULT_CONFIG = {"unit":"uds", "mode":"manual", "days":7, "refill_quantity":1,
     "reorder_enabled":False, "reorder_at":0, "reorder_percent":0, "list_entity":"", "usage_entity":"",
     "usage_state":"", "usage_amount":1, "configured":False, "config_revision":0,
-    "expires_at":0, "expired":False,"meal_rules":[]}
+    "expires_at":0, "expired":False,"meal_rules":[],"reorder_basis":"quantity"}
 
 
 def quantity_value(value, *, positive=False):
@@ -38,11 +38,13 @@ def quantity_value(value, *, positive=False):
 def stock_config(data):
     fields = {"quantity","unit","mode","days","refill_quantity","reorder_enabled","reorder_at",
         "list_entity","usage_entity","usage_state","usage_amount"}
-    if not isinstance(data, dict) or set(data) - {"reorder_percent","quantity_changed","meal_rules"} != fields:
+    if not isinstance(data, dict) or set(data) - {"reorder_percent","quantity_changed","meal_rules","reorder_basis"} != fields:
         raise CatalogError("La configuración de Stock no es válida.")
     if "quantity_changed" in data and type(data["quantity_changed"]) is not bool:
         raise CatalogError("La edición de la cantidad no es válida.")
     result = deepcopy(data)
+    if 'reorder_basis' in data and data['reorder_basis'] not in ('quantity','percent'):
+        raise CatalogError("El criterio del stock mínimo no es válido.")
     result.pop("quantity_changed",None)
     result["reorder_percent"] = quantity_value(data.get("reorder_percent",0))
     if result["reorder_percent"] > 100:
@@ -109,7 +111,7 @@ def stock_needs_reorder(item, now=None):
     return item.get("configured") and (item.get("expired") or
         item.get("reorder_enabled") and (
             remaining_percentage(item, now) <= item.get("reorder_percent", 0)
-            if item.get("mode") == "perishable" else item["quantity"] <= item["reorder_at"]))
+            if item.get("mode") == "perishable" or item.get('reorder_basis')=='percent' else item["quantity"] <= item["reorder_at"]))
 
 
 class StockManager:
@@ -162,7 +164,7 @@ class StockManager:
                 if type(merged.get("quantity_at",0)) not in (int,float) or not 0 <= merged.get("quantity_at",0) <= 100000000000:
                     raise CatalogError("La fecha de stock no es válida.")
                 stock_config({field:merged[field] for field in ("quantity","unit","mode","days","refill_quantity",
-                    "reorder_enabled","reorder_at","reorder_percent","list_entity","usage_entity","usage_state","usage_amount","meal_rules")})
+                    "reorder_enabled","reorder_at","reorder_percent","list_entity","usage_entity","usage_state","usage_amount","meal_rules","reorder_basis")})
         except CatalogError as err:
             raise CatalogError("No se ha podido leer el stock guardado.", "storage_error") from err
         self._items = {key:{**deepcopy(DEFAULT_CONFIG),**deepcopy(item)} for key,item in items.items()}
@@ -305,7 +307,7 @@ class StockManager:
             raise CatalogError("Indica el nombre del producto.")
         fields={"unit","mode","days","refill_quantity","reorder_enabled","reorder_at","reorder_percent",
                 "list_entity","usage_entity","usage_state","usage_amount"}
-        if not isinstance(payload,dict) or set(payload)!={"config_revision","config"} or not isinstance(payload["config"],dict) or set(payload["config"])-{'meal_rules'}!=fields:
+        if not isinstance(payload,dict) or set(payload)!={"config_revision","config"} or not isinstance(payload["config"],dict) or set(payload["config"])-{'meal_rules','reorder_basis'}!=fields:
             raise CatalogError("La configuración de reposición no es válida.")
         current=self.item_for(product)
         if type(payload["config_revision"]) is not int or payload["config_revision"]!=(current or {}).get("config_revision",0):

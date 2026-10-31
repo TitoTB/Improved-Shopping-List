@@ -357,6 +357,24 @@ async def test_catalog_replenishment_validates_before_saving_product(env,shared)
         assert env.stock.catalog.products[0]["revision"]==product["revision"]
 
 
+@pytest.mark.parametrize('mode',['usage','meals'])
+async def test_percentage_minimum_survives_catalog_stock_and_restart(env,shared,mode):
+    from custom_components.improved_shopping_list.stock import stock_needs_reorder
+    product=env.stock.catalog.products[0];item=env.stock.item_for(product)
+    extras={'usage_entity':'sensor.washer','usage_state':'finished'} if mode=='usage' else {
+        'meal_rules':[{'routine_id':'routine','meal_id':'lunch','amount':1,'person_amounts':{}}]}
+    payload=replenishment_payload(item,mode=mode,unit='uds',refill_quantity=10,reorder_enabled=True,reorder_percent=20,reorder_basis='percent',list_entity='todo.main',**extras)
+    product=await shared.async_save_replenishment({k:v for k,v in product.items() if k in FIELDS},payload)
+    item=env.stock.item_for(product)
+    assert item['reorder_basis']=='percent' and item['reorder_percent']==20
+    # 2 units is 20% of a refill of 10, regardless of an older absolute minimum.
+    assert stock_needs_reorder({**item,'quantity':2,'reorder_at':0})
+    assert not stock_needs_reorder({**item,'quantity':3,'reorder_at':999})
+    restored=StockManager(env.stock.hass,env.stock.catalog);await restored.async_load()
+    assert restored.item_for(product)['reorder_basis']=='percent'
+    assert restored.item_for(product)['quantity']==item['quantity']
+
+
 async def test_catalog_and_stock_share_enable_days_and_disable_without_losing_quantities(env,shared):
     item=await env.stock.async_save(env.item["id"],env.item["revision"],config(env.item,quantity=3.5,unit="Latas",refill_quantity=2))
     await save_recurrence(env,True,4);await shared.async_sync_stock()

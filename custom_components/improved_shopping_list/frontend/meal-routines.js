@@ -1,6 +1,8 @@
 import { installDialogCloseButtons } from './dialog-controls.js?v=0.69.0';
 const el=(tag,text)=>{const n=document.createElement(tag);if(text!=null)n.textContent=text;return n;};
 const days=['L','M','X','J','V','S','D'];
+// Unlike randomUUID(), getRandomValues is available on local HTTP origins.
+const mealId=()=>`meal_${Array.from(crypto.getRandomValues(new Uint8Array(16)),n=>n.toString(16).padStart(2,'0')).join('')}`;
 const iconButton=(name,icon)=>{const b=el('button');b.type='button';b.setAttribute('aria-label',name);b.title=name;const i=el('ha-icon');i.setAttribute('icon',icon);i.setAttribute('aria-hidden','true');b.append(i);return b;};
 class MealRoutinesSettings extends HTMLElement {
   constructor(){super();this.attachShadow({mode:'open'});this.rows=[];}
@@ -37,7 +39,7 @@ class MealRoutinesSettings extends HTMLElement {
       edit.addEventListener('click',()=>this.open(row));remove.addEventListener('click',()=>{if(confirm('¿Eliminar la rutina «'+row.name+'»?'))void this.write('delete',{routine_id:row.id,revision:row.revision});});actions.append(edit,remove);card.append(info,actions);return card;
     }));this.sync();
   }
-  meal(name,time){return {id:crypto.randomUUID(),name,time,days:[0,1,2,3,4,5,6],enabled:true};}
+  meal(name,time){return {id:mealId(),name,time,days:[0,1,2,3,4,5,6],enabled:true};}
   open(row){
     if(this.busy)return;this.draft=structuredClone(row??{name:'',persons:[],minimum_minutes:15,enabled:true,meals:[this.meal('Desayuno','08:30'),this.meal('Comida','14:30'),this.meal('Cena','21:30')]});
     const root=this.shadowRoot;root.querySelector('#routine-title').textContent=row?'Editar rutina':'Nueva rutina';root.querySelector('#routine-name').value=this.draft.name;root.querySelector('#routine-minimum').value=this.draft.minimum_minutes;root.querySelector('#routine-enabled').checked=this.draft.enabled;root.querySelector('#routine-error').hidden=true;

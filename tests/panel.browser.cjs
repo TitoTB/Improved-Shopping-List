@@ -1130,7 +1130,7 @@ async function checkReceiptPackageFormats(browser,url,errors){
   assert.equal(await skip.isEnabled(),true);await skip.click();await preparing.waitFor({state:'hidden'});
   await dialog.getByRole('button',{name:'Continuar',exact:true}).click();
   const format=dialog.getByLabel('Contenido por envase',{exact:true});await format.fill('250');
-  await dialog.getByLabel('Unidades del envase',{exact:true}).selectOption('g');
+  await dialog.getByLabel('Unidad de medida',{exact:true}).selectOption('g');
   await page.evaluate(()=>{window.releaseNutri();window.delayNutriCode=null;});
   await page.waitForTimeout(100);assert.equal(await format.inputValue(),'250');
   assert.deepEqual(await page.evaluate(()=>window.nutriCalls),['3017620422003']);
@@ -1403,7 +1403,7 @@ async function checkLidlMetadata(browser,url,errors){
   await page.evaluate(()=>{window.finishLidlMetadata();window.lidlMetadataWait=null;});await progress.waitFor({state:'hidden'});
   await dialog.getByRole('button',{name:'Continuar',exact:true}).click();
   assert.equal(await dialog.getByLabel('Contenido por envase',{exact:true}).inputValue(),'1000');
-  assert.equal(await dialog.getByLabel('Unidades del envase',{exact:true}).inputValue(),'g');
+  assert.equal(await dialog.getByLabel('Unidad de medida',{exact:true}).inputValue(),'g');
   assert.equal(await dialog.getByText(/Formato propuesto desde una oferta de Lidl/).count(),1);
   await dialog.getByLabel('Contenido por envase',{exact:true}).fill('750');
   await dialog.getByRole('button',{name:'Actualizar precios y cerrar',exact:true}).click();await dialog.waitFor({state:'hidden'});
@@ -1814,12 +1814,12 @@ async function checkCatalogSources(browser,url,errors){
   await individual.locator(':scope > summary').click();
   await shared.getByLabel('Marca',{exact:true}).fill('Marca compartida');
   await shared.getByLabel('Contenido por envase',{exact:true}).fill('500');
-  await shared.getByLabel('Unidades del envase',{exact:true}).selectOption('g');
-  await shared.getByLabel('Unidades por pack',{exact:true}).fill('6');
+  await shared.getByLabel('Unidad de medida',{exact:true}).selectOption('g');
+  await shared.getByLabel('Cantidad por pack',{exact:true}).fill('6');
   for(const width of [1280,390,320]){
     await p.setViewportSize({width,height:844});
     const aligned=await shared.evaluate(el=>{
-      const inputs=['Contenido por envase','Unidades del envase'].map(name=>el.querySelector('[aria-label="'+name+'"]'));
+      const inputs=['Contenido por envase','Unidad de medida'].map(name=>el.querySelector('[aria-label="'+name+'"]'));
       inputs.push(el.querySelector('.option-pack input'));
       const boxes=inputs.map(input=>input.getBoundingClientRect());
       return boxes.every(box=>Math.abs(box.bottom-boxes[0].bottom)<2)&&boxes[1].right<=boxes[0].left&&boxes[0].right<=boxes[2].left&&el.scrollWidth<=el.clientWidth+1;
@@ -1843,8 +1843,8 @@ async function checkCatalogSources(browser,url,errors){
   await catalog.getByRole('button',{name:'Editar Producto',exact:true}).click();
   await form.getByRole('button',{name:'Alternativas',exact:true}).click();
   await form.locator('.product-ean-group > summary').click();
-  await shared.getByLabel('Unidades del envase',{exact:true}).selectOption('');
-  await shared.getByLabel('Unidades por pack',{exact:true}).fill('');
+  await shared.getByLabel('Unidad de medida',{exact:true}).selectOption('');
+  await shared.getByLabel('Cantidad por pack',{exact:true}).fill('');
   await form.getByRole('button',{name:'Guardar producto',exact:true}).click();await form.waitFor({state:'hidden'});
   const optional=await p.evaluate(()=>window.catalogProducts[0].commercial_references.slice(0,2));
   assert.ok(optional.every(ref=>ref.content_quantity===500&&ref.content_unit===''&&!ref.content_confirmed&&ref.pack_count===undefined));
@@ -1891,15 +1891,15 @@ async function checkCatalogSources(browser,url,errors){
   const weighed=form.locator('.reference-common-fields').first();
   assert.equal(await weighed.getByLabel('Tipo de venta',{exact:true}).inputValue(),'package');
   await weighed.getByLabel('Contenido por envase',{exact:true}).fill('');
-  await weighed.getByLabel('Unidades del envase',{exact:true}).selectOption('kg');
+  await weighed.getByLabel('Unidad de medida',{exact:true}).selectOption('kg');
   assert.equal(await weighed.getByLabel('Contenido por envase',{exact:true}).isVisible(),true);
   assert.equal(await form.getByLabel('Precio por envase',{exact:true}).count(),2);
   await weighed.getByLabel('Tipo de venta',{exact:true}).selectOption('weight');
   assert.equal(await weighed.getByLabel('Contenido por envase',{exact:true}).isVisible(),true);
   assert.equal(await weighed.getByLabel('Contenido por envase',{exact:true}).isDisabled(),true);
-  assert.equal(await weighed.getByLabel('Unidades por pack',{exact:true}).isVisible(),true);
-  assert.equal(await weighed.getByLabel('Unidades por pack',{exact:true}).isDisabled(),true);
-  assert.deepEqual(await weighed.getByLabel('Unidades del envase',{exact:true}).locator('option:enabled').evaluateAll(options=>options.map(o=>o.value)),['g','kg']);
+  assert.equal(await weighed.getByLabel('Cantidad por pack',{exact:true}).isVisible(),true);
+  assert.equal(await weighed.getByLabel('Cantidad por pack',{exact:true}).isDisabled(),true);
+  assert.deepEqual(await weighed.getByLabel('Unidad de medida',{exact:true}).locator('option:enabled').evaluateAll(options=>options.map(o=>o.value)),['g','kg']);
   await form.locator('.product-option[data-store="carrefour"]').getByLabel('Precio por kg',{exact:true}).fill('10');
   await form.getByRole('button',{name:'Guardar producto',exact:true}).click();await form.waitFor({state:'hidden'});
   const weightedOption=await p.evaluate(()=>window.catalogProducts[0].commercial_references.find(ref=>ref.active!==false));
@@ -1916,15 +1916,15 @@ async function checkCatalogSources(browser,url,errors){
   await weighed.getByLabel('Tipo de venta',{exact:true}).selectOption('package');
   assert.equal(await weighed.getByLabel('Contenido por envase',{exact:true}).isVisible(),true);
   assert.equal(await weighed.getByLabel('Contenido por envase',{exact:true}).isDisabled(),false);
-  assert.equal(await weighed.getByLabel('Unidades por pack',{exact:true}).isDisabled(),false);
+  assert.equal(await weighed.getByLabel('Cantidad por pack',{exact:true}).isDisabled(),false);
   await weighed.getByLabel('Contenido por envase',{exact:true}).fill('500');
-  await weighed.getByLabel('Unidades del envase',{exact:true}).selectOption('g');
-  await weighed.getByLabel('Unidades por pack',{exact:true}).fill('6');
+  await weighed.getByLabel('Unidad de medida',{exact:true}).selectOption('g');
+  await weighed.getByLabel('Cantidad por pack',{exact:true}).fill('6');
   assert.equal(await form.getByLabel('Precio por envase',{exact:true}).count(),2);
   await weighed.getByLabel('Tipo de venta',{exact:true}).selectOption('weight');
   await weighed.getByLabel('Tipo de venta',{exact:true}).selectOption('package');
   assert.equal(await weighed.getByLabel('Contenido por envase',{exact:true}).inputValue(),'500');
-  assert.equal(await weighed.getByLabel('Unidades por pack',{exact:true}).inputValue(),'6');
+  assert.equal(await weighed.getByLabel('Cantidad por pack',{exact:true}).inputValue(),'6');
   await form.getByRole('button',{name:'Guardar producto',exact:true}).click();await form.waitFor({state:'hidden'});
   const packagedOption=await p.evaluate(()=>window.catalogProducts[0].commercial_references.find(ref=>ref.active!==false));
   assert.equal(packagedOption.sale_mode,'package');assert.equal(packagedOption.content_quantity,500);assert.equal(packagedOption.content_unit,'g');

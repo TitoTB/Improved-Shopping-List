@@ -1581,7 +1581,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
     const unit=contentFields.querySelector('select'),quantity=contentFields.querySelector('input');
     contentFields.prepend(unit.closest('label'));
     fields.append(contentFields);
-    const packLabel=element('label','option-pack','Unidades por pack'),pack=element('input');
+    const packLabel=element('label','option-pack','Cantidad por pack'),pack=element('input');
     pack.type='number';pack.min='1';pack.max='1000000';pack.step='1';pack.placeholder='Sin informar';
     pack.value=refs.find(ref=>ref.pack_count)?.pack_count??'';
     pack.addEventListener('input',()=>{for(const ref of refs){if(pack.value==='')delete ref.pack_count;else ref.pack_count=Number(pack.value);this._clearCommonSource(ref,['pack_count']);}onChange();});

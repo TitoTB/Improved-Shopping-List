@@ -2,6 +2,8 @@
 
 ## Próxima versión
 
+- En las alternativas de producto, «Unidades» pasa a «Unidad de medida» y «Unidades por pack» a «Cantidad por pack».
+
 - Todos los precios de la interfaz, incluidas tarifas por unidad de medida y campos de edición, se muestran con un máximo de dos decimales.
 
 - La revisión de tickets elimina el selector para relacionar una reposición anterior. El stock seleccionado se repone directamente con la cantidad confirmada, manteniendo la protección contra tickets duplicados.

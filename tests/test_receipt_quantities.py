@@ -115,6 +115,7 @@ async def test_estimate_restored_after_close_and_manager_restart_without_lookup(
 
 async def test_review_can_save_manual_kg_price_without_changing_receipt_or_stock_quantity(hass):
     manager,catalog,stock,product,draft=await environment(hass,weight_unit_only=True)
+    manager._drafts[draft['token']]['receipt']['lines'][0]['reference_id']='R-prod1'
     original=deepcopy(draft['receipt'])
     saved=await manager.async_confirm(draft['token'],'owner',[{'id':'0','product_id':product['id'],'replenish':True,'quantity':500,'unit':'g','purchase_id':'','save_price':True,'manual_measure_price':6.25}],True)
     ref=catalog.products[0]['commercial_references'][0]

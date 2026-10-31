@@ -4148,7 +4148,6 @@ async function main() {
     assert.equal(await suggestedProduct.getByLabel('Nombre del producto',{exact:true}).inputValue(),ticketProductName);
     await suggestedProduct.getByRole('button',{name:'Cerrar ventana',exact:true}).click();
     await purchasePage.waitForFunction(()=>!window.testPanel.shadowRoot.querySelector('isl-purchases')._busy);
-    await review.locator('#linked-products-group > summary').click();
     await cerealLine.getByRole('button',{name:'Crear producto para FLAUTIN CEREALES',exact:true}).click();
     const receiptProduct=purchasePage.locator('isl-catalog').getByRole('dialog',{name:'Nuevo producto',exact:true});
     assert.equal(await receiptProduct.getByLabel('Nombre del producto',{exact:true}).inputValue(),'FLAUTIN CEREALES');
@@ -4160,8 +4159,7 @@ async function main() {
       ?.shadowRoot.querySelector('[data-line-id="1"] .linked-name')?.textContent==='→ Flautines');
     assert.equal(await cerealLine.locator('.linked-name').textContent(),'→ Flautines');
     assert.equal(await review.locator('.ignore').count(),0);
-    assert.equal(await review.locator('#linked-products-group').evaluate(group=>group.open),false);
-    await review.locator('#linked-products-group > summary').click();
+    assert.equal(await review.locator('#linked-products-group').evaluate(group=>group.open),true);
     const linkedReceiptLine=review.locator('[data-line-id="0"]');
     await linkedReceiptLine.locator('.association-image img').waitFor();
     assert.equal(await linkedReceiptLine.locator('.association-image img').getAttribute('src'),new URL('/local/receipt-seitan.svg',url).href);

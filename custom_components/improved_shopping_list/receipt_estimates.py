@@ -35,15 +35,15 @@ def valid_entry(key,entry):
 class ReceiptEstimates:
     def __init__(self,hass,*,store=None):
         self._errors=(OSError,ValueError)
-        if store is None:
-            from homeassistant.helpers.storage import Store
-            from homeassistant.exceptions import HomeAssistantError
-            self._errors=(*self._errors,HomeAssistantError)
-            store=Store(hass,1,f'{DOMAIN}.receipt_quantity_cache')
-        self._store=store;self._entries={};self._loaded=False;self._lock=asyncio.Lock()
+        self._hass=hass;self._store=store;self._entries={};self._loaded=False;self._lock=asyncio.Lock()
 
     async def _load(self):
         if self._loaded:return
+        if self._store is None:
+            from homeassistant.helpers.storage import Store
+            from homeassistant.exceptions import HomeAssistantError
+            self._errors=(*self._errors,HomeAssistantError)
+            self._store=Store(self._hass,1,f'{DOMAIN}.receipt_quantity_cache')
         try:
             data=await self._store.async_load()
             if isinstance(data,dict):self._entries={key:entry for key,entry in list(data.items())[-LIMIT:] if valid_entry(key,entry)}

@@ -329,7 +329,8 @@ async def test_same_product_keeps_two_eans_prices_and_one_summed_stock_refill(ha
     assert env.stock.item_for(env.product)['quantity']==1520
     assert len(env.stock.receipts['purchases'])==1
     refs=env.stock.catalog.products[0]['commercial_references']
-    assert {r['ean']:r['last_price']['price'] for r in refs}=={'8410199023094':2,'4006381333931':4}
+    assert {r['ean'] for r in refs}=={'8410199023094','4006381333931'}
+    assert {offer['ean']:offer['price'] for offer in env.manager.offers_for(env.product)}=={'8410199023094':2,'4006381333931':4}
     assert [line['quantity'] for line in saved['lines']]==[500,1000]
     review=await env.manager.async_review_saved(saved['id'],'owner')
     await env.manager.async_reprocess(review['token'],'owner',[{**link,'pack_quantity':500 if i==0 else 1,'pack_unit':'g' if i==0 else 'kg'} for i,link in enumerate(links)])

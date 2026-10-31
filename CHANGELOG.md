@@ -1,6 +1,6 @@
 # Historial de cambios
 
-## 0.74.2 — 2026-10-31
+## 0.74.3 — 2026-10-31
 
 - En las tiendas de cada alternativa se oculta el ID interno y los textos de precios repetidos. Un botón junto a Recuperar datos abre la ficha en otra pestaña y conserva los enlaces de afiliado. Los desplegables de tipo de venta y unidad de medida usan el borde uniforme.
 

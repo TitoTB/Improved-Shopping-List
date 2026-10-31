@@ -1,5 +1,5 @@
-import { installDialogCloseButtons } from './dialog-controls.js?v=0.74.2';
-import { installToggleStyles } from './toggle-styles.js?v=0.74.2';
+import { installDialogCloseButtons } from './dialog-controls.js?v=0.74.3';
+import { installToggleStyles } from './toggle-styles.js?v=0.74.3';
 const el=(tag,text)=>{const n=document.createElement(tag);if(text!=null)n.textContent=text;return n;};
 const days=['L','M','X','J','V','S','D'];
 const defaultEnd=start=>{const [hour,minute]=start.split(':').map(Number);return String((hour+1)%24).padStart(2,'0')+':'+String(minute).padStart(2,'0');};

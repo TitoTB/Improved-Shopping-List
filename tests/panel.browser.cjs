@@ -1203,6 +1203,7 @@ async function checkCompactProductEditor(browser,url,errors){
   await page.setViewportSize({width:390,height:844});await page.screenshot({path:'test-results/compact-product-mobile.png',fullPage:true});
   const remove=form.getByRole('button',{name:'Eliminar producto',exact:true});
   await form.evaluate(dialog=>{dialog.querySelector('form').style.lineHeight='24px';});
+  await remove.evaluate(button=>{button.style.maxWidth='110px';});
   assert.ok(await form.locator('.product-actions').evaluate(node=>{const remove=node.querySelector('#delete-product').getBoundingClientRect(),save=node.querySelector('#save-product').getBoundingClientRect();return remove.right<=save.left&&Math.abs(remove.top-save.top)<1;}));
   assert.equal(await remove.locator('ha-icon').getAttribute('icon'),'mdi:delete');
   assert.equal(await remove.evaluate(button=>getComputedStyle(button).backgroundColor),'rgba(0, 0, 0, 0)');

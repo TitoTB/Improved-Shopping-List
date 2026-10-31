@@ -1,4 +1,4 @@
-import { CarrefourAccountPanel } from "./carrefour-account.js?v=0.74.2";
+import { CarrefourAccountPanel } from "./carrefour-account.js?v=0.74.3";
 class DiaAccountPanel extends CarrefourAccountPanel {
   get providerId(){return "dia";}
   get providerName(){return "DIA";}

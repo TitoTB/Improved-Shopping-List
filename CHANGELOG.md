@@ -1,6 +1,6 @@
 # Historial de cambios
 
-## 0.73.1 — 2026-10-31
+## 0.73.2 — 2026-10-31
 
 - La ficha de producto adopta el diseño compacto: cabecera con su imagen o icono actual, pestañas integradas, campos más limpios, alternativas con resumen de precio y reposición en bloques desplegables. Se conservan los controles y procesos existentes.
 

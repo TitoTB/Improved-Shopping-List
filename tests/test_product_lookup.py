@@ -131,6 +131,8 @@ async def test_nutriscore_endpoint_reuses_lookup_and_never_sends_qr_or_nfc(hass,
     entry.add_to_hass(hass)
     assert await hass.config_entries.async_setup(entry.entry_id)
     lookup = hass.data[DOMAIN]["readers"].lookup
+    common=AsyncMock(return_value={})
+    monkeypatch.setattr(lookup.common_index,'async_hint',common)
     fetch = AsyncMock(return_value=product_hint({"product": {**PAYLOAD["product"], "nutriscore_grade": "b"}}, CODE))
     monkeypatch.setattr(lookup, "_fetch", fetch)
     client = await hass_ws_client(hass)
@@ -141,6 +143,7 @@ async def test_nutriscore_endpoint_reuses_lookup_and_never_sends_qr_or_nfc(hass,
     await client.send_json({"id": 2, "type": f"{DOMAIN}/catalog/nutriscore", "code": "https://private.test/qr"})
     assert (await client.receive_json())["result"]["nutriscore"] is None
     fetch.assert_awaited_once_with(CODE)
+    common.assert_awaited_once_with(CODE)
     assert await hass.config_entries.async_unload(entry.entry_id)
     await client.send_json({"id": 3, "type": f"{DOMAIN}/catalog/nutriscore", "code": CODE})
     assert (await client.receive_json())["error"]["code"] == "not_loaded"

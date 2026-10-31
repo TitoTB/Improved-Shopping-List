@@ -1112,8 +1112,9 @@ async function checkReceiptPackageFormats(browser,url,errors){
   assert.equal(await page.evaluate(()=>window.lastReceiptConfirmation.lines[0].quantity),475);
   assert.equal(await page.evaluate(()=>window.lastReceiptConfirmation.lines[0].pack_quantity),null);
   assert.equal(await page.evaluate(()=>window.lastReceiptConfirmation.lines[0].quantity_edited),true);
-  // Progress opens before the required save. Optional metadata can then be skipped.
+  // After cache expiry, progress opens before the save and new hints can be skipped.
   await purchases.evaluate(el=>{
+    for(const entry of el._packageMetadataCache.values())entry.expires=0;
     const products=[{id:'coffee',name:'Café',unit:'uds',refill_quantity:1,stock_id:'',commercial_references:[]}];
     window.catalogProducts=products;window.nutriCalls=[];window.delayNutriCode='3017620422003';
     window.receiptLinkWait=new Promise(resolve=>window.finishReceiptLinks=resolve);

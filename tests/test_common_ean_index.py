@@ -100,3 +100,11 @@ async def test_common_facts_precede_shop_discovery_but_keep_off_product_name(has
     result=await lookup.async_lookup(EAN)
     assert result['product_name']=='Nombre oficial' and result['brand']=='Marca' and result['content_quantity']==500
     lookup.catalog_discovery.async_hint.assert_not_awaited()
+
+
+async def test_missing_product_name_can_still_come_from_enabled_shop(hass):
+    lookup=ProductLookup(hass);lookup.common_index=SimpleNamespace(async_hint=AsyncMock(return_value={'brand':'Marca','content_quantity':500,'content_unit':'g'}))
+    lookup.catalog_discovery=SimpleNamespace(async_hint=AsyncMock(return_value={'status':'found','product_name':'Nombre de la tienda','brand':'Otra'}),fingerprint=lambda:'')
+    lookup._fetch=AsyncMock(return_value={'status':'not_found'})
+    result=await lookup.async_lookup(EAN)
+    assert result['product_name']=='Nombre de la tienda' and result['brand']=='Marca' and result['content_quantity']==500

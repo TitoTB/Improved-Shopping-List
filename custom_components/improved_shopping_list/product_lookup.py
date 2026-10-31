@@ -142,6 +142,12 @@ class ProductLookup:
         async with self._lock:
             discovery=getattr(self,"catalog_discovery",None)
             complete=bool(fields.get('brand') and fields.get('content_quantity') and fields.get('content_unit'))
+            async def complete_name(result):
+                if complete and discovery and not result.get('product_name'):
+                    try:
+                        if hint:=await discovery.async_hint(code):result={**result,**hint}
+                    except (ClientError,TimeoutError,ValueError,OSError):pass
+                return enrich(result)
             if discovery and not complete and (hint:=await discovery.async_hint(code)):
                 hint=enrich(hint)
                 previous=self.cached(code) or {}
@@ -151,7 +157,7 @@ class ProductLookup:
                 except (OSError,HomeAssistantError):_LOGGER.warning("Could not persist the optional product lookup cache")
                 return deepcopy(hint)
             if self.is_fresh(code):
-                return enrich(self.cached(code))
+                return await complete_name(self.cached(code))
             delay = self._next_request - time.monotonic()
             if delay > 0:
                 await sleep(delay)
@@ -162,7 +168,7 @@ class ProductLookup:
                 result = {"status": "error"}
             if result.get("nutriscore"):
                 result["nutriscore"]["checked_at"] = int(time.time())
-            result=enrich(result)
+            result=await complete_name(result)
             self._cache[code.zfill(14)] = {"expires": time.time() + TTLS[result["status"]], "fields": FIELDS, "result": result,
                 "discovery_signature":getattr(discovery,"fingerprint",lambda:"")()}
             self._cache = dict(sorted(self._cache.items(), key=lambda item: item[1]["expires"])[-500:])

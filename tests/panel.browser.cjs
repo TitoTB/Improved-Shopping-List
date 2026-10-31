@@ -962,7 +962,16 @@ async function checkDetectedPurchaseRecovery(browser,url,errors){
   const edit=purchases.getByRole('button',{name:'Completar compra detectada',exact:true});await edit.click();
   const dialog=purchases.getByRole('dialog',{name:'Compra detectada',exact:true}),recover=dialog.getByRole('button',{name:'Recuperar compra',exact:true});
   assert.equal(await recover.isDisabled(),true);
-  await dialog.getByLabel('Tienda',{exact:true}).selectOption('carrefour');assert.equal(await recover.isDisabled(),true);
+  assert.deepEqual(await dialog.getByLabel('Tienda',{exact:true}).locator('option').evaluateAll(options=>options.map(option=>option.value)),['','lidl']);
+  await purchases.evaluate(el=>{
+    el._session.shops=[{id:'yes',name:'Mi Lidl',account:'lidl'},{id:'no',name:'Mi Carrefour',account:'carrefour'},{id:'none',name:'Sin cuenta',account:''}];
+    el._render();
+  });
+  assert.deepEqual(await dialog.getByLabel('Tienda',{exact:true}).locator('option').evaluateAll(options=>options.map(option=>option.value)),['','lidl','shop:yes']);
+  await purchases.evaluate(el=>{el._session.ticketAccounts={carrefour:false,lidl:false};el._render();});
+  assert.deepEqual(await dialog.getByLabel('Tienda',{exact:true}).locator('option').evaluateAll(options=>options.map(option=>option.value)),['']);
+  assert.equal(await recover.isDisabled(),true);
+  await purchases.evaluate(el=>{el._session.ticketAccounts={carrefour:false,lidl:true};el._render();});
   await dialog.getByLabel('Tienda',{exact:true}).selectOption('lidl');assert.equal(await recover.isDisabled(),false);
   assert.equal(await dialog.getByLabel('Importe total (€)',{exact:true}).inputValue(),'');
   await recover.click();await dialog.getByText('No se han encontrado tickets pendientes de revisión para ese día en esta cuenta.',{exact:false}).waitFor();
@@ -4943,12 +4952,9 @@ async function main() {
     assert.equal(await detectedPurchases.locator('.store-segment').count(),0);
     await detectedPurchases.getByRole('button',{name:'Completar compra detectada',exact:true}).click();
     const detectedEditor=detectedPurchases.getByRole('dialog',{name:'Compra detectada',exact:true});
-    assert.equal(await detectedEditor.locator('#detected-zone-candidates button').count(),2);
-    await detectedEditor.locator('#detected-zone-candidates').getByRole('button',{name:'Alcampo',exact:true}).click();
-    assert.equal(await detectedEditor.getByLabel('Tienda',{exact:true}).inputValue(),'alcampo');
-    assert.equal(await detectedEditor.locator('#detected-zone-candidates').getByRole('button',{name:'Alcampo',exact:true}).getAttribute('aria-pressed'),'true');
-    await detectedEditor.getByLabel('Tienda',{exact:true}).selectOption('other');
-    await detectedEditor.getByLabel('Nombre de la tienda',{exact:true}).fill('Mi tienda');
+    assert.equal(await detectedEditor.locator('#detected-zone-candidates button').count(),0);
+    await detectedPurchases.evaluate(el=>{el._session.ticketAccounts={carrefour:true};el._editDetectedPurchase(window.receiptHistory[0]);});
+    await detectedEditor.getByLabel('Tienda',{exact:true}).selectOption('carrefour');
     await detectedEditor.getByLabel('Importe total (€)',{exact:true}).fill('42.55');
     for(const width of [1280,390,320]){await detectedPage.setViewportSize({width,height:844});assert.ok(await detectedEditor.evaluate(dialog=>dialog.scrollWidth<=dialog.clientWidth+1));await detectedPage.screenshot({path:'test-results/detected-purchase-'+width+'.png',fullPage:true});}
     await detectedPage.evaluate(()=>window.failDetectedPurchase=true);
@@ -4957,7 +4963,7 @@ async function main() {
     assert.equal(await detectedPage.evaluate(()=>window.receiptHistory[0].total),null);
     await detectedPage.evaluate(()=>window.failDetectedPurchase=false);
     await detectedEditor.getByRole('button',{name:'Guardar',exact:true}).click();await detectedEditor.waitFor({state:'hidden'});
-    await detectedPurchases.locator('#history .title strong').filter({hasText:'Mi tienda'}).waitFor();
+    await detectedPurchases.locator('#history .title strong').filter({hasText:'Carrefour'}).waitFor();
     assert.match(await detectedPurchases.locator('#history .total').textContent(),/42,55/);
     assert.equal(await detectedPurchases.locator('.store-segment').getAttribute('data-amount'),'42.55');
     assert.equal(await detectedPage.evaluate(()=>window.stockItems.length),0);

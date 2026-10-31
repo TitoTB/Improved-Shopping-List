@@ -1,5 +1,9 @@
 # Historial de cambios
 
+## Próxima versión
+
+- El selector de tienda de las compras detectadas solo ofrece cuentas conectadas y habilitadas, y tiendas vinculadas a ellas. Se excluyen también las propuestas por zona que no cumplen estas condiciones.
+
 ## 0.64.0 — 2026-10-30
 
 - Cruce del feed completo de Carrefour (15.764 EAN) con fichas públicas verificadas de Alcampo: 263 enlaces nuevos, para un total de 277 enlaces de Alcampo en el diccionario. Se exige coincidencia exacta de EAN y referencia presente en los mapas actuales de la tienda. Se conserva el informe del cruce y se actualizan también los diccionarios compatibles v5/v6/v7.

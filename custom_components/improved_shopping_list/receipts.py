@@ -49,7 +49,7 @@ class ReceiptManager:
     def snapshot(self):
         return {"receipts":sorted(deepcopy(list(self.stock.receipts["history"].values())),
             key=lambda receipt:receipt["purchased_at"], reverse=True),
-            "ticket_accounts":{store:bool(account.status("").get("connected")) for store,account in self.ticket_accounts.accounts.items()} if getattr(self,"ticket_accounts",None) else {},
+            "ticket_accounts":{store:bool(account.status("").get("connected") and getattr(self,"settings",None) and self.settings.snapshot.get("stores",{}).get(store,{}).get("enabled")) for store,account in self.ticket_accounts.accounts.items()} if getattr(self,"ticket_accounts",None) else {},
             "shops":deepcopy(getattr(self,'settings',None).snapshot['purchase_detection'].get('shops',[])) if getattr(self,'settings',None) else [],
             "persons":list(self.settings.snapshot['purchase_detection'].get('persons',[])) if getattr(self,'settings',None) else []}
 

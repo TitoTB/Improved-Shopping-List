@@ -105,7 +105,7 @@ class ImprovedShoppingPurchases extends HTMLElement {
       <p id="association-error" class="notice error" role="alert" hidden></p>
       <div class="actions"><button id="confirm-association" type="submit">Vincular</button></div>
     </form></dialog>
-    <dialog id="purchase-detail" aria-labelledby="purchase-detail-title"><h2 id="purchase-detail-title">Detalle de la compra</h2><div id="purchase-detail-info" class="receipt-info"></div><div id="purchase-detail-lines"></div></dialog><dialog id="detected-purchase-dialog" aria-labelledby="detected-purchase-title"><h2 id="detected-purchase-title">Compra detectada</h2><form id="detected-purchase-form"><p id="detected-date" class="muted"></p><p id="detected-zone-help" class="note" hidden></p><div id="detected-zone-candidates" class="zone-candidates" hidden></div><label>Tienda<select id="detected-store" aria-label="Tienda" required><option value="">Selecciona una tienda</option><option value="alcampo">Alcampo</option><option value="carrefour">Carrefour</option><option value="consum">Consum</option><option value="dia">DIA</option><option value="eroski">Eroski</option><option value="lasirena">La Sirena</option><option value="mercadona">Mercadona</option><option value="lidl">Lidl</option><option value="other">Otra tienda</option></select></label><div class="recovery-actions"><button id="recover-detected" type="button"><ha-icon icon="mdi:receipt-text"></ha-icon>Recuperar compra</button></div><p id="detected-recovery-help" class="note"></p><div id="detected-recovery-results"></div><label id="detected-other-label" hidden>Nombre de la tienda<input id="detected-other" maxlength="100"></label><label>Compradores<select id="detected-shoppers" multiple aria-label="Compradores"></select></label><label>Importe total (€)<input id="detected-total" type="number" min="0" max="1000000" step="0.01" required></label><p class="note">Completa los datos de la compra. No se modifican el stock ni los precios de los productos.</p><ul id="detected-products"></ul><p id="detected-error" class="error" role="alert" hidden></p><div class="actions"><button id="discard-detection" class="danger" type="button">Eliminar detección</button><button type="submit">Guardar</button></div></form></dialog>`;
+    <dialog id="purchase-detail" aria-labelledby="purchase-detail-title"><h2 id="purchase-detail-title">Detalle de la compra</h2><div id="purchase-detail-info" class="receipt-info"></div><div id="purchase-detail-lines"></div></dialog><dialog id="detected-purchase-dialog" aria-labelledby="detected-purchase-title"><h2 id="detected-purchase-title">Compra detectada</h2><form id="detected-purchase-form"><p id="detected-date" class="muted"></p><p id="detected-zone-help" class="note" hidden></p><div id="detected-zone-candidates" class="zone-candidates" hidden></div><label>Tienda<select id="detected-store" aria-label="Tienda" required><option value="">Selecciona una tienda</option></select></label><div class="recovery-actions"><button id="recover-detected" type="button"><ha-icon icon="mdi:receipt-text"></ha-icon>Recuperar compra</button></div><p id="detected-recovery-help" class="note"></p><div id="detected-recovery-results"></div><label id="detected-other-label" hidden>Nombre de la tienda<input id="detected-other" maxlength="100"></label><label>Compradores<select id="detected-shoppers" multiple aria-label="Compradores"></select></label><label>Importe total (€)<input id="detected-total" type="number" min="0" max="1000000" step="0.01" required></label><p class="note">Completa los datos de la compra. No se modifican el stock ni los precios de los productos.</p><ul id="detected-products"></ul><p id="detected-error" class="error" role="alert" hidden></p><div class="actions"><button id="discard-detection" class="danger" type="button">Eliminar detección</button><button type="submit">Guardar</button></div></form></dialog>`;
     const rangeDialog=document.createElement('dialog');rangeDialog.id='purchase-period-dialog';rangeDialog.setAttribute('aria-labelledby','purchase-period-title');rangeDialog.innerHTML=`<h2 id="purchase-period-title">Periodo de compras</h2><form id="purchase-period-form"><div class="period-fields"><label>Fecha de inicio<input id="purchase-start" type="date" required></label><label>Fecha de fin<input id="purchase-end" type="date" required></label></div><div class="actions"><button type="submit">Aplicar</button></div></form>`;this.shadowRoot.append(rangeDialog);
     const quantityDialog=document.createElement('dialog');quantityDialog.id='quantity-progress';quantityDialog.setAttribute('aria-labelledby','quantity-progress-title');quantityDialog.innerHTML='<h2 id="quantity-progress-title">Completando cantidades</h2><progress max="100" value="0" style="width:100%;height:26px;accent-color:#2196f3" aria-label="Progreso de cantidades"></progress><p class="quantity-progress-label" role="status"></p>';this.shadowRoot.append(quantityDialog);
     installDialogCloseButtons(this.shadowRoot);
@@ -541,6 +541,14 @@ class ImprovedShoppingPurchases extends HTMLElement {
   _render(){
     if(!this._built)return;
     const root=this.shadowRoot,message=root.querySelector('#message');
+    if(root.querySelector('#detected-purchase-dialog').open){
+      const selected=root.querySelector('#detected-store').value,available=this._detectedStoreOptions(selected);
+      if(root.querySelector('#detected-store').value!==selected)this._detectedStoreFields();
+      else this._updateRecoveryControl();
+      const choices=root.querySelector('#detected-zone-candidates');
+      for(const button of choices.querySelectorAll('button')){if(!available.has(button.dataset.store))button.remove();}
+      if(!choices.children.length){choices.hidden=true;root.querySelector('#detected-zone-help').hidden=true;}
+    }
     const text=this._reading?'Leyendo ticket…':this._error|| (this._history?this._session.error:'') || (this._history&&this._session.loading?'Cargando compras…':'');
     message.textContent=text;message.hidden=!text;message.classList.toggle('error',Boolean(this._error||this._session.error));
     root.querySelector('#history').hidden=!this._history;root.querySelector('#empty').hidden=true;
@@ -575,20 +583,31 @@ class ImprovedShoppingPurchases extends HTMLElement {
   _editDetectedPurchase(receipt){
     if(this._busy)return;this._detectedReceipt=receipt.id;const root=this.shadowRoot;
     root.querySelector('#detected-date').textContent=documentDate(receipt)+' · '+receipt.article_count+' productos completados';
-    const shopSelect=root.querySelector('#detected-store');shopSelect.querySelectorAll('[data-shop]').forEach(n=>n.remove());for(const shop of this._session.shops){const option=new Option(shop.name,'shop:'+shop.id);option.dataset.shop='true';shopSelect.append(option);}shopSelect.value=receipt.shop_id&&this._session.shops.some(shop=>shop.id===receipt.shop_id)?'shop:'+receipt.shop_id:receipt.store==='unknown'?'':STORE_NAMES[receipt.store]?receipt.store:'other';
+    const available=this._detectedStoreOptions(receipt.shop_id?'shop:'+receipt.shop_id:receipt.store);
     root.querySelector('#detected-other').value=receipt.store.startsWith('other:')||receipt.shop_id&&!this._session.shops.some(shop=>shop.id===receipt.shop_id)?receipt.store_name:'';
     root.querySelector('#detected-total').value=receipt.total==null?'':String(receipt.total);const people=root.querySelector('#detected-shoppers');people.replaceChildren(...[...new Set([...(this._session.persons??[]),...(receipt.shoppers??[])])].map(person=>{const option=new Option(this._hass.states[person]?.attributes?.friendly_name??person,person);option.selected=(receipt.shoppers??[]).includes(person);return option;}));
-    const candidates=receipt.needs_details?(receipt.zone_candidates??[]):[];
+    const candidates=receipt.needs_details?(receipt.zone_candidates??[]).filter(store=>available.has(store)):[];
     const choices=root.querySelector('#detected-zone-candidates');choices.hidden=!candidates.length;
     const hint=root.querySelector('#detected-zone-help');hint.hidden=!candidates.length;hint.textContent=candidates.length===1?'Tienda propuesta por presencia en su zona. Puedes confirmarla o elegir otra.':'Se han registrado visitas a varias tiendas ese día. Selecciona dónde hiciste la compra.';
     choices.replaceChildren(...candidates.map(store=>{const name=STORE_NAMES[store]??store,button=node('button','zone-store-choice');button.type='button';button.dataset.store=store;button.setAttribute('aria-label',name);button.append(this._storeImage(store,name),node('span','',name));button.addEventListener('click',()=>{root.querySelector('#detected-store').value=store;this._detectedStoreFields();});return button;}));
     const completed=new Set((receipt.completed_products??[]).map(p=>p.key));root.querySelector('#detected-products').replaceChildren(...(receipt.candidate_products??receipt.completed_products??[]).map(product=>{const li=node('li'),label=node('label','product-choice');if(product.key){const input=node('input');input.type='checkbox';input.dataset.productKey=product.key;input.checked=completed.has(product.key);label.append(input);}label.append(document.createTextNode(product.name));li.append(label);return li;}));
     root.querySelector('#detected-error').hidden=true;this._detectedStoreFields();root.querySelector('#detected-purchase-dialog').showModal();
   }
+  _detectedStoreOptions(preferred){
+    const select=this.shadowRoot.querySelector('#detected-store');
+    const accounts=Object.entries(this._session.ticketAccounts).filter(([,available])=>available===true);
+    const options=accounts.map(([store])=>[store,STORE_NAMES[store]??store]);
+    for(const shop of this._session.shops){if(this._session.ticketAccounts[shop.account]===true)options.push(['shop:'+shop.id,shop.name]);}
+    options.sort((a,b)=>a[1].localeCompare(b[1],'es'));
+    const allowed=new Set(options.map(([value])=>value));
+    select.replaceChildren(new Option('Selecciona una tienda',''),...options.map(([value,name])=>new Option(name,value)));
+    select.value=allowed.has(preferred)?preferred:'';
+    return allowed;
+  }
   _updateRecoveryControl(){
     const root=this.shadowRoot;if(!this._built)return;const selected=root.querySelector('#detected-store').value,shop=this._session.shops.find(shop=>selected==='shop:'+shop.id),account=shop?shop.account:selected;
     root.querySelector('#recover-detected').disabled=this._busy||!this._session.ticketAccounts[account];
-    root.querySelector('#detected-recovery-help').textContent=!selected?'Elige una tienda para buscar su ticket.':!this._session.ticketAccounts[account]?'La tienda debe tener una cuenta conectada en Ajustes → Tiendas.':'Busca los tickets de ese día. La recuperación manual no necesita esperar a la consulta automática.';
+    root.querySelector('#detected-recovery-help').textContent=!selected?(Object.values(this._session.ticketAccounts).some(value=>value===true)?'Elige una tienda para buscar su ticket.':'No hay cuentas conectadas y activas. Configúralas en Ajustes → Tiendas.'):!this._session.ticketAccounts[account]?'La tienda debe tener una cuenta conectada en Ajustes → Tiendas.':'Busca los tickets de ese día. La recuperación manual no necesita esperar a la consulta automática.';
   }
   async _searchDetectedTickets(){
     if(this._busy||!this._detectedReceipt)return;const root=this.shadowRoot;this._setBusy(true);root.querySelector('#detected-error').hidden=true;root.querySelector('#detected-recovery-results').replaceChildren();

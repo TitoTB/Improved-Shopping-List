@@ -33,6 +33,19 @@ class PurchaseRecoveryTests(unittest.IsolatedAsyncioTestCase):
         self.receipts._drafts["draft"]={"owner":owner,"expires":time.time()+600,"receipt":deepcopy(receipt)}
         return {"token":"draft","receipt":receipt}
 
+    def test_snapshot_exposes_only_connected_and_enabled_ticket_accounts(self):
+        self.receipts.settings.snapshot['stores'] = {
+            'carrefour': {'enabled': True}, 'lidl': {'enabled': False},
+            'offline': {'enabled': True}}
+        connected = SimpleNamespace(status=Mock(return_value={'connected': True}))
+        offline = SimpleNamespace(status=Mock(return_value={'connected': False}))
+        self.receipts.ticket_accounts = SimpleNamespace(accounts={
+            'carrefour': connected, 'lidl': connected, 'offline': offline, 'unset': connected})
+        self.assertEqual(self.receipts.snapshot['ticket_accounts'], {
+            'carrefour': True, 'lidl': False, 'offline': False, 'unset': False})
+        self.receipts.settings.snapshot['stores']['carrefour']['enabled'] = False
+        self.assertFalse(self.receipts.snapshot['ticket_accounts']['carrefour'])
+
     async def test_forced_search_ignores_auto_options_and_filters_account_day(self):
         rows=self.receipts.stock.receipts["history"]
         rows["other-day"]={**self.summary,"id":"other-day","purchased_at":(dt_util.now()-timedelta(days=1)).isoformat()}

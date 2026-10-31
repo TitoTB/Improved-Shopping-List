@@ -1,5 +1,13 @@
 # Historial de cambios
 
+## 0.72.0 — 2026-10-31
+
+- Se retira el texto introductorio de la ficha de productos.
+
+- Se reduce de 24 a 12 px la separación entre los grupos de productos del catálogo, tanto por categoría como por tienda.
+
+- Las comidas y sus franjas se configuran directamente en Stock → Rutinas, debajo de cada rutina. El popup de nueva/editar rutina queda reservado al nombre, las personas y su activación.
+
 ## 0.71.0 — 2026-10-31
 
 - El bloque de rutinas se llama «Rutinas», sin introducción, y permite activar o desactivar cada rutina desde su tarjeta. El botón + abre únicamente la ficha de una nueva rutina.

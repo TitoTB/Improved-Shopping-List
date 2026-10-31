@@ -1,4 +1,4 @@
-import './meal-consumption.js?v=0.71.0';
+import './meal-consumption.js?v=0.72.0';
 export const replenishmentMarkup=`<style>
 #product-replenishment .replenishment-content>.replenishment-row,#replenishment-fields>.replenishment-row,#replenishment-usage>.replenishment-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(110px,42%);align-items:center;gap:12px;margin:0;grid-column:1/-1;}
 #replenishment-fields{grid-template-columns:minmax(0,1fr);gap:16px;margin-top:16px;}

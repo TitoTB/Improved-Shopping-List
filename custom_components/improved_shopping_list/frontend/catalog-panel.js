@@ -1,15 +1,15 @@
-import { ReplenishmentEditor, replenishmentMarkup } from './replenishment-editor.js?v=0.71.0';
+import { ReplenishmentEditor, replenishmentMarkup } from './replenishment-editor.js?v=0.72.0';
 const priceValue=value=>value==null||value===''?'':Number(Number(value).toFixed(2));
-import { purchaseQuantity, quantityLabel } from "./quantity-client.js?v=0.71.0";
-import { referenceContentControls, referenceRate, barcodeIdentity, validReferenceContent, validReferenceFormat, weightFormat, pendingProductInformation } from "./reference-formats.js?v=0.71.0";
-import { installDialogCloseButtons } from "./dialog-controls.js?v=0.71.0";
-import { CatalogSession } from "./catalog-client.js?v=0.71.0";
-import { matchCatalogProducts } from "./product-matching.js?v=0.71.0";
-import "./category-panel.js?v=0.71.0";
-import "./recipe-editor.js?v=0.71.0";
-import "./icon-picker.js?v=0.71.0";
-import "./pending-information-refresh.js?v=0.71.0";
-import { imageSource, normalizedName, productNameKey, cachedProductPrice, storeProductLink, storeFromProductUrl } from "./product-display.js?v=0.71.0";
+import { purchaseQuantity, quantityLabel } from "./quantity-client.js?v=0.72.0";
+import { referenceContentControls, referenceRate, barcodeIdentity, validReferenceContent, validReferenceFormat, weightFormat, pendingProductInformation } from "./reference-formats.js?v=0.72.0";
+import { installDialogCloseButtons } from "./dialog-controls.js?v=0.72.0";
+import { CatalogSession } from "./catalog-client.js?v=0.72.0";
+import { matchCatalogProducts } from "./product-matching.js?v=0.72.0";
+import "./category-panel.js?v=0.72.0";
+import "./recipe-editor.js?v=0.72.0";
+import "./icon-picker.js?v=0.72.0";
+import "./pending-information-refresh.js?v=0.72.0";
+import { imageSource, normalizedName, productNameKey, cachedProductPrice, storeProductLink, storeFromProductUrl } from "./product-display.js?v=0.72.0";
 export { imageSource, normalizedName, productNameKey, cachedProductPrice };
 
 const MONTHS = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
@@ -269,7 +269,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
         .grouping-options button { display:flex; align-items:center; gap:10px; text-align:left; }
         .grouping-options button[aria-pressed=true] { background:var(--secondary-background-color,#edf4ee); font-weight:650; }
         .grouping-options ha-icon { width:24px; height:24px; --mdc-icon-size:24px; flex:none; }
-        #catalog-grid.grouped { grid-template-columns:minmax(0,1fr); gap:24px; }
+        #catalog-grid.grouped { grid-template-columns:minmax(0,1fr); gap:12px; }
         .category-group { min-width:0; border:1px solid var(--divider-color,#dfe7e1); border-radius:14px; background:var(--card-background-color,#fff); }
         .category-group-toggle { display:flex; align-items:center; gap:12px; padding:16px; cursor:pointer; list-style:none; border-radius:14px; }
         .category-group-toggle::-webkit-details-marker { display:none; }
@@ -518,7 +518,6 @@ class ImprovedShoppingCatalog extends HTMLElement {
       <dialog aria-labelledby="product-dialog-title">
         <form id="product-form">
           <div class="dialog-heading"><h2 id="product-dialog-title">Nuevo producto</h2></div>
-          <p class="helper">Solo necesitas un nombre para empezar. Puedes completar el resto más adelante.</p>
           <div id="product-error" class="notice error" role="alert" hidden></div>
           <nav class="product-views" aria-label="Vistas de la ficha del producto">
             <button type="button" data-product-view="main" aria-label="Características" aria-pressed="true" aria-controls="product-main"><ha-icon icon="mdi:package-variant-closed" aria-hidden="true"></ha-icon><span class="tab-label">Características</span></button>

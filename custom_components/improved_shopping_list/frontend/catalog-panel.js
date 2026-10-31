@@ -1598,7 +1598,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
       input.addEventListener('keydown',event=>{if(event.key==='Enter'&&!event.isComposing){event.preventDefault();void this._retrieveOption(ref,input.value.trim(),feedback);}});
     }
     if(ref.reference_id)card.append(element('p','helper','ID: '+ref.reference_id));
-    if(ref.url){const link=element('a','helper','Ver ficha de la tienda');link.href=storeProductLink(ref.store,ref.url);link.target='_blank';link.rel='noopener noreferrer';if(link.href!==ref.url){link.rel+=' sponsored';link.title='Enlace de afiliado de Carrefour';}card.append(link);}
+    if(ref.url){const link=element('a','helper','Ver ficha de la tienda');link.href=storeProductLink(ref.store,ref.url);link.target='_blank';link.rel='noopener noreferrer';if(link.href!==ref.url){link.rel+=' sponsored';link.title='Enlace de afiliado de '+(STORE_NAMES[ref.store]??ref.store);}card.append(link);}
     const offers=[...(ref.last_price?[ref.last_price]:[]),...(this._priceData?.offers??[]).filter(offer=>offer.catalog_product_id===this._editing?.id&&(offer.commercial_reference_id===ref.id||offer.store===ref.store&&(ref.ean&&offer.ean===ref.ean||ref.reference_id&&offer.reference_id===ref.reference_id)))].sort((a,b)=>(b.checked_at??0)-(a.checked_at??0));
     const priceLabel=element('label','option-price','Precio por envase (€)'),priceInput=element('input');
     priceInput.type='number';priceInput.min='0';priceInput.max='1000000';priceInput.step='0.01';priceInput.inputMode='decimal';priceInput.placeholder='Sin precio';

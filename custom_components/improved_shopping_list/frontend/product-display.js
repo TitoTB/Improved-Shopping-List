@@ -15,11 +15,15 @@ export function storeFromProductUrl(value) {
 }
 
 export function storeProductLink(store, value) {
-  if (store !== "carrefour") return value;
+  const program = {
+    carrefour: {merchant:"25399",hosts:["www.carrefour.es","carrefour.es"],path:/^\/supermercado\/[^/]+\/R-[A-Za-z0-9-]+\/p\/?$/},
+    elcorteingles: {merchant:"13075",hosts:["www.elcorteingles.es"],path:/^\/supermercado\/B[0-9]{1,20}-[^/]+\/?$/}
+  }[store];
+  if (!program) return value;
   try {
     const url = new URL(value);
-    if (url.protocol !== "https:" || !["www.carrefour.es", "carrefour.es"].includes(url.hostname) || url.username || url.password || !/^\/supermercado\/[^/]+\/R-[A-Za-z0-9-]+\/p\/?$/.test(url.pathname)) return value;
-    return `https://www.awin1.com/cread.php?awinmid=25399&awinaffid=1535625&ued=${encodeURIComponent(value)}`;
+    if (url.protocol !== "https:" || !program.hosts.includes(url.hostname) || url.username || url.password || url.port&&url.port!=="443" || !program.path.test(url.pathname)) return value;
+    return `https://www.awin1.com/cread.php?awinmid=${program.merchant}&awinaffid=1535625&ued=${encodeURIComponent(value)}`;
   } catch { return value; }
 }
 

@@ -18,6 +18,20 @@ test('Carrefour outgoing product links use the affiliate destination without cha
  for(const url of ['https://www.awin1.com/cread.php?awinmid=25399','https://www.carrefour.es.example.org/supermercado/a/R-prod1/p','R-prod310215'])assert.equal(storeProductLink('carrefour',url),url);
 });
 
+test('El Corte Inglés supermarket links use its own Awin program and preserve the original destination',()=>{
+ const original='https://www.elcorteingles.es/supermercado/B001018009401193-lays-gourmet-patatas-fritas-crujientes-original-bolsa-170-g/';
+ const affiliate=new URL(storeProductLink('elcorteingles',original));
+ assert.equal(affiliate.origin,'https://www.awin1.com');assert.equal(affiliate.pathname,'/cread.php');
+ assert.equal(affiliate.searchParams.get('awinmid'),'13075');assert.equal(affiliate.searchParams.get('awinaffid'),'1535625');
+ assert.equal(affiliate.searchParams.get('ued'),original);
+ assert.equal(storeProductLink('carrefour',original),original);
+ assert.equal(storeProductLink('elcorteingles',affiliate.href),affiliate.href);
+ for(const url of ['https://www.elcorteingles.es.example.org/supermercado/B1-producto/',
+  'http://www.elcorteingles.es/supermercado/B1-producto/',
+  'https://user:password@www.elcorteingles.es/supermercado/B1-producto/',
+  'https://www.elcorteingles.es/moda/B1-producto/'])assert.equal(storeProductLink('elcorteingles',url),url);
+});
+
 test('official product URLs identify their store without a selected store',()=>{
  for(const [host,store] of [['www.elcorteingles.es','elcorteingles'],['www.carrefour.es','carrefour'],['www.compraonline.alcampo.es','alcampo'],['tienda.mercadona.es','mercadona'],['tienda.consum.es','consum'],['www.lasirena.es','lasirena'],['supermercado.eroski.es','eroski'],['www.dia.es','dia'],['www.lidl.es','lidl']])assert.equal(storeFromProductUrl(`https://${host}/product`),store);
  for(const value of ['R-521002958','http://www.carrefour.es/a','https://www.carrefour.es.example.org/a','https://user:password@www.carrefour.es/a'])assert.equal(storeFromProductUrl(value),'');

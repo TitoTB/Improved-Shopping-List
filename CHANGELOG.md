@@ -2,6 +2,7 @@
 
 ## Próxima versión
 
+- Los enlaces «Ver ficha de la tienda» de El Corte Inglés utilizan el programa de afiliación Awin indicado por Aguacatec, conservando la URL original para recuperar y guardar datos del producto.
 - En las alternativas de producto, contenido por envase, unidades y unidades por pack comparten una fila. Se permiten unidades y pack vacíos, conservando los datos parciales sin considerarlos un formato válido para comparaciones por unidad.
 - El selector de tienda de las compras detectadas solo ofrece cuentas conectadas y habilitadas, y tiendas vinculadas a ellas. Se excluyen también las propuestas por zona que no cumplen estas condiciones.
 

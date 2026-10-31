@@ -56,9 +56,14 @@ def test_new_ean_in_any_catalog_field_is_eligible_for_visible_store(hass):
         assert manager.eligible_eans() == {gtin(EAN)}
 
 
-@pytest.mark.parametrize("change", [{"last_price": None}, {"content_quantity": None}, {"content_unit": ""}])
+@pytest.mark.parametrize("change", [{"last_price": None}, {"content_quantity": None,"content_unit":"uds"}, {"content_unit": ""}])
 def test_missing_required_field_keeps_ean_eligible(hass, change):
     assert source(hass, [option(**change)]).incomplete_eans() == {gtin(EAN)}
+
+
+def test_known_weight_unit_and_price_do_not_require_a_fixed_package(hass):
+    for unit in ('g','kg'):
+        assert source(hass,[option(content_quantity=None,content_unit=unit)]).incomplete_eans()==set()
 
 
 async def test_complete_eans_do_not_download_dictionary_or_queue_web_requests(hass):

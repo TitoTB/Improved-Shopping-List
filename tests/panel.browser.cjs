@@ -1686,6 +1686,18 @@ async function checkCatalogSources(browser,url,errors){
   assert.equal(await catalog.locator('.category-group[aria-label="Alcampo"] .product').count(),1);
   await p.evaluate(()=>{window.catalogProducts[0].commercial_references.find(ref=>ref.store==='alcampo').active=false;window.emitCatalog();});
   assert.deepEqual(await catalog.locator('.category-group-title').allTextContents(),['Carrefour (1)']);
+  await catalog.getByRole('button',{name:'Ordenar alfabéticamente',exact:true}).click();
+  await catalog.getByRole('button',{name:'Editar Producto',exact:true}).click();
+  await form.getByRole('button',{name:'Alternativas',exact:true}).click();
+  await form.locator('.product-option > summary').first().click();
+  const weighed=form.locator('.reference-common-fields').first();
+  await weighed.getByLabel('Contenido por envase',{exact:true}).fill('');
+  await weighed.getByLabel('Unidades del envase',{exact:true}).selectOption('kg');
+  await form.getByLabel('Precio por kg',{exact:true}).fill('10');
+  await form.getByRole('button',{name:'Guardar producto',exact:true}).click();await form.waitFor({state:'hidden'});
+  const weightedOption=await p.evaluate(()=>window.catalogProducts[0].commercial_references.find(ref=>ref.active!==false));
+  assert.equal(weightedOption.content_confirmed,true);assert.equal(weightedOption.content_quantity,null);
+  assert.equal(weightedOption.measure_price.price,10);assert.equal(weightedOption.measure_price.unit,'kg');
   await grouped.close();
 }
 

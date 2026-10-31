@@ -372,6 +372,8 @@ class Catalog:
             if not ref or ref.get("url","")!=url:
                 raise CatalogError("La opción de compra ha cambiado. Vuelve a revisar el ticket.","conflict")
             ref["measure_price"]=validated
+            if ref.get("content_quantity") is None and validated["unit"]=="kg":
+                ref.update(content_unit=ref.get("content_unit") or "kg",content_confirmed=True)
             product["revision"]+=1
             product["updated_at"]=datetime.now(UTC).isoformat()
             await self._persist(products,self._categories)

@@ -31,12 +31,24 @@ export function packageCost(offer,quantity,unit){
   return {price:Math.round(count*Number(offer.price)*100)/100,packages:count};
 }
 export function referenceRate(price,reference){
+  if(weightFormat(reference))return {price:Number(price),unit:'kg'};
   const scale=scales[reference.content_unit];
   return reference.content_confirmed&&reference.content_quantity>0&&scale?{price:Number(price)/(reference.content_quantity*scale[1]),unit:scale[0]}:null;
 }
 export function validReferenceContent(reference){
   const quantity=reference.content_quantity;
   return Number.isFinite(quantity)&&quantity>0&&quantity<=1000000&&Object.hasOwn(contentUnits,reference.content_unit)&&(reference.content_unit!=='uds'||Number.isInteger(quantity));
+}
+export function weightFormat(reference){
+  return Boolean(reference&&(reference.content_quantity==null||reference.content_quantity==='')&&['g','kg'].includes(reference.content_unit));
+}
+export function validReferenceFormat(reference){return validReferenceContent(reference)||weightFormat(reference);}
+export function receiptCatalogPrice(line,reference){
+  const rate=line.ticket_measure_price;
+  const weighed=weightFormat(reference)||rate&&['g','kg'].includes(rate.unit)&&line.purchased_quantity!=null||line.quantity_estimated&&['g','kg'].includes(line.purchased_unit)&&!reference?.content_quantity;
+  if(!weighed)return line.unit_price;
+  if(!rate||!scales[rate.unit]||!(rate.quantity>0)||!(rate.price>0))return null;
+  return Math.round(rate.price/(rate.quantity*scales[rate.unit][1])*1000000)/1000000;
 }
 export function recoveredStockQuantity(line,product,store){
   const target=scales[product?.unit];
@@ -58,7 +70,7 @@ export function referenceContentControls(reference,onChange){
   const quantity=document.createElement('input');quantity.type='number';quantity.min='0.001';quantity.max='1000000';quantity.step='any';quantity.value=reference.content_quantity??'';quantity.setAttribute('aria-label','Contenido por envase');quantityLabel.append(quantity);
   const unitLabel=document.createElement('label');unitLabel.textContent='Unidades';
   const unit=document.createElement('select');unit.setAttribute('aria-label','Unidades del envase');unit.append(new Option('Sin especificar',''),...Object.keys(contentUnits).map(value=>new Option(value,value)));unit.value=reference.content_unit??'';unitLabel.append(unit);
-  const update=()=>{reference.content_quantity=quantity.value===''?null:Number(quantity.value);reference.content_unit=unit.value;reference.content_confirmed=validReferenceContent(reference);onChange?.();};
+  const update=()=>{reference.content_quantity=quantity.value===''?null:Number(quantity.value);reference.content_unit=unit.value;reference.content_confirmed=validReferenceFormat(reference);onChange?.();};
   quantity.addEventListener('input',update);unit.addEventListener('change',update);
   row.append(quantityLabel,unitLabel);return row;
 }
@@ -83,7 +95,7 @@ export function pendingProductInformation(product,offers=[]){
     });
     if(!hasPrice)missing.push('price');
     const quantity=ref?.content_quantity,unit=ref?.content_unit;
-    if(!Number.isFinite(quantity)||quantity<=0||quantity>1000000||unit==='uds'&&!Number.isInteger(quantity))missing.push('content_quantity');
+    if(!weightFormat(ref)&&(!Number.isFinite(quantity)||quantity<=0||quantity>1000000||unit==='uds'&&!Number.isInteger(quantity)))missing.push('content_quantity');
     if(!Object.hasOwn(contentUnits,unit??''))missing.push('content_unit');
     return {reference:ref,missing};
   });

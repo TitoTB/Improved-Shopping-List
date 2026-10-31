@@ -1,5 +1,5 @@
 import { purchaseQuantity, quantityLabel } from "./quantity-client.js?v=0.64.0";
-import { referenceContentControls, referenceRate, barcodeIdentity, validReferenceContent, pendingProductInformation } from "./reference-formats.js?v=0.64.0";
+import { referenceContentControls, referenceRate, barcodeIdentity, validReferenceContent, validReferenceFormat, weightFormat, pendingProductInformation } from "./reference-formats.js?v=0.64.0";
 import { installDialogCloseButtons } from "./dialog-controls.js?v=0.64.0";
 import { CatalogSession } from "./catalog-client.js?v=0.64.0";
 import { matchCatalogProducts } from "./product-matching.js?v=0.64.0";
@@ -1599,17 +1599,18 @@ class ImprovedShoppingCatalog extends HTMLElement {
     }
     if(ref.reference_id)card.append(element('p','helper','ID: '+ref.reference_id));
     if(ref.url){const link=element('a','helper','Ver ficha de la tienda');link.href=storeProductLink(ref.store,ref.url);link.target='_blank';link.rel='noopener noreferrer';if(link.href!==ref.url){link.rel+=' sponsored';link.title='Enlace de afiliado de '+(STORE_NAMES[ref.store]??ref.store);}card.append(link);}
-    const offers=[...(ref.last_price?[ref.last_price]:[]),...(this._priceData?.offers??[]).filter(offer=>offer.catalog_product_id===this._editing?.id&&(offer.commercial_reference_id===ref.id||offer.store===ref.store&&(ref.ean&&offer.ean===ref.ean||ref.reference_id&&offer.reference_id===ref.reference_id)))].sort((a,b)=>(b.checked_at??0)-(a.checked_at??0));
+    const offers=[...(weightFormat(ref)&&ref.measure_price?[ref.measure_price]:[]),...(ref.last_price?[ref.last_price]:[]),...(this._priceData?.offers??[]).filter(offer=>offer.catalog_product_id===this._editing?.id&&(offer.commercial_reference_id===ref.id||offer.store===ref.store&&(ref.ean&&offer.ean===ref.ean||ref.reference_id&&offer.reference_id===ref.reference_id)))].sort((a,b)=>(b.checked_at??0)-(a.checked_at??0));
     const priceLabel=element('label','option-price','Precio por envase (€)'),priceInput=element('input');
     priceInput.type='number';priceInput.min='0';priceInput.max='1000000';priceInput.step='0.01';priceInput.inputMode='decimal';priceInput.placeholder='Sin precio';
-    priceInput.setAttribute('aria-label','Precio por envase');priceInput.value=offers[0]?.price??'';priceInput.disabled=!ref.store;
+    priceInput.setAttribute('aria-label',weightFormat(ref)?'Precio por kg':'Precio por envase');priceInput.value=(weightFormat(ref)?ref.measure_price:undefined)?.price??offers[0]?.price??'';priceInput.disabled=!ref.store;
     priceLabel.append(priceInput);card.append(priceLabel);
     const priceText=element('p','helper');card.append(priceText);
-    let displayedPrice=offers[0];
-    renderPrice=()=>{priceText.hidden=!displayedPrice;if(!displayedPrice)return;const money=value=>new Intl.NumberFormat('es-ES',{style:'currency',currency:displayedPrice.currency??'EUR'}).format(value),rate=referenceRate(displayedPrice.price,ref);priceText.textContent='Último precio: '+money(displayedPrice.price)+' / envase';if(rate)priceText.textContent+=' · '+money(rate.price)+' / '+rate.unit;};renderPrice();
+    let displayedPrice=(weightFormat(ref)?ref.measure_price:undefined)??offers[0];
+    renderPrice=()=>{const weighed=weightFormat(ref);priceLabel.firstChild.textContent=weighed?'Precio por kg (€)':'Precio por envase (€)';priceInput.setAttribute('aria-label',weighed?'Precio por kg':'Precio por envase');if(weighed&&ref.measure_price)displayedPrice=ref.measure_price;priceText.hidden=!displayedPrice;if(!displayedPrice)return;const money=value=>new Intl.NumberFormat('es-ES',{style:'currency',currency:displayedPrice.currency??'EUR'}).format(value),rate=referenceRate(displayedPrice.price,ref);priceText.textContent='Último precio: '+money(displayedPrice.price)+(weighed?' / kg':' / envase');if(rate&&!weighed)priceText.textContent+=' · '+money(rate.price)+' / '+rate.unit;};renderPrice();
     priceInput.addEventListener('input',()=>{
       if(!priceInput.validity.valid)return;
-      if(priceInput.value===''){delete ref.last_price;displayedPrice=null;}
+      if(priceInput.value===''){delete ref.last_price;if(weightFormat(ref))delete ref.measure_price;displayedPrice=null;}
+      else if(weightFormat(ref)){ref.measure_price={price:priceInput.valueAsNumber,quantity:1,unit:'kg',currency:'EUR',checked_at:Date.now()/1000,source:'manual'};displayedPrice=ref.measure_price;}
       else{ref.last_price={price:priceInput.valueAsNumber,currency:'EUR',checked_at:Date.now()/1000};displayedPrice=ref.last_price;}
       update();
     });
@@ -1795,7 +1796,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
     product.unit_quantity=this._editing?.unit_quantity??1;
     product.quantity_step=this._editing?.quantity_step??1;
     product.store_links = structuredClone(this._storeLinks ?? {});
-    product.commercial_references = structuredClone(this._commercialReferences ?? []).map(ref=>({...ref,content_confirmed:validReferenceContent(ref)}));
+    product.commercial_references = structuredClone(this._commercialReferences ?? []).map(ref=>({...ref,content_confirmed:validReferenceFormat(ref)}));
     product.barcode = this._productCodes.barcode[0] ?? "";
     product.barcodes = this._productCodes.barcode.slice(1);
     product.nfc_tags = [...this._productCodes.nfc];

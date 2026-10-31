@@ -43,10 +43,11 @@ def test_explicit_weight_ticket_is_not_a_fixed_package():
     assert line["pack_quantity"] is None and line["count"]==1 and line["unit_price"]==2.5
 
 
-async def environment(hass, *, saved_rate=True, explicit=False):
+async def environment(hass, *, saved_rate=True, explicit=False, weight_unit_only=False):
     catalog=Catalog(hass);await catalog.async_load()
     ref=reference_from_line("carrefour",{"name":"ZANAHORIAS","reference_id":"R-prod1","url":URL})
     if saved_rate:ref["measure_price"]=rate()
+    if weight_unit_only:ref.update(content_unit="g",last_price={"price":5,"currency":"EUR","checked_at":time.time()-3600})
     product=await catalog.async_save_product({"name":"Zanahorias","commercial_references":[ref]})
     stock=StockManager(hass,catalog);await stock.async_load();item=await stock.async_add(product["name"])
     fields=('quantity','unit','mode','days','refill_quantity','reorder_enabled','reorder_at','list_entity','usage_entity','usage_state','usage_amount')
@@ -89,6 +90,38 @@ async def test_explicit_ticket_weight_wins_and_owner_must_match(hass):
     result=await manager.async_estimate_quantity(draft["token"],"owner","0",product["id"])
     assert result=={"quantity":.45,"unit":"kg","estimated":False}
     assert manager.option_lookup.retrieve.await_count==0
+
+
+async def test_weight_unit_and_saved_price_estimate_then_preserve_tariff_on_confirm_and_reprocess(hass):
+    manager,catalog,stock,product,draft=await environment(hass,saved_rate=False,weight_unit_only=True)
+    result=await manager.async_estimate_quantity(draft['token'],'owner','0',product['id'])
+    assert result['quantity']==.5 and result['unit']=='kg' and result['estimated']
+    manager.option_lookup.retrieve.assert_not_awaited()
+    saved=await manager.async_confirm(draft['token'],'owner',[{'id':'0','product_id':product['id'],'replenish':True,
+        'quantity':500,'unit':'g','purchase_id':'','save_price':True,'pack_quantity':None,'pack_unit':'g'}],True)
+    ref=catalog.products[0]['commercial_references'][0]
+    assert ref['content_confirmed'] and ref['content_quantity'] is None and ref['content_unit']=='g'
+    assert ref['last_price']['price']==5 and ref['measure_price']['price']==5
+    assert saved['lines'][0]['amount']==2.5 and saved['lines'][0]['unit_price']==2.5
+    assert saved['lines'][0]['price_saved'] is False
+    assert manager.offers_for(catalog.products[0])==[]
+    assert stock.snapshot['items'][0]['quantity']==500
+    preview=await manager.async_review_saved(saved['id'],'owner')
+    reprocessed=await manager.async_reprocess(preview['token'],'owner',[{'id':'0','product_id':product['id'],'pack_quantity':None,'pack_unit':'g'}])
+    assert reprocessed['lines'][0]['price_saved'] is False
+    assert catalog.products[0]['commercial_references'][0]['last_price']['price']==5
+
+
+async def test_explicit_ticket_rate_produces_a_per_kg_offer_not_the_paid_amount(hass):
+    manager,catalog,stock,product,draft=await environment(hass)
+    line=manager._drafts[draft['token']]['receipt']['lines'][0]
+    line.update(purchased_quantity=.25,purchased_unit='kg',ticket_measure_price={**rate(10),'source':'ticket'})
+    saved=await manager.async_confirm(draft['token'],'owner',[{'id':'0','product_id':product['id'],'replenish':False,
+        'quantity':None,'unit':'g','purchase_id':'','save_price':True,'pack_quantity':None,'pack_unit':'kg'}],True)
+    assert saved['lines'][0]['price_saved'] and saved['lines'][0]['unit_price']==2.5
+    offer=manager.offers_for(catalog.products[0])[0]
+    assert offer['price']==10 and offer['pack_quantity']==1 and offer['pack_unit']=='kg'
+    assert saved['total']==2.5 and stock.snapshot['items'][0]['quantity']==0
 
 
 async def test_manual_correction_is_saved_only_for_the_purchase(hass):

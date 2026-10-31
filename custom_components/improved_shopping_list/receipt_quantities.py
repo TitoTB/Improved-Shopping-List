@@ -5,6 +5,26 @@ from decimal import Decimal, ROUND_HALF_UP
 SCALES = {"kg":("kg",1), "g":("kg",.001), "l":("l",1), "cl":("l",.01), "ml":("l",.001), "uds":("uds",1)}
 
 
+def weight_format(reference):
+    """A known weight unit with no fixed package size describes sale by weight."""
+    return bool(reference and reference.get("content_quantity") in (None, "") and reference.get("content_unit") in ("g", "kg"))
+
+
+def weight_purchase(line, reference=None):
+    rate = line.get("ticket_measure_price") or {}
+    return bool(weight_format(reference) or rate.get("unit") in ("g", "kg") and line.get("purchased_quantity") is not None
+        or line.get("quantity_estimated") and line.get("purchased_unit") in ("g", "kg") and not (reference or {}).get("content_quantity")
+        or line.get("format_confirmed") and line.get("pack_quantity") is None and line.get("pack_unit") in ("g", "kg"))
+
+
+def receipt_catalog_price(line, reference=None):
+    """Never interpret the paid amount for a weighed purchase as a price per kg."""
+    if weight_purchase(line, reference):
+        rate = line.get("ticket_measure_price")
+        return measure_price(rate)["price"] if rate else None
+    return line.get("unit_price")
+
+
 def measure_price(raw):
     if not isinstance(raw,dict) or set(raw)-{"price","quantity","unit","currency","checked_at","source"}:
         raise ValueError("El precio por unidad de medida no es válido.")
@@ -30,8 +50,11 @@ def price_from_option(ref):
     if ref.get("measure_price"):
         return measure_price(ref["measure_price"])
     previous=ref.get("last_price")
-    if previous and ref.get("content_confirmed") and ref.get("content_quantity"):
-        return measure_price({**previous,"quantity":ref["content_quantity"],"unit":ref["content_unit"],"source":"catalog"})
+    if previous and previous.get("price",0)>0 and (ref.get("content_confirmed") or weight_format(ref)):
+        if weight_format(ref):
+            return measure_price({**previous,"quantity":1,"unit":"kg","source":"catalog"})
+        if ref.get("content_quantity"):
+            return measure_price({**previous,"quantity":ref["content_quantity"],"unit":ref["content_unit"],"source":"catalog"})
     return None
 
 

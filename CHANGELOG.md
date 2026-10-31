@@ -2,6 +2,7 @@
 
 ## Próxima versión
 
+- Una unidad de peso sin contenido fijo confirma la venta al peso y permite estimar la cantidad con el precio por kg guardado. Los importes cobrados se conservan en la compra y no sustituyen esa tarifa; solo un precio por peso explícito del ticket puede actualizarla. La ficha permite editar el precio por kg y los precios comparables se normalizan a esa unidad.
 - Los enlaces «Ver ficha de la tienda» de El Corte Inglés utilizan el programa de afiliación Awin indicado por Aguacatec, conservando la URL original para recuperar y guardar datos del producto.
 - En las alternativas de producto, contenido por envase, unidades y unidades por pack comparten una fila. Se permiten unidades y pack vacíos, conservando los datos parciales sin considerarlos un formato válido para comparaciones por unidad.
 - El selector de tienda de las compras detectadas solo ofrece cuentas conectadas y habilitadas, y tiendas vinculadas a ellas. Se excluyen también las propuestas por zona que no cumplen estas condiciones.

@@ -5,7 +5,7 @@ import math
 import re
 from unicodedata import normalize, combining
 from urllib.parse import urlsplit
-from .receipt_quantities import measure_price
+from .receipt_quantities import measure_price, weight_format, weight_purchase
 from .ean_common import FIELDS as COMMON_FIELDS, source as common_source
 
 UNITS = {"uds", "g", "kg", "ml", "cl", "l"}
@@ -152,8 +152,10 @@ def normalized_references(values):
             row["reference_id"]=link["id"]
         quantity,unit=content(raw.get("content_quantity"),raw.get("content_unit",""),allow_partial=True)
         confirmed=raw.get("content_confirmed",False)
-        if type(confirmed) is not bool or confirmed and (quantity is None or unit not in UNITS):
+        by_weight=weight_format({"content_quantity":quantity,"content_unit":unit})
+        if type(confirmed) is not bool or confirmed and not by_weight and (quantity is None or unit not in UNITS):
             raise ValueError("Confirma el contenido del envase antes de utilizarlo para comparar.")
+        if by_weight:confirmed=True
         if "catalog_source" in raw:
             if type(raw["catalog_source"]) is not bool:
                 raise ValueError("La procedencia de la referencia no es válida.")
@@ -173,6 +175,8 @@ def normalized_references(values):
         nutrition = raw.get("nutriscore")
         if raw.get("measure_price") is not None:
             row["measure_price"] = measure_price(raw["measure_price"])
+            if quantity is None and not unit and row["measure_price"]["unit"]=="kg":
+                row.update(content_unit="kg",content_confirmed=True)
         if nutrition is not None:
             if (not isinstance(nutrition,dict) or nutrition.get("grade") not in tuple("abcde")
                 or type(nutrition.get("checked_at")) not in (int,float) or not math.isfinite(nutrition["checked_at"]) or nutrition["checked_at"]<=0):
@@ -198,7 +202,8 @@ def merge_reference(references, store, line, *, confirmed=False):
                 row[key]=deepcopy(existing[key])
     # Explicitly committed receipt prices retain their purchase date and never replace newer observations.
     price=line.get("last_price")
-    if price and price.get("checked_at",0)>=row.get("last_price",{}).get("checked_at",0):
+    weighed=weight_purchase(line,existing)
+    if not weighed and price and price.get("checked_at",0)>=row.get("last_price",{}).get("checked_at",0):
         row["last_price"]=deepcopy(price)
     rate=line.get("ticket_measure_price")
     if line.get("price_saved") and rate and rate.get("checked_at"):
@@ -219,8 +224,13 @@ def merge_reference(references, store, line, *, confirmed=False):
         references.remove(existing)
     if confirmed:
         row["content_confirmed"]=row["content_quantity"] is not None
-    if line.get("ticket_measure_price") and line.get("purchased_quantity") is not None:
-        row.update(content_quantity=None,content_unit="",content_confirmed=False)
+    if weighed:
+        unit=(existing or {}).get("content_unit") or line.get("purchased_unit") or line.get("pack_unit") or "kg"
+        row.update(content_quantity=None,content_unit=unit if unit in ("g","kg") else "kg",content_confirmed=True)
+        if rate and line.get("price_saved"):
+            canonical=measure_price(rate)
+            if canonical['checked_at']>=row.get('last_price',{}).get('checked_at',0):
+                row['last_price']={key:canonical[key] for key in ('price','currency','checked_at')}
     if existing:
         if existing.get("pack_count"):row["pack_count"]=existing["pack_count"]
         sources={field:deepcopy(value) for field,value in existing.get("common_sources",{}).items() if row.get(field)==existing.get(field)}
@@ -236,6 +246,13 @@ def format_observation(product, store, line):
         result.update(commercial_reference_id=reference["id"],format_pending=not reference["content_confirmed"],reference_excluded=reference.get("active") is False)
         result["pack_quantity"]=reference["content_quantity"] if reference["content_confirmed"] else None
         result["pack_unit"]=reference["content_unit"] if reference["content_confirmed"] else ""
+        if weight_format(reference):
+            if "amount" in line:
+                count=line.get("count",1)
+                result.update(pack_quantity=line.get("purchased_quantity")/count if line.get("purchased_quantity") and count else None,
+                    pack_unit=line.get("purchased_unit",reference["content_unit"]),format_pending=not bool(line.get("purchased_quantity")))
+            else:
+                result.update(pack_quantity=1,pack_unit="kg",format_pending=False)
     return result
 
 

@@ -14,7 +14,7 @@ refs=importlib.util.module_from_spec(spec);spec.loader.exec_module(refs)
 
 class ReferenceTests(unittest.TestCase):
     def test_partial_optional_package_fields_persist_without_confirming_a_format(self):
-        for quantity, unit in [(None, ''), (250, ''), (None, 'kg')]:
+        for quantity, unit in [(None, ''), (250, ''), (None, 'uds')]:
             with self.subTest(quantity=quantity, unit=unit):
                 raw={'store':'carrefour','ean':'8410199023094','content_quantity':quantity,'content_unit':unit,'content_confirmed':False}
                 saved=refs.normalized_references([raw])[0]
@@ -27,6 +27,30 @@ class ReferenceTests(unittest.TestCase):
         for quantity,unit in [(0,''),(-1,''),(True,''),(250,'boxes'),(None,[])]:
             with self.assertRaises(ValueError):
                 refs.normalized_references([{'store':'carrefour','ean':'8410199023094','content_quantity':quantity,'content_unit':unit}])
+
+    def test_weight_unit_confirms_a_variable_format_and_receipts_keep_the_rate(self):
+        from _reference_tests.receipt_quantities import price_from_option, estimated_quantity, receipt_catalog_price
+        for unit in ('g','kg'):
+            values=refs.normalized_references([{'store':'carrefour','ean':'8410199023094','content_quantity':None,'content_unit':unit,
+                'content_confirmed':False,'last_price':{'price':10,'currency':'EUR','checked_at':100}}])
+            self.assertTrue(values[0]['content_confirmed'])
+            price=price_from_option(values[0]);self.assertEqual((price['price'],price['unit']),(10,'kg'))
+            self.assertEqual(estimated_quantity({'amount':2.5},price)['quantity'],.25)
+            line={'description':'Fruta al peso','ean':'8410199023094','count':1,'amount':2.5,'unit_price':2.5,
+                'purchased_quantity':.25,'purchased_unit':'kg','quantity_estimated':True,'price_saved':True,
+                'last_price':{'price':2.5,'currency':'EUR','checked_at':200}}
+            self.assertIsNone(receipt_catalog_price(line,values[0]))
+            refs.merge_reference(values,'carrefour',line,confirmed=True)
+            self.assertEqual(values[0]['last_price']['price'],10)
+            self.assertEqual((values[0]['content_quantity'],values[0]['content_unit']),(None,unit))
+            self.assertTrue(values[0]['content_confirmed'])
+            line.update(quantity_estimated=False, ticket_measure_price={'price':12,'quantity':1,'unit':'kg','currency':'EUR','checked_at':300,'source':'ticket'})
+            self.assertEqual(receipt_catalog_price(line,values[0]),12)
+            refs.merge_reference(values,'carrefour',line,confirmed=True)
+            self.assertEqual(values[0]['last_price']['price'],12)
+            self.assertEqual(values[0]['measure_price']['price'],12)
+            offer=refs.format_observation({'commercial_references':values},'carrefour',{'ean':line['ean'],'price':12})
+            self.assertEqual((offer['pack_quantity'],offer['pack_unit']),(1,'kg'))
 
     def test_brand_initial_is_uppercase_without_lowercasing_the_rest(self):
         for raw, expected in [("carrefour", "Carrefour"), ("marca API", "Marca API"), ("DIA", "DIA"), (' "nestlé" ', '"Nestlé"'), ("", "")]:

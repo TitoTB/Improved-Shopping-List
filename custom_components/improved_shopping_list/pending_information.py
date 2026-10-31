@@ -13,6 +13,7 @@ from homeassistant.helpers.storage import Store
 from .catalog import CatalogError, FIELDS
 from .const import DOMAIN
 from .product_references import gtin, UNITS
+from .receipt_quantities import weight_format
 from .store_links import HOSTS, normalize_link
 
 INTERVAL=20
@@ -42,7 +43,7 @@ def pending(product,offers=()):
             if code and other and code!=other:continue
             has_price=bool(ref.get("id") and offer.get("commercial_reference_id")==ref["id"] or code and other and code==other or offer.get("reference_id") and offer["reference_id"] in (ref.get("reference_id"),ref.get("ticket_reference_id")) or not any(offer.get(k) for k in ("commercial_reference_id","reference_id","ean")) and len([r for r in refs if r.get("store")==ref["store"]])==1)
         quantity,unit=ref.get("content_quantity"),ref.get("content_unit")
-        has_content=number(quantity) and 0<quantity<=1000000 and (unit!="uds" or float(quantity).is_integer()) and unit in UNITS
+        has_content=weight_format(ref) or number(quantity) and 0<quantity<=1000000 and (unit!="uds" or float(quantity).is_integer()) and unit in UNITS
         if has_price and has_content:return False
     return True
 

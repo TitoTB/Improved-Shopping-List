@@ -20,7 +20,7 @@ from .stock import DAY, DEFAULT_CONFIG, quantity_value, materialized_stock
 from .store_links import STORES
 from .quantity_values import purchase_defaults
 from .product_references import content, format_observation, reference_key, matching_reference, inferred_content
-from .receipt_quantities import purchase_quantity, price_from_option, estimated_quantity
+from .receipt_quantities import purchase_quantity, price_from_option, estimated_quantity, weight_format, weight_purchase, receipt_catalog_price
 
 
 def converted_quantity(line, unit):
@@ -386,7 +386,7 @@ class ReceiptManager:
                     raise CatalogError("Los datos del envase no son válidos.")
                 seen.add(line["id"])
                 try:
-                    quantity,unit=content(selection["pack_quantity"],selection["pack_unit"])
+                    quantity,unit=content(selection["pack_quantity"],selection["pack_unit"],allow_partial=True)
                 except ValueError as err:
                     raise CatalogError(str(err)) from err
                 product_id=selection.get("product_id",line.get("product_id",""))
@@ -407,11 +407,12 @@ class ReceiptManager:
                 if reference and reference.get("active") is False:
                     continue
                 if product:
-                    if quantity is not None:
-                        line.update(pack_quantity=quantity,pack_unit=unit,format_confirmed=True)
-                    price=line.get("unit_price")
+                    if quantity is not None or unit:
+                        line.update(pack_quantity=quantity,pack_unit=unit,format_confirmed=quantity is not None or unit in ("g","kg"))
+                    price=receipt_catalog_price(line,reference)
                     save_price=prices_enabled and receipt.get("currency")=="EUR" and price_at and type(price) in (int,float) and math.isfinite(price) and 0<=price<=1000000
                     reference_line=deepcopy(line)
+                    line["price_saved"]=bool(save_price)
                     reference_line["price_saved"]=bool(save_price)
                     if save_price:
                         line["price_saved"]=True
@@ -764,16 +765,18 @@ class ReceiptManager:
                     save_price = selection.get("save_price",update_prices)
                     if type(save_price) is not bool:
                         raise CatalogError("La selección de precios no es válida.")
+                    reference=matching_reference(product,receipt["store"],line) if product else None
                     line.update(product_id=product["id"] if product else "", product_name=product["name"] if product else "",
-                        replenished=False, quantity=None, unit="", price_saved=bool(update_prices and save_price and product))
+                        replenished=False, quantity=None, unit="", price_saved=bool(update_prices and save_price and product and receipt_catalog_price(line,reference) is not None))
                     if selection["product_id"] and not product:
                         raise CatalogError("Un producto del catálogo ha cambiado. Vuelve a subir el ticket.", "conflict")
                     if "pack_quantity" in selection or "pack_unit" in selection:
                         try:
-                            quantity,unit=content(selection.get("pack_quantity"),selection.get("pack_unit",""))
+                            quantity,unit=content(selection.get("pack_quantity"),selection.get("pack_unit",""),allow_partial=True)
                         except ValueError as err:
                             raise CatalogError(str(err)) from err
-                        line.update(pack_quantity=quantity,pack_unit=unit,format_confirmed=quantity is not None)
+                        line.update(pack_quantity=quantity,pack_unit=unit,format_confirmed=quantity is not None or unit in ("g","kg"))
+                    if receipt_catalog_price(line,reference) is None:line["price_saved"]=False
                     if selection["replenish"]:
                         if line.get("quantity_estimated") and selection.get("quantity_edited") is True:
                             line.update(purchased_quantity=quantity_value(selection["quantity"],positive=True),purchased_unit=selection.get("unit",""),quantity_estimated=False)
@@ -848,16 +851,20 @@ class ReceiptManager:
         for receipt in self.stock.receipts["history"].values():
             for line in receipt["lines"]:
                 if line.get("price_saved") and line.get("product_id") == product["id"]:
+                    reference=matching_reference(product,receipt["store"],line)
+                    price=receipt_catalog_price(line,reference)
+                    if price is None:continue
                     date = dt_util.parse_datetime(receipt["purchased_at"])
                     at = dt_util.as_utc(date.replace(tzinfo=dt_util.DEFAULT_TIME_ZONE)).timestamp()
                     key=(receipt["store"],reference_key(receipt["store"],line))
                     if key not in offers or offers[key]["checked_at"] < at:
                         link = product.get("store_links",{}).get(receipt["store"],{})
                         details=format_observation(product,receipt["store"],line)
+                        if weight_purchase(line,reference):details.update(pack_quantity=1,pack_unit="kg",format_pending=False)
                         if details.get("reference_excluded"):
                             continue
                         offers[key] = {"store":receipt["store"],"store_name":receipt["store_name"],"name":line["description"],
-                            "catalog_product_id":product["id"],"price":line["unit_price"],"currency":receipt["currency"],
+                            "catalog_product_id":product["id"],"price":price,"currency":receipt["currency"],
                             "checked_at":at,"source":"receipt","reference_id":line.get("reference_id","") or link.get("id"),"url":link.get("url",""),
                             **{key:details.get(key) for key in ("ean","pack_quantity","pack_unit","commercial_reference_id","format_pending")}}
         return list(offers.values())

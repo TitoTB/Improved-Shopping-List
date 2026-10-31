@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 globalThis.HTMLElement=class {};globalThis.customElements={get:()=>true};
 const {normalizeObservation,analyzeCatalog,analyzePurchase}=await import('../custom_components/improved_shopping_list/frontend/analytics-panel.js');
-const {packageCost,referenceRate,suggestedContent,validReferenceContent,pendingProductInformation}=await import('../custom_components/improved_shopping_list/frontend/reference-formats.js');
+const {packageCost,referenceRate,suggestedContent,validReferenceContent,validReferenceFormat,receiptCatalogPrice,pendingProductInformation}=await import('../custom_components/improved_shopping_list/frontend/reference-formats.js');
 const {cachedProductPrice,storeProductLink,storeFromProductUrl}=await import('../custom_components/improved_shopping_list/frontend/product-display.js');
 const now=1800000000,ean='1234567890128';
 const offer=(store,price,extra={})=>({store,product_id:'p',price,currency:'EUR',at:now-3600,ean,...extra});
@@ -143,11 +143,26 @@ test('pending product information reports price, package contents and units with
  const complete={id:'r',store:'carrefour',ean:'8410199023094',brand:'',content_quantity:170,content_unit:'g',last_price:{price:0,currency:'EUR'}};
  assert.deepEqual(pendingProductInformation({id:'p',commercial_references:[complete]}),[]);
  assert.deepEqual(pendingProductInformation({id:'p',commercial_references:[{...complete,last_price:null,measure_price:{price:12,currency:'EUR',quantity:1,unit:'kg'}}]}),[]);
- const noAmount={...complete,content_quantity:null};
+ const noAmount={...complete,content_quantity:null,content_unit:'uds'};
  assert.deepEqual(pendingProductInformation({id:'p',commercial_references:[noAmount]})[0].missing,['content_quantity']);
  const noUnits={...complete,content_unit:''};
  assert.deepEqual(pendingProductInformation({id:'p',commercial_references:[noUnits]})[0].missing,['content_unit']);
  assert.deepEqual(pendingProductInformation({id:'p',commercial_references:[complete,{store:'alcampo',active:false}]}),[]);
+});
+
+test('known weight units confirm a variable format without treating paid totals as rates',()=>{
+ for(const unit of ['g','kg']){
+  const ref={store:'carrefour',content_quantity:null,content_unit:unit,content_confirmed:true,last_price:{price:10,currency:'EUR'}};
+  assert.equal(validReferenceFormat(ref),true);assert.equal(validReferenceContent(ref),false);
+  assert.deepEqual(referenceRate(10,ref),{price:10,unit:'kg'});
+  assert.deepEqual(pendingProductInformation({commercial_references:[ref]}),[]);
+  const line={amount:2.5,unit_price:2.5,purchased_quantity:.25,purchased_unit:'kg',quantity_estimated:true};
+  assert.equal(receiptCatalogPrice(line,ref),null);
+  assert.equal(receiptCatalogPrice({...line,ticket_measure_price:{price:1.2,quantity:100,unit:'g'}},ref),12);
+ }
+ assert.equal(validReferenceFormat({content_quantity:null,content_unit:'uds'}),false);
+ assert.equal(receiptCatalogPrice({amount:2.5,unit_price:2.5,purchased_quantity:.5,purchased_unit:'kg',quantity_estimated:true},
+  {content_quantity:500,content_unit:'g',content_confirmed:true}),2.5);
 });
 
 test('a product is pending only when all active alternatives are incomplete',()=>{

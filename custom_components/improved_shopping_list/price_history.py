@@ -9,7 +9,8 @@ from homeassistant.util import dt as dt_util
 
 from .const import DOMAIN
 from .store_links import STORES
-from .product_references import format_observation
+from .product_references import format_observation, matching_reference
+from .receipt_quantities import receipt_catalog_price, weight_purchase
 
 MAX_OBSERVATIONS = 12000
 RETENTION = 730 * 86400
@@ -75,7 +76,7 @@ class PriceHistory:
             lines = []
             for line in receipt.get("lines", []):
                 product_id = line.get("product_id", "")
-                safe = {key:deepcopy(line.get(key)) for key in ("id", "description", "count", "amount", "unit_price", "ean", "pack_quantity", "pack_unit", "reference_id", "ticket_reference_id")}
+                safe = {key:deepcopy(line.get(key)) for key in ("id", "description", "count", "amount", "unit_price", "ean", "pack_quantity", "pack_unit", "reference_id", "ticket_reference_id", "purchased_quantity", "purchased_unit")}
                 safe["product_id"] = product_id if product_id in product_ids else ""
                 if safe["product_id"]:
                     safe=format_observation(product_map[product_id],receipt.get("store",""),{**safe,"reference_id":line.get("reference_id","")})
@@ -83,7 +84,11 @@ class PriceHistory:
                         safe["product_id"]=""
                 lines.append(safe)
                 if line.get("price_saved") and safe["product_id"] and receipt.get("store") in available:
-                    observations.append({**safe, "store":receipt["store"], "price":line.get("unit_price"), "currency":receipt.get("currency", "EUR"), "at":at, "source":"receipt"})
+                    reference=matching_reference(product_map[product_id],receipt["store"],line)
+                    price=receipt_catalog_price(line,reference)
+                    if price is not None:
+                        measured={"pack_quantity":1,"pack_unit":"kg","format_pending":False} if weight_purchase(line,reference) else {}
+                        observations.append({**safe, **measured, "store":receipt["store"], "price":price, "currency":receipt.get("currency", "EUR"), "at":at, "source":"receipt"})
             purchases.append({"id":receipt["id"], "store":receipt.get("store", ""), "store_name":receipt.get("store_name", ""), "purchased_at":receipt["purchased_at"], "at":at,
                 "total":receipt.get("total"), "shipping":receipt.get("shipping", 0), "discount":receipt.get("discount", 0), "currency":receipt.get("currency", "EUR"), "lines":lines})
         by_reference = {(store, link.get("id")):product["id"] for product in products for store, link in product.get("store_links", {}).items() if isinstance(link, dict) and link.get("id")}

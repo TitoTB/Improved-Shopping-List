@@ -1,15 +1,15 @@
-import { ReplenishmentEditor, replenishmentMarkup } from './replenishment-editor.js?v=0.74.1';
+import { ReplenishmentEditor, replenishmentMarkup } from './replenishment-editor.js?v=0.74.2';
 const priceValue=value=>value==null||value===''?'':Number(Number(value).toFixed(2));
-import { purchaseQuantity, quantityLabel } from "./quantity-client.js?v=0.74.1";
-import { referenceContentControls, barcodeIdentity, validReferenceContent, validReferenceFormat, weightFormat, pendingProductInformation } from "./reference-formats.js?v=0.74.1";
-import { installDialogCloseButtons } from "./dialog-controls.js?v=0.74.1";
-import { CatalogSession } from "./catalog-client.js?v=0.74.1";
-import { matchCatalogProducts } from "./product-matching.js?v=0.74.1";
-import "./category-panel.js?v=0.74.1";
-import "./recipe-editor.js?v=0.74.1";
-import "./icon-picker.js?v=0.74.1";
-import "./pending-information-refresh.js?v=0.74.1";
-import { imageSource, normalizedName, productNameKey, cachedProductPrice, storeProductLink, storeFromProductUrl } from "./product-display.js?v=0.74.1";
+import { purchaseQuantity, quantityLabel } from "./quantity-client.js?v=0.74.2";
+import { referenceContentControls, barcodeIdentity, validReferenceContent, validReferenceFormat, weightFormat, pendingProductInformation } from "./reference-formats.js?v=0.74.2";
+import { installDialogCloseButtons } from "./dialog-controls.js?v=0.74.2";
+import { CatalogSession } from "./catalog-client.js?v=0.74.2";
+import { matchCatalogProducts } from "./product-matching.js?v=0.74.2";
+import "./category-panel.js?v=0.74.2";
+import "./recipe-editor.js?v=0.74.2";
+import "./icon-picker.js?v=0.74.2";
+import "./pending-information-refresh.js?v=0.74.2";
+import { imageSource, normalizedName, productNameKey, cachedProductPrice, storeProductLink, storeFromProductUrl } from "./product-display.js?v=0.74.2";
 export { imageSource, normalizedName, productNameKey, cachedProductPrice };
 
 const MONTHS = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
@@ -540,7 +540,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
         #product-form #product-replenishment .replenishment-number>span { color:var(--secondary-text-color,#63766b); }
         #product-form .code-capture-controls { gap:8px; }
         #product-form .form-actions.product-actions { display:flex;justify-content:space-between;align-items:center;gap:12px;margin:0 -24px -24px;padding:16px 24px;border-top:1px solid var(--divider-color,#dfe7e1); }
-        #product-form .product-actions button { min-height:42px;padding:10px 16px;border-radius:10px; }
+        #product-form .product-actions button { min-height:44px;padding:10px 16px;border-radius:10px; }
         #product-form .product-actions #save-product { margin-left:auto; }
         #product-form #delete-product { display:inline-flex;align-items:center;gap:7px;max-width:50%;padding:10px 0;background:transparent;color:var(--error-color,#d32f2f);border:0;box-shadow:none;text-align:left; }
         #product-form #delete-product ha-icon { display:flex;align-items:center;justify-content:center;flex:none;width:17px;height:17px;--mdc-icon-size:17px;line-height:0; }

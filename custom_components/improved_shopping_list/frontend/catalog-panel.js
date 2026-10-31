@@ -316,6 +316,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
         .reference-content-controls { display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px;margin-top:12px;min-width:0; }
         .reference-content-controls label { margin:0;min-width:0; }.reference-content-controls input,.reference-content-controls select { width:100%;min-width:0; }
         .reference-common-fields > .reference-content-controls { grid-template-columns:repeat(3,minmax(0,1fr));align-items:end; }
+        .reference-common-fields > .reference-content-controls > label { overflow-wrap:anywhere; }
         .reference-confirm { grid-column:1/-1;display:flex!important;align-items:center;gap:8px; }.reference-confirm input { width:auto!important;min-height:0!important;margin:0!important; }
         .product-store-association { padding:14px; border:1px solid var(--divider-color,#dfe7e1); border-radius:12px; min-width:0; background:var(--card-background-color,#fff); }
         .product-store-header { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; min-width:0; }

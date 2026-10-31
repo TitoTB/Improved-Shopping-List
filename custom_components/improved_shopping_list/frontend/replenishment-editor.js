@@ -1,4 +1,4 @@
-import './meal-consumption.js?v=0.68.0';
+import './meal-consumption.js?v=0.69.0';
 export const replenishmentMarkup=`<details class="wide replenishment-block" id="product-replenishment"><summary><ha-icon icon="mdi:reload" aria-hidden="true"></ha-icon>Reposición automática</summary><div class="replenishment-content">
   <label class="replenishment-row">Reposición automática<select data-replenishment="mode" aria-label="Reposición automática" disabled><option value="manual">Desactivada</option><option value="perishable">Perecedero</option><option value="usage">Consumo registrado</option><option value="meals">Consumo por comidas</option></select></label>
   <p id="replenishment-status" class="helper" role="status"></p>

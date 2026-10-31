@@ -533,7 +533,7 @@ const hass={
           const item={...current,...config,id:current?.id??'stock-'+product.id,catalog_product_id:product.id,name:product.name,quantity:current?.quantity??0,config_revision:(current?.config_revision??0)+1,revision:(current?.revision??0)+1};
           window.stockItems=window.stockItems.filter(row=>row.id!==item.id);window.stockItems.push(item);
         }
-        product.recurrence={enabled:config.mode==='perishable',days:config.days};
+        product.recurrence={enabled:config.mode==='perishable',days:config.days};window.emitStock();
       }
       product.name_en=product.name==='Leche'?'Milk':'';
       delete product.brand;delete product.format;
@@ -1141,7 +1141,7 @@ async function checkMealRoutines(browser,url,errors){
   await product.getByRole('combobox',{name:'Reposición automática',exact:true}).selectOption('meals');
   const meals=product.locator('isl-meal-consumption');await meals.getByText('Comidas en casa',{exact:true}).click();
   for(const name of ['Desayuno','Comida','Cena'])await meals.getByRole('checkbox',{name:'Comidas en casa · '+name,exact:true}).check();
-  const breakfast=meals.locator('.meal').filter({has:meals.getByRole('checkbox',{name:'Comidas en casa · Desayuno',exact:true})});
+  const breakfast=meals.locator('.meal').first();
   await breakfast.getByText('Cantidades distintas por persona',{exact:true}).click();
   await breakfast.getByLabel('Cantidad de Luis en Desayuno',{exact:true}).fill('2');
   await product.getByRole('button',{name:'Guardar producto',exact:true}).click();await product.waitFor({state:'hidden'});

@@ -1,4 +1,4 @@
-import { installDialogCloseButtons } from './dialog-controls.js?v=0.68.0';
+import { installDialogCloseButtons } from './dialog-controls.js?v=0.69.0';
 const el=(tag,text)=>{const n=document.createElement(tag);if(text!=null)n.textContent=text;return n;};
 const days=['L','M','X','J','V','S','D'];
 const iconButton=(name,icon)=>{const b=el('button');b.type='button';b.setAttribute('aria-label',name);b.title=name;const i=el('ha-icon');i.setAttribute('icon',icon);i.setAttribute('aria-hidden','true');b.append(i);return b;};

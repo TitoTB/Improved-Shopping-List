@@ -1,15 +1,11 @@
 # Historial de cambios
 
-## Próxima versión
+## 0.69.0 — 2026-10-31
 
 - Nuevo control de Stock «Consumo por comidas». Ajustes → Rutinas permite asignar varias personas, comidas, horarios, días de la semana y permanencia mínima en casa. Cada producto puede descontar cantidades distintas por comida y persona. El registro se guarda junto al stock para evitar duplicados; no se recuperan consumos pasados al reiniciar y se ignora la presencia desconocida. Disponible también en Reposición de la ficha del producto.
-
 - La ficha del producto sustituye Automatización por Reposición, con bloques plegados para reposición automática, códigos de barras/QR y NFC. Perecedero y Consumo registrado comparten su configuración con Stock, sin reponer existencias al guardar. Las acciones por lector mantienen por defecto la acción configurada en el dispositivo.
-
 - En las alternativas de producto, «Unidades» pasa a «Unidad de medida» y «Unidades por pack» a «Unidades incluidas», con una unidad por defecto cuando no se informa (no aplicable a venta al peso).
-
 - Todos los precios de la interfaz, incluidas tarifas por unidad de medida y campos de edición, se muestran con un máximo de dos decimales.
-
 - La revisión de tickets elimina el selector para relacionar una reposición anterior. El stock seleccionado se repone directamente con la cantidad confirmada, manteniendo la protección contra tickets duplicados.
 
 ## 0.68.0 — 2026-10-31

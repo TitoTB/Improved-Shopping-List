@@ -174,7 +174,7 @@ class ImprovedShoppingPurchases extends HTMLElement {
       const candidate=products.find(p=>p.id===line.product_id),product=line.matched===false?null:candidate;
       return {line,id:line.id,product_id:product?.id??'',search:candidate?.name??'',
         replenish:!this._draft.reprocess&&Boolean(product?.stock_id),quantity:product?this._defaultQuantity(line,product):null,
-        unit:product?.unit??'uds',purchase_id:null,save_price:Boolean(this._pricesEnabled),packageFormat:this._lineFormat(line,product)};
+        unit:product?.unit??'uds',save_price:Boolean(this._pricesEnabled),packageFormat:this._lineFormat(line,product)};
     });
     root.querySelector('#review-error').hidden=true;this._renderStep();if(this._draft.warning)this._errorMessage(this._draft.warning);
   }
@@ -321,7 +321,7 @@ class ImprovedShoppingPurchases extends HTMLElement {
     for(const edit of this._edits){
       const before=this._product(edit),after=options.products.find(p=>p.id===edit.product_id);
       if(after&&before&&(before.unit!==after.unit||before.stock_id!==after.stock_id)){
-        edit.unit=after.unit;edit.quantity=this._defaultQuantity(edit.line,after);edit.replenish=Boolean(after.stock_id);edit.purchase_id=null;
+        edit.unit=after.unit;edit.quantity=this._defaultQuantity(edit.line,after);edit.replenish=Boolean(after.stock_id);
       }
     }
     Object.assign(this._draft,options);
@@ -342,7 +342,7 @@ class ImprovedShoppingPurchases extends HTMLElement {
   }
   _chooseProduct(edit,product){
     const changed=edit.product_id!==(product?.id??'');edit.product_id=product?.id??'';
-    if(changed){delete edit.manualPrice;delete edit.manualPriceInitialized;if(edit.line.quantity_estimated){delete edit.line.purchased_quantity;delete edit.line.purchased_unit;delete edit.line.quantity_estimated;}edit.quantityEdited=false;edit.quantityEstimated=false;edit.unit=product?.unit??'uds';edit.quantity=product?this._defaultQuantity(edit.line,product):null;edit.replenish=Boolean(product?.stock_id);edit.purchase_id=null;edit.packageFormat=this._lineFormat(edit.line,product);}
+    if(changed){delete edit.manualPrice;delete edit.manualPriceInitialized;if(edit.line.quantity_estimated){delete edit.line.purchased_quantity;delete edit.line.purchased_unit;delete edit.line.quantity_estimated;}edit.quantityEdited=false;edit.quantityEstimated=false;edit.unit=product?.unit??'uds';edit.quantity=product?this._defaultQuantity(edit.line,product):null;edit.replenish=Boolean(product?.stock_id);edit.packageFormat=this._lineFormat(edit.line,product);}
     this._errorMessage('');return true;
   }
   _goToStep(step){
@@ -532,13 +532,6 @@ class ImprovedShoppingPurchases extends HTMLElement {
     const fields=node('div','stock-quantity');fields.append(quantity,unit);main.append(this._productImage(product),name,fields);row.append(toggle,main);
     if(edit.quantityEstimated)row.append(node('small','estimated-quantity','Cantidad estimada'));
     if(edit.quantityReason){const note=node('small','note',edit.quantityReason);row.append(note);}
-    const previous=this._draft.purchases.filter(p=>p.item_id===product.stock_id&&p.unit===product.unit);
-    if(previous.length){
-      const purchaseLabel=node('label','purchase'),purchase=node('select');purchase.setAttribute('aria-label','Reposición de '+edit.line.description);
-      purchase.replaceChildren(new Option('Selecciona compra nueva o reposición anterior','__choose__'),new Option('Registrar una compra nueva',''),...previous.map(p=>new Option(`${date(p.at*1000)} · ${p.quantity} ${p.unit}`,p.id)));
-      purchase.value=edit.purchase_id??'__choose__';purchase.dataset.locked=String(!edit.replenish);purchase.disabled=!edit.replenish;
-      purchase.addEventListener('change',()=>{edit.purchase_id=purchase.value;});purchaseLabel.append(document.createTextNode('Relacionar con una compra ya registrada'),purchase);row.append(purchaseLabel);
-    }
   }
   async _createProduct(edit){
     if(this._busy)return;this._errorMessage('');this._setBusy(true);
@@ -566,8 +559,6 @@ class ImprovedShoppingPurchases extends HTMLElement {
       if(!Number.isFinite(edit.quantity)||edit.quantity<=0||edit.quantity>1000000||Math.abs(edit.quantity*1000-Math.round(edit.quantity*1000))>.00001||!edit.unit.trim()){
         this._revealStockLine(edit);this._errorMessage('Indica cantidades válidas, con hasta tres decimales, y sus unidades para todos los productos que se reponen.');return false;
       }
-      const product=this._product(edit),previous=this._draft.purchases.filter(p=>p.item_id===product.stock_id&&p.unit===product.unit);
-      if(previous.length&&(edit.purchase_id===null||edit.purchase_id==='__choose__')){this._revealStockLine(edit);this._errorMessage('Indica si cada reposición es una compra nueva o corrige una compra ya registrada.');return false;}
     }
     return true;
   }
@@ -608,7 +599,7 @@ class ImprovedShoppingPurchases extends HTMLElement {
       if(this._draft.reprocess){
         await this._hass.callWS({type:'improved_shopping_list/receipts/reprocess',token,lines:this._edits.map(edit=>({id:edit.id,product_id:edit.product_id,pack_quantity:validReferenceContent(edit.packageFormat)?edit.packageFormat.content_quantity:null,pack_unit:validReferenceFormat(edit.packageFormat)?edit.packageFormat.content_unit:'',...this._manualPricePayload(edit)}))});
       }else await this._hass.callWS({type:'improved_shopping_list/receipts/confirm',token:this._draft.token,update_prices:Boolean(updatePrices&&this._pricesEnabled),
-        lines:this._edits.map(edit=>({id:edit.id,product_id:edit.product_id,replenish:Boolean(edit.product_id&&edit.replenish),quantity:edit.replenish?edit.quantity:null,unit:edit.unit,purchase_id:edit.purchase_id??'',save_price:Boolean(edit.product_id&&edit.save_price&&updatePrices&&this._pricesEnabled),quantity_edited:Boolean(edit.quantityEdited),pack_quantity:validReferenceContent(edit.packageFormat)?edit.packageFormat.content_quantity:null,pack_unit:validReferenceFormat(edit.packageFormat)?edit.packageFormat.content_unit:'',...(updatePrices&&this._pricesEnabled?this._manualPricePayload(edit):{})}))});
+        lines:this._edits.map(edit=>({id:edit.id,product_id:edit.product_id,replenish:Boolean(edit.product_id&&edit.replenish),quantity:edit.replenish?edit.quantity:null,unit:edit.unit,purchase_id:'',save_price:Boolean(edit.product_id&&edit.save_price&&updatePrices&&this._pricesEnabled),quantity_edited:Boolean(edit.quantityEdited),pack_quantity:validReferenceContent(edit.packageFormat)?edit.packageFormat.content_quantity:null,pack_unit:validReferenceFormat(edit.packageFormat)?edit.packageFormat.content_unit:'',...(updatePrices&&this._pricesEnabled?this._manualPricePayload(edit):{})}))});
       this._draft=null;this.shadowRoot.querySelector('dialog').close();await this._session.refresh();this.dispatchEvent(new CustomEvent('receipt-imported'));
     }catch(error){this._errorMessage(error.message??'No se ha podido guardar el ticket.');}
     finally{this._setBusy(false);}

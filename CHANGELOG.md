@@ -1,5 +1,9 @@
 # Historial de cambios
 
+## Próxima versión
+
+- La revisión de tickets elimina el selector para relacionar una reposición anterior. El stock seleccionado se repone directamente con la cantidad confirmada, manteniendo la protección contra tickets duplicados.
+
 ## 0.68.0 — 2026-10-31
 
 - Reabrir un ticket reutiliza los formatos recuperados sin repetir las consultas a tiendas. La caché de formatos se conserva entre revisiones y la búsqueda comprueba primero su copia persistente, también tras reiniciar Home Assistant.

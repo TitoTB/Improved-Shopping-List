@@ -1209,7 +1209,7 @@ async function checkReceiptPackageFormats(browser,url,errors){
     const products=[{id:'cacao',name:'Seitán',unit:'g',refill_quantity:1000,stock_id:'s1',revision:1,commercial_references:[{id:'kg',store:'carrefour',reference_id:'R-weight',content_quantity:null,content_unit:'kg',content_confirmed:true,measure_price:{price:5,quantity:1,unit:'kg',currency:'EUR'}}]}];
     const receipt={id:'cached-quantity',store:'carrefour',store_name:'Carrefour',purchased_at:new Date().toISOString(),total:2.5,lines:[{id:'0',description:'PESO RECUPERADO',reference_id:'R-weight',count:1,unit_price:2.5,amount:2.5,product_id:'cacao',matched:true}]};
     window.catalogProducts=products;window.quantityCalls=[];
-    window.receiptOptionsOverride={products,purchases:[],quantity_estimates:{'0':{product_id:'cacao',quantity:.5,unit:'kg',estimated:true}}};
+    window.receiptOptionsOverride={products,purchases:[{id:'old-refill',item_id:'s1',unit:'g',quantity:250,at:100}],quantity_estimates:{'0':{product_id:'cacao',quantity:.5,unit:'kg',estimated:true}}};
     window.receiptDraft=structuredClone(receipt);el.openPreview({token:'cached-quantity',receipt,products,purchases:[]});
   });
   await dialog.getByRole('button',{name:'Continuar',exact:true}).click();
@@ -1221,7 +1221,11 @@ async function checkReceiptPackageFormats(browser,url,errors){
   await dialog.getByRole('button',{name:'Continuar',exact:true}).click();
   assert.equal(await cachedQuantity.inputValue(),'475');
   assert.equal(await page.evaluate(()=>window.quantityCalls.length),0);
-  await dialog.getByRole('button',{name:'Cerrar ventana',exact:true}).click();await dialog.waitFor({state:'hidden'});
+  assert.equal(await dialog.getByText('Relacionar con una compra ya registrada',{exact:true}).count(),0);
+  assert.equal(await dialog.getByRole('combobox',{name:'Reposición de PESO RECUPERADO',exact:true}).count(),0);
+  await dialog.getByRole('button',{name:'Añadir stock y cerrar',exact:true}).click();await dialog.waitFor({state:'hidden'});
+  assert.equal(await page.evaluate(()=>window.lastReceiptConfirmation.lines[0].purchase_id),'');
+  assert.equal(await page.evaluate(()=>window.lastReceiptConfirmation.lines[0].quantity),475);
   await page.evaluate(()=>{window.receiptOptionsOverride=null;});
   // Package hints survive closing/reopening an unconfirmed receipt.
   await purchases.evaluate(el=>{

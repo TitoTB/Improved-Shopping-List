@@ -172,6 +172,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
     const load={
       stock:()=>import('./stock-panel.js?v=0.70.0'),
       readers:()=>import('./readers-panel.js?v=0.70.0'),
+      routines:()=>import('./meal-routines.js?v=0.70.0'),
       catalog:()=>import('./catalog-panel.js?v=0.70.0'),
       settings:()=>import('./settings-panel.js?v=0.70.0'),
       purchases:()=>import('./purchases-panel.js?v=0.70.0'),
@@ -209,7 +210,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
   }
 
   async _prepareView(view) {
-    const name=view==='stock'&&this._stockView==='readers'?'readers':['stock','catalog','settings'].includes(view)?view:view==='analytics'?(this._analyticsView==='purchases'?'purchases':'analytics'):null;
+    const name=view==='stock'&&this._stockView==='routines'?'routines':view==='stock'&&this._stockView==='readers'?'readers':['stock','catalog','settings'].includes(view)?view:view==='analytics'?(this._analyticsView==='purchases'?'purchases':'analytics'):null;
     if(!name)return;
     try{await this._loadSection(name);if(this.isConnected)this._renderData();}
     catch(error){if(this.isConnected&&this._view===view){this._actionError='No se ha podido cargar este apartado. Pulsa de nuevo para reintentar.';this._renderData();}}
@@ -452,7 +453,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
       <main>
         <div id="error" class="notice error" role="alert" hidden></div>
         <div id="status" class="notice" role="status" hidden></div>
-        <div id="stock-heading" hidden><nav class="stock-tabs" role="tablist" aria-label="Vistas de Stock"><button id="stock-tab" type="button" role="tab" aria-label="Stock" aria-selected="true" aria-controls="stock-card"><ha-icon icon="mdi:package-variant" aria-hidden="true"></ha-icon><span>Stock</span></button><button id="stock-readers-tab" type="button" role="tab" aria-label="Lectores" aria-selected="false" aria-controls="stock-readers"><ha-icon icon="mdi:barcode-scan" aria-hidden="true"></ha-icon><span>Lectores</span></button></nav><div id="stock-actions"><button id="add-stock" class="icon-button" type="button" aria-label="Añadir producto al stock" title="Añadir producto al stock"><ha-icon icon="mdi:plus-thick" aria-hidden="true"></ha-icon></button></div></div>
+        <div id="stock-heading" hidden><nav class="stock-tabs" role="tablist" aria-label="Vistas de Stock"><button id="stock-tab" type="button" role="tab" aria-label="Stock" aria-selected="true" aria-controls="stock-card"><ha-icon icon="mdi:package-variant" aria-hidden="true"></ha-icon><span>Stock</span></button><button id="stock-routines-tab" type="button" role="tab" aria-label="Rutinas" aria-selected="false" aria-controls="stock-routines"><ha-icon icon="mdi:silverware-fork-knife" aria-hidden="true"></ha-icon><span>Rutinas</span></button><button id="stock-readers-tab" type="button" role="tab" aria-label="Lectores" aria-selected="false" aria-controls="stock-readers"><ha-icon icon="mdi:barcode-scan" aria-hidden="true"></ha-icon><span>Lectores</span></button></nav><div id="stock-actions"><button id="add-stock" class="icon-button" type="button" aria-label="Añadir producto al stock" title="Añadir producto al stock"><ha-icon icon="mdi:plus-thick" aria-hidden="true"></ha-icon></button></div></div>
         <section id="list-controls" aria-label="Seleccionar lista y añadir productos">
           <form id="add-form">
             <div class="input-wrap"><label class="sr-only" for="product-input">Añadir producto</label><input id="product-input" type="text" maxlength="255" placeholder="Busca o añade un producto" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="product-suggestions" aria-describedby="predictive-count" required><ul id="product-suggestions" class="predictive-results" role="listbox" aria-label="Productos del catálogo" hidden></ul><span id="predictive-count" class="sr-only" role="status" aria-live="polite"></span></div>
@@ -483,6 +484,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
         <isl-analytics hidden></isl-analytics>
         <isl-purchases id="purchase-history" hidden></isl-purchases>
         <isl-readers id="stock-readers" class="card" hidden></isl-readers>
+        <isl-meal-routines id="stock-routines" hidden></isl-meal-routines>
         <isl-catalog hidden></isl-catalog>
         <isl-settings hidden></isl-settings>
         <div id="announcement" class="sr-only" role="status" aria-live="polite"></div>
@@ -491,7 +493,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
     const root = this.shadowRoot;
     installDialogCloseButtons(root);
     for(const [id,view] of [['comparison-tab','comparison'],['purchases-tab','purchases'],['nutrition-tab','nutrition']])root.querySelector('#'+id).addEventListener('click',()=>{this._analyticsView=view;void this._prepareView('analytics');this._renderData();});
-    for(const [id,view] of [['stock-tab','stock'],['stock-readers-tab','readers']])root.querySelector('#'+id).addEventListener('click',()=>{this._stockView=view;this._syncOptionalSessions();void this._prepareView('stock');this._renderData();});
+    for(const [id,view] of [['stock-tab','stock'],['stock-routines-tab','routines'],['stock-readers-tab','readers']])root.querySelector('#'+id).addEventListener('click',()=>{this._stockView=view;this._syncOptionalSessions();void this._prepareView('stock');this._renderData();});
     root.querySelector('#nav-analytics').addEventListener('click',()=>this._switchView('analytics'));
     root.querySelector('isl-purchases').addEventListener('receipt-busy',event=>{this._receiptBusy=event.detail;this._renderData();});
     root.querySelector('isl-purchases').addEventListener('receipt-imported',()=>{this._analyticsView='purchases';void this._stock.refresh();void this._refreshRowPrices();this._renderData();});
@@ -671,7 +673,10 @@ class ImprovedShoppingListPanel extends HTMLElement {
     const session = this._session;
     const stockView=this._view === "stock";
     const stockItemsView=stockView&&this._stockView==='stock';
-    const readersView=stockView&&this._stockView==='readers';
+    const readersView=stockView&&this._stockView==='readers',routinesView=stockView&&this._stockView==='routines';
+    root.querySelector('#stock-routines-tab').setAttribute('aria-selected',String(routinesView));
+    const routines=root.querySelector('#stock-routines');routines.hidden=!routinesView;
+    if(this._sectionsReady.has('routines')){routines.data={hass:this._hass};routines.active=routinesView;}
     root.querySelector('#stock-tab').setAttribute('aria-selected',String(stockItemsView));
     root.querySelector('#stock-readers-tab').setAttribute('aria-selected',String(readersView));
     root.querySelector('#stock-actions').hidden=!stockItemsView;
@@ -731,8 +736,8 @@ class ImprovedShoppingListPanel extends HTMLElement {
     this.style.setProperty("--isl-mobile-columns", appearance.mobile_columns);
     if(this._sectionsReady.has('settings')&&this._view==='settings')root.querySelector("isl-settings").data = { hass: this._hass, settings: this._settings, products:[...this._catalogProducts.values()], receiptStores:this._stock.receiptStores };
     if(this._sectionsReady.has('settings'))root.querySelector("isl-settings").active = this._view === "settings";
-    const tag=readersView?'isl-readers':this._view==='catalog'?'isl-catalog':this._view==='settings'?'isl-settings':analyticsView?(this._analyticsView==='purchases'?'isl-purchases':'isl-analytics'):null;
-    root.querySelector('#view-loading').hidden=Boolean(this._actionError)||(stockItemsView?this._stockViewReady:!tag||this._sectionsReady.has(tag.replace('isl-','')));
+    const tag=routinesView?'isl-meal-routines':readersView?'isl-readers':this._view==='catalog'?'isl-catalog':this._view==='settings'?'isl-settings':analyticsView?(this._analyticsView==='purchases'?'isl-purchases':'isl-analytics'):null;
+    root.querySelector('#view-loading').hidden=Boolean(this._actionError)||(stockItemsView?this._stockViewReady:!tag||this._sectionsReady.has(routinesView?'routines':tag.replace('isl-','')));
     const state = this._hass.states[session.entityId];
     const available = isAvailable(state);
     const canCreate = available && supports(state, FEATURES.CREATE);

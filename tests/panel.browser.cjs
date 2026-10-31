@@ -1170,7 +1170,9 @@ async function checkMealRoutines(browser,url,errors){
     'person.one':{entity_id:'person.one',state:'home',attributes:{friendly_name:'Ana'}},
     'person.two':{entity_id:'person.two',state:'home',attributes:{friendly_name:'Luis'}}}};});
   await page.getByRole('button',{name:'Ajustes',exact:true}).click();
-  await page.locator('isl-settings').getByRole('button',{name:'Rutinas',exact:true}).click();
+  assert.equal(await page.locator('isl-settings').getByRole('button',{name:'Rutinas',exact:true}).count(),0);
+  await page.getByRole('button',{name:'Stock',exact:true}).click();
+  await page.getByRole('tab',{name:'Rutinas',exact:true}).click();
   await page.evaluate(()=>{window.savedRandomUUID=crypto.randomUUID;Object.defineProperty(crypto,'randomUUID',{value:undefined,configurable:true});});
   const routines=page.locator('isl-meal-routines');await routines.getByRole('button',{name:'Nueva rutina',exact:true}).click();
   const routine=routines.getByRole('dialog',{name:'Nueva rutina',exact:true});
@@ -1203,6 +1205,7 @@ async function checkMealRoutines(browser,url,errors){
   assert.equal(await page.evaluate(()=>window.lastReplenishment.config.meal_rules.length),3);
   assert.deepEqual(await page.evaluate(()=>window.lastReplenishment.config.meal_rules[0].person_amounts),{'person.two':2});
   await page.getByRole('button',{name:'Stock',exact:true}).click();
+  await page.getByRole('tab',{name:'Stock',exact:true}).click();
   await page.getByRole('button',{name:'Configurar stock de Chocolate de comidas',exact:true}).click();
   const stock=page.getByRole('dialog',{name:'Chocolate de comidas · Stock',exact:true});
   assert.equal(await stock.getByLabel('Control del stock',{exact:true}).inputValue(),'meals');

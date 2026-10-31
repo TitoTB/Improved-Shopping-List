@@ -1,4 +1,3 @@
-import './meal-routines.js?v=0.70.0';
 import "./shopping-places.js?v=0.70.0";
 import "./dia-prices-settings.js?v=0.70.0";
 import "./alcampo-settings.js?v=0.70.0";
@@ -40,9 +39,8 @@ class ImprovedShoppingSettings extends HTMLElement {
     }
   }
 
-  set active(value) { this._active = Boolean(value); if(!this._active){this.shadowRoot.querySelector("#lidl-dialog")?.close();this.shadowRoot.querySelector("isl-lidl-account")?.deactivate();this.shadowRoot.querySelector('#carrefour-dialog')?.close();this.shadowRoot.querySelector('isl-carrefour-account')?.deactivate();this.shadowRoot.querySelector('#dia-dialog')?.close();this.shadowRoot.querySelector('isl-dia-prices-settings')?.deactivate();} this._syncLogs(); this._syncCatalogSources(); this._syncRoutines(); }
+  set active(value) { this._active = Boolean(value); if(!this._active){this.shadowRoot.querySelector("#lidl-dialog")?.close();this.shadowRoot.querySelector("isl-lidl-account")?.deactivate();this.shadowRoot.querySelector('#carrefour-dialog')?.close();this.shadowRoot.querySelector('isl-carrefour-account')?.deactivate();this.shadowRoot.querySelector('#dia-dialog')?.close();this.shadowRoot.querySelector('isl-dia-prices-settings')?.deactivate();} this._syncLogs(); this._syncCatalogSources(); }
 
-  _syncRoutines(){const routines=this.shadowRoot.querySelector('isl-meal-routines');if(routines){routines.data=this._data;routines.active=this._active&&this._view==='routines';}}
 
   _syncCatalogSources(){const source=this.shadowRoot.querySelector('isl-catalog-sources');if(source){source.data=this._data;source.active=this._active&&this._view==='stores';}}
 
@@ -60,7 +58,6 @@ class ImprovedShoppingSettings extends HTMLElement {
   }
 
   disconnectedCallback() {
-    const routines=this.shadowRoot.querySelector("isl-meal-routines");if(routines)routines.active=false;
     this.active = false;
     this.shadowRoot.querySelector("isl-carrefour-account")?.deactivate();
     this.shadowRoot.querySelector("#lidl-dialog")?.close();this.shadowRoot.querySelector("isl-lidl-account")?.deactivate();
@@ -201,7 +198,7 @@ class ImprovedShoppingSettings extends HTMLElement {
       @media(max-width:540px){.purchase-users-field{grid-template-columns:1fr;gap:8px}.purchase-users-field>span{padding-top:0}.detection-pair{gap:16px}.detection-pair>.detection-row{flex-direction:column;align-items:stretch;gap:10px}.detection-pair input{align-self:flex-end}.detection-pair input[type=number]{width:72px}}
     </style>
       <div class="settings-heading"><h1>Ajustes</h1>
-      <nav class="settings-tabs" aria-label="Vistas de ajustes"><button id="settings-view-lists" aria-label="Listas" aria-pressed="true"><ha-icon icon="mdi:format-list-checks" aria-hidden="true"></ha-icon><span class="tab-label">Listas</span></button><button id="settings-view-stores" aria-label="Tiendas" aria-pressed="false"><ha-icon icon="mdi:store" aria-hidden="true"></ha-icon><span class="tab-label">Tiendas</span></button><button id="settings-view-routines" aria-label="Rutinas" aria-pressed="false"><ha-icon icon="mdi:silverware-fork-knife" aria-hidden="true"></ha-icon><span class="tab-label">Rutinas</span></button><button id="settings-view-notifications" aria-label="Notificaciones" aria-pressed="false"><ha-icon icon="mdi:bell-outline" aria-hidden="true"></ha-icon><span class="tab-label">Notificaciones</span></button><button id="settings-view-community" aria-label="Comunidad" aria-pressed="false"><ha-icon icon="mdi:account-group" aria-hidden="true"></ha-icon><span class="tab-label">Comunidad</span></button><button id="settings-view-logs" aria-label="Logs" aria-pressed="false"><ha-icon icon="mdi:format-list-group" aria-hidden="true"></ha-icon><span class="tab-label">Logs</span></button></nav></div>
+      <nav class="settings-tabs" aria-label="Vistas de ajustes"><button id="settings-view-lists" aria-label="Listas" aria-pressed="true"><ha-icon icon="mdi:format-list-checks" aria-hidden="true"></ha-icon><span class="tab-label">Listas</span></button><button id="settings-view-stores" aria-label="Tiendas" aria-pressed="false"><ha-icon icon="mdi:store" aria-hidden="true"></ha-icon><span class="tab-label">Tiendas</span></button><button id="settings-view-notifications" aria-label="Notificaciones" aria-pressed="false"><ha-icon icon="mdi:bell-outline" aria-hidden="true"></ha-icon><span class="tab-label">Notificaciones</span></button><button id="settings-view-community" aria-label="Comunidad" aria-pressed="false"><ha-icon icon="mdi:account-group" aria-hidden="true"></ha-icon><span class="tab-label">Comunidad</span></button><button id="settings-view-logs" aria-label="Logs" aria-pressed="false"><ha-icon icon="mdi:format-list-group" aria-hidden="true"></ha-icon><span class="tab-label">Logs</span></button></nav></div>
       <div id="settings-error" class="notice error" role="alert" hidden></div>
       <div id="settings-status" class="notice" role="status" hidden></div>
       <p id="admin-help" hidden>Necesitas una cuenta administradora de Home Assistant para modificar estos ajustes.</p>
@@ -213,7 +210,6 @@ class ImprovedShoppingSettings extends HTMLElement {
         <div class="purchase-detection-settings"><h3>Detección automática de compra</h3><form id="purchase-detection-form"><div id="purchase-persons-label" class="purchase-users-field"><span id="purchase-users-label">Usuarios que realizan las compras</span><details id="purchase-zone-persons" class="person-picker"><summary aria-labelledby="purchase-users-label purchase-users-summary"><span id="purchase-users-summary">Seleccionar usuarios</span><ha-icon icon="mdi:chevron-down" aria-hidden="true"></ha-icon></summary><div class="person-options" role="group" aria-labelledby="purchase-users-label"></div></details></div><div class="detection-pair"><label class="detection-row" for="purchase-detection-enabled">Activar detección automática<input id="purchase-detection-enabled" class="store-toggle" type="checkbox" role="switch"></label><label class="detection-row" for="purchase-detection-threshold">Más de X productos completados en un día<input id="purchase-detection-threshold" type="number" min="1" max="1000" step="1" value="5" required></label></div><div class="detection-pair"><label class="detection-row" for="purchase-zone-assignment">Asignación de tienda basada en zona<input id="purchase-zone-assignment" class="store-toggle" type="checkbox" role="switch"></label><label class="detection-row" for="purchase-minimum-minutes">Permanencia mínima en la zona (minutos)<input id="purchase-minimum-minutes" type="number" min="1" max="1440" step="1" value="5" required></label></div><p id="purchase-zone-help" class="helper">Solo se tendrán en cuenta visitas que alcancen la permanencia mínima configurada.</p><div class="appearance-actions"><button class="primary" id="save-purchase-detection" type="submit">Guardar</button></div></form></div>
       </section>
 
-      <section id="settings-routines" hidden><isl-meal-routines></isl-meal-routines></section>
       <section id="settings-notifications" hidden><isl-notification-settings></isl-notification-settings></section>
       <section id="settings-appearance" class="card" aria-labelledby="settings-appearance-title">
         <h2 id="settings-appearance-title">Personalización</h2>
@@ -358,11 +354,11 @@ class ImprovedShoppingSettings extends HTMLElement {
     root.querySelector("#alcampo-dialog").addEventListener("close",()=>root.querySelector("isl-alcampo-settings")?.deactivate());
     root.querySelector("#alcampo-dialog").addEventListener("cancel",event=>{if(this._busy)event.preventDefault();});
     const alcampoError=document.createElement("div");alcampoError.id="alcampo-error";alcampoError.className="notice error";alcampoError.setAttribute("role","alert");alcampoError.hidden=true;root.querySelector("#alcampo-title").after(alcampoError);
-    for (const [id, view] of [["settings-view-lists", "lists"], ["settings-view-community", "community"], ["settings-view-stores", "stores"], ["settings-view-logs", "logs"], ["settings-view-notifications","notifications"],["settings-view-routines","routines"]]) {
+    for (const [id, view] of [["settings-view-lists", "lists"], ["settings-view-community", "community"], ["settings-view-stores", "stores"], ["settings-view-logs", "logs"], ["settings-view-notifications","notifications"]]) {
       root.querySelector(`#${id}`).addEventListener("click", () => {
         this._view = view;
         if(view === "nutrition")this._nutritionKey=null;
-        for (const section of ["lists", "community", "stores", "logs", "notifications", "routines"]) {
+        for (const section of ["lists", "community", "stores", "logs", "notifications"]) {
           root.querySelector(`#settings-${section}`).hidden = view !== section;
           root.querySelector(`#settings-view-${section}`).setAttribute("aria-pressed", String(view === section));
         }
@@ -402,7 +398,7 @@ class ImprovedShoppingSettings extends HTMLElement {
   _render() {
     if (!this._built || !this._data) return;
     this.shadowRoot.querySelector("isl-notification-settings").data = this._data;
-    this._syncRoutines();
+
     this._syncLogs();
 
     this._syncCatalogSources();

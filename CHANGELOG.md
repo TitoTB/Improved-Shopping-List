@@ -1,5 +1,9 @@
 # Historial de cambios
 
+## Próxima versión
+
+- Rutinas se traslada de Ajustes a una vista de Stock, junto a la despensa y Lectores. Se carga al abrir su vista y conserva las rutinas configuradas.
+
 ## 0.70.0 — 2026-10-31
 
 - La reposición automática ordena primero los campos específicos y después los comunes, con etiquetas a la izquierda, unidades de Stock dentro de las cantidades y mínimo porcentual junto a su casilla. La lista de reposición se oculta cuando solo hay una configurada.

@@ -1,6 +1,6 @@
 # Consumo de stock por comidas
 
-En **Ajustes → Rutinas**, crea una rutina y selecciona una o varias personas. Cada comida tiene nombre, hora, días de la semana y una casilla para activarla. Puedes añadir comidas y crear horarios distintos para fines de semana mediante filas con días diferentes. La permanencia mínima en casa es configurable y parte de 15 minutos.
+En **Stock → Rutinas**, crea una rutina y selecciona una o varias personas. Cada comida tiene nombre, hora, días de la semana y una casilla para activarla. Puedes añadir comidas y crear horarios distintos para fines de semana mediante filas con días diferentes. La permanencia mínima en casa es configurable y parte de 15 minutos.
 
 En la ficha del producto, abre **Reposición → Reposición automática → Consumo por comidas**, o selecciona ese control desde su ficha de **Stock**. Marca las comidas y la cantidad a consumir por persona, expresada en las unidades de Stock. Opcionalmente indica cantidades distintas por persona; una cantidad personal de cero excluye a esa persona de ese consumo.
 

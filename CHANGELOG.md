@@ -1,6 +1,6 @@
 # Historial de cambios
 
-## Próxima versión
+## 0.71.0 — 2026-10-31
 
 - El bloque de rutinas se llama «Rutinas», sin introducción, y permite activar o desactivar cada rutina desde su tarjeta. El botón + abre únicamente la ficha de una nueva rutina.
 

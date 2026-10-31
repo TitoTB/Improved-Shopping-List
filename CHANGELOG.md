@@ -2,6 +2,8 @@
 
 ## Próxima versión
 
+- El bloque de rutinas se llama «Rutinas», sin introducción, y permite activar o desactivar cada rutina desde su tarjeta. El botón + abre únicamente la ficha de una nueva rutina.
+
 - Las rutinas de comidas usan franjas de inicio y fin en lugar de una hora y una permanencia mínima. Basta con presencia en casa en cualquier momento de la franja, con un único descuento por persona y comida. Se admiten franjas nocturnas y se conservan las asociaciones de las rutinas existentes.
 
 - Rutinas se traslada de Ajustes a una vista de Stock, junto a la despensa y Lectores. Se carga al abrir su vista y conserva las rutinas configuradas.

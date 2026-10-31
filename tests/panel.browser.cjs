@@ -123,6 +123,7 @@ const hass={
   callWS:async(msg)=>{
     (window.wsRequests??=[]).push(msg.type);
     if(msg.type.startsWith('improved_shopping_list/routines/')){
+      if(window.failRoutine)throw new Error('No se ha podido guardar la rutina');
       window.routinesFixture??=[];
       if(msg.type.endsWith('/save')){const row={...structuredClone(msg.routine),id:msg.routine.id??crypto.randomUUID(),revision:(msg.routine.revision??0)+1};window.routinesFixture=window.routinesFixture.filter(r=>r.id!==row.id);window.routinesFixture.push(row);}
       if(msg.type.endsWith('/delete'))window.routinesFixture=window.routinesFixture.filter(r=>r.id!==msg.routine_id);
@@ -1195,6 +1196,22 @@ async function checkMealRoutines(browser,url,errors){
   assert.equal(await page.evaluate(()=>window.routinesFixture[0].meals[2].days.includes(6)),false);
   assert.deepEqual(await page.evaluate(()=>{const meal=window.routinesFixture[0].meals[0];return [meal.start_time,meal.end_time];}),['08:30','10:00']);
   assert.equal(await page.evaluate(()=>Object.hasOwn(window.routinesFixture[0],'minimum_minutes')),false);
+  assert.equal(await routines.getByRole('heading',{name:'Rutinas',exact:true}).count(),1);
+  assert.equal(await routines.getByText(/Define quién come en casa/).count(),0);
+  const enabled=routines.getByRole('switch',{name:'Activar rutina Comidas en casa',exact:true});
+  await enabled.uncheck();await page.waitForFunction(()=>window.routinesFixture[0].enabled===false);
+  assert.equal(await routine.isVisible(),false);
+  await page.evaluate(()=>{window.failRoutine=true;});await enabled.click();
+  await routines.getByRole('status').filter({hasText:'No se ha podido guardar la rutina'}).waitFor();
+  assert.equal(await enabled.isChecked(),false);
+  await page.evaluate(()=>{window.failRoutine=false;});await enabled.check();await page.waitForFunction(()=>window.routinesFixture[0].enabled===true);
+  await routines.getByRole('button',{name:'Nueva rutina',exact:true}).click();
+  assert.equal(await routine.getByLabel('Nombre de la rutina',{exact:true}).inputValue(),'');
+  assert.equal(await routine.locator('#routines,.routine').count(),0);
+  assert.equal(await routine.getByText('Comidas en casa',{exact:true}).count(),0);
+  assert.equal(await routine.getByLabel('Fin de comida 1',{exact:true}).inputValue(),'09:30');
+  await routine.getByRole('button',{name:'Cerrar ventana',exact:true}).click();await routine.waitFor({state:'hidden'});
+
   await page.getByRole('button',{name:'Catálogo',exact:true}).click();const catalog=page.locator('isl-catalog');
   await catalog.getByRole('button',{name:'Nuevo producto',exact:true}).click();
   const product=catalog.getByRole('dialog',{name:'Nuevo producto',exact:true});await product.getByLabel('Nombre del producto',{exact:true}).fill('Chocolate de comidas');

@@ -42,6 +42,7 @@ class ImprovedShoppingPurchases extends HTMLElement {
   disconnectedCallback(){this._stopReviewData();this._session.stop();this._started=false;this.shadowRoot.querySelectorAll('dialog').forEach(dialog=>dialog.close());}
   openPreview(draft){
     if(this._busy||!this._active||this._hass?.user?.is_admin!==true)return false;
+    if(this._draft&&!this.shadowRoot.querySelector('dialog').open){const token=this._draft.token;void this._hass.callWS({type:'improved_shopping_list/receipts/discard',token}).catch(()=>{});}
     this._draft=draft;this._error='';this._buildReview();this.shadowRoot.querySelector('dialog').showModal();return true;
   }
   chooseFile(){if(!this._busy&&this._hass?.user?.is_admin===true)this.shadowRoot.querySelector('#ticket-file').click();}
@@ -138,6 +139,8 @@ class ImprovedShoppingPurchases extends HTMLElement {
     root.querySelector('#association-form').addEventListener('submit',event=>{event.preventDefault();this._confirmAssociation();});
     root.querySelector('#association-dialog').addEventListener('close',()=>{this._associationEdit=null;});
     dialog.addEventListener('close',()=>{
+      // A queued close from the previous review must not discard a newly opened one.
+      if(dialog.open)return;
       this._stopReviewData();
       root.querySelector('#association-dialog').close();
       if(this._draft){const token=this._draft.token;this._draft=null;void this._hass.callWS({type:'improved_shopping_list/receipts/discard',token}).catch(()=>{});}

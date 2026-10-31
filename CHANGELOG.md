@@ -2,6 +2,7 @@
 
 ## 0.67.0 — 2026-10-31
 
+- Cerrar un ticket y abrir otro inmediatamente conserva la nueva revisión, sin que un evento de cierre anterior la descarte.
 - Varias líneas de un ticket pueden vincularse al mismo producto genérico, conservando sus EAN, formatos y precios independientes. Stock suma las cantidades compatibles en una sola reposición y rechaza mezclar magnitudes distintas.
 - Las cantidades estimadas de tickets de Carrefour se guardan localmente durante 30 días y se reutilizan al reabrir la revisión, incluso tras reiniciar Home Assistant. Cambiar la vinculación, alternativa, importe o tarifa invalida la propuesta; la caché no confirma compras ni modifica Stock.
 - Completar productos en la lista solo detecta la compra: no repone Stock ni reinicia la caducidad. La reposición se confirma desde el ticket o se registra manualmente; ya no se exige completar la lista para importar otra compra. Se conserva la protección contra tickets duplicados y la conciliación de reposiciones registradas por versiones anteriores.

@@ -1097,7 +1097,9 @@ async function checkReceiptPackageFormats(browser,url,errors){
     const receipt={id:'weight-test',store:'carrefour',store_name:'Carrefour',purchased_at:new Date().toISOString(),total:2.5,lines:[{id:'0',description:'SEITAN AL PESO',count:1,unit_price:2.5,amount:2.5,product_id:'cacao',matched:true,pack_quantity:null,pack_unit:''}]};
     window.quantityResult={quantity:.5,unit:'kg',estimated:true};window.quantityWait=new Promise(resolve=>window.finishQuantity=resolve);
     window.receiptDraft=structuredClone(receipt);el.openPreview({token:'weight-test',receipt,products,purchases:[]});
+    el.shadowRoot.querySelector('dialog').dispatchEvent(new Event('close'));
   });
+  assert.equal(await purchases.evaluate(el=>el._draft?.token),'weight-test');
   await dialog.getByRole('button',{name:'Continuar',exact:true}).click();
   const progress=purchases.getByRole('dialog',{name:'Completando cantidades',exact:true});await progress.waitFor();
   assert.equal(await progress.getByRole('progressbar').count(),1);

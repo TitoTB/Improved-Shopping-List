@@ -52,7 +52,7 @@ class ImprovedShoppingPurchases extends HTMLElement {
       .reference-content-controls label { min-width:0;margin:0;font-size:12px; }.reference-content-controls input,.reference-content-controls select { min-width:0;width:100%; }
       .reference-confirm { grid-column:1/-1;display:flex!important;align-items:center;gap:8px; }.reference-confirm input { width:auto!important;min-height:0!important;margin:0!important; }
       :host{display:block;color:inherit;font:inherit}*{box-sizing:border-box}[hidden]{display:none!important}
-      .purchase-filters{display:flex;gap:12px;margin:16px 0;flex-wrap:wrap}.purchase-filters label{flex:1;min-width:140px}.shoppers{font-size:12px;opacity:.7}.product-choice{display:flex!important;align-items:center;gap:10px}.product-choice input{width:auto!important}button,input,select{font:inherit;color:inherit}button{cursor:pointer}button:disabled{opacity:.5;cursor:default}
+      .purchase-filters{display:flex;align-items:flex-end;gap:12px;margin:16px 0;flex-wrap:nowrap}.purchase-filters label{flex:1;min-width:0}.purchase-filters .upload-ticket{width:42px;height:42px}.shoppers{font-size:12px;opacity:.7}.product-choice{display:flex!important;align-items:center;gap:10px}.product-choice input{width:auto!important}button,input,select{font:inherit;color:inherit}button{cursor:pointer}button:disabled{opacity:.5;cursor:default}
       input,select{width:100%;min-width:0;min-height:42px;border:1px solid var(--divider-color,#d9e0dd);background:var(--card-background-color,#fff);border-radius:8px;padding:8px}
       .notice{padding:12px;border-radius:10px;background:var(--secondary-background-color,#edf2ef)}.error{color:var(--error-color,#d32f2f)}
       #history{display:grid;gap:12px}#more-purchases{display:block;margin:16px auto 0;padding:12px 20px;border:0;border-radius:10px;background:var(--primary-color,#267052);color:white}#more-purchases:focus-visible{outline:3px solid var(--primary-color,#267052);outline-offset:3px}.ticket{border-radius:14px;background:var(--card-background-color,#fff);padding:16px}
@@ -555,7 +555,7 @@ class ImprovedShoppingPurchases extends HTMLElement {
     const text=this._reading?'Leyendo ticket…':this._error|| (this._history?this._session.error:'') || (this._history&&this._session.loading?'Cargando compras…':'');
     message.textContent=text;message.hidden=!text;message.classList.toggle('error',Boolean(this._error||this._session.error));
     root.querySelector('#history').hidden=!this._history;root.querySelector('#empty').hidden=true;
-    root.querySelector('#spending-chart').hidden=!this._history;
+    root.querySelector('#spending-chart').hidden=!this._history;root.querySelector('.purchase-filters').hidden=!this._history;
     root.querySelector('#more-purchases').hidden=true;
     if(!this._history)return;
     for(const [id,values] of [['filter-shop',new Map(this._session.receipts.map(receipt=>[receipt.shop_id||receipt.store,receipt.shop_name||receipt.store_name]))],['filter-person',new Map(this._session.receipts.flatMap(receipt=>(receipt.shoppers??[]).map(person=>[person,this._hass.states[person]?.attributes?.friendly_name??person])))]]){
@@ -715,8 +715,8 @@ class ImprovedShoppingPurchases extends HTMLElement {
     const heading=node('div','chart-heading'),navigation=this._button('Seleccionar periodo de compras','mdi:calendar-range',()=>this._openPurchasePeriod(),'chart-range');
     const format=new Intl.DateTimeFormat('es-ES',{day:'2-digit',month:'2-digit',year:'numeric'});
     navigation.append(node('span','',format.format(range.first)+' – '+format.format(range.last)));
-    const actions=node('div','chart-actions'),upload=this._button('Subir ticket','mdi:file-upload',()=>this.chooseFile(),'upload-ticket');upload.id='upload-ticket';upload.title='Subir ticket PDF';upload.disabled=this._busy||this._hass?.user?.is_admin!==true;
-    actions.append(navigation,upload);heading.append(node('h3','','Gasto mensual'),actions);
+    const actions=node('div','chart-actions'),upload=this.shadowRoot.querySelector('#upload-ticket')??this._button('Subir ticket','mdi:file-upload',()=>this.chooseFile(),'upload-ticket');upload.id='upload-ticket';upload.title='Subir ticket PDF';upload.disabled=this._busy||this._hass?.user?.is_admin!==true;
+    this.shadowRoot.querySelector('.purchase-filters').append(upload);actions.append(navigation);heading.append(node('h3','','Gasto mensual'),actions);
     const bars=node('div','monthly-bars'),scroll=node('div','chart-scroll');
     bars.style.gridTemplateColumns=`repeat(${visible.length},minmax(0,1fr))`;if(visible.length>12)bars.style.minWidth=(visible.length*50)+'px';
     const maximum=Math.max(1,...visible.map(([,month])=>month.total));

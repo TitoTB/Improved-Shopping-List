@@ -3891,13 +3891,14 @@ async function main() {
     assert.equal(await purchasePage.locator('#list-controls').isVisible(),false);
     assert.equal(await purchasePage.getByRole('button',{name:'Subir ticket',exact:true}).isVisible(),true);
     assert.equal(await purchasePage.locator('#analytics-heading #upload-ticket').count(),0);
-    const chartUpload=purchases.locator('#spending-chart').getByRole('button',{name:'Subir ticket',exact:true});
+    const chartUpload=purchases.locator('.purchase-filters').getByRole('button',{name:'Subir ticket',exact:true});
+    assert.equal(await purchases.locator('#spending-chart #upload-ticket').count(),0);
     for(const width of [1280,390,320]){
       await purchasePage.setViewportSize({width,height:844});
       assert.ok(await chartUpload.evaluate(button=>{
-        const upload=button.getBoundingClientRect(),navigation=button.parentElement.querySelector('.chart-range').getBoundingClientRect(),chart=button.closest('#spending-chart').getBoundingClientRect();
-        return navigation.right<=upload.left&&Math.abs((navigation.top+navigation.bottom-upload.top-upload.bottom)/2)<1&&upload.right<=chart.right&&chart.width>=button.closest('#spending-chart').scrollWidth-1;
-      }),'Upload is to the right of the period selector inside the chart at '+width+'px');
+        const upload=button.getBoundingClientRect(),filters=button.closest('.purchase-filters'),store=filters.querySelector('#filter-shop').getBoundingClientRect(),person=filters.querySelector('#filter-person').getBoundingClientRect(),bounds=filters.getBoundingClientRect();
+        return store.right<=person.left&&person.right<=upload.left&&[store,person].every(rect=>Math.abs((rect.top+rect.bottom-upload.top-upload.bottom)/2)<1)&&upload.right<=bounds.right&&filters.scrollWidth<=filters.clientWidth+1;
+      }),'Upload is to the right of the store and user filters on the same row at '+width+'px');
     }
     await purchasePage.setViewportSize({width:390,height:844});
 

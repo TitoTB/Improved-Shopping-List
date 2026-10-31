@@ -1,5 +1,9 @@
 # Historial de cambios
 
+## Próxima versión
+
+- En Analítica → Compras, el botón Subir ticket se coloca a la derecha de los filtros de tienda y usuario, en la misma fila, también en móvil.
+
 ## 0.65.0 — 2026-10-31
 
 - La cabecera móvil aumenta a 6 px la separación entre los botones de los apartados.

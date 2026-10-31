@@ -1,4 +1,4 @@
-import { installDialogCloseButtons } from './dialog-controls.js?v=0.69.0';
+import { installDialogCloseButtons } from './dialog-controls.js?v=0.70.0';
 const el=(tag,text)=>{const n=document.createElement(tag);if(text!=null)n.textContent=text;return n;};
 const days=['L','M','X','J','V','S','D'];
 // Unlike randomUUID(), getRandomValues is available on local HTTP origins.

@@ -1,6 +1,6 @@
 # Historial de cambios
 
-## Próxima versión
+## 0.70.0 — 2026-10-31
 
 - La reposición automática ordena primero los campos específicos y después los comunes, con etiquetas a la izquierda, unidades de Stock dentro de las cantidades y mínimo porcentual junto a su casilla. La lista de reposición se oculta cuando solo hay una configurada.
 - Crear rutinas y añadir comidas funciona también desde HTTP local, sin depender de randomUUID. Las comidas se muestran desplegadas en la ficha del producto, con cantidades por persona y unidades visibles, sin los textos explicativos retirados.

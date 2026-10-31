@@ -13,6 +13,19 @@ refs=importlib.util.module_from_spec(spec);spec.loader.exec_module(refs)
 
 
 class ReferenceTests(unittest.TestCase):
+    def test_manual_review_rate_updates_option_without_rewriting_ticket_amount_or_weight(self):
+        from _reference_tests.receipt_quantities import receipt_catalog_price
+        values=refs.normalized_references([{'store':'carrefour','ean':'8410199023094','name':'Al peso','sale_mode':'weight','content_unit':'g',
+            'measure_price':{'price':5,'quantity':1,'unit':'kg','currency':'EUR','checked_at':100,'source':'web'}}])
+        line={'ean':'8410199023094','description':'Al peso','count':1,'unit_price':2.5,'amount':2.5,'purchased_quantity':.5,'purchased_unit':'kg','price_saved':True,
+              'manual_measure_price':{'price':6.25,'quantity':1,'unit':'kg','currency':'EUR','checked_at':200,'source':'manual'}}
+        self.assertEqual(receipt_catalog_price(line,values[0]),6.25)
+        refs.merge_reference(values,'carrefour',line)
+        self.assertEqual(values[0]['measure_price']['price'],6.25)
+        self.assertEqual(values[0]['measure_price']['source'],'manual')
+        self.assertEqual(values[0]['last_price']['price'],6.25)
+        self.assertEqual((line['unit_price'],line['amount'],line['purchased_quantity']),(2.5,2.5,.5))
+
     def test_explicit_sale_mode_preserves_package_and_weight_choices(self):
         base={'store':'carrefour','ean':'8410199023094','name':'Alternativa','content_quantity':None,'content_unit':'g','content_confirmed':False}
         package=refs.normalized_references([{**base,'sale_mode':'package'}])[0]

@@ -253,12 +253,13 @@ const hass={
       return structuredClone(window.lidlMetadataResult??{reason:'Sin coincidencia pública'});
     }
     if(msg.type==='improved_shopping_list/receipts/estimate_quantity'){
+      (window.quantityCalls??=[]).push(structuredClone(msg));
       if(window.quantityWait)await window.quantityWait;
-      return structuredClone(window.quantityResult??{quantity:null});
+      return structuredClone(window.quantityResults?.[msg.line_id]??window.quantityResult??{quantity:null});
     }
     if(msg.type==='improved_shopping_list/receipts/link'){
-      const ids=msg.lines.map(line=>line.product_id).filter(Boolean);if(new Set(ids).size!==ids.length)throw new Error('Dos líneas no pueden vincularse al mismo producto.');
-      window.receiptLinks=structuredClone(msg.lines);return receiptOptions();
+      if(window.receiptLinkWait)await window.receiptLinkWait;
+      window.receiptLinks=structuredClone(msg.lines);return structuredClone(window.receiptOptionsOverride??receiptOptions());
     }
     if(msg.type==='improved_shopping_list/analytics/comparison'){
       return structuredClone(window.comparisonFixture??{observations:[],purchases:[],stores:Object.keys(window.listSettings.stores??{}).filter(store=>window.listSettings.stores[store].enabled),historical_window_days:30});
@@ -1007,6 +1008,53 @@ async function checkDetectedPurchaseRecovery(browser,url,errors){
   await context.close();
 }
 
+async function checkRepeatedReceiptProduct(browser,url,errors){
+  const context=await browser.newContext({viewport:{width:390,height:844}}),page=await context.newPage();
+  page.on('pageerror',error=>errors.push(error.message));await page.goto(url);
+  await page.getByRole('button',{name:'Analítica',exact:true}).click();const purchases=page.locator('isl-purchases');
+  await purchases.locator('#ticket-file').waitFor({state:'attached'});
+  await purchases.evaluate(el=>{
+    const products=[{id:'pan',name:'Pan',unit:'uds',refill_quantity:1,stock_id:'',commercial_references:[]}];
+    const receipt={id:'two-breads',store:'carrefour',store_name:'Carrefour',purchased_at:new Date().toISOString(),total:6,lines:[
+      {id:'0',description:'PAN 500 G',ean:'8410199023094',count:1,unit_price:2,amount:2,pack_quantity:500,pack_unit:'g',product_id:'pan',matched:true},
+      {id:'1',description:'PAN 1 KG',ean:'4006381333931',count:1,unit_price:4,amount:4,pack_quantity:1,pack_unit:'kg',product_id:'pan',matched:true}]};
+    window.catalogProducts=products;window.receiptDraft=structuredClone(receipt);window.stockItems=[];window.receiptOptionsOverride={products,purchases:[]};
+    el.openPreview({token:'two-breads',receipt,products,purchases:[]});
+  });
+  const dialog=purchases.getByRole('dialog',{name:'Revisar ticket',exact:true});
+  assert.equal(await dialog.locator('.linked-name').count(),2);
+  await dialog.locator('#linked-products-group > summary').click();
+  await dialog.getByRole('button',{name:'Vincular producto para PAN 1 KG',exact:true}).click();
+  const association=purchases.locator('#association-dialog');
+  assert.equal(await association.locator('option[value="Pan"]').count(),1);
+  await association.getByLabel('Producto del catálogo',{exact:true}).fill('Pan');await association.getByRole('button',{name:'Vincular',exact:true}).click();
+  await dialog.getByRole('button',{name:'Continuar',exact:true}).click();
+  await dialog.locator('#unregistered-stock-group > summary').click();
+  for(const [id,quantity] of [['0','2'],['1','3']]){
+    const row=dialog.locator(`[data-line-id="${id}"]`);await row.getByRole('button',{name:'Incluir en Stock: Pan',exact:true}).click();await row.getByRole('spinbutton').fill(quantity);
+  }
+  await dialog.getByRole('button',{name:'Continuar',exact:true}).click();
+  assert.equal(await dialog.locator('.price-line').count(),2);
+  await dialog.getByRole('button',{name:'Continuar',exact:true}).click();await dialog.getByRole('button',{name:'Confirmar compra',exact:true}).click();await dialog.waitFor({state:'hidden'});
+  assert.deepEqual(await page.evaluate(()=>window.lastReceiptConfirmation.lines.map(line=>[line.product_id,line.quantity])),[['pan',2],['pan',3]]);
+  assert.equal(await page.evaluate(()=>window.stockItems.filter(item=>item.catalog_product_id==='pan').length),1);
+  assert.equal(await page.evaluate(()=>window.stockItems.find(item=>item.catalog_product_id==='pan').quantity),5);
+  await context.close();
+}
+
+async function checkReferenceLogDescriptions(browser,url,errors){
+  const context=await browser.newContext({viewport:{width:390,height:844}}),page=await context.newPage();
+  page.on('pageerror',error=>errors.push(error.message));await page.goto(url);
+  await page.evaluate(()=>{window.logFixture.entries=[{id:'fuet',time:new Date().toISOString(),kind:'catalog.products.updated',source:'integration',message:'Producto modificado: Fuet',product:'Fuet',changed_fields:['commercial_references'],reference_changes:[{id:'new-id',store:'carrefour',ean:'8410762005014',action:'updated',added_fields:['reference_id','url'],updated_fields:[],removed_fields:[]}]}];});
+  await page.getByRole('button',{name:'Ajustes',exact:true}).click();
+  await page.getByRole('button',{name:'Logs',exact:true}).click();
+  const logs=page.locator('isl-logs');
+  await logs.getByText('Alternativa actualizada: Carrefour · EAN 8410762005014 · Añadidos: referencia de la tienda, URL',{exact:true}).waitFor();
+  assert.equal(await logs.getByText(/Alternativa retirada|Nueva alternativa|Eliminados:/).count(),0);
+  await page.screenshot({path:'test-results/reference-enrichment-log-mobile.png',fullPage:true});
+  await context.close();
+}
+
 async function checkReceiptPackageFormats(browser,url,errors){
   const context=await browser.newContext({viewport:{width:390,height:844}}),page=await context.newPage();
   page.on('pageerror',error=>errors.push(error.message));
@@ -1062,6 +1110,116 @@ async function checkReceiptPackageFormats(browser,url,errors){
   assert.equal(await page.evaluate(()=>window.lastReceiptConfirmation.lines[0].quantity),475);
   assert.equal(await page.evaluate(()=>window.lastReceiptConfirmation.lines[0].pack_quantity),null);
   assert.equal(await page.evaluate(()=>window.lastReceiptConfirmation.lines[0].quantity_edited),true);
+  // Progress opens before the required save. Optional metadata can then be skipped.
+  await purchases.evaluate(el=>{
+    const products=[{id:'coffee',name:'Café',unit:'uds',refill_quantity:1,stock_id:'',commercial_references:[]}];
+    window.catalogProducts=products;window.nutriCalls=[];window.delayNutriCode='3017620422003';
+    window.receiptLinkWait=new Promise(resolve=>window.finishReceiptLinks=resolve);
+    const receipt={id:'slow-format',store:'carrefour',store_name:'Carrefour',purchased_at:new Date().toISOString(),total:5,lines:[{id:'0',description:'CAFE SIN FORMATO',count:1,unit_price:5,amount:5,ean:'3017620422003',product_id:'coffee',matched:true}]};
+    window.receiptDraft=structuredClone(receipt);el.openPreview({token:'slow-format',receipt,products,purchases:[]});
+  });
+  await dialog.getByRole('button',{name:'Continuar',exact:true}).click();
+  const preparing=purchases.locator('#quantity-progress'),skip=preparing.getByRole('button',{name:'Continuar con los datos disponibles',exact:true});
+  await preparing.waitFor();assert.equal(await skip.isDisabled(),true);
+  await preparing.getByText('Guardando vinculaciones…',{exact:true}).waitFor();
+  await page.evaluate(()=>{window.finishReceiptLinks();window.receiptLinkWait=null;});
+  await preparing.getByRole('heading',{name:'Completando formatos',exact:true}).waitFor();
+  assert.equal(await skip.isEnabled(),true);await skip.click();await preparing.waitFor({state:'hidden'});
+  await dialog.getByRole('button',{name:'Continuar',exact:true}).click();
+  const format=dialog.getByLabel('Contenido por envase',{exact:true});await format.fill('250');
+  await dialog.getByLabel('Unidades del envase',{exact:true}).selectOption('g');
+  await page.evaluate(()=>{window.releaseNutri();window.delayNutriCode=null;});
+  await page.waitForTimeout(100);assert.equal(await format.inputValue(),'250');
+  assert.deepEqual(await page.evaluate(()=>window.nutriCalls),['3017620422003']);
+  await dialog.getByRole('button',{name:'Actualizar precios y cerrar',exact:true}).click();await dialog.waitFor({state:'hidden'});
+  // Skipping a pending estimate stops the remaining lines and never delays confirmation.
+  await purchases.evaluate(el=>{
+    const products=['a','b'].map(id=>({id,name:id,unit:'g',refill_quantity:1000,stock_id:'s'+id,revision:1,commercial_references:[]}));
+    window.catalogProducts=products;window.quantityCalls=[];window.quantityWait=new Promise(resolve=>window.finishQuantity=resolve);
+    const receipt={id:'skip-estimates',store:'carrefour',store_name:'Carrefour',purchased_at:new Date().toISOString(),total:5,lines:products.map((p,index)=>({id:String(index),description:p.name,count:1,unit_price:2.5,amount:2.5,product_id:p.id,matched:true}))};
+    window.receiptDraft=structuredClone(receipt);el.openPreview({token:'skip-estimates',receipt,products,purchases:[]});
+  });
+  await dialog.getByRole('button',{name:'Continuar',exact:true}).click();
+  await preparing.getByRole('heading',{name:'Completando cantidades',exact:true}).waitFor();
+  await skip.click();await preparing.waitFor({state:'hidden'});
+  assert.equal(await dialog.getByLabel('Cantidad para a',{exact:true}).inputValue(),'1');
+  await dialog.locator('.review-group > summary').click();
+  await dialog.getByRole('button',{name:'Incluir en Stock: a',exact:true}).click();
+  await dialog.getByRole('button',{name:'Añadir stock y cerrar',exact:true}).click();await dialog.waitFor({state:'hidden'});
+  await page.evaluate(()=>{window.finishQuantity();window.quantityWait=null;});await page.waitForTimeout(100);
+  assert.equal(await page.evaluate(()=>window.quantityCalls.length),1);
+  assert.equal(await page.evaluate(()=>window.lastReceiptConfirmation.lines[0].quantity),1);
+  // A shop pause ends enrichment automatically, retaining completed estimates.
+  await purchases.evaluate(el=>{
+    const products=['a','b','c'].map(id=>({id,name:id,unit:'g',refill_quantity:1000,stock_id:'',commercial_references:[]}));
+    window.catalogProducts=products;window.quantityCalls=[];
+    window.quantityResults={'0':{quantity:.5,unit:'kg',estimated:true},'1':{quantity:null,search_paused:true,reason:'Carrefour en pausa'}};
+    const receipt={id:'blocked-estimates',store:'carrefour',store_name:'Carrefour',purchased_at:new Date().toISOString(),total:7.5,lines:products.map((p,index)=>({id:String(index),description:p.name,count:1,unit_price:2.5,amount:2.5,product_id:p.id,matched:true}))};
+    window.receiptDraft=structuredClone(receipt);el.openPreview({token:'blocked-estimates',receipt,products,purchases:[]});
+  });
+  await dialog.getByRole('button',{name:'Continuar',exact:true}).click();
+  await dialog.getByRole('button',{name:'Volver a vinculación',exact:true}).waitFor();
+  assert.equal(await preparing.isVisible(),false);
+  assert.deepEqual(await page.evaluate(()=>window.quantityCalls.map(call=>call.line_id)),['0','1']);
+  assert.equal(await dialog.getByLabel('Cantidad para a',{exact:true}).inputValue(),'0.5');
+  await dialog.getByRole('button',{name:'Volver a vinculación',exact:true}).click();
+  await dialog.getByRole('button',{name:'Continuar',exact:true}).click();
+  await dialog.getByRole('button',{name:'Volver a vinculación',exact:true}).waitFor();
+  assert.equal(await page.evaluate(()=>window.quantityCalls.length),2);
+  await dialog.getByRole('button',{name:'Añadir stock y cerrar',exact:true}).click();await dialog.waitFor({state:'hidden'});
+  await page.evaluate(()=>{window.quantityResults=null;});
+  // A retained kg rate is editable, and is sent separately from ticket money/weight.
+  await purchases.evaluate(el=>{
+    const ref={id:'weight-ref',store:'carrefour',reference_id:'R-weight',name:'Al peso',sale_mode:'weight',content_quantity:null,content_unit:'g',content_confirmed:true,
+      measure_price:{price:5,quantity:1,unit:'kg',currency:'EUR',checked_at:100,source:'web'},last_price:{price:5,currency:'EUR',checked_at:100}};
+    const products=[{id:'cacao',name:'Seitán',unit:'g',refill_quantity:1000,stock_id:'',commercial_references:[ref]}];
+    window.catalogProducts=products;
+    const receipt={id:'manual-kg-price',store:'carrefour',store_name:'Carrefour',purchased_at:new Date().toISOString(),total:2.5,lines:[{id:'0',description:'AL PESO',reference_id:'R-weight',count:1,unit_price:2.5,amount:2.5,purchased_quantity:.5,purchased_unit:'kg',product_id:'cacao',matched:true}]};
+    window.receiptOptionsOverride={products,purchases:[]};
+    window.receiptDraft=structuredClone(receipt);el.openPreview({token:'manual-kg-price',receipt,products,purchases:[]});
+  });
+  await dialog.getByRole('button',{name:'Continuar',exact:true}).click();
+  await dialog.getByRole('button',{name:'Continuar',exact:true}).click();
+  const manualRate=dialog.getByRole('spinbutton',{name:'Precio por kg de Seitán',exact:true}),saveRate=dialog.getByRole('button',{name:'Guardar precio de Seitán',exact:true});
+  assert.equal(await manualRate.inputValue(),'5');assert.equal(await manualRate.isEnabled(),true);
+  assert.equal(await saveRate.isEnabled(),true);assert.equal(await saveRate.getAttribute('aria-pressed'),'false');
+  assert.equal(await dialog.getByText('Se conserva el precio por kg',{exact:true}).count(),0);
+  await manualRate.fill('6.25');assert.equal(await saveRate.getAttribute('aria-pressed'),'true');
+  await page.screenshot({path:'test-results/receipt-manual-kg-price-mobile.png',fullPage:true});
+  await dialog.getByRole('button',{name:'Continuar',exact:true}).click();
+  await dialog.getByText(/Precio: 6,25.*kg/).waitFor();
+  await dialog.getByRole('button',{name:'Confirmar compra',exact:true}).click();await dialog.waitFor({state:'hidden'});
+  assert.equal(await page.evaluate(()=>window.lastReceiptConfirmation.lines[0].manual_measure_price),6.25);
+  assert.equal(await page.evaluate(()=>window.lastReceiptConfirmation.lines[0].save_price),true);
+  assert.equal(await page.evaluate(()=>window.receiptDraft.lines[0].amount),2.5);
+  assert.equal(await page.evaluate(()=>window.receiptDraft.lines[0].purchased_quantity),.5);
+  await page.waitForFunction(()=>!document.querySelector('improved-shopping-list-panel').shadowRoot.querySelector('isl-purchases')._busy);
+  await purchases.evaluate(el=>el.openPreview({token:'manual-kg-reprocess',receipt:structuredClone(window.receiptDraft),...window.receiptOptionsOverride,reprocess:true}));
+  const reprocessRate=purchases.getByRole('dialog',{name:'Reprocesar ticket',exact:true});
+  await reprocessRate.getByRole('spinbutton',{name:'Precio por kg de Seitán',exact:true}).fill('7');
+  await reprocessRate.getByRole('button',{name:'Guardar datos',exact:true}).click();await reprocessRate.waitFor({state:'hidden'});
+  assert.equal(await page.evaluate(()=>window.lastReceiptReprocess.lines[0].manual_measure_price),7);
+  await page.evaluate(()=>{window.receiptOptionsOverride=null;});
+  // Reopened receipt proposals arrive with saved links, avoiding quantity calls.
+  await page.waitForFunction(()=>!document.querySelector('improved-shopping-list-panel').shadowRoot.querySelector('isl-purchases')._busy);
+  await purchases.evaluate(el=>{
+    const products=[{id:'cacao',name:'Seitán',unit:'g',refill_quantity:1000,stock_id:'s1',revision:1,commercial_references:[{id:'kg',store:'carrefour',reference_id:'R-weight',content_quantity:null,content_unit:'kg',content_confirmed:true,measure_price:{price:5,quantity:1,unit:'kg',currency:'EUR'}}]}];
+    const receipt={id:'cached-quantity',store:'carrefour',store_name:'Carrefour',purchased_at:new Date().toISOString(),total:2.5,lines:[{id:'0',description:'PESO RECUPERADO',reference_id:'R-weight',count:1,unit_price:2.5,amount:2.5,product_id:'cacao',matched:true}]};
+    window.catalogProducts=products;window.quantityCalls=[];
+    window.receiptOptionsOverride={products,purchases:[],quantity_estimates:{'0':{product_id:'cacao',quantity:.5,unit:'kg',estimated:true}}};
+    window.receiptDraft=structuredClone(receipt);el.openPreview({token:'cached-quantity',receipt,products,purchases:[]});
+  });
+  await dialog.getByRole('button',{name:'Continuar',exact:true}).click();
+  const cachedQuantity=dialog.getByLabel('Cantidad para PESO RECUPERADO',{exact:true});
+  assert.equal(await cachedQuantity.inputValue(),'500');
+  assert.equal(await page.evaluate(()=>window.quantityCalls.length),0);
+  await cachedQuantity.fill('475');
+  await dialog.getByRole('button',{name:'Volver a vinculación',exact:true}).click();
+  await dialog.getByRole('button',{name:'Continuar',exact:true}).click();
+  assert.equal(await cachedQuantity.inputValue(),'475');
+  assert.equal(await page.evaluate(()=>window.quantityCalls.length),0);
+  await dialog.getByRole('button',{name:'Cerrar ventana',exact:true}).click();await dialog.waitFor({state:'hidden'});
+  await page.evaluate(()=>{window.receiptOptionsOverride=null;});
   await context.close();
 }
 
@@ -1211,11 +1369,12 @@ async function checkLidlMetadata(browser,url,errors){
     window.lidlMetadataWait=new Promise(resolve=>window.finishLidlMetadata=resolve);
     window.receiptDraft=structuredClone(receipt);el.openPreview({token:'lidl-web-format',receipt,products,purchases:[]});
   });
+  const dialog=purchases.getByRole('dialog',{name:'Revisar ticket',exact:true});
+  assert.equal(await page.evaluate(()=>window.lidlMetadataCalls?.length??0),0);
+  await dialog.getByRole('button',{name:'Continuar',exact:true}).click();
   const progress=purchases.getByRole('dialog',{name:'Completando datos de Lidl',exact:true});await progress.waitFor();
   assert.equal(await progress.getByRole('progressbar').count(),1);
   await page.evaluate(()=>{window.finishLidlMetadata();window.lidlMetadataWait=null;});await progress.waitFor({state:'hidden'});
-  const dialog=purchases.getByRole('dialog',{name:'Revisar ticket',exact:true});
-  await dialog.getByRole('button',{name:'Continuar',exact:true}).click();
   await dialog.getByRole('button',{name:'Continuar',exact:true}).click();
   assert.equal(await dialog.getByLabel('Contenido por envase',{exact:true}).inputValue(),'1000');
   assert.equal(await dialog.getByLabel('Unidades del envase',{exact:true}).inputValue(),'g');
@@ -1868,6 +2027,8 @@ async function main() {
     if(process.argv.includes('--lidl-metadata-only')){const errors=[];await checkLidlMetadata(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Lidl receipt metadata passed.');return;}
     if(process.argv.includes('--option-ean-only')){const errors=[];await checkDifferentOptionEAN(browser,`http://127.0.0.1:${server.address().port}`,errors);await checkStagedOptionURL(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Alternative EAN discovery passed.');return;}
     if(process.argv.includes('--catalog-sources-only')){const errors=[];await checkCatalogSources(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Catalog sources and EAN grouping passed.');return;}
+    if(process.argv.includes('--repeated-receipt-product-only')){const errors=[];await checkRepeatedReceiptProduct(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Repeated receipt product passed.');return;}
+    if(process.argv.includes('--reference-logs-only')){const errors=[];await checkReferenceLogDescriptions(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Reference log descriptions passed.');return;}
     if(process.argv.includes('--formats-only')){const errors=[];await checkReferenceFormats(browser,`http://127.0.0.1:${server.address().port}`,errors);await checkReceiptPackageFormats(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Commercial reference browser checks passed.');return;}
     if(process.argv.includes('--recovery-only')){const errors=[];await checkDetectedPurchaseRecovery(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Manual purchase recovery browser checks passed.');return;}
     if(process.argv.includes('--purchases-only')){const errors=[];await checkSpendingChart(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Purchase calendar browser checks passed.');return;}
@@ -3794,7 +3955,7 @@ async function main() {
     await stockForm.getByLabel('Entidad de consumo',{exact:true}).fill('binary_sensor.lavadora');
     await stockForm.getByLabel('Estado que representa un uso',{exact:true}).fill('on');
     await stockForm.getByLabel('Cantidad consumida por uso',{exact:true}).fill('0.5');
-    await stockForm.getByLabel('Cantidad que se suma al marcarlo como comprado',{exact:true}).fill('4');
+    await stockForm.getByLabel('Cantidad predeterminada de reposición',{exact:true}).fill('4');
     await stockForm.getByLabel('Añadir a la lista cuando el stock llegue al mínimo',{exact:true}).check();
     await stockForm.getByLabel('Stock mínimo',{exact:true}).fill('1');
     assert.equal(await stockForm.getByLabel('Lista para reponer',{exact:true}).inputValue(),'todo.local');
@@ -3971,12 +4132,12 @@ async function main() {
     assert.equal(await cerealLine.locator('.create').evaluate(node=>getComputedStyle(node).backgroundColor),'rgb(38, 112, 82)');
     await cerealLine.getByRole('button',{name:'Vincular producto para FLAUTIN CEREALES',exact:true}).click();
     const association=purchases.locator('#association-dialog');
-    assert.equal(await association.locator('datalist option[value="Seitán"]').count(),0);
+    assert.equal(await association.locator('datalist option[value="Seitán"]').count(),1);
+    await purchasePage.screenshot({path:'test-results/receipt-link-dialog-mobile.png',fullPage:true});
     await association.getByLabel('Producto del catálogo',{exact:true}).fill('Seitán');
     await association.getByRole('button',{name:'Vincular',exact:true}).click();
-    await association.getByText('Este producto ya está vinculado a otra línea. Libera primero esa vinculación.',{exact:true}).waitFor();
-    await purchasePage.screenshot({path:'test-results/receipt-link-dialog-mobile.png',fullPage:true});
-    await association.getByRole('button',{name:'Cerrar ventana',exact:true}).click();
+    await association.waitFor({state:'hidden'});
+    assert.equal(await cerealLine.locator('.linked-name').textContent(),'→ Seitán');
     // A suggested catalog match must not supply the name when creating a new product.
     await review.locator('#linked-products-group > summary').click();
     const suggestedLine=review.locator('[data-line-id="0"]');
@@ -4967,6 +5128,8 @@ async function main() {
     await checkLidlReprocessLines(browser,url,errors);
     await checkReferenceFormats(browser,url,errors);
     await checkReceiptPackageFormats(browser,url,errors);
+    await checkRepeatedReceiptProduct(browser,url,errors);
+    await checkReferenceLogDescriptions(browser,url,errors);
     await checkAttentionIndicators(browser,url,errors);
 
     // Shipping policy: Alcampo and DIA are archived; the other stores remain available.
@@ -5101,7 +5264,7 @@ async function main() {
     await logs.getByLabel('Origen',{exact:true}).selectOption('');
     await logs.getByLabel('Actividad',{exact:true}).selectOption('catalog');
     await logs.getByText('Campos: color, icono',{exact:true}).waitFor();
-    await logs.getByText('Alcampo · EAN 8410199023094 · Añadidos: marca, contenido por envase, unidades · Actualizados: precio',{exact:true}).waitFor();
+    await logs.getByText('Alternativa actualizada: Alcampo · EAN 8410199023094 · Añadidos: marca, contenido por envase, unidades · Actualizados: precio',{exact:true}).waitFor();
     assert.equal(await logs.getByText('Campos: commercial_references',{exact:true}).count(),0);
     await logs.getByLabel('Buscar en el historial',{exact:true}).fill('marca');
     assert.equal(await logs.locator('#entries > li').count(),1);

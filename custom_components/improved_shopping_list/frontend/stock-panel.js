@@ -1,6 +1,6 @@
 /** Pantry UI, forms and calculations loaded only when Stock is opened. */
-import { imageSource, normalizedName, productNameKey } from './product-display.js?v=0.66.0';
-import { installDialogCloseButtons } from './dialog-controls.js?v=0.66.0';
+import { imageSource, normalizedName, productNameKey } from './product-display.js?v=0.67.0';
+import { installDialogCloseButtons } from './dialog-controls.js?v=0.67.0';
 const stockQuantity = (item, now=Date.now()/1000) => {
   if(item.mode!=='perishable')return item.quantity;
   if(item.quantity<=0||item.expired)return 0;
@@ -167,7 +167,7 @@ export function installStockView(panel) {
             </div></div>
             <div class="stock-expiry-refill wide">
               <label id="stock-days-label" hidden>Caduca cada cuántos días desde la compra<input name="days" type="number" min="1" max="3650" step="1" required></label>
-              <label>Cantidad que se suma al marcarlo como comprado<input name="refill_quantity" type="number" min="0.001" max="1000000" step="0.001" required></label>
+              <label>Cantidad predeterminada de reposición<input name="refill_quantity" type="number" min="0.001" max="1000000" step="0.001" required></label>
             </div>
             <div class="stock-reorder-row wide">
               <label class="check"><input name="reorder_enabled" type="checkbox">Añadir a la lista cuando el stock llegue al mínimo</label>

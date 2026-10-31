@@ -154,8 +154,11 @@ async def test_preview_confirm_atomic_history_restart_and_later_purchase(hass):
 
 async def test_receipt_adjusts_previous_refill_preserving_subsequent_consumption(hass):
     env=await setup_manager(hass)
+    # A pre-upgrade automatic refill remains available for explicit reconciliation.
     event={'id':'previous','at':datetime.now().timestamp(),'list_entity':'todo.main','uid':'uid1'}
-    await env.stock.async_automatic(env.item['id'],env.item['config_revision'],'purchase',event)
+    items=deepcopy(env.stock._items);items[env.item['id']]['quantity']=270;items[env.item['id']]['revision']+=1
+    data=deepcopy(env.stock.receipts);data['purchases']['previous']={**event,'item_id':env.item['id'],'quantity':250,'unit':'g','receipt_id':''}
+    await env.stock._persist(items,receipts=data)
     await env.stock.async_adjust(env.item['id'],-1)
     assert env.stock.snapshot['items'][0]['quantity']==269
     draft=await preview(env)
@@ -190,13 +193,29 @@ async def test_import_disk_failure_stale_stock_and_confirmed_alias(hass,monkeypa
     assert next_draft['receipt']['lines'][0]['replenish'] is True
 
 
-async def test_purchase_queued_during_receipt_review_does_not_double_stock(hass):
+async def test_list_completion_queued_during_review_does_not_block_or_double_stock(hass):
     env=await setup_manager(hass);draft=await preview(env)
-    env.automation._events=[(env.item['id'],env.item['config_revision'],'purchase',{'id':'arriving'})]
-    with pytest.raises(CatalogError,match='acaba de registrar'):
-        await env.manager.async_confirm(draft['token'],'owner',selections(draft,env.product),False)
-    assert env.stock.snapshot['items'][0]['quantity']==20
-    assert env.manager.snapshot['receipts']==[]
+    env.automation._events=[(env.item['id'],env.item['config_revision'],'completion',{'at':datetime.now().timestamp()})]
+    await env.manager.async_confirm(draft['token'],'owner',selections(draft,env.product),False)
+    assert env.stock.snapshot['items'][0]['quantity']==270
+    assert len(env.manager.snapshot['receipts'])==1
+
+
+async def test_distinct_receipts_can_replenish_while_list_entry_is_still_pending(hass):
+    env=await setup_manager(hass)
+    data=deepcopy(env.stock.receipts)
+    data['coverage']['todo.main:uid1']={'item_id':env.item['id'],'quantity':250,'unit':'g','receipt_id':'legacy'}
+    data['coverage']['awaiting:'+env.item['id']]={'item_id':env.item['id'],'at':datetime.now().timestamp()}
+    await env.stock._persist(deepcopy(env.stock._items),receipts=data)
+    first=await preview(env)
+    await env.manager.async_confirm(first['token'],'owner',selections(first,env.product),False)
+    second=await env.manager.async_preview(base64.b64encode(pdf_bytes(receipt_text().replace('TEST0001','TEST0002'))).decode(),'owner')
+    await env.manager.async_confirm(second['token'],'owner',selections(second,env.product,500),False)
+    assert env.stock.snapshot['items'][0]['quantity']==770
+    assert 'awaiting:'+env.item['id'] not in env.stock.receipts['coverage']
+    assert len(env.manager.snapshot['receipts'])==2
+    with pytest.raises(CatalogError,match='ya se ha importado'):
+        await env.manager.async_preview(base64.b64encode(pdf_bytes(receipt_text().replace('TEST0001','TEST0002'))).decode(),'owner')
 
 
 async def test_receipt_prices_only_replace_older_observations_and_respect_disable(hass):
@@ -283,16 +302,52 @@ async def test_links_survive_without_stock_prices_or_finishing_the_ticket(hass):
     assert next_draft['receipt']['lines'][0]['quantity']==250
 
 
-async def test_product_can_only_be_linked_to_one_line_in_a_ticket(hass):
+async def test_product_can_be_linked_to_several_ticket_lines(hass):
     env=await setup_manager(hass);draft=await preview(env)
     links=[{'id':line['id'],'product_id':env.product['id'] if index<2 else ''} for index,line in enumerate(draft['receipt']['lines'])]
-    before=deepcopy(env.stock.receipts)
-    with pytest.raises(CatalogError,match='Dos líneas'):
-        await env.manager.async_link(draft['token'],'owner',links)
+    await env.manager.async_link(draft['token'],'owner',links)
     edits=[{**line,'replenish':False,'quantity':None,'purchase_id':'','save_price':True} for line in links]
-    with pytest.raises(CatalogError,match='Dos líneas'):
-        await env.manager.async_confirm(draft['token'],'owner',edits,True)
-    assert env.stock.receipts==before
+    saved=await env.manager.async_confirm(draft['token'],'owner',edits,True)
+    assert [line['product_id'] for line in saved['lines'][:2]]==[env.product['id'],env.product['id']]
+    assert env.stock.snapshot['items'][0]['quantity']==20
+
+
+async def multiple_ean_preview(env,product):
+    receipt={'id':'multi-ean','digest':'multi-ean','store':'carrefour','store_name':'Carrefour','currency':'EUR','purchased_at':datetime.now().astimezone().isoformat(),'total':6,'subtotal':6,'discount':0,'article_count':2,
+             'lines':[{'id':'0','description':'PAN 500 G','ean':'8410199023094','count':1,'unit_price':2,'amount':2,'pack_quantity':500,'pack_unit':'g'},
+                      {'id':'1','description':'PAN 1 KG','ean':'4006381333931','count':1,'unit_price':4,'amount':4,'pack_quantity':1,'pack_unit':'kg'}]}
+    draft=await env.manager._prepare_preview(receipt,'owner')
+    links=[{'id':line['id'],'product_id':product['id']} for line in receipt['lines']]
+    await env.manager.async_link(draft['token'],'owner',links)
+    return draft,links
+
+
+async def test_same_product_keeps_two_eans_prices_and_one_summed_stock_refill(hass):
+    env=await setup_manager(hass);draft,links=await multiple_ean_preview(env,env.product)
+    edits=[{**link,'replenish':True,'quantity':500 if i==0 else 1,'unit':'g' if i==0 else 'kg','purchase_id':'','save_price':True,'pack_quantity':500 if i==0 else 1,'pack_unit':'g' if i==0 else 'kg'} for i,link in enumerate(links)]
+    saved=await env.manager.async_confirm(draft['token'],'owner',edits,True)
+    assert env.stock.item_for(env.product)['quantity']==1520
+    assert len(env.stock.receipts['purchases'])==1
+    refs=env.stock.catalog.products[0]['commercial_references']
+    assert {r['ean']:r['last_price']['price'] for r in refs}=={'8410199023094':2,'4006381333931':4}
+    assert [line['quantity'] for line in saved['lines']]==[500,1000]
+    review=await env.manager.async_review_saved(saved['id'],'owner')
+    await env.manager.async_reprocess(review['token'],'owner',[{**link,'pack_quantity':500 if i==0 else 1,'pack_unit':'g' if i==0 else 'kg'} for i,link in enumerate(links)])
+    assert env.stock.item_for(env.product)['quantity']==1520
+
+
+async def test_multiple_lines_create_one_stock_item_and_incompatible_units_are_rejected(hass):
+    env=await setup_manager(hass);pan=await env.stock.catalog.async_save_product({'name':'Pan'})
+    draft,links=await multiple_ean_preview(env,pan)
+    edits=[{**link,'replenish':True,'quantity':2 if i==0 else 3,'unit':'uds' if i==0 else 'g','purchase_id':'','save_price':False} for i,link in enumerate(links)]
+    before=deepcopy(env.stock._items)
+    with pytest.raises(CatalogError,match='unidades compatibles'):
+        await env.manager.async_confirm(draft['token'],'owner',edits,False)
+    assert env.stock._items==before
+    edits[1]['unit']='uds'
+    await env.manager.async_confirm(draft['token'],'owner',edits,False)
+    assert env.stock.item_for(pan)['quantity']==5
+    assert len([item for item in env.stock.snapshot['items'] if item['catalog_product_id']==pan['id']])==1
 
 
 async def test_new_stock_and_individually_selected_prices_are_atomic(hass,monkeypatch):

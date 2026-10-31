@@ -20,7 +20,8 @@ from .stock import DAY, DEFAULT_CONFIG, quantity_value, materialized_stock
 from .store_links import STORES
 from .quantity_values import purchase_defaults
 from .product_references import content, format_observation, reference_key, matching_reference, inferred_content
-from .receipt_quantities import purchase_quantity, price_from_option, estimated_quantity, weight_format, weight_purchase, receipt_catalog_price
+from .receipt_quantities import purchase_quantity, price_from_option, estimated_quantity, weight_format, weight_purchase, receipt_catalog_price, lookup_paused, measure_price, stock_quantity
+from .receipt_estimates import ReceiptEstimates, estimate_key
 
 
 def converted_quantity(line, unit):
@@ -44,6 +45,7 @@ class ReceiptManager:
         self.hass, self.stock, self.automation, self.prices = hass, stock, automation, prices
         self._drafts = {}
         self._parse_lock = asyncio.Lock()
+        self._quantity_cache=ReceiptEstimates(hass)
 
     @property
     def snapshot(self):
@@ -199,7 +201,7 @@ class ReceiptManager:
             if data != self.stock.receipts:await self.stock._persist(deepcopy(self.stock._items),receipts=data)
 
     async def async_save_detected_purchase(self, identifier, purchased_at, products, *, zone_stores=None):
-        """Save a detection summary only; completion already handled stock replenishment."""
+        """Save a detection summary only; stock changes require a reviewed receipt."""
         async with self.stock._lock:
             data = deepcopy(self.stock.receipts)
             previous = data["history"].get(identifier)
@@ -374,12 +376,12 @@ class ReceiptManager:
                 raise CatalogError("Revisa todos los contenidos del ticket.")
             # Review the refreshed draft, while the original remains the conflict baseline.
             receipt=deepcopy(draft["receipt"])
-            seen=set();references=[];linked_products=set()
+            seen=set();references=[]
             prices_enabled=self.automation.settings.snapshot.get("price_updates_enabled",True)
             date=dt_util.parse_datetime(receipt["purchased_at"])
             price_at=dt_util.as_utc(date.replace(tzinfo=dt_util.DEFAULT_TIME_ZONE) if date.tzinfo is None else date).timestamp() if date else None
             for selection in selections:
-                if not isinstance(selection,dict) or set(selection) not in ({"id","pack_quantity","pack_unit"},{"id","product_id","pack_quantity","pack_unit"}):
+                if not isinstance(selection,dict) or set(selection)-{"manual_measure_price"} not in ({"id","pack_quantity","pack_unit"},{"id","product_id","pack_quantity","pack_unit"}):
                     raise CatalogError("Los datos del envase no son válidos.")
                 line=next((line for line in receipt["lines"] if line["id"]==selection["id"]),None)
                 if not line or line["id"] in seen:
@@ -397,15 +399,14 @@ class ReceiptManager:
                 product=next((product for product in self.stock.catalog.products if product["id"]==product_id),None)
                 if product_id and not product:
                     raise CatalogError("El producto vinculado ya no existe.","conflict")
-                if product_id in linked_products:
-                    raise CatalogError("Dos líneas no pueden vincularse al mismo producto del catálogo.")
                 if product:
-                    linked_products.add(product_id);line.update(product_id=product_id,matched=True)
+                    line.update(product_id=product_id,matched=True)
                     self._remember_alias(data,receipt["store"],line,product)
                 self._apply_lidl_metadata(draft,line,product)
                 reference=matching_reference(product,receipt["store"],line) if product else None
                 if reference and reference.get("active") is False:
                     continue
+                self._apply_manual_measure_price(selection,line,reference,prices_enabled)
                 if product:
                     if quantity is not None or unit:
                         line.update(pack_quantity=quantity,pack_unit=unit,format_confirmed=quantity is not None or unit in ("g","kg"))
@@ -417,7 +418,7 @@ class ReceiptManager:
                     if save_price:
                         line["price_saved"]=True
                         reference_line["price_saved"]=True
-                        reference_line["last_price"]={"price":price,"currency":"EUR","checked_at":price_at}
+                        reference_line["last_price"]={"price":price,"currency":"EUR","checked_at":line.get("manual_measure_price",{}).get("checked_at",price_at)}
                         if reference_line.get("ticket_measure_price"):
                             reference_line["ticket_measure_price"].setdefault("checked_at",price_at)
                             reference_line["ticket_measure_price"].setdefault("source","ticket")
@@ -513,33 +514,30 @@ class ReceiptManager:
         product=next((p for p in self.stock.catalog.products if p["id"]==product_id),None)
         if not product:
             raise CatalogError("El producto ya no existe.","conflict")
-        refs=[ref for ref in product.get("commercial_references",[]) if ref["store"]=="carrefour" and ref.get("active",True) and (ref.get("url") or ref.get("measure_price") or ref.get("last_price"))]
-        from .product_references import gtin
-        if line.get("ean"):
-            refs=[ref for ref in refs if gtin(ref.get("ean"))==gtin(line["ean"])]
-        elif line.get("reference_id"):
-            refs=[ref for ref in refs if ref.get("reference_id")==line["reference_id"]]
-        if len(refs)!=1:
+        ref,rate=self._quantity_inputs(line,product)
+        if not ref:
             return {"quantity":None,"reason":"No hay una única opción de Carrefour identificada."}
-        ref=refs[0]
-        rate=price_from_option(ref)
-        if not rate and hasattr(self.prices,"prices_for"):
-            offers=[offer for offer in self.prices.prices_for(product) if offer.get("store")=="carrefour" and
-                    (offer.get("commercial_reference_id")==ref["id"] or ref.get("reference_id") and offer.get("reference_id")==ref["reference_id"]
-                     or gtin(ref.get("ean")) and gtin(offer.get("ean"))==gtin(ref["ean"]))]
-            for offer in sorted(offers,key=lambda item:item.get("checked_at",0),reverse=True):
-                rate=price_from_option({**ref,"last_price":{key:offer.get(key) for key in ("price","currency","checked_at")}})
-                if rate:
-                    break
+        cached=await self._quantity_cache.get(estimate_key(draft['receipt'],line,product_id,ref,rate))
+        if cached:
+            line.update(purchased_quantity=cached['quantity'],purchased_unit=cached['unit'],quantity_estimated=True)
+            return cached
         if not rate and ref.get("url") and getattr(self,"option_lookup",None):
+            if draft.get("quantity_search_paused"):
+                return {"quantity":None,"search_paused":True,"reason":"Carrefour está en pausa. Se continúa con los datos disponibles."}
             try:
                 data=await self.option_lookup.retrieve(ref["url"],"carrefour",ref.get("ean",""),measure=True)
             except ValueError as err:
+                if lookup_paused(getattr(err,"diagnostics",{})):
+                    draft["quantity_search_paused"]=True
+                    return {"quantity":None,"search_paused":True,"reason":str(err)}
                 return {"quantity":None,"reason":str(err)}
             self._draft(token,owner)
             if draft.get("quantity_products",{}).get(line_id)!=product_id:
                 raise CatalogError("La vinculación ha cambiado.","conflict")
             rate=data.get("measure_price")
+            if not rate and lookup_paused(data.get("retrieval_diagnostics",{})):
+                draft["quantity_search_paused"]=True
+                return {"quantity":None,"search_paused":True,"reason":"Carrefour está en pausa. Se continúa con los datos disponibles."}
         if not rate:
             return {"quantity":None,"reason":"No hay un precio por unidad de medida disponible."}
         if ref.get("measure_price")!=rate:
@@ -548,12 +546,41 @@ class ReceiptManager:
         if not result:
             return {"quantity":None}
         line.update(purchased_quantity=result["quantity"],purchased_unit=result["unit"],quantity_estimated=True)
+        current=next((p for p in self.stock.catalog.products if p['id']==product_id),product)
+        ref,rate=self._quantity_inputs(line,current)
+        await self._quantity_cache.put(estimate_key(draft['receipt'],line,product_id,ref,rate),result)
         return result
+
+    def _quantity_inputs(self,line,product):
+        from .product_references import gtin
+        refs=[ref for ref in product.get('commercial_references',[]) if ref['store']=='carrefour' and ref.get('active',True) and (ref.get('url') or ref.get('measure_price') or ref.get('last_price'))]
+        if line.get('ean'):refs=[ref for ref in refs if gtin(ref.get('ean'))==gtin(line['ean'])]
+        elif line.get('reference_id'):refs=[ref for ref in refs if ref.get('reference_id')==line['reference_id']]
+        if len(refs)!=1:return None,None
+        ref=refs[0];rate=price_from_option(ref)
+        if not rate and hasattr(self.prices,'prices_for'):
+            offers=[offer for offer in self.prices.prices_for(product) if offer.get('store')=='carrefour' and
+                    (offer.get('commercial_reference_id')==ref['id'] or ref.get('reference_id') and offer.get('reference_id')==ref['reference_id']
+                     or gtin(ref.get('ean')) and gtin(offer.get('ean'))==gtin(ref['ean']))]
+            for offer in sorted(offers,key=lambda item:item.get('checked_at',0),reverse=True):
+                rate=price_from_option({**ref,'last_price':{key:offer.get(key) for key in ('price','currency','checked_at')}})
+                if rate:break
+        return ref,rate
+
+    @staticmethod
+    def _apply_manual_measure_price(selection,line,reference,enabled):
+        if "manual_measure_price" not in selection:return
+        if not enabled or not weight_purchase(line,reference):
+            raise CatalogError("Solo se puede editar el precio por kg de una compra al peso con los precios activados.")
+        try:
+            rate=measure_price({"price":selection["manual_measure_price"],"quantity":1,"unit":"kg","currency":"EUR","checked_at":time.time(),"source":"manual"})
+        except ValueError as err:raise CatalogError(str(err)) from err
+        line["manual_measure_price"]=rate
 
     def _links(self, receipt, selections):
         if not isinstance(selections,list) or len(selections) != len(receipt["lines"]):
             raise CatalogError("Revisa todas las vinculaciones del ticket.")
-        seen, products, result = set(), set(), []
+        seen, result = set(), []
         for selection in selections:
             if not isinstance(selection,dict) or set(selection) != {"id","product_id"} or any(not isinstance(value,str) or len(value)>200 for value in selection.values()):
                 raise CatalogError("Las vinculaciones no son válidas.")
@@ -564,10 +591,6 @@ class ReceiptManager:
             product = next((p for p in self.stock.catalog.products if p["id"] == selection["product_id"]),None)
             if selection["product_id"] and not product:
                 raise CatalogError("Un producto del catálogo ha cambiado. Revisa su vinculación.","conflict")
-            if product:
-                if product["id"] in products:
-                    raise CatalogError("Dos líneas del mismo ticket no pueden vincularse al mismo producto del catálogo.")
-                products.add(product["id"])
             result.append((line,product))
         return result
 
@@ -597,7 +620,20 @@ class ReceiptManager:
                 references=[(product["id"],draft["receipt"]["store"],line,False) for line,product in linked if product])
             await self.stock._persist(deepcopy(self.stock._items),receipts=data)
             draft["quantity_products"]={line["id"]:product["id"] for line,product in linked if product}
-        return await self.async_options(token,owner)
+        options=await self.async_options(token,owner)
+        if draft['receipt']['store']=='carrefour':
+            estimates={}
+            for line,product in linked:
+                if not product or line.get('purchased_quantity') is not None and not line.get('quantity_estimated'):continue
+                current=next((p for p in self.stock.catalog.products if p['id']==product['id']),None)
+                if not current:continue
+                ref,rate=self._quantity_inputs(line,current)
+                cached=await self._quantity_cache.get(estimate_key(draft['receipt'],line,product['id'],ref,rate))
+                if cached:
+                    line.update(purchased_quantity=cached['quantity'],purchased_unit=cached['unit'],quantity_estimated=True)
+                    estimates[line['id']]={**cached,'product_id':product['id']}
+            if estimates:options['quantity_estimates']=estimates
+        return options
 
     async def async_preview(self, encoded, owner, *, account_reference=None, expected_total=None, expected_purchased_at=None):
         if len(encoded) > (MAX_PDF_BYTES + 2) // 3 * 4:
@@ -666,7 +702,6 @@ class ReceiptManager:
         self._check_duplicate(receipt)
         await self.automation.async_check()
         choices = self._choices(receipt["store"])
-        used = set()
         for line in receipt["lines"]:
             eligible=[p for p in choices if not ((ref:=matching_reference(p,receipt["store"],line)) and ref.get("active") is False)]
             alias = self.stock.receipts["aliases"].get(receipt["store"]+":"+normalized_name(line["description"]))
@@ -680,10 +715,6 @@ class ReceiptManager:
             exact = next((p for p in eligible if normalized_name(p["name"]) == normalized_name(line["description"])),None)
             ranked = sorted(eligible,key=lambda p:SequenceMatcher(None,normalized_name(p["name"]),normalized_name(line["description"])).ratio(),reverse=True)
             product = product or exact or (ranked[0] if ranked and SequenceMatcher(None,normalized_name(ranked[0]["name"]),normalized_name(line["description"])).ratio() >= .45 else None)
-            if product and product["id"] in used:
-                product = alias = exact = ean_product = None
-            if product:
-                used.add(product["id"])
             line.update(product_id=product["id"] if product else "", matched=bool(ean_product or alias or exact), quantity=None,
                 unit=product["unit"] if product else "uds", stock_id=product["stock_id"] if product else "")
             if product:
@@ -728,7 +759,7 @@ class ReceiptManager:
         if type(update_prices) is not bool or not isinstance(selections,list) or len(selections) != len(draft["receipt"]["lines"]):
             raise CatalogError("Revisa las líneas del ticket antes de confirmar.")
         await self.automation.async_check()
-        # Keep a todo completion from racing the receipt's stock adjustment.
+        # Serialize the reorder guard and the receipt's stock adjustment.
         async with self.automation._lock:
             async with self.stock._lock:
                 receipt = deepcopy(draft["receipt"])
@@ -752,7 +783,7 @@ class ReceiptManager:
                     raise CatalogError("Las líneas seleccionadas no son válidas.")
                 self._links(receipt,[{key:selection.get(key) for key in ("id","product_id")} for selection in selections])
                 for selection in selections:
-                    if set(selection)-{"save_price","unit","pack_quantity","pack_unit","quantity_edited"} != {"id","product_id","replenish","quantity","purchase_id"}:
+                    if set(selection)-{"save_price","unit","pack_quantity","pack_unit","quantity_edited","manual_measure_price"} != {"id","product_id","replenish","quantity","purchase_id"}:
                         raise CatalogError("Las líneas seleccionadas no son válidas.")
                     if any(not isinstance(selection[key],str) or len(selection[key]) > 200 for key in ("id","product_id","purchase_id")):
                         raise CatalogError("Las líneas seleccionadas no son válidas.")
@@ -766,6 +797,7 @@ class ReceiptManager:
                     if type(save_price) is not bool:
                         raise CatalogError("La selección de precios no es válida.")
                     reference=matching_reference(product,receipt["store"],line) if product else None
+                    self._apply_manual_measure_price(selection,line,reference,bool(update_prices and save_price and product))
                     line.update(product_id=product["id"] if product else "", product_name=product["name"] if product else "",
                         replenished=False, quantity=None, unit="", price_saved=bool(update_prices and save_price and product and receipt_catalog_price(line,reference) is not None))
                     if selection["product_id"] and not product:
@@ -781,17 +813,21 @@ class ReceiptManager:
                         if line.get("quantity_estimated") and selection.get("quantity_edited") is True:
                             line.update(purchased_quantity=quantity_value(selection["quantity"],positive=True),purchased_unit=selection.get("unit",""),quantity_estimated=False)
                         stock = self.stock.item_for(product) if product else None
+                        if not stock and product:stock=next((item for item in items.values() if item.get('catalog_product_id')==product['id']),None)
                         expected = next((p for p in draft["products"] if product and p["id"] == product["id"]),None)
                         if not expected or stock and stock["revision"] != expected["revision"] or not stock and expected["stock_id"]:
                             raise CatalogError("El stock ha cambiado. Vuelve a subir el ticket para revisar las cantidades.", "conflict")
                         quantity = quantity_value(selection["quantity"],positive=True)
+                        unit=selection.get('unit',stock['unit'] if stock else 'uds')
+                        if not isinstance(unit,str) or not unit.strip() or len(unit.strip())>32 or any(ord(char)<32 for char in unit):
+                            raise CatalogError("Indica una unidad de hasta 32 caracteres.")
                         if not stock:
-                            unit = selection.get("unit","uds")
-                            if not isinstance(unit,str) or not unit.strip() or len(unit.strip())>32 or any(ord(char)<32 for char in unit):
-                                raise CatalogError("Indica una unidad de hasta 32 caracteres.")
                             stock = {**deepcopy(DEFAULT_CONFIG),"id":str(uuid4()),"name":product["name"],"catalog_product_id":product["id"],
                                 "quantity":0,"revision":0,"unit":unit.strip(),"refill_quantity":quantity,"configured":True,"config_revision":1}
                             items[stock["id"]] = deepcopy(stock)
+                        converted=stock_quantity(quantity,unit,stock['unit'])
+                        if converted is None:raise CatalogError(f'No se pueden sumar las cantidades de «{product["name"]}»: {unit} y {stock["unit"]}. Indica unidades compatibles.')
+                        quantity=quantity_value(converted,positive=True)
                         group = groups.setdefault(stock["id"],{"stock":stock, "quantity":0, "purchase_id":selection["purchase_id"]})
                         if group["purchase_id"] != selection["purchase_id"]:
                             raise CatalogError("Las líneas del mismo producto deben corresponder a la misma reposición.")
@@ -802,10 +838,9 @@ class ReceiptManager:
                     elif product:
                         self._remember_alias(data,receipt["store"],line,product)
                 for item_id, group in groups.items():
-                    if any(event[0] == item_id and event[2] == "purchase" for event in getattr(self.automation,"_events",())):
-                        raise CatalogError("Se acaba de registrar una compra de este producto. Vuelve a subir el ticket para conciliarla.", "conflict")
                     items[item_id]=materialized_stock(items[item_id])
                     item, quantity = items[item_id], group["quantity"]
+                    data["coverage"].pop("awaiting:"+item_id,None)
                     previous = data["purchases"].get(group["purchase_id"]) if group["purchase_id"] else None
                     if group["purchase_id"] and (not previous or previous["item_id"] != item_id or previous.get("receipt_id") or previous.get("unit") != item["unit"]):
                         raise CatalogError("La reposición seleccionada ya se ha conciliado o ha cambiado.", "conflict")
@@ -822,16 +857,6 @@ class ReceiptManager:
                         purchase_id = "receipt:"+receipt["id"]+":"+item_id
                         data["purchases"][purchase_id] = {"id":purchase_id,"at":purchased_at,"item_id":item_id,
                             "quantity":quantity,"unit":item["unit"],"receipt_id":receipt["id"],"list_entity":"","uid":""}
-                        # Cover one exact pending list entry so its later purchase isn't added again.
-                        candidates = [(entity,uid) for entity, entries in self.automation._snapshots.items() for uid,entry in entries.items()
-                            if entry.get("status") == "needs_action" and normalized_name(entry.get("summary","")) == normalized_name(group["stock"]["name"])]
-                        target = item.get("list_entity") or self.automation.settings.snapshot["primary_entity"]
-                        candidates.sort(key=lambda pair:pair[0] != target)
-                        if candidates:
-                            key = ":".join(candidates[0])
-                            if key in data["coverage"]:
-                                raise CatalogError(f'Ya hay una compra importada para «{item["name"]}» pendiente. Marca «{item["name"]}» como comprado en la lista antes de importar otra.', "conflict")
-                            data["coverage"][key] = {"quantity":quantity,"receipt_id":receipt["id"],"item_id":item_id,"unit":item["unit"]}
                 receipt.update(imported_at=time.time(),prices_enabled=update_prices)
                 data["history"][receipt["id"]] = receipt
                 await self.stock.catalog.async_bind_receipt_eans([(line["product_id"], line.get("ean", "")) for line in receipt["lines"] if line.get("product_id")],
@@ -856,6 +881,7 @@ class ReceiptManager:
                     if price is None:continue
                     date = dt_util.parse_datetime(receipt["purchased_at"])
                     at = dt_util.as_utc(date.replace(tzinfo=dt_util.DEFAULT_TIME_ZONE)).timestamp()
+                    at=line.get("manual_measure_price",{}).get("checked_at",at)
                     key=(receipt["store"],reference_key(receipt["store"],line))
                     if key not in offers or offers[key]["checked_at"] < at:
                         link = product.get("store_links",{}).get(receipt["store"],{})

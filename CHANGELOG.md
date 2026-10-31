@@ -1,5 +1,15 @@
 # Historial de cambios
 
+## 0.67.0 — 2026-10-31
+
+- Varias líneas de un ticket pueden vincularse al mismo producto genérico, conservando sus EAN, formatos y precios independientes. Stock suma las cantidades compatibles en una sola reposición y rechaza mezclar magnitudes distintas.
+- Las cantidades estimadas de tickets de Carrefour se guardan localmente durante 30 días y se reutilizan al reabrir la revisión, incluso tras reiniciar Home Assistant. Cambiar la vinculación, alternativa, importe o tarifa invalida la propuesta; la caché no confirma compras ni modifica Stock.
+- Completar productos en la lista solo detecta la compra: no repone Stock ni reinicia la caducidad. La reposición se confirma desde el ticket o se registra manualmente; ya no se exige completar la lista para importar otra compra. Se conserva la protección contra tickets duplicados y la conciliación de reposiciones registradas por versiones anteriores.
+- En la revisión del ticket, los productos sin tarifa por kg explícita muestran la guardada en su alternativa y permiten editarla. El precio manual se guarda al confirmar o reprocesar, separado del importe pagado y del peso comprado.
+- Los logs reconocen una alternativa completada por su tienda y EAN aunque cambie su identificador interno. Se muestra «Alternativa actualizada» con los campos realmente añadidos, modificados o eliminados, sin simular una retirada y un alta.
+- Si Carrefour bloquea una consulta o entra en pausa al completar cantidades de un ticket, se finaliza esa búsqueda y se avanza con los datos recuperados, sin consultar los productos restantes ni repetirla al volver atrás.
+- Revisar tickets muestra progreso desde que se guardan las vinculaciones y se completan formatos o cantidades. Permite continuar con los datos disponibles, detiene las consultas pendientes de la revisión e ignora respuestas tardías. Volver a pasos anteriores no repite búsquedas de formatos ya realizadas durante esa revisión.
+
 ## 0.66.0 — 2026-10-31
 
 - En las alternativas individuales, el tipo de venta y el precio se muestran en la misma fila, debajo de Marca.

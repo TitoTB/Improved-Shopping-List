@@ -211,7 +211,7 @@ def merge_reference(references, store, line, *, confirmed=False):
     weighed=weight_purchase(line,existing)
     if not weighed and price and price.get("checked_at",0)>=row.get("last_price",{}).get("checked_at",0):
         row["last_price"]=deepcopy(price)
-    rate=line.get("ticket_measure_price")
+    rate=line.get("manual_measure_price") or line.get("ticket_measure_price")
     if line.get("price_saved") and rate and rate.get("checked_at"):
         rate=measure_price(rate)
         if rate["checked_at"]>=row.get("measure_price",{}).get("checked_at",0):

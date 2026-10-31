@@ -5,6 +5,25 @@ from decimal import Decimal, ROUND_HALF_UP
 SCALES = {"kg":("kg",1), "g":("kg",.001), "l":("l",1), "cl":("l",.01), "ml":("l",.001), "uds":("uds",1)}
 
 
+def stock_quantity(quantity,source_unit,target_unit):
+    """Sum compatible quantities, never treating a weight as a unit count."""
+    source_unit,target_unit=source_unit.strip().casefold(),target_unit.strip().casefold()
+    if source_unit==target_unit:return quantity
+    source,target=SCALES.get(source_unit),SCALES.get(target_unit)
+    return round(quantity*source[1]/target[1],3) if source and target and source[0]==target[0] else None
+
+
+def lookup_paused(diagnostics):
+    """Detect an access/rate pause, including a partially recovered product."""
+    if not isinstance(diagnostics,dict):return False
+    retry=diagnostics.get("retry_seconds")
+    if (diagnostics.get("http_status") in (403,429,503)
+            or diagnostics.get("response_class") in ("access_denied","rate_limited")
+            or type(retry) in (int,float) and retry>0):return True
+    attempts=diagnostics.get("attempts",[])
+    return isinstance(attempts,list) and any(lookup_paused(attempt) for attempt in attempts)
+
+
 def weight_format(reference):
     """A known weight unit with no fixed package size describes sale by weight."""
     return bool(reference and reference.get("sale_mode")!="package" and reference.get("content_quantity") in (None, "") and reference.get("content_unit") in ("g", "kg"))
@@ -12,7 +31,7 @@ def weight_format(reference):
 
 def weight_purchase(line, reference=None):
     rate = line.get("ticket_measure_price") or {}
-    return bool(weight_format(reference) or rate.get("unit") in ("g", "kg") and line.get("purchased_quantity") is not None
+    return bool((line.get("manual_measure_price") or {}).get("unit")=="kg" or weight_format(reference) or rate.get("unit") in ("g", "kg") and line.get("purchased_quantity") is not None
         or line.get("quantity_estimated") and line.get("purchased_unit") in ("g", "kg") and not (reference or {}).get("content_quantity")
         or line.get("format_confirmed") and line.get("pack_quantity") is None and line.get("pack_unit") in ("g", "kg"))
 
@@ -20,7 +39,7 @@ def weight_purchase(line, reference=None):
 def receipt_catalog_price(line, reference=None):
     """Never interpret the paid amount for a weighed purchase as a price per kg."""
     if weight_purchase(line, reference):
-        rate = line.get("ticket_measure_price")
+        rate = line.get("manual_measure_price") or line.get("ticket_measure_price")
         return measure_price(rate)["price"] if rate else None
     return line.get("unit_price")
 

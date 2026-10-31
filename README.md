@@ -21,6 +21,8 @@ Desde este apartado puedes consultar y gestionar los productos de la lista selec
 
 Los cambios se reflejan en la lista de Home Assistant y en su proveedor, como Bring.
 
+Marcar un producto como comprado no aumenta su Stock ni reinicia su caducidad. La reposición se registra al confirmar la revisión de un ticket o al actualizar manualmente Stock. En el ticket se propone la cantidad recuperada o estimada y, si no está disponible, la cantidad predeterminada de reposición.
+
 ### Añadir productos
 
 Utiliza el buscador de la parte superior para escribir el nombre del producto. Mientras escribes, aparecen sugerencias de los productos que ya tienes en el catálogo: pulsa una para añadirla directamente. También puedes seleccionar una sugerencia con las flechas del teclado y pulsar **Enter**.

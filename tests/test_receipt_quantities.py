@@ -18,6 +18,7 @@ from custom_components.improved_shopping_list.receipt_quantities import measure_
 from custom_components.improved_shopping_list.product_references import reference_from_line
 from custom_components.improved_shopping_list.receipt_parser import parse_carrefour
 from custom_components.improved_shopping_list.option_lookup import OptionLookup, page_product
+from custom_components.improved_shopping_list.price_sources import PriceError
 
 URL="https://www.carrefour.es/supermercado/zanahorias/R-prod1/p"
 
@@ -90,6 +91,66 @@ async def test_explicit_ticket_weight_wins_and_owner_must_match(hass):
     result=await manager.async_estimate_quantity(draft["token"],"owner","0",product["id"])
     assert result=={"quantity":.45,"unit":"kg","estimated":False}
     assert manager.option_lookup.retrieve.await_count==0
+
+
+async def test_estimate_restored_after_close_and_manager_restart_without_lookup(hass):
+    manager,catalog,stock,product,draft=await environment(hass,saved_rate=False)
+    raw=deepcopy(draft['receipt']);before=deepcopy(stock._items)
+    await manager.async_estimate_quantity(draft['token'],'owner','0',product['id'])
+    manager.discard(draft['token'],'owner')
+    restored=ReceiptManager(hass,stock,manager.automation,manager.prices)
+    restored.option_lookup=SimpleNamespace(retrieve=AsyncMock(side_effect=AssertionError('Must use saved quantity')))
+    review=await restored._prepare_preview(raw,'owner')
+    options=await restored.async_link(review['token'],'owner',[{'id':'0','product_id':product['id']}])
+    assert options['quantity_estimates']['0']['quantity']==.5
+    assert options['quantity_estimates']['0']['product_id']==product['id']
+    restored.option_lookup.retrieve.assert_not_awaited()
+    assert stock._items==before and not stock.receipts['history']
+    restored.discard(review['token'],'owner')
+    changed=deepcopy(raw);changed['lines'][0]['amount']=5
+    another=await restored._prepare_preview(changed,'owner')
+    options=await restored.async_link(another['token'],'owner',[{'id':'0','product_id':product['id']}])
+    assert not options.get('quantity_estimates')
+
+
+async def test_review_can_save_manual_kg_price_without_changing_receipt_or_stock_quantity(hass):
+    manager,catalog,stock,product,draft=await environment(hass,weight_unit_only=True)
+    original=deepcopy(draft['receipt'])
+    saved=await manager.async_confirm(draft['token'],'owner',[{'id':'0','product_id':product['id'],'replenish':True,'quantity':500,'unit':'g','purchase_id':'','save_price':True,'manual_measure_price':6.25}],True)
+    ref=catalog.products[0]['commercial_references'][0]
+    assert ref['measure_price']['price']==6.25 and ref['measure_price']['source']=='manual'
+    assert saved['total']==original['total'] and saved['lines'][0]['amount']==2.5 and saved['lines'][0]['unit_price']==2.5
+    assert stock.snapshot['items'][0]['quantity']==500
+    assert saved['lines'][0]['manual_measure_price']['price']==6.25
+    preview=await manager.async_review_saved(saved['id'],'owner')
+    reprocessed=await manager.async_reprocess(preview['token'],'owner',[{'id':'0','product_id':product['id'],'pack_quantity':None,'pack_unit':'g','manual_measure_price':7}])
+    assert catalog.products[0]['commercial_references'][0]['measure_price']['price']==7
+    assert reprocessed['total']==original['total'] and stock.snapshot['items'][0]['quantity']==500
+
+
+@pytest.mark.parametrize('invalid',[0,-1,True,float('nan'),1000001,'6.25'])
+async def test_invalid_manual_kg_price_does_not_modify_catalog_or_stock(hass,invalid):
+    manager,catalog,stock,product,draft=await environment(hass,weight_unit_only=True)
+    before=deepcopy(stock._items)
+    with pytest.raises(CatalogError):
+        await manager.async_confirm(draft['token'],'owner',[{'id':'0','product_id':product['id'],'replenish':True,'quantity':500,'unit':'g','purchase_id':'','save_price':True,'manual_measure_price':invalid}],True)
+    assert stock._items==before and catalog.products[0]['commercial_references'][0]['measure_price']['price']==5
+
+
+@pytest.mark.parametrize("partial",[False,True])
+async def test_shop_pause_stops_web_enrichment_but_allows_receipt_confirmation(hass,partial):
+    manager,catalog,stock,product,draft=await environment(hass,saved_rate=False)
+    if partial:
+        manager.option_lookup.retrieve.return_value={"name":"Zanahorias","retrieval_diagnostics":{"attempts":[{"http_status":403}]}}
+    else:
+        manager.option_lookup.retrieve.side_effect=PriceError("Carrefour en pausa",response_class="rate_limited",retry_seconds=900)
+    result=await manager.async_estimate_quantity(draft["token"],"owner","0",product["id"])
+    assert result["search_paused"] and result["quantity"] is None
+    again=await manager.async_estimate_quantity(draft["token"],"owner","0",product["id"])
+    assert again["search_paused"] and manager.option_lookup.retrieve.await_count==1
+    assert not catalog.products[0]["commercial_references"][0].get("measure_price")
+    saved=await manager.async_confirm(draft["token"],"owner",[{"id":"0","product_id":product["id"],"replenish":True,"quantity":1000,"unit":"g","purchase_id":""}],False)
+    assert saved["total"]==2.5 and stock.snapshot["items"][0]["quantity"]==1000
 
 
 async def test_weight_unit_and_saved_price_estimate_then_preserve_tariff_on_confirm_and_reprocess(hass):

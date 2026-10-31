@@ -44,8 +44,8 @@ export function weightFormat(reference){
 }
 export function validReferenceFormat(reference){return validReferenceContent(reference)||weightFormat(reference);}
 export function receiptCatalogPrice(line,reference){
-  const rate=line.ticket_measure_price;
-  const weighed=weightFormat(reference)||rate&&['g','kg'].includes(rate.unit)&&line.purchased_quantity!=null||line.quantity_estimated&&['g','kg'].includes(line.purchased_unit)&&!reference?.content_quantity;
+  const rate=line.manual_measure_price??line.ticket_measure_price;
+  const weighed=line.manual_measure_price?.unit==='kg'||weightFormat(reference)||rate&&['g','kg'].includes(rate.unit)&&line.purchased_quantity!=null||line.quantity_estimated&&['g','kg'].includes(line.purchased_unit)&&!reference?.content_quantity;
   if(!weighed)return line.unit_price;
   if(!rate||!scales[rate.unit]||!(rate.quantity>0)||!(rate.price>0))return null;
   return Math.round(rate.price/(rate.quantity*scales[rate.unit][1])*1000000)/1000000;

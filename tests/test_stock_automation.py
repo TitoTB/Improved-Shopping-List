@@ -33,33 +33,34 @@ class Todo:
             listener(self.todo_items)
 
 
-async def test_list_purchase_quantity_replenishes_only_existing_stock_and_keeps_receipt_ledger(env):
+async def test_list_completion_preserves_stock_and_does_not_create_a_refill(env):
     item = await env.stock.async_save(env.item["id"],env.item["revision"],config(env.item,
         unit="g",mode="manual",quantity=20,refill_quantity=250))
     env.manager.quantities=SimpleNamespace(value=lambda *_args:{"quantity":300,"unit":"g"})
     env.todo.todo_items=[TodoItem(uid="buy",summary="Cacao",status=TodoItemStatus.NEEDS_ACTION)]
     env.todo.publish()
     env.todo.todo_items[0].status=TodoItemStatus.COMPLETED;env.todo.publish()
-    # Capture the bought amount at completion, before later list/catalog edits.
+    # List quantities are only a purchase/detection signal, never a refill.
     env.manager.quantities=SimpleNamespace(value=lambda *_args:{"quantity":999,"unit":"g"})
     await env.manager.async_check()
-    assert env.stock.snapshot["items"][0]["quantity"] == 320
-    assert next(iter(env.stock.receipts["purchases"].values()))["quantity"] == 300
+    assert env.stock.snapshot["items"][0]["quantity"] == 20
+    assert not env.stock.receipts["purchases"]
+    assert env.stock.snapshot['items'][0]['revision']==item['revision']
     env.todo.todo_items.append(TodoItem(uid="other",summary="Otro producto",status=TodoItemStatus.NEEDS_ACTION));env.todo.publish()
     env.todo.todo_items[1].status=TodoItemStatus.COMPLETED;env.todo.publish();await env.manager.async_check()
     assert len(env.stock.snapshot["items"]) == 1
 
 
-async def test_incompatible_purchase_units_keep_configured_stock_refill(env):
+async def test_list_units_do_not_change_stock_on_completion(env):
     await env.stock.async_save(env.item["id"],env.item["revision"],config(env.item,
         unit="g",mode="manual",quantity=20,refill_quantity=250))
     env.manager.quantities=SimpleNamespace(value=lambda *_args:{"quantity":2,"unit":"uds"})
     env.todo.todo_items=[TodoItem(uid="buy",summary="Cacao",status=TodoItemStatus.NEEDS_ACTION)];env.todo.publish()
     env.todo.todo_items[0].status=TodoItemStatus.COMPLETED;env.todo.publish();await env.manager.async_check()
-    assert env.stock.snapshot["items"][0]["quantity"] == 270
+    assert env.stock.snapshot["items"][0]["quantity"] == 20
 
 
-async def test_two_line_completion_replenishes_the_matching_variant_only(env):
+async def test_two_line_completion_does_not_replenish_any_variant(env):
     await env.stock.catalog.async_save_product({'name':'Leche de avena'})
     milk=await env.stock.async_add('Leche de avena')
     env.settings.snapshot['description_as_name']={'todo.main':True}
@@ -68,16 +69,16 @@ async def test_two_line_completion_replenishes_the_matching_variant_only(env):
     env.todo.todo_items=[native];env.todo.publish()
     native.status=TodoItemStatus.COMPLETED;env.todo.publish();await env.manager.async_check()
     amounts={item['id']:item['quantity'] for item in env.stock.snapshot['items']}
-    assert amounts[milk['id']] == 3 and amounts[env.item['id']] == 1
+    assert amounts[milk['id']] == 1 and amounts[env.item['id']] == 1
     assert native.summary == 'Leche' and native.description == 'de avena'
 
 
-async def test_list_purchase_replenishes_manually_added_stock_without_enabling_other_automation(env):
+async def test_list_completion_does_not_replenish_unconfigured_stock(env):
     assert env.item["configured"] is False
     env.manager.quantities=SimpleNamespace(value=lambda *_args:{"quantity":3,"unit":"uds"})
     env.todo.todo_items=[TodoItem(uid="buy",summary="Cacao",status=TodoItemStatus.NEEDS_ACTION)];env.todo.publish()
     env.todo.todo_items[0].status=TodoItemStatus.COMPLETED;env.todo.publish();await env.manager.async_check()
-    assert env.stock.snapshot["items"][0]["quantity"] == 4
+    assert env.stock.snapshot["items"][0]["quantity"] == 1
     assert env.stock.snapshot["items"][0]["configured"] is False
 
 
@@ -85,6 +86,11 @@ def config(item, **overrides):
     fields = ("quantity","unit","mode","days","refill_quantity","reorder_enabled","reorder_at",
         "list_entity","usage_entity","usage_state","usage_amount")
     return {**{field:item.get(field,DEFAULT_CONFIG.get(field)) for field in fields},**overrides}
+
+
+async def replenish_manually(env,quantity):
+    item=env.stock.snapshot['items'][0]
+    return await env.stock.async_save(item['id'],item['revision'],config(item,quantity=item['quantity']+quantity))
 
 
 @pytest.fixture
@@ -123,7 +129,7 @@ async def env(hass, monkeypatch):
     await manager.async_stop()
 
 
-async def test_perishable_expires_reorders_and_purchase_refills_once(env):
+async def test_perishable_completion_waits_for_recorded_replenishment(env):
     item = await env.stock.async_save(env.item["id"],env.item["revision"],config(env.item,
         mode="perishable",days=2,refill_quantity=4,list_entity="todo.main",quantity=3))
     await env.manager.async_check()
@@ -136,7 +142,12 @@ async def test_perishable_expires_reorders_and_purchase_refills_once(env):
     await env.manager.async_check();assert len(env.calls)==1
     env.todo.todo_items[0].status=TodoItemStatus.COMPLETED;env.todo.publish()
     await env.manager.async_check()
-    bought = env.stock.snapshot["items"][0]
+    waiting=env.stock.snapshot['items'][0]
+    assert waiting['quantity']==0 and waiting['expired'] and not env.stock.receipts['purchases']
+    assert len(env.calls)==1 and env.todo.todo_items[0].status==TodoItemStatus.COMPLETED
+    restored_waiting=StockManager(env.stock.hass,env.stock.catalog);await restored_waiting.async_load()
+    assert 'awaiting:'+waiting['id'] in restored_waiting.receipts['coverage']
+    bought = await replenish_manually(env,4)
     assert bought["quantity"]==4 and not bought["expired"]
     assert bought["expires_at"]==env.clock[0]+2*DAY
     env.todo.publish();await env.manager.async_check()
@@ -169,7 +180,8 @@ async def test_perishable_percentage_reorders_before_expiry_and_survives_restart
     assert len(env.calls) == 1
     env.todo.todo_items[0].status=TodoItemStatus.COMPLETED;env.todo.publish()
     await env.manager.async_check()
-    bought=env.stock.snapshot["items"][0]
+    assert env.stock.snapshot['items'][0]['quantity']==20 and len(env.calls)==1
+    bought=await replenish_manually(env,250)
     assert bought["quantity"] == 270 and stock_module.remaining_percentage(bought,env.clock[0]) == 100
     env.clock[0] += 4*DAY
     await env.manager.async_check()
@@ -214,9 +226,9 @@ async def test_existing_completed_items_and_new_subscription_do_not_fabricate_pu
     await env.manager.async_check();assert env.stock.snapshot["items"][0]["quantity"]==1
     env.todo.todo_items[0].status=TodoItemStatus.NEEDS_ACTION;env.todo.publish()
     env.todo.todo_items[0].status=TodoItemStatus.COMPLETED;env.todo.publish()
-    await env.manager.async_check();assert env.stock.snapshot["items"][0]["quantity"]==4
+    await env.manager.async_check();assert env.stock.snapshot["items"][0]["quantity"]==1
     env.manager._snapshots.clear();env.todo.publish()
-    await env.manager.async_check();assert env.stock.snapshot["items"][0]["quantity"]==4
+    await env.manager.async_check();assert env.stock.snapshot["items"][0]["quantity"]==1
 
 
 async def test_consumption_retry_and_reconfiguration_do_not_lose_or_repeat_changes(env,monkeypatch):
@@ -275,7 +287,7 @@ async def test_purchase_arriving_during_list_read_does_not_restore_it_as_pending
     await env.manager.async_check()
     assert env.calls==[] and env.todo.todo_items[0].status==TodoItemStatus.COMPLETED
     await env.manager.async_check()
-    assert env.stock.snapshot["items"][0]["quantity"]==4 and env.calls==[]
+    assert env.stock.snapshot["items"][0]["quantity"]==0 and env.calls==[]
 
 
 @pytest.fixture
@@ -326,7 +338,7 @@ async def test_catalog_and_stock_share_enable_days_and_disable_without_losing_qu
     assert env.stock.snapshot["items"][0]["mode"]=="usage"
 
 
-async def test_shared_expiry_has_one_scheduler_and_purchase_restarts_period(env,shared):
+async def test_shared_expiry_restarts_only_after_stock_replenishment(env,shared):
     await save_recurrence(env,True,2);await shared.async_sync_stock()
     env.clock[0]+=2*DAY
     await shared.async_check()  # Reconciliation cannot write a shopping-list item.
@@ -338,6 +350,9 @@ async def test_shared_expiry_has_one_scheduler_and_purchase_restarts_period(env,
     env.clock[0]+=DAY
     env.todo.todo_items[0].status=TodoItemStatus.COMPLETED;env.todo.publish()
     await env.manager.async_check();await shared.async_sync_stock()
+    waiting=env.stock.snapshot['items'][0]
+    assert waiting['quantity']==0 and waiting['expired'] and len(env.calls)==1
+    await replenish_manually(env,1);await shared.async_sync_stock()
     item=env.stock.snapshot["items"][0]
     assert item["quantity"]==1 and item["expires_at"]==env.clock[0]+2*DAY and not item["expired"]
     env.clock[0]+=DAY;await shared.async_check();await env.manager.async_check()

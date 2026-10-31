@@ -1,4 +1,4 @@
-import { ListSettingsSession } from "./list-settings-client.js?v=0.66.0";
+import { ListSettingsSession } from "./list-settings-client.js?v=0.67.0";
 
 const SOURCES = {manual:"Usuario / API",automatic:"Automático · Home Assistant",reader:"Lector",integration:"Integración",external:"Proveedor externo · origen desconocido",home_assistant:"Home Assistant · origen desconocido"};
 const GROUPS = {notification:"Notificaciones",stock:"Stock",list:"Listas",gateway:"Listas pasarela",catalog:"Catálogo y categorías",reader:"Lectores",settings:"Ajustes",recurrence:"Recurrencias",stores:"Tiendas"};
@@ -9,7 +9,8 @@ const referenceDetail=change=>{
   const identity=change.ean?`EAN ${change.ean}`:change.name||change.reference_id||'Referencia';
   const label=[STORES[change.store]??change.store,identity].filter(Boolean).join(' · ');
   const fields=[['added_fields','Añadidos'],['updated_fields','Actualizados'],['removed_fields','Eliminados']].flatMap(([key,title])=>change[key]?.length?[`${title}: ${change[key].map(field=>REFERENCE_FIELDS[field]??field).join(', ')}`]:[]);
-  return [change.action==='added'&&change.store?`Nueva alternativa: ${label}`:change.action==='removed'&&change.store?`Alternativa retirada: ${label}`:label,...fields].join(' · ');
+  const action={added:'Nueva alternativa',removed:'Alternativa retirada',updated:'Alternativa actualizada'}[change.action];
+  return [action&&change.store?`${action}: ${label}`:label,...fields].join(' · ');
 };
 const node = (tag, text, className) => { const value=document.createElement(tag); if(text!==undefined)value.textContent=text; if(className)value.className=className;return value; };
 

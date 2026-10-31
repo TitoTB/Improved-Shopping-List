@@ -56,14 +56,20 @@ class StockDecayTests(unittest.IsolatedAsyncioTestCase):
         self.clock+=DAY
         self.assertAlmostEqual(self.stock.snapshot["items"][0]["quantity"],142.857,places=3)
 
-    async def test_manual_adjustment_and_purchase_start_from_remaining_quantity(self):
+    async def test_manual_adjustment_and_replenishment_start_from_remaining_quantity(self):
         self.clock+=3.5*DAY
         saved=await self.stock.async_adjust("pavo",-1)
         self.assertEqual(saved["quantity"],124)
         self.assertEqual(saved["expires_at"],self.item["expires_at"])
         self.clock+=1.75*DAY
         self.assertEqual(self.stock.snapshot["items"][0]["quantity"],62)
-        bought=await self.stock.async_automatic("pavo",0,"purchase")
+        waiting=deepcopy(self.stock._items['pavo'])
+        self.assertIsNone(await self.stock.async_automatic("pavo",0,"purchase"))
+        self.assertEqual(self.stock._items['pavo'],waiting)
+        opened=self.stock.snapshot['items'][0]
+        fields=('quantity','unit','mode','days','refill_quantity','reorder_enabled','reorder_at','reorder_percent','list_entity','usage_entity','usage_state','usage_amount')
+        config={key:opened[key] for key in fields};config['quantity']=opened['quantity']+250
+        bought=await self.stock.async_save('pavo',opened['revision'],config)
         self.assertEqual(bought["quantity"],312)
         self.assertEqual(bought["expires_at"],self.clock+7*DAY)
         self.clock+=3.5*DAY

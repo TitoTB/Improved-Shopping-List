@@ -1,7 +1,7 @@
-import { ListSettingsSession } from "./list-settings-client.js?v=0.66.0";
-import { installDialogCloseButtons } from "./dialog-controls.js?v=0.66.0";
-import { productNameKey } from "./product-names.js?v=0.66.0";
-import { referenceFor, suggestedContent, referenceContentControls, validReferenceContent, validReferenceFormat, weightFormat, receiptCatalogPrice, barcodeIdentity, recoveredStockQuantity } from "./reference-formats.js?v=0.66.0";
+import { ListSettingsSession } from "./list-settings-client.js?v=0.67.0";
+import { installDialogCloseButtons } from "./dialog-controls.js?v=0.67.0";
+import { productNameKey } from "./product-names.js?v=0.67.0";
+import { referenceFor, suggestedContent, referenceContentControls, validReferenceContent, validReferenceFormat, weightFormat, receiptCatalogPrice, barcodeIdentity, recoveredStockQuantity } from "./reference-formats.js?v=0.67.0";
 
 const node=(tag,cls,text)=>{const el=document.createElement(tag);if(cls)el.className=cls;if(text!==undefined)el.textContent=text;return el;};
 const money=value=>new Intl.NumberFormat('es-ES',{style:'currency',currency:'EUR'}).format(value);
@@ -36,10 +36,10 @@ class ImprovedShoppingPurchases extends HTMLElement {
     if(value.active&&this._hass.user?.is_admin===true&&(!this._started||changed)){
       this._started=true;void this._session.start();
     }
-    if(!value.active){this._visiblePurchases=10;this._session.stop();this._started=false;this.shadowRoot.querySelectorAll('dialog').forEach(dialog=>dialog.close());}
+    if(!value.active){this._stopReviewData();this._visiblePurchases=10;this._session.stop();this._started=false;this.shadowRoot.querySelectorAll('dialog').forEach(dialog=>dialog.close());}
     this._render();
   }
-  disconnectedCallback(){this._session.stop();this._started=false;this.shadowRoot.querySelectorAll('dialog').forEach(dialog=>dialog.close());}
+  disconnectedCallback(){this._stopReviewData();this._session.stop();this._started=false;this.shadowRoot.querySelectorAll('dialog').forEach(dialog=>dialog.close());}
   openPreview(draft){
     if(this._busy||!this._active||this._hass?.user?.is_admin!==true)return false;
     this._draft=draft;this._error='';this._buildReview();this.shadowRoot.querySelector('dialog').showModal();return true;
@@ -107,9 +107,12 @@ class ImprovedShoppingPurchases extends HTMLElement {
     </form></dialog>
     <dialog id="purchase-detail" aria-labelledby="purchase-detail-title"><h2 id="purchase-detail-title">Detalle de la compra</h2><div id="purchase-detail-info" class="receipt-info"></div><div id="purchase-detail-lines"></div></dialog><dialog id="detected-purchase-dialog" aria-labelledby="detected-purchase-title"><h2 id="detected-purchase-title">Compra detectada</h2><form id="detected-purchase-form"><p id="detected-date" class="muted"></p><p id="detected-zone-help" class="note" hidden></p><div id="detected-zone-candidates" class="zone-candidates" hidden></div><label>Tienda<select id="detected-store" aria-label="Tienda" required><option value="">Selecciona una tienda</option></select></label><div class="recovery-actions"><button id="recover-detected" type="button"><ha-icon icon="mdi:receipt-text"></ha-icon>Recuperar compra</button></div><p id="detected-recovery-help" class="note"></p><div id="detected-recovery-results"></div><label id="detected-other-label" hidden>Nombre de la tienda<input id="detected-other" maxlength="100"></label><label>Compradores<select id="detected-shoppers" multiple aria-label="Compradores"></select></label><label>Importe total (€)<input id="detected-total" type="number" min="0" max="1000000" step="0.01" required></label><p class="note">Completa los datos de la compra. No se modifican el stock ni los precios de los productos.</p><ul id="detected-products"></ul><p id="detected-error" class="error" role="alert" hidden></p><div class="actions"><button id="discard-detection" class="danger" type="button">Eliminar detección</button><button type="submit">Guardar</button></div></form></dialog>`;
     const rangeDialog=document.createElement('dialog');rangeDialog.id='purchase-period-dialog';rangeDialog.setAttribute('aria-labelledby','purchase-period-title');rangeDialog.innerHTML=`<h2 id="purchase-period-title">Periodo de compras</h2><form id="purchase-period-form"><div class="period-fields"><label>Fecha de inicio<input id="purchase-start" type="date" required></label><label>Fecha de fin<input id="purchase-end" type="date" required></label></div><div class="actions"><button type="submit">Aplicar</button></div></form>`;this.shadowRoot.append(rangeDialog);
-    const quantityDialog=document.createElement('dialog');quantityDialog.id='quantity-progress';quantityDialog.setAttribute('aria-labelledby','quantity-progress-title');quantityDialog.innerHTML='<h2 id="quantity-progress-title">Completando cantidades</h2><progress max="100" value="0" style="width:100%;height:26px;accent-color:#2196f3" aria-label="Progreso de cantidades"></progress><p class="quantity-progress-label" role="status"></p>';this.shadowRoot.append(quantityDialog);
+    const quantityDialog=document.createElement('dialog');quantityDialog.id='quantity-progress';quantityDialog.setAttribute('aria-labelledby','quantity-progress-title');quantityDialog.innerHTML='<h2 id="quantity-progress-title">Preparando revisión</h2><progress max="100" value="0" style="width:100%;height:26px;accent-color:#2196f3" aria-label="Progreso de revisión"></progress><p class="quantity-progress-label" role="status"></p><div class="actions"><button id="skip-review-data" type="button">Continuar con los datos disponibles</button></div>';this.shadowRoot.append(quantityDialog);
     installDialogCloseButtons(this.shadowRoot);
     const root=this.shadowRoot,dialog=root.querySelector('dialog');
+    const skipReviewData=()=>{if(this._reviewJob?.canSkip){this._reviewJob.cancelled=true;this._reviewJob.skip();}};
+    root.querySelector('#skip-review-data').addEventListener('click',skipReviewData);
+    quantityDialog.addEventListener('cancel',event=>{event.preventDefault();skipReviewData();});
     root.querySelector('#purchase-period-form').addEventListener('submit',event=>{
       event.preventDefault();const from=root.querySelector('#purchase-start'),to=root.querySelector('#purchase-end');to.setCustomValidity('');
       if(!from.value||!to.value)return;
@@ -135,6 +138,7 @@ class ImprovedShoppingPurchases extends HTMLElement {
     root.querySelector('#association-form').addEventListener('submit',event=>{event.preventDefault();this._confirmAssociation();});
     root.querySelector('#association-dialog').addEventListener('close',()=>{this._associationEdit=null;});
     dialog.addEventListener('close',()=>{
+      this._stopReviewData();
       root.querySelector('#association-dialog').close();
       if(this._draft){const token=this._draft.token;this._draft=null;void this._hass.callWS({type:'improved_shopping_list/receipts/discard',token}).catch(()=>{});}
     });
@@ -154,49 +158,74 @@ class ImprovedShoppingPurchases extends HTMLElement {
     finally{this._reading=false;this._setBusy(false);this._render();}
   }
   _buildReview(){
-    const root=this.shadowRoot,{receipt,products}=this._draft,used=new Set();
+    const root=this.shadowRoot,{receipt,products}=this._draft;
     root.querySelector('#review-summary').replaceChildren(node('strong','',receipt.store_name+(receipt.provisional_store?' · Provisional':receipt.zone_candidates?.length>1&&receipt.needs_details?' · Tiendas por confirmar':'')+(receipt.document_type==='invoice'?' · Factura':'')),node('span','',documentDate(receipt)),node('strong','',money(receipt.total)));
     this._step=this._draft.reprocess?2:0;
     root.querySelector('#review-title').textContent=this._draft.reprocess?'Reprocesar ticket':'Revisar ticket';
     this._reviewGroups={};
     this._lidlMetadataDone=new Map();
+    this._packageMetadataCache=new Map();
+    this._quantitySearchPaused=false;
     root.querySelector('#review-lines').replaceChildren();
     this._edits=receipt.lines.map(line=>{
-      const candidate=products.find(p=>p.id===line.product_id&&!used.has(p.id)),product=line.matched===false?null:candidate;if(product)used.add(product.id);
+      const candidate=products.find(p=>p.id===line.product_id),product=line.matched===false?null:candidate;
       return {line,id:line.id,product_id:product?.id??'',search:candidate?.name??'',
         replenish:!this._draft.reprocess&&Boolean(product?.stock_id),quantity:product?this._defaultQuantity(line,product):null,
         unit:product?.unit??'uds',purchase_id:null,save_price:Boolean(this._pricesEnabled),packageFormat:this._lineFormat(line,product)};
     });
     root.querySelector('#review-error').hidden=true;this._renderStep();if(this._draft.warning)this._errorMessage(this._draft.warning);
-    const token=this._draft.token;
-    this._packageMetadataTask=Promise.resolve().then(()=>this._loadPackageMetadata(token));
+  }
+  _reviewJobActive(job){return this._reviewJob===job&&!job.cancelled&&this._draft?.token===job.token&&this.isConnected&&this._active;}
+  _stopReviewData(){if(this._reviewJob){this._reviewJob.cancelled=true;this._reviewJob.skip();}}
+  _reviewProgress(job,title,completed,total,description){
+    if(!this._reviewJobActive(job))return;
+    const dialog=this.shadowRoot.querySelector('#quantity-progress'),progress=dialog.querySelector('progress');
+    dialog.querySelector('h2').textContent=title;
+    if(total)progress.value=completed/total*100;else progress.removeAttribute('value');
+    dialog.querySelector('.quantity-progress-label').textContent=description;
+  }
+  async _prepareReviewData({saveLinks=false,quantities=false}={}){
+    const job={token:this._draft.token,cancelled:false,canSkip:!saveLinks};
+    const skipped=new Promise(resolve=>{job.skip=resolve;});this._reviewJob=job;
+    const dialog=this.shadowRoot.querySelector('#quantity-progress'),skip=dialog.querySelector('#skip-review-data');
+    skip.disabled=!job.canSkip;dialog.querySelector('.isl-dialog-close').disabled=!job.canSkip;
+    this._reviewProgress(job,'Preparando revisión',0,0,saveLinks?'Guardando vinculaciones…':'Completando datos de los productos…');
+    dialog.showModal();
+    const task=(async()=>{
+      if(saveLinks){
+        const options=await this._hass.callWS({type:'improved_shopping_list/receipts/link',token:job.token,lines:this._edits.map(e=>({id:e.id,product_id:e.product_id}))});
+        if(!this._reviewJobActive(job))return;
+        this._updateOptions(options);job.canSkip=true;skip.disabled=false;dialog.querySelector('.isl-dialog-close').disabled=false;
+      }
+      if(!this._reviewJobActive(job))return;
+      await this._loadPackageMetadata(job);
+      if(quantities&&this._reviewJobActive(job))await this._completeQuantities(job);
+    })();
+    try{await Promise.race([task,skipped]);}
+    finally{job.cancelled=true;if(this._reviewJob===job){this._reviewJob=null;dialog.close();}}
   }
   _defaultQuantity(line,product){return recoveredStockQuantity(line,product,this._draft.receipt.store)??(product.stock_id?product.refill_quantity:this._quantity(line,product.unit)??product.refill_quantity)??null;}
-  async _completeQuantities(){
-    if(this._draft?.reprocess||this._draft?.receipt.store!=='carrefour')return;
-    const token=this._draft.token,edits=this._edits.filter(edit=>edit.product_id&&!edit.quantityEdited&&edit.line.purchased_quantity==null&&recoveredStockQuantity(edit.line,this._product(edit),'carrefour')==null);
+  async _completeQuantities(job){
+    if(this._draft?.reprocess||this._draft?.receipt.store!=='carrefour'||this._quantitySearchPaused)return;
+    const token=job.token,edits=this._edits.filter(edit=>edit.product_id&&!edit.quantityEdited&&edit.line.purchased_quantity==null&&recoveredStockQuantity(edit.line,this._product(edit),'carrefour')==null);
     if(!edits.length)return;
-    const dialog=this.shadowRoot.querySelector('#quantity-progress');
-    dialog.querySelector('h2').textContent='Completando cantidades';
-    const progress=dialog.querySelector('progress'),label=dialog.querySelector('.quantity-progress-label');dialog.showModal();
-    try{
       for(let index=0;index<edits.length;index++){
-        if(this._draft?.token!==token||!this.isConnected)return;
+        if(!this._reviewJobActive(job))return;
         const edit=edits[index],product=this._product(edit);
-        progress.value=index/edits.length*100;label.textContent=`${index} de ${edits.length} · Completando cantidad de ${edit.line.description}`;
+        this._reviewProgress(job,'Completando cantidades',index,edits.length,`${index} de ${edits.length} · Completando cantidad de ${edit.line.description}`);
         try{
           const result=await this._hass.callWS({type:'improved_shopping_list/receipts/estimate_quantity',token,line_id:edit.id,product_id:edit.product_id});
-          if(this._draft?.token!==token)return;
+          if(!this._reviewJobActive(job))return;
           if(result.quantity>0&&result.unit&&!edit.quantityEdited){
             edit.line.purchased_quantity=result.quantity;edit.line.purchased_unit=result.unit;edit.line.quantity_estimated=Boolean(result.estimated);
             if(!product.stock_id)edit.unit=result.unit;
             const quantity=recoveredStockQuantity(edit.line,{...product,unit:edit.unit},'carrefour');
             if(quantity!=null){edit.quantity=quantity;edit.quantityEstimated=Boolean(result.estimated);}
           }else if(result.reason)edit.quantityReason=result.reason;
-        }catch(error){edit.quantityReason=error.message??'No se ha podido calcular la cantidad.';}
-        progress.value=(index+1)/edits.length*100;label.textContent=`${index+1} de ${edits.length}`;
+          if(result.search_paused){this._quantitySearchPaused=true;return;}
+        }catch(error){if(!this._reviewJobActive(job))return;edit.quantityReason=error.message??'No se ha podido calcular la cantidad.';}
+        this._reviewProgress(job,'Completando cantidades',index+1,edits.length,`${index+1} de ${edits.length}`);
       }
-    }finally{dialog.close();}
   }
   _lineFormat(line,product){
     if(line.ticket_measure_price&&line.purchased_quantity!=null)return {content_quantity:null,content_unit:line.purchased_unit||line.ticket_measure_price.unit,content_confirmed:true};
@@ -204,40 +233,39 @@ class ImprovedShoppingPurchases extends HTMLElement {
     const saved=weightFormat(ref)||ref?.content_confirmed&&!this._draft.reprocess;
     return {content_quantity:saved?ref.content_quantity:hint.quantity??ref?.content_quantity??null,content_unit:saved?ref.content_unit:hint.unit||ref?.content_unit||'',content_confirmed:Boolean(saved),...(ref?.sale_mode?{sale_mode:ref.sale_mode}:{})};
   }
-  async _loadPackageMetadata(token){
-    const cache=new Map();
-    for(const edit of this._edits){
-      if(this._draft?.token!==token||!this.isConnected)return;
+  async _loadPackageMetadata(job){
+    const cache=this._packageMetadataCache;
+    const edits=this._edits.filter(edit=>!edit.line.ticket_measure_price&&edit.product_id&&barcodeIdentity(edit.line.ean)&&!edit.packageFormat.content_confirmed&&!validReferenceContent(edit.packageFormat));
+    for(const [index,edit] of edits.entries()){
+      if(!this._reviewJobActive(job))return;
       const code=edit.line.ean,identity=barcodeIdentity(code);
-      if(edit.line.ticket_measure_price||!edit.product_id||!identity||edit.packageFormat.content_confirmed||validReferenceContent(edit.packageFormat))continue;
+      this._reviewProgress(job,'Completando formatos',index,edits.length,`${index} de ${edits.length} · ${edit.line.description}`);
       try{
-        if(!cache.has(identity))cache.set(identity,await this._hass.callWS({type:'improved_shopping_list/catalog/nutriscore',code}));
-        if(this._draft?.token!==token||!this.isConnected)return;
-        const data=cache.get(identity),format={content_quantity:data.content_quantity,content_unit:data.content_unit};
+        if(!cache.has(identity))cache.set(identity,this._hass.callWS({type:'improved_shopping_list/catalog/nutriscore',code}));
+        const data=await cache.get(identity);
+        if(!this._reviewJobActive(job))return;
+        const format={content_quantity:data.content_quantity,content_unit:data.content_unit};
         if(!edit.packageFormat.content_confirmed&&validReferenceContent(format)){
           // OFF quantities already describe the complete package, including multipacks.
           edit.line.pack_quantity=format.content_quantity;edit.line.pack_unit=format.content_unit;
           edit.packageFormat={...format,content_confirmed:false};
           if(!edit.quantityEdited){edit.quantity=this._defaultQuantity(edit.line,this._product(edit));edit.quantityEstimated=Boolean(edit.line.quantity_estimated);}
-          if(this._step===1||this._step===2)this._renderStep();
         }
       }catch{/* Missing optional metadata must not prevent receipt review. */}
     }
-    if(this._draft?.token===token&&this._draft.receipt.store==='lidl')await this._loadLidlMetadata(token);
+    if(this._reviewJobActive(job)&&this._draft.receipt.store==='lidl')await this._loadLidlMetadata(job);
   }
-  async _loadLidlMetadata(token){
+  async _loadLidlMetadata(job){
+    const token=job.token;
     const edits=this._edits.filter(edit=>edit.product_id&&this._lidlMetadataDone.get(edit.id)!==edit.product_id);
     if(!edits.length)return;
-    const dialog=this.shadowRoot.querySelector('#quantity-progress'),progress=dialog.querySelector('progress'),label=dialog.querySelector('.quantity-progress-label');
-    dialog.querySelector('h2').textContent='Completando datos de Lidl';if(!dialog.open)dialog.showModal();
-    try{
       for(let index=0;index<edits.length;index++){
-        if(this._draft?.token!==token||!this.isConnected)return;
+        if(!this._reviewJobActive(job))return;
         const edit=edits[index],productId=edit.product_id;
-        progress.value=index/edits.length*100;label.textContent=`${index} de ${edits.length} · ${edit.line.description}`;
+        this._reviewProgress(job,'Completando datos de Lidl',index,edits.length,`${index} de ${edits.length} · ${edit.line.description}`);
         try{
           const data=await this._hass.callWS({type:'improved_shopping_list/receipts/lidl_metadata',token,line_id:edit.id,product_id:productId});
-          if(this._draft?.token!==token||!this.isConnected)return;
+          if(!this._reviewJobActive(job))return;
           if(edit.product_id!==productId)continue;
           this._lidlMetadataDone.set(edit.id,productId);
           if(data.url){edit.lidlMetadata=data;}
@@ -248,11 +276,8 @@ class ImprovedShoppingPurchases extends HTMLElement {
             if(!edit.quantityEdited)edit.quantity=this._defaultQuantity(edit.line,this._product(edit));
           }
         }catch{/* Keep manual review available when a listing cannot be read. */}
-        progress.value=(index+1)/edits.length*100;label.textContent=`${index+1} de ${edits.length}`;
+        this._reviewProgress(job,'Completando datos de Lidl',index+1,edits.length,`${index+1} de ${edits.length}`);
       }
-    }finally{
-      if(this._draft?.token===token){dialog.close();this._renderStep();}
-    }
   }
   _quantity(line,unit){
     if(line.purchased_quantity!=null){
@@ -264,6 +289,22 @@ class ImprovedShoppingPurchases extends HTMLElement {
     return source&&target&&source[0]===target[0]&&line.pack_quantity?Math.round(line.count*line.pack_quantity*source[1]/target[1]*1000)/1000:null;
   }
   _product(edit){return this._draft.products.find(p=>p.id===edit.product_id);}
+  _retainsWeightPrice(edit){
+    const ref=referenceFor(this._product(edit),this._draft.receipt.store,edit.line);
+    return receiptCatalogPrice({...edit.line,manual_measure_price:undefined},ref)==null;
+  }
+  _reviewPrice(edit){
+    const product=this._product(edit),ref=referenceFor(product,this._draft.receipt.store,edit.line);
+    if(!this._retainsWeightPrice(edit))return receiptCatalogPrice(edit.line,ref);
+    if(Object.hasOwn(edit,'manualPrice'))return edit.manualPrice;
+    const rate=ref?.measure_price,scale={g:.001,kg:1}[rate?.unit];
+    if(scale&&rate.currency==='EUR'&&rate.quantity>0&&rate.price>0)return rate.price/(rate.quantity*scale);
+    if(ref?.last_price?.currency==='EUR'&&ref.last_price.price>0)return ref.last_price.price;
+    const offer=product?.reference_prices?.find(offer=>offer.store===this._draft.receipt.store&&(ref?.id&&offer.commercial_reference_id===ref.id||ref?.ean&&offer.ean&&barcodeIdentity(offer.ean)===barcodeIdentity(ref.ean)||ref?.reference_id&&offer.reference_id===ref.reference_id));
+    const size={g:.001,kg:1}[offer?.pack_unit];
+    return offer?.currency==='EUR'&&size&&offer.pack_quantity>0&&!offer.format_pending?offer.price/(offer.pack_quantity*size):null;
+  }
+  _manualPricePayload(edit){return edit.save_price&&Object.hasOwn(edit,'manualPrice')&&edit.manualPrice>0?{manual_measure_price:edit.manualPrice}:{};}
   _updateOptions(options){
     for(const edit of this._edits){
       const before=this._product(edit),after=options.products.find(p=>p.id===edit.product_id);
@@ -272,17 +313,24 @@ class ImprovedShoppingPurchases extends HTMLElement {
       }
     }
     Object.assign(this._draft,options);
+    for(const edit of this._edits){
+      const cached=options.quantity_estimates?.[edit.id],product=this._product(edit);
+      if(!cached||cached.product_id!==edit.product_id||edit.quantityEdited||!product)continue;
+      delete edit.quantityReason;
+      edit.line.purchased_quantity=cached.quantity;edit.line.purchased_unit=cached.unit;edit.line.quantity_estimated=true;
+      if(!product.stock_id)edit.unit=cached.unit;
+      const quantity=recoveredStockQuantity(edit.line,{...product,unit:edit.unit},this._draft.receipt.store);
+      if(quantity!=null){edit.quantity=quantity;edit.quantityEstimated=true;}
+      if(!edit.packageEdited){const format=this._lineFormat(edit.line,product);if(validReferenceFormat(format))edit.packageFormat=format;}
+    }
   }
   _errorMessage(message){const error=this.shadowRoot.querySelector('#review-error');error.textContent=message;error.hidden=!message;}
   _button(name,mdi,action,cls='small-button'){
     const button=node('button',cls);button.type='button';button.title=name;button.setAttribute('aria-label',name);button.append(icon(mdi));button.addEventListener('click',action);return button;
   }
   _chooseProduct(edit,product){
-    if(product&&this._edits.some(other=>other!==edit&&other.product_id===product.id)){
-      edit.product_id='';this._errorMessage('Este producto ya está vinculado a otra línea. Libera primero esa vinculación.');return false;
-    }
     const changed=edit.product_id!==(product?.id??'');edit.product_id=product?.id??'';
-    if(changed){if(edit.line.quantity_estimated){delete edit.line.purchased_quantity;delete edit.line.purchased_unit;delete edit.line.quantity_estimated;}edit.quantityEdited=false;edit.quantityEstimated=false;edit.unit=product?.unit??'uds';edit.quantity=product?this._defaultQuantity(edit.line,product):null;edit.replenish=Boolean(product?.stock_id);edit.purchase_id=null;edit.packageFormat=this._lineFormat(edit.line,product);}
+    if(changed){delete edit.manualPrice;delete edit.manualPriceInitialized;if(edit.line.quantity_estimated){delete edit.line.purchased_quantity;delete edit.line.purchased_unit;delete edit.line.quantity_estimated;}edit.quantityEdited=false;edit.quantityEstimated=false;edit.unit=product?.unit??'uds';edit.quantity=product?this._defaultQuantity(edit.line,product):null;edit.replenish=Boolean(product?.stock_id);edit.purchase_id=null;edit.packageFormat=this._lineFormat(edit.line,product);}
     this._errorMessage('');return true;
   }
   _goToStep(step){
@@ -322,10 +370,11 @@ class ImprovedShoppingPurchases extends HTMLElement {
     const grouped=step<2?node('details','review-group'):null;
     const groupedContent=step<2?node('div','review-group-content'):null;
     if(grouped){grouped.dataset.group=step===0?'links':'stock';grouped.id=step===0?'linked-products-group':'unregistered-stock-group';grouped.open=Boolean(this._reviewGroups[grouped.dataset.group]);}
+    if(step===2)for(const edit of this._edits){if(this._product(edit)&&this._retainsWeightPrice(edit)&&!edit.manualPriceInitialized){edit.save_price=false;edit.manualPriceInitialized=true;}}
     if(step===2&&this._pricesEnabled&&!reprocess){
       const allLabel=node('label','check select-all-prices'),all=node('input');all.type='checkbox';
-      const linked=this._edits.filter(edit=>this._product(edit)&&receiptCatalogPrice(edit.line,referenceFor(this._product(edit),this._draft.receipt.store,edit.line))!=null);all.checked=linked.length>0&&linked.every(edit=>edit.save_price);all.indeterminate=linked.some(edit=>edit.save_price)&&!all.checked;
-      all.addEventListener('change',()=>{for(const edit of linked)edit.save_price=all.checked;this._renderStep();});
+      const linked=this._edits.filter(edit=>this._product(edit)&&this._reviewPrice(edit)!=null);all.checked=linked.length>0&&linked.every(edit=>edit.save_price);all.indeterminate=linked.some(edit=>edit.save_price)&&!all.checked;
+      all.addEventListener('change',()=>{for(const edit of linked){if(this._retainsWeightPrice(edit)&&all.checked)edit.manualPrice=this._reviewPrice(edit);edit.save_price=all.checked;}this._renderStep();});
       allLabel.append(all,document.createTextNode('Seleccionar todos los precios'));container.append(allLabel);
     }
     for(const edit of step===3?[]:this._edits){
@@ -336,23 +385,34 @@ class ImprovedShoppingPurchases extends HTMLElement {
       if(step===2&&reprocess&&!product){this._associationRow(row,edit);container.append(row);continue;}
       if(step===2){
         row.classList.add('price-line');
-        const ref=referenceFor(product,this._draft.receipt.store,edit.line),newPrice=receiptCatalogPrice(edit.line,ref);
+        const ref=referenceFor(product,this._draft.receipt.store,edit.line),retained=this._retainsWeightPrice(edit),newPrice=this._reviewPrice(edit);
         if(newPrice==null)edit.save_price=false;
         const toggle=node('button','price-select');toggle.type='button';toggle.setAttribute('aria-label','Guardar precio de '+product.name);
         const selected=Boolean(edit.save_price&&this._pricesEnabled);toggle.setAttribute('aria-pressed',String(selected));row.dataset.selected=String(selected);
-        toggle.dataset.locked=String(!this._pricesEnabled||reprocess||newPrice==null);toggle.disabled=!this._pricesEnabled||reprocess||newPrice==null;
+        toggle.dataset.locked=String(!this._pricesEnabled||reprocess&&!retained||newPrice==null);toggle.disabled=!this._pricesEnabled||reprocess&&!retained||newPrice==null;
         toggle.addEventListener('click',()=>{
           if(this._busy||!this._pricesEnabled)return;
+          if(retained&&!edit.save_price)edit.manualPrice=this._reviewPrice(edit);
           edit.save_price=!edit.save_price;this._renderStep();
           [...root.querySelectorAll('.review-line')].find(line=>line.dataset.lineId===String(edit.id))?.querySelector('.price-select')?.focus();
         });
         const measured=weightFormat(ref)||Boolean(edit.line.ticket_measure_price&&edit.line.purchased_quantity!=null);
-        const name=node('div','price-product-name'),label=node('div','price-label'),price=node('div','price-value',newPrice==null?'Se conserva el precio por kg':money(newPrice)+(measured?' / kg':''));
+        const name=node('div','price-product-name'),label=node('div','price-label'),price=node('div','price-value',newPrice==null?'':money(newPrice)+(measured?' / kg':''));
         const previous=product.reference_prices?.find(offer=>ref?.id&&offer.commercial_reference_id===ref.id||edit.line.ean&&offer.ean===edit.line.ean)?.price??(product.reference_prices?null:product.price);
         if(newPrice!=null&&previous!=null&&Math.round(previous*100)!==Math.round(newPrice*100))price.append(node('del','', '('+money(previous)+')'));
-        label.append(node('strong','',product.name),price);name.append(this._productImage(product),label);toggle.append(name);row.append(toggle);
+        label.append(node('strong','',product.name));if(!retained)label.append(price);name.append(this._productImage(product),label);toggle.append(name);row.append(toggle);
+        if(retained){
+          const priceLabel=node('label','','Precio por kg (€)'),input=node('input');input.type='number';input.min='0.000001';input.max='1000000';input.step='any';input.inputMode='decimal';input.placeholder='Sin precio';input.value=newPrice??'';input.setAttribute('aria-label','Precio por kg de '+product.name);input.dataset.locked=String(!this._pricesEnabled);
+          input.addEventListener('input',()=>{
+            edit.manualPrice=input.value!==''&&input.validity.valid?input.valueAsNumber:null;edit.save_price=edit.manualPrice>0;
+            row.dataset.selected=String(edit.save_price);toggle.setAttribute('aria-pressed',String(edit.save_price));toggle.dataset.locked=String(!edit.save_price);toggle.disabled=!edit.save_price;
+            const all=root.querySelector('.select-all-prices input'),linked=this._edits.filter(e=>this._product(e)&&this._reviewPrice(e)!=null);
+            if(all){all.checked=linked.length>0&&linked.every(e=>e.save_price);all.indeterminate=linked.some(e=>e.save_price)&&!all.checked;}
+          });
+          priceLabel.append(input);row.append(priceLabel);
+        }
         if(edit.line.ticket_measure_price){const rate=edit.line.ticket_measure_price;row.append(node('p','note',edit.line.purchased_quantity+' '+edit.line.purchased_unit+' · '+money(rate.price)+'/'+rate.unit));}
-        else row.append(referenceContentControls(edit.packageFormat,()=>{edit.packageEdited=true;}));
+        else if(!retained)row.append(referenceContentControls(edit.packageFormat,()=>{edit.packageEdited=true;}));
         if(edit.lidlMetadata?.url)row.append(node('p','note',edit.lidlMetadata.format_provisional?'Formato propuesto desde una oferta de Lidl. Confirma que coincide con el envase comprado.':'Datos recuperados de la ficha de Lidl.'));
       }
       if(grouped&&(step===0?Boolean(product):!product?.stock_id))groupedContent.append(row);
@@ -385,7 +445,7 @@ class ImprovedShoppingPurchases extends HTMLElement {
       detail.append(node('strong','',product?.name||edit.line.description));
       const actions=[];
       if(product&&edit.replenish)actions.push('Stock: +'+edit.quantity+' '+edit.unit);
-      if(product&&edit.save_price&&this._pricesEnabled)actions.push('Precio: '+money(receiptCatalogPrice(edit.line,referenceFor(product,this._draft.receipt.store,edit.line))));
+      if(product&&edit.save_price&&this._pricesEnabled)actions.push('Precio: '+money(this._reviewPrice(edit))+(this._retainsWeightPrice(edit)?' / kg':''));
       if(!product)actions.push('Sin vincular');
       if(actions.length)detail.append(node('span','muted',actions.join(' · ')));
       line.append(detail,node('span','',money(edit.line.amount)));lines.append(line);
@@ -422,7 +482,6 @@ class ImprovedShoppingPurchases extends HTMLElement {
     root.querySelector('#association-title').textContent='Vincular '+edit.line.description;
     const search=root.querySelector('#association-search');search.value=this._product(edit)?.name??'';
     root.querySelector('#association-products').replaceChildren(...this._draft.products
-      .filter(product=>!this._edits.some(other=>other!==edit&&other.product_id===product.id))
       .map(product=>new Option(product.name,product.name)));
     root.querySelector('#association-error').hidden=true;
     root.querySelector('#association-dialog').showModal();search.focus();
@@ -432,7 +491,7 @@ class ImprovedShoppingPurchases extends HTMLElement {
     const root=this.shadowRoot,search=root.querySelector('#association-search');
     const product=this._draft.products.find(p=>productNameKey(p.name)===productNameKey(search.value));
     const error=root.querySelector('#association-error');
-    error.textContent=!product?'Selecciona un producto del catálogo.':this._edits.some(other=>other!==edit&&other.product_id===product.id)?'Este producto ya está vinculado a otra línea. Libera primero esa vinculación.':'';
+    error.textContent=!product?'Selecciona un producto del catálogo.':'';
     error.hidden=!error.textContent;if(error.textContent)return;
     if(this._chooseProduct(edit,product)){edit.search=product.name;root.querySelector('#association-dialog').close();this._renderStep();}
   }
@@ -481,10 +540,8 @@ class ImprovedShoppingPurchases extends HTMLElement {
     finally{this._setBusy(false);}
   }
   _validateLinks(){
-    const seen=new Set();
     for(const edit of this._edits){
-      if(edit.product_id&&seen.has(edit.product_id)){this._errorMessage('Dos líneas del mismo ticket no pueden vincularse al mismo producto.');return false;}
-      if(edit.product_id)seen.add(edit.product_id);
+      if(edit.product_id&&!this._product(edit)){this._errorMessage('Un producto vinculado ya no está disponible en el catálogo. Revisa su vinculación.');return false;}
     }
     return true;
   }
@@ -505,10 +562,15 @@ class ImprovedShoppingPurchases extends HTMLElement {
   async _saveLinks(only=false){
     if(this._busy||!this._draft||!this._validateLinks())return;this._setBusy(true);this._errorMessage('');
     try{
-      const options=await this._hass.callWS({type:'improved_shopping_list/receipts/link',token:this._draft.token,lines:this._edits.map(e=>({id:e.id,product_id:e.product_id}))});
-      this._updateOptions(options);
-      if(only){this.shadowRoot.querySelector('dialog').close();this._render();}
-      else{const token=this._draft.token;this._packageMetadataTask=Promise.resolve(this._packageMetadataTask).then(()=>this._loadPackageMetadata(token));await this._packageMetadataTask;await this._completeQuantities();this._step=1;this._renderStep();}
+      const token=this._draft.token;
+      if(only){
+        const options=await this._hass.callWS({type:'improved_shopping_list/receipts/link',token,lines:this._edits.map(e=>({id:e.id,product_id:e.product_id}))});
+        if(this._draft?.token!==token)return;
+        this._updateOptions(options);this.shadowRoot.querySelector('dialog').close();this._render();
+      }else{
+        await this._prepareReviewData({saveLinks:true,quantities:true});
+        if(this._draft?.token===token&&this._active){this._step=1;this._renderStep();}
+      }
     }catch(error){this._errorMessage(error.message??'No se han podido guardar las vinculaciones.');}
     finally{this._setBusy(false);}
   }
@@ -518,8 +580,7 @@ class ImprovedShoppingPurchases extends HTMLElement {
     if(this._step===0){await this._saveLinks();return;}
     if(this._step===1){
       if(this._validateStock()){
-        const token=this._draft.token;this._setBusy(true);this.shadowRoot.querySelector('#confirm-ticket').textContent='Completando formatos…';
-        try{await this._packageMetadataTask;if(this._draft?.token===token){this._step=2;this._renderStep();}}finally{this._setBusy(false);}
+        this._step=2;this._renderStep();
       }
       return;
     }
@@ -531,12 +592,11 @@ class ImprovedShoppingPurchases extends HTMLElement {
     this._setBusy(true);
     try{
       const token=this._draft.token;
-      await this._packageMetadataTask;
       if(this._draft?.token!==token)return;
       if(this._draft.reprocess){
-        await this._hass.callWS({type:'improved_shopping_list/receipts/reprocess',token,lines:this._edits.map(edit=>({id:edit.id,product_id:edit.product_id,pack_quantity:validReferenceContent(edit.packageFormat)?edit.packageFormat.content_quantity:null,pack_unit:validReferenceFormat(edit.packageFormat)?edit.packageFormat.content_unit:''}))});
+        await this._hass.callWS({type:'improved_shopping_list/receipts/reprocess',token,lines:this._edits.map(edit=>({id:edit.id,product_id:edit.product_id,pack_quantity:validReferenceContent(edit.packageFormat)?edit.packageFormat.content_quantity:null,pack_unit:validReferenceFormat(edit.packageFormat)?edit.packageFormat.content_unit:'',...this._manualPricePayload(edit)}))});
       }else await this._hass.callWS({type:'improved_shopping_list/receipts/confirm',token:this._draft.token,update_prices:Boolean(updatePrices&&this._pricesEnabled),
-        lines:this._edits.map(edit=>({id:edit.id,product_id:edit.product_id,replenish:Boolean(edit.product_id&&edit.replenish),quantity:edit.replenish?edit.quantity:null,unit:edit.unit,purchase_id:edit.purchase_id??'',save_price:Boolean(edit.product_id&&edit.save_price&&updatePrices&&this._pricesEnabled),quantity_edited:Boolean(edit.quantityEdited),pack_quantity:validReferenceContent(edit.packageFormat)?edit.packageFormat.content_quantity:null,pack_unit:validReferenceFormat(edit.packageFormat)?edit.packageFormat.content_unit:''}))});
+        lines:this._edits.map(edit=>({id:edit.id,product_id:edit.product_id,replenish:Boolean(edit.product_id&&edit.replenish),quantity:edit.replenish?edit.quantity:null,unit:edit.unit,purchase_id:edit.purchase_id??'',save_price:Boolean(edit.product_id&&edit.save_price&&updatePrices&&this._pricesEnabled),quantity_edited:Boolean(edit.quantityEdited),pack_quantity:validReferenceContent(edit.packageFormat)?edit.packageFormat.content_quantity:null,pack_unit:validReferenceFormat(edit.packageFormat)?edit.packageFormat.content_unit:'',...(updatePrices&&this._pricesEnabled?this._manualPricePayload(edit):{})}))});
       this._draft=null;this.shadowRoot.querySelector('dialog').close();await this._session.refresh();this.dispatchEvent(new CustomEvent('receipt-imported'));
     }catch(error){this._errorMessage(error.message??'No se ha podido guardar el ticket.');}
     finally{this._setBusy(false);}
@@ -679,7 +739,7 @@ class ImprovedShoppingPurchases extends HTMLElement {
       const draft=await this._hass.callWS({type:'improved_shopping_list/receipts/review_saved',receipt_id:receipt.id});
       if(!this.isConnected||!this._active)return;
       this.shadowRoot.querySelector('#purchase-detail').close();this._draft=draft;this._buildReview();this.shadowRoot.querySelector('dialog').showModal();this._setBusy(true);
-      await this._packageMetadataTask;
+      await this._prepareReviewData();
       if(this._draft?.token===draft.token)this._renderStep();
     }catch(error){this._error=error.message??'No se ha podido reprocesar el ticket.';this._render();}
     finally{this._setBusy(false);}

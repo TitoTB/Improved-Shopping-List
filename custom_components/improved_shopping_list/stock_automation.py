@@ -1,11 +1,10 @@
-"""Observed usage, purchase replenishment and perishable pantry expiration."""
+"""Observed usage, purchase detection and perishable pantry expiration."""
 
 import asyncio
 from collections import deque
 from datetime import timedelta
 import logging
 import time
-from uuid import uuid4
 
 from homeassistant.components.todo import DATA_COMPONENT, serialize_todo_item
 from homeassistant.core import Context, callback
@@ -82,11 +81,8 @@ class StockAutomation:
                     elif getattr(self,"carrefour_account",None):
                         self.carrefour_account.note_completion()
                     for stock in self.stock.snapshot["items"]:
-                        if (stock.get("configured") or getattr(self, "quantities", None)) and normalized_name(stock["name"]) == normalized_name(item_name(self.settings, entity_id, item)):
-                            quantity = self.quantities.value(entity_id, item) if getattr(self, "quantities", None) else None
-                            self._events.append((stock["id"],stock["config_revision"],"purchase",
-                                {"id":str(uuid4()), "at":time.time(), "list_entity":entity_id, "uid":uid,
-                                 **({"purchase_quantity": quantity["quantity"], "purchase_unit": quantity["unit"]} if quantity else {})}))
+                        if normalized_name(stock["name"]) == normalized_name(item_name(self.settings, entity_id, item)):
+                            self._events.append((stock["id"],stock["config_revision"],"completion",{"at":time.time()}))
         self._queue()
 
     @callback
@@ -195,13 +191,11 @@ class StockAutomation:
         return state
 
     async def _add_or_restore(self, item):
-        if any(event[0] == item["id"] and event[2] == "purchase" for event in self._events):
-            return  # Process the observed purchase before deciding whether to reorder.
+        if self._awaiting_replenishment(item):return
         target = item.get("list_entity") or self.settings.snapshot["primary_entity"]
         self._validate(item,target)
         response = await self.hass.services.async_call("todo","get_items",{"entity_id":target},blocking=True,return_response=True)
-        if any(event[0] == item["id"] and event[2] == "purchase" for event in self._events):
-            return
+        if self._awaiting_replenishment(item):return
         state = self._validate(item,target)
         items = response.get(target,{}).get("items") if isinstance(response,dict) else None
         if not isinstance(items,list):
@@ -223,3 +217,7 @@ class StockAutomation:
         else:
             raise ValueError("La lista no permite añadir productos.")
         self.activity.record("stock.reorder",f'Reposición automática: {item["name"]}',source="automatic",product=item["name"],list_entity=target)
+
+    def _awaiting_replenishment(self,item):
+        return ("awaiting:"+item["id"] in self.stock.receipts["coverage"]
+                or any(event[0]==item["id"] and event[2]=="completion" for event in self._events))

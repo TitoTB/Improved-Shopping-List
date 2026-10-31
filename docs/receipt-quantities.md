@@ -1,5 +1,11 @@
 # Cantidades al revisar tickets
 
+Varias líneas pueden asociarse al mismo producto genérico, conservando cada EAN, contenido y precio en su alternativa. Las cantidades destinadas a Stock se agrupan en una sola reposición: se convierten magnitudes compatibles (g/kg, ml/l) y se exige corregir las unidades si no pueden sumarse. Los distintos productos comerciales no se mezclan al guardar sus precios.
+
+Las propuestas calculadas de Carrefour se guardan en una caché privada de Home Assistant durante 30 días, con un máximo de 2.000 líneas. Al reabrir y vincular el mismo ticket se reutilizan sin repetir la estimación ni la consulta web, incluso después de reiniciar. La caché deja de coincidir si cambia el producto, la alternativa, el importe o el precio utilizado. Solo guarda propuestas automáticas; cerrar la revisión no confirma compras, no repone Stock ni guarda las correcciones manuales pendientes.
+
+Completar un producto en la lista solo registra la señal de compra: no suma Stock ni reinicia el periodo de un perecedero. La reposición se aplica al confirmar las líneas seleccionadas del ticket, aunque el producto siga pendiente en la lista, o mediante un ajuste manual de Stock. Si el producto estaba bajo mínimos, no se vuelve a añadir automáticamente mientras espera esa reposición. Los tickets duplicados siguen rechazándose; las reposiciones automáticas creadas por versiones anteriores se pueden conciliar explícitamente, aplicando solo la diferencia.
+
 La revisión de Carrefour utiliza primero el peso o las unidades explícitos del ticket. En productos envasados, el contenido indicado en la descripción se multiplica por el número de envases comprados. Las líneas con peso explícito conservan una cantidad de compra separada del contenido fijo de la opción.
 
 Después de confirmar las vinculaciones, las líneas sin cantidad utilizan el precio por unidad de medida de su opción de Carrefour, si está guardado. También se puede obtener de un último precio y un contenido de envase confirmado de esa misma opción. No se mezclan precios de otras tiendas ni formatos distintos.

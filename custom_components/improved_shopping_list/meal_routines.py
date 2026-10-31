@@ -2,8 +2,9 @@
 import asyncio
 from collections import deque
 from copy import deepcopy
-from datetime import timedelta
+from datetime import datetime, timedelta
 import logging
+import math
 import re
 from uuid import uuid4
 
@@ -41,24 +42,33 @@ def normalize_rules(data):
 
 
 def normalize_routine(data,current=None):
-    if not isinstance(data,dict) or set(data)-{'id','revision'}!={'name','persons','minimum_minutes','enabled','meals'}:raise CatalogError("La rutina no es válida.")
-    name=data['name'];people=data['persons'];minimum=data['minimum_minutes'];meals=data['meals']
+    if not isinstance(data,dict) or set(data)-{'id','revision','minimum_minutes'}!={'name','persons','enabled','meals'}:raise CatalogError("La rutina no es válida.")
+    name=data['name'];people=data['persons'];meals=data['meals']
     if not isinstance(name,str) or not name.strip() or len(name)>100 or any(ord(c)<32 for c in name):raise CatalogError("Indica un nombre de rutina válido.")
     if not isinstance(people,list) or not 1<=len(people)<=30 or any(not isinstance(p,str) or not PERSON.fullmatch(p) for p in people):raise CatalogError("Selecciona al menos una persona de Home Assistant.")
-    if type(minimum) is not int or not 0<=minimum<=240 or type(data['enabled']) is not bool:raise CatalogError("La permanencia mínima debe estar entre 0 y 240 minutos.")
+    if type(data['enabled']) is not bool:raise CatalogError("Selecciona si la rutina está activada.")
+    if 'minimum_minutes' in data and (type(data['minimum_minutes']) is not int or not 0<=data['minimum_minutes']<=240):raise CatalogError("La configuración anterior de la rutina no es válida.")
     if not isinstance(meals,list) or not 1<=len(meals)<=20:raise CatalogError("Añade entre 1 y 20 comidas a la rutina.")
     rows=[];seen=set()
     for raw in meals:
-        if not isinstance(raw,dict) or set(raw)!={'id','name','time','days','enabled'}:raise CatalogError("La comida no es válida.")
+        if not isinstance(raw,dict) or set(raw) not in ({'id','name','time','days','enabled'},{'id','name','start_time','end_time','days','enabled'}):raise CatalogError("La comida no es válida.")
         mid=identifier(raw['id']);label=raw['name'];days=raw['days']
         if mid in seen:raise CatalogError("Hay comidas con el mismo identificador.")
         seen.add(mid)
         if not isinstance(label,str) or not label.strip() or len(label)>80 or any(ord(c)<32 for c in label):raise CatalogError("Indica el nombre de cada comida.")
-        if not isinstance(raw['time'],str) or not re.fullmatch(r'(?:[01]\d|2[0-3]):[0-5]\d',raw['time']):raise CatalogError("Indica una hora válida para cada comida.")
+        start=raw.get('start_time',raw.get('time'));end=raw.get('end_time')
+        if not isinstance(start,str) or not re.fullmatch(r'(?:[01]\d|2[0-3]):[0-5]\d',start):raise CatalogError("Indica una hora de inicio válida para cada comida.")
+        if 'time' in raw:
+            previous=next((m for m in (current or {}).get('meals',[]) if m['id']==mid),{})
+            # An older open editor must not erase a window when saving other fields.
+            if previous.get('start_time')==start:end=previous['end_time']
+            else:
+                hour,minute=map(int,start.split(':'));end=f'{(hour+1)%24:02d}:{minute:02d}'
+        if not isinstance(end,str) or not re.fullmatch(r'(?:[01]\d|2[0-3]):[0-5]\d',end) or start==end:raise CatalogError("Indica una hora final distinta del inicio para cada comida.")
         if not isinstance(days,list) or not days or any(type(d) is not int or not 0<=d<=6 for d in days) or type(raw['enabled']) is not bool:raise CatalogError("Selecciona los días de cada comida.")
-        rows.append({'id':mid,'name':label.strip(),'time':raw['time'],'days':sorted(set(days)),'enabled':raw['enabled']})
+        rows.append({'id':mid,'name':label.strip(),'start_time':start,'end_time':end,'days':sorted(set(days)),'enabled':raw['enabled']})
     return {'id':current['id'] if current else str(uuid4()),'revision':(current or {}).get('revision',0)+1,
-            'name':name.strip(),'persons':list(dict.fromkeys(people)),'minimum_minutes':minimum,'enabled':data['enabled'],'meals':rows,
+            'name':name.strip(),'persons':list(dict.fromkeys(people)),'enabled':data['enabled'],'meals':rows,
             'updated_at':dt_util.utcnow().timestamp()}
 
 
@@ -73,11 +83,13 @@ class MealRoutines:
         if data is not None:
             if not isinstance(data,dict) or not isinstance(data.get('routines'),dict):raise CatalogError("No se han podido leer las rutinas.")
             if len(data['routines'])>100:raise CatalogError("El archivo de rutinas no es válido.")
+            normalized={}
             for key,row in data['routines'].items():
                 identifier(key)
-                if not isinstance(row,dict) or row.get('id')!=key or type(row.get('revision')) is not int or row['revision']<1 or type(row.get('updated_at')) not in (int,float):raise CatalogError("El archivo de rutinas no es válido.")
-                normalize_routine({k:v for k,v in row.items() if k!='updated_at'},row)
-            self._routines=data['routines']
+                if not isinstance(row,dict) or row.get('id')!=key or type(row.get('revision')) is not int or row['revision']<1 or type(row.get('updated_at')) not in (int,float) or not math.isfinite(row['updated_at']):raise CatalogError("El archivo de rutinas no es válido.")
+                normalized[key]={**normalize_routine({k:v for k,v in row.items() if k!='updated_at'},row),'id':row['id'],'revision':row['revision'],'updated_at':row['updated_at']}
+            if normalized!=data['routines']:await self._store.async_save({'routines':normalized})
+            self._routines=normalized
 
     @property
     def snapshot(self):return {'routines':deepcopy(sorted(self._routines.values(),key=lambda r:r['name'].casefold()))}
@@ -96,7 +108,7 @@ class MealRoutines:
             if not current and len(self._routines)>=100:raise CatalogError("Se ha alcanzado el máximo de 100 rutinas.")
             row=normalize_routine(data,current);rows={**self._routines,row['id']:row}
             await self._store.async_save({'routines':rows});self._routines=rows
-        self._seed_presence()
+        self._seed_presence();self._queue()
         for listener in tuple(self._listeners):listener()
         if self.activity:self.activity.record('stock.routine.saved',f'Rutina guardada: {row["name"]}',source='manual')
         return deepcopy(row)
@@ -121,23 +133,39 @@ class MealRoutines:
         if person not in self._presence and not any(person in r['persons'] for r in self._routines.values()):return
         history=self._presence.setdefault(person,deque(maxlen=256));old=event.data.get('old_state');new=event.data.get('new_state')
         if not history and old:history.append((old.last_changed.timestamp(),old.state))
-        if new and (not old or old.state!=new.state):history.append((new.last_changed.timestamp(),new.state))
-        elif not new:history.append((dt_util.utcnow().timestamp(),'unavailable'))
+        if new and (not old or old.state!=new.state):
+            history.append((new.last_changed.timestamp(),new.state));self._queue()
+        elif not new:
+            history.append((dt_util.utcnow().timestamp(),'unavailable'));self._queue()
 
-    def _home(self,person,at,minimum):
+    def _home_between(self,person,start,end):
         self._seed_presence()
-        previous=next(((stamp,state) for stamp,state in reversed(self._presence.get(person,())) if stamp<=at),None)
-        return bool(previous and previous[1]=='home' and at-previous[0]>=minimum*60)
+        history=list(self._presence.get(person,()))
+        for index,(stamp,state) in enumerate(history):
+            stop=history[index+1][0] if index+1<len(history) else end
+            if state=='home' and stamp<end and stop>start:
+                return max(stamp,start)
+        return None
 
     @callback
     def start(self):
         if self._active:return
         self._active=True;self._started_at=dt_util.utcnow().timestamp();self._presence={};self._seed_presence()
-        self._stops=[async_track_time_interval(self.hass,self._queue,timedelta(seconds=30)),self.hass.bus.async_listen('state_changed',self._state_changed)]
+        self._stops=[async_track_time_interval(self.hass,self._queue,timedelta(seconds=30)),self.hass.bus.async_listen('state_changed',self._state_changed),self.stock.subscribe(self._queue)]
+        self._queue()
 
     @callback
     def _queue(self,*_args):
-        if self._active and (not self._task or self._task.done()):self._task=self.hass.async_create_background_task(self.async_check(),'Shopping meal routines')
+        if not self._active:return
+        self._dirty=True
+        if not self._task or self._task.done():self._task=self.hass.async_create_background_task(self._drain(),'Shopping meal routines')
+
+    async def _drain(self):
+        try:
+            while self._active and self._dirty:
+                self._dirty=False
+                await self.async_check()
+        except Exception:_LOGGER.exception('Could not evaluate meal windows')
 
     async def async_check(self):
         async with self._check_lock:
@@ -150,13 +178,24 @@ class MealRoutines:
                     routine=self._routines.get(rule['routine_id'])
                     if not routine or not routine['enabled']:continue
                     meal=next((m for m in routine['meals'] if m['id']==rule['meal_id']),None)
-                    if not meal or not meal['enabled'] or now.weekday() not in meal['days']:continue
-                    hour,minute=map(int,meal['time'].split(':'));due=now.replace(hour=hour,minute=minute,second=0,microsecond=0).timestamp()
-                    if not 0<=stamp-due<90 or due<max(self._started_at,routine['updated_at'],item.get('meal_config_at',0)):continue
-                    for person in routine['persons']:
-                        events.append({'key':'|'.join([item['id'],routine['id'],meal['id'],person,now.date().isoformat()]),
-                            'at':due,'person':person,'meal':meal['name'],'routine':routine['name'],
-                            'amount':rule.get('person_amounts',{}).get(person,rule['amount']) if self._home(person,due,routine['minimum_minutes']) else 0})
+                    if not meal or not meal['enabled']:continue
+                    for day in (now.date(),now.date()-timedelta(days=1)):
+                        if day.weekday() not in meal['days']:continue
+                        start=datetime.combine(day,datetime.strptime(meal['start_time'],'%H:%M').time(),tzinfo=now.tzinfo)
+                        end=datetime.combine(day,datetime.strptime(meal['end_time'],'%H:%M').time(),tzinfo=now.tzinfo)
+                        if end<=start:end+=timedelta(days=1)
+                        if stamp<start.timestamp() or stamp>=end.timestamp()+90:continue
+                        observed_start=max(start.timestamp(),self._started_at,routine['updated_at'],item.get('meal_config_at',0))
+                        observed_end=min(end.timestamp(),stamp+0.000001)
+                        if observed_start>=observed_end:continue
+                        for person in routine['persons']:
+                            at=self._home_between(person,observed_start,observed_end)
+                            amount=rule.get('person_amounts',{}).get(person,rule['amount'])
+                            if at is not None and amount>0:
+                                events.append({'key':'|'.join([item['id'],routine['id'],meal['id'],person,day.isoformat()]),
+                                    'at':at,'person':person,'meal':meal['name'],'routine':routine['name'],'amount':amount,
+                                    'window_start':start.isoformat(),'window_end':end.isoformat()})
+
                 if events:
                     try:await self.stock.async_meals(item['id'],item['config_revision'],events)
                     except (OSError,CatalogError):_LOGGER.exception('Could not persist meal consumption for %s',item['name'])

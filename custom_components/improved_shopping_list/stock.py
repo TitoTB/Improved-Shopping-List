@@ -399,7 +399,7 @@ class StockManager:
             current=self._items.get(item_id)
             if not current or current['mode']!='meals' or current.get('config_revision')!=config_revision or not self.recurrence_ready(current):return
             receipts=deepcopy(self.receipts);ledger=receipts.setdefault('meal_events',{});now=time.time()
-            fresh=[e for e in events if e['key'] not in ledger]
+            fresh=[e for e in events if e['key'] not in ledger or ledger[e['key']].get('amount',0)<=0]
             if not fresh:return
             item=deepcopy(current);before=item['quantity']
             item['quantity']=quantity_value(round(max(0,before-sum(e['amount'] for e in fresh)),3));item['revision']+=1

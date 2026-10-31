@@ -11,6 +11,7 @@ from homeassistant.helpers.typing import ConfigType
 
 from .catalog import Catalog
 from .ean_links import EANLinks
+from .ean_common_index import CommonEANIndex
 from .catalog_sources import CatalogSources
 from .mercadona_catalog import MercadonaCatalog
 from .public_catalogs import CatalogDiscovery, PublicCatalogSource
@@ -66,7 +67,11 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         ean_links = EANLinks(hass, catalog)
         await ean_links.async_load()
         catalog.ean_links = ean_links
+        common_eans=CommonEANIndex(hass,catalog)
+        await common_eans.async_load()
+        catalog.common_index=common_eans
         readers = ReaderManager(hass, catalog, settings)
+        readers.lookup.common_index=common_eans
         readers.stock = stock
         await readers.async_load()
         activity = ActivityLog(hass, catalog, settings, readers)
@@ -157,6 +162,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         receipts.lidl_catalog=lidl_catalog
         hass.data[DOMAIN]["lidl_catalog"]=lidl_catalog
         hass.data[DOMAIN]["ean_links"] = ean_links
+        hass.data[DOMAIN]["common_eans"] = common_eans
         sources = CatalogSources(hass,catalog,ean_links,hass.data[DOMAIN]["option_lookup"],activity)
         await sources.async_load()
         hass.data[DOMAIN]["catalog_sources"] = sources
@@ -199,6 +205,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.data[DOMAIN]["recurrence"].start()
     hass.data[DOMAIN]["community_sync"].start()
     hass.data[DOMAIN]["ean_links"].start()
+    if common:=hass.data[DOMAIN].get("common_eans"):common.start()
     hass.data[DOMAIN]["catalog_sources"].start()
     hass.data[DOMAIN]["mercadona_catalog"].start()
     for source in hass.data[DOMAIN]["public_catalogs"].values():source.start()
@@ -254,6 +261,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     await hass.data[DOMAIN]["gateway_lists"].async_stop()
     await hass.data[DOMAIN]["community_sync"].async_stop()
     await hass.data[DOMAIN]["ean_links"].async_stop()
+    if common:=hass.data[DOMAIN].get("common_eans"):await common.async_stop()
     hass.data[DOMAIN]["stock"].stop()
     await hass.data[DOMAIN]["stock_automation"].async_stop()
     await hass.data[DOMAIN]["alcampo"].async_stop()

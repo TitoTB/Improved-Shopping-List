@@ -128,13 +128,22 @@ class ProductLookup:
     async def async_lookup(self, code):
         if not is_product_barcode(code):
             return {"status": "unsupported"}
+        common_index=getattr(self,'common_index',None)
+        common=await common_index.async_hint(code) if common_index else {}
+        fields={key:common[key] for key in ('brand','content_quantity','content_unit','pack_count') if key in common}
+        def enrich(result):
+            result={**result,**fields}
+            if fields and result.get('status') in ('not_found','error'):result['status']='found'
+            return result
         community = getattr(self, "community", None)
         if community and (hint := community.product_hint(code)):
-            return hint
+            return enrich(hint)
         # Serialise requests, deduplicate UPC/EAN aliases and stay below 15 reads/minute.
         async with self._lock:
             discovery=getattr(self,"catalog_discovery",None)
-            if discovery and (hint:=await discovery.async_hint(code)):
+            complete=bool(fields.get('brand') and fields.get('content_quantity') and fields.get('content_unit'))
+            if discovery and not complete and (hint:=await discovery.async_hint(code)):
+                hint=enrich(hint)
                 previous=self.cached(code) or {}
                 if previous.get("nutriscore") and not hint.get("nutriscore"):hint["nutriscore"]=previous["nutriscore"]
                 self._cache[code.zfill(14)]={"expires":time.time()+TTLS["found"],"fields":FIELDS,"result":hint,"discovery_signature":getattr(discovery,"fingerprint",lambda:"")()}
@@ -142,7 +151,7 @@ class ProductLookup:
                 except (OSError,HomeAssistantError):_LOGGER.warning("Could not persist the optional product lookup cache")
                 return deepcopy(hint)
             if self.is_fresh(code):
-                return self.cached(code)
+                return enrich(self.cached(code))
             delay = self._next_request - time.monotonic()
             if delay > 0:
                 await sleep(delay)
@@ -153,6 +162,7 @@ class ProductLookup:
                 result = {"status": "error"}
             if result.get("nutriscore"):
                 result["nutriscore"]["checked_at"] = int(time.time())
+            result=enrich(result)
             self._cache[code.zfill(14)] = {"expires": time.time() + TTLS[result["status"]], "fields": FIELDS, "result": result,
                 "discovery_signature":getattr(discovery,"fingerprint",lambda:"")()}
             self._cache = dict(sorted(self._cache.items(), key=lambda item: item[1]["expires"])[-500:])

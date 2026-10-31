@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths: ['scripts/build-mercadona-index.py', 'custom_components/improved_shopping_list/ean_common.py', '.github/workflows/mercadona-index.yml']
+    paths: ['scripts/build-mercadona-index.py', 'scripts/build-ean-common.py', 'data/ean-common-contributions.json', 'custom_components/improved_shopping_list/ean_common.py', '.github/workflows/mercadona-index.yml']
 permissions:
   contents: write
 concurrency:
@@ -30,6 +30,7 @@ jobs:
           REVISION=$(git -C "$RUNNER_TEMP/mercadona-source" rev-parse HEAD)
           UPDATED=$(git -C "$RUNNER_TEMP/mercadona-source" show -s --format=%cI HEAD)
           python scripts/build-mercadona-index.py "$RUNNER_TEMP/mercadona-source" "$RUNNER_TEMP/mercadona-index.json" --revision "$REVISION" --updated-at "$UPDATED"
+          python scripts/build-ean-common.py --mercadona "$RUNNER_TEMP/mercadona-index.json" --output "$RUNNER_TEMP/ean-common.json"
       - name: Publish compact index without changing integration code
         env:
           GH_TOKEN: ${{ github.token }}
@@ -51,7 +52,8 @@ jobs:
           fi
           mkdir -p catalogs
           cp "$RUNNER_TEMP/mercadona-index.json" catalogs/mercadona-index.json
-          git add catalogs/mercadona-index.json
+          python -c 'import json,shutil,sys; from pathlib import Path; src,dst=map(Path,sys.argv[1:]); same=dst.exists() and json.loads(src.read_text())["revision"]==json.loads(dst.read_text())["revision"]; shutil.copyfile(src,dst) if not same else None' "$RUNNER_TEMP/ean-common.json" catalogs/ean-common.json
+          git add catalogs/mercadona-index.json catalogs/ean-common.json
           if git diff --cached --quiet; then exit 0; fi
           git commit -m 'Update Mercadona public EAN index'
           git -c http.extraheader="AUTHORIZATION: basic $AUTH" push origin HEAD:data

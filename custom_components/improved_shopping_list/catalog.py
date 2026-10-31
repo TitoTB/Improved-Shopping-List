@@ -427,6 +427,7 @@ class Catalog:
         """Fill active packages by exact EAN, without creating shops or replacing local data."""
         from .ean_common import validate, source, brand_key, content_key
         from .ean_links import product_eans
+        from .receipt_quantities import weight_format, SCALES
         prepared={}
         for code,data in entries.items():
             if not gtin(code) or gtin(code)!=code:raise CatalogError("El EAN de los datos comunes no es válido.")
@@ -453,10 +454,17 @@ class Catalog:
                         filled=[]
                         if data.get("brand") and not ref.get("brand") and (not local_brands or local_brands=={brand_key(data["brand"])}):
                             ref["brand"]=data["brand"];filled.append("brand")
-                        if data.get("content_quantity") and ref.get("content_quantity") is None and (not local_content or local_content=={content_key(data["content_quantity"],data["content_unit"])}):
-                            ref.update(content_quantity=data["content_quantity"],content_unit=data["content_unit"],content_confirmed=True)
-                            filled.extend(("content_quantity","content_unit"))
-                        if data.get("pack_count") and not ref.get("pack_count") and (not local_packs or local_packs=={data["pack_count"]}):
+                        if data.get("content_quantity") and ref.get("content_quantity") is None and not weight_format(ref) and ref.get('sale_mode')!='weight' and (not local_content or local_content=={content_key(data["content_quantity"],data["content_unit"])}):
+                            quantity,unit=data['content_quantity'],data['content_unit']
+                            target=SCALES.get(ref.get('content_unit'));origin=SCALES[unit]
+                            if not ref.get('content_unit') or target and target[0]==origin[0]:
+                                if target:quantity,unit=quantity*origin[1]/target[1],ref['content_unit']
+                                if not ref.get('content_unit'):filled.append('content_unit')
+                                ref.update(content_quantity=quantity,content_unit=unit,content_confirmed=True)
+                                filled.append('content_quantity')
+                        elif data.get('content_quantity')==ref.get('content_quantity') and ref.get('content_quantity') is not None and not ref.get('content_unit') and ref.get('sale_mode')!='weight' and (not local_content-{None} or local_content-{None}=={content_key(data['content_quantity'],data['content_unit'])}):
+                            ref.update(content_unit=data['content_unit'],content_confirmed=True);filled.append('content_unit')
+                        if data.get("pack_count") and not ref.get("pack_count") and not weight_format(ref) and ref.get('sale_mode')!='weight' and (not local_packs or local_packs=={data["pack_count"]}):
                             ref["pack_count"]=data["pack_count"];filled.append("pack_count")
                         for field in filled:ref.setdefault("common_sources",{})[field]=deepcopy(provenance)
                 if refs!=before:

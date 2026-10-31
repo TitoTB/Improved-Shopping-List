@@ -1,5 +1,9 @@
 # Historial de cambios
 
+## Próxima versión
+
+- El diccionario de datos comunes por EAN se amplía a todas las tiendas, incorporando las referencias confirmadas del catálogo exportado facilitado y el índice público de Mercadona. Completa solo campos vacíos por EAN exacto, preservando precios, correcciones y productos al peso. Se mantiene una copia local, actualización diaria y prioridad antes de buscar en las webs.
+
 ## 0.67.0 — 2026-10-31
 
 - Cerrar un ticket y abrir otro inmediatamente conserva la nueva revisión, sin que un evento de cierre anterior la descarte.

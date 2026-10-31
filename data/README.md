@@ -1,5 +1,7 @@
 # Enlaces de productos por EAN
 
+Los datos comunes del EAN se publican, con independencia de la tienda, en [ean-common.json](ean-common.json): marca, contenido, unidad y unidades por pack disponibles. La carga inicial incluye datos aportados desde Carrefour, Alcampo, Lidl y La Sirena, además del índice público de Mercadona. [Datos comunes por EAN](../docs/ean-common.md) explica su relleno conservador, procedencia, actualización y cómo incorporar nuevas exportaciones. El CSV de enlaces sigue siendo compatible con las versiones anteriores.
+
 El índice actual es [ean-links-v8.csv](ean-links-v8.csv), con 15.775 EAN y columnas Carrefour, Alcampo, Lidl, Mercadona, Masymas, BM, Consum, La Sirena, Eroski y DIA. La actualización del 30/10/2026 incorpora siete EAN nuevos, cinco enlaces nuevos de Carrefour y uno de La Sirena, además de las coincidencias de Alcampo descritas a continuación; también sustituye 68 enlaces del feed por las URL oficiales directas de Carrefour. Solo se aceptan referencias activas con EAN válido y URL del dominio de su tienda.
 
 La actualización del catálogo aportado confirmó tres coincidencias adicionales de Alcampo (maíz Bonduelle, paté a la pimienta Casa Tarradellas y queso Havarti Arla), además de los once enlaces que ya estaban registrados. Una coincidencia de nombre, peso o marca no es suficiente: solo se publican asociaciones con EAN exacto.

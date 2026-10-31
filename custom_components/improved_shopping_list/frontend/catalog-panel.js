@@ -1290,10 +1290,10 @@ class ImprovedShoppingCatalog extends HTMLElement {
           for (const [store,name] of Object.entries(STORE_NAMES)) {
             const link=product.store_links?.[store];
             const options=(product.commercial_references??[]).filter(ref=>ref.store===store);
-            const associated=options.some(ref=>ref.active!==false&&(ref.url||ref.reference_id||ref.ean));
+            const associated=options.some(ref=>ref.active!==false);
             // Saved purchase options are independent of account/catalog consent.
             // Retain legacy links/tickets only when no explicit options exist.
-            if(!associated&&(options.length||!this._stores?.[store]?.enabled||(!(typeof link==="string"?link.trim():link?.id||link?.url)&&!this._receiptStores?.[product.id]?.includes(store))))continue;
+            if(!associated&&(options.length||(!(typeof link==="string"?link.trim():link?.id||link?.url)&&!this._receiptStores?.[product.id]?.includes(store))))continue;
             if(!groups.has(store))groups.set(store,{key:store,name,products:[]});
             groups.get(store).products.push(product);
           }

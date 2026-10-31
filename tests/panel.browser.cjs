@@ -1698,6 +1698,23 @@ async function checkCatalogSources(browser,url,errors){
   const weightedOption=await p.evaluate(()=>window.catalogProducts[0].commercial_references.find(ref=>ref.active!==false));
   assert.equal(weightedOption.content_confirmed,true);assert.equal(weightedOption.content_quantity,null);
   assert.equal(weightedOption.measure_price.price,10);assert.equal(weightedOption.measure_price.unit,'kg');
+  await p.evaluate(()=>{
+    const base={revision:1,category:'',image_url:'',icon:'',tags:[],barcodes:[],nfc_tags:[],store_links:{},commercial_references:[]};
+    window.catalogProducts=[
+      {...base,id:'no-price',name:'Sin precio',commercial_references:[{store:'carrefour',name:'Formato conocido',ean:'8410199023094',content_quantity:170,content_unit:'g'}]},
+      {...base,id:'no-format',name:'Sin formato',commercial_references:[{store:'carrefour',name:'Formato pendiente',reference_id:'pending',last_price:{price:2.5,currency:'EUR'}}]},
+      {...base,id:'name-only',name:'Solo nombre',commercial_references:[{store:'carrefour',name:'Identificado por nombre'}]},
+      {...base,id:'legacy-only',name:'Vínculo antiguo',store_links:{carrefour:'https://www.carrefour.es/supermercado/ejemplo/R-prod1/p'}},
+      {...base,id:'multiple',name:'Varias tiendas',commercial_references:[{store:'carrefour',name:'Opción incompleta'},{store:'alcampo',name:'Otra opción incompleta'}]},
+      {...base,id:'excluded',name:'Excluido',store_links:{carrefour:'https://www.carrefour.es/supermercado/ejemplo/R-prod2/p'},commercial_references:[{store:'carrefour',name:'Desvinculado',active:false}]}
+    ];window.emitCatalog();
+  });
+  await catalog.getByRole('button',{name:'Agrupar por tienda',exact:true}).click();
+  assert.deepEqual(await catalog.locator('.category-group-title').allTextContents(),['Alcampo (1)','Carrefour (5)']);
+  const incompleteGroup=catalog.locator('.category-group[aria-label="Carrefour"]');
+  await incompleteGroup.locator('> summary').click();
+  assert.deepEqual(await incompleteGroup.locator('.product-name h2').allTextContents(),['Sin formato','Sin precio','Solo nombre','Varias tiendas','Vínculo antiguo']);
+  assert.equal(await incompleteGroup.locator('.row-price').count(),0);
   await grouped.close();
 }
 

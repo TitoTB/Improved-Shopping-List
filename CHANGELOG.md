@@ -1,5 +1,19 @@
 # Historial de cambios
 
+## 0.74.0 — 2026-10-31
+
+- En la ficha de Stock, Consumo por comidas se renombra a Consumo por rutinas.
+
+- Las alternativas muestran Marca y Tipo de venta en una fila, recuperan bordes claros y separan los datos comunes de las filas de supermercados con precio e icono de edición desplegable.
+
+- Recuperar datos usa el botón verde compacto sin borde. El EAN se muestra debajo del título de cada alternativa o grupo de tiendas, sin repetirlo entre los datos comunes.
+
+- Alternativas elimina el título redundante y el botón + de vinculación. Se mantienen la URL, Recuperar datos y la vinculación manual mediante Enter.
+
+- Las rutinas se editan al pulsar su bloque y solo conservan el toggle en la tarjeta. El botón Eliminar rutina se traslada al popup de edición y sigue solicitando confirmación.
+
+- El botón Eliminar producto de la ficha adopta el estilo de la propuesta compacta: papelera y texto rojos sin fondo, conservando la confirmación antes del borrado.
+
 ## 0.73.2 — 2026-10-31
 
 - La ficha de producto adopta el diseño compacto: cabecera con su imagen o icono actual, pestañas integradas, campos más limpios, alternativas con resumen de precio y reposición en bloques desplegables. Se conservan los controles y procesos existentes.

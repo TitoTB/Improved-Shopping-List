@@ -1,7 +1,7 @@
-import './meal-consumption.js?v=0.73.2';
+import './meal-consumption.js?v=0.74.0';
 /** Pantry UI, forms and calculations loaded only when Stock is opened. */
-import { imageSource, normalizedName, productNameKey } from './product-display.js?v=0.73.2';
-import { installDialogCloseButtons } from './dialog-controls.js?v=0.73.2';
+import { imageSource, normalizedName, productNameKey } from './product-display.js?v=0.74.0';
+import { installDialogCloseButtons } from './dialog-controls.js?v=0.74.0';
 const stockQuantity = (item, now=Date.now()/1000) => {
   if(item.mode!=='perishable')return item.quantity;
   if(item.quantity<=0||item.expired)return 0;
@@ -167,7 +167,7 @@ export function installStockView(panel) {
             <label>Stock actual<div class="stock-quantity-editor"><button id="stock-draft-minus" type="button" aria-label="Disminuir stock"><ha-icon icon="mdi:minus" aria-hidden="true"></ha-icon></button><input name="quantity" aria-label="Stock actual" type="number" min="0" max="1000000" step="0.001" required><button id="stock-draft-plus" type="button" aria-label="Incrementar stock"><ha-icon icon="mdi:plus" aria-hidden="true"></ha-icon></button></div></label>
             <label>Unidades<select name="unit" aria-label="Unidades"><option value="uds">uds</option><option value="kg">kg</option><option value="g">g</option><option value="l">l</option><option value="ml">ml</option><option value="custom">Personalizadas</option></select></label>
             <label class="wide" id="stock-custom-unit-label" hidden>Unidad personalizada<input name="custom_unit" maxlength="32" placeholder="Por ejemplo, Latas"></label>
-            <label class="wide">Control del stock<select name="mode" aria-label="Control del stock"><option value="manual">Manual / lectores</option><option value="perishable">Perecedero</option><option value="usage">Consumo registrado</option><option value="meals">Consumo por comidas</option></select></label>
+            <label class="wide">Control del stock<select name="mode" aria-label="Control del stock"><option value="manual">Manual / lectores</option><option value="perishable">Perecedero</option><option value="usage">Consumo registrado</option><option value="meals">Consumo por rutinas</option></select></label>
             <div id="stock-usage-fields" class="wide" hidden><div class="stock-form-fields">
               <label class="wide">Entidad de consumo<input name="usage_entity" list="stock-usage-entities" placeholder="Por ejemplo, binary_sensor.lavadora"></label><datalist id="stock-usage-entities"></datalist>
               <label>Estado que representa un uso<input name="usage_state" maxlength="255" placeholder="Por ejemplo, on"></label>

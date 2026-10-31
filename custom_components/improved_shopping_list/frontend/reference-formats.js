@@ -57,7 +57,7 @@ export function referenceContentControls(reference,onChange){
   const quantityLabel=document.createElement('label');quantityLabel.textContent='Contenido por envase';
   const quantity=document.createElement('input');quantity.type='number';quantity.min='0.001';quantity.max='1000000';quantity.step='any';quantity.value=reference.content_quantity??'';quantity.setAttribute('aria-label','Contenido por envase');quantityLabel.append(quantity);
   const unitLabel=document.createElement('label');unitLabel.textContent='Unidades';
-  const unit=document.createElement('select');unit.setAttribute('aria-label','Unidades del envase');unit.append(new Option('Sin confirmar',''),...Object.keys(contentUnits).map(value=>new Option(value,value)));unit.value=reference.content_unit??'';unitLabel.append(unit);
+  const unit=document.createElement('select');unit.setAttribute('aria-label','Unidades del envase');unit.append(new Option('Sin especificar',''),...Object.keys(contentUnits).map(value=>new Option(value,value)));unit.value=reference.content_unit??'';unitLabel.append(unit);
   const update=()=>{reference.content_quantity=quantity.value===''?null:Number(quantity.value);reference.content_unit=unit.value;reference.content_confirmed=validReferenceContent(reference);onChange?.();};
   quantity.addEventListener('input',update);unit.addEventListener('change',update);
   row.append(quantityLabel,unitLabel);return row;

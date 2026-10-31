@@ -1618,6 +1618,17 @@ async function checkCatalogSources(browser,url,errors){
   await shared.getByLabel('Contenido por envase',{exact:true}).fill('500');
   await shared.getByLabel('Unidades del envase',{exact:true}).selectOption('g');
   await shared.getByLabel('Unidades por pack',{exact:true}).fill('6');
+  for(const width of [1280,390,320]){
+    await p.setViewportSize({width,height:844});
+    const aligned=await shared.evaluate(el=>{
+      const inputs=['Contenido por envase','Unidades del envase'].map(name=>el.querySelector('[aria-label="'+name+'"]'));
+      inputs.push(el.querySelector('.option-pack input'));
+      const boxes=inputs.map(input=>input.getBoundingClientRect());
+      return boxes.every(box=>Math.abs(box.bottom-boxes[0].bottom)<2)&&el.scrollWidth<=el.clientWidth+1;
+    });
+    assert.ok(aligned,'Package fields must fit on one line at '+width+'px');
+  }
+  await p.setViewportSize({width:390,height:844});
   await form.locator('.product-ean-group .product-option[data-store="alcampo"] > summary').click();
   await form.locator('.product-ean-group .product-option[data-store="alcampo"]').getByLabel('Precio por envase',{exact:true}).fill('2.50');
   await form.locator('.product-ean-group .product-option[data-store="carrefour"] > summary').click();
@@ -1631,6 +1642,14 @@ async function checkCatalogSources(browser,url,errors){
   assert.deepEqual(savedOptions.slice(0,2).map(ref=>ref.last_price.price),[3.75,2.5]);
   assert.equal(savedOptions[2].content_quantity,undefined);
   assert.deepEqual(savedOptions.slice(0,2).map(ref=>ref.pack_count),[6,6]);
+  await catalog.getByRole('button',{name:'Editar Producto',exact:true}).click();
+  await form.getByRole('button',{name:'Alternativas',exact:true}).click();
+  await form.locator('.product-ean-group > summary').click();
+  await shared.getByLabel('Unidades del envase',{exact:true}).selectOption('');
+  await shared.getByLabel('Unidades por pack',{exact:true}).fill('');
+  await form.getByRole('button',{name:'Guardar producto',exact:true}).click();await form.waitFor({state:'hidden'});
+  const optional=await p.evaluate(()=>window.catalogProducts[0].commercial_references.slice(0,2));
+  assert.ok(optional.every(ref=>ref.content_quantity===500&&ref.content_unit===''&&!ref.content_confirmed&&ref.pack_count===undefined));
   await catalog.getByRole('button',{name:'Editar Producto',exact:true}).click();
   await form.getByRole('button',{name:'Alternativas',exact:true}).click();
   await form.locator('.product-ean-group > summary').click();

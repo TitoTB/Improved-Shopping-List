@@ -13,6 +13,21 @@ refs=importlib.util.module_from_spec(spec);spec.loader.exec_module(refs)
 
 
 class ReferenceTests(unittest.TestCase):
+    def test_partial_optional_package_fields_persist_without_confirming_a_format(self):
+        for quantity, unit in [(None, ''), (250, ''), (None, 'kg')]:
+            with self.subTest(quantity=quantity, unit=unit):
+                raw={'store':'carrefour','ean':'8410199023094','content_quantity':quantity,'content_unit':unit,'content_confirmed':False}
+                saved=refs.normalized_references([raw])[0]
+                self.assertEqual((saved['content_quantity'],saved['content_unit']),(quantity,unit))
+                self.assertFalse(saved['content_confirmed'])
+                self.assertNotIn('pack_count',saved)
+                self.assertEqual(refs.normalized_references([saved])[0],saved)
+                with self.assertRaises(ValueError):
+                    refs.normalized_references([{**raw,'content_confirmed':True}])
+        for quantity,unit in [(0,''),(-1,''),(True,''),(250,'boxes'),(None,[])]:
+            with self.assertRaises(ValueError):
+                refs.normalized_references([{'store':'carrefour','ean':'8410199023094','content_quantity':quantity,'content_unit':unit}])
+
     def test_brand_initial_is_uppercase_without_lowercasing_the_rest(self):
         for raw, expected in [("carrefour", "Carrefour"), ("marca API", "Marca API"), ("DIA", "DIA"), (' "nestlé" ', '"Nestlé"'), ("", "")]:
             self.assertEqual(refs.brand_name(raw), expected)

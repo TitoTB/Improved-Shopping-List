@@ -315,6 +315,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
         .commercial-reference-title { display:flex;gap:8px;align-items:center; }.commercial-reference-title input { min-width:0;flex:1;margin:0; }
         .reference-content-controls { display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px;margin-top:12px;min-width:0; }
         .reference-content-controls label { margin:0;min-width:0; }.reference-content-controls input,.reference-content-controls select { width:100%;min-width:0; }
+        .reference-common-fields > .reference-content-controls { grid-template-columns:repeat(3,minmax(0,1fr));align-items:end; }
         .reference-confirm { grid-column:1/-1;display:flex!important;align-items:center;gap:8px; }.reference-confirm input { width:auto!important;min-height:0!important;margin:0!important; }
         .product-store-association { padding:14px; border:1px solid var(--divider-color,#dfe7e1); border-radius:12px; min-width:0; background:var(--card-background-color,#fff); }
         .product-store-header { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; min-width:0; }
@@ -1562,15 +1563,16 @@ class ImprovedShoppingCatalog extends HTMLElement {
     brandLabel.append(brand);fields.append(brandLabel);
     const original=refs.find(ref=>ref.content_confirmed&&validReferenceContent(ref))??refs.find(ref=>ref.content_quantity>0)??refs[0];
     const draft={content_quantity:original.content_quantity,content_unit:original.content_unit,content_confirmed:original.content_confirmed};
-    fields.append(referenceContentControls(draft,()=>{
+    const contentFields=referenceContentControls(draft,()=>{
       for(const ref of refs){Object.assign(ref,draft);this._clearCommonSource(ref,['content_quantity','content_unit']);}
       onChange();
-    }));
+    });
+    fields.append(contentFields);
     const packLabel=element('label','option-pack','Unidades por pack'),pack=element('input');
     pack.type='number';pack.min='1';pack.max='1000000';pack.step='1';pack.placeholder='Sin informar';
     pack.value=refs.find(ref=>ref.pack_count)?.pack_count??'';
     pack.addEventListener('input',()=>{for(const ref of refs){if(pack.value==='')delete ref.pack_count;else ref.pack_count=Number(pack.value);this._clearCommonSource(ref,['pack_count']);}onChange();});
-    packLabel.append(pack);fields.append(packLabel);
+    packLabel.append(pack);contentFields.append(packLabel);
     return fields;
   }
 

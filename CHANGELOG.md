@@ -2,6 +2,7 @@
 
 ## Próxima versión
 
+- En las alternativas de producto, contenido por envase, unidades y unidades por pack comparten una fila. Se permiten unidades y pack vacíos, conservando los datos parciales sin considerarlos un formato válido para comparaciones por unidad.
 - El selector de tienda de las compras detectadas solo ofrece cuentas conectadas y habilitadas, y tiendas vinculadas a ellas. Se excluyen también las propuestas por zona que no cumplen estas condiciones.
 
 ## 0.64.0 — 2026-10-30

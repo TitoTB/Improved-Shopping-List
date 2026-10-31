@@ -50,9 +50,14 @@ def reference_key(store, line):
     return sha256((store+":"+identity).encode()).hexdigest()[:32]
 
 
-def content(quantity, unit):
+def content(quantity, unit, *, allow_partial=False):
     if quantity in (None, "") and unit in (None, ""):
         return None, ""
+    if allow_partial:
+        if quantity in (None, "") and isinstance(unit, str) and unit in UNITS:
+            return None, unit
+        if unit in (None, "") and type(quantity) in (int, float) and math.isfinite(quantity) and 0 < quantity <= 1000000:
+            return quantity, ""
     if type(quantity) not in (int, float) or not math.isfinite(quantity) or not 0 < quantity <= 1000000 or unit not in UNITS:
         raise ValueError("Indica el contenido de un envase y sus unidades, o deja ambos vacíos.")
     if unit == "uds" and quantity != int(quantity):
@@ -145,9 +150,9 @@ def normalized_references(values):
             if row["reference_id"] and row["reference_id"]!=link["id"]:
                 raise ValueError("El enlace y la referencia comercial no corresponden al mismo producto.")
             row["reference_id"]=link["id"]
-        quantity,unit=content(raw.get("content_quantity"),raw.get("content_unit",""))
+        quantity,unit=content(raw.get("content_quantity"),raw.get("content_unit",""),allow_partial=True)
         confirmed=raw.get("content_confirmed",False)
-        if type(confirmed) is not bool or confirmed and quantity is None:
+        if type(confirmed) is not bool or confirmed and (quantity is None or unit not in UNITS):
             raise ValueError("Confirma el contenido del envase antes de utilizarlo para comparar.")
         if "catalog_source" in raw:
             if type(raw["catalog_source"]) is not bool:

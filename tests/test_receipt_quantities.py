@@ -118,14 +118,14 @@ async def test_review_can_save_manual_kg_price_without_changing_receipt_or_stock
     manager._drafts[draft['token']]['receipt']['lines'][0]['reference_id']='R-prod1'
     original=deepcopy(draft['receipt'])
     saved=await manager.async_confirm(draft['token'],'owner',[{'id':'0','product_id':product['id'],'replenish':True,'quantity':500,'unit':'g','purchase_id':'','save_price':True,'manual_measure_price':6.25}],True)
-    ref=catalog.products[0]['commercial_references'][0]
+    ref=next(ref for ref in catalog.products[0]['commercial_references'] if ref.get('reference_id')=='R-prod1')
     assert ref['measure_price']['price']==6.25 and ref['measure_price']['source']=='manual'
     assert saved['total']==original['total'] and saved['lines'][0]['amount']==2.5 and saved['lines'][0]['unit_price']==2.5
     assert stock.snapshot['items'][0]['quantity']==500
     assert saved['lines'][0]['manual_measure_price']['price']==6.25
     preview=await manager.async_review_saved(saved['id'],'owner')
     reprocessed=await manager.async_reprocess(preview['token'],'owner',[{'id':'0','product_id':product['id'],'pack_quantity':None,'pack_unit':'g','manual_measure_price':7}])
-    assert catalog.products[0]['commercial_references'][0]['measure_price']['price']==7
+    assert next(ref for ref in catalog.products[0]['commercial_references'] if ref.get('reference_id')=='R-prod1')['measure_price']['price']==7
     assert reprocessed['total']==original['total'] and stock.snapshot['items'][0]['quantity']==500
 
 

@@ -1086,6 +1086,24 @@ async function checkProductReplenishment(browser,url,errors){
   await edit.getByRole('button',{name:'Guardar producto',exact:true}).click();await edit.waitFor({state:'hidden'});
   assert.equal(await page.evaluate(()=>window.stockItems.find(item=>item.name==='Reposición de prueba').mode),'usage');
   assert.equal(await page.evaluate(()=>window.catalogProducts.find(item=>item.name==='Reposición de prueba').recurrence.enabled),false);
+  await catalog.evaluate(el=>{el.readerData={readers:[
+    {id:'code-one',name:'Barras uno',kind:'barcode',enabled:true,default_action:'add_list'},
+    {id:'code-two',name:'Barras dos',kind:'barcode',enabled:true,default_action:'stock_remove'},
+    {id:'nfc-one',name:'NFC uno',kind:'nfc',enabled:true,default_action:'stock_add'}]};});
+  await catalog.getByRole('button',{name:'Nuevo producto',exact:true}).click();
+  await form.getByLabel('Nombre del producto',{exact:true}).fill('Acciones de prueba');
+  await form.getByRole('button',{name:'Reposición',exact:true}).click();
+  await form.locator('#product-barcode-codes > summary').click();
+  assert.equal(await form.getByLabel('Barras uno',{exact:true}).inputValue(),'default');
+  await form.getByLabel('Barras uno',{exact:true}).selectOption('none');
+  await form.getByLabel('Lector para Códigos de barras/QR',{exact:true}).selectOption('code-two');
+  assert.equal(await form.getByLabel('Barras dos',{exact:true}).inputValue(),'default');
+  await form.getByLabel('Lector para Códigos de barras/QR',{exact:true}).selectOption('code-one');
+  assert.equal(await form.getByLabel('Barras uno',{exact:true}).inputValue(),'none');
+  await form.locator('#product-nfc-codes > summary').click();
+  assert.equal(await form.getByLabel('NFC uno',{exact:true}).inputValue(),'default');
+  await form.getByRole('button',{name:'Guardar producto',exact:true}).click();await form.waitFor({state:'hidden'});
+  assert.deepEqual(await page.evaluate(()=>window.catalogProducts.find(item=>item.name==='Acciones de prueba').reader_actions),{'code-one':'none'});
   await context.close();
 }
 
@@ -3769,7 +3787,7 @@ async function main() {
     await codeDialog.getByRole("button",{name:"Reposición",exact:true}).click();
   await codeDialog.locator('#product-automation details').evaluateAll(blocks=>blocks.forEach(block=>block.open=true));
     await codeDialog.getByRole("combobox",{name:"Reposición automática",exact:true}).waitFor();
-    const recurrenceDays = codeDialog.getByRole("spinbutton",{name:"Días de recurrencia",exact:true});
+    const recurrenceDays = codeDialog.locator('[data-replenishment=days]');
     assert.equal(await recurrenceDays.isDisabled(),true);
     await codeDialog.getByRole("combobox",{name:"Reposición automática",exact:true}).selectOption("perishable");
     assert.equal(await recurrenceDays.isDisabled(),false);

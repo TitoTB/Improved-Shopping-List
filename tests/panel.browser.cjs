@@ -4963,7 +4963,7 @@ async function main() {
     assert.equal(await detectedPage.evaluate(()=>window.receiptHistory[0].total),null);
     await detectedPage.evaluate(()=>window.failDetectedPurchase=false);
     await detectedEditor.getByRole('button',{name:'Guardar',exact:true}).click();await detectedEditor.waitFor({state:'hidden'});
-    await detectedPurchases.locator('#history .title strong').filter({hasText:'Carrefour'}).waitFor();
+    await detectedPurchases.locator('#history .title strong').filter({hasText:/carrefour/i}).waitFor();
     assert.match(await detectedPurchases.locator('#history .total').textContent(),/42,55/);
     assert.equal(await detectedPurchases.locator('.store-segment').getAttribute('data-amount'),'42.55');
     assert.equal(await detectedPage.evaluate(()=>window.stockItems.length),0);

@@ -25,6 +25,7 @@ from .product_translation import async_translate_name
 from .product_lookup import is_product_barcode
 from .store_links import normalize_links, STORES
 from . import store_availability
+from .meal_websocket import register as register_meal_commands
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -59,6 +60,7 @@ def ws_attention_subscribe(hass, connection, msg):
 @callback
 def async_register_commands(hass: HomeAssistant) -> None:
     """Register once; commands check that the config entry is still loaded."""
+    register_meal_commands(hass)
     from .dia_websocket import register as register_dia
     register_dia(hass)
     from .lidl_websocket import register as register_lidl

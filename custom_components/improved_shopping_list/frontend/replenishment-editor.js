@@ -1,5 +1,6 @@
+import './meal-consumption.js?v=0.68.0';
 export const replenishmentMarkup=`<details class="wide replenishment-block" id="product-replenishment"><summary><ha-icon icon="mdi:reload" aria-hidden="true"></ha-icon>Reposición automática</summary><div class="replenishment-content">
-  <label class="replenishment-row">Reposición automática<select data-replenishment="mode" aria-label="Reposición automática" disabled><option value="manual">Desactivada</option><option value="perishable">Perecedero</option><option value="usage">Consumo registrado</option></select></label>
+  <label class="replenishment-row">Reposición automática<select data-replenishment="mode" aria-label="Reposición automática" disabled><option value="manual">Desactivada</option><option value="perishable">Perecedero</option><option value="usage">Consumo registrado</option><option value="meals">Consumo por comidas</option></select></label>
   <p id="replenishment-status" class="helper" role="status"></p>
   <div id="replenishment-fields" class="fields" hidden>
     <label id="replenishment-days">Comprar cada (días)<input data-replenishment="days" aria-label="Días de recurrencia" type="number" min="1" max="3650" step="1" required></label>
@@ -10,6 +11,7 @@ export const replenishmentMarkup=`<details class="wide replenishment-block" id="
       <label>Estado que representa un uso<input data-replenishment="usage_state" required></label>
       <label>Cantidad consumida por uso<input data-replenishment="usage_amount" type="number" min="0.001" max="1000000" step="0.001" required></label>
     </div>
+    <isl-meal-consumption class="wide" hidden></isl-meal-consumption>
     <label class="wide replenishment-row"><span>Añadir a la lista cuando el stock llegue al mínimo</span><input data-replenishment="reorder_enabled" type="checkbox"></label>
     <label id="replenishment-minimum"><span>Mínimo (%)</span><input data-replenishment="minimum" aria-label="Mínimo (%)" type="number" min="0" max="100" step="0.001" required></label>
     <label>Lista para reponer<select data-replenishment="list_entity"></select></label>
@@ -20,6 +22,7 @@ const defaults={mode:'manual',days:7,unit:'uds',refill_quantity:1,reorder_enable
 export class ReplenishmentEditor {
   constructor(root,getHass){
     this.root=root;this.getHass=getHass;
+    root.querySelector("isl-meal-consumption").addEventListener("change",()=>this.dirty=true);
     root.querySelector('#product-replenishment').addEventListener('input',event=>{
       if(!event.target.matches('[data-replenishment]'))return;
       this.dirty=true;
@@ -39,6 +42,7 @@ export class ReplenishmentEditor {
   }
   set(config){
     this.config={...defaults,...config};this.revision=config.config_revision??0;
+    this.root.querySelector("isl-meal-consumption").reset(config.meal_rules??[]);
     for(const key of Object.keys(defaults)){
       if(['reorder_at','reorder_percent','list_entity'].includes(key))continue;
       if(key==='reorder_enabled')this.field(key).checked=this.config[key];else this.field(key).value=this.config[key];
@@ -67,6 +71,7 @@ export class ReplenishmentEditor {
   }
   render(){
     const mode=this.field('mode').value,active=mode!=='manual',perishable=mode==='perishable',usage=mode==='usage';
+    const meals=this.root.querySelector('isl-meal-consumption');meals.hass=this.getHass();meals.active=this.loaded&&mode==='meals';
     this.field('mode').disabled=!this.loaded;
     this.root.querySelector('#replenishment-fields').hidden=!active;
     this.root.querySelector('#replenishment-days').hidden=!perishable;
@@ -85,6 +90,7 @@ export class ReplenishmentEditor {
     const config={...defaults,...Object.fromEntries(Object.keys(defaults).filter(key=>!['reorder_at','reorder_percent'].includes(key)).map(key=>[key,key==='reorder_enabled'?this.field(key).checked:['days','refill_quantity','usage_amount'].includes(key)?Number(this.field(key).value):this.field(key).value]))};
     const perishable=config.mode==='perishable';config.reorder_at=perishable?this.minimums.quantity:Number(this.field('minimum').value);config.reorder_percent=perishable?Number(this.field('minimum').value):this.minimums.percent;
     if(config.mode==='manual')config.reorder_enabled=false;
+    const meals=this.root.querySelector('isl-meal-consumption');config.meal_rules=config.mode==='meals'?meals.validate():meals.value;
     return {config_revision:this.revision,config};
   }
 }

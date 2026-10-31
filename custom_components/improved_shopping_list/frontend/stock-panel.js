@@ -1,3 +1,4 @@
+import './meal-consumption.js?v=0.68.0';
 /** Pantry UI, forms and calculations loaded only when Stock is opened. */
 import { imageSource, normalizedName, productNameKey } from './product-display.js?v=0.68.0';
 import { installDialogCloseButtons } from './dialog-controls.js?v=0.68.0';
@@ -45,7 +46,7 @@ class StockView {
       const li=node("li");li.dataset.stockId=item.id;
       const card=node("div","item stock-item"), open=node("button","stock-open");
       const percent=stockRemaining(item,now);
-      const progress=item.mode === 'perishable' || item.mode === 'usage';
+      const progress=['perishable','usage','meals'].includes(item.mode);
       if(progress) {
         card.classList.add('stock-progress');
         card.style.setProperty('--stock-remaining',percent+'%');
@@ -90,6 +91,7 @@ class StockView {
     this._stockEditing={...item,quantity:stockQuantity(item)};
     const defaults={unit:'uds',mode:'manual',days:7,refill_quantity:1,reorder_enabled:false,reorder_at:0,usage_entity:'',usage_state:'',usage_amount:1};
     const config={...defaults,...this._stockEditing};
+    const meals=root.querySelector('isl-meal-consumption');meals.hass=this._hass;meals.reset(config.meal_rules??[]);
     this._stockDraftMinimum=config.reorder_at;this._stockDraftPercent=config.reorder_percent??0;this._stockDraftMode=config.mode;
     for(const key of ['quantity','mode','days','refill_quantity','reorder_at','usage_entity','usage_state','usage_amount'])form.elements[key].value=config[key];
     if(config.mode === 'perishable')form.elements.reorder_at.value=this._stockDraftPercent;
@@ -109,6 +111,7 @@ class StockView {
   _updateStockForm() {
     const root=this.shadowRoot,form=root.querySelector('#stock-editor-form'),locked=this._busy||this._hass.user?.is_admin!==true;
     const custom=form.elements.unit.value==='custom',usage=form.elements.mode.value==='usage',perishable=form.elements.mode.value==='perishable';
+    const meals=root.querySelector('isl-meal-consumption');meals.hass=this._hass;meals.active=form.elements.mode.value==='meals';
     root.querySelector('#stock-custom-unit-label').hidden=!custom;
     root.querySelector('#stock-days-label').hidden=!perishable;root.querySelector('#stock-usage-fields').hidden=!usage;
     root.querySelector('#stock-threshold-title').textContent=perishable ? 'Mínimo (%)' : 'Stock mínimo';
@@ -127,12 +130,14 @@ class StockView {
     const root=this.shadowRoot,form=root.querySelector('#stock-editor-form');
     if(!form.reportValidity())return;
     const value=key=>form.elements[key].value;
+    const meals=root.querySelector('isl-meal-consumption');
+    let mealRules;try{mealRules=value('mode')==='meals'?meals.validate():meals.value;}catch(error){const notice=root.querySelector('#stock-editor-error');notice.textContent=error.message;notice.hidden=false;return;}
     const config={quantity:Number(value('quantity')),quantity_changed:Number(value('quantity'))!==this._stockEditing.quantity,unit:value('unit')==='custom'?value('custom_unit').trim():value('unit'),
       mode:value('mode'),days:Number(value('days')),refill_quantity:Number(value('refill_quantity')),
       reorder_enabled:form.elements.reorder_enabled.checked,
       reorder_at:value('mode') === 'perishable' ? this._stockDraftMinimum : Number(value('reorder_at')),
       reorder_percent:value('mode') === 'perishable' ? Number(value('reorder_at')) : this._stockDraftPercent,
-      list_entity:value('list_entity'),usage_entity:value('usage_entity').trim(),usage_state:value('usage_state'),usage_amount:Number(value('usage_amount'))};
+      list_entity:value('list_entity'),usage_entity:value('usage_entity').trim(),usage_state:value('usage_state'),usage_amount:Number(value('usage_amount')),meal_rules:mealRules};
     const success=await this._runAction(()=>this._stock.save(this._stockEditing,config),'Stock guardado.');
     if(success){root.querySelector('#stock-editor-dialog').close();this._stockEditing=null;}
     else {const error=root.querySelector('#stock-editor-error');error.textContent=this._actionError;error.hidden=!error.textContent;}
@@ -159,12 +164,13 @@ export function installStockView(panel) {
             <label>Stock actual<div class="stock-quantity-editor"><button id="stock-draft-minus" type="button" aria-label="Disminuir stock"><ha-icon icon="mdi:minus" aria-hidden="true"></ha-icon></button><input name="quantity" aria-label="Stock actual" type="number" min="0" max="1000000" step="0.001" required><button id="stock-draft-plus" type="button" aria-label="Incrementar stock"><ha-icon icon="mdi:plus" aria-hidden="true"></ha-icon></button></div></label>
             <label>Unidades<select name="unit" aria-label="Unidades"><option value="uds">uds</option><option value="kg">kg</option><option value="g">g</option><option value="l">l</option><option value="ml">ml</option><option value="custom">Personalizadas</option></select></label>
             <label class="wide" id="stock-custom-unit-label" hidden>Unidad personalizada<input name="custom_unit" maxlength="32" placeholder="Por ejemplo, Latas"></label>
-            <label class="wide">Control del stock<select name="mode" aria-label="Control del stock"><option value="manual">Manual / lectores</option><option value="perishable">Perecedero</option><option value="usage">Consumo registrado</option></select></label>
+            <label class="wide">Control del stock<select name="mode" aria-label="Control del stock"><option value="manual">Manual / lectores</option><option value="perishable">Perecedero</option><option value="usage">Consumo registrado</option><option value="meals">Consumo por comidas</option></select></label>
             <div id="stock-usage-fields" class="wide" hidden><div class="stock-form-fields">
               <label class="wide">Entidad de consumo<input name="usage_entity" list="stock-usage-entities" placeholder="Por ejemplo, binary_sensor.lavadora"></label><datalist id="stock-usage-entities"></datalist>
               <label>Estado que representa un uso<input name="usage_state" maxlength="255" placeholder="Por ejemplo, on"></label>
               <label>Cantidad consumida por uso<input name="usage_amount" type="number" min="0.001" max="1000000" step="0.001" required></label>
             </div></div>
+            <isl-meal-consumption class="wide" hidden></isl-meal-consumption>
             <div class="stock-expiry-refill wide">
               <label id="stock-days-label" hidden>Caduca cada cuántos días desde la compra<input name="days" type="number" min="1" max="3650" step="1" required></label>
               <label>Cantidad predeterminada de reposición<input name="refill_quantity" type="number" min="0.001" max="1000000" step="0.001" required></label>

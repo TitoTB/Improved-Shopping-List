@@ -30,6 +30,7 @@ from .lidl_catalog import LidlCatalog
 from .readers import ReaderManager
 from .stock import StockManager
 from .stock_automation import StockAutomation
+from .meal_routines import MealRoutines
 from .receipts import ReceiptManager
 from .carrefour_account import CarrefourAccount
 from .dia_account import DiaAccount
@@ -78,6 +79,8 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         await activity.async_load()
         readers.activity = activity
         stock.activity = activity
+        meals=MealRoutines(hass,stock,activity)
+        await meals.async_load()
         quantities = ListQuantities(hass, catalog, settings, activity)
         await quantities.async_load()
         notifications = NotificationManager(hass, settings, stock, activity, catalog, readers)
@@ -163,6 +166,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         hass.data[DOMAIN]["lidl_catalog"]=lidl_catalog
         hass.data[DOMAIN]["ean_links"] = ean_links
         hass.data[DOMAIN]["common_eans"] = common_eans
+        hass.data[DOMAIN]["meal_routines"] = meals
         sources = CatalogSources(hass,catalog,ean_links,hass.data[DOMAIN]["option_lookup"],activity)
         await sources.async_load()
         hass.data[DOMAIN]["catalog_sources"] = sources
@@ -201,6 +205,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.data[DOMAIN]["stock"].start()
     hass.data[DOMAIN]["purchase_detection"].start()
     hass.data[DOMAIN]["stock_automation"].start()
+    if meals:=hass.data[DOMAIN].get('meal_routines'):meals.start()
     hass.data[DOMAIN]["readers"].start()
     hass.data[DOMAIN]["recurrence"].start()
     hass.data[DOMAIN]["community_sync"].start()
@@ -264,6 +269,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if common:=hass.data[DOMAIN].get("common_eans"):await common.async_stop()
     hass.data[DOMAIN]["stock"].stop()
     await hass.data[DOMAIN]["stock_automation"].async_stop()
+    if meals:=hass.data[DOMAIN].get('meal_routines'):await meals.async_stop()
     await hass.data[DOMAIN]["alcampo"].async_stop()
     await hass.data[DOMAIN]["price_manager"].async_stop()
     await hass.data[DOMAIN]["recurrence"].async_stop()

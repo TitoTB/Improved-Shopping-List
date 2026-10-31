@@ -19,7 +19,7 @@ DAY = 86400
 DEFAULT_CONFIG = {"unit":"uds", "mode":"manual", "days":7, "refill_quantity":1,
     "reorder_enabled":False, "reorder_at":0, "reorder_percent":0, "list_entity":"", "usage_entity":"",
     "usage_state":"", "usage_amount":1, "configured":False, "config_revision":0,
-    "expires_at":0, "expired":False}
+    "expires_at":0, "expired":False,"meal_rules":[]}
 
 
 def quantity_value(value, *, positive=False):
@@ -38,7 +38,7 @@ def quantity_value(value, *, positive=False):
 def stock_config(data):
     fields = {"quantity","unit","mode","days","refill_quantity","reorder_enabled","reorder_at",
         "list_entity","usage_entity","usage_state","usage_amount"}
-    if not isinstance(data, dict) or set(data) - {"reorder_percent","quantity_changed"} != fields:
+    if not isinstance(data, dict) or set(data) - {"reorder_percent","quantity_changed","meal_rules"} != fields:
         raise CatalogError("La configuración de Stock no es válida.")
     if "quantity_changed" in data and type(data["quantity_changed"]) is not bool:
         raise CatalogError("La edición de la cantidad no es válida.")
@@ -53,7 +53,7 @@ def stock_config(data):
         or any(ord(char)<32 for char in data["unit"])):
         raise CatalogError("Indica una unidad de hasta 32 caracteres.")
     result["unit"] = data["unit"].strip()
-    if data["mode"] not in ("manual","perishable","usage") or type(data["reorder_enabled"]) is not bool:
+    if data["mode"] not in ("manual","perishable","usage","meals") or type(data["reorder_enabled"]) is not bool:
         raise CatalogError("Selecciona un tipo de control de stock válido.")
     if type(data["days"]) is not int or not 1 <= data["days"] <= 3650:
         raise CatalogError("Indica entre 1 y 3650 días.")
@@ -67,6 +67,10 @@ def stock_config(data):
     if data["mode"] == "usage" and (not data["usage_entity"] or not data["usage_state"].strip()
         or data["usage_state"] in ("unknown","unavailable")):
         raise CatalogError("Selecciona la entidad y el estado que representa cada uso.")
+    if 'meal_rules' in data or data['mode']=='meals':
+        from .meal_routines import normalize_rules
+        result['meal_rules']=normalize_rules(data.get('meal_rules',[]))
+        if data['mode']=='meals' and not result['meal_rules']:raise CatalogError("Selecciona al menos una comida para este producto.")
     return result
 
 
@@ -158,7 +162,7 @@ class StockManager:
                 if type(merged.get("quantity_at",0)) not in (int,float) or not 0 <= merged.get("quantity_at",0) <= 100000000000:
                     raise CatalogError("La fecha de stock no es válida.")
                 stock_config({field:merged[field] for field in ("quantity","unit","mode","days","refill_quantity",
-                    "reorder_enabled","reorder_at","reorder_percent","list_entity","usage_entity","usage_state","usage_amount")})
+                    "reorder_enabled","reorder_at","reorder_percent","list_entity","usage_entity","usage_state","usage_amount","meal_rules")})
         except CatalogError as err:
             raise CatalogError("No se ha podido leer el stock guardado.", "storage_error") from err
         self._items = {key:{**deepcopy(DEFAULT_CONFIG),**deepcopy(item)} for key,item in items.items()}
@@ -275,6 +279,7 @@ class StockManager:
             quantity_changed=data.get("quantity_changed",current["quantity"]!=config["quantity"])
             item = {**materialized_stock(current), **config, "configured":True,
                 "config_revision":current.get("config_revision",0)+1, "revision":revision+1}
+            if config['mode']=='meals' and (current['mode']!='meals' or item.get('meal_rules')!=current.get('meal_rules')):item['meal_config_at']=time.time()
             if not quantity_changed:
                 item["quantity"]=remaining_quantity(current)
             item["quantity_at"]=time.time()
@@ -300,7 +305,7 @@ class StockManager:
             raise CatalogError("Indica el nombre del producto.")
         fields={"unit","mode","days","refill_quantity","reorder_enabled","reorder_at","reorder_percent",
                 "list_entity","usage_entity","usage_state","usage_amount"}
-        if not isinstance(payload,dict) or set(payload)!={"config_revision","config"} or not isinstance(payload["config"],dict) or set(payload["config"])!=fields:
+        if not isinstance(payload,dict) or set(payload)!={"config_revision","config"} or not isinstance(payload["config"],dict) or set(payload["config"])-{'meal_rules'}!=fields:
             raise CatalogError("La configuración de reposición no es válida.")
         current=self.item_for(product)
         if type(payload["config_revision"]) is not int or payload["config_revision"]!=(current or {}).get("config_revision",0):
@@ -317,6 +322,7 @@ class StockManager:
                   "name":product["name"],"catalog_product_id":product["id"],"configured":True,
                   "revision":(current or {}).get("revision",0)+1,"config_revision":(current or {}).get("config_revision",0)+1,
                   "quantity_at":now,"recurrence_updated_at":max(now,self.recurrence_stamp(current),product.get("recurrence_updated_at",0))+0.000001}
+            if config['mode']=='meals' and (not current or current['mode']!='meals' or item.get('meal_rules')!=current.get('meal_rules')):item['meal_config_at']=now
             if config["mode"]!="perishable":item.update(expires_at=0,expired=False)
             elif not current or current["mode"]!="perishable" or current["days"]!=config["days"]:
                 item.update(expires_at=now+config["days"]*DAY,expired=False)
@@ -383,6 +389,24 @@ class StockManager:
                 verb = {"usage":"Consumo registrado", "expire":"Caducidad alcanzada"}[action]
                 self.activity.record(f"stock.{action}",f'{verb}: {item["name"]} · {item["quantity"]} {item["unit"]}',
                     source="automatic", product=item["name"],quantity=item["quantity"],delta=round(item["quantity"]-before,3))
+            return deepcopy(item)
+
+    async def async_meals(self,item_id,config_revision,events):
+        """Persist stock and event ledger together: restarts cannot repeat a meal."""
+        async with self._lock:
+            current=self._items.get(item_id)
+            if not current or current['mode']!='meals' or current.get('config_revision')!=config_revision or not self.recurrence_ready(current):return
+            receipts=deepcopy(self.receipts);ledger=receipts.setdefault('meal_events',{});now=time.time()
+            fresh=[e for e in events if e['key'] not in ledger]
+            if not fresh:return
+            item=deepcopy(current);before=item['quantity']
+            item['quantity']=quantity_value(round(max(0,before-sum(e['amount'] for e in fresh)),3));item['revision']+=1
+            for event in fresh:ledger[event['key']]={'at':event['at'],'item_id':item_id,'amount':event['amount']}
+            receipts['meal_events']={key:value for key,value in ledger.items() if value.get('at',0)>now-32*DAY}
+            await self._persist({**deepcopy(self._items),item_id:item},receipts=receipts)
+            if self.activity:
+                self.activity.record('stock.meal',f'Consumo por comidas: {item["name"]} · {before-item["quantity"]:g} {item["unit"]}',source='automatic',
+                    product=item['name'],quantity=item['quantity'],delta=round(item['quantity']-before,3),diagnostics={'comidas':fresh})
             return deepcopy(item)
 
     async def async_adjust(self, item_id, delta):

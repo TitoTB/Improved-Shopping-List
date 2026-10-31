@@ -2,6 +2,8 @@
 
 ## Próxima versión
 
+- Nuevo control de Stock «Consumo por comidas». Ajustes → Rutinas permite asignar varias personas, comidas, horarios, días de la semana y permanencia mínima en casa. Cada producto puede descontar cantidades distintas por comida y persona. El registro se guarda junto al stock para evitar duplicados; no se recuperan consumos pasados al reiniciar y se ignora la presencia desconocida. Disponible también en Reposición de la ficha del producto.
+
 - La ficha del producto sustituye Automatización por Reposición, con bloques plegados para reposición automática, códigos de barras/QR y NFC. Perecedero y Consumo registrado comparten su configuración con Stock, sin reponer existencias al guardar. Las acciones por lector mantienen por defecto la acción configurada en el dispositivo.
 
 - En las alternativas de producto, «Unidades» pasa a «Unidad de medida» y «Unidades por pack» a «Unidades incluidas», con una unidad por defecto cuando no se informa (no aplicable a venta al peso).

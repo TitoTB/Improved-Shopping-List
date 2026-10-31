@@ -2,7 +2,7 @@
 
 ## Próxima versión
 
-- En las alternativas de producto, «Unidades» pasa a «Unidad de medida» y «Unidades por pack» a «Cantidad por pack».
+- En las alternativas de producto, «Unidades» pasa a «Unidad de medida» y «Unidades por pack» a «Unidades incluidas», con una unidad por defecto cuando no se informa (no aplicable a venta al peso).
 
 - Todos los precios de la interfaz, incluidas tarifas por unidad de medida y campos de edición, se muestran con un máximo de dos decimales.
 

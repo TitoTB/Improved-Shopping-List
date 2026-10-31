@@ -1581,10 +1581,11 @@ class ImprovedShoppingCatalog extends HTMLElement {
     const unit=contentFields.querySelector('select'),quantity=contentFields.querySelector('input');
     contentFields.prepend(unit.closest('label'));
     fields.append(contentFields);
-    const packLabel=element('label','option-pack','Cantidad por pack'),pack=element('input');
-    pack.type='number';pack.min='1';pack.max='1000000';pack.step='1';pack.placeholder='Sin informar';
-    pack.value=refs.find(ref=>ref.pack_count)?.pack_count??'';
+    const packLabel=element('label','option-pack','Unidades incluidas'),pack=element('input');
+    pack.type='number';pack.min='1';pack.max='1000000';pack.step='1';pack.placeholder='1';pack.title='Si no se indica, se considera una unidad.';
+    pack.value=refs.find(ref=>ref.pack_count)?.pack_count??(draft.sale_mode==='weight'?'':1);
     pack.addEventListener('input',()=>{for(const ref of refs){if(pack.value==='')delete ref.pack_count;else ref.pack_count=Number(pack.value);this._clearCommonSource(ref,['pack_count']);}onChange();});
+    pack.addEventListener('blur',()=>{if(pack.value===''&&draft.sale_mode!=='weight')pack.value='1';});
     packLabel.append(pack);contentFields.append(packLabel);
     let packageFields={quantity:draft.content_quantity,unit:draft.content_unit,pack:pack.value};
     const renderMode=()=>{

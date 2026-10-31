@@ -1,3 +1,4 @@
+const priceValue=value=>value==null||value===''?'':Number(Number(value).toFixed(2));
 import { purchaseQuantity, quantityLabel } from "./quantity-client.js?v=0.68.0";
 import { referenceContentControls, referenceRate, barcodeIdentity, validReferenceContent, validReferenceFormat, weightFormat, pendingProductInformation } from "./reference-formats.js?v=0.68.0";
 import { installDialogCloseButtons } from "./dialog-controls.js?v=0.68.0";
@@ -1385,7 +1386,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
         const badge = element("span","row-price");
         badge.title = offer.store ? `Último precio guardado · ${({elcorteingles:"El Corte Inglés",mercadona:"Mercadona",carrefour:"Carrefour",alcampo:"Alcampo",consum:"Consum",lasirena:"La Sirena",eroski:"Eroski",dia:"DIA",lidl:"Lidl"})[offer.store] ?? offer.store}` : "Precio manual";
         const icon = element("ha-icon"); icon.setAttribute("icon","mdi:cash-multiple"); icon.setAttribute("aria-hidden","true");
-        badge.append(icon,element("span","",new Intl.NumberFormat("es-ES",{style:"currency",currency:offer.currency}).format(Number(offer.price))));
+        badge.append(icon,element("span","",new Intl.NumberFormat("es-ES",{style:"currency",currency:offer.currency,minimumFractionDigits:2,maximumFractionDigits:2}).format(Number(offer.price))));
         metadata.append(badge);
       }
       if(this._view === 'products')metadata.append(this._quantityControl(product));
@@ -1632,11 +1633,11 @@ class ImprovedShoppingCatalog extends HTMLElement {
     const offers=[...(weightFormat(ref)&&ref.measure_price?[ref.measure_price]:[]),...(ref.last_price?[ref.last_price]:[]),...(this._priceData?.offers??[]).filter(offer=>offer.catalog_product_id===this._editing?.id&&(offer.commercial_reference_id===ref.id||offer.store===ref.store&&(ref.ean&&offer.ean===ref.ean||ref.reference_id&&offer.reference_id===ref.reference_id)))].sort((a,b)=>(b.checked_at??0)-(a.checked_at??0));
     const priceLabel=element('label','option-price','Precio por envase (€)'),priceInput=element('input');
     priceInput.type='number';priceInput.min='0';priceInput.max='1000000';priceInput.step='0.01';priceInput.inputMode='decimal';priceInput.placeholder='Sin precio';
-    priceInput.setAttribute('aria-label',weightFormat(ref)?'Precio por kg':'Precio por envase');priceInput.value=(weightFormat(ref)?ref.measure_price:undefined)?.price??offers[0]?.price??'';priceInput.disabled=!ref.store;
+    priceInput.setAttribute('aria-label',weightFormat(ref)?'Precio por kg':'Precio por envase');priceInput.value=priceValue((weightFormat(ref)?ref.measure_price:undefined)?.price??offers[0]?.price);priceInput.disabled=!ref.store;
     priceLabel.append(priceInput);card.querySelector('.option-sale-row').append(priceLabel);
     const priceText=element('p','helper');card.append(priceText);
     let displayedPrice=(weightFormat(ref)?ref.measure_price:undefined)??offers[0],priceByWeight=weightFormat(ref);
-    renderPrice=()=>{const weighed=weightFormat(ref);if(weighed!==priceByWeight){displayedPrice=(weighed?ref.measure_price:undefined)??ref.last_price??offers[0];priceInput.value=displayedPrice?.price??'';priceByWeight=weighed;}priceLabel.firstChild.textContent=weighed?'Precio por kg (€)':'Precio por envase (€)';priceInput.setAttribute('aria-label',weighed?'Precio por kg':'Precio por envase');if(weighed&&ref.measure_price)displayedPrice=ref.measure_price;priceText.hidden=!displayedPrice;if(!displayedPrice)return;const money=value=>new Intl.NumberFormat('es-ES',{style:'currency',currency:displayedPrice.currency??'EUR'}).format(value),rate=referenceRate(displayedPrice.price,ref);priceText.textContent='Último precio: '+money(displayedPrice.price)+(weighed?' / kg':' / envase');if(rate&&!weighed)priceText.textContent+=' · '+money(rate.price)+' / '+rate.unit;};renderPrice();
+    renderPrice=()=>{const weighed=weightFormat(ref);if(weighed!==priceByWeight){displayedPrice=(weighed?ref.measure_price:undefined)??ref.last_price??offers[0];priceInput.value=priceValue(displayedPrice?.price);priceByWeight=weighed;}priceLabel.firstChild.textContent=weighed?'Precio por kg (€)':'Precio por envase (€)';priceInput.setAttribute('aria-label',weighed?'Precio por kg':'Precio por envase');if(weighed&&ref.measure_price)displayedPrice=ref.measure_price;priceText.hidden=!displayedPrice;if(!displayedPrice)return;const money=value=>new Intl.NumberFormat('es-ES',{style:'currency',currency:displayedPrice.currency??'EUR',minimumFractionDigits:2,maximumFractionDigits:2}).format(value),rate=referenceRate(displayedPrice.price,ref);priceText.textContent='Último precio: '+money(displayedPrice.price)+(weighed?' / kg':' / envase');if(rate&&!weighed)priceText.textContent+=' · '+money(rate.price)+' / '+rate.unit;};renderPrice();
     priceInput.addEventListener('input',()=>{
       if(!priceInput.validity.valid)return;
       if(priceInput.value===''){delete ref.last_price;if(weightFormat(ref))delete ref.measure_price;displayedPrice=null;}
@@ -1644,7 +1645,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
       else{ref.last_price={price:priceInput.valueAsNumber,currency:'EUR',checked_at:Date.now()/1000};displayedPrice=ref.last_price;}
       update();
     });
-    if(ref.measure_price){const rate=ref.measure_price;card.append(element('p','helper','Precio por unidad de medida: '+new Intl.NumberFormat('es-ES',{style:'currency',currency:'EUR',maximumFractionDigits:4}).format(rate.price)+' / '+rate.quantity+' '+rate.unit));}
+    if(ref.measure_price){const rate=ref.measure_price;card.append(element('p','helper','Precio por unidad de medida: '+new Intl.NumberFormat('es-ES',{style:'currency',currency:'EUR',minimumFractionDigits:2,maximumFractionDigits:2}).format(rate.price)+' / '+rate.quantity+' '+rate.unit));}
     return card;
   }
 

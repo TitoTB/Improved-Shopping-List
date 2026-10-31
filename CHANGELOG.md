@@ -2,6 +2,8 @@
 
 ## Próxima versión
 
+- Todos los precios de la interfaz, incluidas tarifas por unidad de medida y campos de edición, se muestran con un máximo de dos decimales.
+
 - La revisión de tickets elimina el selector para relacionar una reposición anterior. El stock seleccionado se repone directamente con la cantidad confirmada, manteniendo la protección contra tickets duplicados.
 
 ## 0.68.0 — 2026-10-31

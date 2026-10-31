@@ -1,10 +1,11 @@
+const priceValue=value=>value==null||value===''?'':Number(Number(value).toFixed(2));
 import { ListSettingsSession } from "./list-settings-client.js?v=0.68.0";
 import { installDialogCloseButtons } from "./dialog-controls.js?v=0.68.0";
 import { productNameKey } from "./product-names.js?v=0.68.0";
 import { referenceFor, suggestedContent, referenceContentControls, validReferenceContent, validReferenceFormat, weightFormat, receiptCatalogPrice, barcodeIdentity, recoveredStockQuantity } from "./reference-formats.js?v=0.68.0";
 
 const node=(tag,cls,text)=>{const el=document.createElement(tag);if(cls)el.className=cls;if(text!==undefined)el.textContent=text;return el;};
-const money=value=>new Intl.NumberFormat('es-ES',{style:'currency',currency:'EUR'}).format(value);
+const money=value=>new Intl.NumberFormat('es-ES',{style:'currency',currency:'EUR',minimumFractionDigits:2,maximumFractionDigits:2}).format(value);
 const documentDate=receipt=>receipt.document_type==='invoice'?new Intl.DateTimeFormat('es-ES',{dateStyle:'short'}).format(new Date(receipt.purchased_at)):date(receipt.purchased_at);
 const localDay=value=>`${value.getFullYear()}-${String(value.getMonth()+1).padStart(2,'0')}-${String(value.getDate()).padStart(2,'0')}`;
 const date=value=>new Intl.DateTimeFormat('es-ES',{dateStyle:'short',timeStyle:'short'}).format(new Date(value));
@@ -414,7 +415,7 @@ class ImprovedShoppingPurchases extends HTMLElement {
         if(newPrice!=null&&previous!=null&&Math.round(previous*100)!==Math.round(newPrice*100))price.append(node('del','', '('+money(previous)+')'));
         label.append(node('strong','',product.name));if(!retained)label.append(price);name.append(this._productImage(product),label);toggle.append(name);row.append(toggle);
         if(retained){
-          const priceLabel=node('label','','Precio por kg (€)'),input=node('input');input.type='number';input.min='0.000001';input.max='1000000';input.step='any';input.inputMode='decimal';input.placeholder='Sin precio';input.value=newPrice??'';input.setAttribute('aria-label','Precio por kg de '+product.name);input.dataset.locked=String(!this._pricesEnabled);
+          const priceLabel=node('label','','Precio por kg (€)'),input=node('input');input.type='number';input.min='0.01';input.max='1000000';input.step='0.01';input.inputMode='decimal';input.placeholder='Sin precio';input.value=priceValue(newPrice);input.setAttribute('aria-label','Precio por kg de '+product.name);input.dataset.locked=String(!this._pricesEnabled);
           input.addEventListener('input',()=>{
             edit.manualPrice=input.value!==''&&input.validity.valid?input.valueAsNumber:null;edit.save_price=edit.manualPrice>0;
             row.dataset.selected=String(edit.save_price);toggle.setAttribute('aria-pressed',String(edit.save_price));toggle.dataset.locked=String(!edit.save_price);toggle.disabled=!edit.save_price;
@@ -651,7 +652,7 @@ class ImprovedShoppingPurchases extends HTMLElement {
     root.querySelector('#detected-date').textContent=documentDate(receipt)+' · '+receipt.article_count+' productos completados';
     const available=this._detectedStoreOptions(receipt.shop_id?'shop:'+receipt.shop_id:receipt.store);
     root.querySelector('#detected-other').value=receipt.store.startsWith('other:')||receipt.shop_id&&!this._session.shops.some(shop=>shop.id===receipt.shop_id)?receipt.store_name:'';
-    root.querySelector('#detected-total').value=receipt.total==null?'':String(receipt.total);const people=root.querySelector('#detected-shoppers');people.replaceChildren(...[...new Set([...(this._session.persons??[]),...(receipt.shoppers??[])])].map(person=>{const option=new Option(this._hass.states[person]?.attributes?.friendly_name??person,person);option.selected=(receipt.shoppers??[]).includes(person);return option;}));
+    root.querySelector('#detected-total').value=priceValue(receipt.total);const people=root.querySelector('#detected-shoppers');people.replaceChildren(...[...new Set([...(this._session.persons??[]),...(receipt.shoppers??[])])].map(person=>{const option=new Option(this._hass.states[person]?.attributes?.friendly_name??person,person);option.selected=(receipt.shoppers??[]).includes(person);return option;}));
     const candidates=receipt.needs_details?(receipt.zone_candidates??[]).filter(store=>available.has(store)):[];
     const choices=root.querySelector('#detected-zone-candidates');choices.hidden=!candidates.length;
     const hint=root.querySelector('#detected-zone-help');hint.hidden=!candidates.length;hint.textContent=candidates.length===1?'Tienda propuesta por presencia en su zona. Puedes confirmarla o elegir otra.':'Se han registrado visitas a varias tiendas ese día. Selecciona dónde hiciste la compra.';

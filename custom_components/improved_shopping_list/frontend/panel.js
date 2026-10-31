@@ -1036,7 +1036,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
     const totals = new Map();
     for (const {offer} of receipt.lines) if (offer) totals.set(offer.currency,(totals.get(offer.currency) ?? 0)+Math.round(Number(offer.price)*100));
     if (!totals.size) totals.set("EUR",0);
-    return [...totals].map(([currency,cents]) => new Intl.NumberFormat("es-ES",{style:"currency",currency}).format(cents/100)).join(" + ");
+    return [...totals].map(([currency,cents]) => new Intl.NumberFormat("es-ES",{style:"currency",currency,minimumFractionDigits:2,maximumFractionDigits:2}).format(cents/100)).join(" + ");
   }
 
   _renderReceipt(items, receipts, selected) {
@@ -1075,7 +1075,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
     known.setAttribute("aria-label","Productos con precio"); unknown.setAttribute("aria-label","Productos sin precio");
     for (const line of receipt.lines) {
       const row=make("li","receipt-row");
-      row.append(make("span","receipt-name",line.name),make("span","receipt-price",line.offer ? new Intl.NumberFormat("es-ES",{style:"currency",currency:line.offer.currency}).format(Number(line.offer.price)) : "Sin precio"));
+      row.append(make("span","receipt-name",line.name),make("span","receipt-price",line.offer ? new Intl.NumberFormat("es-ES",{style:"currency",currency:line.offer.currency,minimumFractionDigits:2,maximumFractionDigits:2}).format(Number(line.offer.price)) : "Sin precio"));
       (line.offer ? known : unknown).append(row);
     }
     paper.append(known);
@@ -1100,7 +1100,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
       if (offer) totals.set(offer.currency,(totals.get(offer.currency) ?? 0) + Math.round(Number(offer.price)*100));
     }
     if (!totals.size) totals.set("EUR",0);
-    return [...totals].map(([currency,cents]) => new Intl.NumberFormat("es-ES",{style:"currency",currency}).format(cents/100)).join(" + ");
+    return [...totals].map(([currency,cents]) => new Intl.NumberFormat("es-ES",{style:"currency",currency,minimumFractionDigits:2,maximumFractionDigits:2}).format(cents/100)).join(" + ");
   }
 
   _renderProductGroups(container,nodes,items,productFor,grouped,layout) {
@@ -1202,7 +1202,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
           logo.addEventListener("error",()=>logo.remove(),{once:true});price.append(logo);
         }
         const label = document.createElement("span");
-        label.textContent = new Intl.NumberFormat("es-ES",{style:"currency",currency:offer.currency}).format(Number(offer.price));
+        label.textContent = new Intl.NumberFormat("es-ES",{style:"currency",currency:offer.currency,minimumFractionDigits:2,maximumFractionDigits:2}).format(Number(offer.price));
         price.title = offer.store ? `Último precio guardado · ${STORE_NAMES[offer.store] ?? offer.store}` : "Precio manual";
         price.append(label); metadata.append(price);
       }

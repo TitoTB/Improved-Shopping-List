@@ -644,7 +644,7 @@ class ImprovedShoppingSettings extends HTMLElement {
         const info = document.createElement("div"); const name = document.createElement("strong"); name.textContent = product.name;
         const ean = document.createElement("p"); ean.textContent = `${product.reference_id ? `ID: ${product.reference_id} · ` : ""}EAN: ${product.ean || "No disponible"}${product.checked_at ? ` · Último precio: ${new Date(product.checked_at*1000).toLocaleString("es-ES")}` : ""}`;
         const link = document.createElement("a"); link.textContent = "Ver en Carrefour"; link.href = product.url || product.affiliate_url; link.target = "_blank"; link.rel = "noopener noreferrer";
-        const price = document.createElement("strong"); price.textContent = new Intl.NumberFormat("es-ES",{style:"currency",currency:product.currency}).format(Number(product.price));
+        const price = document.createElement("strong"); price.textContent = new Intl.NumberFormat("es-ES",{style:"currency",currency:product.currency,minimumFractionDigits:2,maximumFractionDigits:2}).format(Number(product.price));
         info.append(name,ean,link); row.append(info,price); return row;
       }));
     } catch (error) { if (current()) {
@@ -774,7 +774,7 @@ class ImprovedShoppingSettings extends HTMLElement {
         const row = document.createElement("div"); row.className = "store-product";
         const link = document.createElement("a"); link.textContent = product.name || product.store_name || product.reference_id;
         link.href = product.url; link.target = "_blank"; link.rel = "noopener noreferrer";
-        const text = document.createElement("p"); text.textContent = `${new Intl.NumberFormat("es-ES",{style:"currency",currency:product.currency}).format(Number(product.price))} · Último precio: ${new Date(product.checked_at*1000).toLocaleString("es-ES")}`;
+        const text = document.createElement("p"); text.textContent = `${new Intl.NumberFormat("es-ES",{style:"currency",currency:product.currency,minimumFractionDigits:2,maximumFractionDigits:2}).format(Number(product.price))} · Último precio: ${new Date(product.checked_at*1000).toLocaleString("es-ES")}`;
         row.append(link,text); return row;
       }));
       if(data.error){const error=root.querySelector(`#${store}-error`);error.textContent=data.error;error.hidden=false;}
@@ -792,7 +792,7 @@ class ImprovedShoppingSettings extends HTMLElement {
       root.querySelector("#alcampo-products").replaceChildren(...data.products.map(product=>{
         const row=document.createElement("div");row.className="store-product";
         const link=document.createElement("a");link.textContent=product.name||product.store_name;link.href=product.url;link.target="_blank";link.rel="noopener noreferrer";
-        const text=document.createElement("p");text.textContent=`${new Intl.NumberFormat("es-ES",{style:"currency",currency:product.currency}).format(Number(product.price))} · Último precio: ${new Date(product.checked_at*1000).toLocaleString("es-ES")}`;
+        const text=document.createElement("p");text.textContent=`${new Intl.NumberFormat("es-ES",{style:"currency",currency:product.currency,minimumFractionDigits:2,maximumFractionDigits:2}).format(Number(product.price))} · Último precio: ${new Date(product.checked_at*1000).toLocaleString("es-ES")}`;
         row.append(link,text);return row;
       }));
     } catch(error){if(this.isConnected&&dialog.open&&generation===this._alcampoGeneration){
@@ -818,7 +818,7 @@ class ImprovedShoppingSettings extends HTMLElement {
     error.hidden = !error.textContent;
     root.querySelector("#store-products-status").textContent = this._productsLoading
       ? "Cargando precios guardados…" : `${data?.products?.length ?? 0} precios guardados`;
-    const money = value => new Intl.NumberFormat("es-ES",{style:"currency",currency:"EUR"}).format(value);
+    const money = value => new Intl.NumberFormat("es-ES",{style:"currency",currency:"EUR",minimumFractionDigits:2,maximumFractionDigits:2}).format(value);
     root.querySelector("#store-products").replaceChildren(...(data?.products ?? []).map(product => {
       const row = document.createElement("div"); row.className = "store-product";
       const info = document.createElement("div"); info.className = "store-product-info";

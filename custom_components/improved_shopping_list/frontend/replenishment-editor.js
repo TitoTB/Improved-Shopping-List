@@ -93,7 +93,7 @@ export class ReplenishmentEditor {
     if(!this.dirty)return undefined;
     if(!this.loaded)throw new Error('Espera a que se cargue la reposición.');
     const config={...defaults,...Object.fromEntries(Object.keys(defaults).filter(key=>!['reorder_at','reorder_percent','unit'].includes(key)).map(key=>[key,key==='reorder_enabled'?this.field(key).checked:['days','refill_quantity','usage_amount'].includes(key)?Number(this.field(key).value):this.field(key).value]))};
-    config.unit=this.config.unit;config.reorder_at=this.config.reorder_at;config.reorder_percent=Number(this.field('minimum').value);config.reorder_basis=config.mode==='manual'?'quantity':'percent';
+    config.unit=this.config.unit;config.reorder_at=this.config.reorder_at;config.reorder_percent=Number(this.field('minimum').value);config.reorder_basis=config.mode==='manual'?(this.config.reorder_basis??'quantity'):'percent';
     if(config.mode!=='manual'&&(config.mode==='perishable'||config.reorder_enabled)&&!config.list_entity)throw new Error('Añade una lista de compra en Ajustes → Listas para configurar la reposición.');
     if(config.mode==='manual')config.reorder_enabled=false;
     const meals=this.root.querySelector('isl-meal-consumption');config.meal_rules=config.mode==='meals'?meals.validate():meals.value;

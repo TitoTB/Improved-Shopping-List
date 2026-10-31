@@ -1155,6 +1155,10 @@ async function checkReplenishmentLayout(browser,url,errors){
   await form.getByLabel('Lista para reponer',{exact:true}).selectOption('todo.local');
   await form.getByRole('button',{name:'Guardar producto',exact:true}).click();await form.waitFor({state:'hidden'});
   assert.equal(await page.evaluate(()=>window.lastReplenishment.config.list_entity),'todo.local');
+  await editCatalogProduct(catalog,'Editar Pavo');await form.getByRole('button',{name:'Reposición',exact:true}).click();await form.locator('#product-replenishment > summary').click();
+  await mode.selectOption('manual');await form.getByRole('button',{name:'Guardar producto',exact:true}).click();await form.waitFor({state:'hidden'});
+  await editCatalogProduct(catalog,'Editar Pavo');await form.getByRole('button',{name:'Reposición',exact:true}).click();await form.locator('#product-replenishment > summary').click();
+  await mode.selectOption('usage');assert.equal(await form.getByLabel('Mínimo (%)',{exact:true}).inputValue(),'20');
   await context.close();
 }
 

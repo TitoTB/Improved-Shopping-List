@@ -81,9 +81,9 @@ export class CatalogSession {
     }
   }
 
-  async save(product) {
+  async save(product, replenishment) {
     const generation = this._generation;
-    const result = await this.getHass().callWS({ type: `${PREFIX}save`, product });
+    const result = await this.getHass().callWS({ type: `${PREFIX}save`, product, ...(replenishment ? {replenishment} : {}) });
     if (generation === this._generation) await this.refresh();
     return result.product;
   }

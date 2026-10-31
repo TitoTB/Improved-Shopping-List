@@ -145,6 +145,17 @@ class RecurrenceManager:
             async with self._lock:
                 await self._sync_stock()
 
+    async def async_save_replenishment(self, data, payload):
+        """Serialize catalog/stock editor changes with the recurrence coordinator."""
+        async with self._lock:
+            self.stock.replenishment_config(data,payload)
+            # Stock is authoritative for all three modes; changing mode must not
+            # briefly create a second perishable schedule from the catalog edit.
+            product=await self.catalog.async_save_product(data)
+            await self.stock.async_save_replenishment(product,payload)
+            await self._sync_stock()
+            return next(p for p in self.catalog.products if p["id"]==product["id"])
+
     async def _sync_stock(self):
         for product in self.catalog.products:
             item = self.stock.item_for(product)

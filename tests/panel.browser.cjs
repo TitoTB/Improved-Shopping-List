@@ -520,6 +520,15 @@ const hass={
       if(window.failCatalog)throw new Error('No se ha podido guardar el catálogo');
       const old=window.catalogProducts.find(product=>product.id===msg.product.id);
       const product={...msg.product,season_months:old?.season_months??[],id:old?.id??crypto.randomUUID(),revision:(old?.revision??0)+1,price_updated_at:new Date().toISOString()};
+      if(msg.replenishment){
+        window.lastReplenishment=structuredClone(msg.replenishment);
+        const current=window.stockItems.find(item=>item.catalog_product_id===product.id),config=msg.replenishment.config;
+        if(current||config.mode!=='manual'){
+          const item={...current,...config,id:current?.id??'stock-'+product.id,catalog_product_id:product.id,name:product.name,quantity:current?.quantity??0,config_revision:(current?.config_revision??0)+1,revision:(current?.revision??0)+1};
+          window.stockItems=window.stockItems.filter(row=>row.id!==item.id);window.stockItems.push(item);
+        }
+        product.recurrence={enabled:config.mode==='perishable',days:config.days};
+      }
       product.name_en=product.name==='Leche'?'Milk':'';
       delete product.brand;delete product.format;
       window.catalogProducts=window.catalogProducts.filter(item=>item.id!==product.id);window.catalogProducts.push(product);
@@ -572,7 +581,8 @@ async function captureProductCode(page, form, kind, code, expected = code) {
       window.emitReaders();
     }
   },kind);
-  await form.getByRole('button',{name:'Automatización',exact:true}).click();
+  await form.getByRole('button',{name:'Reposición',exact:true}).click();
+  await form.locator('#product-automation details').evaluateAll(blocks=>blocks.forEach(block=>block.open=true));
   const group=form.locator('#product-'+kind+'-codes');
   await group.getByRole('button',{name:'Escanear',exact:true}).click();
   await page.waitForFunction(()=>window.captureListeners?.size>0);
@@ -1039,6 +1049,43 @@ async function checkRepeatedReceiptProduct(browser,url,errors){
   assert.deepEqual(await page.evaluate(()=>window.lastReceiptConfirmation.lines.map(line=>[line.product_id,line.quantity])),[['pan',2],['pan',3]]);
   assert.equal(await page.evaluate(()=>window.stockItems.filter(item=>item.catalog_product_id==='pan').length),1);
   assert.equal(await page.evaluate(()=>window.stockItems.find(item=>item.catalog_product_id==='pan').quantity),5);
+  await context.close();
+}
+
+async function checkProductReplenishment(browser,url,errors){
+  const context=await browser.newContext({viewport:{width:390,height:844}}),page=await context.newPage();
+  page.on('pageerror',error=>errors.push(error.message));await page.goto(url);
+  await page.getByRole('button',{name:'Catálogo',exact:true}).click();const catalog=page.locator('isl-catalog');
+  await catalog.getByRole('button',{name:'Nuevo producto',exact:true}).click();
+  const form=catalog.getByRole('dialog',{name:'Nuevo producto',exact:true});
+  await form.getByLabel('Nombre del producto',{exact:true}).fill('Reposición de prueba');
+  await form.getByRole('button',{name:'Reposición',exact:true}).click();
+  assert.deepEqual(await form.locator('#product-automation > details').evaluateAll(blocks=>blocks.map(b=>[b.id,b.open])),[['product-replenishment',false],['product-barcode-codes',false],['product-nfc-codes',false]]);
+  assert.equal(await form.locator('[data-product-view="automation"] ha-icon').getAttribute('icon'),'mdi:reload');
+  await form.locator('#product-replenishment > summary').click();
+  const mode=form.getByRole('combobox',{name:'Reposición automática',exact:true});await mode.waitFor();
+  await page.waitForFunction(()=>!document.querySelector('improved-shopping-list-panel').shadowRoot.querySelector('isl-catalog').shadowRoot.querySelector('[data-replenishment="mode"]').disabled);
+  assert.equal(await mode.inputValue(),'manual');await mode.selectOption('perishable');
+  await form.getByLabel('Días de recurrencia',{exact:true}).fill('9');
+  await form.getByLabel('Cantidad predeterminada de reposición',{exact:true}).fill('250');
+  await form.getByLabel('Unidades de Stock',{exact:true}).fill('g');
+  await form.getByRole('button',{name:'Guardar producto',exact:true}).click();await form.waitFor({state:'hidden'});
+  assert.deepEqual(await page.evaluate(()=>window.lastReplenishment.config.mode),'perishable');
+  assert.equal(await page.evaluate(()=>window.stockItems.find(item=>item.name==='Reposición de prueba').quantity),0);
+  await editCatalogProduct(catalog,'Editar Reposición de prueba');
+  const edit=catalog.getByRole('dialog',{name:'Editar producto',exact:true});await edit.getByRole('button',{name:'Reposición',exact:true}).click();
+  await edit.locator('#product-replenishment > summary').click();
+  const editMode=edit.getByRole('combobox',{name:'Reposición automática',exact:true});
+  await page.waitForFunction(()=>!document.querySelector('improved-shopping-list-panel').shadowRoot.querySelector('isl-catalog').shadowRoot.querySelector('[data-replenishment="mode"]').disabled);
+  assert.equal(await editMode.inputValue(),'perishable');assert.equal(await edit.getByLabel('Días de recurrencia',{exact:true}).inputValue(),'9');
+  await editMode.selectOption('usage');
+  await edit.getByLabel('Entidad de consumo',{exact:true}).fill('sensor.lavadora');
+  await edit.getByLabel('Estado que representa un uso',{exact:true}).fill('fin');
+  await edit.getByLabel('Cantidad consumida por uso',{exact:true}).fill('5');
+  await page.screenshot({path:'test-results/product-replenishment-mobile.png',fullPage:true});
+  await edit.getByRole('button',{name:'Guardar producto',exact:true}).click();await edit.waitFor({state:'hidden'});
+  assert.equal(await page.evaluate(()=>window.stockItems.find(item=>item.name==='Reposición de prueba').mode),'usage');
+  assert.equal(await page.evaluate(()=>window.catalogProducts.find(item=>item.name==='Reposición de prueba').recurrence.enabled),false);
   await context.close();
 }
 
@@ -2035,7 +2082,7 @@ async function main() {
     }
     if (pathname === "/") { res.setHeader("content-type", "text/html; charset=utf-8"); res.end(html); return; }
     if (pathname === '/catalog-sources.js') {res.setHeader('content-type','text/javascript; charset=utf-8');res.end(await fs.readFile(path.join(root,'catalog-sources.js')));return;}
-    if (!["/pending-information-refresh.js", "/masymas.png", "/bm.png", "/stock-panel.js", "/product-display.js", "/reference-formats.js", "/zone-map.js", "/vendor/leaflet/leaflet.js", "/vendor/leaflet/leaflet.css", "/vendor/leaflet/images/layers.png", "/vendor/leaflet/images/layers-2x.png", "/lidl-account.js", "/toggle-styles.js", "/shopping-places.js", "/dia-prices-settings.js", "/dia-account.js", "/analytics-panel.js", "/alcampo-settings.js", "/carrefour-account.js", "/notification-settings.js", "/recipe-editor.js", "/quantity-client.js", "/panel.js", "/purchases-panel.js", "/stock-client.js", "/dialog-controls.js", "/todo-client.js", "/catalog-panel.js", "/catalog-client.js", "/category-panel.js", "/icon-picker.js", "/list-settings-client.js", "/settings-panel.js", "/readers-client.js", "/readers-panel.js", "/product-matching.js", "/product-names.js", "/logs-panel.js", "/logo.png", "/mercadona.png", "/consum.jpg", "/lasirena.jpg", "/eroski.svg", "/dia.png"].includes(pathname)) { res.writeHead(404).end(); return; }
+    if (!["/replenishment-editor.js", "/pending-information-refresh.js", "/masymas.png", "/bm.png", "/stock-panel.js", "/product-display.js", "/reference-formats.js", "/zone-map.js", "/vendor/leaflet/leaflet.js", "/vendor/leaflet/leaflet.css", "/vendor/leaflet/images/layers.png", "/vendor/leaflet/images/layers-2x.png", "/lidl-account.js", "/toggle-styles.js", "/shopping-places.js", "/dia-prices-settings.js", "/dia-account.js", "/analytics-panel.js", "/alcampo-settings.js", "/carrefour-account.js", "/notification-settings.js", "/recipe-editor.js", "/quantity-client.js", "/panel.js", "/purchases-panel.js", "/stock-client.js", "/dialog-controls.js", "/todo-client.js", "/catalog-panel.js", "/catalog-client.js", "/category-panel.js", "/icon-picker.js", "/list-settings-client.js", "/settings-panel.js", "/readers-client.js", "/readers-panel.js", "/product-matching.js", "/product-names.js", "/logs-panel.js", "/logo.png", "/mercadona.png", "/consum.jpg", "/lasirena.jpg", "/eroski.svg", "/dia.png"].includes(pathname)) { res.writeHead(404).end(); return; }
     res.setHeader("content-type", pathname.endsWith(".css") ? "text/css; charset=utf-8" : pathname.endsWith(".svg") ? "image/svg+xml" : pathname.endsWith(".png") ? "image/png" : pathname.endsWith(".jpg") ? "image/jpeg" : "text/javascript; charset=utf-8");
     res.end(await fs.readFile(path.join(root, pathname.slice(1))));
   });
@@ -2055,6 +2102,7 @@ async function main() {
     if(process.argv.includes('--option-ean-only')){const errors=[];await checkDifferentOptionEAN(browser,`http://127.0.0.1:${server.address().port}`,errors);await checkStagedOptionURL(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Alternative EAN discovery passed.');return;}
     if(process.argv.includes('--catalog-sources-only')){const errors=[];await checkCatalogSources(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Catalog sources and EAN grouping passed.');return;}
     if(process.argv.includes('--repeated-receipt-product-only')){const errors=[];await checkRepeatedReceiptProduct(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Repeated receipt product passed.');return;}
+    if(process.argv.includes('--replenishment-only')){const errors=[];await checkProductReplenishment(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Product replenishment passed.');return;}
     if(process.argv.includes('--reference-logs-only')){const errors=[];await checkReferenceLogDescriptions(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Reference log descriptions passed.');return;}
     if(process.argv.includes('--formats-only')){const errors=[];await checkReferenceFormats(browser,`http://127.0.0.1:${server.address().port}`,errors);await checkReceiptPackageFormats(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Commercial reference browser checks passed.');return;}
     if(process.argv.includes('--recovery-only')){const errors=[];await checkDetectedPurchaseRecovery(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Manual purchase recovery browser checks passed.');return;}
@@ -2222,7 +2270,8 @@ async function main() {
     assert.equal(await catalog.getByLabel("Etiquetas", { exact:true }).count(),0);
     assert.equal(await catalog.getByLabel("Icono del producto", { exact:true }).count(),0);
     assert.equal(await catalog.getByLabel("Notas", { exact:true }).count(),0);
-    await catalog.getByRole("button",{name:"Automatización",exact:true}).click();
+    await catalog.getByRole("button",{name:"Reposición",exact:true}).click();
+  await catalog.locator('#product-automation details').evaluateAll(blocks=>blocks.forEach(block=>block.open=true));
     assert.equal(await catalog.getByLabel("Marca", { exact: true }).count(), 0);
     assert.equal(await catalog.getByLabel("Formato", { exact: true }).count(), 0);
     await captureProductCode(page,catalog,"barcode","0012345678905");
@@ -3717,11 +3766,12 @@ async function main() {
     assert.deepEqual(await codeDialog.locator("#barcode-code-list .code-value").allTextContents(),["0012345678905"]);
     assert.equal(await codeDialog.getByLabel("Nombre del producto",{exact:true}).inputValue(),"");
     await codeDialog.getByLabel("Nombre del producto",{exact:true}).fill("Cacao lector");
-    await codeDialog.getByRole("button",{name:"Automatización",exact:true}).click();
-    await codeDialog.getByRole("heading",{name:"Recurrencia",exact:true}).waitFor();
+    await codeDialog.getByRole("button",{name:"Reposición",exact:true}).click();
+  await codeDialog.locator('#product-automation details').evaluateAll(blocks=>blocks.forEach(block=>block.open=true));
+    await codeDialog.getByRole("combobox",{name:"Reposición automática",exact:true}).waitFor();
     const recurrenceDays = codeDialog.getByRole("spinbutton",{name:"Días de recurrencia",exact:true});
     assert.equal(await recurrenceDays.isDisabled(),true);
-    await codeDialog.getByRole("checkbox",{name:"Comprar cada",exact:true}).check();
+    await codeDialog.getByRole("combobox",{name:"Reposición automática",exact:true}).selectOption("perishable");
     assert.equal(await recurrenceDays.isDisabled(),false);
     await recurrenceDays.fill("12");
     assert.equal(await codeDialog.locator('[name="barcode"], [name="barcodes"], [name="nfc_tags"]').count(),0);
@@ -3796,7 +3846,8 @@ async function main() {
     await readerPage.evaluate(()=>{window.savedReaderMetadata=window.readerFixture.readers;window.readerFixture.readers=[];window.emitReaders();});
     await editCatalogProduct(readerCatalog,'Editar Cacao lector');
     const inheritDialog=readerCatalog.getByRole('dialog',{name:'Editar producto',exact:true});
-    await inheritDialog.getByRole('button',{name:'Automatización',exact:true}).click();
+    await inheritDialog.getByRole('button',{name:'Reposición',exact:true}).click();
+  await inheritDialog.locator('#product-automation details').evaluateAll(blocks=>blocks.forEach(block=>block.open=true));
     // Late metadata restores only explicit saved exceptions, never another form's selection.
     await readerPage.evaluate(()=>{window.readerFixture.readers=window.savedReaderMetadata;window.emitReaders();});
     assert.equal(await inheritDialog.getByLabel('Cocina',{exact:true}).inputValue(),'add_list');
@@ -3816,13 +3867,15 @@ async function main() {
     assert.equal(await readerPage.evaluate(()=>Object.values(window.catalogProducts[0].reader_actions).includes('stock_remove')),true);
     await readerCatalog.getByRole('button',{name:'Nuevo producto',exact:true}).click();
     const defaultActionsDialog=readerCatalog.getByRole('dialog',{name:'Nuevo producto',exact:true});
-    await defaultActionsDialog.getByRole('button',{name:'Automatización',exact:true}).click();
+    await defaultActionsDialog.getByRole('button',{name:'Reposición',exact:true}).click();
+  await defaultActionsDialog.locator('#product-automation details').evaluateAll(blocks=>blocks.forEach(block=>block.open=true));
     assert.equal(await defaultActionsDialog.getByLabel('Cocina',{exact:true}).inputValue(),'default');
     assert.equal(await defaultActionsDialog.getByLabel('NFC despensa',{exact:true}).inputValue(),'default');
     await defaultActionsDialog.getByLabel('Cocina',{exact:true}).selectOption('none');
     await defaultActionsDialog.getByRole('button',{name:'Cerrar ventana',exact:true}).click();
     await readerCatalog.getByRole('button',{name:'Nuevo producto',exact:true}).click();
-    await defaultActionsDialog.getByRole('button',{name:'Automatización',exact:true}).click();
+    await defaultActionsDialog.getByRole('button',{name:'Reposición',exact:true}).click();
+  await defaultActionsDialog.locator('#product-automation details').evaluateAll(blocks=>blocks.forEach(block=>block.open=true));
     assert.equal(await defaultActionsDialog.getByLabel('Cocina',{exact:true}).inputValue(),'default');
     await defaultActionsDialog.getByRole('button',{name:'Cerrar ventana',exact:true}).click();
     await readerCatalog.getByRole('button',{name:'Pendiente',exact:true}).click();
@@ -3898,7 +3951,8 @@ async function main() {
     await nutriCatalog.getByRole('button',{name:'Nuevo producto',exact:true}).click();
     assert.equal(await nutriPage.evaluate(()=>window.nutriCalls?.length??0),0);
     await nutriPage.evaluate(()=>{window.nutriFixture={'8410109115543':{grade:'a',version:'2023',checked_at:1800000000},'3017620422003':{grade:'d',checked_at:1800000000}};});
-    await nutriForm.getByRole('button',{name:'Automatización',exact:true}).click();
+    await nutriForm.getByRole('button',{name:'Reposición',exact:true}).click();
+  await nutriForm.locator('#product-automation details').evaluateAll(blocks=>blocks.forEach(block=>block.open=true));
     for(const code of ['8410109115543','08410109115543','3017620422003','https://private.test/qr','3017620422004'])await captureProductCode(nutriPage,nutriForm,'barcode',code);
     await captureProductCode(nutriPage,nutriForm,'nfc','AA:BB:CC:DD');
     await nutriForm.getByRole('button',{name:'Alternativas',exact:true}).click();
@@ -3910,14 +3964,16 @@ async function main() {
     await nutriForm.getByRole('button',{name:'Alternativas',exact:true}).click();
     assert.equal(await nutriPage.evaluate(()=>window.nutriCalls.length),2);
     await nutriPage.evaluate(()=>{window.listSettings.stores={carrefour:{enabled:true}};window.emitSettings();});
-    await nutriForm.getByRole('button',{name:'Automatización',exact:true}).click();
+    await nutriForm.getByRole('button',{name:'Reposición',exact:true}).click();
+  await nutriForm.locator('#product-automation details').evaluateAll(blocks=>blocks.forEach(block=>block.open=true));
     await captureProductCode(nutriPage,nutriForm,'barcode','8431876279146');
     await nutriForm.getByRole('button',{name:'Alternativas',exact:true}).click();
     assert.equal(await nutriForm.locator('#product-store-prices').count(),0);
     assert.equal(await nutriForm.locator('#store-price-results').count(),0);
     await nutriForm.locator('..').getByRole('button',{name:'Cerrar ventana',exact:true}).click();
     await nutriCatalog.getByRole('button',{name:'Nuevo producto',exact:true}).click();
-    await nutriForm.getByRole('button',{name:'Automatización',exact:true}).click();
+    await nutriForm.getByRole('button',{name:'Reposición',exact:true}).click();
+  await nutriForm.locator('#product-automation details').evaluateAll(blocks=>blocks.forEach(block=>block.open=true));
     await captureProductCode(nutriPage,nutriForm,'barcode','3017620422003');
     await nutriPage.evaluate(()=>{window.delayNutriCode='3017620422003';});
     await nutriForm.getByRole('button',{name:'Alternativas',exact:true}).click();
@@ -3927,7 +3983,8 @@ async function main() {
     await nutriPage.evaluate(()=>window.releaseNutri());
     await nutriForm.getByRole('button',{name:'Alternativas',exact:true}).click();
     assert.equal(await nutriForm.locator('.option-nutriscore').count(),0);
-    await nutriForm.getByRole('button',{name:'Automatización',exact:true}).click();
+    await nutriForm.getByRole('button',{name:'Reposición',exact:true}).click();
+  await nutriForm.locator('#product-automation details').evaluateAll(blocks=>blocks.forEach(block=>block.open=true));
     const captureGroup=nutriForm.locator('#product-barcode-codes');
     await nutriPage.evaluate(()=>{window.failCapture=true;});
     await captureGroup.getByRole('button',{name:'Escanear',exact:true}).click();
@@ -5154,6 +5211,7 @@ async function main() {
     await checkReferenceFormats(browser,url,errors);
     await checkReceiptPackageFormats(browser,url,errors);
     await checkRepeatedReceiptProduct(browser,url,errors);
+    await checkProductReplenishment(browser,`http://127.0.0.1:${server.address().port}`,errors);
     await checkReferenceLogDescriptions(browser,url,errors);
     await checkAttentionIndicators(browser,url,errors);
 

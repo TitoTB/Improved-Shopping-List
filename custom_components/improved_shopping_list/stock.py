@@ -294,6 +294,35 @@ class StockManager:
                 self.activity.record("stock.configured",f'{item["name"]}: configuración de Stock guardada',source="manual",product=item["name"])
             return deepcopy(item)
 
+    def replenishment_config(self, product, payload):
+        """Validate catalog edits without accepting or changing stock quantities."""
+        if not isinstance(product,dict) or not isinstance(product.get("name"),str):
+            raise CatalogError("Indica el nombre del producto.")
+        fields={"unit","mode","days","refill_quantity","reorder_enabled","reorder_at","reorder_percent",
+                "list_entity","usage_entity","usage_state","usage_amount"}
+        if not isinstance(payload,dict) or set(payload)!={"config_revision","config"} or not isinstance(payload["config"],dict) or set(payload["config"])!=fields:
+            raise CatalogError("La configuración de reposición no es válida.")
+        current=self.item_for(product)
+        if type(payload["config_revision"]) is not int or payload["config_revision"]!=(current or {}).get("config_revision",0):
+            raise CatalogError("La reposición ha cambiado en Stock. Cierra y vuelve a abrir la ficha.","conflict")
+        return stock_config({**payload["config"],"quantity":(current or {}).get("quantity",0),"quantity_changed":False})
+
+    async def async_save_replenishment(self, product, payload):
+        async with self._lock:
+            config=self.replenishment_config(product,payload)
+            current=self.item_for(product)
+            if not current and config["mode"]=="manual":return
+            now=time.time()
+            item={**deepcopy(current or DEFAULT_CONFIG),**config,"id":current["id"] if current else str(uuid4()),
+                  "name":product["name"],"catalog_product_id":product["id"],"configured":True,
+                  "revision":(current or {}).get("revision",0)+1,"config_revision":(current or {}).get("config_revision",0)+1,
+                  "quantity_at":now,"recurrence_updated_at":max(now,self.recurrence_stamp(current),product.get("recurrence_updated_at",0))+0.000001}
+            if config["mode"]!="perishable":item.update(expires_at=0,expired=False)
+            elif not current or current["mode"]!="perishable" or current["days"]!=config["days"]:
+                item.update(expires_at=now+config["days"]*DAY,expired=False)
+            await self._persist({**deepcopy(self._items),item["id"]:item})
+            if self.activity:self.activity.record("stock.configured",f'{product["name"]}: reposición guardada desde el catálogo',source="manual",product=product["name"])
+
     async def async_sync_recurrence(self, product, stamp, due):
         """Keep one perishable timer, retaining quantities, units and refill preferences."""
         async with self._lock:

@@ -310,6 +310,53 @@ async def save_recurrence(env,enabled,days):
         "recurrence":{"enabled":enabled,"days":days}})
 
 
+def replenishment_payload(item=None,**changes):
+    keys=("unit","mode","days","refill_quantity","reorder_enabled","reorder_at","reorder_percent",
+          "list_entity","usage_entity","usage_state","usage_amount")
+    return {"config_revision":(item or {}).get("config_revision",0),
+            "config":{**{key:(item or {}).get(key,DEFAULT_CONFIG[key]) for key in keys},**changes}}
+
+
+async def test_catalog_replenishment_usage_and_disable_share_stock_without_refilling(env,shared):
+    product=env.stock.catalog.products[0]
+    payload=replenishment_payload(env.stock.item_for(product),mode="usage",unit="uds",usage_entity="sensor.washer",usage_state="finished",usage_amount=.5,reorder_enabled=True,reorder_at=1,list_entity="todo.main")
+    product=await shared.async_save_replenishment({k:v for k,v in product.items() if k in FIELDS},payload)
+    item=env.stock.item_for(product)
+    assert item["mode"]=="usage" and item["usage_entity"]=="sensor.washer" and item["quantity"]==1
+    assert product["recurrence"]["enabled"] is False and env.stock.recurrence_ready(item)
+    assert not env.stock.receipts["purchases"]
+    # Editing Stock is what the catalog editor reads; disabling does not remove it.
+    await env.stock.async_save(item["id"],item["revision"],config(item,usage_amount=.25))
+    item=env.stock.item_for(product)
+    assert item["usage_amount"]==.25
+    product=await shared.async_save_replenishment({k:v for k,v in product.items() if k in FIELDS},replenishment_payload(item,mode="manual",reorder_enabled=False))
+    assert env.stock.item_for(product)["mode"]=="manual" and env.stock.item_for(product)["quantity"]==1
+
+
+async def test_catalog_perishable_editor_creates_zero_stock_and_preserves_expiry(env,shared):
+    product=await shared.async_save_replenishment({"name":"Fruta"},replenishment_payload(mode="perishable",days=4,unit="g",refill_quantity=250,list_entity="todo.main"))
+    item=env.stock.item_for(product)
+    assert item["quantity"]==0 and item["days"]==4 and item["unit"]=="g"
+    assert product["recurrence"]=={"enabled":True,"days":4} and env.stock.recurrence_ready(item)
+    item=await env.stock.async_save(item["id"],item["revision"],config(item,quantity=250))
+    due=item["expires_at"];env.clock[0]+=DAY
+    product=next(p for p in env.stock.catalog.products if p["id"]==product["id"])
+    product=await shared.async_save_replenishment({k:v for k,v in product.items() if k in FIELDS},replenishment_payload(env.stock.item_for(product),refill_quantity=500))
+    item=env.stock.item_for(product)
+    assert item["expires_at"]==due and item["quantity"]==187.5 and item["refill_quantity"]==500
+
+
+async def test_catalog_replenishment_validates_before_saving_product(env,shared):
+    from custom_components.improved_shopping_list.catalog import CatalogError
+    product=env.stock.catalog.products[0];data={k:v for k,v in product.items() if k in FIELDS}
+    item=env.stock.item_for(product)
+    for payload in [replenishment_payload(item,mode="usage",usage_entity="",usage_state=""),
+                    {**replenishment_payload(item),"config_revision":999}]:
+        with pytest.raises(CatalogError):await shared.async_save_replenishment({**data,"name":"No guardar"},payload)
+        assert env.stock.catalog.products[0]["name"]==product["name"]
+        assert env.stock.catalog.products[0]["revision"]==product["revision"]
+
+
 async def test_catalog_and_stock_share_enable_days_and_disable_without_losing_quantities(env,shared):
     item=await env.stock.async_save(env.item["id"],env.item["revision"],config(env.item,quantity=3.5,unit="Latas",refill_quantity=2))
     await save_recurrence(env,True,4);await shared.async_sync_stock()

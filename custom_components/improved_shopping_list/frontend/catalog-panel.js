@@ -1,3 +1,4 @@
+import { ReplenishmentEditor, replenishmentMarkup } from './replenishment-editor.js?v=0.68.0';
 const priceValue=value=>value==null||value===''?'':Number(Number(value).toFixed(2));
 import { purchaseQuantity, quantityLabel } from "./quantity-client.js?v=0.68.0";
 import { referenceContentControls, referenceRate, barcodeIdentity, validReferenceContent, validReferenceFormat, weightFormat, pendingProductInformation } from "./reference-formats.js?v=0.68.0";
@@ -406,6 +407,15 @@ class ImprovedShoppingCatalog extends HTMLElement {
         .product-main-row { grid-template-columns:repeat(2,minmax(0,1fr)); }
         @media(max-width:550px) { .product-main-row { gap:6px; }.product-main-row input { padding-inline:6px; }.product-main-row label { font-size:12px; }.product-main-row #add-product-category { flex-basis:28px;width:28px;padding:0; }.product-main-row .product-category-controls { gap:4px; }.product-main-row select { padding-inline:4px; } }
 
+        .replenishment-block {border:1px solid var(--divider-color,#465269);border-radius:12px;overflow:hidden;}
+        .replenishment-block>summary {display:flex;align-items:center;gap:10px;cursor:pointer;padding:14px;font-weight:650;list-style:none;}
+        .replenishment-block>summary::after {content:'⌄';margin-left:auto;}
+        .replenishment-block[open]>summary::after {content:'⌃';}
+        .replenishment-block summary ha-icon {width:24px;height:24px;--mdc-icon-size:24px;flex:none;}
+        .replenishment-content {padding:0 14px 14px;}
+        .replenishment-row {display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px;}
+        .replenishment-row select {width:auto;min-width:0;flex:1;max-width:65%;}
+        .replenishment-row input[type=checkbox] {width:20px;min-height:20px;flex:none;}
         .recurrence-controls { display:flex; align-items:center; flex-wrap:wrap; gap:8px; margin-top:12px; }
         .recurrence-controls label { display:flex; align-items:center; gap:8px; }
         .recurrence-controls input[type=checkbox] { width:20px; min-height:20px; margin:0; padding:0; accent-color:var(--primary-color,#267052); }
@@ -513,7 +523,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
           <nav class="product-views" aria-label="Vistas de la ficha del producto">
             <button type="button" data-product-view="main" aria-label="Características" aria-pressed="true" aria-controls="product-main"><ha-icon icon="mdi:package-variant-closed" aria-hidden="true"></ha-icon><span class="tab-label">Características</span></button>
             <button type="button" data-product-view="additional" aria-label="Alternativas" aria-pressed="false" aria-controls="product-additional"><ha-icon icon="mdi:format-list-text" aria-hidden="true"></ha-icon><span class="tab-label">Alternativas</span></button>
-            <button type="button" data-product-view="automation" aria-label="Automatización" aria-pressed="false" aria-controls="product-automation"><ha-icon icon="mdi:robot-outline" aria-hidden="true"></ha-icon><span class="tab-label">Automatización</span></button>
+            <button type="button" data-product-view="automation" aria-label="Reposición" aria-pressed="false" aria-controls="product-automation"><ha-icon icon="mdi:reload" aria-hidden="true"></ha-icon><span class="tab-label">Reposición</span></button>
           </nav>
           <section id="product-main" class="fields" aria-label="Características">
             <div class="wide product-main-row">
@@ -526,10 +536,9 @@ class ImprovedShoppingCatalog extends HTMLElement {
           <section id="product-additional" class="fields" aria-label="Alternativas" hidden>
             <div class="wide"><h3 id="product-options-title">Alternativas para comprar</h3><div class="store-link-add"><input id="product-link-value" type="url" pattern="https://.*" aria-label="URL del producto" maxlength="2048" placeholder="URL del producto" title="La tienda se detecta automáticamente a partir de la URL."><button id="retrieve-product-data" class="retrieve-option" type="button"><ha-icon icon="mdi:download" aria-hidden="true"></ha-icon>Recuperar datos</button><button id="add-product-store-link" type="button" aria-label="Añadir vinculación"><ha-icon icon="mdi:plus-thick" aria-hidden="true"></ha-icon></button></div><p id="option-lookup-status" class="helper" role="status" aria-live="polite"></p><div id="product-store-links"></div></div>
           </section>
-          <section id="product-automation" class="fields" aria-label="Automatización" hidden>
-            ${[["barcode","Códigos de barras/QR","mdi:barcode-scan"],["nfc","Etiquetas NFC","mdi:nfc-variant"]].map(([kind,title,icon])=>`<section id="product-${kind}-codes" class="wide product-codes" aria-label="${title}"><h3>${title}</h3><div id="${kind}-code-list" class="code-list"></div><div class="code-capture-controls"><select id="${kind}-capture-reader" aria-label="Lector para ${title}"></select><button id="${kind}-capture-start" type="button"><ha-icon icon="${icon}" aria-hidden="true"></ha-icon>Escanear</button><button id="${kind}-capture-stop" type="button" hidden>Detener</button></div><p id="${kind}-capture-status" class="helper" role="status"></p></section>`).join("")}
-            <div class="wide"><h3>Acciones de los lectores</h3><div id="product-reader-actions"></div><p class="helper">La acción se aplica solo al reconocer este producto. Los cambios de stock afectan a la despensa común.</p></div>
-            <div class="wide" id="product-recurrence"><h3>Recurrencia</h3><div class="recurrence-controls"><label><input name="recurrence_enabled" type="checkbox">Comprar cada</label><input name="recurrence_days" type="number" min="1" max="3650" step="1" value="7" aria-label="Días de recurrencia" disabled required><span>días</span></div><p class="helper">Comparte el modo Perecedero de Stock: al cumplirse el plazo se pondrá a cero y se añadirá a su lista de reposición, sin duplicados.</p></div>
+          <section id="product-automation" class="fields" aria-label="Reposición" hidden>
+            ${replenishmentMarkup}
+            ${[["barcode","Códigos de barras/QR","mdi:barcode-scan"],["nfc","Etiquetas NFC","mdi:nfc-variant"]].map(([kind,title,icon])=>`<details id="product-${kind}-codes" class="wide product-codes replenishment-block"><summary><ha-icon icon="${icon}" aria-hidden="true"></ha-icon>${title}</summary><div class="replenishment-content"><div id="${kind}-reader-action"></div><div class="code-capture-controls"><select id="${kind}-capture-reader" aria-label="Lector para ${title}"></select><button id="${kind}-capture-start" type="button"><ha-icon icon="${icon}" aria-hidden="true"></ha-icon>Escanear</button><button id="${kind}-capture-stop" type="button" hidden>Detener</button></div><p id="${kind}-capture-status" class="helper" role="status"></p><div id="${kind}-code-list" class="code-list"></div></div></details>`).join("") }
           </section>
           <div class="form-actions product-actions"><button id="delete-product" type="button" hidden>Eliminar producto</button><button id="save-product" class="primary" type="submit">Guardar producto</button></div>
         </form>
@@ -682,9 +691,8 @@ class ImprovedShoppingCatalog extends HTMLElement {
     root.querySelector("#catalog-grouping-dialog").addEventListener("close", () => {
       if (this.isConnected && !root.querySelector("#configure-catalog-grouping").hidden) root.querySelector("#configure-catalog-grouping").focus();
     });
-    root.querySelector('[name="recurrence_enabled"]').addEventListener("change", () => {
-      root.querySelector('[name="recurrence_days"]').disabled = !root.querySelector('[name="recurrence_enabled"]').checked;
-    });
+    this._replenishment=new ReplenishmentEditor(root,()=>this._hass);
+    for(const kind of ['barcode','nfc'])root.querySelector(`#${kind}-capture-reader`).addEventListener('change',()=>this._renderReaderActions());
     root.querySelector("dialog").addEventListener("cancel", (event) => { if (this._saving) event.preventDefault(); });
     root.querySelector("#product-form").addEventListener("submit", (event) => { event.preventDefault(); void this._saveProduct(); });
     this.listName = this._listName;
@@ -1183,6 +1191,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
       root.querySelector(`#${kind}-capture-stop`).hidden=!capturing;
       root.querySelector(`#${kind}-capture-status`).textContent=capturing ? "Escanea con el lector seleccionado. Las lecturas se guardarán al guardar el producto. La captura termina tras 60 segundos." : this._scanNotice?.kind===kind ? this._scanNotice.text : readers.length ? "" : "Añade y activa un lector en el apartado Lectores para capturar códigos.";
     }
+    this._renderReaderActions();
   }
 
   _stopCodeCapture() {
@@ -1221,26 +1230,21 @@ class ImprovedShoppingCatalog extends HTMLElement {
 
   _renderReaderActions() {
     if (!this._built) return;
-    const container = this.shadowRoot.querySelector("#product-reader-actions");
-    const signature = JSON.stringify((this._readers?.readers ?? []).map(reader => [reader.id, reader.name, reader.default_action]));
-    if (signature === this._readerSignature) return;
-    this._readerSignature = signature;
-    const nodes = (this._readers?.readers ?? []).map(reader => {
-      const wrap = element("div");wrap.style.marginTop="12px";
-      const label = element("label", "", reader.name);
-      const select = element("select");
-      select.id = `action-${reader.id}`;label.htmlFor=select.id;select.dataset.readerAction=reader.id;
-      const defaults={none:"Sin acción",add_list:"Añadir a la lista",stock_remove:"Quitar stock",stock_add:"Añadir stock"};
-      const selected=this._readerActionDraft?.[reader.id] ?? "default";
-      for (const [value,text] of [["default",`Usar acción por defecto del lector (${defaults[reader.default_action]??defaults.none})`],["none","Sin acción"],["add_list","Añadir a la lista de la compra"],["stock_remove","Quitar una unidad al stock"],["stock_add","Añadir una unidad al stock"]]) select.append(new Option(text,value,value===selected,value===selected));
-      select.addEventListener("change",()=>{
-        this._readerActionDraft ??= {};
-        if(select.value === "default") delete this._readerActionDraft[reader.id];
-        else this._readerActionDraft[reader.id]=select.value;
-      });
-      wrap.append(label,select);return wrap;
-    });
-    container.replaceChildren(...(nodes.length ? nodes : [element("p","helper","Añade un lector en el apartado Lectores para configurar sus acciones.")]));
+    for(const kind of ['barcode','nfc']){
+      const container=this.shadowRoot.querySelector(`#${kind}-reader-action`);
+      if(!container)continue;
+      const id=this.shadowRoot.querySelector(`#${kind}-capture-reader`).value;
+      const reader=(this._readers?.readers??[]).find(reader=>reader.id===id&&reader.kind===kind);
+      const signature=JSON.stringify([reader?.id,reader?.name,reader?.default_action,this._readerActionDraft?.[id]]);
+      if(container.dataset.signature===signature)continue;container.dataset.signature=signature;
+      const label=element('label','replenishment-row','Acción del lector'),select=element('select');
+      select.setAttribute('aria-label',reader?.name??'Acción del lector para '+(kind==='barcode'?'códigos de barras/QR':'NFC'));
+      const defaults={none:'Sin acción',add_list:'Añadir a la lista',stock_remove:'Quitar stock',stock_add:'Añadir stock'};
+      for(const [value,text] of [['default',`Usar acción por defecto del lector (${defaults[reader?.default_action]??defaults.none})`],['none','Sin acción'],['add_list','Añadir a la lista de la compra'],['stock_remove','Quitar una unidad al stock'],['stock_add','Añadir una unidad al stock']])select.add(new Option(text,value));
+      select.value=this._readerActionDraft?.[id]??'default';select.disabled=!reader;
+      select.addEventListener('change',()=>{this._readerActionDraft??={};if(select.value==='default')delete this._readerActionDraft[id];else this._readerActionDraft[id]=select.value;container.dataset.signature='';});
+      label.append(select);container.replaceChildren(label);
+    }
   }
 
   async _actOnSuggestion(name, action) {
@@ -1481,6 +1485,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
       button.setAttribute("aria-pressed", String(selected));
       this.shadowRoot.querySelector(`#${button.getAttribute("aria-controls")}`).hidden = !selected;
     }
+    if (view === "automation") void this._replenishment.load();
     if (view === "additional") { this._renderStoreLinks(); void this._loadNutriscores(); }
   }
 
@@ -1778,6 +1783,8 @@ class ImprovedShoppingCatalog extends HTMLElement {
     this._readerActionDraft = {...(product?.reader_actions ?? {})};
     this._readerSignature = null;
     form.reset();
+    this._replenishment.reset(product);
+    root.querySelectorAll("#product-automation details").forEach(block=>block.open=false);
     this._resetNutriscores();
     this._switchProductView("main");
     form.elements.name.value = suggestedName;
@@ -1798,9 +1805,6 @@ class ImprovedShoppingCatalog extends HTMLElement {
     root.querySelector('#save-product').disabled=false;
     for(const [store,link] of Object.entries(this._storeLinks)){const value=typeof link==='string'?link:link.url||link.id;if(!this._commercialReferences.some(ref=>ref.store===store&&(ref.url===value||ref.reference_id===value||ref.reference_id===link.id)))this._commercialReferences.push({store,name:'',ean:'',reference_id:typeof link==='string'?(value.startsWith('https://')?'':value):link.id,url:value.startsWith('https://')?value:'',content_quantity:null,content_unit:'',content_confirmed:false});}
     this._renderStoreLinks();
-    form.elements.recurrence_enabled.checked = product?.recurrence?.enabled === true;
-    form.elements.recurrence_days.value = product?.recurrence?.days ?? 7;
-    form.elements.recurrence_days.disabled = !form.elements.recurrence_enabled.checked;
     root.querySelector("#product-dialog-title").textContent = product ? "Editar producto" : "Nuevo producto";
     root.querySelector("#product-error").hidden = true;
     if (product) {
@@ -1822,7 +1826,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
     if (this._saving || this._deletingProduct || this._retrievingOption) return;
     const root = this.shadowRoot;
     const form = root.querySelector("form");
-    const fields = Object.fromEntries(new FormData(form));
+    const fields = Object.fromEntries([...new FormData(form)].filter(([key])=>["name","category","image_url"].includes(key)));
     const product = { ...fields, price: this._editing?.price ?? null, currency: this._editing?.currency ?? "EUR", tags: structuredClone(this._editing?.tags ?? []), icon: this._editing?.icon ?? "", notes: this._editing?.notes ?? "" };
     product.purchase_unit=this._editing?.purchase_unit??'uds';
     product.unit_quantity=this._editing?.unit_quantity??1;
@@ -1832,9 +1836,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
     product.barcode = this._productCodes.barcode[0] ?? "";
     product.barcodes = this._productCodes.barcode.slice(1);
     product.nfc_tags = [...this._productCodes.nfc];
-    product.recurrence = {enabled:form.elements.recurrence_enabled.checked, days:Number(form.elements.recurrence_days.value) || 7};
-    delete product.recurrence_enabled;
-    delete product.recurrence_days;
+    product.recurrence = structuredClone(this._editing?.recurrence??{enabled:false,days:7});
     product.reader_actions = {...this._readerActionDraft};
     if (this._editing) Object.assign(product, { id: this._editing.id, revision: this._editing.revision });
     this._stopCodeCapture();
@@ -1845,7 +1847,8 @@ class ImprovedShoppingCatalog extends HTMLElement {
     root.querySelector("#delete-product").disabled = true;
     root.querySelector("#product-error").hidden = true;
     try {
-      const saved = await this._catalog.save(product);
+      const replenishment=this._replenishment.payload();
+      const saved = await this._catalog.save(product,replenishment);
       this._editing = structuredClone(saved);
       if (this._listOrigin && saved.name !== this._listOrigin.summary) {
         try {

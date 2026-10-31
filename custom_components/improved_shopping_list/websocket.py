@@ -899,14 +899,21 @@ def ws_catalog_subscribe(hass: HomeAssistant, connection, msg: dict[str, Any]) -
 @websocket_api.websocket_command({
     vol.Required("type"): f"{DOMAIN}/catalog/save",
     vol.Required("product"): dict,
+    vol.Optional("replenishment"): dict,
 })
 @websocket_api.async_response
 async def ws_catalog_save(hass: HomeAssistant, connection, msg: dict[str, Any]) -> None:
     if not (catalog := _catalog(hass, connection, msg)):
         return
     try:
-        product = await catalog.async_save_product(msg["product"])
-        await hass.data[DOMAIN]["recurrence"].async_sync_stock()
+        if "replenishment" in msg and not connection.user.is_admin:
+            connection.send_error(msg["id"],"unauthorized","Solo los administradores pueden configurar la reposición.")
+            return
+        if "replenishment" in msg:
+            product=await hass.data[DOMAIN]["recurrence"].async_save_replenishment(msg["product"],msg["replenishment"])
+        else:
+            product = await catalog.async_save_product(msg["product"])
+            await hass.data[DOMAIN]["recurrence"].async_sync_stock()
         product = next(item for item in catalog.products if item["id"] == product["id"])
     except CatalogError as err:
         connection.send_error(msg["id"], err.code, str(err))

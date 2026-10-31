@@ -2,6 +2,7 @@
 
 ## Próxima versión
 
+- El popup «Agrupar productos por» reduce a la mitad la separación vertical entre sus opciones, de 12 a 6 px.
 - Se elimina Sugerencias como criterio para agrupar productos del catálogo. Quedan Categoría y Tienda; las preferencias antiguas de Sugerencias vuelven a Categoría.
 - Agrupar el catálogo por tienda incluye alternativas incompletas, aunque solo tengan nombre comercial. Las alternativas desvinculadas siguen excluidas y no se inventan precios para los productos sin ellos.
 - Una unidad de peso sin contenido fijo confirma la venta al peso y permite estimar la cantidad con el precio por kg guardado. Los importes cobrados se conservan en la compra y no sustituyen esa tarifa; solo un precio por peso explícito del ticket puede actualizarla. La ficha permite editar el precio por kg y los precios comparables se normalizan a esa unidad.

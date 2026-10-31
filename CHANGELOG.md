@@ -2,6 +2,7 @@
 
 ## Próxima versión
 
+- Reabrir un ticket reutiliza los formatos recuperados sin repetir las consultas a tiendas. La caché de formatos se conserva entre revisiones y la búsqueda comprueba primero su copia persistente, también tras reiniciar Home Assistant.
 - El diccionario de datos comunes por EAN se amplía a todas las tiendas, incorporando las referencias confirmadas del catálogo exportado facilitado y el índice público de Mercadona. Completa solo campos vacíos por EAN exacto, preservando precios, correcciones y productos al peso. Se mantiene una copia local, actualización diaria y prioridad antes de buscar en las webs.
 
 ## 0.67.0 — 2026-10-31

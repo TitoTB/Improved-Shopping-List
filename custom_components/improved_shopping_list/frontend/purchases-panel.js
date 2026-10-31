@@ -25,11 +25,12 @@ class PurchaseSession extends ListSettingsSession {
 
 class ImprovedShoppingPurchases extends HTMLElement {
   constructor(){
-    super();this.attachShadow({mode:'open'});
+    super();this.attachShadow({mode:'open'});this._packageMetadataCache=new Map();
     this._session=new PurchaseSession(()=>this._hass,()=>this._render());this._busy=false;this._visiblePurchases=10;
   }
   set data(value){
     const changed=this._hass?.connection!==value.hass.connection;
+    if(changed)this._packageMetadataCache.clear();
     this._active=value.active;
     this._hass=value.hass;this._history=value.history;this._pricesEnabled=value.pricesEnabled;
     if(!this._built)this._build();
@@ -167,7 +168,6 @@ class ImprovedShoppingPurchases extends HTMLElement {
     root.querySelector('#review-title').textContent=this._draft.reprocess?'Reprocesar ticket':'Revisar ticket';
     this._reviewGroups={};
     this._lidlMetadataDone=new Map();
-    this._packageMetadataCache=new Map();
     this._quantitySearchPaused=false;
     root.querySelector('#review-lines').replaceChildren();
     this._edits=receipt.lines.map(line=>{
@@ -242,10 +242,19 @@ class ImprovedShoppingPurchases extends HTMLElement {
     for(const [index,edit] of edits.entries()){
       if(!this._reviewJobActive(job))return;
       const code=edit.line.ean,identity=barcodeIdentity(code);
-      this._reviewProgress(job,'Completando formatos',index,edits.length,`${index} de ${edits.length} · ${edit.line.description}`);
       try{
-        if(!cache.has(identity))cache.set(identity,this._hass.callWS({type:'improved_shopping_list/catalog/nutriscore',code}));
-        const data=await cache.get(identity);
+        if(cache.get(identity)?.expires<=Date.now())cache.delete(identity);
+        if(!cache.has(identity)){
+          this._reviewProgress(job,'Completando formatos',index,edits.length,`${index} de ${edits.length} · ${edit.line.description}`);
+          const entry={expires:Date.now()+300000};
+          entry.result=this._hass.callWS({type:'improved_shopping_list/catalog/nutriscore',code}).then(data=>{
+            if(validReferenceContent(data))entry.expires=Date.now()+86400000;
+            return data;
+          }).catch(error=>{cache.delete(identity);throw error;});
+          cache.set(identity,entry);
+          if(cache.size>500)cache.delete(cache.keys().next().value);
+        }
+        const data=await cache.get(identity).result;
         if(!this._reviewJobActive(job))return;
         const format={content_quantity:data.content_quantity,content_unit:data.content_unit};
         if(!edit.packageFormat.content_confirmed&&validReferenceContent(format)){

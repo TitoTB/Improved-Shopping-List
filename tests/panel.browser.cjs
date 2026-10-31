@@ -1222,6 +1222,25 @@ async function checkReceiptPackageFormats(browser,url,errors){
   assert.equal(await page.evaluate(()=>window.quantityCalls.length),0);
   await dialog.getByRole('button',{name:'Cerrar ventana',exact:true}).click();await dialog.waitFor({state:'hidden'});
   await page.evaluate(()=>{window.receiptOptionsOverride=null;});
+  // Package hints survive closing/reopening an unconfirmed receipt.
+  await purchases.evaluate(el=>{
+    const products=[{id:'format-cache',name:'Formato',unit:'g',refill_quantity:500,stock_id:'',commercial_references:[]}];
+    const receipt={id:'format-cache',store:'carrefour',store_name:'Carrefour',purchased_at:new Date().toISOString(),total:2,lines:[{id:'0',description:'FORMATO CACHE',ean:'8410109115543',count:1,amount:2,unit_price:2,product_id:'format-cache',matched:true}]};
+    window.optionMetadata={'8410109115543':{content_quantity:500,content_unit:'g'}};window.nutriCalls=[];
+    window.catalogProducts=products;window.receiptOptionsOverride={products,purchases:[]};window.receiptDraft=structuredClone(receipt);
+    window.formatCachePreview={token:'format-cache',receipt,products,purchases:[]};el.openPreview(structuredClone(window.formatCachePreview));
+  });
+  await dialog.getByRole('button',{name:'Continuar',exact:true}).click();
+  await dialog.getByRole('button',{name:'Volver a vinculación',exact:true}).waitFor();
+  assert.equal(await page.evaluate(()=>window.nutriCalls.filter(code=>code==='8410109115543').length),1);
+  await dialog.getByRole('button',{name:'Cerrar ventana',exact:true}).click();await dialog.waitFor({state:'hidden'});
+  await purchases.evaluate(el=>el.openPreview(structuredClone(window.formatCachePreview)));
+  await dialog.getByRole('button',{name:'Continuar',exact:true}).click();
+  await dialog.getByRole('button',{name:'Volver a vinculación',exact:true}).waitFor();
+  assert.equal(await page.evaluate(()=>window.nutriCalls.filter(code=>code==='8410109115543').length),1);
+  assert.equal(await dialog.getByLabel('Cantidad para FORMATO CACHE',{exact:true}).inputValue(),'500');
+  await dialog.getByRole('button',{name:'Cerrar ventana',exact:true}).click();await dialog.waitFor({state:'hidden'});
+  await page.evaluate(()=>{window.receiptOptionsOverride=null;});
   await context.close();
 }
 

@@ -52,6 +52,22 @@ async def test_cache_deduplicates_aliases_and_survives_reload(hass, monkeypatch)
     assert (await restored.async_lookup("https://example.test/private"))["status"] == "unsupported"
 
 
+async def test_persisted_format_cache_precedes_shop_discovery(hass, monkeypatch):
+    discovery=SimpleNamespace(fingerprint=lambda:'enabled-shops',async_hint=AsyncMock(return_value={
+        'status':'found','content_quantity':500,'content_unit':'g'}))
+    lookup=ProductLookup(hass);lookup.catalog_discovery=discovery
+    assert (await lookup.async_lookup(CODE))['content_quantity']==500
+    restored=ProductLookup(hass);restored.catalog_discovery=discovery
+    await restored.async_load()
+    discovery.async_hint.reset_mock()
+    monkeypatch.setattr(restored,'_fetch',AsyncMock(side_effect=AssertionError('Must use cached format')))
+    assert (await restored.async_lookup('0'+CODE))['content_quantity']==500
+    discovery.async_hint.assert_not_awaited()
+    discovery.fingerprint=lambda:'different-shops'
+    await restored.async_lookup(CODE)
+    discovery.async_hint.assert_awaited_once()
+
+
 async def test_serialises_reads_and_spaces_requests(hass, monkeypatch):
     clock=[1000.0]
     waits=[]

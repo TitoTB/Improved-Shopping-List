@@ -141,6 +141,10 @@ class ProductLookup:
         # Serialise requests, deduplicate UPC/EAN aliases and stay below 15 reads/minute.
         async with self._lock:
             discovery=getattr(self,"catalog_discovery",None)
+            # Reopening a receipt must not repeat discovery before checking the
+            # persistent cache. Its fingerprint already invalidates shop changes.
+            if self.is_fresh(code):
+                return enrich(self.cached(code))
             complete=bool(fields.get('brand') and fields.get('content_quantity') and fields.get('content_unit'))
             async def complete_name(result):
                 if complete and discovery and not result.get('product_name'):
@@ -156,8 +160,6 @@ class ProductLookup:
                 try:await self._store.async_save(self._cache)
                 except (OSError,HomeAssistantError):_LOGGER.warning("Could not persist the optional product lookup cache")
                 return deepcopy(hint)
-            if self.is_fresh(code):
-                return await complete_name(self.cached(code))
             delay = self._next_request - time.monotonic()
             if delay > 0:
                 await sleep(delay)

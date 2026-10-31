@@ -2,6 +2,7 @@
 
 ## Próxima versión
 
+- La cabecera móvil aumenta a 6 px la separación entre los botones de los apartados.
 - El popup «Agrupar productos por» reduce a la mitad la separación vertical entre sus opciones, de 12 a 6 px.
 - Se elimina Sugerencias como criterio para agrupar productos del catálogo. Quedan Categoría y Tienda; las preferencias antiguas de Sugerencias vuelven a Categoría.
 - Agrupar el catálogo por tienda incluye alternativas incompletas, aunque solo tengan nombre comercial. Las alternativas desvinculadas siguen excluidas y no se inventan precios para los productos sin ellos.

@@ -382,7 +382,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
         [hidden] { display:none !important; }
         .sr-only { position:absolute; width:1px; height:1px; padding:0; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
         @media(max-width:650px) { .product-grid { grid-template-columns:repeat(var(--isl-mobile-columns,1),minmax(0,1fr)); } }
-        @media(max-width:650px) { header { flex-wrap:nowrap; gap:6px; padding:10px 12px; } .branding { flex:0 0 auto; } .brand-copy { display:none; } .brand-logo { width:36px; height:36px; } .section-nav { flex-wrap:nowrap; gap:0; } .section-nav button { flex:0 0 auto; gap:4px; padding:10px 8px; min-width:44px; justify-content:center; font-size:13px; white-space:nowrap; } .section-nav button[aria-pressed=false] .nav-label { display:none; } }
+        @media(max-width:650px) { header { flex-wrap:nowrap; gap:6px; padding:10px 12px; } .branding { flex:0 0 auto; } .brand-copy { display:none; } .brand-logo { width:36px; height:36px; } .section-nav { flex-wrap:nowrap; gap:6px; } .section-nav button { flex:0 0 auto; gap:4px; padding:10px 8px; min-width:44px; justify-content:center; font-size:13px; white-space:nowrap; } .section-nav button[aria-pressed=false] .nav-label { display:none; } }
         @media(max-width:360px) { header { gap:4px; padding:10px 8px; } .brand-logo { width:28px; height:28px; } .menu { width:32px; padding:4px; flex:none; } .section-nav button { min-width:32px; padding:10px 6px; font-size:12px; } }
         .section-nav ha-icon { --mdc-icon-size:20px; width:20px; height:20px; flex:none; }
         @media(max-width:540px) { main { padding:26px 14px 40px; } .card { padding:18px 16px; border-radius:14px; } .primary { padding:10px 14px; } }

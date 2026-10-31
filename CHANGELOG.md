@@ -1,5 +1,11 @@
 # Historial de cambios
 
+## 0.74.1 — 2026-10-31
+
+- En las tiendas de cada alternativa se oculta el ID interno y los textos de precios repetidos. Un botón junto a Recuperar datos abre la ficha en otra pestaña y conserva los enlaces de afiliado. Los desplegables de tipo de venta y unidad de medida usan el borde uniforme.
+
+- Se centra el icono de Eliminar producto con su texto y se corrige el borde derecho de todos los desplegables de la ficha, incluidos Reposición automática, acciones del lector y selección de escáner.
+
 ## 0.74.0 — 2026-10-31
 
 - En la ficha de Stock, Consumo por comidas se renombra a Consumo por rutinas.

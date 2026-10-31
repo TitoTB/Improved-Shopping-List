@@ -1,15 +1,15 @@
-import { ReplenishmentEditor, replenishmentMarkup } from './replenishment-editor.js?v=0.74.0';
+import { ReplenishmentEditor, replenishmentMarkup } from './replenishment-editor.js?v=0.74.1';
 const priceValue=value=>value==null||value===''?'':Number(Number(value).toFixed(2));
-import { purchaseQuantity, quantityLabel } from "./quantity-client.js?v=0.74.0";
-import { referenceContentControls, referenceRate, barcodeIdentity, validReferenceContent, validReferenceFormat, weightFormat, pendingProductInformation } from "./reference-formats.js?v=0.74.0";
-import { installDialogCloseButtons } from "./dialog-controls.js?v=0.74.0";
-import { CatalogSession } from "./catalog-client.js?v=0.74.0";
-import { matchCatalogProducts } from "./product-matching.js?v=0.74.0";
-import "./category-panel.js?v=0.74.0";
-import "./recipe-editor.js?v=0.74.0";
-import "./icon-picker.js?v=0.74.0";
-import "./pending-information-refresh.js?v=0.74.0";
-import { imageSource, normalizedName, productNameKey, cachedProductPrice, storeProductLink, storeFromProductUrl } from "./product-display.js?v=0.74.0";
+import { purchaseQuantity, quantityLabel } from "./quantity-client.js?v=0.74.1";
+import { referenceContentControls, barcodeIdentity, validReferenceContent, validReferenceFormat, weightFormat, pendingProductInformation } from "./reference-formats.js?v=0.74.1";
+import { installDialogCloseButtons } from "./dialog-controls.js?v=0.74.1";
+import { CatalogSession } from "./catalog-client.js?v=0.74.1";
+import { matchCatalogProducts } from "./product-matching.js?v=0.74.1";
+import "./category-panel.js?v=0.74.1";
+import "./recipe-editor.js?v=0.74.1";
+import "./icon-picker.js?v=0.74.1";
+import "./pending-information-refresh.js?v=0.74.1";
+import { imageSource, normalizedName, productNameKey, cachedProductPrice, storeProductLink, storeFromProductUrl } from "./product-display.js?v=0.74.1";
 export { imageSource, normalizedName, productNameKey, cachedProductPrice };
 
 const MONTHS = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
@@ -492,13 +492,17 @@ class ImprovedShoppingCatalog extends HTMLElement {
         #product-form > .fields { margin:0 0 22px;gap:18px; }
         #product-form label { font-size:12px;color:var(--secondary-text-color,#63766b);font-weight:550; }
         #product-form input:not([type=checkbox]),#product-form select { min-width:0;min-height:44px;background:var(--product-field);border:1px solid var(--product-border);border-radius:10px;color:var(--primary-text-color,#20352d);padding:10px 12px; }
-        #product-form select { border-right:10px solid transparent;padding-right:4px; }
+        #product-form select { border-right:1px solid var(--product-border);padding-right:12px; }
         #product-form input:not([type=checkbox]):focus,#product-form select:focus { outline-offset:1px; }
         #product-form input:disabled,#product-form select:disabled { opacity:.5; }
         #product-form .product-main-row { grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:14px; }
         #product-form #add-product-category { width:44px;flex-basis:44px;height:44px;min-height:44px;border-radius:10px; }
         #product-form h3 { font-size:13px;font-weight:650;margin:0 0 12px; }
         #product-form .store-link-add { margin-top:0;margin-bottom:6px; }
+        #product-form .option-url-row.has-store-url { grid-template-columns:minmax(0,1fr) auto 44px; }
+        #product-form .option-open-store { display:flex;align-items:center;justify-content:center;width:44px;height:44px;min-width:0;background:var(--product-field);color:var(--primary-text-color,#20352d);border:1px solid var(--product-border);border-radius:10px;text-decoration:none; }
+        #product-form .option-open-store ha-icon { display:flex;align-items:center;justify-content:center;width:20px;height:20px;--mdc-icon-size:20px;line-height:0; }
+        #product-form .option-open-store:focus-visible { outline:3px solid var(--primary-color,#267052);outline-offset:2px; }
         #product-form .retrieve-option { background:#267052;color:#fff;border:0;border-radius:10px;min-height:44px;padding:10px 12px;font-size:12px;font-weight:600; }
         #product-form .store-link-add input,#product-form .store-link-add button { height:44px;min-height:44px; }
         #product-form .option-name { display:block; }
@@ -539,8 +543,8 @@ class ImprovedShoppingCatalog extends HTMLElement {
         #product-form .product-actions button { min-height:42px;padding:10px 16px;border-radius:10px; }
         #product-form .product-actions #save-product { margin-left:auto; }
         #product-form #delete-product { display:inline-flex;align-items:center;gap:7px;max-width:50%;padding:10px 0;background:transparent;color:var(--error-color,#d32f2f);border:0;box-shadow:none;text-align:left; }
-        #product-form #delete-product ha-icon { flex:none;width:17px;height:17px;--mdc-icon-size:17px; }
-        #product-form #delete-product span { min-width:0; }
+        #product-form #delete-product ha-icon { display:flex;align-items:center;justify-content:center;flex:none;width:17px;height:17px;--mdc-icon-size:17px;line-height:0; }
+        #product-form #delete-product span { display:block;min-width:0;line-height:20px; }
 
         @media(max-width:550px) {
           #product-form { padding:18px 16px; }
@@ -1734,21 +1738,20 @@ class ImprovedShoppingCatalog extends HTMLElement {
       const row=element('div','option-url-row');
       const input=element('input');input.type='url';input.pattern='https://.*';input.value=ref.url||'';input.maxLength=2048;input.setAttribute('aria-label',`URL de ${STORE_NAMES[ref.store]??'la opción'}`);
       input.placeholder='URL del producto';
-      input.addEventListener('input',()=>{this._optionLinkOrigins??=new WeakMap();if(!this._optionLinkOrigins.has(ref))this._optionLinkOrigins.set(ref,{url:ref.url||'',reference_id:ref.reference_id||'',primary:structuredClone(this._storeLinks[ref.store])});const previous=ref.url||ref.reference_id,value=input.value.trim(),primary=this._storeLinks[ref.store],primaryValue=typeof primary==='string'?primary:primary?.url||primary?.id;if(primaryValue===previous){if(value)this._storeLinks[ref.store]=value;else delete this._storeLinks[ref.store];}ref.url=value.startsWith('https://')?value:'';if(ref.url)ref.reference_id='';onChange();});
+      input.addEventListener('input',()=>{this._optionLinkOrigins??=new WeakMap();if(!this._optionLinkOrigins.has(ref))this._optionLinkOrigins.set(ref,{url:ref.url||'',reference_id:ref.reference_id||'',primary:structuredClone(this._storeLinks[ref.store])});const previous=ref.url||ref.reference_id,value=input.value.trim(),primary=this._storeLinks[ref.store],primaryValue=typeof primary==='string'?primary:primary?.url||primary?.id;if(primaryValue===previous){if(value)this._storeLinks[ref.store]=value;else delete this._storeLinks[ref.store];}ref.url=value.startsWith('https://')?value:'';if(ref.url)ref.reference_id='';renderStoreLink();onChange();});
       const feedback=element('p','helper option-lookup-feedback');feedback.setAttribute('role','status');feedback.setAttribute('aria-live','polite');feedback.hidden=true;
-      const retrieve=element('button','retrieve-option','Recuperar datos');retrieve.type='button';retrieve.dataset.retrieveOption='true';retrieve.disabled=Boolean(this._retrievingOption)||this._hass?.user?.is_admin!==true;retrieve.addEventListener('click',()=>void this._retrieveOption(ref,input.value.trim(),feedback));row.append(input,retrieve);card.append(row,feedback);
+      const retrieve=element('button','retrieve-option','Recuperar datos');retrieve.type='button';retrieve.dataset.retrieveOption='true';retrieve.disabled=Boolean(this._retrievingOption)||this._hass?.user?.is_admin!==true;retrieve.addEventListener('click',()=>void this._retrieveOption(ref,input.value.trim(),feedback));const visit=element('a','option-open-store');visit.target='_blank';visit.innerHTML='<ha-icon icon="mdi:open-in-new" aria-hidden="true"></ha-icon>';
+      const renderStoreLink=()=>{let valid=false;try{const target=new URL(ref.url||'');valid=target.protocol==='https:'&&!target.username&&!target.password;}catch{/* Incomplete URLs stay editable. */}visit.hidden=!valid;row.classList.toggle('has-store-url',valid);if(!valid){visit.removeAttribute('href');return;}const store=storeFromProductUrl(ref.url)||ref.store;visit.href=storeProductLink(store,ref.url);visit.rel='noopener noreferrer'+(visit.href!==ref.url?' sponsored':'');visit.setAttribute('aria-label','Abrir ficha de '+(STORE_NAMES[store]||'la tienda'));visit.title='Abrir ficha de '+(STORE_NAMES[store]||'la tienda');};
+      renderStoreLink();row.append(input,retrieve,visit);card.append(row,feedback);
       input.addEventListener('keydown',event=>{if(event.key==='Enter'&&!event.isComposing){event.preventDefault();void this._retrieveOption(ref,input.value.trim(),feedback);}});
     }
-    if(ref.reference_id)card.append(element('p','helper','ID: '+ref.reference_id));
-    if(ref.url){const link=element('a','helper','Ver ficha de la tienda');link.href=storeProductLink(ref.store,ref.url);link.target='_blank';link.rel='noopener noreferrer';if(link.href!==ref.url){link.rel+=' sponsored';link.title='Enlace de afiliado de '+(STORE_NAMES[ref.store]??ref.store);}card.append(link);}
     const offers=[...(weightFormat(ref)&&ref.measure_price?[ref.measure_price]:[]),...(ref.last_price?[ref.last_price]:[]),...(this._priceData?.offers??[]).filter(offer=>offer.catalog_product_id===this._editing?.id&&(offer.commercial_reference_id===ref.id||offer.store===ref.store&&(ref.ean&&offer.ean===ref.ean||ref.reference_id&&offer.reference_id===ref.reference_id)))].sort((a,b)=>(b.checked_at??0)-(a.checked_at??0));
     const priceLabel=element('label','option-price','Precio por envase (€)'),priceInput=element('input');
     priceInput.type='number';priceInput.min='0';priceInput.max='1000000';priceInput.step='0.01';priceInput.inputMode='decimal';priceInput.placeholder='Sin precio';
     priceInput.setAttribute('aria-label',weightFormat(ref)?'Precio por kg':'Precio por envase');priceInput.value=priceValue((weightFormat(ref)?ref.measure_price:undefined)?.price??offers[0]?.price);priceInput.disabled=!ref.store;
     priceLabel.append(priceInput);card.querySelector('.option-sale-row').append(priceLabel);
-    const priceText=element('p','helper');card.append(priceText);
     let displayedPrice=(weightFormat(ref)?ref.measure_price:undefined)??offers[0],priceByWeight=weightFormat(ref);
-    renderPrice=()=>{const weighed=weightFormat(ref);if(weighed!==priceByWeight){displayedPrice=(weighed?ref.measure_price:undefined)??ref.last_price??offers[0];priceInput.value=priceValue(displayedPrice?.price);priceByWeight=weighed;}priceLabel.firstChild.textContent=weighed?'Precio por kg (€)':'Precio por envase (€)';priceInput.setAttribute('aria-label',weighed?'Precio por kg':'Precio por envase');if(weighed&&ref.measure_price)displayedPrice=ref.measure_price;priceText.hidden=!displayedPrice;if(!displayedPrice)return;const money=value=>new Intl.NumberFormat('es-ES',{style:'currency',currency:displayedPrice.currency??'EUR',minimumFractionDigits:2,maximumFractionDigits:2}).format(value),rate=referenceRate(displayedPrice.price,ref);priceText.textContent='Último precio: '+money(displayedPrice.price)+(weighed?' / kg':' / envase');if(rate&&!weighed)priceText.textContent+=' · '+money(rate.price)+' / '+rate.unit;};renderPrice();
+    renderPrice=()=>{const weighed=weightFormat(ref);if(weighed!==priceByWeight){displayedPrice=(weighed?ref.measure_price:undefined)??ref.last_price??offers[0];priceInput.value=priceValue(displayedPrice?.price);priceByWeight=weighed;}priceLabel.firstChild.textContent=weighed?'Precio por kg (€)':'Precio por envase (€)';priceInput.setAttribute('aria-label',weighed?'Precio por kg':'Precio por envase');if(weighed&&ref.measure_price)displayedPrice=ref.measure_price;};renderPrice();
     priceInput.addEventListener('input',()=>{
       if(!priceInput.validity.valid)return;
       if(priceInput.value===''){delete ref.last_price;if(weightFormat(ref))delete ref.measure_price;displayedPrice=null;}
@@ -1756,7 +1759,6 @@ class ImprovedShoppingCatalog extends HTMLElement {
       else{ref.last_price={price:priceInput.valueAsNumber,currency:'EUR',checked_at:Date.now()/1000};displayedPrice=ref.last_price;}
       update();
     });
-    if(ref.measure_price){const rate=ref.measure_price;card.append(element('p','helper','Precio por unidad de medida: '+new Intl.NumberFormat('es-ES',{style:'currency',currency:'EUR',minimumFractionDigits:2,maximumFractionDigits:2}).format(rate.price)+' / '+rate.quantity+' '+rate.unit));}
     return card;
   }
 

@@ -1195,12 +1195,17 @@ async function checkCompactProductEditor(browser,url,errors){
   }
   assert.equal(await form.locator('#product-barcode-codes summary ha-icon').getAttribute('icon'),'mdi:barcode-scan');
   assert.equal(await form.locator('#product-nfc-codes summary ha-icon').getAttribute('icon'),'mdi:nfc-variant');
+  const automationSelects=form.locator('[data-replenishment=mode],#barcode-reader-action select,#nfc-reader-action select,#barcode-capture-reader,#nfc-capture-reader');
+  assert.equal(await automationSelects.count(),5);
+  assert.ok(await automationSelects.evaluateAll(selects=>selects.every(select=>{const css=getComputedStyle(select);return ['Top','Right','Bottom','Left'].every(side=>css['border'+side+'Width']==='1px'&&css['border'+side+'Color']===css.borderTopColor);})));
   await form.getByRole('button',{name:'Características',exact:true}).click();
   await page.screenshot({path:'test-results/compact-product-desktop.png',fullPage:true});
   await page.setViewportSize({width:390,height:844});await page.screenshot({path:'test-results/compact-product-mobile.png',fullPage:true});
   const remove=form.getByRole('button',{name:'Eliminar producto',exact:true});
   assert.equal(await remove.locator('ha-icon').getAttribute('icon'),'mdi:delete');
   assert.equal(await remove.evaluate(button=>getComputedStyle(button).backgroundColor),'rgba(0, 0, 0, 0)');
+  assert.ok(await remove.evaluate(button=>{const icon=button.querySelector('ha-icon').getBoundingClientRect(),text=button.querySelector('span').getBoundingClientRect();return Math.abs((icon.top+icon.bottom)-(text.top+text.bottom))<2;}));
+  assert.ok(await form.getByLabel('Categoría',{exact:true}).evaluate(select=>{const style=getComputedStyle(select);return ['Top','Right','Bottom','Left'].every(side=>style['border'+side+'Width']==='1px'&&style['border'+side+'Color']===style.borderTopColor);}));
   await remove.click();const confirmation=catalog.getByRole('dialog',{name:'Eliminar producto',exact:true});
   await confirmation.waitFor();assert.equal(await page.evaluate(()=>window.catalogProducts.length),1);
   await confirmation.getByRole('button',{name:'Cancelar',exact:true}).click();await confirmation.waitFor({state:'hidden'});
@@ -1567,12 +1572,14 @@ async function checkReferenceFormats(browser,url,errors){
   assert.equal(await first.getByLabel('Nombre comercial',{exact:true}).inputValue(),'Huevos frescos 12 uds');
   assert.equal(await firstCommon.getByLabel('Contenido por envase',{exact:true}).inputValue(),'24');
   assert.equal(await dialog.getByLabel('Nombre del producto',{exact:true}).inputValue(),'Huevos');
-  assert.match(await first.textContent(),/Último precio: 2,50/);
+  assert.equal(await first.getByText(/Último precio:|Precio por unidad de medida:|^ID:/).count(),0);
+  assert.equal(await first.locator('.option-open-store').getAttribute('target'),'_blank');
+  assert.equal(await first.locator('.option-open-store').getAttribute('href'),'https://www.lidl.es/p/huevos/p100');
   const manualPrice=first.getByLabel('Precio por envase',{exact:true});
   assert.equal(await manualPrice.inputValue(),'2.5');
   await manualPrice.fill('-1');assert.equal(await manualPrice.evaluate(input=>input.validity.valid),false);
   await manualPrice.fill('3.75');
-  assert.match(await first.textContent(),/Último precio: 3,75/);
+  assert.equal(await manualPrice.inputValue(),'3.75');
   assert.equal(await dialog.locator('.option-nutriscore').count(),0);
   assert.equal(await dialog.locator('#product-nutriscore').count(),0);
   assert.equal(await page.evaluate(()=>window.catalogProducts.find(p=>p.id==='eggs').commercial_references[0].last_price),undefined);
@@ -1708,6 +1715,7 @@ async function checkDifferentOptionEAN(browser,url,errors){
     await openStoreOption(form.locator('.product-option'));
     let original=form.locator('.product-alternative').filter({hasText:'Envase original'});
     await original.getByLabel('URL de Carrefour',{exact:true}).fill('https://www.carrefour.es/supermercado/producto/R-new/p');
+    const outbound=new URL(await original.locator('.option-open-store').getAttribute('href'));assert.equal(outbound.hostname,'www.awin1.com');assert.equal(outbound.searchParams.get('ued'),'https://www.carrefour.es/supermercado/producto/R-new/p');
     await original.getByRole('button',{name:'Recuperar datos',exact:true}).click();
     await form.getByText(/La ficha corresponde a otro EAN/).waitFor();
     assert.equal(await form.locator('.product-option').count(),2);
@@ -2089,6 +2097,7 @@ async function checkCatalogSources(browser,url,errors){
       const mode=el.querySelector('.option-sale-mode select').getBoundingClientRect();
       return mode.left>=brand.right&&Math.abs(mode.bottom-brand.bottom)<2&&el.scrollWidth<=el.clientWidth+1;
     }),'Brand and sale mode must share a row at '+width+'px');
+    assert.ok(await individual.locator('.option-sale-mode select,.reference-content-controls select').evaluateAll(selects=>selects.every(select=>{const css=getComputedStyle(select);return ['Top','Right','Bottom','Left'].every(side=>css['border'+side+'Width']==='1px'&&css['border'+side+'Color']===css.borderTopColor);})),'Alternative select borders at '+width);
   }
   await p.screenshot({path:'test-results/product-sale-price-row-mobile.png',fullPage:true});
   await individual.locator(':scope > summary').click();

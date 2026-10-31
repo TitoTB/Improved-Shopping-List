@@ -151,7 +151,8 @@ async def test_reprocess_keeps_all_lines_and_can_bind_a_previously_ignored_weigh
         {'id':'1','product_id':tomato['id'],'pack_quantity':None,'pack_unit':''}])
     ref=next(p for p in catalog.products if p['id']==tomato['id'])['commercial_references'][0]
     assert ref['measure_price']['price']==3.95 and ref['measure_price']['unit']=='kg'
-    assert ref['content_quantity'] is None and not ref['content_confirmed']
+    assert ref['content_quantity'] is None and ref['content_confirmed'] and ref['content_unit']=='kg'
+    assert ref['last_price']['price']==3.95  # Price per kg, not the 1.83 paid for 0.464 kg.
     assert result['lines'][1]['product_id']==tomato['id'] and result['lines'][1]['purchased_quantity']==.464
     assert len(stock.receipts['history'])==1 and stock.snapshot['items']==[]
     assert stock.receipts['purchases']==original['purchases']

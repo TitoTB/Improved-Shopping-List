@@ -1707,7 +1707,7 @@ async function checkCatalogSources(browser,url,errors){
       {...base,id:'legacy-only',name:'Vínculo antiguo',store_links:{carrefour:'https://www.carrefour.es/supermercado/ejemplo/R-prod1/p'}},
       {...base,id:'multiple',name:'Varias tiendas',commercial_references:[{store:'carrefour',name:'Opción incompleta'},{store:'alcampo',name:'Otra opción incompleta'}]},
       {...base,id:'excluded',name:'Excluido',store_links:{carrefour:'https://www.carrefour.es/supermercado/ejemplo/R-prod2/p'},commercial_references:[{store:'carrefour',name:'Desvinculado',active:false}]}
-    ];window.emitCatalog();
+    ];window.listSettings.stores.carrefour.enabled=true;window.emitSettings();window.emitCatalog();
   });
   await catalog.getByRole('button',{name:'Agrupar por tienda',exact:true}).click();
   assert.deepEqual(await catalog.locator('.category-group-title').allTextContents(),['Alcampo (1)','Carrefour (5)']);

@@ -1213,25 +1213,25 @@ async function checkStockEditor(browser,url,errors){
     await stockForm.getByRole('button',{name:'Incrementar stock',exact:true}).click();
     assert.equal(await stockForm.getByLabel('Stock actual',{exact:true}).inputValue(),'2');
     await stockForm.getByRole('button',{name:'Disminuir stock',exact:true}).click();
-    await stockForm.getByLabel('Stock actual',{exact:true}).fill('2.5');
+    await stockForm.getByLabel('Stock actual',{exact:true}).fill('3');
     await stockForm.getByLabel('Unidades',{exact:true}).selectOption('custom');
     await stockForm.getByLabel('Unidad personalizada',{exact:true}).fill('Latas');
     await stockForm.getByLabel('Control del stock',{exact:true}).selectOption('usage');
     assert.equal(await stockForm.locator('select[name="mode"] option:checked').textContent(),'Consumo registrado');
     await stockForm.getByLabel('Entidad de consumo',{exact:true}).fill('binary_sensor.lavadora');
     await stockForm.getByLabel('Estado que representa un uso',{exact:true}).fill('on');
-    await stockForm.getByLabel('Cantidad consumida por uso',{exact:true}).fill('0.5');
+    await stockForm.getByLabel('Cantidad consumida por uso',{exact:true}).fill('1');
     await stockForm.getByLabel('Cantidad predeterminada de reposición',{exact:true}).fill('4');
-    assert.equal(await stockForm.getByRole('progressbar',{name:'Stock disponible'}).getAttribute('aria-valuenow'),'63');
+    assert.equal(await stockForm.getByRole('progressbar',{name:'Stock disponible'}).getAttribute('aria-valuenow'),'75');
     assert.equal(await stockForm.locator('#stock-editor-media ha-icon').getAttribute('icon'),'mdi:food');
     await stockForm.getByLabel('Añadir a la lista cuando el stock llegue al mínimo',{exact:true}).check();
     await stockForm.getByLabel('Stock mínimo',{exact:true}).fill('1');
     assert.equal(await stockForm.getByLabel('Lista para reponer',{exact:true}).inputValue(),'todo.local');
     await stockForm.getByRole('button',{name:'Guardar',exact:true}).click();await stockEditor.waitFor({state:'hidden'});
     await stockCard.getByLabel('Stock de Cacao: 3 Latas',{exact:true}).waitFor();
-    assert.equal(await stockCard.getByRole('progressbar',{name:'Stock restante'}).getAttribute('aria-valuenow'),'63');
-    assert.equal(await stockCard.locator('.stock-progress').evaluate(node=>node.style.getPropertyValue('--stock-remaining')),'62.5%');
-    assert.deepEqual(await stockPage.evaluate(()=>({mode:window.stockItems[0].mode,unit:window.stockItems[0].unit,usage_amount:window.stockItems[0].usage_amount,refill_quantity:window.stockItems[0].refill_quantity})),{mode:'usage',unit:'Latas',usage_amount:0.5,refill_quantity:4});
+    assert.equal(await stockCard.getByRole('progressbar',{name:'Stock restante'}).getAttribute('aria-valuenow'),'75');
+    assert.equal(await stockCard.locator('.stock-progress').evaluate(node=>node.style.getPropertyValue('--stock-remaining')),'75%');
+    assert.deepEqual(await stockPage.evaluate(()=>({mode:window.stockItems[0].mode,unit:window.stockItems[0].unit,usage_amount:window.stockItems[0].usage_amount,refill_quantity:window.stockItems[0].refill_quantity})),{mode:'usage',unit:'Latas',usage_amount:1,refill_quantity:4});
     await stockCard.getByRole('button',{name:'Configurar stock de Cacao',exact:true}).click();
     await stockForm.getByLabel('Control del stock',{exact:true}).selectOption('perishable');
     await stockForm.getByLabel('Caduca cada cuántos días desde la compra',{exact:true}).fill('3');
@@ -1360,7 +1360,7 @@ async function checkShoppingReceipt(browser,url,errors){
     assert.deepEqual(await receipt.locator('.receipt-paper').evaluate(node=>[getComputedStyle(node).backgroundColor,getComputedStyle(node).color]),['rgb(255, 255, 255)','rgb(32, 38, 46)']);
     assert.equal(await receipt.locator('.receipt-heading h3').textContent(),'Lista de la compra');
     assert.equal(await receiptPage.locator('#pending-count').evaluate(node=>getComputedStyle(node).backgroundColor),'rgb(238, 82, 79)');
-    assert.deepEqual(await receipt.locator('.receipt-stores button').evaluateAll(nodes=>nodes.map(node=>node.dataset.receiptStore)),['alcampo','carrefour']);
+    assert.deepEqual(await receipt.locator('.receipt-stores button').evaluateAll(nodes=>nodes.map(node=>node.dataset.receiptStore)),['alcampo','mercadona','carrefour']);
     assert.match(await receipt.locator('[data-receipt-store="alcampo"]').textContent(),/1,30\s*€ \(2\/2\)/);
     assert.equal(await receipt.locator('.receipt-hint').count(),0);
     assert.deepEqual(await receipt.locator('.receipt-known .receipt-name').allTextContents(),['Cacao','Leche entera']);
@@ -1384,12 +1384,12 @@ async function checkShoppingReceipt(browser,url,errors){
     await receiptPage.locator('#pending-count').click();
     assert.equal(await receipt.isVisible(),false);
     await receiptPage.getByRole('button',{name:'Marcar como comprado: Cacao',exact:true}).click();
-    await receiptPage.locator('#pending-total').filter({hasText:'0,20'}).waitFor();
-    assert.equal(await receiptPage.locator('#pending-total img').getAttribute('alt'),'Alcampo');
+    await receiptPage.locator('#pending-total').filter({hasText:'0,01'}).waitFor();
+    assert.equal(await receiptPage.locator('#pending-total img').getAttribute('alt'),'Mercadona');
     await receiptPage.locator('#pending-total').click();
     assert.deepEqual(await receipt.locator('.receipt-known .receipt-name').allTextContents(),['Leche entera']);
     await receiptPage.evaluate(()=>{window.listSettings.stores.alcampo.enabled=false;window.emitSettings();});
-    await receipt.locator('.receipt-stores button').waitFor({state:'detached'});
+    assert.deepEqual(await receipt.locator('.receipt-stores button').evaluateAll(nodes=>nodes.map(node=>node.dataset.receiptStore)),['mercadona','alcampo']);
     await selectList(receiptPage,'todo.local');
     await receipt.locator('.receipt-unknown summary').click();
     await receipt.locator('.receipt-missing').getByText('Detergente',{exact:true}).waitFor();
@@ -1513,10 +1513,11 @@ async function checkCompactProductEditor(browser,url,errors){
 
 async function checkMealRoutines(browser,url,errors){
   const context=await browser.newContext({viewport:{width:390,height:844}}),page=await context.newPage();
+  await context.route('**/avatars/ana.svg',route=>route.fulfill({contentType:'image/svg+xml',body:'<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><circle cx="32" cy="32" r="32" fill="#267052"/></svg>'}));
   page.on('pageerror',error=>errors.push(error.message));await page.goto(url);
   assert.equal(await page.evaluate(()=>(window.wsRequests??[]).includes('improved_shopping_list/routines/get')),false);
   await page.evaluate(()=>{const panel=window.testPanel;panel.hass={...panel._hass,states:{...panel._hass.states,
-    'person.one':{entity_id:'person.one',state:'home',attributes:{friendly_name:'Ana'}},
+    'person.one':{entity_id:'person.one',state:'home',attributes:{friendly_name:'Ana',entity_picture:'/avatars/ana.svg'}},
     'person.two':{entity_id:'person.two',state:'home',attributes:{friendly_name:'Luis'}}}};});
   await page.getByRole('button',{name:'Ajustes',exact:true}).click();
   assert.equal(await page.locator('isl-settings').getByRole('button',{name:'Rutinas',exact:true}).count(),0);
@@ -1529,13 +1530,21 @@ async function checkMealRoutines(browser,url,errors){
   assert.equal(await routine.getByText('Comidas',{exact:true}).count(),0);
   assert.equal(await routines.getByRole('button',{name:'Añadir comida',exact:true}).count(),0);
   await routine.getByLabel('Nombre de la rutina',{exact:true}).fill('Comidas en casa');
-  await routine.locator('#routine-people > summary').click();
   await routine.getByRole('checkbox',{name:'Ana',exact:true}).check();await routine.getByRole('checkbox',{name:'Luis',exact:true}).check();
   assert.equal(await routine.getByLabel('Inicio',{exact:true}).inputValue(),'08:30');
   assert.equal(await routine.getByLabel('Fin',{exact:true}).inputValue(),'09:30');
   await routine.getByLabel('Fin',{exact:true}).fill('10:00');
   await routine.getByRole('checkbox',{name:'Domingo',exact:true}).uncheck();
-  await page.screenshot({path:'test-results/meal-routine-mobile.png',fullPage:true});
+  assert.equal(await routine.locator('.person-choice').count(),2);
+  await routine.locator('.person-choice .avatar img').waitFor();
+  assert.equal(await routine.locator('.person-choice').filter({hasText:'Luis'}).locator('.avatar').textContent(),'L');
+  for(const width of [1280,390,320]){
+    await page.setViewportSize({width,height:960});
+    assert.ok(await routine.evaluate(dialog=>dialog.scrollWidth<=dialog.clientWidth+1));
+    assert.ok(await routine.locator('.week').evaluate(row=>row.scrollWidth<=row.clientWidth+1));
+    await page.screenshot({path:'test-results/routine-popup-'+width+'.png',fullPage:true});
+  }
+  await page.setViewportSize({width:390,height:844});
   await page.evaluate(()=>Object.defineProperty(crypto,'randomUUID',{value:window.savedRandomUUID,configurable:true}));
   await routine.getByRole('button',{name:'Guardar rutina',exact:true}).click();await routine.waitFor({state:'hidden'});
   assert.deepEqual(await page.evaluate(()=>window.routinesFixture[0].persons),['person.one','person.two']);
@@ -1545,8 +1554,16 @@ async function checkMealRoutines(browser,url,errors){
   assert.equal(await page.evaluate(()=>Object.hasOwn(window.routinesFixture[0],'minimum_minutes')),false);
   assert.equal(await routines.getByRole('button',{name:'Guardar comidas',exact:true}).count(),0);
   const originalId=await page.evaluate(()=>window.routinesFixture[0].meals[0].id);
-  assert.equal(await routines.locator('.routine ha-icon').count(),0);
+  assert.equal(await routines.locator('.routine-title ha-icon').getAttribute('icon'),'mdi:clock-outline');
   assert.equal(await routines.locator('.routine .delete').count(),0);
+  assert.equal(await routines.locator('.routine .avatar').count(),2);
+  assert.equal(await routines.locator('.routine .routine-day.selected').count(),6);
+  for(const width of [1280,390,320]){
+    await page.setViewportSize({width,height:960});
+    assert.ok(await routines.locator('.routine').evaluate(card=>card.scrollWidth<=card.clientWidth+1));
+    await page.screenshot({path:'test-results/routine-cards-'+width+'.png',fullPage:true});
+  }
+  await page.setViewportSize({width:390,height:844});
   await routines.getByRole('button',{name:'Editar Comidas en casa',exact:true}).click();
   const editRoutine=routines.getByRole('dialog',{name:'Editar rutina',exact:true});
   assert.equal(await editRoutine.getByLabel('Fin',{exact:true}).inputValue(),'10:00');
@@ -2009,6 +2026,113 @@ async function checkBulkOptionLookup(browser,url,errors){
   assert.ok(refs.every(ref=>ref.sale_mode==='weight'&&ref.content_quantity===null&&ref.content_unit==='kg'&&ref.pack_count===undefined));
   assert.equal(refs.find(ref=>ref.store==='carrefour').measure_price.price,2.79);
   assert.equal(refs.find(ref=>ref.store==='carrefour').last_price,undefined);
+  await context.close();
+}
+
+async function checkPurchaseQuantities(browser,url,errors){
+    const quantityContext=await browser.newContext({viewport:{width:1280,height:960}});
+    const quantityPage=await quantityContext.newPage();quantityPage.on('pageerror',error=>errors.push(error.message));
+    await quantityPage.goto(url);
+    await quantityPage.evaluate(async()=>{
+      window.catalogProducts=[{id:'pavo',revision:1,name:'Pavo',category:'',tags:[],notes:'',barcode:'',barcodes:[],nfc_tags:[],reader_actions:{},recurrence:{enabled:false,days:7},store_links:{},price:null,currency:'EUR',purchase_unit:'g',unit_quantity:250,quantity_step:50,image_url:'',icon:'mdi:food-drumstick'}];window.emitCatalog();
+      window.listData['todo.bring']=[{uid:'pavo-entry',summary:'Pavo',status:'needs_action'},{uid:'default-entry',summary:'Sin catálogo',status:'needs_action'}];window.emit('todo.bring');
+      window.listSettings.stores={carrefour:{enabled:true}};window.emitSettings();
+      window.storePriceFixture=[{catalog_product_id:'pavo',store:'carrefour',price:'2.50',currency:'EUR',checked_at:1792490400}];
+      await window.testPanel._refreshRowPrices();
+    });
+    const pavoCard=quantityPage.getByRole('button',{name:'Marcar como comprado: Pavo',exact:true});
+    const pavoRow=pavoCard.locator('..');
+    await pavoCard.locator('.quantity-corner').filter({hasText:'250 g'}).waitFor();
+    assert.equal(await pavoCard.locator('.quantity-corner strong').textContent(),'250');
+    assert.equal(await pavoCard.locator('.quantity-corner small').textContent(),'g');
+    assert.equal(await quantityPage.getByRole('button',{name:'Marcar como comprado: Sin catálogo',exact:true}).locator('.quantity-corner').isVisible(),false);
+    assert.equal(await pavoRow.getByRole('button',{name:'Aumentar cantidad: Pavo',exact:true}).count(),0);
+    await quantityPage.screenshot({path:'test-results/purchase-quantity-grid.png',fullPage:true});
+    await quantityPage.locator('#toggle-list-layout').click();
+    await pavoRow.locator('.row-quantity').filter({hasText:'250 g'}).waitFor();
+    assert.equal(await pavoRow.locator('.row-quantity button').count(),0);
+    await quantityPage.getByRole('button',{name:'Catálogo',exact:true}).click();
+    const quantityCatalog=quantityPage.locator('isl-catalog');
+    assert.equal(await quantityCatalog.getByRole('group',{name:'Cantidad de Pavo',exact:true}).count(),0);
+    await quantityCatalog.locator('#toggle-catalog-layout').click();
+    const quantityBadge=quantityCatalog.getByRole('group',{name:'Cantidad de Pavo',exact:true});
+    assert.equal(await quantityBadge.locator('.quantity-value').textContent(),'250 g');
+    await quantityBadge.getByRole('button',{name:'Aumentar cantidad: Pavo',exact:true}).click();
+    await quantityBadge.locator('.quantity-value').filter({hasText:'300 g'}).waitFor();
+    await quantityPage.evaluate(()=>{window.failQuantities=true;});
+    await quantityBadge.getByRole('button',{name:'Aumentar cantidad: Pavo',exact:true}).click();
+    await quantityCatalog.locator('#catalog-error').filter({hasText:'No se pudo cambiar la cantidad'}).waitFor();
+    assert.equal(await quantityBadge.locator('.quantity-value').textContent(),'300 g');
+    await quantityPage.evaluate(()=>{window.failQuantities=false;});
+
+    assert.equal(await quantityBadge.locator('ha-icon').first().getAttribute('icon'),'mdi:minus-thick');
+    assert.equal(await quantityBadge.locator('ha-icon').last().getAttribute('icon'),'mdi:plus-thick');
+    assert.equal(await quantityCatalog.locator('.add-product button').count(),0);
+    assert.equal(await quantityPage.evaluate(()=>window.listData['todo.bring'].filter(item=>item.summary==='Pavo').length),1);
+    assert.equal(await quantityPage.evaluate(()=>window.listData['todo.bring'].find(item=>item.uid==='pavo-entry').status),'needs_action');
+    await quantityPage.getByRole('button',{name:'Lista',exact:true}).click();
+    await quantityPage.locator('#pending-total').filter({hasText:'3,00'}).waitFor();
+    await quantityPage.reload();
+    // The simulated native provider lives in page memory; restore its unchanged entries.
+    await quantityPage.evaluate(async()=>{
+      window.listData['todo.bring']=[{uid:'pavo-entry',summary:'Pavo',status:'needs_action'},{uid:'default-entry',summary:'Sin catálogo',status:'needs_action'}];window.emit('todo.bring');
+      window.storePriceFixture=[{catalog_product_id:'pavo',store:'carrefour',price:'2.50',currency:'EUR',checked_at:1792490400}];
+      await window.testPanel._refreshRowPrices();
+    });
+    await pavoRow.locator('.row-quantity').filter({hasText:'300 g'}).waitFor();
+    await quantityPage.getByRole('button',{name:'Catálogo',exact:true}).click();
+    await quantityBadge.locator('.quantity-value').filter({hasText:'300 g'}).waitFor();
+    await quantityCatalog.getByRole('button',{name:'Editar Pavo',exact:true}).click();
+    const quantityForm=quantityCatalog.locator('#product-form');
+    await quantityForm.getByRole('button',{name:'Características',exact:true}).click();
+    for(const label of ['Unidades','Cantidad unitaria','Tamaño del paso'])assert.equal(await quantityForm.getByLabel(label,{exact:true}).count(),0);
+    await quantityForm.getByRole('button',{name:'Guardar producto',exact:true}).click();
+    await quantityCatalog.locator('dialog[aria-labelledby="product-dialog-title"]').waitFor({state:'hidden'});
+    await quantityBadge.getByRole('button',{name:'Disminuir cantidad: Pavo',exact:true}).click();
+    await quantityBadge.locator('.quantity-value').filter({hasText:'250 g'}).waitFor();
+    for(const width of [1280,390,320]){
+      await quantityPage.setViewportSize({width,height:844});
+      await quantityPage.screenshot({path:'test-results/catalog-quantity-rows-'+width+'.png'});
+      assert.equal(await quantityPage.locator('main').evaluate(node=>node.scrollWidth>innerWidth),false);
+      assert.ok(await quantityBadge.evaluate(node=>{
+        const [minus,label,plus]=[...node.children].map(child=>child.getBoundingClientRect());
+        return minus.right<=label.left&&label.right<=plus.left&&Math.abs((minus.top+minus.bottom)/2-(plus.top+plus.bottom)/2)<1&&node.scrollWidth<=node.clientWidth+1;
+      }));
+    }
+    await quantityPage.evaluate(()=>{window.listData['todo.bring']=window.listData['todo.bring'].filter(item=>item.summary!=='Pavo');window.emit('todo.bring');});
+    await quantityBadge.getByRole('button',{name:'Aumentar cantidad: Pavo',exact:true}).isDisabled().then(value=>assert.equal(value,true));
+    await quantityPage.evaluate(()=>{window.listData['todo.bring'].push({uid:'pavo-entry',summary:'Pavo',status:'needs_action'});window.emit('todo.bring');});
+    await quantityPage.getByRole('button',{name:'Ajustes',exact:true}).click();
+    const quantitySettings=quantityPage.locator('isl-settings');
+    await quantitySettings.getByRole('button',{name:'Listas',exact:true}).click();
+    await quantitySettings.getByLabel('Color del indicador de cantidad',{exact:true}).evaluate(input=>{input.value='#4caf50';input.dispatchEvent(new Event('input',{bubbles:true}));});
+    await quantitySettings.getByRole('button',{name:'Guardar personalización',exact:true}).click();
+    await quantitySettings.getByRole('status').filter({hasText:'Personalización guardada'}).waitFor();
+    await quantityPage.getByRole('button',{name:'Lista',exact:true}).click();await quantityPage.locator('#toggle-list-layout').click();
+    assert.equal(await pavoCard.locator('.quantity-corner').evaluate(node=>getComputedStyle(node).backgroundColor),'rgba(36, 48, 68, 0.5)');
+    assert.equal(await pavoCard.locator('.quantity-corner').evaluate(node=>getComputedStyle(node).color),'rgb(255, 255, 255)');
+    await quantityContext.close();
+}
+
+async function checkRemovedTicketAlternative(browser,url,errors){
+  const context=await browser.newContext({viewport:{width:390,height:844}});
+  await context.addInitScript(()=>localStorage.setItem('catalog-fixture',JSON.stringify([{id:'ham',revision:1,name:'Jamón',category:'',tags:[],nfc_tags:[],barcode:'',currency:'EUR',image_url:'',icon:'',barcodes:['8410422111086'],store_links:{},commercial_references:['lidl','carrefour'].map(store=>({id:store,store,ean:'8410422111086',name:'Jamón de teruel',reference_id:'ham-'+store,url:'',content_quantity:100,content_unit:'g',content_confirmed:true}))}])));
+  const page=await context.newPage();page.on('pageerror',error=>errors.push(error.message));await page.goto(url);
+  await page.getByRole('button',{name:'Catálogo',exact:true}).click();const catalog=page.locator('isl-catalog');
+  await catalog.evaluate(el=>{el.receiptStores={ham:['lidl','carrefour']};});
+  await editCatalogProduct(catalog,'Editar Jamón');const form=catalog.getByRole('dialog',{name:'Editar producto',exact:true});
+  await form.getByRole('button',{name:'Alternativas',exact:true}).click();
+  for(const [index,store] of ['lidl','carrefour'].entries()){
+    const option=form.locator('.product-option[data-store="'+store+'"]');await openStoreOption(option);
+    page.once('dialog',dialog=>dialog.accept());await option.getByRole('button',{name:'Desvincular referencia',exact:true}).click();
+    assert.equal(await option.count(),0);
+    assert.equal(await form.locator('.product-alternative').count(),index===0?1:0);
+  }
+  await form.getByRole('button',{name:'Guardar producto',exact:true}).click();await form.waitFor({state:'hidden'});
+  assert.equal(await page.evaluate(()=>window.catalogProducts[0].commercial_references.filter(ref=>ref.active!==false).length),0);
+  await catalog.evaluate(el=>{el.receiptStores={ham:['lidl','carrefour']};});
+  await editCatalogProduct(catalog,'Editar Jamón');await form.getByRole('button',{name:'Alternativas',exact:true}).click();
+  assert.equal(await form.locator('.product-alternative,.product-option').count(),0);
   await context.close();
 }
 
@@ -2656,7 +2780,8 @@ async function main() {
     if(process.argv.includes('--lazy-only')){const errors=[];await checkLazySections(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);return;}
     if(process.argv.includes('--lidl-reprocess-only')){const errors=[];await checkLidlReprocessLines(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Lidl full reprocessing passed.');return;}
     if(process.argv.includes('--lidl-metadata-only')){const errors=[];await checkLidlMetadata(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Lidl receipt metadata passed.');return;}
-    if(process.argv.includes('--option-ean-only')){const errors=[];await checkDifferentOptionEAN(browser,`http://127.0.0.1:${server.address().port}`,errors);await checkStagedOptionURL(browser,`http://127.0.0.1:${server.address().port}`,errors);await checkBulkOptionLookup(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Alternative EAN discovery passed.');return;}
+    if(process.argv.includes('--quantities-only')){const errors=[];await checkPurchaseQuantities(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Purchase quantities passed.');return;}
+    if(process.argv.includes('--option-ean-only')){const errors=[];await checkRemovedTicketAlternative(browser,`http://127.0.0.1:${server.address().port}`,errors);await checkDifferentOptionEAN(browser,`http://127.0.0.1:${server.address().port}`,errors);await checkStagedOptionURL(browser,`http://127.0.0.1:${server.address().port}`,errors);await checkBulkOptionLookup(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Alternative EAN discovery passed.');return;}
     if(process.argv.includes('--catalog-sources-only')){const errors=[];await checkCatalogSources(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Catalog sources and EAN grouping passed.');return;}
     if(process.argv.includes('--repeated-receipt-product-only')){const errors=[];await checkRepeatedReceiptProduct(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Repeated receipt product passed.');return;}
     if(process.argv.includes('--replenishment-layout-only')){const errors=[];await checkReplenishmentLayout(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Replenishment layout passed.');return;}
@@ -3873,86 +3998,7 @@ async function main() {
     }
     await settingsContext.close();
     // Reader configuration and unknown-code association use the same product form.
-    const quantityContext=await browser.newContext({viewport:{width:1280,height:960}});
-    const quantityPage=await quantityContext.newPage();quantityPage.on('pageerror',error=>errors.push(error.message));
-    await quantityPage.goto(url);
-    await quantityPage.evaluate(async()=>{
-      window.catalogProducts=[{id:'pavo',revision:1,name:'Pavo',category:'',tags:[],notes:'',barcode:'',barcodes:[],nfc_tags:[],reader_actions:{},recurrence:{enabled:false,days:7},store_links:{},price:null,currency:'EUR',purchase_unit:'g',unit_quantity:250,quantity_step:50,image_url:'',icon:'mdi:food-drumstick'}];window.emitCatalog();
-      window.listData['todo.bring']=[{uid:'pavo-entry',summary:'Pavo',status:'needs_action'},{uid:'default-entry',summary:'Sin catálogo',status:'needs_action'}];window.emit('todo.bring');
-      window.listSettings.stores={carrefour:{enabled:true}};window.emitSettings();
-      window.storePriceFixture=[{catalog_product_id:'pavo',store:'carrefour',price:'2.50',currency:'EUR',checked_at:1792490400}];
-      await window.testPanel._refreshRowPrices();
-    });
-    const pavoCard=quantityPage.getByRole('button',{name:'Marcar como comprado: Pavo',exact:true});
-    const pavoRow=pavoCard.locator('..');
-    await pavoCard.locator('.quantity-corner').filter({hasText:'250 g'}).waitFor();
-    assert.equal(await quantityPage.getByRole('button',{name:'Marcar como comprado: Sin catálogo',exact:true}).locator('.quantity-corner').isVisible(),false);
-    assert.equal(await pavoRow.getByRole('button',{name:'Aumentar cantidad: Pavo',exact:true}).count(),0);
-    await quantityPage.screenshot({path:'test-results/purchase-quantity-grid.png',fullPage:true});
-    await quantityPage.locator('#toggle-list-layout').click();
-    await pavoRow.locator('.row-quantity').filter({hasText:'250 g'}).waitFor();
-    assert.equal(await pavoRow.locator('.row-quantity button').count(),0);
-    await quantityPage.getByRole('button',{name:'Catálogo',exact:true}).click();
-    const quantityCatalog=quantityPage.locator('isl-catalog');
-    assert.equal(await quantityCatalog.getByRole('group',{name:'Cantidad de Pavo',exact:true}).count(),0);
-    await quantityCatalog.locator('#toggle-catalog-layout').click();
-    const quantityBadge=quantityCatalog.getByRole('group',{name:'Cantidad de Pavo',exact:true});
-    assert.equal(await quantityBadge.locator('.quantity-value').textContent(),'250 g');
-    await quantityBadge.getByRole('button',{name:'Aumentar cantidad: Pavo',exact:true}).click();
-    await quantityBadge.locator('.quantity-value').filter({hasText:'300 g'}).waitFor();
-    await quantityPage.evaluate(()=>{window.failQuantities=true;});
-    await quantityBadge.getByRole('button',{name:'Aumentar cantidad: Pavo',exact:true}).click();
-    await quantityCatalog.locator('#catalog-error').filter({hasText:'No se pudo cambiar la cantidad'}).waitFor();
-    assert.equal(await quantityBadge.locator('.quantity-value').textContent(),'300 g');
-    await quantityPage.evaluate(()=>{window.failQuantities=false;});
-
-    assert.equal(await quantityBadge.locator('ha-icon').first().getAttribute('icon'),'mdi:minus-thick');
-    assert.equal(await quantityBadge.locator('ha-icon').last().getAttribute('icon'),'mdi:plus-thick');
-    assert.equal(await quantityCatalog.locator('.add-product button').count(),0);
-    assert.equal(await quantityPage.evaluate(()=>window.listData['todo.bring'].filter(item=>item.summary==='Pavo').length),1);
-    assert.equal(await quantityPage.evaluate(()=>window.listData['todo.bring'].find(item=>item.uid==='pavo-entry').status),'needs_action');
-    await quantityPage.getByRole('button',{name:'Lista',exact:true}).click();
-    await quantityPage.locator('#pending-total').filter({hasText:'3,00'}).waitFor();
-    await quantityPage.reload();
-    // The simulated native provider lives in page memory; restore its unchanged entries.
-    await quantityPage.evaluate(async()=>{
-      window.listData['todo.bring']=[{uid:'pavo-entry',summary:'Pavo',status:'needs_action'},{uid:'default-entry',summary:'Sin catálogo',status:'needs_action'}];window.emit('todo.bring');
-      window.storePriceFixture=[{catalog_product_id:'pavo',store:'carrefour',price:'2.50',currency:'EUR',checked_at:1792490400}];
-      await window.testPanel._refreshRowPrices();
-    });
-    await pavoRow.locator('.row-quantity').filter({hasText:'300 g'}).waitFor();
-    await quantityPage.getByRole('button',{name:'Catálogo',exact:true}).click();
-    await quantityBadge.locator('.quantity-value').filter({hasText:'300 g'}).waitFor();
-    await quantityCatalog.getByRole('button',{name:'Editar Pavo',exact:true}).click();
-    const quantityForm=quantityCatalog.locator('#product-form');
-    await quantityForm.getByRole('button',{name:'Características',exact:true}).click();
-    for(const label of ['Unidades','Cantidad unitaria','Tamaño del paso'])assert.equal(await quantityForm.getByLabel(label,{exact:true}).count(),0);
-    await quantityForm.getByRole('button',{name:'Guardar producto',exact:true}).click();
-    await quantityCatalog.locator('dialog[aria-labelledby="product-dialog-title"]').waitFor({state:'hidden'});
-    await quantityBadge.getByRole('button',{name:'Disminuir cantidad: Pavo',exact:true}).click();
-    await quantityBadge.locator('.quantity-value').filter({hasText:'250 g'}).waitFor();
-    for(const width of [1280,390,320]){
-      await quantityPage.setViewportSize({width,height:844});
-      await quantityPage.screenshot({path:'test-results/catalog-quantity-rows-'+width+'.png'});
-      assert.equal(await quantityPage.locator('main').evaluate(node=>node.scrollWidth>innerWidth),false);
-      assert.ok(await quantityBadge.evaluate(node=>{
-        const [minus,label,plus]=[...node.children].map(child=>child.getBoundingClientRect());
-        return minus.right<=label.left&&label.right<=plus.left&&Math.abs((minus.top+minus.bottom)/2-(plus.top+plus.bottom)/2)<1&&node.scrollWidth<=node.clientWidth+1;
-      }));
-    }
-    await quantityPage.evaluate(()=>{window.listData['todo.bring']=window.listData['todo.bring'].filter(item=>item.summary!=='Pavo');window.emit('todo.bring');});
-    await quantityBadge.getByRole('button',{name:'Aumentar cantidad: Pavo',exact:true}).isDisabled().then(value=>assert.equal(value,true));
-    await quantityPage.evaluate(()=>{window.listData['todo.bring'].push({uid:'pavo-entry',summary:'Pavo',status:'needs_action'});window.emit('todo.bring');});
-    await quantityPage.getByRole('button',{name:'Ajustes',exact:true}).click();
-    const quantitySettings=quantityPage.locator('isl-settings');
-    await quantitySettings.getByRole('button',{name:'Listas',exact:true}).click();
-    await quantitySettings.getByLabel('Color del indicador de cantidad',{exact:true}).evaluate(input=>{input.value='#4caf50';input.dispatchEvent(new Event('input',{bubbles:true}));});
-    await quantitySettings.getByRole('button',{name:'Guardar personalización',exact:true}).click();
-    await quantitySettings.getByRole('status').filter({hasText:'Personalización guardada'}).waitFor();
-    await quantityPage.getByRole('button',{name:'Lista',exact:true}).click();await quantityPage.locator('#toggle-list-layout').click();
-    assert.equal(await pavoCard.locator('.quantity-corner').evaluate(node=>getComputedStyle(node).backgroundColor),'rgb(76, 175, 80)');
-    assert.equal(await pavoCard.locator('.quantity-corner').evaluate(node=>getComputedStyle(node).color),'rgb(255, 255, 255)');
-    await quantityContext.close();
+    await checkPurchaseQuantities(browser,url,errors);
 
     const gatewayContext=await browser.newContext({viewport:{width:390,height:844}});
     const gatewayPage=await gatewayContext.newPage();
@@ -5500,6 +5546,7 @@ async function main() {
     await checkDetectedPurchaseRecovery(browser,url,errors);
     await checkLazySections(browser,url,errors);
     await checkCatalogSources(browser,url,errors);
+    await checkRemovedTicketAlternative(browser,url,errors);
     await checkDifferentOptionEAN(browser,url,errors);
     await checkBulkOptionLookup(browser,url,errors);
     await checkStagedOptionURL(browser,url,errors);

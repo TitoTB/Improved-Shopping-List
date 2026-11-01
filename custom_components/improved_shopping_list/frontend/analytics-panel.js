@@ -153,7 +153,7 @@ class ImprovedShoppingAnalytics extends HTMLElement {
     const products=(this._data.products??[]).filter(p=>!query||[p.name,...(p.tags??[])].join(' ').normalize('NFD').replace(/\p{M}/gu,'').toLowerCase().includes(query));
     const result=analyzeCatalog(products,data.observations??[],{stores:data.stores??[],category:root.querySelector('#analysis-category').value});
     const stats=node('div','stats'),winner=result.ranking[0]?.wins?result.ranking[0]:null,winners=winner?result.ranking.filter(shop=>shop.wins===winner.wins):[];
-    stats.append(this._stat(result.comparable,'Productos comparables','Con precios por la misma unidad en al menos dos tiendas'),this._stat(winners.length>1?winners.length+' tiendas':winner?names[winner.store]:'—',winners.length>1?'Empate en mínimos':'Más productos al menor precio',winner?winner.wins+(winner.wins===1?' mínimo':' mínimos')+(winners.length>1?' por tienda':', incluidos empates'):'Hace falta precio equivalente en varias tiendas'));
+    stats.append(this._stat(result.comparable,'Productos comparables'),this._stat(winners.length>1?winners.length+' tiendas':winner?names[winner.store]:'—',winners.length>1?'Empate en mínimos':'Más productos al menor precio'));
     container.append(stats);
     if(data.observations_truncated)container.append(node('p','comparison-note','El análisis usa las 20.000 observaciones de precio más recientes disponibles.'));
     if(!result.rows.length){container.append(this._empty('No hay productos con precios por kg, litro o unidad comparables en al menos dos tiendas que coincidan con estos filtros.'));return;}

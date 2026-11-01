@@ -1,5 +1,25 @@
 # Historial de cambios
 
+## 0.76.0 — 2026-11-01
+
+- El indicador triangular de cantidad de la lista usa el mismo fondo oscuro al 50 % que la categoría, con número blanco destacado y las unidades pequeñas debajo.
+
+- Se eliminan los textos secundarios sobre unidades comparables y recuento de mínimos de los dos indicadores de Analítica → Comparativa.
+
+- La franja de color de las categorías del catálogo recorre todo el lateral del bloque, tanto comprimido como desplegado.
+
+- Desvincular la última alternativa de una tienda elimina su bloque vacío y evita que el historial de tickets lo vuelva a crear, también al guardar y reabrir la ficha.
+
+- Rutinas adopta tarjetas compactas con horario, días y avatares, y un popup con selección visual de personas, franjas horarias y días. Usa las imágenes de Home Assistant e iniciales como alternativa, conservando activación, edición y borrado.
+
+- El popup de Stock muestra y valida números enteros en cantidades, consumo, reposición y umbrales, incluidas las cantidades por rutina. El consumo interno sigue conservando su precisión.
+
+- Los tres bloques de Catálogo → Pendiente muestran el contador entre paréntesis junto al título, incluido Productos pendientes de información.
+
+- El selector de tiendas del ticket incluye cualquier tienda con precios guardados para productos pendientes, sin depender de que su cuenta esté activada. Mantiene el máximo de cuatro y prioriza la cobertura de la lista.
+
+- El fondo oscuro de los badges de categoría de la lista usa un 50 % de opacidad; el texto y los iconos conservan su opacidad.
+
 ## 0.75.0 — 2026-11-01
 
 - Los badges de categoría de la lista usan un fondo oscuro uniforme e iconos blancos, tanto en cuadrícula como en filas y compras recientes.

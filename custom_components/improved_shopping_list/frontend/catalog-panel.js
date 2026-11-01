@@ -1,15 +1,15 @@
-import { ReplenishmentEditor, replenishmentMarkup } from './replenishment-editor.js?v=0.75.0';
+import { ReplenishmentEditor, replenishmentMarkup } from './replenishment-editor.js?v=0.76.0';
 const priceValue=value=>value==null||value===''?'':Number(Number(value).toFixed(2));
-import { purchaseQuantity, quantityLabel } from "./quantity-client.js?v=0.75.0";
-import { referenceContentControls, barcodeIdentity, validReferenceContent, validReferenceFormat, weightFormat, pendingProductInformation } from "./reference-formats.js?v=0.75.0";
-import { installDialogCloseButtons } from "./dialog-controls.js?v=0.75.0";
-import { CatalogSession } from "./catalog-client.js?v=0.75.0";
-import { matchCatalogProducts } from "./product-matching.js?v=0.75.0";
-import "./category-panel.js?v=0.75.0";
-import "./recipe-editor.js?v=0.75.0";
-import "./icon-picker.js?v=0.75.0";
-import "./pending-information-refresh.js?v=0.75.0";
-import { imageSource, normalizedName, productNameKey, cachedProductPrice, storeProductLink, storeFromProductUrl } from "./product-display.js?v=0.75.0";
+import { purchaseQuantity, quantityLabel } from "./quantity-client.js?v=0.76.0";
+import { referenceContentControls, barcodeIdentity, validReferenceContent, validReferenceFormat, weightFormat, pendingProductInformation } from "./reference-formats.js?v=0.76.0";
+import { installDialogCloseButtons } from "./dialog-controls.js?v=0.76.0";
+import { CatalogSession } from "./catalog-client.js?v=0.76.0";
+import { matchCatalogProducts } from "./product-matching.js?v=0.76.0";
+import "./category-panel.js?v=0.76.0";
+import "./recipe-editor.js?v=0.76.0";
+import "./icon-picker.js?v=0.76.0";
+import "./pending-information-refresh.js?v=0.76.0";
+import { imageSource, normalizedName, productNameKey, cachedProductPrice, storeProductLink, storeFromProductUrl } from "./product-display.js?v=0.76.0";
 export { imageSource, normalizedName, productNameKey, cachedProductPrice };
 
 const MONTHS = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
@@ -270,10 +270,10 @@ class ImprovedShoppingCatalog extends HTMLElement {
         .grouping-options button[aria-pressed=true] { background:var(--secondary-background-color,#edf4ee); font-weight:650; }
         .grouping-options ha-icon { width:24px; height:24px; --mdc-icon-size:24px; flex:none; }
         #catalog-grid.grouped { grid-template-columns:minmax(0,1fr); gap:12px; }
-        .category-group { min-width:0; border:1px solid var(--divider-color,#dfe7e1); border-radius:14px; background:var(--card-background-color,#fff); }
+        .category-group { position:relative;min-width:0; border:1px solid var(--divider-color,#dfe7e1); border-radius:14px; background:var(--card-background-color,#fff); }
         .category-group-toggle { position:relative;display:flex; align-items:center; gap:12px; padding:16px; cursor:pointer; list-style:none; border-radius:14px; }
         .category-group-toggle::-webkit-details-marker { display:none; }
-        .category-group[data-category-color]>.category-group-toggle::before { content:'';position:absolute;left:0;top:0;bottom:0;width:6px;border-radius:14px 0 0 14px;background:var(--category-accent);pointer-events:none; }
+        .category-group[data-category-color]::before { content:'';position:absolute;left:0;top:0;bottom:0;width:6px;border-radius:14px 0 0 14px;background:var(--category-accent);pointer-events:none; }
         .category-group-toggle::after { content:''; width:9px; height:9px; flex:none; margin-left:auto; border-right:2px solid currentColor; border-bottom:2px solid currentColor; transform:rotate(45deg); }
         .category-group[open] > .category-group-toggle::after { transform:rotate(225deg); }
         .category-group-toggle:focus-visible { outline:3px solid var(--primary-color,#267052); outline-offset:3px; }
@@ -591,15 +591,15 @@ class ImprovedShoppingCatalog extends HTMLElement {
         <div id="suggestions-error" class="notice error" role="alert" hidden></div>
         <div id="suggestions-list" class="suggestion-groups">
           <details id="list-suggestions-group" class="suggestion-group">
-            <summary id="list-suggestions-summary">Productos añadidos a la lista<span id="list-suggestions-count" class="suggestion-count">0</span></summary>
+            <summary id="list-suggestions-summary">Productos añadidos a la lista<span id="list-suggestions-count" class="suggestion-count">(0)</span></summary>
             <div class="suggestion-content"><div id="list-suggestions" class="suggestions"></div><p id="list-suggestions-empty" class="helper" hidden>No hay productos de la lista pendientes de incorporar al catálogo.</p></div>
           </details>
           <details id="scan-suggestions-group" class="suggestion-group">
-            <summary id="scan-suggestions-summary">Productos escaneados<span id="scan-suggestions-count" class="suggestion-count">0</span></summary>
+            <summary id="scan-suggestions-summary">Productos escaneados<span id="scan-suggestions-count" class="suggestion-count">(0)</span></summary>
             <div class="suggestion-content"><div id="scan-suggestions" class="suggestions"></div><p id="scan-suggestions-empty" class="helper" hidden>No hay códigos escaneados pendientes de identificar.</p></div>
           </details>
           <details id="pending-information-group" class="suggestion-group">
-            <summary><span class="pending-information-title">Productos pendientes de información</span><isl-pending-information-refresh></isl-pending-information-refresh></summary>
+            <summary><span class="pending-information-title">Productos pendientes de información<span id="pending-information-count" class="suggestion-count">(0)</span></span><isl-pending-information-refresh></isl-pending-information-refresh></summary>
             <div class="suggestion-content"><div id="pending-information-products" class="suggestions"></div><p id="pending-information-empty" class="helper" hidden>No hay productos con información pendiente.</p></div>
           </details>
         </div>
@@ -1021,8 +1021,8 @@ class ImprovedShoppingCatalog extends HTMLElement {
     root.querySelector("#list-suggestions").replaceChildren(...rows);
     root.querySelector("#scan-suggestions").replaceChildren(...pending.map(item => this._codeSuggestion(item)));
     this._renderLinkDialog();
-    root.querySelector("#list-suggestions-count").textContent = String(suggestions.length);
-    root.querySelector("#scan-suggestions-count").textContent = String(pending.length);
+    root.querySelector("#list-suggestions-count").textContent = `(${suggestions.length})`;
+    root.querySelector("#scan-suggestions-count").textContent = `(${pending.length})`;
     root.querySelector("#view-suggestions").hidden=false;
     this._renderPendingInformation();
     root.querySelector("#list-suggestions-empty").hidden = suggestions.length > 0 || this._catalog.loading || Boolean(this._catalog.error);
@@ -1037,6 +1037,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
     for(const offer of this._priceData?.offers??[]){const values=offersByProduct.get(offer.catalog_product_id)??[];values.push(offer);offersByProduct.set(offer.catalog_product_id,values);}
     const pending=this._catalog.products.map(product=>({product,issues:pendingProductInformation(product,offersByProduct.get(product.id)??[])}))
       .filter(item=>item.issues.length);
+    root.querySelector('#pending-information-count').textContent=`(${pending.length})`;
     root.querySelector('isl-pending-information-refresh').data={hass:this._hass,active:this._active&&this._view==='suggestions',eligible:pending.some(({product})=>(product.commercial_references??[]).some(ref=>ref.active!==false&&ref.url))};
     root.querySelector('#pending-information-empty').hidden=Boolean(pending.length)||this._catalog.loading;
     if(this._view!=='suggestions'||!group.open){container.replaceChildren();return;}
@@ -1606,7 +1607,8 @@ class ImprovedShoppingCatalog extends HTMLElement {
     const stores=[...new Set([...Object.keys(this._storeLinks??{}),...receiptStores,...this._commercialReferences.filter(ref=>ref.active!==false).map(ref=>ref.store)])].filter(store=>store in names).sort((a,b)=>names[a].localeCompare(names[b],"es"));
     const options=stores.flatMap(store=>{
       const refs=this._commercialReferences.filter(ref=>ref.active!==false&&ref.store===store);
-      return refs.length?refs.map(ref=>({store,ref})):[{store,ref:null}];
+      // Receipt history may supply a legacy placeholder, but must not resurrect a removed alternative.
+      return refs.length?refs.map(ref=>({store,ref})):this._commercialReferences.some(ref=>ref.store===store&&ref.active===false)?[]:[{store,ref:null}];
     });
     const cards=options.map(({store,ref},index)=>{
       const value=this._storeLinks[store],fromTicket=receiptStores.includes(store);

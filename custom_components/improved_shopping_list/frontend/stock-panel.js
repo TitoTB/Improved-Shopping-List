@@ -1,7 +1,7 @@
-import './meal-consumption.js?v=0.75.0';
+import './meal-consumption.js?v=0.76.0';
 /** Pantry UI, forms and calculations loaded only when Stock is opened. */
-import { imageSource, normalizedName, productNameKey } from './product-display.js?v=0.75.0';
-import { installDialogCloseButtons } from './dialog-controls.js?v=0.75.0';
+import { imageSource, normalizedName, productNameKey } from './product-display.js?v=0.76.0';
+import { installDialogCloseButtons } from './dialog-controls.js?v=0.76.0';
 const stockQuantity = (item, now=Date.now()/1000) => {
   if(item.mode!=='perishable')return item.quantity;
   if(item.quantity<=0||item.expired)return 0;
@@ -143,10 +143,11 @@ class StockView {
     this._stockEditing={...item,quantity:stockQuantity(item)};
     const defaults={unit:'uds',mode:'manual',days:7,refill_quantity:1,reorder_enabled:false,reorder_at:0,usage_entity:'',usage_state:'',usage_amount:1};
     const config={...defaults,...this._stockEditing};
-    const meals=root.querySelector('isl-meal-consumption');meals.hass=this._hass;meals.reset(config.meal_rules??[]);
+    const meals=root.querySelector('isl-meal-consumption');meals.hass=this._hass;meals.wholeNumbers=true;meals.reset(config.meal_rules??[]);
     this._stockDraftBasis=config.reorder_basis??'quantity';
-    this._stockDraftMinimum=config.reorder_at;this._stockDraftPercent=config.reorder_percent??0;this._stockDraftMode=config.mode;
+    this._stockDraftMinimum=Math.round(config.reorder_at);this._stockDraftPercent=Math.round(config.reorder_percent??0);this._stockDraftMode=config.mode;
     for(const key of ['quantity','mode','days','refill_quantity','reorder_at','usage_entity','usage_state','usage_amount'])form.elements[key].value=config[key];
+    for(const key of ['quantity','days','refill_quantity','reorder_at','usage_amount'])form.elements[key].value=Math.max(Number(form.elements[key].min),Math.round(Number(config[key])));
     if(this._stockUsesPercent(config.mode))form.elements.reorder_at.value=this._stockDraftPercent;
     const standard=['uds','kg','g','l','ml'].includes(config.unit);
     form.elements.unit.value=standard?config.unit:'custom';form.elements.custom_unit.value=standard?'':config.unit;
@@ -207,7 +208,7 @@ class StockView {
     const value=key=>form.elements[key].value;
     const meals=root.querySelector('isl-meal-consumption');
     let mealRules;try{mealRules=value('mode')==='meals'?meals.validate():meals.value;}catch(error){const notice=root.querySelector('#stock-editor-error');notice.textContent=error.message;notice.hidden=false;return;}
-    const config={quantity:Number(value('quantity')),quantity_changed:Number(value('quantity'))!==this._stockEditing.quantity,unit:value('unit')==='custom'?value('custom_unit').trim():value('unit'),
+    const config={quantity:Number(value('quantity')),quantity_changed:Number(value('quantity'))!==Math.round(this._stockEditing.quantity),unit:value('unit')==='custom'?value('custom_unit').trim():value('unit'),
       mode:value('mode'),days:Number(value('days')),refill_quantity:Number(value('refill_quantity')),
       reorder_enabled:form.elements.reorder_enabled.checked,
       reorder_at:this._stockUsesPercent(value('mode')) ? this._stockDraftMinimum : Number(value('reorder_at')),
@@ -238,7 +239,7 @@ export function installStockView(panel) {
           <div class="stock-editor-header"><div id="stock-editor-media" aria-hidden="true"></div><div class="stock-editor-identity"><p>Stock</p><strong id="stock-editor-name"></strong></div></div><p id="stock-editor-error" class="notice error" role="alert" hidden></p>
           <section id="stock-current-card" class="stock-current-card">
             <div class="stock-current-caption"><label for="stock-editor-quantity">Stock actual</label><span id="stock-editor-percent" aria-live="polite"></span></div>
-            <div class="stock-current-values"><div class="stock-quantity-editor"><button id="stock-draft-minus" type="button" aria-label="Disminuir stock"><ha-icon icon="mdi:minus" aria-hidden="true"></ha-icon></button><input id="stock-editor-quantity" name="quantity" aria-label="Stock actual" type="number" min="0" max="1000000" step="0.001" required><button id="stock-draft-plus" type="button" aria-label="Incrementar stock"><ha-icon icon="mdi:plus" aria-hidden="true"></ha-icon></button></div>
+            <div class="stock-current-values"><div class="stock-quantity-editor"><button id="stock-draft-minus" type="button" aria-label="Disminuir stock"><ha-icon icon="mdi:minus" aria-hidden="true"></ha-icon></button><input id="stock-editor-quantity" name="quantity" aria-label="Stock actual" type="number" min="0" max="1000000" step="1" required><button id="stock-draft-plus" type="button" aria-label="Incrementar stock"><ha-icon icon="mdi:plus" aria-hidden="true"></ha-icon></button></div>
             <label class="stock-editor-unit"><span class="stock-editor-sr">Unidades</span><select name="unit" aria-label="Unidades"><option value="uds">uds</option><option value="kg">kg</option><option value="g">g</option><option value="l">l</option><option value="ml">ml</option><option value="custom">Personalizadas</option></select></label></div>
             <div id="stock-editor-progress" class="stock-editor-progress" role="progressbar" aria-label="Stock disponible" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div class="stock-editor-progress-fill"></div></div>
             <label id="stock-custom-unit-label" hidden>Unidad personalizada<input name="custom_unit" maxlength="32" placeholder="Por ejemplo, Latas"></label>
@@ -249,16 +250,16 @@ export function installStockView(panel) {
             <div id="stock-usage-fields" class="wide" hidden><div class="stock-form-fields">
               <label class="wide">Entidad de consumo<input name="usage_entity" list="stock-usage-entities" placeholder="Por ejemplo, binary_sensor.lavadora"></label><datalist id="stock-usage-entities"></datalist>
               <label>Estado que representa un uso<input name="usage_state" maxlength="255" placeholder="Por ejemplo, on"></label>
-              <label>Cantidad consumida por uso<span class="stock-number-field"><input name="usage_amount" aria-label="Cantidad consumida por uso" type="number" min="0.001" max="1000000" step="0.001" required><span data-stock-editor-unit></span></span></label>
+              <label>Cantidad consumida por uso<span class="stock-number-field"><input name="usage_amount" aria-label="Cantidad consumida por uso" type="number" min="1" max="1000000" step="1" required><span data-stock-editor-unit></span></span></label>
             </div></div>
             <isl-meal-consumption class="wide" hidden></isl-meal-consumption>
             <div class="stock-expiry-refill wide">
               <label id="stock-days-label" hidden>Caduca cada<span class="stock-number-field"><input name="days" aria-label="Caduca cada cuántos días desde la compra" type="number" min="1" max="3650" step="1" required><span>días</span></span></label>
-              <label>Cantidad predeterminada de reposición<span class="stock-number-field"><input name="refill_quantity" aria-label="Cantidad predeterminada de reposición" type="number" min="0.001" max="1000000" step="0.001" required><span data-stock-editor-unit></span></span></label>
+              <label>Cantidad predeterminada de reposición<span class="stock-number-field"><input name="refill_quantity" aria-label="Cantidad predeterminada de reposición" type="number" min="1" max="1000000" step="1" required><span data-stock-editor-unit></span></span></label>
             </div>
             <div class="stock-reorder-row wide">
               <label class="check"><input name="reorder_enabled" type="checkbox">Añadir a la lista cuando el stock llegue al mínimo</label>
-              <label id="stock-threshold-label" hidden><span id="stock-threshold-title" class="stock-editor-sr">Stock mínimo</span><span class="stock-number-field"><input name="reorder_at" type="number" min="0" max="1000000" step="0.001" required><span id="stock-editor-minimum-unit"></span></span></label>
+              <label id="stock-threshold-label" hidden><span id="stock-threshold-title" class="stock-editor-sr">Stock mínimo</span><span class="stock-number-field"><input name="reorder_at" type="number" min="0" max="1000000" step="1" required><span id="stock-editor-minimum-unit"></span></span></label>
             </div>
             <label id="stock-target-label" class="wide stock-editor-row">Lista para reponer<select name="list_entity" aria-label="Lista para reponer"></select></label>
           </div><div class="dialog-actions"><button id="delete-stock-from-editor" type="button"><ha-icon icon="mdi:delete" aria-hidden="true"></ha-icon><span>Eliminar</span></button><button id="save-stock-config" type="submit">Guardar</button></div></form>
@@ -289,7 +290,7 @@ function installStockEvents(root) {
     root.querySelector("#stock-editor-dialog").addEventListener("cancel",event=>{if(this._busy)event.preventDefault();});
     for(const [id,delta] of [["stock-draft-minus",-1],["stock-draft-plus",1]])root.querySelector('#'+id).addEventListener("click",()=>{
       const input=root.querySelector('#stock-editor-form').elements.quantity;
-      input.value=String(Math.min(1000000,Math.max(0,Math.round((Number(input.value)+delta)*1000)/1000)));
+      input.value=String(Math.min(1000000,Math.max(0,Math.round(Number(input.value)+delta))));
       this._updateStockDraftSummary();
     });
     root.querySelector('#delete-stock-from-editor').addEventListener('click',()=>{

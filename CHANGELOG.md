@@ -1,5 +1,14 @@
 # Historial de cambios
 
+## 0.80.0 — 2026-11-01
+
+- Analítica incorpora Gastos: totales, categorías, tiendas, productos más comprados y participación de personas, con filtros por periodo y navegación a compras y fichas.
+- Comparativa permite priorizar o filtrar los mínimos de una tienda, ordenar diferencias y consultar oportunidades de ahorro. Compras conserva la vista inicial y mejora su presentación.
+- Nutri-Score pasa a Nutrición: datos por EAN, nutrientes, NOVA y filtros alimentarios del catálogo o las compras, con caché persistente de Open Food Facts y consulta progresiva.
+- Se documentan las cuatro vistas de Analítica y se comprueba su adaptación a escritorio y móvil.
+
+- Se elimina la franja de color de las categorías del catálogo en todas las pantallas. Las filas agrupadas aprovechan el ancho del bloque y mantienen el precio y el control de unidades en una sola línea.
+
 ## 0.79.0 — 2026-11-01
 
 - El README incorpora la documentación de Stock, sus métodos de control, reposición por mínimos, rutinas y lectores.

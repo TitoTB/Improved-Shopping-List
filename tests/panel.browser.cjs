@@ -196,6 +196,8 @@ const hass={
       const asset={id:msg.icon_id,url:'/improved_shopping_list_icons/fixture.svg',collection:'Tabler Icons',author:'Paweł Kuna',author_url:'https://github.com/tabler/tabler-icons',license:'MIT',license_url:'https://github.com/tabler/tabler-icons/blob/master/LICENSE',source_url:'https://icon-sets.iconify.design/tabler/milk/'};
       localStorage.setItem('icon-asset-fixture',JSON.stringify(asset));return asset;
     }
+    if(msg.type==='improved_shopping_list/catalog/nutrition_details')return {records:structuredClone(window.nutritionDetailsFixture??[])};
+    if(msg.type==='improved_shopping_list/catalog/nutrition')return {status:'not_found'};
     if(msg.type==='improved_shopping_list/catalog/nutrition_distribution'){
       if(window.failNutritionDistribution)throw new Error('Disconnected');
       const counts={a:0,b:0,c:0,d:0,e:0},product_ids={a:[],b:[],c:[],d:[],e:[]};
@@ -874,6 +876,48 @@ async function checkLidlAccount(browser,url,errors){
   await purchases.locator('#review-steps').getByRole('button',{name:/Vinculación/}).waitFor();
   await page.screenshot({path:'test-results/lidl-purchase-review-mobile.png',fullPage:true});
   await context.close();
+}
+
+async function checkAnalyticsDashboard(browser,url,errors){
+ const context=await browser.newContext({viewport:{width:1280,height:1000}});
+ await context.addInitScript(()=>{
+   const today=new Date().toISOString(),at=Date.now()/1000;
+   const products=[{id:'coffee',name:'Café',category:'Despensa',barcode:'3017620422003'},{id:'eggs',name:'Huevos',category:'Fresco',barcode:'8410109115543'}].map(p=>({...p,revision:1,tags:[],barcodes:[p.barcode],nfc_tags:[],image_url:'',icon:'mdi:food',store_links:{},currency:'EUR',price:null}));
+   localStorage.setItem('catalog-fixture',JSON.stringify(products));
+   localStorage.setItem('receipt-fixture',JSON.stringify([{id:'bill',store:'carrefour',store_name:'Carrefour',purchased_at:today,currency:'EUR',total:10,shoppers:['person.one','person.two'],lines:[{id:'1',product_id:'coffee',description:'CAFÉ',ean:'3017620422003',count:1,amount:8,pack_quantity:500,pack_unit:'g'},{id:'2',product_id:'eggs',description:'HUEVOS',count:1,amount:2,pack_quantity:6,pack_unit:'uds'}]},{id:'summary',store:'lidl',store_name:'Lidl',purchased_at:today,currency:'EUR',total:5,summary_only:true,lines:[]} ]));
+   window.nutriFixture={'3017620422003':{grade:'a'},'8410109115543':{grade:'b'}};
+   window.nutritionDetailsFixture=[{product_id:'coffee',name:'Café natural',code:'03017620422003',grade:'a',fresh:true,nutrition:{nutrients:{'energy-kcal':4,fat:0.1,salt:0.02},nova:1,vegan:true,categories:['en:vegetables']}},{product_id:'eggs',name:'Huevos frescos',code:'08410109115543',grade:'b',fresh:true,nutrition:{nutrients:{'energy-kcal':140,proteins:12},nova:1}}];
+   window.comparisonFixture={stores:['carrefour','alcampo'],observations:[{product_id:'coffee',store:'carrefour',price:8,currency:'EUR',at,pack_quantity:500,pack_unit:'g'},{product_id:'coffee',store:'alcampo',price:7,currency:'EUR',at,pack_quantity:500,pack_unit:'g'},{product_id:'eggs',store:'carrefour',price:2,currency:'EUR',at,pack_quantity:6,pack_unit:'uds'},{product_id:'eggs',store:'alcampo',price:3,currency:'EUR',at,pack_quantity:6,pack_unit:'uds'}]};
+ });
+ const page=await context.newPage();page.on('pageerror',error=>errors.push(error.message));await page.goto(url);
+ await page.evaluate(()=>{const p=window.testPanel;p.hass={...p._hass,states:{...p._hass.states,'person.one':{entity_id:'person.one',state:'home',attributes:{friendly_name:'Ana'}},'person.two':{entity_id:'person.two',state:'home',attributes:{friendly_name:'Luis'}}}};});
+ await page.getByRole('button',{name:'Analítica',exact:true}).click();
+ assert.equal(await page.getByRole('tab',{name:'Compras',exact:true}).getAttribute('aria-selected'),'true');
+ assert.deepEqual(await page.locator('#analytics-heading [role=tab]').allTextContents(),['Compras','Gastos','Comparativa','Nutrición']);
+ await page.getByRole('tab',{name:'Gastos',exact:true}).click();const analytics=page.locator('isl-analytics'),expenses=analytics.locator('#expenses-insights');
+ await expenses.locator('.stat strong').first().filter({hasText:'15,00'}).waitFor();
+ assert.deepEqual(await expenses.locator('.stat strong').allTextContents(),['15,00 €','2','7,50 €','67 %']);
+ await expenses.locator('.bar-row').filter({hasText:'Carrefour'}).click();await expenses.locator('.stat strong').first().filter({hasText:'10,00'}).waitFor();
+ await expenses.locator('.filter-chip').filter({hasText:'Tienda:'}).click();
+ await expenses.locator('.bar-row').filter({hasText:'Despensa'}).click();await expenses.locator('.stat strong').first().filter({hasText:'8,00'}).waitFor();
+ await expenses.locator('.filter-chip').filter({hasText:'Categoría:'}).click();
+ for(const width of [1280,390,320]){await page.setViewportSize({width,height:1000});assert.ok(await expenses.evaluate(n=>n.scrollWidth<=n.clientWidth+1));await page.screenshot({path:'test-results/analytics-expenses-'+width+'.png',fullPage:true});}
+ await page.setViewportSize({width:1280,height:1000});
+ await expenses.locator('.bar-row').filter({hasText:'Café'}).click();const product=page.locator('isl-catalog').getByRole('dialog',{name:'Editar producto',exact:true});await product.waitFor();await product.getByRole('button',{name:'Cerrar ventana',exact:true}).click();
+ await page.getByRole('button',{name:'Analítica',exact:true}).click();await page.getByRole('tab',{name:'Gastos',exact:true}).click();await expenses.locator('.purchase').first().click();await page.locator('isl-purchases').getByRole('dialog',{name:'Detalle de la compra',exact:true}).waitFor();await page.locator('isl-purchases').getByRole('dialog',{name:'Detalle de la compra',exact:true}).getByRole('button',{name:'Cerrar ventana',exact:true}).click();
+ await page.getByRole('tab',{name:'Comparativa',exact:true}).click();await analytics.locator('tbody tr').nth(1).waitFor();
+ await analytics.getByRole('button',{name:'Ordenar por precios más bajos en Alcampo',exact:true}).click();assert.equal(await analytics.locator('tbody tr').first().getAttribute('data-product-id'),'coffee');
+ await analytics.getByRole('button',{name:'Ordenar por precios más bajos en Alcampo',exact:true}).click();assert.equal(await analytics.locator('tbody tr').count(),1);
+ await analytics.locator('.comparison-chip').click();assert.equal(await analytics.locator('tbody tr').count(),2);
+ await analytics.getByLabel('Ordenar comparativa',{exact:true}).selectOption('percentage');assert.equal(await analytics.locator('tbody tr').first().getAttribute('data-product-id'),'eggs');
+ await page.screenshot({path:'test-results/analytics-comparison-dashboard.png',fullPage:true});
+ await page.getByRole('tab',{name:'Nutrición',exact:true}).click();const nutrition=analytics.locator('#nutrition-insights');await nutrition.locator('.nutrition-table tbody tr').nth(1).waitFor();
+ assert.equal(await nutrition.locator('#nutrition-total').textContent(),'2 productos con Nutri-Score');
+ await nutrition.getByLabel('Características',{exact:true}).selectOption('vegan');assert.equal(await nutrition.locator('.nutrition-table tbody tr').count(),1);await nutrition.getByLabel('Características',{exact:true}).selectOption('');
+ await nutrition.getByLabel('Datos',{exact:true}).selectOption('purchases');await nutrition.locator('.nutrition-table tbody tr').filter({hasText:'Café natural'}).waitFor();assert.equal(await nutrition.locator('.nutrition-table tbody tr').count(),1);await nutrition.getByLabel('Datos',{exact:true}).selectOption('catalog');
+ for(const width of [1280,390,320]){await page.setViewportSize({width,height:1000});assert.ok(await nutrition.evaluate(n=>n.scrollWidth<=n.clientWidth+1));await page.screenshot({path:'test-results/analytics-nutrition-dashboard-'+width+'.png',fullPage:true});}
+ await page.getByRole('button',{name:'Lista',exact:true}).click();assert.equal(await page.evaluate(()=>[...window.testPanel.shadowRoot.querySelector('isl-analytics').shadowRoot.querySelectorAll('isl-analytics-insights')].some(el=>el.started)),false);
+ await context.close();
 }
 
 async function checkSpendingChart(browser,url,errors){
@@ -2629,7 +2673,7 @@ async function checkMobileSpacing(browser,url,errors){
         assert.ok(await catalog.locator('.catalog-tabs').evaluate(nav=>parseFloat(getComputedStyle(nav).gap)>=10));
         if(await catalog.getByRole('button',{name:'Agrupar por categorías',exact:true}).isVisible())await catalog.getByRole('button',{name:'Agrupar por categorías',exact:true}).click();
         const group=catalog.locator('.category-group').first();await group.waitFor();
-        assert.equal(await group.evaluate(n=>getComputedStyle(n,'::before').display),'none');
+        assert.equal(await group.evaluate(n=>getComputedStyle(n,'::before').content),'none');
         await page.screenshot({path:'test-results/mobile-catalog-spacing-'+width+'.png',fullPage:true});
       }
       if(view==='stock'){
@@ -2673,6 +2717,27 @@ async function checkStockReaders(browser,url,errors){
   await page.getByRole('button',{name:'Ajustes',exact:true}).click();
   assert.equal(await page.locator('#stock-readers').isVisible(),false);
   assert.equal(await page.evaluate(()=>window.testPanel._readersRunning),false);
+  await context.close();
+}
+
+async function checkGroupedCatalogBadges(browser,url,errors){
+  const context=await browser.newContext({viewport:{width:1280,height:960}});
+  await context.addInitScript(()=>{
+    localStorage.setItem('catalog-fixture',JSON.stringify([{id:'ham',revision:1,name:'Jamón de teruel',category:'Embutido',tags:[],barcodes:[],nfc_tags:[],image_url:'',icon:'mdi:food-drumstick',currency:'EUR',price:34.90}]));
+    localStorage.setItem('category-fixture',JSON.stringify([{id:'meat',name:'Embutido',color:'#e6a8d7',icon:'mdi:food-drumstick'}]));
+  });
+  const page=await context.newPage();page.on('pageerror',error=>errors.push(error.message));await page.goto(url);
+  await page.getByRole('button',{name:'Catálogo',exact:true}).click();const catalog=page.locator('isl-catalog');
+  await catalog.getByRole('button',{name:'Cambiar a vista de filas',exact:true}).click();
+  await catalog.getByRole('button',{name:'Agrupar por categorías',exact:true}).click();
+  const group=catalog.locator('.category-group').first();await group.locator('summary').click();
+  for(const width of [1280,650,390,320]){
+    await page.setViewportSize({width,height:960});
+    assert.equal(await group.evaluate(n=>getComputedStyle(n,'::before').content),'none');
+    const product=group.locator('.product').first();
+    assert.ok(await product.evaluate(card=>{const price=card.querySelector('.row-price').getBoundingClientRect(),quantity=card.querySelector('.row-quantity').getBoundingClientRect(),name=card.querySelector('.product-name').getBoundingClientRect(),edit=card.querySelector('.product-controls').getBoundingClientRect();return price.right<=quantity.left&&Math.abs((price.top+price.bottom-quantity.top-quantity.bottom)/2)<1&&name.width>=50&&name.right<=price.left&&quantity.right<=edit.left&&card.scrollWidth<=card.clientWidth+1;}),'Grouped price and quantity fit on one row without overlapping the name or edit button');
+    await page.screenshot({path:'test-results/grouped-catalog-badges-'+width+'.png',fullPage:true});
+  }
   await context.close();
 }
 
@@ -3130,7 +3195,7 @@ async function main() {
     }
     if (pathname === "/") { res.setHeader("content-type", "text/html; charset=utf-8"); res.end(html); return; }
     if (pathname === '/catalog-sources.js') {res.setHeader('content-type','text/javascript; charset=utf-8');res.end(await fs.readFile(path.join(root,'catalog-sources.js')));return;}
-    if (!["/meal-routines.js", "/meal-consumption.js", "/replenishment-editor.js", "/pending-information-refresh.js", "/masymas.png", "/bm.png", "/stock-panel.js", "/product-display.js", "/reference-formats.js", "/zone-map.js", "/vendor/leaflet/leaflet.js", "/vendor/leaflet/leaflet.css", "/vendor/leaflet/images/layers.png", "/vendor/leaflet/images/layers-2x.png", "/lidl-account.js", "/toggle-styles.js", "/shopping-places.js", "/dia-prices-settings.js", "/dia-account.js", "/analytics-panel.js", "/alcampo-settings.js", "/carrefour-account.js", "/notification-settings.js", "/recipe-editor.js", "/quantity-client.js", "/panel.js", "/purchases-panel.js", "/stock-client.js", "/dialog-controls.js", "/todo-client.js", "/catalog-panel.js", "/catalog-client.js", "/category-panel.js", "/icon-picker.js", "/list-settings-client.js", "/settings-panel.js", "/readers-client.js", "/readers-panel.js", "/product-matching.js", "/product-names.js", "/logs-panel.js", "/logo.png", "/mercadona.png", "/consum.jpg", "/lasirena.jpg", "/eroski.svg", "/dia.png"].includes(pathname)) { res.writeHead(404).end(); return; }
+    if (!["/meal-routines.js", "/meal-consumption.js", "/replenishment-editor.js", "/pending-information-refresh.js", "/masymas.png", "/bm.png", "/stock-panel.js", "/product-display.js", "/reference-formats.js", "/zone-map.js", "/vendor/leaflet/leaflet.js", "/vendor/leaflet/leaflet.css", "/vendor/leaflet/images/layers.png", "/vendor/leaflet/images/layers-2x.png", "/lidl-account.js", "/toggle-styles.js", "/shopping-places.js", "/dia-prices-settings.js", "/dia-account.js", "/analytics-panel.js", "/analytics-insights.js", "/alcampo-settings.js", "/carrefour-account.js", "/notification-settings.js", "/recipe-editor.js", "/quantity-client.js", "/panel.js", "/purchases-panel.js", "/stock-client.js", "/dialog-controls.js", "/todo-client.js", "/catalog-panel.js", "/catalog-client.js", "/category-panel.js", "/icon-picker.js", "/list-settings-client.js", "/settings-panel.js", "/readers-client.js", "/readers-panel.js", "/product-matching.js", "/product-names.js", "/logs-panel.js", "/logo.png", "/mercadona.png", "/consum.jpg", "/lasirena.jpg", "/eroski.svg", "/dia.png"].includes(pathname)) { res.writeHead(404).end(); return; }
     res.setHeader("content-type", pathname.endsWith(".css") ? "text/css; charset=utf-8" : pathname.endsWith(".svg") ? "image/svg+xml" : pathname.endsWith(".png") ? "image/png" : pathname.endsWith(".jpg") ? "image/jpeg" : "text/javascript; charset=utf-8");
     res.end(await fs.readFile(path.join(root, pathname.slice(1))));
   });
@@ -3142,6 +3207,7 @@ async function main() {
     if(process.argv.includes('--readers-editor-only')){const errors=[];await checkReaderEditor(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Reader editor passed.');return;}
     if(process.argv.includes('--mobile-spacing-only')){const errors=[];await checkMobileSpacing(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Mobile spacing passed.');return;}
     if(process.argv.includes('--stock-readers-only')){const errors=[];await checkStockReaders(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Stock readers navigation passed.');return;}
+    if(process.argv.includes('--grouped-badges-only')){const errors=[];await checkGroupedCatalogBadges(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Grouped catalog badges passed.');return;}
     if(process.argv.includes('--catalog-views-only')){const errors=[];await checkCatalogViews(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Catalog views passed.');return;}
     if(process.argv.includes('--comparison-only')){const errors=[];await checkCatalogComparison(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Catalog comparison passed.');return;}
     if(process.argv.includes('--appearance-only')){const errors=[];await checkAppearanceInLists(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Appearance in Lists passed.');return;}
@@ -3162,6 +3228,7 @@ async function main() {
     if(process.argv.includes('--reference-logs-only')){const errors=[];await checkReferenceLogDescriptions(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Reference log descriptions passed.');return;}
     if(process.argv.includes('--formats-only')){const errors=[];await checkReferenceFormats(browser,`http://127.0.0.1:${server.address().port}`,errors);await checkReceiptPackageFormats(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Commercial reference browser checks passed.');return;}
     if(process.argv.includes('--recovery-only')){const errors=[];await checkDetectedPurchaseRecovery(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Manual purchase recovery browser checks passed.');return;}
+    if(process.argv.includes('--analytics-dashboard-only')){const errors=[];await checkAnalyticsDashboard(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Analytics dashboard passed.');return;}
     if(process.argv.includes('--purchases-only')){const errors=[];await checkSpendingChart(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Purchase calendar browser checks passed.');return;}
     if(process.argv.includes('--lidl-only')){const errors=[];await checkLidlAccount(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Lidl account browser checks passed.');return;}
     if(process.argv.includes('--names-only')){
@@ -4808,6 +4875,7 @@ async function main() {
     await stockOnlyContext.close();
 
     // Purchase history uses a ticket button for details and stacks monthly spend by store.
+    await checkAnalyticsDashboard(browser,url,errors);
     await checkSpendingChart(browser,url,errors);
 
     // Store bindings persist without barcodes; all product-price UI reads use cache.
@@ -5200,6 +5268,7 @@ async function main() {
     assert.equal(await notifications.getByRole('button',{name:'Guardar notificaciones',exact:true}).isDisabled(),true);
     await notificationContext.close();
 
+    await checkGroupedCatalogBadges(browser,url,errors);
     await checkCatalogViews(browser,url,errors);
     await checkLidlCatalogPrices(browser,url,errors);
     await checkMobileSpacing(browser,url,errors);
@@ -5386,12 +5455,12 @@ async function main() {
     await groupingButton.click();
     const groupingDialog=groupedCatalog.getByRole('dialog',{name:'Agrupar productos por',exact:true});
     assert.equal(await groupingDialog.getByRole('button',{name:'Categoría',exact:true}).getAttribute('aria-pressed'),'true');
-    assert.equal(await groupingDialog.getByRole('button',{name:'Nutri-Score',exact:true}).count(),0);
+    assert.equal(await groupingDialog.getByRole('button',{name:'Nutrición',exact:true}).count(),0);
     await groupingDialog.getByRole('button',{name:'Cerrar ventana',exact:true}).click();
     await groupedCatalog.getByRole('button',{name:'Cambiar a vista de filas',exact:true}).click();
     await groupingPage.getByRole('button',{name:'Analítica',exact:true}).click();
     const nutritionSettings=groupingPage.locator('isl-analytics');
-    await groupingPage.getByRole('tab',{name:'Nutri-Score',exact:true}).click();
+    await groupingPage.getByRole('tab',{name:'Nutrición',exact:true}).click();
     await nutritionSettings.locator('#nutrition-total').filter({hasText:'3 productos'}).waitFor();
     assert.deepEqual(await nutritionSettings.locator('.nutrition-value').allTextContents(),['1 (33,3 %)','1 (33,3 %)','0 (0 %)','0 (0 %)','1 (33,3 %)']);
     assert.equal(await nutritionSettings.locator('.nutrition-bar').first().evaluate(node=>getComputedStyle(node).backgroundColor),'rgb(3, 129, 65)');
@@ -5413,12 +5482,12 @@ async function main() {
     await groupingPage.screenshot({path:'test-results/nutrition-distribution-desktop.png',fullPage:true});
     await groupingPage.evaluate(()=>{window.nutriFixture={};});
     await groupingPage.getByRole('tab',{name:'Comparativa',exact:true}).click();
-    await groupingPage.getByRole('tab',{name:'Nutri-Score',exact:true}).click();
+    await groupingPage.getByRole('tab',{name:'Nutrición',exact:true}).click();
     await nutritionSettings.locator('#nutrition-status').filter({hasText:'Todavía no hay productos'}).waitFor();
     assert.equal(await nutritionSettings.locator('#nutrition-chart').isVisible(),false);
     await groupingPage.evaluate(()=>{window.failNutritionDistribution=true;});
     await groupingPage.getByRole('tab',{name:'Comparativa',exact:true}).click();
-    await groupingPage.getByRole('tab',{name:'Nutri-Score',exact:true}).click();
+    await groupingPage.getByRole('tab',{name:'Nutrición',exact:true}).click();
     await nutritionSettings.locator('#nutrition-status').filter({hasText:'No se ha podido cargar'}).waitFor();
     await groupingPage.evaluate(()=>{window.failNutritionDistribution=false;localStorage.setItem('isl-catalog-grouping','nutriscore');});
     await groupingPage.reload();
@@ -5426,7 +5495,7 @@ async function main() {
     await groupedCatalog.locator('.category-group').nth(2).waitFor();
     await groupingButton.click();
     assert.equal(await groupingDialog.getByRole('button',{name:'Categoría',exact:true}).getAttribute('aria-pressed'),'true');
-    assert.equal(await groupingDialog.getByRole('button',{name:'Nutri-Score',exact:true}).count(),0);
+    assert.equal(await groupingDialog.getByRole('button',{name:'Nutrición',exact:true}).count(),0);
     await groupingDialog.getByRole('button',{name:'Cerrar ventana',exact:true}).click();
     await groupingPage.setViewportSize({width:390,height:844});
     // Removed grouping preferences fall back to categories after reloading.

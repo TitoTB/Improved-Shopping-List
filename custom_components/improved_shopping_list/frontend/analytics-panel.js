@@ -1,3 +1,4 @@
+import './analytics-insights.js?v=0.80.0';
 const node=(tag,cls,text)=>{const el=document.createElement(tag);if(cls)el.className=cls;if(text!==undefined)el.textContent=text;return el;};
 const names={masymas:"Masymas",bm:"BM",elcorteingles:'El Corte Inglés',mercadona:'Mercadona',carrefour:'Carrefour',alcampo:'Alcampo',consum:'Consum',lasirena:'La Sirena',eroski:'Eroski',dia:'DIA',lidl:'Lidl'};
 const money=(cents,currency)=>new Intl.NumberFormat('es-ES',{style:'currency',currency,minimumFractionDigits:2,maximumFractionDigits:2}).format(cents/100);
@@ -73,6 +74,11 @@ export function analyzePurchase(purchase,observations,options={}){
   return {purchase,alternatives,split,splitCost,changed,splitSavings:Math.abs(number(purchase.discount)||0)>.001?null:lines.reduce((sum,l)=>sum+number(l.amount),0)-splitCost,mode:historical?'historical':'current'};
 }
 
+export function orderComparisonRows(rows,{store='',only=false,order='name'}={}){
+  const percent=row=>row.max>0?row.difference/row.max:0;
+  return rows.filter(row=>!only||!store||row.bestStores.includes(store)).sort((a,b)=>Number(Boolean(store)&&b.bestStores.includes(store))-Number(Boolean(store)&&a.bestStores.includes(store))||(order==='percentage'?percent(b)-percent(a):order==='difference'?b.difference-a.difference:0)||a.product.name.localeCompare(b.product.name,'es'));
+}
+
 class ImprovedShoppingAnalytics extends HTMLElement {
   constructor(){super();this.attachShadow({mode:'open'});this._catalogLimit=30;}
   set data(value){if(value.active&&value.view==='comparison'&&(!this._active||this._view!=='comparison'))this._comparisonKey=null;const entering=value.active&&value.view==='nutrition'&&(!this._active||this._view!=='nutrition');this._data=value;this._active=value.active;this._view=value.view;if(entering)this._nutritionKey=null;if(!this._built)this._build();this._render();}
@@ -105,14 +111,17 @@ class ImprovedShoppingAnalytics extends HTMLElement {
     button,input{font:inherit;color:inherit}button{cursor:pointer}.comparison-tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px}.comparison-tabs button{display:flex;align-items:center;gap:7px;border:0;border-radius:10px;padding:11px 16px;background:transparent}.comparison-tabs [aria-pressed=true]{background:var(--secondary-background-color,#edf4ee);font-weight:700}.comparison-tabs ha-icon{--mdc-icon-size:20px;width:20px;height:20px}
     .filters{display:flex;gap:10px;flex-wrap:wrap;align-items:end;margin-bottom:18px}.filters label{font-size:12px;display:flex;flex-direction:column;gap:6px;min-width:0;flex:1 1 135px}.filters input{width:100%;min-width:0;border:1px solid var(--divider-color,#dfe7e1);background:var(--card-background-color,#fff);border-radius:10px;padding:10px;min-height:42px}.filters select{width:100%;min-height:42px}.stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-bottom:18px}.stat{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:18px;border-radius:15px;background:var(--card-background-color,#fff);border:1px solid var(--divider-color,#dfe7e1);min-width:0}.stat strong{display:block;font-size:clamp(20px,3vw,30px);line-height:1.2;margin-bottom:8px;color:var(--primary-color,#267052);overflow-wrap:anywhere}.stat span{font-size:12px;opacity:.7}.stat small{display:block;font-size:11px;opacity:.6;margin-top:5px}.chart-title{margin-bottom:20px}.rank-row{display:grid;grid-template-columns:140px minmax(40px,1fr) 100px;align-items:center;gap:12px;margin:16px 0}.shop-label{display:flex;align-items:center;gap:8px;min-width:0;font-weight:650;font-size:13px}.shop-label img{width:30px;height:30px;padding:3px;border-radius:8px;background:#fff;object-fit:contain;flex:none}.rank-track{height:24px;background:var(--secondary-background-color,#edf4ee);border-radius:8px;overflow:hidden}.rank-bar{height:100%;border-radius:8px;background:linear-gradient(90deg,#268a71,#5bbc95)}.rank-total{text-align:right;font-size:12px}.rank-total small{display:block;font-size:10px;opacity:.65}thead .shop-label{justify-content:center}.table-product{display:flex;align-items:center;gap:9px;min-width:150px}.table-product img,.table-product ha-icon{width:32px;height:32px;--mdc-icon-size:30px;object-fit:contain;flex:none}.table-product span{overflow-wrap:anywhere}.saving{display:inline-block;border-radius:7px;padding:4px 7px;background:color-mix(in srgb,var(--success-color,#268455) 12%,transparent);color:var(--success-color,#268455);font-size:12px;font-weight:700}.costlier{color:var(--error-color,#d32f2f)}.comparison-more{display:block;margin:14px auto;border:0;background:var(--secondary-background-color,#edf4ee);border-radius:10px;padding:12px 20px}.purchase-comparison{margin-bottom:16px;padding:0;overflow:hidden}.purchase-comparison>summary{list-style:none;display:flex;align-items:center;gap:12px;cursor:pointer;padding:18px}.purchase-comparison>summary::-webkit-details-marker{display:none}.purchase-comparison>summary::after{content:'▾';margin-left:8px}.purchase-comparison[open]>summary::after{content:'▴'}.purchase-comparison>summary>.shop-label{flex:1;min-width:0}.purchase-identity{display:flex;flex-direction:column;gap:5px}.purchase-paid{text-align:right;white-space:nowrap;font-weight:700}.purchase-paid small{display:block;font-size:11px;font-weight:400;opacity:.65}.purchase-body{padding:0 18px 18px}.purchase-note{font-size:12px;opacity:.7}.alternative{border-top:1px solid var(--divider-color,#dfe7e1);padding:16px 0}.alternative-heading{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}.pair-bars{display:grid;grid-template-columns:90px minmax(0,1fr) 80px;gap:7px;align-items:center;margin-top:10px;font-size:12px}.pair-track{height:18px;background:var(--secondary-background-color,#edf4ee);border-radius:6px;overflow:hidden}.pair-value{height:100%;background:#94a3b8;border-radius:6px}.pair-value.alternative-value{background:#38a583}.pair-price{text-align:right;white-space:nowrap}.row-detail{margin-top:12px}.row-detail table{font-size:12px}.pill{font-size:11px;display:inline-block;border-radius:7px;background:var(--secondary-background-color,#edf4ee);padding:4px 7px;margin-top:5px}.empty-state{padding:25px;text-align:center;border:1px dashed var(--divider-color,#dfe7e1);border-radius:14px;font-size:14px}.comparison-message{padding:12px 0}.common-cards{display:flex;gap:10px;flex-wrap:wrap}.common-shop{padding:12px;background:var(--secondary-background-color,#edf4ee);border-radius:10px;flex:1 1 140px}.common-shop strong{display:block;margin-top:8px}.comparison-note{font-size:12px;line-height:1.6;opacity:.7;margin:10px 0 18px}.card-head{display:flex;align-items:center;justify-content:space-between;gap:8px}.comparison-retry{padding:10px 16px;border:0;border-radius:8px;background:var(--secondary-background-color,#edf4ee)}
     @media(max-width:540px){.stats{gap:7px;grid-template-columns:repeat(2,minmax(0,1fr))}.stat{padding:12px 9px}.stat strong{font-size:20px}.stat span{font-size:11px}.rank-row{grid-template-columns:95px minmax(30px,1fr) 68px;gap:7px}.rank-total{font-size:11px}.shop-label{font-size:12px;gap:6px}.shop-label img{width:26px;height:26px}.purchase-comparison>summary{padding:14px;gap:8px}.purchase-body{padding:0 14px 14px}.pair-bars{grid-template-columns:62px minmax(25px,1fr) 65px;font-size:11px;gap:5px}.comparison-tabs button{padding:10px 12px}.comparison-note{font-size:11px}}
+    .comparison-columns{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.rank-row{width:100%;border:0;background:transparent;color:inherit;cursor:pointer;padding:6px;border-radius:9px;text-align:left}.rank-row[aria-pressed=true]{outline:1px solid #36a577;background:color-mix(in srgb,#267052 10%,transparent)}.shop-sort{color:inherit;background:transparent;border:0;padding:4px;cursor:pointer}.shop-sort[aria-pressed=true]{color:var(--success-color,#268455)}.comparison-toolbar{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:8px}.comparison-chip{padding:8px 10px;border:0;border-radius:9px;background:var(--secondary-background-color,#edf4ee);color:inherit}.opportunity{display:flex;align-items:center;gap:10px;width:100%;padding:12px 0;border:0;border-bottom:1px solid var(--divider-color,#dfe7e1);background:transparent;color:inherit;text-align:left;cursor:pointer}.opportunity img,.opportunity ha-icon{width:32px;height:32px;--mdc-icon-size:30px;object-fit:contain;flex:none}.opportunity strong{display:block;font-size:14px}.opportunity small{font-size:12px;opacity:.7}.shop-label img{border-radius:50%}.scroll thead{position:sticky;top:0;background:var(--card-background-color,#fff)}#analytics-nutrition{background:transparent;border:0;padding:0}#nutrition-overview{padding:20px;border:1px solid var(--divider-color,#dfe7e1);background:var(--card-background-color,#fff);border-radius:14px;margin-bottom:18px}.nutrition-products{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.nutrition-products li{padding:10px;border:1px solid var(--divider-color,#dfe7e1);border-radius:9px;margin:0}.nutrition-row{margin:12px 0}.nutrition-track{height:18px}button:focus-visible{outline:2px solid var(--primary-color,#267052);outline-offset:2px}@media(max-width:650px){.comparison-columns{grid-template-columns:minmax(0,1fr)}.nutrition-products{grid-template-columns:minmax(0,1fr)}}
     </style><section id="comparison"><p id="comparison-status" class="comparison-message" role="status" hidden></p><button id="comparison-retry" class="comparison-retry" type="button" hidden>Reintentar</button><div id="catalog-filters" class="filters"><label>Buscar producto<input id="analysis-search" type="search" placeholder="Nombre o etiquetas"></label><label>Categoría<select id="analysis-category" aria-label="Categoría"><option value="">Todas</option></select></label></div><div id="comparison-data"></div></section>
-    <section id="analytics-nutrition" class="card" hidden><h2>Nutri-Score del catálogo</h2><p>Distribución de los productos con Nutri-Score guardado. Cada producto cuenta una vez; los productos sin Nutri-Score no se incluyen.</p><p id="nutrition-status" role="status"></p><div id="nutrition-chart" role="group" hidden></div><p id="nutrition-total" hidden></p></section>`;
+    <section id="expenses-view" hidden><isl-analytics-insights id="expenses-insights"></isl-analytics-insights></section><section id="analytics-nutrition" hidden><isl-analytics-insights id="nutrition-insights"></isl-analytics-insights></section>`;
     for(const id of ['analysis-search','analysis-category'])this.shadowRoot.querySelector('#'+id).addEventListener(id==='analysis-search'?'input':'change',()=>{this._catalogLimit=30;this._renderComparison();});
     this.shadowRoot.querySelector('#comparison-retry').addEventListener('click',()=>{this._comparisonKey=null;this._render();});
   }
   _render(){
     const root=this.shadowRoot,d=this._data;
     root.querySelector('#comparison').hidden=this._view!=='comparison';root.querySelector('#analytics-nutrition').hidden=this._view!=='nutrition';
+    root.querySelector('#expenses-view').hidden=this._view!=='expenses';
+    for(const [id,mode] of [['expenses-insights','expenses'],['nutrition-insights','nutrition']])root.querySelector('#'+id).data={...d,mode,active:this._active&&this._view===mode};
     if(!this._active)return;
     if(this._view==='nutrition'){this._renderNutrition();return;}if(this._view!=='comparison')return;
     this._ensureComparison();this._renderComparison();
@@ -140,7 +149,7 @@ class ImprovedShoppingAnalytics extends HTMLElement {
   _renderComparison(){
     if(!this._built||!this._active||this._view!=='comparison')return;
     const root=this.shadowRoot,container=root.querySelector('#comparison-data'),status=root.querySelector('#comparison-status');
-    const renderKey=JSON.stringify([this._comparisonKey,this._comparisonLoading,this._comparisonError,this._comparisonDataRevision,this._data.enabled,this._catalogLimit,...['analysis-search','analysis-category'].map(id=>root.querySelector('#'+id).value)]);
+    const renderKey=JSON.stringify([this._comparisonKey,this._comparisonLoading,this._comparisonError,this._comparisonDataRevision,this._data.enabled,this._catalogLimit,this._selectedStore,this._storeOnly,this._comparisonOrder,...['analysis-search','analysis-category'].map(id=>root.querySelector('#'+id).value)]);
     if(renderKey===this._comparisonRenderKey)return;this._comparisonRenderKey=renderKey;
     container.replaceChildren();root.querySelector('#comparison-retry').hidden=!this._comparisonError;
     const message=!this._data.enabled?'Los precios están desactivados en Ajustes → Tiendas.':this._comparisonLoading?'Preparando el análisis de precios guardados…':this._comparisonError;
@@ -148,6 +157,7 @@ class ImprovedShoppingAnalytics extends HTMLElement {
     if(!this._comparisonSnapshot)return;
     this._renderCatalogComparison(container);
   }
+  _chooseStore(store){if(this._selectedStore!==store){this._selectedStore=store;this._storeOnly=false;}else if(!this._storeOnly)this._storeOnly=true;else{this._selectedStore='';this._storeOnly=false;}this._catalogLimit=30;this._renderComparison();}
   _renderCatalogComparison(container){
     const root=this.shadowRoot,data=this._comparisonSnapshot,query=root.querySelector('#analysis-search').value.normalize('NFD').replace(/\p{M}/gu,'').toLowerCase().trim();
     const products=(this._data.products??[]).filter(p=>!query||[p.name,...(p.tags??[])].join(' ').normalize('NFD').replace(/\p{M}/gu,'').toLowerCase().includes(query));
@@ -161,20 +171,27 @@ class ImprovedShoppingAnalytics extends HTMLElement {
       const chart=node('section','card');chart.append(node('h2','chart-title','Dónde están los precios más bajos'));
       const maximum=Math.max(1,...result.ranking.map(shop=>shop.wins));
       for(const shop of result.ranking.filter(shop=>shop.wins>0)){
-        const row=node('div','rank-row');row.dataset.store=shop.store;row.append(this._shopLabel(shop.store));const track=node('div','rank-track'),bar=node('div','rank-bar');bar.style.width=shop.wins/maximum*100+'%';track.append(bar);track.setAttribute('role','img');track.setAttribute('aria-label',(names[shop.store]??shop.store)+': '+shop.wins+' productos al menor precio');
+        const row=node('button','rank-row');row.type='button';row.dataset.store=shop.store;row.setAttribute('aria-pressed',String(this._selectedStore===shop.store));row.setAttribute('aria-label','Priorizar productos más baratos en '+(names[shop.store]||shop.store));row.addEventListener('click',()=>this._chooseStore(shop.store));row.append(this._shopLabel(shop.store));const track=node('div','rank-track'),bar=node('div','rank-bar');bar.style.width=shop.wins/maximum*100+'%';track.append(bar);track.setAttribute('role','img');track.setAttribute('aria-label',(names[shop.store]??shop.store)+': '+shop.wins+' productos al menor precio');
         const total=node('span','rank-total',shop.wins+(shop.wins===1?' mínimo':' mínimos'));total.append(node('small','',shop.known+' con precio'));row.append(track,total);chart.append(row);
       }
-      container.append(chart);
+      const opportunities=node('section','card');opportunities.append(node('h2','','Dónde puedes ahorrar más'),node('p','muted','Diferencias entre precios por la misma unidad.'));
+      for(const row of orderComparisonRows(result.rows,{order:'percentage'}).filter(row=>row.difference>0).slice(0,3)){
+        const button=node('button','opportunity');button.type='button';if(row.product.image_url){const image=node('img');image.src=row.product.image_url;image.alt='';button.append(image);}else{const icon=node('ha-icon');icon.setAttribute('icon',row.product.icon||'mdi:shopping');icon.setAttribute('aria-hidden','true');button.append(icon);}const text=node('span');text.append(node('strong','',row.product.name),node('small','',this._amount(row.difference,result.currency)+'/'+(row.unit==='uds'?'ud':row.unit)+' · '+(row.max?row.difference/row.max*100:0).toLocaleString('es-ES',{maximumFractionDigits:1})+' %'));button.append(text);button.addEventListener('click',()=>{root.querySelector('#analysis-search').value=row.product.name;this._catalogLimit=30;this._renderComparison();});opportunities.append(button);
+      }
+      const columns=node('div','comparison-columns');columns.append(chart,opportunities);container.append(columns);
     }else container.append(this._empty('No hay precios guardados para estos productos en estas tiendas.'));
     if(result.common){
       const card=node('section','card');card.append(node('h2','','La misma cesta de referencia · '+result.common+(result.common===1?' producto':' productos')));
       card.append(node('p','muted','Una unidad de referencia por producto: 1 unidad, 1 kg o 1 litro, según indica la tabla. Solo los productos con precio equivalente en todas estas tiendas. No es una lista de compra real.'));
       const shops=node('div','common-cards');for(const [index,shop] of result.totals.entries()){const block=node('div','common-shop');block.append(this._shopLabel(shop.store),node('strong',Math.abs(shop.total-result.totals[0].total)<.000001?'best':'',this._amount(shop.total,result.currency)));shops.append(block);}card.append(shops);container.append(card);
     }
-    const card=node('section','card'),scroll=node('div','scroll'),table=node('table');table.append(node('caption','','Precios del catálogo · '+result.currency));const stores=result.ranking.filter(shop=>shop.known>0).map(shop=>shop.store);
-    const head=node('tr');head.append(node('th','','Producto'));for(const store of stores){const th=node('th');th.append(this._shopLabel(store));head.append(th);}head.append(node('th','','Diferencia máxima'));const thead=node('thead');thead.append(head);table.append(thead);
+    const card=node('section','card'),scroll=node('div','scroll'),table=node('table');
+    const toolbar=node('div','comparison-toolbar');if(this._selectedStore){const chip=node('button','comparison-chip',(this._storeOnly?'Solo más baratos en ':'Primero más baratos en ')+(names[this._selectedStore]||this._selectedStore)+' ×');chip.type='button';chip.addEventListener('click',()=>{this._selectedStore='';this._storeOnly=false;this._renderComparison();});toolbar.append(chip);}const order=node('select');order.setAttribute('aria-label','Ordenar comparativa');for(const [value,label] of [['name','Orden alfabético'],['percentage','Mayor diferencia porcentual'],['difference','Mayor diferencia por unidad']])order.add(new Option(label,value));order.value=this._comparisonOrder||'name';order.addEventListener('change',()=>{this._comparisonOrder=order.value;this._catalogLimit=30;this._renderComparison();});toolbar.append(order);card.append(toolbar);
+table.append(node('caption','','Precios del catálogo · '+result.currency));const stores=result.ranking.filter(shop=>shop.known>0).map(shop=>shop.store);
+    const head=node('tr');head.append(node('th','','Producto'));for(const store of stores){const th=node('th');const button=node('button','shop-sort');button.type='button';button.setAttribute('aria-label','Ordenar por precios más bajos en '+(names[store]||store));button.setAttribute('aria-pressed',String(this._selectedStore===store));button.append(this._shopLabel(store));button.addEventListener('click',()=>this._chooseStore(store));th.append(button);head.append(th);}head.append(node('th','','Diferencia máxima'));const thead=node('thead');thead.append(head);table.append(thead);
     const body=node('tbody');
-    for(const row of result.rows.slice(0,this._catalogLimit)){
+    const ordered=orderComparisonRows(result.rows,{store:this._selectedStore,only:this._storeOnly,order:this._comparisonOrder});
+    for(const row of ordered.slice(0,this._catalogLimit)){
       const tr=node('tr'),title=node('th'),product=node('div','table-product');tr.dataset.productId=row.product.id;
       if(row.product.image_url){const image=node('img');image.src=row.product.image_url;image.alt='';image.loading='lazy';product.append(image);}else{const icon=node('ha-icon');icon.setAttribute('icon',row.product.icon||'mdi:shopping');icon.setAttribute('aria-hidden','true');product.append(icon);}
       const name=node('span','',row.product.name);product.append(name);title.append(product);tr.append(title);
@@ -183,51 +200,9 @@ class ImprovedShoppingAnalytics extends HTMLElement {
       const difference=node('td');difference.append(row.difference!==null?node('span','saving',this._amount(row.difference,result.currency)+'/'+(row.unit==='uds'?'ud':row.unit)):node('span','muted','Sin comparación'));tr.append(difference);body.append(tr);
     }
     table.append(body);scroll.append(table);card.append(scroll);container.append(card);
-    if(result.rows.length>this._catalogLimit){const more=node('button','comparison-more','Mostrar más productos');more.type='button';more.addEventListener('click',()=>{this._catalogLimit+=30;this._renderComparison();});container.append(more);}
+    if(ordered.length>this._catalogLimit){const more=node('button','comparison-more','Mostrar más productos');more.type='button';more.addEventListener('click',()=>{this._catalogLimit+=30;this._renderComparison();});container.append(more);}
   }
-  _renderNutrition() {
-    if(!this._built || !this._data || !this._active || this._view !== 'nutrition')return;
-    const root=this.shadowRoot, hass=this._data.hass;
-    const key=JSON.stringify((this._data.products ?? []).map(product=>[product.id,product.name,product.barcode,product.barcodes]));
-    if(!hass || (this._nutritionKey===key && this._nutritionConnection===hass.connection))return;
-    this._nutritionKey=key;this._nutritionConnection=hass.connection;
-    const token=this._nutritionToken={};
-    const status=root.querySelector('#nutrition-status'),chart=root.querySelector('#nutrition-chart'),total=root.querySelector('#nutrition-total');
-    status.hidden=false;status.textContent='Cargando Nutri-Score guardado…';chart.hidden=true;total.hidden=true;
-    void hass.callWS({type:'improved_shopping_list/catalog/nutrition_distribution'}).then(data=>{
-      if(token!==this._nutritionToken || !this.isConnected)return;
-      const entries=Object.entries(data.counts),count=data.total;
-      status.hidden=Boolean(count);
-      status.textContent=count ? '' : 'Todavía no hay productos con Nutri-Score guardado en el catálogo.';
-      chart.hidden=!count;total.hidden=!count;
-      total.textContent=count+' productos con Nutri-Score';
-      const colors={a:['#038141','#fff'],b:['#85bb2f','#182b22'],c:['#fecb02','#182b22'],d:['#ee8100','#182b22'],e:['#e63e11','#fff']};
-      const labels=[];
-      const expanded=new Set([...chart.querySelectorAll('details[open]')].map(group=>group.dataset.grade));
-      const products=new Map((this._data.products ?? []).map(product=>[product.id,product]));
-      chart.replaceChildren(...entries.map(([grade,value])=>{
-        const percentage=count ? value/count*100 : 0;
-        const label=grade.toUpperCase()+': '+value+' ('+percentage.toLocaleString('es',{maximumFractionDigits:1})+' %)';labels.push(label);
-        const group=document.createElement('details');group.className='nutrition-group';group.dataset.grade=grade;group.open=expanded.has(grade);
-        const row=document.createElement('summary');row.className='nutrition-row';row.dataset.grade=grade;row.setAttribute('aria-label','Nutri-Score '+label);
-        const letter=document.createElement('span');letter.className='nutrition-grade';letter.textContent=grade.toUpperCase();
-        letter.style.background=colors[grade][0];letter.style.color=colors[grade][1];
-        const track=document.createElement('div');track.className='nutrition-track';
-        const bar=document.createElement('div');bar.className='nutrition-bar';bar.style.width=percentage+'%';bar.style.background=colors[grade][0];track.append(bar);
-        const text=document.createElement('span');text.className='nutrition-value';text.textContent=value+' ('+percentage.toLocaleString('es',{maximumFractionDigits:1})+' %)';
-        const list=document.createElement('ul');list.className='nutrition-products';list.setAttribute('aria-label','Productos Nutri-Score '+grade.toUpperCase());
-        const members=(data.product_ids?.[grade] ?? []).map(id=>products.get(id)).filter(Boolean).sort((a,b)=>a.name.localeCompare(b.name,'es',{sensitivity:'base'}));
-        for(const product of members){const item=document.createElement('li');item.textContent=product.name;list.append(item);}
-        if(!value){const item=document.createElement('li');item.textContent='No hay productos con esta calificación.';list.append(item);}
-        row.append(letter,track,text);group.append(row,list);return group;
-      }));
-      chart.setAttribute('aria-label','Distribución Nutri-Score: '+labels.join('; '));
-    }).catch(()=>{
-      if(token!==this._nutritionToken || !this.isConnected)return;
-      status.hidden=false;status.textContent='No se ha podido cargar el Nutri-Score guardado. Vuelve a abrir esta vista para reintentarlo.';
-      this._nutritionKey=null;
-    });
-  }
+  _renderNutrition() {}
 
 }
 if(!customElements.get('isl-analytics'))customElements.define('isl-analytics',ImprovedShoppingAnalytics);

@@ -1,12 +1,12 @@
-import { StockSession } from "./stock-client.js?v=0.79.0";
-import { QuantitySession, purchaseQuantity, quantityLabel } from "./quantity-client.js?v=0.79.0";
-import { installDialogCloseButtons } from "./dialog-controls.js?v=0.79.0";
-import { FEATURES, TodoSession, errorMessage, isAvailable, supports } from "./todo-client.js?v=0.79.0";
-import { imageSource, normalizedName, productNameKey, cachedProductPrice } from "./product-display.js?v=0.79.0";
-import { packageCost } from "./reference-formats.js?v=0.79.0";
-import { ListSettingsSession, AttentionSession, gradientTextColor } from "./list-settings-client.js?v=0.79.0";
-import { CatalogSession } from "./catalog-client.js?v=0.79.0";
-import { ReadersSession } from "./readers-client.js?v=0.79.0";
+import { StockSession } from "./stock-client.js?v=0.80.0";
+import { QuantitySession, purchaseQuantity, quantityLabel } from "./quantity-client.js?v=0.80.0";
+import { installDialogCloseButtons } from "./dialog-controls.js?v=0.80.0";
+import { FEATURES, TodoSession, errorMessage, isAvailable, supports } from "./todo-client.js?v=0.80.0";
+import { imageSource, normalizedName, productNameKey, cachedProductPrice } from "./product-display.js?v=0.80.0";
+import { packageCost } from "./reference-formats.js?v=0.80.0";
+import { ListSettingsSession, AttentionSession, gradientTextColor } from "./list-settings-client.js?v=0.80.0";
+import { CatalogSession } from "./catalog-client.js?v=0.80.0";
+import { ReadersSession } from "./readers-client.js?v=0.80.0";
 
 const LOGO_URL = new URL("logo.png", import.meta.url).href;
 const STORE_LOGOS = {
@@ -170,13 +170,13 @@ class ImprovedShoppingListPanel extends HTMLElement {
   _loadSection(name) {
     if(this._modules.has(name))return this._modules.get(name);
     const load={
-      stock:()=>import('./stock-panel.js?v=0.79.0'),
-      readers:()=>import('./readers-panel.js?v=0.79.0'),
-      routines:()=>import('./meal-routines.js?v=0.79.0'),
-      catalog:()=>import('./catalog-panel.js?v=0.79.0'),
-      settings:()=>import('./settings-panel.js?v=0.79.0'),
-      purchases:()=>import('./purchases-panel.js?v=0.79.0'),
-      analytics:()=>import('./analytics-panel.js?v=0.79.0'),
+      stock:()=>import('./stock-panel.js?v=0.80.0'),
+      readers:()=>import('./readers-panel.js?v=0.80.0'),
+      routines:()=>import('./meal-routines.js?v=0.80.0'),
+      catalog:()=>import('./catalog-panel.js?v=0.80.0'),
+      settings:()=>import('./settings-panel.js?v=0.80.0'),
+      purchases:()=>import('./purchases-panel.js?v=0.80.0'),
+      analytics:()=>import('./analytics-panel.js?v=0.80.0'),
     }[name];
     const pending=load().then(module=>{
       if(name==='stock')module.installStockView(this);
@@ -451,11 +451,11 @@ class ImprovedShoppingListPanel extends HTMLElement {
         @media(max-width:380px) { header { gap:4px; padding:10px 8px; }.brand-logo { width:32px; height:32px; }.menu { width:36px; padding:6px; }.section-nav button { min-width:28px; padding:10px 4px; gap:3px; font-size:12px; }.section-nav ha-icon { --mdc-icon-size:18px; } }
         #analytics-heading { display:flex;align-items:center;gap:12px;margin-bottom:22px;flex-wrap:wrap; } #analytics-heading[hidden] { display:none; } #analytics-heading nav { margin-left:auto; }
         @media(max-width:650px){#analytics-heading .stock-tabs [aria-selected=false] span{display:none;}.section-nav{max-width:100%}.section-nav button{min-width:28px;padding:10px 4px;font-size:12px}}
-        @media(max-width:650px){header{gap:8px}.section-nav{flex:1 1 auto;min-width:0;gap:10px;overflow-x:auto;scrollbar-width:thin}.section-nav button{min-width:40px;min-height:44px;padding:10px 9px;gap:6px}.stock-tabs,.stock-tabs nav{gap:10px}.stock-tabs [role=tab]{min-width:40px;min-height:44px;padding:10px 9px;gap:6px}#stock-heading{flex-wrap:wrap;gap:12px}#stock-actions{gap:8px}#stock-actions .icon-button{width:40px;flex-basis:40px;height:44px}#analytics-heading{gap:12px}.rows .stock-controls{display:none}}
+        @media(max-width:650px){header{gap:8px}.section-nav{flex:1 1 auto;min-width:0;gap:10px;overflow-x:auto;scrollbar-width:thin}.section-nav button{min-width:40px;min-height:44px;padding:10px 9px;gap:6px}.stock-tabs,.stock-tabs nav{gap:10px}.stock-tabs [role=tab]{min-width:40px;min-height:44px;padding:10px 9px;gap:6px}#stock-heading{flex-wrap:wrap;gap:12px}#stock-actions{gap:8px}#stock-actions .icon-button{width:40px;flex-basis:40px;height:44px}#analytics-heading{gap:12px}#analytics-heading .stock-tabs{max-width:100%;min-width:0;overflow-x:auto;flex:1;scrollbar-width:thin}#analytics-heading .stock-tabs [role=tab]{flex:none}.rows .stock-controls{display:none}}
       </style>
       <header>
         <button class="menu" aria-label="Abrir menú de Home Assistant"><ha-icon icon="mdi:menu"></ha-icon></button>
-        <div class="branding"><img class="brand-logo" src="${LOGO_URL}" alt="" width="44" height="44"><div class="brand-copy"><span class="brand">Improved Shopping List</span><span class="version">0.79.0</span></div></div>
+        <div class="branding"><img class="brand-logo" src="${LOGO_URL}" alt="" width="44" height="44"><div class="brand-copy"><span class="brand">Improved Shopping List</span><span class="version">0.80.0</span></div></div>
         <nav class="section-nav" aria-label="Apartados">
           <button id="nav-shopping" aria-label="Lista" aria-pressed="true"><ha-icon icon="mdi:shopping" aria-hidden="true"></ha-icon><span class="nav-label">Lista</span></button>
           <button id="nav-catalog" aria-label="Catálogo" aria-pressed="false"><ha-icon icon="mdi:view-grid" aria-hidden="true"></ha-icon><span class="nav-label">Catálogo</span></button>
@@ -493,7 +493,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
           <details id="completed-details"><summary id="completed-summary"><span id="completed-label">Compras recientes</span><button id="clear-completed" type="button"><ha-icon icon="mdi:delete" aria-hidden="true"></ha-icon>Limpiar productos</button></summary><ul id="completed" class="product-grid" aria-label="Compras recientes"></ul></details>
         </section>
         <section id="stock-card" aria-label="Stock" hidden><ul id="stock-items" class="product-grid" aria-label="Productos en stock"></ul><p id="stock-empty" class="empty" hidden>Añade productos para empezar a controlar tu despensa.</p></section>
-        <div id="analytics-heading" hidden><h2>Analítica</h2><nav class="stock-tabs" role="tablist" aria-label="Vistas de Analítica"><button id="purchases-tab" type="button" role="tab" aria-label="Compras" aria-selected="true"><ha-icon icon="mdi:receipt-text" aria-hidden="true"></ha-icon><span>Compras</span></button><button id="comparison-tab" type="button" role="tab" aria-label="Comparativa" aria-selected="false"><ha-icon icon="mdi:scale-balance" aria-hidden="true"></ha-icon><span>Comparativa</span></button><button id="nutrition-tab" type="button" role="tab" aria-label="Nutri-Score" aria-selected="false"><ha-icon icon="mdi:nutrition" aria-hidden="true"></ha-icon><span>Nutri-score</span></button></nav></div>
+        <div id="analytics-heading" hidden><h2>Analítica</h2><nav class="stock-tabs" role="tablist" aria-label="Vistas de Analítica"><button id="purchases-tab" type="button" role="tab" aria-label="Compras" aria-selected="true"><ha-icon icon="mdi:receipt-text" aria-hidden="true"></ha-icon><span>Compras</span></button><button id="expenses-tab" type="button" role="tab" aria-label="Gastos" aria-selected="false"><ha-icon icon="mdi:wallet-outline" aria-hidden="true"></ha-icon><span>Gastos</span></button><button id="comparison-tab" type="button" role="tab" aria-label="Comparativa" aria-selected="false"><ha-icon icon="mdi:scale-balance" aria-hidden="true"></ha-icon><span>Comparativa</span></button><button id="nutrition-tab" type="button" role="tab" aria-label="Nutrición" aria-selected="false"><ha-icon icon="mdi:nutrition" aria-hidden="true"></ha-icon><span>Nutrición</span></button></nav></div>
         <p id="view-loading" class="helper" role="status" hidden>Cargando apartado…</p>
         <isl-analytics hidden></isl-analytics>
         <isl-purchases id="purchase-history" hidden></isl-purchases>
@@ -506,7 +506,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
     this._built = true;
     const root = this.shadowRoot;
     installDialogCloseButtons(root);
-    for(const [id,view] of [['comparison-tab','comparison'],['purchases-tab','purchases'],['nutrition-tab','nutrition']])root.querySelector('#'+id).addEventListener('click',()=>{this._analyticsView=view;void this._prepareView('analytics');this._renderData();});
+    for(const [id,view] of [['comparison-tab','comparison'],['purchases-tab','purchases'],['expenses-tab','expenses'],['nutrition-tab','nutrition']])root.querySelector('#'+id).addEventListener('click',()=>{this._analyticsView=view;void this._prepareView('analytics');this._renderData();});
     for(const [id,view] of [['stock-tab','stock'],['stock-routines-tab','routines'],['stock-readers-tab','readers']])root.querySelector('#'+id).addEventListener('click',()=>{this._stockView=view;this._syncOptionalSessions();void this._prepareView('stock');this._renderData();});
     root.querySelector('#nav-analytics').addEventListener('click',()=>this._switchView('analytics'));
     root.querySelector('isl-purchases').addEventListener('receipt-busy',event=>{this._receiptBusy=event.detail;this._renderData();});
@@ -566,6 +566,8 @@ class ImprovedShoppingListPanel extends HTMLElement {
     root.querySelector("#nav-catalog").addEventListener("click", () => this._switchView("catalog"));
     root.querySelector("#nav-settings").addEventListener("click", () => this._switchView("settings"));
     root.querySelector("isl-settings").addEventListener('carrefour-ticket-preview',event=>void this._showTicketPreview(event.detail));
+    root.querySelector('isl-analytics').addEventListener('analytics-product',event=>void (async()=>{const id=event.detail?.id;if(!id)return;await this._prepareView('catalog');this._switchView('catalog');this._renderNow();const catalog=root.querySelector('isl-catalog'),product=catalog._catalog?.products.find(product=>product.id===id);if(product)catalog._openProduct(product);})());
+    root.querySelector('isl-analytics').addEventListener('analytics-open-purchase',event=>void (async()=>{const receipt=event.detail?.receipt;if(!receipt)return;this._analyticsView='purchases';await this._prepareView('analytics');this._switchView('analytics');this._renderNow();root.querySelector('isl-purchases').openHistoryReceipt(receipt);})());
     root.querySelector("isl-settings").onAction = (action, entity) => this._settings.update(action, entity);
     root.querySelector("isl-settings").onNotifications = config => this._settings.saveNotifications(config);
     root.querySelector("isl-settings").onAppearance = appearance => this._settings.saveAppearance(appearance);
@@ -700,8 +702,8 @@ class ImprovedShoppingListPanel extends HTMLElement {
     root.querySelector('#analytics-heading').hidden=!analyticsView;
     const analytics=root.querySelector('isl-analytics');
     analytics.hidden=!analyticsView||this._analyticsView==='purchases';
-    if(this._sectionsReady.has('analytics') && (analyticsView&&this._analyticsView!=='purchases'||analytics._active))analytics.data={stores:this._settings.stores,comparisonRevision:this._comparisonRevision,priceKey:JSON.stringify(this._rowPrices),logos:STORE_LOGOS,hass:this._hass,active:analyticsView&&this._analyticsView!=='purchases',view:this._analyticsView,products:[...this._catalogProducts.values()],enabled:this._settings.priceUpdatesEnabled!==false};
-    for(const view of ['comparison','purchases','nutrition'])root.querySelector('#'+view+'-tab').setAttribute('aria-selected',String(view===this._analyticsView));
+    if(this._sectionsReady.has('analytics') && (analyticsView&&this._analyticsView!=='purchases'||analytics._active))analytics.data={stores:this._settings.stores,comparisonRevision:this._comparisonRevision,priceKey:JSON.stringify(this._rowPrices),logos:STORE_LOGOS,hass:this._hass,active:analyticsView&&this._analyticsView!=='purchases',view:this._analyticsView,categories:[...this._catalogCategories.values()],products:[...this._catalogProducts.values()],enabled:this._settings.priceUpdatesEnabled!==false};
+    for(const view of ['comparison','purchases','expenses','nutrition'])root.querySelector('#'+view+'-tab').setAttribute('aria-selected',String(view===this._analyticsView));
     root.querySelector('#stock-heading').hidden=!stockView;
     root.querySelector('#stock-card').hidden=!stockItemsView;
     root.querySelector('#list-controls').hidden=this._view!=='shopping';

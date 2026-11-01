@@ -4,6 +4,7 @@ from asyncio import Lock, sleep
 from copy import deepcopy
 import json
 import logging
+import math
 import time
 
 from aiohttp import ClientError, ClientTimeout
@@ -16,7 +17,7 @@ from .product_references import brand_name
 
 _LOGGER = logging.getLogger(__name__)
 BASE_URL = "https://world.openfoodfacts.org"
-FIELDS = "code,generic_name_es,generic_name,product_name_es,product_name,brands,quantity,nutriscore_grade,nutriscore_score,nutriscore_version"
+FIELDS = "code,generic_name_es,generic_name,product_name_es,product_name,brands,quantity,nutriscore_grade,nutriscore_score,nutriscore_version,nutriments,nova_group,ingredients_analysis_tags,categories_tags"
 TTLS = {"found": 30 * 86400, "not_found": 86400, "error": 300}
 
 
@@ -26,6 +27,34 @@ def is_product_barcode(code):
         return False
     total = sum(int(digit) * (3 if index % 2 == 0 else 1) for index, digit in enumerate(reversed(code[:-1])))
     return (10 - total % 10) % 10 == int(code[-1])
+
+
+def nutrition_facts(product):
+    """Keep normalized facts for the exact barcode, never inferred nutritional scores."""
+    facts = {}
+    nutrients = product.get("nutriments")
+    if isinstance(nutrients, dict):
+        values = {}
+        for field in ("energy-kcal", "fat", "saturated-fat", "sugars", "salt", "fiber", "proteins"):
+            value = nutrients.get(field + "_100g")
+            if type(value) in (int, float) and math.isfinite(value) and 0 <= value <= (10000 if field == "energy-kcal" else 100):
+                values[field] = value
+        if values:
+            facts["nutrients"] = values
+    nova = product.get("nova_group")
+    if type(nova) is int and 1 <= nova <= 4:
+        facts["nova"] = nova
+    tags = product.get("ingredients_analysis_tags", [])
+    if isinstance(tags, list):
+        for field in ("vegan", "vegetarian"):
+            if "en:non-" + field in tags:
+                facts[field] = False
+            elif "en:" + field in tags:
+                facts[field] = True
+    categories = product.get("categories_tags", [])
+    if isinstance(categories, list) and categories:
+        facts["categories"] = [value[:120] for value in categories[:80] if isinstance(value, str)]
+    return facts
 
 
 def product_hint(data, code):
@@ -62,6 +91,11 @@ def product_hint(data, code):
         version = product.get("nutriscore_version")
         if str(version) in ("2021", "2023"):
             result["nutriscore"]["version"] = str(version)
+    if facts := nutrition_facts(product):
+        result["nutrition"] = facts
+        unit = result.get("content_unit")
+        if unit in ("g", "kg", "ml", "cl", "l"):
+            result["basis"] = "g" if unit in ("g", "kg") else "ml"
     return result
 
 
@@ -70,10 +104,13 @@ class ProductLookup:
         self.hass = hass
         self._store = Store(hass, 1, f"{DOMAIN}.product_lookup")
         self._cache = {}
+        self._nutrition_store = Store(hass, 1, f"{DOMAIN}.nutrition")
+        self._nutrition_cache = {}
         self._lock = Lock()
         self._next_request = 0.0
 
     async def async_load(self):
+        await self.async_load_nutrition()
         try:
             data = await self._store.async_load()
             if isinstance(data, dict):
@@ -82,6 +119,66 @@ class ProductLookup:
                                and item["result"].get("status") in TTLS and item["result"].get("source")!="community"}
         except (OSError, ValueError, HomeAssistantError):
             _LOGGER.warning("Could not load the optional product lookup cache")
+
+    async def async_load_nutrition(self):
+        try:
+            data = await self._nutrition_store.async_load()
+            if isinstance(data, dict):
+                self._nutrition_cache = {key: value for key, value in data.items() if is_product_barcode(key)
+                    and isinstance(value, dict) and type(value.get("expires")) in (int, float)
+                    and isinstance(value.get("result"), dict)}
+        except (OSError, ValueError, HomeAssistantError):
+            _LOGGER.warning("Could not load optional nutrition cache")
+
+    def nutrition_records(self, products):
+        records = []
+        for product in products:
+            seen = set()
+            refs = [ref for ref in product.get("commercial_references", []) if ref.get("active") is not False]
+            for code in dict.fromkeys([product.get("barcode", ""), *product.get("barcodes", []), *[ref.get("ean", "") for ref in refs]]):
+                if not is_product_barcode(code) or code.zfill(14) in seen:
+                    continue
+                code = code.zfill(14)
+                seen.add(code)
+                ref = next((ref for ref in refs if str(ref.get("ean", "")).zfill(14) == code), {})
+                cached = self._nutrition_cache.get(code, {})
+                hint = cached.get("result") or self._cache.get(code, {}).get("result", {})
+                grade = (hint.get("nutriscore") or ref.get("nutriscore") or {}).get("grade", "")
+                records.append({"product_id":product["id"], "code":code, "name":ref.get("name") or product["name"],
+                    "grade":grade if grade in ("a","b","c","d","e") else "", "nutrition":deepcopy(hint.get("nutrition", {})),
+                    "basis":hint.get("basis") or ("g" if ref.get("content_unit") in ("g", "kg") else "ml" if ref.get("content_unit") in ("ml", "cl", "l") else ""),
+                    "checked_at":cached.get("checked_at"), "fresh":cached.get("expires", 0) > time.time()})
+            if not seen:
+                grade = next(((ref.get("nutriscore") or {}).get("grade") for ref in refs if (ref.get("nutriscore") or {}).get("grade") in ("a","b","c","d","e")), "")
+                if grade:
+                    records.append({"product_id":product["id"], "code":"", "name":product["name"], "grade":grade, "nutrition":{}, "fresh":True})
+        return {"records":records}
+
+    async def async_nutrition(self, code):
+        if not is_product_barcode(code):
+            return {"status":"unsupported"}
+        code = code.zfill(14)
+        async with self._lock:
+            cached = self._nutrition_cache.get(code, {})
+            if cached.get("expires", 0) > time.time():
+                return deepcopy(cached["result"])
+            delay = self._next_request - time.monotonic()
+            if delay > 0:
+                await sleep(delay)
+            self._next_request = time.monotonic() + 4.1
+            try:
+                raw = await self._fetch(code)
+                result = {key:deepcopy(raw[key]) for key in ("nutrition", "nutriscore", "url", "basis") if key in raw}
+                result["status"] = "found" if result.get("nutrition") or result.get("nutriscore") else "not_found"
+            except (ClientError, TimeoutError, ValueError, TypeError):
+                result = {"status":"error", **{key:deepcopy(cached.get("result", {}).get(key)) for key in ("nutrition", "nutriscore", "basis") if cached.get("result", {}).get(key)}}
+            self._nutrition_cache[code] = {"expires":time.time()+TTLS[result["status"]], "checked_at":int(time.time()), "result":result}
+            self._nutrition_cache = dict(sorted(self._nutrition_cache.items(), key=lambda item:item[1].get("checked_at", 0))[-3000:])
+            try:
+                await self._nutrition_store.async_save(self._nutrition_cache)
+            except (OSError, HomeAssistantError):
+                _LOGGER.warning("Could not persist optional nutrition cache")
+            return deepcopy(result)
 
     def cached(self, code):
         community = getattr(self, "community", None)
@@ -106,10 +203,11 @@ class ProductLookup:
         product_ids = {grade: [] for grade in counts}
         for product in products:
             found = False
-            for code in dict.fromkeys([product.get("barcode", ""), *product.get("barcodes", [])]):
+            for code in dict.fromkeys([product.get("barcode", ""), *product.get("barcodes", []),
+                                       *[ref.get("ean", "") for ref in product.get("commercial_references", []) if ref.get("active") is not False]]):
                 if not is_product_barcode(code):
                     continue
-                hint = self.cached(code) or {}
+                hint = self._nutrition_cache.get(code.zfill(14), {}).get("result") or self.cached(code) or {}
                 grade = (hint.get("nutriscore") or {}).get("grade")
                 if grade in counts:
                     counts[grade] += 1

@@ -142,6 +142,28 @@ Cada tarjeta permite activar o desactivar el lector, consultar las lecturas en d
 
 ## Analítica
 
+Analítica reúne cuatro vistas. Los gráficos y las tablas utilizan los datos guardados en tu Home Assistant y se adaptan al periodo que selecciones.
+
+### Compras
+
+Es la vista inicial. Puedes consultar el gasto mensual por tienda, filtrar las compras por fechas, tienda o usuario y abrir sus tickets para revisarlos. También puedes subir un ticket o una factura. Las compras recuperadas de una cuenta pueden aparecer con fecha e importe antes de revisar su detalle.
+
+### Gastos
+
+Muestra el gasto total, el número de compras, el importe medio y qué parte del gasto se ha podido clasificar. Puedes explorar el gasto por tienda y categoría, los productos en los que más gastas, los que compras con más frecuencia o cantidad y la participación de cada persona. Pulsa en las barras para filtrar y en un producto para abrir su ficha.
+
+Las categorías corresponden a las vinculaciones actuales del catálogo. Los descuentos generales se distribuyen proporcionalmente; los importes sin detalle y los gastos de envío quedan sin clasificar. Una compra compartida cuenta para cada participante, pero se suma una sola vez al gasto total. Las cantidades compradas se comparan por la misma unidad; no representan necesariamente consumo.
+
+### Comparativa
+
+Compara las alternativas del catálogo con precios por kg, litro o unidad equivalentes en al menos dos tiendas. Muestra las tiendas con más precios mínimos y las mayores diferencias de precio. Puedes ordenar por diferencia absoluta o porcentual. Al pulsar en una tienda se priorizan sus productos más baratos; una segunda pulsación deja solo esos productos y una tercera elimina el filtro.
+
+### Nutrición
+
+Incluye Nutri-Score, clasificación NOVA e información disponible sobre energía, grasas, grasas saturadas, azúcares, sal, fibra y proteínas. Permite consultar el catálogo o los productos de las compras del periodo y filtrar por características alimentarias informadas. Al desplegar una calificación o pulsar un alimento puedes consultar sus productos y fichas.
+
+Los datos se consultan en [Open Food Facts](https://world.openfoodfacts.org/) por coincidencia exacta de EAN y se guardan en una caché persistente para evitar repetir consultas. Se muestran por 100 g o 100 ml, separando su ordenación cuando conocemos la base. Los datos ausentes se indican con «—»; las compras reflejan alimentos adquiridos, no cantidades ingeridas. No se necesitan tarjetas adicionales de HACS.
+
 ## Ajustes
 
 ## Marketing de afiliados

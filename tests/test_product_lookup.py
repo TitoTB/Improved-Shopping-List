@@ -189,3 +189,44 @@ async def test_nutrition_distribution_uses_stored_catalog_data_only(hass, hass_w
     assert await hass.config_entries.async_unload(entry.entry_id)
     await client.send_json({"id": 2, "type": f"{DOMAIN}/catalog/nutrition_distribution"})
     assert (await client.receive_json())["error"]["code"] == "not_loaded"
+
+
+def test_nutrition_facts_use_only_normalized_finite_values():
+    from custom_components.improved_shopping_list.product_lookup import nutrition_facts
+    facts = nutrition_facts({"nutriments":{"energy-kcal_100g":230,"fat_100g":5.2,"salt_100g":float('nan'),"fiber_100g":True,"proteins_100g":-1},"nova_group":4,"ingredients_analysis_tags":["en:vegan"],"categories_tags":["en:vegetables"]})
+    assert facts['nutrients'] == {'energy-kcal':230,'fat':5.2}
+    assert facts['nova'] == 4 and facts['vegan'] is True
+    assert nutrition_facts({}) == {}
+    assert nutrition_facts({'nova_group':True,'nutriments':{'fat_100g':101}}) == {}
+
+
+async def test_nutrition_has_persistent_exact_ean_cache_without_shop_discovery(hass, monkeypatch):
+    from copy import deepcopy
+    lookup = ProductLookup(hass)
+    await lookup.async_load()
+    result = {'status':'found','nutrition':{'nutrients':{'energy-kcal':120},'nova':1},'nutriscore':{'grade':'a'}}
+    fetch = AsyncMock(return_value=deepcopy(result))
+    monkeypatch.setattr(lookup,'_fetch',fetch)
+    lookup.catalog_discovery = SimpleNamespace(async_hint=AsyncMock(side_effect=AssertionError('No shop calls for nutrition')))
+    first, second = await asyncio.gather(lookup.async_nutrition(CODE),lookup.async_nutrition('0'+CODE))
+    assert first == second and fetch.await_count == 1
+    first['nutrition']['nova'] = 4
+    assert (await lookup.async_nutrition(CODE))['nutrition']['nova'] == 1
+    saved = deepcopy(lookup._nutrition_cache)
+    restored = ProductLookup(hass)
+    monkeypatch.setattr(restored._nutrition_store,'async_load',AsyncMock(return_value=saved))
+    await restored.async_load_nutrition()
+    monkeypatch.setattr(restored,'_fetch',AsyncMock(side_effect=AssertionError('Cached nutrition needs no requests')))
+    assert (await restored.async_nutrition(CODE))['nutrition']['nova'] == 1
+    records = restored.nutrition_records([{'id':'p','name':'Producto','barcodes':[CODE,'0'+CODE], 'commercial_references':[]}])['records']
+    assert len(records) == 1 and records[0]['grade'] == 'a' and records[0]['fresh']
+
+
+async def test_nutrition_distribution_uses_exact_alternative_cache_and_keeps_weight_basis(hass):
+    lookup = ProductLookup(hass)
+    lookup._nutrition_cache[CODE.zfill(14)] = {"expires": module.time.time()+1000, "result": {"status":"found", "nutriscore":{"grade":"b"}, "nutrition":{"nutrients":{"fat":2}}}}
+    products = [{"id":"p", "name":"Producto", "commercial_references":[{"ean":CODE, "content_unit":"ml"}]}]
+    assert lookup.nutrition_distribution(products)["counts"]["b"] == 1
+    assert lookup.nutrition_records(products)["records"][0]["basis"] == "ml"
+    hint = product_hint({"product":{**PAYLOAD["product"], "quantity":"400 g", "nutriments":{"fat_100g":2}}},CODE)
+    assert hint["basis"] == "g"

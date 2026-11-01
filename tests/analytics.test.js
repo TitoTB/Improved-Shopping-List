@@ -188,3 +188,29 @@ test('pending information uses saved prices for the exact alternative and never 
  assert.deepEqual(pendingProductInformation(product,[exact]),[]);
  assert.deepEqual(pendingProductInformation(product,[{...exact,catalog_product_id:'different'}])[0].missing,['price']);
 });
+
+const {analyzeSpending}=await import('../custom_components/improved_shopping_list/frontend/analytics-insights.js');
+const {orderComparisonRows}=await import('../custom_components/improved_shopping_list/frontend/analytics-panel.js');
+test('spending reconciles discounts, shipping and summary-only purchases without inventing category data',()=>{
+ const receipts=[{id:'a',store:'carrefour',currency:'EUR',purchased_at:'2026-10-10T12:00:00Z',total:10,shipping:1,shoppers:['person.a','person.b','person.a'],lines:[{product_id:'p',amount:8,count:2,pack_quantity:500,pack_unit:'g'},{product_id:'q',amount:4,count:1,purchased_quantity:.25,purchased_unit:'kg'}]},{id:'b',store:'lidl',currency:'EUR',purchased_at:'2026-10-11T12:00:00Z',total:5,summary_only:true,lines:[{product_id:'p',amount:5}]}];
+ const result=analyzeSpending(receipts,products,{from:'2026-10-01',to:'2026-10-31'});
+ assert.equal(result.total,1500);assert.equal(result.count,2);assert.equal(result.average,750);
+ assert.equal(result.categories.reduce((s,r)=>s+r.cents,0),1500);
+ assert.equal(result.categories.find(r=>r.key==='Despensa').cents,600);
+ assert.equal(result.categories.find(r=>r.key==='Sin clasificar').cents,600);
+ assert.equal(result.coverage,60);assert.equal(result.people[0].count,1);assert.equal(result.people[0].cents,1000);
+ assert.equal(result.products.find(r=>r.key==='p').quantities.kg,1);
+ const category=analyzeSpending(receipts,products,{category:'Despensa'});assert.equal(category.total,600);assert.equal(category.shops[0].cents,600);assert.equal(category.people[0].cents,600);
+});
+test('spending uses calendar date boundaries, separate currencies and one purchase count per product',()=>{
+ const base={store:'carrefour',currency:'EUR',purchased_at:'2026-10-10T12:00:00',shoppers:[],total:3,lines:[{product_id:'p',amount:1,count:1},{product_id:'p',amount:2,count:2}]};
+ const result=analyzeSpending([base,{...base,currency:'USD',total:100},{...base,purchased_at:'2026-09-01T12:00:00',total:100},{...base,total:null}],products,{from:'2026-10-01',to:'2026-10-31'});
+ assert.equal(result.total,300);assert.equal(result.products[0].count,1);assert.equal(result.products[0].quantities.uds,3);
+});
+test('comparison store selection prioritizes then filters ties and orders normalized percentage differences',()=>{
+ const rows=[{product:{name:'A'},bestStores:['lidl'],difference:10,max:100},{product:{name:'B'},bestStores:['carrefour','lidl'],difference:1,max:2},{product:{name:'C'},bestStores:['carrefour'],difference:2,max:10}];
+ assert.deepEqual(orderComparisonRows(rows,{store:'carrefour'}).map(r=>r.product.name),['B','C','A']);
+ assert.deepEqual(orderComparisonRows(rows,{store:'carrefour',only:true,order:'percentage'}).map(r=>r.product.name),['B','C']);
+ assert.deepEqual(orderComparisonRows(rows,{order:'percentage'}).map(r=>r.product.name),['B','C','A']);
+ assert.deepEqual(rows.map(r=>r.product.name),['A','B','C']);
+});

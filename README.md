@@ -93,6 +93,53 @@ La vista **Pendiente** avisa de los productos que requieren revisión y los sepa
 
 ## Stock
 
+Este apartado permite llevar el control de los productos de tu despensa. Tú eliges cuáles quieres controlar y cómo se registra su consumo. El Stock es común para todas las listas de la compra y se organiza en las vistas **Stock**, **Rutinas** y **Lectores**.
+
+### Añadir y configurar productos
+
+En la vista **Stock**, pulsa **+** para añadir un producto. Después, pulsa su bloque para abrir la ficha y configurar la cantidad actual, las unidades —uds, g, kg, litros o una unidad personalizada—, el método de control y la cantidad predeterminada de reposición.
+
+Puedes alternar entre cuadrícula y filas, y ordenar los productos alfabéticamente, por menor porcentaje de Stock o agrupados por categoría. En filas también aparecen los controles para aumentar o reducir la cantidad manualmente.
+
+### Métodos de control
+
+Cada producto puede utilizar uno de estos métodos:
+
+- **Manual / lectores:** ajustas la cantidad desde la ficha, con los controles de la vista de filas o escaneando un código asociado con una acción de aumentar o reducir Stock.
+- **Perecedero:** indicas cuántos días dura desde la reposición. La cantidad y el porcentaje restante disminuyen proporcionalmente con el tiempo, como estimación de disponibilidad, hasta llegar a cero al caducar. El plazo de caducidad se respeta independientemente de la cantidad repuesta.
+- **Consumo registrado:** seleccionas una entidad de Home Assistant, el estado que representa un uso y la cantidad que se descuenta cada vez que la entidad entra en ese estado. Por ejemplo, puedes descontar detergente cuando la lavadora pasa al estado que hayas configurado.
+- **Consumo por rutinas:** asignas una o varias rutinas y la cantidad que consume cada persona cuando está en casa durante su franja horaria. Puedes definir cantidades diferentes por persona.
+
+Las opciones automáticas también se pueden configurar desde **Reposición** en la ficha del producto del catálogo. Ambas fichas comparten la misma configuración.
+
+### Stock bajo y reposición
+
+Activa **Añadir a la lista cuando el stock llegue al mínimo** e indica el umbral. En los perecederos se utiliza el porcentaje restante; los demás métodos aplican el mínimo de cantidad o porcentaje configurado. Cuando se alcanza ese mínimo, el producto se añade automáticamente a la lista elegida, sin duplicar una entrada que ya esté pendiente.
+
+Si tienes varias listas de compra, puedes elegir la **Lista para reponer**. El selector se oculta cuando solo hay una; las listas pasarela no cuentan como listas de destino adicionales.
+
+Para registrar lo comprado, puedes revisar un ticket desde **Analítica → Compras** o actualizar la cantidad manualmente. Al revisar el ticket, se propone la cantidad recuperada o estimada y, si no está disponible, la cantidad predeterminada de reposición. Solo se repone Stock para los productos que selecciones durante la revisión. Marcar un producto como comprado en la lista no aumenta por sí solo su Stock.
+
+### Rutinas
+
+Una rutina define **qué personas**, **en qué franja horaria** y **qué días de la semana** se tienen en cuenta para registrar un consumo habitual en casa.
+
+En **Rutinas**, pulsa **+**, escribe un nombre, selecciona las personas y configura la hora de inicio, la hora de fin y los días. Después, en la ficha del producto, elige **Consumo por rutinas**, marca la rutina e indica cuánto consume cada persona.
+
+Si una persona ha estado en casa en algún momento de esa franja, se descuenta la cantidad configurada una vez por persona y franja. Por ejemplo, una rutina de desayuno de 08:00 a 10:00 puede descontar una unidad de chocolate por cada persona seleccionada que haya estado en casa durante ese intervalo. La presencia se obtiene de sus entidades **person** de Home Assistant.
+
+Las tarjetas se ordenan por hora de inicio. Su toggle permite activarlas o desactivarlas y, al pulsar una tarjeta, puedes editarla o eliminarla desde el popup.
+
+### Lectores
+
+Los lectores conectan las lecturas de **códigos de barras/QR** o **etiquetas NFC** con los productos del catálogo. En **Lectores**, pulsa **+**, asigna un nombre y selecciona el tipo y la fuente: una entidad de Home Assistant que reciba el código o, para NFC, el evento **tag_scanned** del dispositivo correspondiente.
+
+Configura la **acción por defecto**, la lista de destino y el intervalo de **antirrepetición**, que inicialmente es de 60 segundos. Este intervalo evita procesar repetidamente una misma lectura por error.
+
+Desde **Reposición** en la ficha de cada producto puedes escanear y asociar uno o varios códigos o etiquetas. Para cada lector se utiliza su acción predeterminada, salvo que elijas una acción específica para ese producto: añadirlo a la lista, aumentar Stock, reducir Stock o no realizar ninguna acción. Para modificar Stock, el producto debe estar incluido previamente en él.
+
+Cada tarjeta permite activar o desactivar el lector, consultar las lecturas en directo, editarlo o quitarlo. También muestra la fecha y hora de su último uso. Los códigos desconocidos aparecen en **Catálogo → Pendiente** para vincularlos a un producto existente o crear uno nuevo. Los lectores siguen funcionando aunque cierres la interfaz.
+
 ## Analítica
 
 ## Ajustes

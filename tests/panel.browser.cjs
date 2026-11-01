@@ -1267,6 +1267,7 @@ async function checkStockEditor(browser,url,errors){
     assert.equal(await stockCard.getByRole('progressbar',{name:'Stock restante'}).getAttribute('aria-valuenow'),'8');
     await stockPage.screenshot({path:'test-results/stock-perishable-eight-percent.png',fullPage:true});
     await stockPage.evaluate(()=>{Object.assign(window.stockItems[0],{quantity:2.5,refill_quantity:4,unit:'Latas'});window.emitStock();});
+    await stockPage.setViewportSize({width:1280,height:960});
     await stockPage.getByRole('button',{name:'Cambiar a vista de filas',exact:true}).click();
     assert.ok(await stockCard.evaluate(card=>{
       const open=card.querySelector('.stock-open').getBoundingClientRect(),controls=card.querySelector('.stock-controls').getBoundingClientRect();
@@ -1292,9 +1293,10 @@ async function checkStockEditor(browser,url,errors){
     for(const width of [1280,390,320]){
       await stockPage.setViewportSize({width,height:844});
       assert.ok(await stockPage.locator('#stock-card').evaluate(node=>node.scrollWidth<=node.clientWidth+1));
+      assert.equal(await stockCard.locator('.stock-controls').isVisible(),width>650);
       assert.ok(await stockPage.locator('#stock-heading').evaluate(node=>{
         const tabs=node.querySelector('.stock-tabs').getBoundingClientRect(),actions=node.querySelector('#stock-actions').getBoundingClientRect();
-        return tabs.right<=actions.left&&Math.abs((tabs.top+tabs.bottom-actions.top-actions.bottom)/2)<2&&node.scrollWidth<=node.clientWidth+1;
+        return (tabs.bottom<=actions.top||tabs.right<=actions.left&&Math.abs((tabs.top+tabs.bottom-actions.top-actions.bottom)/2)<2)&&node.scrollWidth<=node.clientWidth+1;
       }));
       await stockPage.screenshot({path:'test-results/stock-rows-'+width+'.png',fullPage:true});
     }
@@ -2171,7 +2173,7 @@ async function checkReaderEditor(browser,url,errors){
     assert.equal(await readerCatalog.locator("#scan-suggestions-group").evaluate(node => node.open),false);
     assert.equal(await readerCatalog.locator("#scan-suggestions [data-pending-id]").count(),1);
     assert.equal(await readerCatalog.locator("#list-suggestions [data-pending-id]").count(),0);
-    assert.equal(await readerCatalog.locator("#scan-suggestions-count").textContent(),"(1)");
+    assert.equal(await readerCatalog.locator("#scan-suggestions-title").textContent(),"Productos escaneados (1)");
     await readerCatalog.locator("#scan-suggestions-summary").click();
     const scanCard = readerCatalog.locator('#scan-suggestions [data-pending-id="scan-1"]');
     assert.deepEqual(await scanCard.locator(".actions ha-icon").evaluateAll(icons => icons.map(icon => icon.getAttribute("icon"))), ["mdi:plus-thick","mdi:view-grid","mdi:delete"]);
@@ -2348,6 +2350,7 @@ async function checkReaderEditor(browser,url,errors){
       await readerPage.setViewportSize({width,height:844});
       assert.ok(await barcodeReader.evaluate(card=>card.scrollWidth<=card.clientWidth+1));
       assert.equal(await barcodeReader.locator('.reader-toggle').evaluate(input=>getComputedStyle(input).position==='static'),false);
+      assert.ok(await barcodeReader.evaluate(card=>{const box=card.getBoundingClientRect(),toggle=card.querySelector('.reader-toggle').getBoundingClientRect(),actions=card.querySelector('.actions').getBoundingClientRect();return toggle.top-box.top>=16&&toggle.top-box.top<=20&&box.right-toggle.right>=16&&box.right-toggle.right<=20&&actions.top-toggle.bottom>=10;}),'Reader toggle keeps its corner margins and separation from action buttons');
     }
     await readerPage.setViewportSize({width:390,height:844});
     await readerPage.screenshot({path:"test-results/readers-mobile.png",fullPage:true});
@@ -2608,6 +2611,39 @@ async function checkAppearanceInLists(browser,url,errors){
   await context.close();
 }
 
+async function checkMobileSpacing(browser,url,errors){
+  const context=await browser.newContext({viewport:{width:390,height:844}});
+  await context.addInitScript(()=>{
+    localStorage.setItem('catalog-fixture',JSON.stringify([{id:'cacao',revision:1,name:'Cacao',category:'Despensa',tags:[],barcodes:[],nfc_tags:[],image_url:'',icon:'mdi:food',currency:'EUR',price:null}]));
+    localStorage.setItem('category-fixture',JSON.stringify([{id:'despensa',name:'Despensa',color:'#f9a825',icon:'mdi:food'}]));
+  });
+  const page=await context.newPage();page.on('pageerror',error=>errors.push(error.message));await page.goto(url);
+  const catalog=page.locator('isl-catalog');
+  for(const width of [320,390,650]){
+    await page.setViewportSize({width,height:844});
+    for(const view of ['catalog','stock','analytics','settings','shopping']){
+      await page.locator('#nav-'+view).click();
+      assert.ok(await page.locator('header').evaluate(header=>{const nav=header.querySelector('.section-nav');return header.scrollWidth<=header.clientWidth+1&&parseFloat(getComputedStyle(nav).gap)>=10;}));
+      assert.equal(await page.locator('.section-nav .nav-label:visible').count(),1);
+      if(view==='catalog'){
+        assert.ok(await catalog.locator('.catalog-tabs').evaluate(nav=>parseFloat(getComputedStyle(nav).gap)>=10));
+        if(await catalog.getByRole('button',{name:'Agrupar por categorías',exact:true}).isVisible())await catalog.getByRole('button',{name:'Agrupar por categorías',exact:true}).click();
+        const group=catalog.locator('.category-group').first();await group.waitFor();
+        assert.equal(await group.evaluate(n=>getComputedStyle(n,'::before').display),'none');
+        await page.screenshot({path:'test-results/mobile-catalog-spacing-'+width+'.png',fullPage:true});
+      }
+      if(view==='stock'){
+        assert.ok(await page.locator('.stock-tabs').first().evaluate(nav=>parseFloat(getComputedStyle(nav).gap)>=10));
+        assert.ok(await page.locator('#stock-heading').evaluate(n=>n.scrollWidth<=n.clientWidth+1));
+        await page.screenshot({path:'test-results/mobile-stock-spacing-'+width+'.png',fullPage:true});
+      }
+      if(view==='settings')assert.ok(await page.locator('isl-settings .settings-tabs').evaluate(nav=>parseFloat(getComputedStyle(nav).gap)>=10));
+    }
+    assert.equal(await page.locator('main').evaluate(n=>n.getBoundingClientRect().right<=innerWidth+1),true);
+  }
+  await context.close();
+}
+
 async function checkStockReaders(browser,url,errors){
   const context=await browser.newContext({viewport:{width:1280,height:960}}),page=await context.newPage();
   page.on('pageerror',error=>errors.push(error.message));await page.goto(url);
@@ -2685,7 +2721,7 @@ async function checkCatalogViews(browser,url,errors){
     ];window.emitCatalog();
   });
   const information=catalog.locator('#pending-information-group');
-  assert.equal(await catalog.locator('#pending-information-count').textContent(),'(1)');
+  assert.equal(await catalog.locator('#pending-information-title').textContent(),'Productos pendientes de información (1)');
   assert.equal(await information.locator('.pending-information-row').count(),0); // Rows are built only on expansion.
   assert.equal(await information.locator('isl-pending-information-refresh').count(),0);
   assert.deepEqual(await catalog.locator('#suggestions-list > details > summary > ha-icon').evaluateAll(nodes=>nodes.map(node=>node.getAttribute('icon'))),['mdi:cart-outline','mdi:barcode-scan','mdi:text-box-edit-outline']);
@@ -2696,7 +2732,7 @@ async function checkCatalogViews(browser,url,errors){
   assert.equal(await editor.getByRole('button',{name:'Alternativas',exact:true}).getAttribute('aria-pressed'),'true');
   await editor.getByRole('button',{name:'Cerrar ventana',exact:true}).click();
   await page.evaluate(()=>{window.catalogProducts[0].commercial_references[0].content_quantity=250;window.catalogProducts[0].commercial_references[0].content_unit='g';window.emitCatalog();});
-  assert.equal(await catalog.locator('#pending-information-count').textContent(),'(0)');
+  assert.equal(await catalog.locator('#pending-information-title').textContent(),'Productos pendientes de información (0)');
   assert.equal(await information.locator('.pending-information-row').count(),0);
   assert.equal(await catalog.locator('#view-suggestions').isVisible(),true);
   assert.equal(await page.evaluate(()=>window.catalogRecipes[0].id),'kept-recipe');
@@ -3104,6 +3140,7 @@ async function main() {
     browser = await chromium.launch({ headless: true, channel: process.env.PLAYWRIGHT_CHANNEL || undefined });
     if(process.argv.includes('--lidl-prices-only')){const errors=[];await checkLidlCatalogPrices(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Lidl catalog prices passed.');return;}
     if(process.argv.includes('--readers-editor-only')){const errors=[];await checkReaderEditor(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Reader editor passed.');return;}
+    if(process.argv.includes('--mobile-spacing-only')){const errors=[];await checkMobileSpacing(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Mobile spacing passed.');return;}
     if(process.argv.includes('--stock-readers-only')){const errors=[];await checkStockReaders(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Stock readers navigation passed.');return;}
     if(process.argv.includes('--catalog-views-only')){const errors=[];await checkCatalogViews(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Catalog views passed.');return;}
     if(process.argv.includes('--comparison-only')){const errors=[];await checkCatalogComparison(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Catalog comparison passed.');return;}
@@ -3694,17 +3731,13 @@ async function main() {
               const bounds=toolbar.getBoundingClientRect();
               return {scroll:tabs.scrollWidth,client:tabs.clientWidth,left:bounds.left,right:bounds.right,buttons:[...toolbar.querySelectorAll("button")].filter(button=>button.getClientRects().length).map(button=>{const rect=button.getBoundingClientRect();return {id:button.id,left:rect.left,right:rect.right};})};
             });
-            assert.ok(tabLayout.scroll<=tabLayout.client+1 && tabLayout.buttons.every(button=>button.left>=tabLayout.left-1 && button.right<=tabLayout.right+1),`Compact catalog tabs fit at ${width}px with ${tab} active: ${JSON.stringify(tabLayout)}`);
+            assert.ok(tabLayout.client>0 && tabLayout.right<=width && tabLayout.left>=0,`Compact catalog tabs fit at ${width}px with ${tab} active: ${JSON.stringify(tabLayout)}`);
           }
           await catalog.locator("#view-products").click();
         }
         assert.equal(await page.locator("header").evaluate(header => {
-          const buttons = [...header.querySelectorAll(".section-nav button")];
-          const logo = header.querySelector(".brand-logo").getBoundingClientRect();
-          return buttons.every(button => {
-            const rect = button.getBoundingClientRect();
-            return rect.right <= innerWidth && rect.top < logo.bottom && rect.bottom > logo.top;
-          }) && header.scrollWidth <= header.clientWidth;
+          const nav=header.querySelector('.section-nav'),bounds=nav.getBoundingClientRect();
+          return bounds.right<=innerWidth&&bounds.width>0&&parseFloat(getComputedStyle(nav).gap)>=10&&header.scrollWidth<=header.clientWidth;
         }), true);
       }
     }
@@ -3757,8 +3790,8 @@ async function main() {
     const suggestions = suggestionCatalog.locator("#suggestions-list");
     assert.equal(await suggestionCatalog.locator("#list-suggestions-group").evaluate(node => node.open), false);
     assert.equal(await suggestionCatalog.locator("#scan-suggestions-group").evaluate(node => node.open), false);
-    assert.equal(await suggestionCatalog.locator("#list-suggestions-count").textContent(), "(3)");
-    assert.equal(await suggestionCatalog.locator("#scan-suggestions-count").textContent(), "(0)");
+    assert.equal(await suggestionCatalog.locator("#list-suggestions-title").textContent(), "Productos añadidos a la lista (3)");
+    assert.equal(await suggestionCatalog.locator("#scan-suggestions-title").textContent(), "Productos escaneados (0)");
     assert.equal(await suggestions.getByRole("button", {name:"Añadir al catálogo: Cacao",exact:true}).isVisible(), false);
     await suggestionCatalog.locator("#list-suggestions-summary").click();
     assert.equal(await suggestionCatalog.locator("#list-suggestions article > ha-icon").count(), 0);
@@ -5169,6 +5202,7 @@ async function main() {
 
     await checkCatalogViews(browser,url,errors);
     await checkLidlCatalogPrices(browser,url,errors);
+    await checkMobileSpacing(browser,url,errors);
     await checkStockReaders(browser,url,errors);
 
     // Store grouping uses only active stores with bindings and permits shared products.

@@ -1,5 +1,17 @@
 # Historial de cambios
 
+## 0.79.0 — 2026-11-01
+
+- El README incorpora la documentación de Stock, sus métodos de control, reposición por mínimos, rutinas y lectores.
+
+- En móvil aumenta el espacio entre botones de navegación y vistas; las pestañas admiten desplazamiento horizontal y los controles de Stock se distribuyen sin comprimirse. Se ocultan los botones de ajuste de Stock en filas y la franja de color de las categorías del catálogo, ampliando el espacio de su contenido.
+
+- El toggle de cada lector se ancla a la esquina superior derecha respetando el margen y separándose de los botones de acción.
+
+- Los contadores de Catálogo → Pendiente se integran al final del título como texto entre paréntesis, sin badge ni margen adicional.
+
+- Se reduce a la mitad el margen entre los productos pendientes de la lista y el bloque de Compras recientes.
+
 ## 0.78.0 — 2026-11-01
 
 - Lectores adopta tarjetas horizontales compactas con último uso y controles a la derecha. El popup agrupa los campos en Conexión y Comportamiento, manteniendo las fuentes de entidad/NFC, acciones, destino y antirrepetición.

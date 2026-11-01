@@ -1,12 +1,12 @@
-import { StockSession } from "./stock-client.js?v=0.78.0";
-import { QuantitySession, purchaseQuantity, quantityLabel } from "./quantity-client.js?v=0.78.0";
-import { installDialogCloseButtons } from "./dialog-controls.js?v=0.78.0";
-import { FEATURES, TodoSession, errorMessage, isAvailable, supports } from "./todo-client.js?v=0.78.0";
-import { imageSource, normalizedName, productNameKey, cachedProductPrice } from "./product-display.js?v=0.78.0";
-import { packageCost } from "./reference-formats.js?v=0.78.0";
-import { ListSettingsSession, AttentionSession, gradientTextColor } from "./list-settings-client.js?v=0.78.0";
-import { CatalogSession } from "./catalog-client.js?v=0.78.0";
-import { ReadersSession } from "./readers-client.js?v=0.78.0";
+import { StockSession } from "./stock-client.js?v=0.79.0";
+import { QuantitySession, purchaseQuantity, quantityLabel } from "./quantity-client.js?v=0.79.0";
+import { installDialogCloseButtons } from "./dialog-controls.js?v=0.79.0";
+import { FEATURES, TodoSession, errorMessage, isAvailable, supports } from "./todo-client.js?v=0.79.0";
+import { imageSource, normalizedName, productNameKey, cachedProductPrice } from "./product-display.js?v=0.79.0";
+import { packageCost } from "./reference-formats.js?v=0.79.0";
+import { ListSettingsSession, AttentionSession, gradientTextColor } from "./list-settings-client.js?v=0.79.0";
+import { CatalogSession } from "./catalog-client.js?v=0.79.0";
+import { ReadersSession } from "./readers-client.js?v=0.79.0";
 
 const LOGO_URL = new URL("logo.png", import.meta.url).href;
 const STORE_LOGOS = {
@@ -170,13 +170,13 @@ class ImprovedShoppingListPanel extends HTMLElement {
   _loadSection(name) {
     if(this._modules.has(name))return this._modules.get(name);
     const load={
-      stock:()=>import('./stock-panel.js?v=0.78.0'),
-      readers:()=>import('./readers-panel.js?v=0.78.0'),
-      routines:()=>import('./meal-routines.js?v=0.78.0'),
-      catalog:()=>import('./catalog-panel.js?v=0.78.0'),
-      settings:()=>import('./settings-panel.js?v=0.78.0'),
-      purchases:()=>import('./purchases-panel.js?v=0.78.0'),
-      analytics:()=>import('./analytics-panel.js?v=0.78.0'),
+      stock:()=>import('./stock-panel.js?v=0.79.0'),
+      readers:()=>import('./readers-panel.js?v=0.79.0'),
+      routines:()=>import('./meal-routines.js?v=0.79.0'),
+      catalog:()=>import('./catalog-panel.js?v=0.79.0'),
+      settings:()=>import('./settings-panel.js?v=0.79.0'),
+      purchases:()=>import('./purchases-panel.js?v=0.79.0'),
+      analytics:()=>import('./analytics-panel.js?v=0.79.0'),
     }[name];
     const pending=load().then(module=>{
       if(name==='stock')module.installStockView(this);
@@ -383,6 +383,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
         .empty { padding:28px 8px; text-align:center; color:var(--secondary-text-color,#63766b); line-height:1.6; }
         .empty strong { display:block; font-size:18px; color:var(--primary-text-color,#20352d); margin-bottom:5px; }
         details { margin-top:24px; }
+        #completed-details { margin-top:12px; }
         summary { cursor:pointer; color:var(--secondary-text-color,#63766b); font-size:14px; padding:10px 0; }
         #completed-summary { display:flex; align-items:center; gap:8px; }
         #completed-summary::before { content:"▸"; flex:none; }
@@ -450,10 +451,11 @@ class ImprovedShoppingListPanel extends HTMLElement {
         @media(max-width:380px) { header { gap:4px; padding:10px 8px; }.brand-logo { width:32px; height:32px; }.menu { width:36px; padding:6px; }.section-nav button { min-width:28px; padding:10px 4px; gap:3px; font-size:12px; }.section-nav ha-icon { --mdc-icon-size:18px; } }
         #analytics-heading { display:flex;align-items:center;gap:12px;margin-bottom:22px;flex-wrap:wrap; } #analytics-heading[hidden] { display:none; } #analytics-heading nav { margin-left:auto; }
         @media(max-width:650px){#analytics-heading .stock-tabs [aria-selected=false] span{display:none;}.section-nav{max-width:100%}.section-nav button{min-width:28px;padding:10px 4px;font-size:12px}}
+        @media(max-width:650px){header{gap:8px}.section-nav{flex:1 1 auto;min-width:0;gap:10px;overflow-x:auto;scrollbar-width:thin}.section-nav button{min-width:40px;min-height:44px;padding:10px 9px;gap:6px}.stock-tabs,.stock-tabs nav{gap:10px}.stock-tabs [role=tab]{min-width:40px;min-height:44px;padding:10px 9px;gap:6px}#stock-heading{flex-wrap:wrap;gap:12px}#stock-actions{gap:8px}#stock-actions .icon-button{width:40px;flex-basis:40px;height:44px}#analytics-heading{gap:12px}.rows .stock-controls{display:none}}
       </style>
       <header>
         <button class="menu" aria-label="Abrir menú de Home Assistant"><ha-icon icon="mdi:menu"></ha-icon></button>
-        <div class="branding"><img class="brand-logo" src="${LOGO_URL}" alt="" width="44" height="44"><div class="brand-copy"><span class="brand">Improved Shopping List</span><span class="version">0.78.0</span></div></div>
+        <div class="branding"><img class="brand-logo" src="${LOGO_URL}" alt="" width="44" height="44"><div class="brand-copy"><span class="brand">Improved Shopping List</span><span class="version">0.79.0</span></div></div>
         <nav class="section-nav" aria-label="Apartados">
           <button id="nav-shopping" aria-label="Lista" aria-pressed="true"><ha-icon icon="mdi:shopping" aria-hidden="true"></ha-icon><span class="nav-label">Lista</span></button>
           <button id="nav-catalog" aria-label="Catálogo" aria-pressed="false"><ha-icon icon="mdi:view-grid" aria-hidden="true"></ha-icon><span class="nav-label">Catálogo</span></button>

@@ -1,14 +1,14 @@
-import { ReplenishmentEditor, replenishmentMarkup } from './replenishment-editor.js?v=0.78.0';
+import { ReplenishmentEditor, replenishmentMarkup } from './replenishment-editor.js?v=0.79.0';
 const priceValue=value=>value==null||value===''?'':Number(Number(value).toFixed(2));
-import { purchaseQuantity, quantityLabel } from "./quantity-client.js?v=0.78.0";
-import { referenceContentControls, barcodeIdentity, validReferenceContent, validReferenceFormat, weightFormat, pendingProductInformation } from "./reference-formats.js?v=0.78.0";
-import { installDialogCloseButtons } from "./dialog-controls.js?v=0.78.0";
-import { CatalogSession } from "./catalog-client.js?v=0.78.0";
-import { matchCatalogProducts } from "./product-matching.js?v=0.78.0";
-import "./category-panel.js?v=0.78.0";
-import "./recipe-editor.js?v=0.78.0";
-import "./icon-picker.js?v=0.78.0";
-import { imageSource, normalizedName, productNameKey, cachedProductPrice, storeProductLink, storeFromProductUrl } from "./product-display.js?v=0.78.0";
+import { purchaseQuantity, quantityLabel } from "./quantity-client.js?v=0.79.0";
+import { referenceContentControls, barcodeIdentity, validReferenceContent, validReferenceFormat, weightFormat, pendingProductInformation } from "./reference-formats.js?v=0.79.0";
+import { installDialogCloseButtons } from "./dialog-controls.js?v=0.79.0";
+import { CatalogSession } from "./catalog-client.js?v=0.79.0";
+import { matchCatalogProducts } from "./product-matching.js?v=0.79.0";
+import "./category-panel.js?v=0.79.0";
+import "./recipe-editor.js?v=0.79.0";
+import "./icon-picker.js?v=0.79.0";
+import { imageSource, normalizedName, productNameKey, cachedProductPrice, storeProductLink, storeFromProductUrl } from "./product-display.js?v=0.79.0";
 export { imageSource, normalizedName, productNameKey, cachedProductPrice };
 
 const MONTHS = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
@@ -229,7 +229,6 @@ class ImprovedShoppingCatalog extends HTMLElement {
         .suggestion-group>summary::-webkit-details-marker { display:none; }
         .suggestion-group>summary>ha-icon { display:flex;align-items:center;justify-content:center;width:24px;height:24px;--mdc-icon-size:24px;flex:none;color:inherit; }
         .suggestion-group summary:focus-visible { outline:3px solid var(--primary-color,#267052); outline-offset:3px; border-radius:14px; }
-        .suggestion-count { display:inline-block; margin-left:8px; padding:2px 8px; border-radius:20px; font-size:12px; font-weight:500; background:var(--secondary-background-color,#edf4ee); }
         .suggestion-content { padding:0 16px 16px; }
         .suggestion { display:flex; align-items:center; gap:16px; padding:16px; border:1px solid var(--divider-color,#dfe7e1); border-radius:14px; background:var(--card-background-color,#fff); }
         .pending-information-row { display:flex;align-items:center;gap:12px;width:100%;text-align:left;padding:14px;background:var(--card-background-color,#fff); }
@@ -561,6 +560,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
           #product-form .form-actions.product-actions { margin:0 -16px -18px;padding:14px 16px;gap:8px; }
           #product-form .product-actions button { font-size:12px;padding:10px 12px; }
         }
+        @media(max-width:650px){.catalog-toolbar{gap:10px}.catalog-tabs{gap:10px}.catalog-tabs button{min-width:40px;min-height:44px;padding:10px 9px;gap:6px}.catalog-tabs button[aria-pressed=true]{flex-shrink:0}.category-group[data-category-color]::before{display:none}.category-products{padding:0 8px 8px}.category-group-title{font-size:16px}.category-group-toggle{padding:14px 12px}.category-products.rows .product-top{gap:6px;padding-left:8px}.rows .row-meta{gap:5px}}
       </style>
       <div class="heading"><h1>Catálogo</h1>
       <div class="catalog-toolbar">
@@ -588,15 +588,15 @@ class ImprovedShoppingCatalog extends HTMLElement {
         <div id="suggestions-error" class="notice error" role="alert" hidden></div>
         <div id="suggestions-list" class="suggestion-groups">
           <details id="list-suggestions-group" class="suggestion-group">
-            <summary id="list-suggestions-summary"><ha-icon icon="mdi:cart-outline" aria-hidden="true"></ha-icon><span class="suggestion-title">Productos añadidos a la lista<span id="list-suggestions-count" class="suggestion-count">(0)</span></span></summary>
+            <summary id="list-suggestions-summary"><ha-icon icon="mdi:cart-outline" aria-hidden="true"></ha-icon><span id="list-suggestions-title" class="suggestion-title">Productos añadidos a la lista (0)</span></summary>
             <div class="suggestion-content"><div id="list-suggestions" class="suggestions"></div><p id="list-suggestions-empty" class="helper" hidden>No hay productos de la lista pendientes de incorporar al catálogo.</p></div>
           </details>
           <details id="scan-suggestions-group" class="suggestion-group">
-            <summary id="scan-suggestions-summary"><ha-icon icon="mdi:barcode-scan" aria-hidden="true"></ha-icon><span class="suggestion-title">Productos escaneados<span id="scan-suggestions-count" class="suggestion-count">(0)</span></span></summary>
+            <summary id="scan-suggestions-summary"><ha-icon icon="mdi:barcode-scan" aria-hidden="true"></ha-icon><span id="scan-suggestions-title" class="suggestion-title">Productos escaneados (0)</span></summary>
             <div class="suggestion-content"><div id="scan-suggestions" class="suggestions"></div><p id="scan-suggestions-empty" class="helper" hidden>No hay códigos escaneados pendientes de identificar.</p></div>
           </details>
           <details id="pending-information-group" class="suggestion-group">
-            <summary><ha-icon icon="mdi:text-box-edit-outline" aria-hidden="true"></ha-icon><span class="suggestion-title">Productos pendientes de información<span id="pending-information-count" class="suggestion-count">(0)</span></span></summary>
+            <summary><ha-icon icon="mdi:text-box-edit-outline" aria-hidden="true"></ha-icon><span id="pending-information-title" class="suggestion-title">Productos pendientes de información (0)</span></summary>
             <div class="suggestion-content"><div id="pending-information-products" class="suggestions"></div><p id="pending-information-empty" class="helper" hidden>No hay productos con información pendiente.</p></div>
           </details>
         </div>
@@ -1018,8 +1018,8 @@ class ImprovedShoppingCatalog extends HTMLElement {
     root.querySelector("#list-suggestions").replaceChildren(...rows);
     root.querySelector("#scan-suggestions").replaceChildren(...pending.map(item => this._codeSuggestion(item)));
     this._renderLinkDialog();
-    root.querySelector("#list-suggestions-count").textContent = `(${suggestions.length})`;
-    root.querySelector("#scan-suggestions-count").textContent = `(${pending.length})`;
+    root.querySelector("#list-suggestions-title").textContent = `Productos añadidos a la lista (${suggestions.length})`;
+    root.querySelector("#scan-suggestions-title").textContent = `Productos escaneados (${pending.length})`;
     root.querySelector("#view-suggestions").hidden=false;
     this._renderPendingInformation();
     root.querySelector("#list-suggestions-empty").hidden = suggestions.length > 0 || this._catalog.loading || Boolean(this._catalog.error);
@@ -1034,7 +1034,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
     for(const offer of this._priceData?.offers??[]){const values=offersByProduct.get(offer.catalog_product_id)??[];values.push(offer);offersByProduct.set(offer.catalog_product_id,values);}
     const pending=this._catalog.products.map(product=>({product,issues:pendingProductInformation(product,offersByProduct.get(product.id)??[])}))
       .filter(item=>item.issues.length);
-    root.querySelector('#pending-information-count').textContent=`(${pending.length})`;
+    root.querySelector('#pending-information-title').textContent=`Productos pendientes de información (${pending.length})`;
     root.querySelector('#pending-information-empty').hidden=Boolean(pending.length)||this._catalog.loading;
     if(this._view!=='suggestions'||!group.open){container.replaceChildren();return;}
     pending.sort((a,b)=>a.product.name.localeCompare(b.product.name,'es',{sensitivity:'base'}));

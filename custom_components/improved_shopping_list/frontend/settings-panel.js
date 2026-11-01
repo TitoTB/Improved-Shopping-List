@@ -1,15 +1,15 @@
-import "./shopping-places.js?v=0.78.0";
-import "./dia-prices-settings.js?v=0.78.0";
-import "./alcampo-settings.js?v=0.78.0";
-import "./catalog-sources.js?v=0.78.0";
-import "./carrefour-account.js?v=0.78.0";
-import "./lidl-account.js?v=0.78.0";
-import "./logs-panel.js?v=0.78.0";
-import "./notification-settings.js?v=0.78.0";
-import { installDialogCloseButtons } from "./dialog-controls.js?v=0.78.0";
-import { installToggleStyles } from "./toggle-styles.js?v=0.78.0";
-import { todoEntities, isAvailable } from "./todo-client.js?v=0.78.0";
-import { DEFAULT_APPEARANCE, gradientTextColor } from "./list-settings-client.js?v=0.78.0";
+import "./shopping-places.js?v=0.79.0";
+import "./dia-prices-settings.js?v=0.79.0";
+import "./alcampo-settings.js?v=0.79.0";
+import "./catalog-sources.js?v=0.79.0";
+import "./carrefour-account.js?v=0.79.0";
+import "./lidl-account.js?v=0.79.0";
+import "./logs-panel.js?v=0.79.0";
+import "./notification-settings.js?v=0.79.0";
+import { installDialogCloseButtons } from "./dialog-controls.js?v=0.79.0";
+import { installToggleStyles } from "./toggle-styles.js?v=0.79.0";
+import { todoEntities, isAvailable } from "./todo-client.js?v=0.79.0";
+import { DEFAULT_APPEARANCE, gradientTextColor } from "./list-settings-client.js?v=0.79.0";
 
 const MERCADONA_LOGO_URL = new URL("mercadona.png", import.meta.url).href;
 
@@ -196,7 +196,8 @@ class ImprovedShoppingSettings extends HTMLElement {
       .purchase-users-field{display:grid;grid-template-columns:minmax(0,1fr) minmax(180px,360px);gap:12px;align-items:start;margin-top:16px}.purchase-users-field>span{padding-top:12px}.person-picker{min-width:0;border:1px solid var(--divider-color,#dfe7e1);border-radius:10px}.person-picker summary{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:46px;padding:10px 12px;list-style:none;cursor:pointer}.person-picker summary::-webkit-details-marker{display:none}.person-picker summary span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.person-picker summary ha-icon{width:20px;height:20px;--mdc-icon-size:20px;flex:none}.person-picker[open] summary ha-icon{transform:rotate(180deg)}.person-picker summary:focus-visible{outline:3px solid var(--primary-color,#267052);outline-offset:3px}.person-options{max-height:240px;overflow-y:auto;padding:0 8px 8px}.person-option{display:flex;align-items:center;gap:10px;margin:0;padding:10px 4px;cursor:pointer;overflow-wrap:anywhere}.person-option input[type=checkbox]{width:20px;height:20px;min-height:20px;flex:none;padding:0;margin:0}.person-option:has(input:disabled){cursor:default;opacity:.65}.person-options .helper{margin:4px}.purchase-users>h3{font-size:20px;margin:0}
       .detection-pair{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px;margin-top:16px}.detection-pair>.detection-row{margin:0;min-width:0}
       @media(max-width:540px){.purchase-users-field{grid-template-columns:1fr;gap:8px}.purchase-users-field>span{padding-top:0}.detection-pair{gap:16px}.detection-pair>.detection-row{flex-direction:column;align-items:stretch;gap:10px}.detection-pair input{align-self:flex-end}.detection-pair input[type=number]{width:72px}}
-    </style>
+            @media(max-width:650px){.settings-heading{gap:12px}.settings-tabs{gap:10px}.settings-tabs button{min-width:40px;min-height:44px;padding:10px 9px;gap:6px}}
+</style>
       <div class="settings-heading"><h1>Ajustes</h1>
       <nav class="settings-tabs" aria-label="Vistas de ajustes"><button id="settings-view-lists" aria-label="Listas" aria-pressed="true"><ha-icon icon="mdi:format-list-checks" aria-hidden="true"></ha-icon><span class="tab-label">Listas</span></button><button id="settings-view-stores" aria-label="Tiendas" aria-pressed="false"><ha-icon icon="mdi:store" aria-hidden="true"></ha-icon><span class="tab-label">Tiendas</span></button><button id="settings-view-notifications" aria-label="Notificaciones" aria-pressed="false"><ha-icon icon="mdi:bell-outline" aria-hidden="true"></ha-icon><span class="tab-label">Notificaciones</span></button><button id="settings-view-community" aria-label="Comunidad" aria-pressed="false"><ha-icon icon="mdi:account-group" aria-hidden="true"></ha-icon><span class="tab-label">Comunidad</span></button><button id="settings-view-logs" aria-label="Logs" aria-pressed="false"><ha-icon icon="mdi:format-list-group" aria-hidden="true"></ha-icon><span class="tab-label">Logs</span></button></nav></div>
       <div id="settings-error" class="notice error" role="alert" hidden></div>

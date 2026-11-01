@@ -1,15 +1,15 @@
-import { ReplenishmentEditor, replenishmentMarkup } from './replenishment-editor.js?v=0.74.3';
+import { ReplenishmentEditor, replenishmentMarkup } from './replenishment-editor.js?v=0.75.0';
 const priceValue=value=>value==null||value===''?'':Number(Number(value).toFixed(2));
-import { purchaseQuantity, quantityLabel } from "./quantity-client.js?v=0.74.3";
-import { referenceContentControls, barcodeIdentity, validReferenceContent, validReferenceFormat, weightFormat, pendingProductInformation } from "./reference-formats.js?v=0.74.3";
-import { installDialogCloseButtons } from "./dialog-controls.js?v=0.74.3";
-import { CatalogSession } from "./catalog-client.js?v=0.74.3";
-import { matchCatalogProducts } from "./product-matching.js?v=0.74.3";
-import "./category-panel.js?v=0.74.3";
-import "./recipe-editor.js?v=0.74.3";
-import "./icon-picker.js?v=0.74.3";
-import "./pending-information-refresh.js?v=0.74.3";
-import { imageSource, normalizedName, productNameKey, cachedProductPrice, storeProductLink, storeFromProductUrl } from "./product-display.js?v=0.74.3";
+import { purchaseQuantity, quantityLabel } from "./quantity-client.js?v=0.75.0";
+import { referenceContentControls, barcodeIdentity, validReferenceContent, validReferenceFormat, weightFormat, pendingProductInformation } from "./reference-formats.js?v=0.75.0";
+import { installDialogCloseButtons } from "./dialog-controls.js?v=0.75.0";
+import { CatalogSession } from "./catalog-client.js?v=0.75.0";
+import { matchCatalogProducts } from "./product-matching.js?v=0.75.0";
+import "./category-panel.js?v=0.75.0";
+import "./recipe-editor.js?v=0.75.0";
+import "./icon-picker.js?v=0.75.0";
+import "./pending-information-refresh.js?v=0.75.0";
+import { imageSource, normalizedName, productNameKey, cachedProductPrice, storeProductLink, storeFromProductUrl } from "./product-display.js?v=0.75.0";
 export { imageSource, normalizedName, productNameKey, cachedProductPrice };
 
 const MONTHS = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
@@ -264,15 +264,16 @@ class ImprovedShoppingCatalog extends HTMLElement {
         .catalog-product-controls { display:flex; flex:0 0 auto; align-items:center; justify-content:flex-end; gap:8px; min-width:0; margin-left:auto; }
         #new-product,#new-catalog-category,#toggle-catalog-order,#configure-catalog-grouping,#toggle-catalog-layout { display:grid; place-items:center; flex:0 0 46px; width:46px; height:46px; padding:0; }
         #new-product ha-icon,#new-catalog-category ha-icon,#toggle-catalog-order ha-icon,#configure-catalog-grouping ha-icon,#toggle-catalog-layout ha-icon { --mdc-icon-size:24px; width:24px; height:24px; }
-        #toggle-catalog-layout,#toggle-catalog-order,#configure-catalog-grouping,#pending-formats { background:var(--card-background-color,#fff); }
+        #toggle-catalog-layout,#toggle-catalog-order,#configure-catalog-grouping { background:var(--card-background-color,#fff); }
         .grouping-options { display:grid; gap:6px; margin-block-start:16px; }
         .grouping-options button { display:flex; align-items:center; gap:10px; text-align:left; }
         .grouping-options button[aria-pressed=true] { background:var(--secondary-background-color,#edf4ee); font-weight:650; }
         .grouping-options ha-icon { width:24px; height:24px; --mdc-icon-size:24px; flex:none; }
         #catalog-grid.grouped { grid-template-columns:minmax(0,1fr); gap:12px; }
         .category-group { min-width:0; border:1px solid var(--divider-color,#dfe7e1); border-radius:14px; background:var(--card-background-color,#fff); }
-        .category-group-toggle { display:flex; align-items:center; gap:12px; padding:16px; cursor:pointer; list-style:none; border-radius:14px; }
+        .category-group-toggle { position:relative;display:flex; align-items:center; gap:12px; padding:16px; cursor:pointer; list-style:none; border-radius:14px; }
         .category-group-toggle::-webkit-details-marker { display:none; }
+        .category-group[data-category-color]>.category-group-toggle::before { content:'';position:absolute;left:0;top:0;bottom:0;width:6px;border-radius:14px 0 0 14px;background:var(--category-accent);pointer-events:none; }
         .category-group-toggle::after { content:''; width:9px; height:9px; flex:none; margin-left:auto; border-right:2px solid currentColor; border-bottom:2px solid currentColor; transform:rotate(45deg); }
         .category-group[open] > .category-group-toggle::after { transform:rotate(225deg); }
         .category-group-toggle:focus-visible { outline:3px solid var(--primary-color,#267052); outline-offset:3px; }
@@ -295,8 +296,6 @@ class ImprovedShoppingCatalog extends HTMLElement {
         @media(max-width:550px){.option-url-row{gap:6px;}.retrieve-option{padding:8px;font-size:11px;}.retrieve-option ha-icon{display:none;}}
         .store-link-add input,.store-link-add button { width:100%; min-width:0; height:46px; min-height:46px; margin:0; }
         #product-store-links { display:grid; gap:12px; }
-        #pending-formats { display:grid;place-items:center;flex:0 0 46px;width:46px;height:46px;padding:0; }
-        #pending-formats[aria-pressed=true] { background:var(--primary-color,#267052);color:#fff; }
         .commercial-reference { padding-top:12px;min-width:0; }
         .product-ean-group { border:1px solid var(--divider-color,#dce4e1);border-radius:12px;padding:12px;margin-top:12px;min-width:0; }
         .product-ean-group > summary { cursor:pointer;font-weight:650;overflow-wrap:anywhere; }
@@ -492,7 +491,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
         #product-form > .fields { margin:0 0 22px;gap:18px; }
         #product-form label { font-size:12px;color:var(--secondary-text-color,#63766b);font-weight:550; }
         #product-form input:not([type=checkbox]),#product-form select { min-width:0;min-height:44px;background:var(--product-field);border:1px solid var(--product-border);border-radius:10px;color:var(--primary-text-color,#20352d);padding:10px 12px; }
-        #product-form select { border-right:1px solid var(--product-border);padding-right:12px; }
+        #product-form select { appearance:none;-webkit-appearance:none;border-right:1px solid var(--product-border);padding-right:34px;background-image:linear-gradient(45deg,transparent 35%,currentColor 35%,currentColor 65%,transparent 65%),linear-gradient(135deg,transparent 35%,currentColor 35%,currentColor 65%,transparent 65%);background-position:right 17px center,right 12px center;background-size:5px 5px;background-repeat:no-repeat; }
         #product-form input:not([type=checkbox]):focus,#product-form select:focus { outline-offset:1px; }
         #product-form input:disabled,#product-form select:disabled { opacity:.5; }
         #product-form .product-main-row { grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:14px; }
@@ -770,9 +769,6 @@ class ImprovedShoppingCatalog extends HTMLElement {
       this._renderProducts();
     });
     root.querySelector("#configure-catalog-grouping").addEventListener("click", () => root.querySelector("#catalog-grouping-dialog").showModal());
-    const pendingFilter=element('button','','');pendingFilter.type='button';pendingFilter.id='pending-formats';pendingFilter.setAttribute('aria-label','Mostrar formatos pendientes de revisar');pendingFilter.title='Formatos pendientes de revisar';pendingFilter.setAttribute('aria-pressed','false');pendingFilter.innerHTML='<ha-icon icon="mdi:package-variant" aria-hidden="true"></ha-icon>';
-    pendingFilter.addEventListener('click',()=>{this._pendingFormats=!this._pendingFormats;pendingFilter.setAttribute('aria-pressed',String(this._pendingFormats));this._renderProducts();});
-    root.querySelector('.catalog-product-controls').append(pendingFilter);
     for (const button of root.querySelectorAll("[data-group-by]")) button.addEventListener("click", () => {
       this._groupBy = button.dataset.groupBy;
       try { localStorage.setItem("isl-catalog-grouping", this._groupBy); } catch { /* Storage may be disabled. */ }
@@ -1363,8 +1359,6 @@ class ImprovedShoppingCatalog extends HTMLElement {
     if (!this._hass || !this._active && !this._receiptCreate) return;
     if (!this._built) return;
     const root = this.shadowRoot;
-    const pendingFilter=root.querySelector('#pending-formats');
-    if(pendingFilter)pendingFilter.hidden=!this._pendingFormats&&!this._catalog.products.some(product=>(product.commercial_references??[]).some(ref=>ref.active!==false&&!ref.content_confirmed));
     const query = productNameKey(root.querySelector("#catalog-search").value);
     const rows = this._productLayout === "rows";
     const grouped = this._productOrder === "categories", grid = root.querySelector("#catalog-grid");
@@ -1379,7 +1373,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
     const toggle = root.querySelector("#toggle-catalog-layout"), label = rows ? "Cambiar a vista de cuadrícula" : "Cambiar a vista de filas";
     toggle.setAttribute("aria-label", label); toggle.title = label;
     toggle.querySelector("ha-icon").setAttribute("icon", rows ? "mdi:view-comfy" : "mdi:view-sequential");
-    const products = this._catalog.products.filter(product =>(!this._pendingFormats||(product.commercial_references??[]).some(ref=>ref.active!==false&&!ref.content_confirmed))).filter(product =>
+    const products = this._catalog.products.filter(product =>
       [product.name, product.barcode, ...(product.barcodes??[]), ...(product.nfc_tags??[]), product.category, ...(product.tags??[])].some(value=>productNameKey(value).includes(query)))
       .sort((a,b) => a.name.localeCompare(b.name,"es",{sensitivity:"base"}));
     if (grouped) {
@@ -1415,6 +1409,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
         const heading=element("h2","category-group-title");
         if(this._groupBy === "category") {
           const category=this._catalog.categories.find(category=>normalizedName(category.name)===group.key);
+          if(/^#[0-9a-f]{6}$/i.test(category?.color??'')){section.dataset.categoryColor=category.color;section.style.setProperty('--category-accent',category.color);}
           const icon=element("ha-icon");icon.setAttribute("icon",category?.icon || "mdi:label-outline");icon.setAttribute("aria-hidden","true");heading.append(icon);
         }
         if(this._groupBy === "store") {
@@ -1816,9 +1811,15 @@ class ImprovedShoppingCatalog extends HTMLElement {
       if(data.brand)ref.brand=data.brand;
       if(data.image_url)ref.image_url=data.image_url;
       if(data.ean)ref.ean=data.ean;
-      if(Number.isInteger(data.pack_count)&&data.pack_count>0&&!ref.pack_count)ref.pack_count=data.pack_count;
-      if(data.content_quantity>0&&data.content_unit&&!ref.content_confirmed){ref.content_quantity=data.content_quantity;ref.content_unit=data.content_unit;}
-      if(Number.isFinite(data.price)&&data.price>=0&&data.currency==='EUR')ref.last_price={price:data.price,currency:data.currency,checked_at:data.checked_at};
+      if(data.sale_mode==='weight'&&['g','kg'].includes(data.content_unit)){
+        const code=barcodeIdentity(ref.ean??'');
+        const targets=[ref,...this._commercialReferences.filter(item=>item!==ref&&item.active!==false&&code&&barcodeIdentity(item.ean??'')===code)];
+        for(const target of targets){Object.assign(target,{sale_mode:'weight',content_quantity:null,content_unit:'kg',content_confirmed:true});delete target.pack_count;this._clearCommonSource(target,['content_quantity','content_unit','pack_count']);}
+      }else{
+        if(Number.isInteger(data.pack_count)&&data.pack_count>0&&!ref.pack_count)ref.pack_count=data.pack_count;
+        if(data.content_quantity>0&&data.content_unit&&!ref.content_confirmed){ref.content_quantity=data.content_quantity;ref.content_unit=data.content_unit;}
+      }
+      if(Number.isFinite(data.price)&&data.price>=0&&data.currency==='EUR'&&!weightFormat(ref))ref.last_price={price:data.price,currency:data.currency,checked_at:data.checked_at};
       if(data.measure_price)ref.measure_price=data.measure_price;
       if(data.nutriscore?.grade)ref.nutriscore=data.nutriscore;
       if(!this._storeLinks[data.store])this._storeLinks[data.store]=data.url;

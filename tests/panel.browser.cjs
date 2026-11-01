@@ -880,6 +880,8 @@ async function checkSpendingChart(browser,url,errors){
     const spendingContext=await browser.newContext({viewport:{width:390,height:844}});
     await spendingContext.route('https://images.seeklogo.com/**',route=>route.fulfill({contentType:'image/svg+xml',body:'<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32"><circle cx="16" cy="16" r="14" fill="blue"/></svg>'}));
     const spendingPage=await spendingContext.newPage();spendingPage.on('pageerror',error=>errors.push(error.message));
+    // Keep the dynamic six-month fixture aligned with the explicit Jan–Apr checks.
+    await spendingPage.clock.setFixedTime(new Date('2026-10-15T12:00:00Z'));
     await spendingPage.addInitScript(()=>{
       const now=new Date(),first=new Date(now.getFullYear(),now.getMonth()-5,1),before=new Date(first.getTime()-1);
       const receipts=[['recent','carrefour','Carrefour',now.toISOString(),9],['start','carrefour','Carrefour',first.toISOString(),2],['before','carrefour','Carrefour',before.toISOString(),3],['older','carrefour','Carrefour','2025-01-10T12:00:00',4],['j1','carrefour','Carrefour','2026-01-10T12:00:00',10.25],['j2','mercadona','Mercadona','2026-01-15T12:00:00',20],['j3','carrefour','Carrefour','2026-01-20T12:00:00',5.5],['f1','mercadona','Mercadona','2026-02-15T12:00:00',40]];
@@ -1169,6 +1171,292 @@ async function checkReplenishmentLayout(browser,url,errors){
   await editCatalogProduct(catalog,'Editar Pavo');await form.getByRole('button',{name:'Reposición',exact:true}).click();await form.locator('#product-replenishment > summary').click();
   await mode.selectOption('usage');assert.equal(await form.getByLabel('Mínimo (%)',{exact:true}).inputValue(),'20');
   await context.close();
+}
+
+async function checkStockEditor(browser,url,errors){
+    // Stock editor, units, modes, row-only controls, persistence and permissions.
+    const stockContext=await browser.newContext({viewport:{width:1280,height:960}});
+    await stockContext.addInitScript(()=>localStorage.setItem('catalog-fixture',JSON.stringify([{id:'stock-cacao',revision:1,name:'Cacao',category:'',tags:[],barcode:'',barcodes:[],nfc_tags:[],image_url:'',icon:'mdi:food',price:null,currency:'EUR'}])));
+    const stockPage=await stockContext.newPage();stockPage.on('pageerror',error=>errors.push(error.message));
+    await stockPage.goto(url);await stockPage.getByRole('button',{name:'Stock',exact:true}).click();
+    const stockInput=stockPage.locator('#product-input');
+    assert.equal(await stockInput.isVisible(),false);
+    assert.equal(await stockPage.locator('#add-button').isVisible(),false);
+    assert.equal(await stockPage.getByRole('button',{name:'Subir ticket',exact:true}).isVisible(),false);
+    assert.equal(await stockPage.locator('#stock-heading h2').count(),0);
+    await stockPage.getByRole('button',{name:'Añadir producto al stock',exact:true}).click();
+    const stockAdd=stockPage.getByRole('dialog',{name:'Añadir producto al stock',exact:true});
+    await stockAdd.getByLabel('Nombre del producto',{exact:true}).fill('Cacao');
+    await stockPage.evaluate(()=>{window.failStock=true;});
+    await stockAdd.getByRole('button',{name:'Añadir',exact:true}).click();
+    await stockAdd.locator('#stock-add-error').filter({hasText:'No se ha podido guardar el stock'}).waitFor();
+    assert.equal(await stockPage.evaluate(()=>window.stockItems.length),0);
+    await stockPage.evaluate(()=>{window.failStock=false;});
+    await stockAdd.getByLabel('Nombre del producto',{exact:true}).press('Enter');
+    await stockAdd.waitFor({state:'hidden'});
+    const stockCard=stockPage.locator('#stock-items li').filter({hasText:'Cacao'});
+    await stockCard.getByLabel('Stock de Cacao: 1 uds',{exact:true}).waitFor();
+    assert.equal(await stockPage.locator('#stock-count, #stock-units').count(),0);
+    assert.equal(await stockPage.getByRole('button',{name:'Ordenar alfabéticamente',exact:true}).isVisible(),true);
+    assert.equal(await stockCard.locator('.stock-controls, .stock-tools').count(),0);
+    assert.equal(await stockCard.locator('.item').evaluate(node=>getComputedStyle(node).backgroundImage),'linear-gradient(rgb(245, 154, 35), rgb(198, 91, 12))');
+    await selectList(stockPage,'todo.local');
+    await stockCard.getByRole('button',{name:'Configurar stock de Cacao',exact:true}).click();
+    const stockEditor=stockPage.getByRole('dialog',{name:'Cacao · Stock',exact:true}),stockForm=stockEditor.locator('form');
+    assert.equal(await stockForm.getByLabel('Lista para reponer',{exact:true}).isVisible(),true);
+    await stockPage.evaluate(()=>{const panel=window.testPanel;window.stockEditorLists=panel._settings.entities;window.stockEditorGateways=panel._settings.gatewayLists;panel._settings.entities=['todo.local'];panel._settings.gatewayLists=[{entity_id:'todo.bring',target_entity:'todo.local'}];panel._updateStockForm();});
+    assert.equal(await stockForm.getByLabel('Lista para reponer',{exact:true}).isVisible(),false);
+    assert.equal(await stockForm.getByLabel('Lista para reponer',{exact:true}).inputValue(),'todo.local');
+    await stockPage.evaluate(()=>{const panel=window.testPanel;panel._settings.entities=window.stockEditorLists;panel._settings.gatewayLists=window.stockEditorGateways;panel._updateStockForm();});
+    assert.equal(await stockForm.getByLabel('Lista para reponer',{exact:true}).isVisible(),true);
+    for(const control of [stockForm.getByLabel('Stock actual',{exact:true}),stockForm.getByLabel('Unidades',{exact:true})])assert.equal(await control.evaluate(node=>getComputedStyle(node).textAlign),'center');
+    await stockForm.getByRole('button',{name:'Incrementar stock',exact:true}).click();
+    assert.equal(await stockForm.getByLabel('Stock actual',{exact:true}).inputValue(),'2');
+    await stockForm.getByRole('button',{name:'Disminuir stock',exact:true}).click();
+    await stockForm.getByLabel('Stock actual',{exact:true}).fill('2.5');
+    await stockForm.getByLabel('Unidades',{exact:true}).selectOption('custom');
+    await stockForm.getByLabel('Unidad personalizada',{exact:true}).fill('Latas');
+    await stockForm.getByLabel('Control del stock',{exact:true}).selectOption('usage');
+    assert.equal(await stockForm.locator('select[name="mode"] option:checked').textContent(),'Consumo registrado');
+    await stockForm.getByLabel('Entidad de consumo',{exact:true}).fill('binary_sensor.lavadora');
+    await stockForm.getByLabel('Estado que representa un uso',{exact:true}).fill('on');
+    await stockForm.getByLabel('Cantidad consumida por uso',{exact:true}).fill('0.5');
+    await stockForm.getByLabel('Cantidad predeterminada de reposición',{exact:true}).fill('4');
+    assert.equal(await stockForm.getByRole('progressbar',{name:'Stock disponible'}).getAttribute('aria-valuenow'),'63');
+    assert.equal(await stockForm.locator('#stock-editor-media ha-icon').getAttribute('icon'),'mdi:food');
+    await stockForm.getByLabel('Añadir a la lista cuando el stock llegue al mínimo',{exact:true}).check();
+    await stockForm.getByLabel('Stock mínimo',{exact:true}).fill('1');
+    assert.equal(await stockForm.getByLabel('Lista para reponer',{exact:true}).inputValue(),'todo.local');
+    await stockForm.getByRole('button',{name:'Guardar',exact:true}).click();await stockEditor.waitFor({state:'hidden'});
+    await stockCard.getByLabel('Stock de Cacao: 3 Latas',{exact:true}).waitFor();
+    assert.equal(await stockCard.getByRole('progressbar',{name:'Stock restante'}).getAttribute('aria-valuenow'),'63');
+    assert.equal(await stockCard.locator('.stock-progress').evaluate(node=>node.style.getPropertyValue('--stock-remaining')),'62.5%');
+    assert.deepEqual(await stockPage.evaluate(()=>({mode:window.stockItems[0].mode,unit:window.stockItems[0].unit,usage_amount:window.stockItems[0].usage_amount,refill_quantity:window.stockItems[0].refill_quantity})),{mode:'usage',unit:'Latas',usage_amount:0.5,refill_quantity:4});
+    await stockCard.getByRole('button',{name:'Configurar stock de Cacao',exact:true}).click();
+    await stockForm.getByLabel('Control del stock',{exact:true}).selectOption('perishable');
+    await stockForm.getByLabel('Caduca cada cuántos días desde la compra',{exact:true}).fill('3');
+    await stockForm.getByLabel('Porcentaje mínimo restante (%)',{exact:true}).fill('25');
+    assert.equal(await stockForm.getByLabel('Porcentaje mínimo restante (%)',{exact:true}).getAttribute('max'),'100');
+    assert.equal(await stockForm.locator('#stock-recurrence-help').count(),0);
+    assert.equal(await stockForm.locator('#stock-usage-fields').isVisible(),false);
+    for(const width of [390,320]){
+      await stockPage.setViewportSize({width,height:844});
+      assert.ok(await stockEditor.evaluate(dialog=>dialog.scrollWidth<=dialog.clientWidth+1));
+      assert.ok(await stockForm.locator('.stock-expiry-refill').evaluate(row=>{
+        const [days,refill]=row.querySelectorAll('input');
+        return Math.abs(days.getBoundingClientRect().top-refill.getBoundingClientRect().top)<1;
+      }));
+      assert.ok(await stockForm.locator('.stock-reorder-row').evaluate(row=>{
+        const [check,minimum]=row.querySelectorAll('label');
+        return check.getBoundingClientRect().right<=minimum.getBoundingClientRect().left && Math.abs(check.getBoundingClientRect().top+check.getBoundingClientRect().height/2-minimum.getBoundingClientRect().top-minimum.getBoundingClientRect().height/2)<1;
+      }));
+      assert.ok(await stockForm.locator('.dialog-actions').evaluate(row=>{const [a,b]=[...row.children].map(n=>n.getBoundingClientRect());return Math.abs(a.width-b.width)<1&&Math.abs(a.top-b.top)<1;}));
+      await stockPage.screenshot({path:'test-results/stock-editor-'+width+'.png',fullPage:true});
+    }
+    await stockForm.getByRole('button',{name:'Guardar',exact:true}).click();await stockEditor.waitFor({state:'hidden'});
+    assert.equal(await stockPage.evaluate(()=>window.stockItems[0].reorder_percent),25);
+    await stockPage.evaluate(()=>{
+      const item=window.stockItems[0];item.quantity=3;item.expires_at=Date.now()/1000+item.days*86400;window.emitStock();
+    });
+    assert.equal(await stockCard.getByRole('progressbar',{name:'Stock restante'}).getAttribute('aria-valuenow'),'75');
+    const highColor=await stockCard.locator('.item').evaluate(node=>getComputedStyle(node,'::before').backgroundImage);
+    await stockPage.evaluate(()=>{window.stockItems[0].quantity=1;window.emitStock();});
+    assert.equal(await stockCard.getByRole('progressbar',{name:'Stock restante'}).getAttribute('aria-valuenow'),'25');
+    assert.notEqual(await stockCard.locator('.item').evaluate(node=>getComputedStyle(node,'::before').backgroundImage),highColor);
+    await stockPage.evaluate(()=>{Object.assign(window.stockItems[0],{quantity:20,refill_quantity:250,unit:'g'});window.emitStock();});
+    assert.equal(await stockCard.getByRole('progressbar',{name:'Stock restante'}).getAttribute('aria-valuenow'),'8');
+    await stockPage.screenshot({path:'test-results/stock-perishable-eight-percent.png',fullPage:true});
+    await stockPage.evaluate(()=>{Object.assign(window.stockItems[0],{quantity:2.5,refill_quantity:4,unit:'Latas'});window.emitStock();});
+    await stockPage.getByRole('button',{name:'Cambiar a vista de filas',exact:true}).click();
+    assert.ok(await stockCard.evaluate(card=>{
+      const open=card.querySelector('.stock-open').getBoundingClientRect(),controls=card.querySelector('.stock-controls').getBoundingClientRect();
+      return open.right<=controls.left && Math.abs((open.top+open.bottom-controls.top-controls.bottom)/2)<1;
+    }));
+    await stockCard.getByRole('button',{name:'Añadir una unidad de Cacao',exact:true}).click();
+    await stockCard.getByLabel('Stock de Cacao: 4 Latas',{exact:true}).waitFor();
+    await stockPage.evaluate(()=>{window.failStock=true;});
+    await stockCard.getByRole('button',{name:'Añadir una unidad de Cacao',exact:true}).click();
+    await stockPage.getByRole('alert').filter({hasText:'No se ha podido guardar el stock'}).waitFor();
+    assert.equal(await stockPage.evaluate(()=>window.stockItems[0].quantity),3.5);
+    await stockPage.evaluate(()=>{window.failStock=false;});
+    for(let index=0;index<4;index++)await stockCard.getByRole('button',{name:'Quitar una unidad de Cacao',exact:true}).click();
+    await stockCard.getByLabel('Stock de Cacao: 0 Latas',{exact:true}).waitFor();
+    assert.equal(await stockCard.getByRole('button',{name:'Quitar una unidad de Cacao',exact:true}).isDisabled(),true);
+    await stockPage.getByRole('button',{name:'Añadir producto al stock',exact:true}).click();
+    await stockAdd.getByLabel('Nombre del producto',{exact:true}).fill('Producto sin catálogo');
+    await stockAdd.getByRole('button',{name:'Añadir',exact:true}).click();
+    await stockAdd.waitFor({state:'hidden'});
+    await stockPage.reload();await stockPage.getByRole('button',{name:'Stock',exact:true}).click();
+    await stockCard.getByLabel('Stock de Cacao: 0 Latas',{exact:true}).waitFor();
+    assert.equal(await stockPage.evaluate(()=>window.stockItems[0].mode),'perishable');
+    for(const width of [1280,390,320]){
+      await stockPage.setViewportSize({width,height:844});
+      assert.ok(await stockPage.locator('#stock-card').evaluate(node=>node.scrollWidth<=node.clientWidth+1));
+      assert.ok(await stockPage.locator('#stock-heading').evaluate(node=>{
+        const tabs=node.querySelector('.stock-tabs').getBoundingClientRect(),actions=node.querySelector('#stock-actions').getBoundingClientRect();
+        return tabs.right<=actions.left&&Math.abs((tabs.top+tabs.bottom-actions.top-actions.bottom)/2)<2&&node.scrollWidth<=node.clientWidth+1;
+      }));
+      await stockPage.screenshot({path:'test-results/stock-rows-'+width+'.png',fullPage:true});
+    }
+    await stockPage.getByRole('button',{name:'Cambiar a vista de cuadrícula',exact:true}).click();
+    assert.equal(await stockCard.locator('.stock-controls, .stock-tools').count(),0);
+    await stockPage.screenshot({path:'test-results/stock-grid-mobile.png',fullPage:true});
+    assert.deepEqual(await stockPage.locator('#stock-items .summary').allTextContents(),['Cacao','Producto sin catálogo']);
+    await stockPage.getByRole('button',{name:'Ordenar alfabéticamente',exact:true}).click();
+    // A second item sorts before Cacao alphabetically but after it by remaining stock.
+    await stockPage.evaluate(()=>{window.stockItems[1].name='Arroz';window.emitStock();});
+    assert.deepEqual(await stockPage.locator('#stock-items .summary').allTextContents(),['Arroz','Cacao']);
+    await stockPage.getByRole('button',{name:'Agrupar por categorías',exact:true}).click();
+    await stockPage.getByRole('button',{name:'Ordenar por menor stock',exact:true}).click();
+    assert.deepEqual(await stockPage.locator('#stock-items .summary').allTextContents(),['Cacao','Arroz']);
+    await stockPage.reload();await stockPage.getByRole('button',{name:'Stock',exact:true}).click();
+    assert.equal(await stockPage.getByRole('button',{name:'Ordenar alfabéticamente',exact:true}).isVisible(),true);
+    assert.equal(await stockCard.getByRole('progressbar',{name:'Stock restante'}).getAttribute('aria-valuenow'),'0');
+    await stockCard.getByRole('button',{name:'Configurar stock de Cacao',exact:true}).click();
+    await stockForm.getByRole('button',{name:'Eliminar',exact:true}).click();
+    const stockDelete=stockPage.getByRole('dialog',{name:'Eliminar de Stock',exact:true});
+    await stockDelete.getByRole('button',{name:'Cancelar',exact:true}).click();
+    assert.equal(await stockPage.locator('#stock-items li').count(),2);
+    await stockForm.getByRole('button',{name:'Eliminar',exact:true}).click();
+    await stockDelete.getByRole('button',{name:'Eliminar producto',exact:true}).click();
+    await stockCard.waitFor({state:'hidden'});await stockEditor.waitFor({state:'hidden'});
+    assert.equal(await stockPage.evaluate(()=>window.catalogProducts.length),1);
+    await stockPage.getByRole('button',{name:'Cambiar a vista de filas',exact:true}).click();
+    await stockPage.evaluate(()=>{const panel=window.testPanel;panel.hass={...panel._hass,user:{is_admin:false}};});
+    assert.equal(await stockInput.isDisabled(),true);
+    assert.equal(await stockPage.locator('#stock-items [data-stock-action="increase"]').isDisabled(),true);
+    await stockPage.locator('#stock-items .stock-open').click();
+    assert.equal(await stockPage.locator('#save-stock-config').isDisabled(),true);
+    await stockContext.close();
+}
+
+async function checkShoppingReceipt(browser,url,errors){
+    const receiptContext=await browser.newContext({viewport:{width:390,height:844}});
+    for (const domain of ['https://images.seeklogo.com/**','https://almeria.online/**']) await receiptContext.route(domain,route=>route.fulfill({contentType:'image/svg+xml',body:'<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32"><circle cx="16" cy="16" r="14" fill="green"/></svg>'}));
+    await receiptContext.addInitScript(()=>{
+      localStorage.setItem('settings-fixture',JSON.stringify({entities:['todo.bring','todo.local'],primary_entity:'todo.bring',favorite_store:'carrefour',stores:{alcampo:{enabled:true},carrefour:{enabled:true},mercadona:{enabled:false},dia:{enabled:true}}}));
+      localStorage.setItem('catalog-fixture',JSON.stringify([
+        {id:'ticket-cacao',name:'Cacao',price:99},{id:'ticket-milk',name:'Leche entera',price:99},{id:'ticket-rice',name:'Arroz',price:99}
+      ].map(product=>({...product,revision:1,currency:'EUR',category:'',tags:[],barcode:'',barcodes:[],nfc_tags:[],image_url:'',icon:''}))));
+      window.storePriceFixture=[
+        {catalog_product_id:'ticket-cacao',store:'alcampo',price:'2.10',currency:'EUR',checked_at:1},
+        {catalog_product_id:'ticket-cacao',store:'alcampo',price:'1.10',currency:'EUR',checked_at:2},
+        {catalog_product_id:'ticket-milk',store:'alcampo',price:'0.20',currency:'EUR',checked_at:2},
+        {catalog_product_id:'ticket-cacao',store:'carrefour',price:'0.50',currency:'EUR',checked_at:2},
+        {catalog_product_id:'ticket-milk',store:'mercadona',price:'0.01',currency:'EUR',checked_at:2},
+        {catalog_product_id:'ticket-rice',store:'dia',price:'0.01',currency:'EUR',checked_at:2}
+      ];
+    });
+    const receiptPage=await receiptContext.newPage();
+    receiptPage.on('pageerror',error=>errors.push(error.message));
+    await receiptPage.goto(url);
+    await receiptPage.locator('#pending-total').filter({hasText:'1,30'}).waitFor();
+    assert.deepEqual(await receiptPage.locator('#pending-total').evaluate(node=>[getComputedStyle(node).backgroundColor,getComputedStyle(node).color]),['rgb(255, 255, 255)','rgb(0, 0, 0)']);
+    assert.equal(await receiptPage.locator('#pending-total img').getAttribute('alt'),'Alcampo');
+    await receiptPage.locator('#pending-total').press('Enter');
+    const receipt=receiptPage.locator('#receipt');
+    await receipt.waitFor();
+    await receiptPage.evaluate(()=>{window.testPanel.style.setProperty('--card-background-color','#28354b');window.testPanel.style.setProperty('--primary-text-color','#f1f5f8');});
+    assert.deepEqual(await receipt.locator('.receipt-paper').evaluate(node=>[getComputedStyle(node).backgroundColor,getComputedStyle(node).color]),['rgb(255, 255, 255)','rgb(32, 38, 46)']);
+    assert.equal(await receipt.locator('.receipt-heading h3').textContent(),'Lista de la compra');
+    assert.equal(await receiptPage.locator('#pending-count').evaluate(node=>getComputedStyle(node).backgroundColor),'rgb(238, 82, 79)');
+    assert.deepEqual(await receipt.locator('.receipt-stores button').evaluateAll(nodes=>nodes.map(node=>node.dataset.receiptStore)),['alcampo','carrefour']);
+    assert.match(await receipt.locator('[data-receipt-store="alcampo"]').textContent(),/1,30\s*€ \(2\/2\)/);
+    assert.equal(await receipt.locator('.receipt-hint').count(),0);
+    assert.deepEqual(await receipt.locator('.receipt-known .receipt-name').allTextContents(),['Cacao','Leche entera']);
+    assert.match(await receipt.locator('.receipt-total').textContent(),/1,30/);
+    assert.equal(await receiptPage.locator('#completed-details').isVisible(),false);
+    await receipt.locator('[data-receipt-store="carrefour"]').click();
+    assert.match(await receipt.locator('.receipt-total').textContent(),/0,50/);
+    assert.deepEqual(await receipt.locator('.receipt-missing .receipt-name').allTextContents(),['Leche entera']);
+    assert.equal(await receipt.locator('.receipt-missing').isVisible(),false);
+    await receipt.locator('.receipt-unknown summary').click();
+    assert.equal(await receipt.locator('.receipt-missing').isVisible(),true);
+    await receiptPage.evaluate(()=>window.testPanel._renderData());
+    assert.equal(await receipt.locator('.receipt-missing').isVisible(),true);
+    assert.equal(await receiptPage.locator('#pending-total img').getAttribute('alt'),'Carrefour');
+    for(const width of [1280,390,320]){
+      await receiptPage.setViewportSize({width,height:844});
+      assert.ok(await receipt.evaluate(node=>node.scrollWidth<=node.clientWidth));
+      assert.ok(await receipt.locator('.receipt-row').evaluateAll(nodes=>nodes.every(node=>node.querySelector('.receipt-name').getBoundingClientRect().right<=node.querySelector('.receipt-price').getBoundingClientRect().left)));
+      await receiptPage.screenshot({path:`test-results/list-receipt-${width}.png`,fullPage:true});
+    }
+    await receiptPage.locator('#pending-count').click();
+    assert.equal(await receipt.isVisible(),false);
+    await receiptPage.getByRole('button',{name:'Marcar como comprado: Cacao',exact:true}).click();
+    await receiptPage.locator('#pending-total').filter({hasText:'0,20'}).waitFor();
+    assert.equal(await receiptPage.locator('#pending-total img').getAttribute('alt'),'Alcampo');
+    await receiptPage.locator('#pending-total').click();
+    assert.deepEqual(await receipt.locator('.receipt-known .receipt-name').allTextContents(),['Leche entera']);
+    await receiptPage.evaluate(()=>{window.listSettings.stores.alcampo.enabled=false;window.emitSettings();});
+    await receipt.locator('.receipt-stores button').waitFor({state:'detached'});
+    await selectList(receiptPage,'todo.local');
+    await receipt.locator('.receipt-unknown summary').click();
+    await receipt.locator('.receipt-missing').getByText('Detergente',{exact:true}).waitFor();
+    assert.match(await receipt.locator('.receipt-total').textContent(),/0,00/);
+    // Five eligible shops: coverage wins over a lower subtotal, and only four fit the selector.
+    await receiptPage.evaluate(()=>{
+      const panel=window.testPanel;
+      const stores=['carrefour','alcampo','consum','eroski','lasirena'];
+      panel._settings.stores=Object.fromEntries(stores.map(store=>[store,{enabled:true}]));
+      panel._rowPrices=stores.flatMap((store,index)=>[
+        {catalog_product_id:'ticket-cacao',store,price:10-index,currency:'EUR',checked_at:2},
+        ...(index===0?[{catalog_product_id:'ticket-milk',store,price:20,currency:'EUR',checked_at:2}]:[])
+      ]);
+      const items=[{summary:'Leche entera'},{summary:'Cacao'}];
+      const receipts=panel._storeReceipts(items);
+      panel._renderReceipt(items,receipts,receipts[0]);
+    });
+    assert.deepEqual(await receipt.locator('.receipt-stores button').evaluateAll(nodes=>nodes.map(node=>node.dataset.receiptStore)),['carrefour','lasirena','eroski','consum']);
+    for(const width of [1280,390,320]){
+      await receiptPage.setViewportSize({width,height:844});
+      assert.ok(await receipt.evaluate(node=>node.scrollWidth<=node.clientWidth));
+      assert.equal(await receipt.locator('.receipt-stores button').evaluateAll(nodes=>new Set(nodes.map(node=>node.getBoundingClientRect().top)).size),1);
+      assert.ok(await receipt.locator('.receipt-stores button').evaluateAll(nodes=>nodes.every(node=>node.scrollWidth<=node.clientWidth)));
+      await receiptPage.screenshot({path:`test-results/list-receipt-four-stores-${width}.png`,fullPage:true});
+    }
+    assert.equal(await receiptPage.evaluate(()=>window.calls.some(call=>/refresh_prices|refresh_all_prices|settings\/store_products/.test(call.type??''))),false);
+    await selectList(receiptPage,'todo.bring');
+    await receiptPage.evaluate(async()=>{
+      const panel=window.testPanel,stores=['carrefour','alcampo','consum','eroski','lasirena'];
+      await panel._session.setCompleted(panel._session.items.find(item=>item.summary==='Cacao'),false);
+      panel._settings.stores=Object.fromEntries(stores.map(store=>[store,{enabled:true}]));
+      panel._rowPrices=stores.flatMap((store,index)=>[{catalog_product_id:'ticket-cacao',store,price:10-index,currency:'EUR',checked_at:1800000000},...(index===0?[{catalog_product_id:'ticket-milk',store,price:20,currency:'EUR',checked_at:1800000000}]:[])]);
+      panel._renderData();
+    });
+    await receiptPage.evaluate(()=>{
+      const now=Date.now()/1000,stores=['carrefour','alcampo','consum','eroski','lasirena'];
+      window.catalogProducts.push({id:'not-in-list',name:'Galletas',revision:1,category:'Despensa',barcodes:[],tags:[],store_links:{}});window.emitCatalog();
+      window.comparisonFixture={stores,historical_window_days:30,observations:[
+        ...stores.map((store,index)=>({product_id:'ticket-cacao',store,price:10-index,currency:'EUR',ean:'1234567890128',pack_quantity:1,pack_unit:'uds',at:now-2*86400})),
+        {product_id:'ticket-cacao',store:'alcampo',price:1,currency:'EUR',ean:'1234567890128',pack_quantity:1,pack_unit:'uds',at:now-3600},
+        {product_id:'ticket-milk',store:'carrefour',price:20,currency:'EUR',ean:'4006381333931',at:now-2*86400},
+        {product_id:'not-in-list',store:'carrefour',price:1.2,currency:'EUR',pack_quantity:200,pack_unit:'g',at:now-3600},
+        {product_id:'not-in-list',store:'alcampo',price:1.5,currency:'EUR',pack_quantity:250,pack_unit:'g',at:now-3600}
+      ],purchases:[{id:'comparison-ticket',store:'carrefour',store_name:'Carrefour',at:now-86400,purchased_at:new Date((now-86400)*1000).toISOString(),total:10,shipping:0,discount:0,currency:'EUR',lines:[{id:'line',product_id:'ticket-cacao',description:'CACAO COMERCIAL',count:1,amount:10,ean:'1234567890128'}]}]};
+    });
+    await receiptPage.getByRole('button',{name:'Analítica',exact:true}).click();
+    assert.equal(await receiptPage.getByRole('tab',{name:'Compras',exact:true}).getAttribute('aria-selected'),'true');
+    await receiptPage.getByRole('tab',{name:'Comparativa',exact:true}).click();
+    const analytics=receiptPage.locator('isl-analytics');
+    await analytics.locator('.rank-row').nth(1).waitFor();
+    assert.equal(await analytics.locator('.rank-row').count(),2);
+    assert.equal(await analytics.locator('tbody tr[data-product-id="not-in-list"]').count(),1);
+    assert.equal(await analytics.getByLabel('Lista para comparar',{exact:true}).count(),0);
+    await analytics.getByLabel('Buscar producto',{exact:true}).fill('Galletas');
+    assert.equal(await analytics.locator('tbody tr').count(),1);
+    assert.match(await analytics.locator('tbody').textContent(),/6,00/);
+    await analytics.getByLabel('Buscar producto',{exact:true}).fill('');
+    for(const width of [1280,390,320]){
+      await receiptPage.setViewportSize({width,height:960});
+      assert.ok(await analytics.evaluate(node=>node.scrollWidth<=node.clientWidth+1));
+      await receiptPage.screenshot({path:'test-results/analytics-catalog-'+width+'.png',fullPage:true});
+    }
+    assert.equal(await analytics.getByRole('button',{name:'Compras pasadas',exact:true}).count(),0);
+    assert.equal(await analytics.locator('tbody tr[data-product-id="ticket-milk"]').count(),0);
+    assert.equal(await analytics.locator('.rank-row[data-store="alcampo"]').count(),1);
+    assert.equal(await receiptPage.evaluate(()=>window.calls.some(call=>/refresh_prices|refresh_all_prices/.test(call.type??''))),false);
+    await receiptContext.close();
 }
 
 async function checkCompactProductEditor(browser,url,errors){
@@ -1548,8 +1836,7 @@ async function checkReferenceFormats(browser,url,errors){
   await page.getByRole('button',{name:'Catálogo',exact:true}).click();
   const catalog=page.locator('isl-catalog');
   await catalog.getByRole('button',{name:'Cambiar a vista de filas',exact:true}).click();
-  await catalog.getByRole('button',{name:'Mostrar formatos pendientes de revisar',exact:true}).click();
-  assert.deepEqual(await catalog.locator('#catalog-grid .product .title').allTextContents(),['Huevos']);
+  assert.deepEqual(await catalog.locator('#catalog-grid .product .title').allTextContents(),['Huevos','Pan']);
   await catalog.getByRole('button',{name:'Editar Huevos',exact:true}).click();
   const dialog=catalog.getByRole('dialog',{name:'Editar producto',exact:true});
   await dialog.getByRole('button',{name:'Alternativas',exact:true}).click();
@@ -1592,8 +1879,7 @@ async function checkReferenceFormats(browser,url,errors){
   await dialog.getByRole('button',{name:'Guardar producto',exact:true}).click();await dialog.waitFor({state:'hidden'});
   await page.waitForFunction(()=>window.catalogProducts.find(p=>p.id==='eggs').commercial_references[0].content_confirmed===true);
   assert.deepEqual(await page.evaluate(()=>{const p=window.catalogProducts.find(p=>p.id==='eggs');return [p.purchase_unit,p.unit_quantity,p.quantity_step];}),['g',250,50]);
-  assert.equal(await catalog.locator('#catalog-grid .product').count(),0);
-  await catalog.getByRole('button',{name:'Mostrar formatos pendientes de revisar',exact:true}).click();
+  assert.equal(await catalog.locator('#catalog-grid .product').count(),2);
   await catalog.getByRole('button',{name:'Editar Huevos',exact:true}).click();
   await dialog.getByRole('button',{name:'Alternativas',exact:true}).click();
   assert.equal(await dialog.locator('.product-option[open]').count(),0);
@@ -1696,6 +1982,33 @@ async function checkLidlMetadata(browser,url,errors){
   assert.equal(await page.evaluate(()=>window.lastReceiptConfirmation.lines[0].pack_quantity),750);
   assert.equal(await page.evaluate(()=>window.lastReceiptConfirmation.lines[0].pack_unit),'g');
   assert.equal(await page.evaluate(()=>window.lidlMetadataCalls.length),1);
+  await context.close();
+}
+
+async function checkBulkOptionLookup(browser,url,errors){
+  const context=await browser.newContext({viewport:{width:390,height:844}});
+  await context.addInitScript(()=>{
+    const ean='3017620422003',base={ean,name:'Pimiento rojo granel 1 kg aprox',brand:'Huerta',sale_mode:'package',content_quantity:1,content_unit:'kg',pack_count:1,content_confirmed:true};
+    localStorage.setItem('catalog-fixture',JSON.stringify([{id:'pepper',revision:1,name:'Pimiento',category:'',tags:[],image_url:'',icon:'',barcodes:[ean],store_links:{},commercial_references:[{...base,id:'cf',store:'carrefour',reference_id:'R-532601619',url:'https://www.carrefour.es/supermercado/pimiento-rojo-granel-1-kg-aprox/R-532601619/p'}, {...base,id:'ac',store:'alcampo',reference_id:'pepper',url:''}]}]));
+    window.optionLookupFixture={store:'carrefour',reference_id:'R-532601619',url:'https://www.carrefour.es/supermercado/pimiento-rojo-granel-1-kg-aprox/R-532601619/p',name:base.name,ean,sale_mode:'weight',content_quantity:null,content_unit:'kg',price:2.79,currency:'EUR',checked_at:1800000000,measure_price:{price:2.79,quantity:1,unit:'kg',currency:'EUR',source:'web',checked_at:1800000000}};
+  });
+  const page=await context.newPage();page.on('pageerror',error=>errors.push(error.message));await page.goto(url);
+  await page.getByRole('button',{name:'Catálogo',exact:true}).click();const catalog=page.locator('isl-catalog');await editCatalogProduct(catalog,'Editar Pimiento');
+  const form=catalog.getByRole('dialog',{name:'Editar producto',exact:true});await form.getByRole('button',{name:'Alternativas',exact:true}).click();
+  const common=form.locator('.product-ean-group > .reference-common-fields'),store=form.locator('.product-option[data-store="carrefour"]');
+  await openStoreOption(store);assert.equal(await common.getByLabel('Tipo de venta',{exact:true}).inputValue(),'package');
+  await store.getByRole('button',{name:'Recuperar datos',exact:true}).click();await form.getByText('Datos recuperados. Guarda el producto para conservarlos.',{exact:true}).waitFor();
+  assert.equal(await common.getByLabel('Tipo de venta',{exact:true}).inputValue(),'weight');
+  assert.equal(await common.getByLabel('Unidad de medida',{exact:true}).inputValue(),'kg');
+  assert.equal(await common.getByLabel('Contenido por envase',{exact:true}).inputValue(),'');
+  assert.equal(await common.getByLabel('Contenido por envase',{exact:true}).isDisabled(),true);
+  assert.equal(await common.getByLabel('Unidades incluidas',{exact:true}).isDisabled(),true);
+  assert.equal(await store.getByLabel('Precio por kg',{exact:true}).inputValue(),'2.79');
+  await form.getByRole('button',{name:'Guardar producto',exact:true}).click();await form.waitFor({state:'hidden'});
+  const refs=await page.evaluate(()=>window.catalogProducts[0].commercial_references);
+  assert.ok(refs.every(ref=>ref.sale_mode==='weight'&&ref.content_quantity===null&&ref.content_unit==='kg'&&ref.pack_count===undefined));
+  assert.equal(refs.find(ref=>ref.store==='carrefour').measure_price.price,2.79);
+  assert.equal(refs.find(ref=>ref.store==='carrefour').last_price,undefined);
   await context.close();
 }
 
@@ -2343,11 +2656,13 @@ async function main() {
     if(process.argv.includes('--lazy-only')){const errors=[];await checkLazySections(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);return;}
     if(process.argv.includes('--lidl-reprocess-only')){const errors=[];await checkLidlReprocessLines(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Lidl full reprocessing passed.');return;}
     if(process.argv.includes('--lidl-metadata-only')){const errors=[];await checkLidlMetadata(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Lidl receipt metadata passed.');return;}
-    if(process.argv.includes('--option-ean-only')){const errors=[];await checkDifferentOptionEAN(browser,`http://127.0.0.1:${server.address().port}`,errors);await checkStagedOptionURL(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Alternative EAN discovery passed.');return;}
+    if(process.argv.includes('--option-ean-only')){const errors=[];await checkDifferentOptionEAN(browser,`http://127.0.0.1:${server.address().port}`,errors);await checkStagedOptionURL(browser,`http://127.0.0.1:${server.address().port}`,errors);await checkBulkOptionLookup(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Alternative EAN discovery passed.');return;}
     if(process.argv.includes('--catalog-sources-only')){const errors=[];await checkCatalogSources(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Catalog sources and EAN grouping passed.');return;}
     if(process.argv.includes('--repeated-receipt-product-only')){const errors=[];await checkRepeatedReceiptProduct(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Repeated receipt product passed.');return;}
     if(process.argv.includes('--replenishment-layout-only')){const errors=[];await checkReplenishmentLayout(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Replenishment layout passed.');return;}
+    if(process.argv.includes('--shopping-receipt-only')){const errors=[];await checkShoppingReceipt(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Shopping receipt passed.');return;}
     if(process.argv.includes('--compact-product-only')){const errors=[];await checkCompactProductEditor(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Compact product editor passed.');return;}
+    if(process.argv.includes('--stock-editor-only')){const errors=[];await checkStockEditor(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Stock editor passed.');return;}
     if(process.argv.includes('--meals-only')){const errors=[];await checkMealRoutines(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Meal routines passed.');return;}
     if(process.argv.includes('--replenishment-only')){const errors=[];await checkProductReplenishment(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Product replenishment passed.');return;}
     if(process.argv.includes('--reference-logs-only')){const errors=[];await checkReferenceLogDescriptions(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Reference log descriptions passed.');return;}
@@ -3147,129 +3462,7 @@ async function main() {
     await totalPage.locator("#pending-total").filter({hasText:"0,00"}).waitFor();
     assert.equal(await totalPage.evaluate(()=>window.calls.some(call=>/refresh_prices|settings\/store_products/.test(call.type??""))),false);
     await totalContext.close();
-    const receiptContext=await browser.newContext({viewport:{width:390,height:844}});
-    for (const domain of ['https://images.seeklogo.com/**','https://almeria.online/**']) await receiptContext.route(domain,route=>route.fulfill({contentType:'image/svg+xml',body:'<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32"><circle cx="16" cy="16" r="14" fill="green"/></svg>'}));
-    await receiptContext.addInitScript(()=>{
-      localStorage.setItem('settings-fixture',JSON.stringify({entities:['todo.bring','todo.local'],primary_entity:'todo.bring',favorite_store:'carrefour',stores:{alcampo:{enabled:true},carrefour:{enabled:true},mercadona:{enabled:false},dia:{enabled:true}}}));
-      localStorage.setItem('catalog-fixture',JSON.stringify([
-        {id:'ticket-cacao',name:'Cacao',price:99},{id:'ticket-milk',name:'Leche entera',price:99},{id:'ticket-rice',name:'Arroz',price:99}
-      ].map(product=>({...product,revision:1,currency:'EUR',category:'',tags:[],barcode:'',barcodes:[],nfc_tags:[],image_url:'',icon:''}))));
-      window.storePriceFixture=[
-        {catalog_product_id:'ticket-cacao',store:'alcampo',price:'2.10',currency:'EUR',checked_at:1},
-        {catalog_product_id:'ticket-cacao',store:'alcampo',price:'1.10',currency:'EUR',checked_at:2},
-        {catalog_product_id:'ticket-milk',store:'alcampo',price:'0.20',currency:'EUR',checked_at:2},
-        {catalog_product_id:'ticket-cacao',store:'carrefour',price:'0.50',currency:'EUR',checked_at:2},
-        {catalog_product_id:'ticket-milk',store:'mercadona',price:'0.01',currency:'EUR',checked_at:2},
-        {catalog_product_id:'ticket-rice',store:'dia',price:'0.01',currency:'EUR',checked_at:2}
-      ];
-    });
-    const receiptPage=await receiptContext.newPage();
-    receiptPage.on('pageerror',error=>errors.push(error.message));
-    await receiptPage.goto(url);
-    await receiptPage.locator('#pending-total').filter({hasText:'1,30'}).waitFor();
-    assert.deepEqual(await receiptPage.locator('#pending-total').evaluate(node=>[getComputedStyle(node).backgroundColor,getComputedStyle(node).color]),['rgb(255, 255, 255)','rgb(0, 0, 0)']);
-    assert.equal(await receiptPage.locator('#pending-total img').getAttribute('alt'),'Alcampo');
-    await receiptPage.locator('#pending-total').press('Enter');
-    const receipt=receiptPage.locator('#receipt');
-    await receipt.waitFor();
-    assert.equal(await receiptPage.locator('#pending-count').evaluate(node=>getComputedStyle(node).backgroundColor),'rgb(238, 82, 79)');
-    assert.deepEqual(await receipt.locator('.receipt-stores button').evaluateAll(nodes=>nodes.map(node=>node.dataset.receiptStore)),['alcampo','carrefour']);
-    assert.match(await receipt.locator('[data-receipt-store="alcampo"]').textContent(),/1,30\s*€ \(2\/2\)/);
-    assert.equal(await receipt.locator('.receipt-hint').count(),0);
-    assert.deepEqual(await receipt.locator('.receipt-known .receipt-name').allTextContents(),['Cacao','Leche entera']);
-    assert.match(await receipt.locator('.receipt-total').textContent(),/1,30/);
-    assert.equal(await receiptPage.locator('#completed-details').isVisible(),false);
-    await receipt.locator('[data-receipt-store="carrefour"]').click();
-    assert.match(await receipt.locator('.receipt-total').textContent(),/0,50/);
-    assert.deepEqual(await receipt.locator('.receipt-missing .receipt-name').allTextContents(),['Leche entera']);
-    assert.equal(await receipt.locator('.receipt-missing').isVisible(),false);
-    await receipt.locator('.receipt-unknown summary').click();
-    assert.equal(await receipt.locator('.receipt-missing').isVisible(),true);
-    await receiptPage.evaluate(()=>window.testPanel._renderData());
-    assert.equal(await receipt.locator('.receipt-missing').isVisible(),true);
-    assert.equal(await receiptPage.locator('#pending-total img').getAttribute('alt'),'Carrefour');
-    for(const width of [1280,390,320]){
-      await receiptPage.setViewportSize({width,height:844});
-      assert.ok(await receipt.evaluate(node=>node.scrollWidth<=node.clientWidth));
-      assert.ok(await receipt.locator('.receipt-row').evaluateAll(nodes=>nodes.every(node=>node.querySelector('.receipt-name').getBoundingClientRect().right<=node.querySelector('.receipt-price').getBoundingClientRect().left)));
-      await receiptPage.screenshot({path:`test-results/list-receipt-${width}.png`,fullPage:true});
-    }
-    await receiptPage.locator('#pending-count').click();
-    assert.equal(await receipt.isVisible(),false);
-    await receiptPage.getByRole('button',{name:'Marcar como comprado: Cacao',exact:true}).click();
-    await receiptPage.locator('#pending-total').filter({hasText:'0,20'}).waitFor();
-    assert.equal(await receiptPage.locator('#pending-total img').getAttribute('alt'),'Alcampo');
-    await receiptPage.locator('#pending-total').click();
-    assert.deepEqual(await receipt.locator('.receipt-known .receipt-name').allTextContents(),['Leche entera']);
-    await receiptPage.evaluate(()=>{window.listSettings.stores.alcampo.enabled=false;window.emitSettings();});
-    await receipt.locator('.receipt-stores button').waitFor({state:'detached'});
-    await selectList(receiptPage,'todo.local');
-    await receipt.locator('.receipt-unknown summary').click();
-    await receipt.locator('.receipt-missing').getByText('Detergente',{exact:true}).waitFor();
-    assert.match(await receipt.locator('.receipt-total').textContent(),/0,00/);
-    // Five eligible shops: coverage wins over a lower subtotal, and only four fit the selector.
-    await receiptPage.evaluate(()=>{
-      const panel=window.testPanel;
-      const stores=['carrefour','alcampo','consum','eroski','lasirena'];
-      panel._settings.stores=Object.fromEntries(stores.map(store=>[store,{enabled:true}]));
-      panel._rowPrices=stores.flatMap((store,index)=>[
-        {catalog_product_id:'ticket-cacao',store,price:10-index,currency:'EUR',checked_at:2},
-        ...(index===0?[{catalog_product_id:'ticket-milk',store,price:20,currency:'EUR',checked_at:2}]:[])
-      ]);
-      const items=[{summary:'Leche entera'},{summary:'Cacao'}];
-      const receipts=panel._storeReceipts(items);
-      panel._renderReceipt(items,receipts,receipts[0]);
-    });
-    assert.deepEqual(await receipt.locator('.receipt-stores button').evaluateAll(nodes=>nodes.map(node=>node.dataset.receiptStore)),['carrefour','lasirena','eroski','consum']);
-    for(const width of [1280,390,320]){
-      await receiptPage.setViewportSize({width,height:844});
-      assert.ok(await receipt.evaluate(node=>node.scrollWidth<=node.clientWidth));
-      assert.equal(await receipt.locator('.receipt-stores button').evaluateAll(nodes=>new Set(nodes.map(node=>node.getBoundingClientRect().top)).size),1);
-      assert.ok(await receipt.locator('.receipt-stores button').evaluateAll(nodes=>nodes.every(node=>node.scrollWidth<=node.clientWidth)));
-      await receiptPage.screenshot({path:`test-results/list-receipt-four-stores-${width}.png`,fullPage:true});
-    }
-    assert.equal(await receiptPage.evaluate(()=>window.calls.some(call=>/refresh_prices|refresh_all_prices|settings\/store_products/.test(call.type??''))),false);
-    await selectList(receiptPage,'todo.bring');
-    await receiptPage.evaluate(async()=>{
-      const panel=window.testPanel,stores=['carrefour','alcampo','consum','eroski','lasirena'];
-      await panel._session.setCompleted(panel._session.items.find(item=>item.summary==='Cacao'),false);
-      panel._settings.stores=Object.fromEntries(stores.map(store=>[store,{enabled:true}]));
-      panel._rowPrices=stores.flatMap((store,index)=>[{catalog_product_id:'ticket-cacao',store,price:10-index,currency:'EUR',checked_at:1800000000},...(index===0?[{catalog_product_id:'ticket-milk',store,price:20,currency:'EUR',checked_at:1800000000}]:[])]);
-      panel._renderData();
-    });
-    await receiptPage.evaluate(()=>{
-      const now=Date.now()/1000,stores=['carrefour','alcampo','consum','eroski','lasirena'];
-      window.catalogProducts.push({id:'not-in-list',name:'Galletas',revision:1,category:'Despensa',barcodes:[],tags:[],store_links:{}});window.emitCatalog();
-      window.comparisonFixture={stores,historical_window_days:30,observations:[
-        ...stores.map((store,index)=>({product_id:'ticket-cacao',store,price:10-index,currency:'EUR',ean:'1234567890128',pack_quantity:1,pack_unit:'uds',at:now-2*86400})),
-        {product_id:'ticket-cacao',store:'alcampo',price:1,currency:'EUR',ean:'1234567890128',pack_quantity:1,pack_unit:'uds',at:now-3600},
-        {product_id:'ticket-milk',store:'carrefour',price:20,currency:'EUR',ean:'4006381333931',at:now-2*86400},
-        {product_id:'not-in-list',store:'carrefour',price:1.2,currency:'EUR',pack_quantity:200,pack_unit:'g',at:now-3600},
-        {product_id:'not-in-list',store:'alcampo',price:1.5,currency:'EUR',pack_quantity:250,pack_unit:'g',at:now-3600}
-      ],purchases:[{id:'comparison-ticket',store:'carrefour',store_name:'Carrefour',at:now-86400,purchased_at:new Date((now-86400)*1000).toISOString(),total:10,shipping:0,discount:0,currency:'EUR',lines:[{id:'line',product_id:'ticket-cacao',description:'CACAO COMERCIAL',count:1,amount:10,ean:'1234567890128'}]}]};
-    });
-    await receiptPage.getByRole('button',{name:'Analítica',exact:true}).click();
-    assert.equal(await receiptPage.getByRole('tab',{name:'Compras',exact:true}).getAttribute('aria-selected'),'true');
-    await receiptPage.getByRole('tab',{name:'Comparativa',exact:true}).click();
-    const analytics=receiptPage.locator('isl-analytics');
-    await analytics.locator('.rank-row').nth(1).waitFor();
-    assert.equal(await analytics.locator('.rank-row').count(),2);
-    assert.equal(await analytics.locator('tbody tr[data-product-id="not-in-list"]').count(),1);
-    assert.equal(await analytics.getByLabel('Lista para comparar',{exact:true}).count(),0);
-    await analytics.getByLabel('Buscar producto',{exact:true}).fill('Galletas');
-    assert.equal(await analytics.locator('tbody tr').count(),1);
-    assert.match(await analytics.locator('tbody').textContent(),/6,00/);
-    await analytics.getByLabel('Buscar producto',{exact:true}).fill('');
-    for(const width of [1280,390,320]){
-      await receiptPage.setViewportSize({width,height:960});
-      assert.ok(await analytics.evaluate(node=>node.scrollWidth<=node.clientWidth+1));
-      await receiptPage.screenshot({path:'test-results/analytics-catalog-'+width+'.png',fullPage:true});
-    }
-    assert.equal(await analytics.getByRole('button',{name:'Compras pasadas',exact:true}).count(),0);
-    assert.equal(await analytics.locator('tbody tr[data-product-id="ticket-milk"]').count(),0);
-    assert.equal(await analytics.locator('.rank-row[data-store="alcampo"]').count(),1);
-    assert.equal(await receiptPage.evaluate(()=>window.calls.some(call=>/refresh_prices|refresh_all_prices/.test(call.type??''))),false);
-    await receiptContext.close();
+    await checkShoppingReceipt(browser,url,errors);
     const resumeContext=await browser.newContext({viewport:{width:390,height:844}});
     await resumeContext.addInitScript(()=>{
       localStorage.setItem('settings-fixture',JSON.stringify({entities:['todo.bring'],primary_entity:'todo.bring',stores:{mercadona:{enabled:true,warehouse:'mad3'}}}));
@@ -4245,151 +4438,7 @@ async function main() {
     await nutriForm.locator('..').getByRole('button',{name:'Cerrar ventana',exact:true}).click();
     await nutriPage.waitForFunction(()=>window.captureListeners.size===0);
     await nutriContext.close();
-    // Stock editor, units, modes, row-only controls, persistence and permissions.
-    const stockContext=await browser.newContext({viewport:{width:1280,height:960}});
-    await stockContext.addInitScript(()=>localStorage.setItem('catalog-fixture',JSON.stringify([{id:'stock-cacao',revision:1,name:'Cacao',category:'',tags:[],barcode:'',barcodes:[],nfc_tags:[],image_url:'',icon:'mdi:food',price:null,currency:'EUR'}])));
-    const stockPage=await stockContext.newPage();stockPage.on('pageerror',error=>errors.push(error.message));
-    await stockPage.goto(url);await stockPage.getByRole('button',{name:'Stock',exact:true}).click();
-    const stockInput=stockPage.locator('#product-input');
-    assert.equal(await stockInput.isVisible(),false);
-    assert.equal(await stockPage.locator('#add-button').isVisible(),false);
-    assert.equal(await stockPage.getByRole('button',{name:'Subir ticket',exact:true}).isVisible(),false);
-    assert.equal(await stockPage.locator('#stock-heading h2').count(),0);
-    await stockPage.getByRole('button',{name:'Añadir producto al stock',exact:true}).click();
-    const stockAdd=stockPage.getByRole('dialog',{name:'Añadir producto al stock',exact:true});
-    await stockAdd.getByLabel('Nombre del producto',{exact:true}).fill('Cacao');
-    await stockPage.evaluate(()=>{window.failStock=true;});
-    await stockAdd.getByRole('button',{name:'Añadir',exact:true}).click();
-    await stockAdd.locator('#stock-add-error').filter({hasText:'No se ha podido guardar el stock'}).waitFor();
-    assert.equal(await stockPage.evaluate(()=>window.stockItems.length),0);
-    await stockPage.evaluate(()=>{window.failStock=false;});
-    await stockAdd.getByLabel('Nombre del producto',{exact:true}).press('Enter');
-    await stockAdd.waitFor({state:'hidden'});
-    const stockCard=stockPage.locator('#stock-items li').filter({hasText:'Cacao'});
-    await stockCard.getByLabel('Stock de Cacao: 1 uds',{exact:true}).waitFor();
-    assert.equal(await stockPage.locator('#stock-count, #stock-units').count(),0);
-    assert.equal(await stockPage.getByRole('button',{name:'Ordenar alfabéticamente',exact:true}).isVisible(),true);
-    assert.equal(await stockCard.locator('.stock-controls, .stock-tools').count(),0);
-    assert.equal(await stockCard.locator('.item').evaluate(node=>getComputedStyle(node).backgroundImage),'linear-gradient(rgb(245, 154, 35), rgb(198, 91, 12))');
-    await selectList(stockPage,'todo.local');
-    await stockCard.getByRole('button',{name:'Configurar stock de Cacao',exact:true}).click();
-    const stockEditor=stockPage.getByRole('dialog',{name:'Cacao · Stock',exact:true}),stockForm=stockEditor.locator('form');
-    for(const control of [stockForm.getByLabel('Stock actual',{exact:true}),stockForm.getByLabel('Unidades',{exact:true})])assert.equal(await control.evaluate(node=>getComputedStyle(node).textAlign),'center');
-    await stockForm.getByRole('button',{name:'Incrementar stock',exact:true}).click();
-    assert.equal(await stockForm.getByLabel('Stock actual',{exact:true}).inputValue(),'2');
-    await stockForm.getByRole('button',{name:'Disminuir stock',exact:true}).click();
-    await stockForm.getByLabel('Stock actual',{exact:true}).fill('2.5');
-    await stockForm.getByLabel('Unidades',{exact:true}).selectOption('custom');
-    await stockForm.getByLabel('Unidad personalizada',{exact:true}).fill('Latas');
-    await stockForm.getByLabel('Control del stock',{exact:true}).selectOption('usage');
-    assert.equal(await stockForm.locator('select[name="mode"] option:checked').textContent(),'Consumo registrado');
-    await stockForm.getByLabel('Entidad de consumo',{exact:true}).fill('binary_sensor.lavadora');
-    await stockForm.getByLabel('Estado que representa un uso',{exact:true}).fill('on');
-    await stockForm.getByLabel('Cantidad consumida por uso',{exact:true}).fill('0.5');
-    await stockForm.getByLabel('Cantidad predeterminada de reposición',{exact:true}).fill('4');
-    await stockForm.getByLabel('Añadir a la lista cuando el stock llegue al mínimo',{exact:true}).check();
-    await stockForm.getByLabel('Stock mínimo',{exact:true}).fill('1');
-    assert.equal(await stockForm.getByLabel('Lista para reponer',{exact:true}).inputValue(),'todo.local');
-    await stockForm.getByRole('button',{name:'Guardar',exact:true}).click();await stockEditor.waitFor({state:'hidden'});
-    await stockCard.getByLabel('Stock de Cacao: 3 Latas',{exact:true}).waitFor();
-    assert.equal(await stockCard.getByRole('progressbar',{name:'Stock restante'}).getAttribute('aria-valuenow'),'63');
-    assert.equal(await stockCard.locator('.stock-progress').evaluate(node=>node.style.getPropertyValue('--stock-remaining')),'62.5%');
-    assert.deepEqual(await stockPage.evaluate(()=>({mode:window.stockItems[0].mode,unit:window.stockItems[0].unit,usage_amount:window.stockItems[0].usage_amount,refill_quantity:window.stockItems[0].refill_quantity})),{mode:'usage',unit:'Latas',usage_amount:0.5,refill_quantity:4});
-    await stockCard.getByRole('button',{name:'Configurar stock de Cacao',exact:true}).click();
-    await stockForm.getByLabel('Control del stock',{exact:true}).selectOption('perishable');
-    await stockForm.getByLabel('Caduca cada cuántos días desde la compra',{exact:true}).fill('3');
-    await stockForm.getByLabel('Porcentaje mínimo restante (%)',{exact:true}).fill('25');
-    assert.equal(await stockForm.getByLabel('Porcentaje mínimo restante (%)',{exact:true}).getAttribute('max'),'100');
-    assert.equal(await stockForm.locator('#stock-recurrence-help').count(),0);
-    assert.equal(await stockForm.locator('#stock-usage-fields').isVisible(),false);
-    for(const width of [390,320]){
-      await stockPage.setViewportSize({width,height:844});
-      assert.ok(await stockEditor.evaluate(dialog=>dialog.scrollWidth<=dialog.clientWidth+1));
-      assert.ok(await stockForm.locator('.stock-expiry-refill').evaluate(row=>{
-        const [days,refill]=row.querySelectorAll('input');
-        return Math.abs(days.getBoundingClientRect().top-refill.getBoundingClientRect().top)<1;
-      }));
-      assert.ok(await stockForm.locator('.stock-reorder-row').evaluate(row=>{
-        const [check,minimum]=row.querySelectorAll('label');
-        return check.getBoundingClientRect().right<=minimum.getBoundingClientRect().left && Math.abs(check.getBoundingClientRect().top+check.getBoundingClientRect().height/2-minimum.getBoundingClientRect().top-minimum.getBoundingClientRect().height/2)<1;
-      }));
-      await stockPage.screenshot({path:'test-results/stock-editor-'+width+'.png',fullPage:true});
-    }
-    await stockForm.getByRole('button',{name:'Guardar',exact:true}).click();await stockEditor.waitFor({state:'hidden'});
-    assert.equal(await stockPage.evaluate(()=>window.stockItems[0].reorder_percent),25);
-    await stockPage.evaluate(()=>{
-      const item=window.stockItems[0];item.quantity=3;item.expires_at=Date.now()/1000+item.days*86400;window.emitStock();
-    });
-    assert.equal(await stockCard.getByRole('progressbar',{name:'Stock restante'}).getAttribute('aria-valuenow'),'75');
-    const highColor=await stockCard.locator('.item').evaluate(node=>getComputedStyle(node,'::before').backgroundImage);
-    await stockPage.evaluate(()=>{window.stockItems[0].quantity=1;window.emitStock();});
-    assert.equal(await stockCard.getByRole('progressbar',{name:'Stock restante'}).getAttribute('aria-valuenow'),'25');
-    assert.notEqual(await stockCard.locator('.item').evaluate(node=>getComputedStyle(node,'::before').backgroundImage),highColor);
-    await stockPage.evaluate(()=>{Object.assign(window.stockItems[0],{quantity:20,refill_quantity:250,unit:'g'});window.emitStock();});
-    assert.equal(await stockCard.getByRole('progressbar',{name:'Stock restante'}).getAttribute('aria-valuenow'),'8');
-    await stockPage.screenshot({path:'test-results/stock-perishable-eight-percent.png',fullPage:true});
-    await stockPage.evaluate(()=>{Object.assign(window.stockItems[0],{quantity:2.5,refill_quantity:4,unit:'Latas'});window.emitStock();});
-    await stockPage.getByRole('button',{name:'Cambiar a vista de filas',exact:true}).click();
-    assert.ok(await stockCard.evaluate(card=>{
-      const open=card.querySelector('.stock-open').getBoundingClientRect(),controls=card.querySelector('.stock-controls').getBoundingClientRect();
-      return open.right<=controls.left && Math.abs((open.top+open.bottom-controls.top-controls.bottom)/2)<1;
-    }));
-    await stockCard.getByRole('button',{name:'Añadir una unidad de Cacao',exact:true}).click();
-    await stockCard.getByLabel('Stock de Cacao: 4 Latas',{exact:true}).waitFor();
-    await stockPage.evaluate(()=>{window.failStock=true;});
-    await stockCard.getByRole('button',{name:'Añadir una unidad de Cacao',exact:true}).click();
-    await stockPage.getByRole('alert').filter({hasText:'No se ha podido guardar el stock'}).waitFor();
-    assert.equal(await stockPage.evaluate(()=>window.stockItems[0].quantity),3.5);
-    await stockPage.evaluate(()=>{window.failStock=false;});
-    for(let index=0;index<4;index++)await stockCard.getByRole('button',{name:'Quitar una unidad de Cacao',exact:true}).click();
-    await stockCard.getByLabel('Stock de Cacao: 0 Latas',{exact:true}).waitFor();
-    assert.equal(await stockCard.getByRole('button',{name:'Quitar una unidad de Cacao',exact:true}).isDisabled(),true);
-    await stockPage.getByRole('button',{name:'Añadir producto al stock',exact:true}).click();
-    await stockAdd.getByLabel('Nombre del producto',{exact:true}).fill('Producto sin catálogo');
-    await stockAdd.getByRole('button',{name:'Añadir',exact:true}).click();
-    await stockAdd.waitFor({state:'hidden'});
-    await stockPage.reload();await stockPage.getByRole('button',{name:'Stock',exact:true}).click();
-    await stockCard.getByLabel('Stock de Cacao: 0 Latas',{exact:true}).waitFor();
-    assert.equal(await stockPage.evaluate(()=>window.stockItems[0].mode),'perishable');
-    for(const width of [1280,390,320]){
-      await stockPage.setViewportSize({width,height:844});
-      assert.ok(await stockPage.locator('#stock-card').evaluate(node=>node.scrollWidth<=node.clientWidth+1));
-      assert.ok(await stockPage.locator('#stock-heading').evaluate(node=>{
-        const tabs=node.querySelector('.stock-tabs').getBoundingClientRect(),actions=node.querySelector('#stock-actions').getBoundingClientRect();
-        return tabs.right<=actions.left&&Math.abs((tabs.top+tabs.bottom-actions.top-actions.bottom)/2)<2&&node.scrollWidth<=node.clientWidth+1;
-      }));
-      await stockPage.screenshot({path:'test-results/stock-rows-'+width+'.png',fullPage:true});
-    }
-    await stockPage.getByRole('button',{name:'Cambiar a vista de cuadrícula',exact:true}).click();
-    assert.equal(await stockCard.locator('.stock-controls, .stock-tools').count(),0);
-    await stockPage.screenshot({path:'test-results/stock-grid-mobile.png',fullPage:true});
-    assert.deepEqual(await stockPage.locator('#stock-items .summary').allTextContents(),['Cacao','Producto sin catálogo']);
-    await stockPage.getByRole('button',{name:'Ordenar alfabéticamente',exact:true}).click();
-    // A second item sorts before Cacao alphabetically but after it by remaining stock.
-    await stockPage.evaluate(()=>{window.stockItems[1].name='Arroz';window.emitStock();});
-    assert.deepEqual(await stockPage.locator('#stock-items .summary').allTextContents(),['Arroz','Cacao']);
-    await stockPage.getByRole('button',{name:'Agrupar por categorías',exact:true}).click();
-    await stockPage.getByRole('button',{name:'Ordenar por menor stock',exact:true}).click();
-    assert.deepEqual(await stockPage.locator('#stock-items .summary').allTextContents(),['Cacao','Arroz']);
-    await stockPage.reload();await stockPage.getByRole('button',{name:'Stock',exact:true}).click();
-    assert.equal(await stockPage.getByRole('button',{name:'Ordenar alfabéticamente',exact:true}).isVisible(),true);
-    assert.equal(await stockCard.getByRole('progressbar',{name:'Stock restante'}).getAttribute('aria-valuenow'),'0');
-    await stockCard.getByRole('button',{name:'Configurar stock de Cacao',exact:true}).click();
-    await stockForm.getByRole('button',{name:'Eliminar',exact:true}).click();
-    const stockDelete=stockPage.getByRole('dialog',{name:'Eliminar de Stock',exact:true});
-    await stockDelete.getByRole('button',{name:'Cancelar',exact:true}).click();
-    assert.equal(await stockPage.locator('#stock-items li').count(),2);
-    await stockForm.getByRole('button',{name:'Eliminar',exact:true}).click();
-    await stockDelete.getByRole('button',{name:'Eliminar producto',exact:true}).click();
-    await stockCard.waitFor({state:'hidden'});await stockEditor.waitFor({state:'hidden'});
-    assert.equal(await stockPage.evaluate(()=>window.catalogProducts.length),1);
-    await stockPage.getByRole('button',{name:'Cambiar a vista de filas',exact:true}).click();
-    await stockPage.evaluate(()=>{const panel=window.testPanel;panel.hass={...panel._hass,user:{is_admin:false}};});
-    assert.equal(await stockInput.isDisabled(),true);
-    assert.equal(await stockPage.locator('#stock-items [data-stock-action="increase"]').isDisabled(),true);
-    await stockPage.locator('#stock-items .stock-open').click();
-    assert.equal(await stockPage.locator('#save-stock-config').isDisabled(),true);
-    await stockContext.close();
+    await checkStockEditor(browser,url,errors);
     // Numeric order compares percentages across units and modes, and is the initial default.
     const stockSortContext=await browser.newContext({viewport:{width:390,height:844}});
     await stockSortContext.addInitScript(()=>{
@@ -5452,6 +5501,7 @@ async function main() {
     await checkLazySections(browser,url,errors);
     await checkCatalogSources(browser,url,errors);
     await checkDifferentOptionEAN(browser,url,errors);
+    await checkBulkOptionLookup(browser,url,errors);
     await checkStagedOptionURL(browser,url,errors);
     await checkLidlMetadata(browser,url,errors);
     await checkLidlReprocessLines(browser,url,errors);

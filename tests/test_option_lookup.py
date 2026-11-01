@@ -203,3 +203,31 @@ def test_option_prices_and_nutriscore_are_validated():
     ref["nutriscore"] = {"grade":"z","checked_at":1800000000}
     with pytest.raises(ValueError):
         normalized_references([ref])
+
+
+@pytest.mark.parametrize("name", ["Pimiento rojo granel 1 kg aprox", "Pimiento al peso 1 kg", "Pimiento peso variable 1 kg"])
+async def test_bulk_web_product_sets_weight_sale_without_fixed_package(hass, aioclient_mock, monkeypatch, name):
+    lookup=OptionLookup(hass)
+    monkeypatch.setattr(lookup,"_before_request",AsyncMock())
+    monkeypatch.setattr(lookup.sources,"fetch",AsyncMock(side_effect=AssertionError("No second source needed")))
+    aioclient_mock.get(URL,text=html_product(name=name,offers={"price":"2.79","priceCurrency":"EUR"}))
+    try:
+        result=await lookup.retrieve(URL)
+        assert result["sale_mode"]=="weight" and result["content_quantity"] is None
+        assert result["content_unit"]=="kg" and "pack_count" not in result
+        assert result["measure_price"]["price"]==2.79 and result["measure_price"]["unit"]=="kg"
+        assert await lookup.retrieve(URL)==result
+        assert aioclient_mock.call_count==1
+    finally:lookup.close()
+
+
+async def test_kilogram_package_stays_packaged_despite_kilo_comparison_price(hass, aioclient_mock, monkeypatch):
+    lookup=OptionLookup(hass)
+    monkeypatch.setattr(lookup,"_before_request",AsyncMock())
+    aioclient_mock.get(URL,text=html_product(name="Arroz bolsa 1 kg"))
+    try:
+        result=await lookup.retrieve(URL)
+        assert result.get("sale_mode")!="weight"
+        assert result["content_quantity"]==1 and result["content_unit"]=="kg"
+        assert result["measure_price"]["unit"]=="kg"
+    finally:lookup.close()

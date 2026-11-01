@@ -3,6 +3,7 @@ from asyncio import Lock, sleep
 from copy import deepcopy
 from html.parser import HTMLParser
 import json
+import re
 import time
 from urllib.parse import urljoin, urlsplit
 
@@ -161,6 +162,16 @@ def web_measure_price(result):
         return None
 
 
+def normalize_sale_mode(result):
+    """An explicit bulk label distinguishes weighed sales from kg-sized packs."""
+    if result.get("content_unit") in ("g", "kg") and re.search(
+        r"\b(?:granel|al\s+peso|peso\s+variable)\b", str(result.get("name", "")), re.I
+    ):
+        result.update(sale_mode="weight", content_quantity=None, content_unit="kg")
+        result.pop("pack_count", None)
+    return result
+
+
 class OptionLookup:
     def __init__(self, hass):
         self.hass = hass
@@ -305,6 +316,7 @@ class OptionLookup:
                     result.pop("ean", None)
                 if rate:=web_measure_price(result):
                     result["measure_price"]=rate
+                normalize_sale_mode(result)
                 self._cache[(store, link["id"])] = (time.monotonic()+60, deepcopy(result))
                 self._cache = dict(list(self._cache.items())[-100:])
             if expected_ean and result.get("ean") and gtin(expected_ean) != gtin(result["ean"]):

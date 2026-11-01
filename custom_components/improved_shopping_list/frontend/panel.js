@@ -1,12 +1,12 @@
-import { StockSession } from "./stock-client.js?v=0.74.3";
-import { QuantitySession, purchaseQuantity, quantityLabel } from "./quantity-client.js?v=0.74.3";
-import { installDialogCloseButtons } from "./dialog-controls.js?v=0.74.3";
-import { FEATURES, TodoSession, errorMessage, isAvailable, supports } from "./todo-client.js?v=0.74.3";
-import { imageSource, normalizedName, productNameKey, cachedProductPrice } from "./product-display.js?v=0.74.3";
-import { packageCost } from "./reference-formats.js?v=0.74.3";
-import { ListSettingsSession, AttentionSession, gradientTextColor } from "./list-settings-client.js?v=0.74.3";
-import { CatalogSession } from "./catalog-client.js?v=0.74.3";
-import { ReadersSession } from "./readers-client.js?v=0.74.3";
+import { StockSession } from "./stock-client.js?v=0.75.0";
+import { QuantitySession, purchaseQuantity, quantityLabel } from "./quantity-client.js?v=0.75.0";
+import { installDialogCloseButtons } from "./dialog-controls.js?v=0.75.0";
+import { FEATURES, TodoSession, errorMessage, isAvailable, supports } from "./todo-client.js?v=0.75.0";
+import { imageSource, normalizedName, productNameKey, cachedProductPrice } from "./product-display.js?v=0.75.0";
+import { packageCost } from "./reference-formats.js?v=0.75.0";
+import { ListSettingsSession, AttentionSession, gradientTextColor } from "./list-settings-client.js?v=0.75.0";
+import { CatalogSession } from "./catalog-client.js?v=0.75.0";
+import { ReadersSession } from "./readers-client.js?v=0.75.0";
 
 const LOGO_URL = new URL("logo.png", import.meta.url).href;
 const STORE_LOGOS = {
@@ -170,13 +170,13 @@ class ImprovedShoppingListPanel extends HTMLElement {
   _loadSection(name) {
     if(this._modules.has(name))return this._modules.get(name);
     const load={
-      stock:()=>import('./stock-panel.js?v=0.74.3'),
-      readers:()=>import('./readers-panel.js?v=0.74.3'),
-      routines:()=>import('./meal-routines.js?v=0.74.3'),
-      catalog:()=>import('./catalog-panel.js?v=0.74.3'),
-      settings:()=>import('./settings-panel.js?v=0.74.3'),
-      purchases:()=>import('./purchases-panel.js?v=0.74.3'),
-      analytics:()=>import('./analytics-panel.js?v=0.74.3'),
+      stock:()=>import('./stock-panel.js?v=0.75.0'),
+      readers:()=>import('./readers-panel.js?v=0.75.0'),
+      routines:()=>import('./meal-routines.js?v=0.75.0'),
+      catalog:()=>import('./catalog-panel.js?v=0.75.0'),
+      settings:()=>import('./settings-panel.js?v=0.75.0'),
+      purchases:()=>import('./purchases-panel.js?v=0.75.0'),
+      analytics:()=>import('./analytics-panel.js?v=0.75.0'),
     }[name];
     const pending=load().then(module=>{
       if(name==='stock')module.installStockView(this);
@@ -294,7 +294,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
         #pending-total[aria-expanded=false] { background:#fff; color:#000; font-weight:700; }
         #pending-count[aria-pressed=false] { background:#ee524f; color:#fff; font-weight:700; }
         .store-logo { width:24px; height:24px; object-fit:contain; background:white; padding:3px; border-radius:50%; flex:none; }
-        #receipt { max-width:760px; margin:0 auto; }
+        #receipt { width:100%;min-width:0;margin:0; }
         #receipt[hidden], #pending[hidden] { display:none; }
         .receipt-stores { display:flex; gap:6px; margin-bottom:16px; container-type:inline-size; }
         .receipt-stores button { display:flex; flex:1; min-width:0; justify-content:center; align-items:center; gap:clamp(2px,1cqi,8px); border:1px solid var(--divider-color,#dfe7e1); border-radius:12px; padding:10px clamp(2px,1cqi,10px); background:var(--card-background-color,#fff); color:inherit; font-size:clamp(10px,2.5cqi,14px); }
@@ -304,13 +304,21 @@ class ImprovedShoppingListPanel extends HTMLElement {
         .receipt-store-copy span { display:inline-block; white-space:nowrap; }
         .receipt-store-amount { font-weight:700; }
         .receipt-store-coverage { opacity:.6; }
-        .receipt-paper { background:var(--card-background-color,#fff); border:1px solid var(--divider-color,#dfe7e1); border-radius:12px; padding:20px; }
-        .receipt-row { display:flex; justify-content:space-between; gap:16px; padding:12px 0; border-bottom:1px dashed var(--divider-color,#dfe7e1); }
+        .receipt-paper { color-scheme:light;background:#fff;color:#20262e;border:1px solid #e0e5e9;border-radius:14px;padding:24px;box-shadow:0 4px 16px #00000008; }
+        .receipt-heading { display:flex;align-items:center;gap:12px;margin-bottom:14px;padding-bottom:16px;border-bottom:1px solid #e8ecef; }
+        .receipt-heading .store-logo { width:44px;height:44px;padding:4px; }
+        .receipt-heading h3 { margin:0;font-size:20px;font-weight:700;line-height:1.3;color:#20262e; }
+        .receipt-heading p { margin:4px 0 0;font-size:13px;line-height:1.4;color:#65717d; }
+        .receipt-row { display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 0;border-bottom:1px solid #edf0f2;font-size:14px;line-height:1.5; }
+        .receipt-row:last-child { border-bottom:0; }
         .receipt-name { min-width:0; overflow-wrap:anywhere; }
         .receipt-price { flex:none; white-space:nowrap; font-variant-numeric:tabular-nums; }
-        .receipt-unknown { margin:18px 0 0; padding-top:16px; border-top:2px dashed var(--divider-color,#dfe7e1); font-size:14px; }
+        .receipt-unknown { margin:16px 0 0;padding-top:16px;border-top:1px solid #e0e5e9;font-size:14px;color:#65717d; }
+        .receipt-unknown .receipt-price { font-size:13px; }
         .receipt-unknown summary { cursor:pointer; font-weight:650; }
-        .receipt-total { display:flex; justify-content:space-between; gap:16px; margin-top:20px; font-weight:700; }
+        .receipt-total { display:flex;align-items:center;justify-content:space-between;gap:16px;margin-top:20px;padding-top:18px;border-top:2px solid #dbe1e6;font-size:18px;font-weight:700;line-height:1.4;color:#151e28; }
+        .receipt-total .receipt-price { font-size:23px; }
+        @media(max-width:540px) { .receipt-paper { padding:18px 16px; }.receipt-heading h3 { font-size:18px; }.receipt-row { padding:11px 0;gap:12px; }.receipt-total { font-size:16px;gap:10px; }.receipt-total .receipt-price { font-size:20px; } }
         h2 { margin:0; font-size:18px; font-weight:650; }
         .count { padding:5px 10px; border-radius:20px; background:var(--secondary-background-color,#edf4ee); font-size:13px; }
         ul { list-style:none; margin:0; padding:0; }
@@ -358,6 +366,8 @@ class ImprovedShoppingListPanel extends HTMLElement {
         .rows .row-meta { grid-column:3; grid-row:1; display:flex; align-items:center; justify-content:flex-end; flex-wrap:wrap; gap:6px; max-width:min(40cqi,260px); }
         .row-category,.row-price { display:inline-flex; align-items:center; justify-content:center; gap:5px; padding:6px 9px; border-radius:16px; font-size:12px; line-height:1.2; min-width:0; max-width:100%; }
         .row-category { color:#fff; box-shadow:0 2px 6px rgba(0,0,0,.18); }
+        #items-card .category-badge,#items-card .row-category { background:#243044; color:#fff; }
+        #items-card .category-badge ha-icon,#items-card .row-category ha-icon { color:#fff; }
         .row-category span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
         .row-price { background:rgba(255,255,255,.2); white-space:nowrap; }
         .row-price .store-logo { display:block; width:22px; height:22px; flex:none; padding:2px; object-fit:contain; background:#fff; border-radius:50%; }
@@ -441,7 +451,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
       </style>
       <header>
         <button class="menu" aria-label="Abrir menú de Home Assistant"><ha-icon icon="mdi:menu"></ha-icon></button>
-        <div class="branding"><img class="brand-logo" src="${LOGO_URL}" alt="" width="44" height="44"><div class="brand-copy"><span class="brand">Improved Shopping List</span><span class="version">0.74.3</span></div></div>
+        <div class="branding"><img class="brand-logo" src="${LOGO_URL}" alt="" width="44" height="44"><div class="brand-copy"><span class="brand">Improved Shopping List</span><span class="version">0.75.0</span></div></div>
         <nav class="section-nav" aria-label="Apartados">
           <button id="nav-shopping" aria-label="Lista" aria-pressed="true"><ha-icon icon="mdi:shopping" aria-hidden="true"></ha-icon><span class="nav-label">Lista</span></button>
           <button id="nav-catalog" aria-label="Catálogo" aria-pressed="false"><ha-icon icon="mdi:view-grid" aria-hidden="true"></ha-icon><span class="nav-label">Catálogo</span></button>
@@ -1075,7 +1085,10 @@ class ImprovedShoppingListPanel extends HTMLElement {
       name:item.summary,offer:this._quantityOffer(item,this._listPrice(this._catalogProducts.get(productNameKey(item.summary)))),quantity:this._purchaseQuantity(item)
     }))};
     const paper = make("div","receipt-paper");
-    paper.append(make("h3","",selected ? STORE_NAMES[selected.store] : "Últimos precios guardados"));
+    const heading=make('div','receipt-heading'),identity=make('div','receipt-identity');
+    if(selected)heading.append(this._storeLogo(selected.store));
+    identity.append(make('h3','','Lista de la compra'),make('p','',selected?STORE_NAMES[selected.store]:'Últimos precios guardados'));
+    heading.append(identity);paper.append(heading);
     const known = make("ul","receipt-known"), unknown=make("ul","receipt-missing");
     known.setAttribute("aria-label","Productos con precio"); unknown.setAttribute("aria-label","Productos sin precio");
     for (const line of receipt.lines) {
@@ -1185,7 +1198,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
       metadata.replaceChildren();
       if (category && this._listLayout === "rows") {
         const categoryTag = document.createElement("span");
-        categoryTag.className = "row-category"; categoryTag.style.backgroundColor = category.color;
+        categoryTag.className = "row-category";
         categoryTag.title = category.name;
         categoryTag.setAttribute("aria-label",`Categoría: ${category.name}`);
         const icon = document.createElement("ha-icon"); icon.setAttribute("icon",category.icon); icon.setAttribute("aria-hidden","true");
@@ -1217,7 +1230,6 @@ class ImprovedShoppingListPanel extends HTMLElement {
       const badge = row.querySelector(".category-badge");
       badge.hidden = !category;
       if (category) {
-        badge.style.backgroundColor = category.color;
         badge.title = category.name;
         badge.setAttribute("aria-label", `Categoría: ${category.name}`);
         const icon = document.createElement("ha-icon");

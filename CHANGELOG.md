@@ -1,5 +1,23 @@
 # Historial de cambios
 
+## 0.75.0 — 2026-11-01
+
+- Los badges de categoría de la lista usan un fondo oscuro uniforme e iconos blancos, tanto en cuadrícula como en filas y compras recientes.
+
+- La ficha de Stock oculta Lista para reponer cuando solo hay una lista de compra configurada; las listas pasarela no cuentan.
+
+- La ficha de Stock adopta el diseño compacto con imagen del producto, cantidad destacada, unidades, porcentaje y barra de stock. Los ajustes de control y reposición se alinean y los botones Eliminar/Guardar mantienen el mismo ancho. Se conservan los métodos de control y todos sus campos.
+
+- Recuperar datos detecta la venta a granel/al peso cuando la ficha la indica explícitamente, selecciona Al peso y conserva el precio por kg sin guardar el peso aproximado como contenido fijo. Los envases expresados en kg siguen siendo Por envase.
+
+- Se elimina el botón y el filtro Formatos pendientes de revisar de Catálogo → Productos.
+
+- Al agrupar productos del catálogo por categoría, cada cabecera muestra una franja izquierda con el color configurado para esa categoría.
+
+- El modo ticket de la lista adopta estética de recibo: fondo claro, texto oscuro, cabecera con la tienda, separadores suaves y total destacado al pie. Conserva el selector de tiendas y el bloque desplegable de productos sin precio.
+
+- Las flechas de todos los desplegables de la ficha de producto se separan del borde derecho, sin interrumpir el contorno del campo.
+
 ## 0.74.3 — 2026-10-31
 
 - En las tiendas de cada alternativa se oculta el ID interno y los textos de precios repetidos. Un botón junto a Recuperar datos abre la ficha en otra pestaña y conserva los enlaces de afiliado. Los desplegables de tipo de venta y unidad de medida usan el borde uniforme.

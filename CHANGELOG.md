@@ -1,5 +1,13 @@
 # Historial de cambios
 
+## 0.77.0 — 2026-11-01
+
+- Las tarjetas de Rutinas se compactan en una fila en escritorio y dos líneas en móvil, con avatares sin nombres visibles y Todos los días cuando corresponde. El popup y el funcionamiento de las rutinas se conservan.
+
+- Los tres bloques de Catálogo → Pendiente usan iconos representativos y márgenes uniformes en lugar de flechas. Se retira el botón Recuperar datos de Productos pendientes de información.
+
+- El triángulo de cantidad de la lista es más pequeño y muestra solo el número, reduciendo su tamaño con cada cifra adicional. Las unidades se conservan en la vista de filas y en el texto accesible.
+
 ## 0.76.1 — 2026-11-01
 
 - El indicador triangular de cantidad de la lista usa el mismo fondo oscuro al 50 % que la categoría, con número blanco destacado y las unidades pequeñas debajo.

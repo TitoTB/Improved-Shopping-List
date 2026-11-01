@@ -1,12 +1,12 @@
-import { StockSession } from "./stock-client.js?v=0.76.1";
-import { QuantitySession, purchaseQuantity, quantityLabel } from "./quantity-client.js?v=0.76.1";
-import { installDialogCloseButtons } from "./dialog-controls.js?v=0.76.1";
-import { FEATURES, TodoSession, errorMessage, isAvailable, supports } from "./todo-client.js?v=0.76.1";
-import { imageSource, normalizedName, productNameKey, cachedProductPrice } from "./product-display.js?v=0.76.1";
-import { packageCost } from "./reference-formats.js?v=0.76.1";
-import { ListSettingsSession, AttentionSession, gradientTextColor } from "./list-settings-client.js?v=0.76.1";
-import { CatalogSession } from "./catalog-client.js?v=0.76.1";
-import { ReadersSession } from "./readers-client.js?v=0.76.1";
+import { StockSession } from "./stock-client.js?v=0.77.0";
+import { QuantitySession, purchaseQuantity, quantityLabel } from "./quantity-client.js?v=0.77.0";
+import { installDialogCloseButtons } from "./dialog-controls.js?v=0.77.0";
+import { FEATURES, TodoSession, errorMessage, isAvailable, supports } from "./todo-client.js?v=0.77.0";
+import { imageSource, normalizedName, productNameKey, cachedProductPrice } from "./product-display.js?v=0.77.0";
+import { packageCost } from "./reference-formats.js?v=0.77.0";
+import { ListSettingsSession, AttentionSession, gradientTextColor } from "./list-settings-client.js?v=0.77.0";
+import { CatalogSession } from "./catalog-client.js?v=0.77.0";
+import { ReadersSession } from "./readers-client.js?v=0.77.0";
 
 const LOGO_URL = new URL("logo.png", import.meta.url).href;
 const STORE_LOGOS = {
@@ -170,13 +170,13 @@ class ImprovedShoppingListPanel extends HTMLElement {
   _loadSection(name) {
     if(this._modules.has(name))return this._modules.get(name);
     const load={
-      stock:()=>import('./stock-panel.js?v=0.76.1'),
-      readers:()=>import('./readers-panel.js?v=0.76.1'),
-      routines:()=>import('./meal-routines.js?v=0.76.1'),
-      catalog:()=>import('./catalog-panel.js?v=0.76.1'),
-      settings:()=>import('./settings-panel.js?v=0.76.1'),
-      purchases:()=>import('./purchases-panel.js?v=0.76.1'),
-      analytics:()=>import('./analytics-panel.js?v=0.76.1'),
+      stock:()=>import('./stock-panel.js?v=0.77.0'),
+      readers:()=>import('./readers-panel.js?v=0.77.0'),
+      routines:()=>import('./meal-routines.js?v=0.77.0'),
+      catalog:()=>import('./catalog-panel.js?v=0.77.0'),
+      settings:()=>import('./settings-panel.js?v=0.77.0'),
+      purchases:()=>import('./purchases-panel.js?v=0.77.0'),
+      analytics:()=>import('./analytics-panel.js?v=0.77.0'),
     }[name];
     const pending=load().then(module=>{
       if(name==='stock')module.installStockView(this);
@@ -348,10 +348,9 @@ class ImprovedShoppingListPanel extends HTMLElement {
         @container(max-width:140px) { .item .subtitle,.item .description,.item .tags { display:none; } .item .summary { -webkit-line-clamp:2; } }
         .completed .summary { text-decoration:none; color:inherit; }
         .row-meta { display:none; }
-        .quantity-corner { position:absolute;top:0;left:0;width:clamp(52px,50cqi,170px);aspect-ratio:1;clip-path:polygon(0 0,100% 0,0 100%);background:rgba(36,48,68,.5);color:#fff;text-align:left;pointer-events:none; }
+        .quantity-corner { position:absolute;top:0;left:0;width:clamp(36px,44cqi,145px);aspect-ratio:1;clip-path:polygon(0 0,100% 0,0 100%);background:rgba(36,48,68,.5);color:#fff;text-align:left;pointer-events:none; }
         .quantity-corner>span { position:absolute;top:7%;left:8%;max-width:78%;line-height:1.05; }
-        .quantity-corner strong { display:block;font-size:clamp(10px,calc(34cqi / var(--quantity-digits,3)),28px);font-weight:750;white-space:nowrap; }
-        .quantity-corner small { display:block;margin-top:2px;font-size:clamp(8px,5cqi,13px);font-weight:500;max-width:70%;overflow:hidden;white-space:nowrap;text-overflow:ellipsis; }
+        .quantity-corner strong { display:block;font-size:clamp(6px,calc(22cqi / var(--quantity-scale,1)),calc(28px / var(--quantity-scale,1)));font-weight:750;white-space:nowrap; }
         .rows li { position:relative; }
         .rows .quantity-corner { display:none; }
         .row-quantity { display:inline-flex; align-items:center; padding:6px 9px; justify-content:center; background:rgba(255,255,255,.2); color:inherit; font-size:12px; font-weight:700; min-width:0; max-width:100%; white-space:nowrap; }
@@ -453,7 +452,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
       </style>
       <header>
         <button class="menu" aria-label="Abrir menú de Home Assistant"><ha-icon icon="mdi:menu"></ha-icon></button>
-        <div class="branding"><img class="brand-logo" src="${LOGO_URL}" alt="" width="44" height="44"><div class="brand-copy"><span class="brand">Improved Shopping List</span><span class="version">0.76.1</span></div></div>
+        <div class="branding"><img class="brand-logo" src="${LOGO_URL}" alt="" width="44" height="44"><div class="brand-copy"><span class="brand">Improved Shopping List</span><span class="version">0.77.0</span></div></div>
         <nav class="section-nav" aria-label="Apartados">
           <button id="nav-shopping" aria-label="Lista" aria-pressed="true"><ha-icon icon="mdi:shopping" aria-hidden="true"></ha-icon><span class="nav-label">Lista</span></button>
           <button id="nav-catalog" aria-label="Catálogo" aria-pressed="false"><ha-icon icon="mdi:view-grid" aria-hidden="true"></ha-icon><span class="nav-label">Catálogo</span></button>
@@ -1175,7 +1174,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
         const metadata = document.createElement("span");
         metadata.className = "row-meta";
         card.append(badge, media, text, tags, metadata);
-        const quantity=document.createElement('span');quantity.className='quantity-corner';const copy=document.createElement('span');copy.append(document.createElement('strong'),document.createTextNode(' '),document.createElement('small'));quantity.append(copy);card.append(quantity);
+        const quantity=document.createElement('span');quantity.className='quantity-corner';const copy=document.createElement('span');copy.append(document.createElement('strong'));quantity.append(copy);card.append(quantity);
         row.append(card);
         this._rows.set(key, row);
       }
@@ -1194,7 +1193,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
       const product = this._catalogProducts.get(productNameKey(item.summary));
       const purchase=this._purchaseQuantity(item,product);
       const corner=row.querySelector('.quantity-corner');corner.hidden=purchase.quantity===1;
-      const quantityText=quantityLabel(purchase),number=new Intl.NumberFormat('es-ES',{maximumFractionDigits:3}).format(purchase.quantity);corner.querySelector('strong').textContent=number;corner.querySelector('small').textContent=purchase.unit;corner.style.setProperty('--quantity-digits',Math.max(3,number.length));corner.title=quantityText;corner.setAttribute('aria-label',quantityText);
+      const quantityText=quantityLabel(purchase),number=new Intl.NumberFormat('es-ES',{maximumFractionDigits:3}).format(purchase.quantity);corner.querySelector('strong').textContent=number;corner.style.setProperty('--quantity-scale',1+Math.max(0,number.length-1)*.45);corner.title=quantityText;corner.setAttribute('aria-label',quantityText);
       const category = this._catalogCategories.get(normalizedName(product?.category));
       const metadata = row.querySelector(".row-meta");
       metadata.replaceChildren();

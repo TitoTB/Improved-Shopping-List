@@ -1561,10 +1561,15 @@ async function checkMealRoutines(browser,url,errors){
   for(const width of [1280,390,320]){
     await page.setViewportSize({width,height:960});
     assert.ok(await routines.locator('.routine').evaluate(card=>card.scrollWidth<=card.clientWidth+1));
+    if(width===1280)assert.ok(await routines.locator('.routine').evaluate(card=>{const nodes=[card.querySelector('.routine-title'),card.querySelector('.routine-days'),card.querySelector('.routine-people'),card.querySelector('.actions')].map(n=>n.getBoundingClientRect());return nodes.every(n=>Math.abs((n.top+n.bottom)/2-(nodes[0].top+nodes[0].bottom)/2)<1)&&card.getBoundingClientRect().height<=72;}));
     await page.screenshot({path:'test-results/routine-cards-'+width+'.png',fullPage:true});
   }
   await page.setViewportSize({width:390,height:844});
-  await routines.getByRole('button',{name:'Editar Comidas en casa',exact:true}).click();
+  await routines.evaluate(el=>{el.savedRoutineRows=structuredClone(el.rows);el.rows[0].meals[0].days=[0,1,2,3,4,5,6];el.render();});
+  assert.equal(await routines.locator('.routine-every-day').textContent(),'Todos los días');
+  assert.equal(await routines.locator('.routine-person').first().getAttribute('title'),'Ana');
+  await routines.evaluate(el=>{el.rows=el.savedRoutineRows;el.render();});
+  await routines.locator('.routine-person').first().click();
   const editRoutine=routines.getByRole('dialog',{name:'Editar rutina',exact:true});
   assert.equal(await editRoutine.getByLabel('Fin',{exact:true}).inputValue(),'10:00');
   page.once('dialog',dialog=>dialog.dismiss());await editRoutine.getByRole('button',{name:'Eliminar rutina',exact:true}).click();
@@ -2042,12 +2047,23 @@ async function checkPurchaseQuantities(browser,url,errors){
     });
     const pavoCard=quantityPage.getByRole('button',{name:'Marcar como comprado: Pavo',exact:true});
     const pavoRow=pavoCard.locator('..');
-    await pavoCard.locator('.quantity-corner').filter({hasText:'250 g'}).waitFor();
+    await pavoCard.locator('.quantity-corner').filter({hasText:'250'}).waitFor();
     assert.equal(await pavoCard.locator('.quantity-corner strong').textContent(),'250');
-    assert.equal(await pavoCard.locator('.quantity-corner small').textContent(),'g');
+    assert.equal(await pavoCard.locator('.quantity-corner small').count(),0);
     assert.equal(await quantityPage.getByRole('button',{name:'Marcar como comprado: Sin catálogo',exact:true}).locator('.quantity-corner').isVisible(),false);
     assert.equal(await pavoRow.getByRole('button',{name:'Aumentar cantidad: Pavo',exact:true}).count(),0);
     await quantityPage.screenshot({path:'test-results/purchase-quantity-grid.png',fullPage:true});
+    for(const width of [1280,390,320]){
+      await quantityPage.setViewportSize({width,height:960});const sizes=[];
+      for(const amount of [6,12,250]){
+        await quantityPage.evaluate(amount=>{window.catalogProducts[0].unit_quantity=amount;window.emitCatalog();},amount);
+        sizes.push(await pavoCard.locator('.quantity-corner strong').evaluate(n=>parseFloat(getComputedStyle(n).fontSize)));
+        assert.ok(await pavoCard.locator('.quantity-corner').evaluate(n=>{const c=n.getBoundingClientRect(),text=n.querySelector('strong').getBoundingClientRect();return text.right-c.left+text.bottom-c.top<=c.width+1;}),'Quantity fits the triangular corner');
+      }
+      assert.ok(sizes[0]>sizes[1]&&sizes[1]>sizes[2]);
+      await quantityPage.screenshot({path:'test-results/quantity-number-'+width+'.png',fullPage:true});
+    }
+    await quantityPage.setViewportSize({width:1280,height:960});
     await quantityPage.locator('#toggle-list-layout').click();
     await pavoRow.locator('.row-quantity').filter({hasText:'250 g'}).waitFor();
     assert.equal(await pavoRow.locator('.row-quantity button').count(),0);
@@ -2341,24 +2357,9 @@ async function checkCatalogViews(browser,url,errors){
   const information=catalog.locator('#pending-information-group');
   assert.equal(await catalog.locator('#pending-information-count').textContent(),'(1)');
   assert.equal(await information.locator('.pending-information-row').count(),0); // Rows are built only on expansion.
-  const refresh=information.locator('isl-pending-information-refresh');
-  const refreshButton=refresh.getByRole('button',{name:'Recuperar datos',exact:true});
-  assert.equal(await refreshButton.isEnabled(),true);
-  await refreshButton.click();
-  const refreshDialog=refresh.getByRole('dialog',{name:'Recuperación de datos',exact:true});await refreshDialog.waitFor();
-  assert.equal(await information.getAttribute('open'),null);
-  await page.evaluate(()=>{window.pendingRefreshFixture={...window.pendingRefreshFixture,processed:1,current:'Producto incompleto'};});
-  await refreshDialog.getByText('50 %',{exact:true}).waitFor();
-  await page.screenshot({path:'test-results/pending-information-progress-mobile.png',fullPage:true});
-  await page.setViewportSize({width:1280,height:960});
-  await page.screenshot({path:'test-results/pending-information-progress-desktop.png',fullPage:true});
-  await refreshDialog.getByRole('button',{name:'Cerrar ventana',exact:true}).click();
-  await refreshButton.click();await refreshDialog.getByText('50 %',{exact:true}).waitFor();
-  assert.equal(await page.evaluate(()=>window.pendingRefreshStarts),2);
-  await page.evaluate(()=>{window.pendingRefreshFixture={...window.pendingRefreshFixture,processed:2,running:false,phase:'finished',updated_products:['pending-info']};});
-  await refreshDialog.getByText('100 %',{exact:true}).waitFor();
-  await refreshDialog.getByText('Revisión finalizada · 1 producto actualizado',{exact:true}).waitFor();
-  await refreshDialog.getByRole('button',{name:'Cerrar ventana',exact:true}).click();
+  assert.equal(await information.locator('isl-pending-information-refresh').count(),0);
+  assert.deepEqual(await catalog.locator('#suggestions-list > details > summary > ha-icon').evaluateAll(nodes=>nodes.map(node=>node.getAttribute('icon'))),['mdi:cart-outline','mdi:barcode-scan','mdi:text-box-edit-outline']);
+  assert.equal(await catalog.locator('#suggestions-list > details > summary').evaluateAll(nodes=>new Set(nodes.map(node=>getComputedStyle(node).padding)).size),1);
   await information.locator('summary').click();
   await information.getByRole('button',{name:'Completar información de Producto incompleto',exact:true}).click();
   const editor=catalog.getByRole('dialog',{name:'Editar producto',exact:true});await editor.waitFor();

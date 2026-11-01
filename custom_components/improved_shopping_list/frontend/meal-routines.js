@@ -1,5 +1,5 @@
-import { installDialogCloseButtons } from './dialog-controls.js?v=0.77.0';
-import { installToggleStyles } from './toggle-styles.js?v=0.77.0';
+import { installDialogCloseButtons } from './dialog-controls.js?v=0.78.0';
+import { installToggleStyles } from './toggle-styles.js?v=0.78.0';
 const el=(tag,text)=>{const n=document.createElement(tag);if(text!=null)n.textContent=text;return n;};
 const days=['L','M','X','J','V','S','D'];
 const defaultEnd=start=>{const [hour,minute]=start.split(':').map(Number);return String((hour+1)%24).padStart(2,'0')+':'+String(minute).padStart(2,'0');};
@@ -40,7 +40,9 @@ class MealRoutinesSettings extends HTMLElement {
     catch(error){status.textContent=error.message;status.className='error';}finally{this.loading=false;}
   }
   render(){
-    const root=this.shadowRoot;root.querySelector('#routines').replaceChildren(...this.rows.map(row=>{
+    const firstTime=row=>row.meals.map(window=>window.start_time??window.time??'24:00').sort()[0]??'24:00';
+    const ordered=[...this.rows].sort((a,b)=>firstTime(a).localeCompare(firstTime(b))||a.name.localeCompare(b.name,'es'));
+    const root=this.shadowRoot;root.querySelector('#routines').replaceChildren(...ordered.map(row=>{
       const card=el('article');card.className='routine'+(row.enabled?'':' inactive');const info=el('div');info.className='routine-info';
       const title=el('div');title.className='routine-title';const icon=el('ha-icon');icon.setAttribute('icon','mdi:clock-outline');icon.setAttribute('aria-hidden','true');const copy=el('div');copy.append(el('strong',row.name));const times=el('p',row.meals.map(m=>`${m.start_time??m.time} – ${m.end_time??defaultEnd(m.time)}`).join(' / '));times.className='routine-times';copy.append(times);title.append(icon,copy);info.append(title);
       const bottom=el('div');bottom.className='routine-bottom';const week=el('div');week.className='routine-days';const selected=new Set(row.meals.filter(m=>m.enabled!==false).flatMap(m=>m.days));week.setAttribute('aria-label','Días: '+[...selected].sort().map(day=>['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'][day]).join(', '));if(selected.size===7&&row.meals.filter(m=>m.enabled!==false).every(m=>m.days.length===7)){const chip=el('span','Todos los días');chip.className='routine-every-day';week.append(chip);}else days.forEach((day,index)=>{const chip=el('span',day);chip.className='routine-day'+(selected.has(index)?' selected':'');chip.setAttribute('aria-hidden','true');week.append(chip);});const people=el('div');people.className='routine-people';for(const id of row.persons){const person=el('span');person.className='routine-person';person.title=this.personName(id);person.setAttribute('aria-label',this.personName(id));person.setAttribute('role','img');person.append(this.avatar(id));person.addEventListener('click',()=>this.open(row));people.append(person);}bottom.append(week,people);info.append(bottom);

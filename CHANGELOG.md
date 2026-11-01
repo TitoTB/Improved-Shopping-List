@@ -1,5 +1,13 @@
 # Historial de cambios
 
+## 0.78.0 — 2026-11-01
+
+- Lectores adopta tarjetas horizontales compactas con último uso y controles a la derecha. El popup agrupa los campos en Conexión y Comportamiento, manteniendo las fuentes de entidad/NFC, acciones, destino y antirrepetición.
+
+- Las rutinas se ordenan cronológicamente por su hora de inicio; si tienen varias franjas, se toma la más temprana.
+
+- Se reducen el triángulo de cantidad y su número en la lista, y se elimina el borde visible de la tarjeta bajo sus márgenes superior e izquierdo.
+
 ## 0.77.0 — 2026-11-01
 
 - Las tarjetas de Rutinas se compactan en una fila en escritorio y dos líneas en móvil, con avatares sin nombres visibles y Todos los días cuando corresponde. El popup y el funcionamiento de las rutinas se conservan.

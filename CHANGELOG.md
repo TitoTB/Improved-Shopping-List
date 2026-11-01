@@ -1,6 +1,6 @@
 # Historial de cambios
 
-## 0.76.0 — 2026-11-01
+## 0.76.1 — 2026-11-01
 
 - El indicador triangular de cantidad de la lista usa el mismo fondo oscuro al 50 % que la categoría, con número blanco destacado y las unidades pequeñas debajo.
 

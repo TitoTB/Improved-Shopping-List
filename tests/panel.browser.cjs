@@ -2339,7 +2339,7 @@ async function checkCatalogViews(browser,url,errors){
     ];window.emitCatalog();
   });
   const information=catalog.locator('#pending-information-group');
-  assert.equal(await catalog.locator('#pending-information-count').count(),0);
+  assert.equal(await catalog.locator('#pending-information-count').textContent(),'(1)');
   assert.equal(await information.locator('.pending-information-row').count(),0); // Rows are built only on expansion.
   const refresh=information.locator('isl-pending-information-refresh');
   const refreshButton=refresh.getByRole('button',{name:'Recuperar datos',exact:true});
@@ -2365,7 +2365,7 @@ async function checkCatalogViews(browser,url,errors){
   assert.equal(await editor.getByRole('button',{name:'Alternativas',exact:true}).getAttribute('aria-pressed'),'true');
   await editor.getByRole('button',{name:'Cerrar ventana',exact:true}).click();
   await page.evaluate(()=>{window.catalogProducts[0].commercial_references[0].content_quantity=250;window.catalogProducts[0].commercial_references[0].content_unit='g';window.emitCatalog();});
-  assert.equal(await catalog.locator('#pending-information-count').count(),0);
+  assert.equal(await catalog.locator('#pending-information-count').textContent(),'(0)');
   assert.equal(await information.locator('.pending-information-row').count(),0);
   assert.equal(await catalog.locator('#view-suggestions').isVisible(),true);
   assert.equal(await page.evaluate(()=>window.catalogRecipes[0].id),'kept-recipe');
@@ -3425,8 +3425,8 @@ async function main() {
     const suggestions = suggestionCatalog.locator("#suggestions-list");
     assert.equal(await suggestionCatalog.locator("#list-suggestions-group").evaluate(node => node.open), false);
     assert.equal(await suggestionCatalog.locator("#scan-suggestions-group").evaluate(node => node.open), false);
-    assert.equal(await suggestionCatalog.locator("#list-suggestions-count").textContent(), "3");
-    assert.equal(await suggestionCatalog.locator("#scan-suggestions-count").textContent(), "0");
+    assert.equal(await suggestionCatalog.locator("#list-suggestions-count").textContent(), "(3)");
+    assert.equal(await suggestionCatalog.locator("#scan-suggestions-count").textContent(), "(0)");
     assert.equal(await suggestions.getByRole("button", {name:"Añadir al catálogo: Cacao",exact:true}).isVisible(), false);
     await suggestionCatalog.locator("#list-suggestions-summary").click();
     assert.equal(await suggestionCatalog.locator("#list-suggestions article > ha-icon").count(), 0);
@@ -4241,7 +4241,7 @@ async function main() {
     assert.equal(await readerCatalog.locator("#scan-suggestions-group").evaluate(node => node.open),false);
     assert.equal(await readerCatalog.locator("#scan-suggestions [data-pending-id]").count(),1);
     assert.equal(await readerCatalog.locator("#list-suggestions [data-pending-id]").count(),0);
-    assert.equal(await readerCatalog.locator("#scan-suggestions-count").textContent(),"1");
+    assert.equal(await readerCatalog.locator("#scan-suggestions-count").textContent(),"(1)");
     await readerCatalog.locator("#scan-suggestions-summary").click();
     const scanCard = readerCatalog.locator('#scan-suggestions [data-pending-id="scan-1"]');
     assert.deepEqual(await scanCard.locator(".actions ha-icon").evaluateAll(icons => icons.map(icon => icon.getAttribute("icon"))), ["mdi:plus-thick","mdi:view-grid","mdi:delete"]);

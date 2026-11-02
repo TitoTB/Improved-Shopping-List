@@ -7,13 +7,15 @@
 - [Stock](#stock)
 - [Analítica](#analítica)
 - [Ajustes](#ajustes)
-- [Marketing de afiliados](#marketing-de-afiliados)
+- [Disclaimer](#disclaimer)
 
 ## Lista de la compra
 
 Desde este apartado puedes consultar y gestionar los productos de la lista seleccionada. En la parte superior aparecen los productos **pendientes de compra** y, debajo, el bloque desplegable **Compras recientes**, con los productos que has marcado como comprados y que todavía se conservan en la lista.
 
-![Lista de la compra en cuadrícula, con productos pendientes y compras recientes](docs/images/lista-de-la-compra.png)
+<p align="center">
+  <img src="docs/images/lista-de-la-compra.png" alt="Lista de la compra en cuadrícula, con productos pendientes y compras recientes">
+</p>
 
 ### Marcar productos como comprados o volver a añadirlos
 
@@ -53,7 +55,9 @@ Cada supermercado muestra su logo, el importe estimado y cuántos productos tien
 
 Inicialmente se selecciona el supermercado con más productos con precio disponible; si hay empate, se prioriza el de menor importe. **Pulsa otro supermercado** para consultar su ticket, con los productos ordenados alfabéticamente y el precio a la derecha. Los productos sin precio en esa tienda se agrupan en un bloque comprimido que puedes desplegar. Al final aparece el total estimado, que suma únicamente los productos con precio conocido.
 
-![Vista tipo ticket con precios de Carrefour y total estimado de la compra](docs/images/lista-ticket.png)
+<p align="center">
+  <img src="docs/images/lista-ticket.png" alt="Vista tipo ticket con precios de Carrefour y total estimado de la compra">
+</p>
 
 Para volver a la vista habitual de productos, **pulsa el badge del número de productos**.
 
@@ -61,7 +65,9 @@ Para volver a la vista habitual de productos, **pulsa el badge del número de pr
 
 El catálogo reúne las fichas de tus productos para utilizarlas en la lista de la compra, Stock y la comparación de precios. Sus vistas son **Productos**, **Categorías** y **Pendiente**.
 
-![Vista de productos del catálogo en cuadrícula](docs/images/catalogo-productos.png)
+<p align="center">
+  <img src="docs/images/catalogo-productos.png" alt="Vista de productos del catálogo en cuadrícula">
+</p>
 
 ### Añadir productos y asignar imágenes
 
@@ -69,17 +75,23 @@ Desde **Productos**, pulsa **+** para crear una ficha. Puedes empezar con el nom
 
 En la ficha puedes asignar una imagen mediante el campo **URL Imagen/Icono**, indicando la dirección de la imagen que quieras utilizar. También se muestran propuestas de iconos, dando prioridad al catálogo comunitario, cuyas imágenes proceden principalmente de [Iconify](https://iconify.design/) y [Flaticon](https://www.flaticon.es/).
 
-![Ficha de producto con nombre, categoría, URL de imagen e iconos sugeridos](docs/images/ficha-producto-caracteristicas.png)
+<p align="center">
+  <img src="docs/images/ficha-producto-caracteristicas.png" alt="Ficha de producto con nombre, categoría, URL de imagen e iconos sugeridos">
+</p>
 
 ### Organizar por categorías
 
 Puedes crear categorías y asignarles un nombre, un icono y un color. Después, selecciona la categoría correspondiente en la ficha de cada producto; también puedes crear una categoría desde esa misma ficha.
 
-![Categorías del catálogo con sus iconos y colores](docs/images/catalogo-categorias.png)
+<p align="center">
+  <img src="docs/images/catalogo-categorias.png" alt="Categorías del catálogo con sus iconos y colores">
+</p>
 
 El catálogo permite buscar productos, alternar entre cuadrícula y filas y mostrarlos por orden alfabético o agrupados por categoría. Los grupos se muestran comprimidos y se despliegan al pulsarlos.
 
-![Productos del catálogo en filas agrupadas por categoría](docs/images/catalogo-productos-por-categoria.png)
+<p align="center">
+  <img src="docs/images/catalogo-productos-por-categoria.png" alt="Productos del catálogo en filas agrupadas por categoría">
+</p>
 
 ### Alternativas de compra en distintas tiendas
 
@@ -113,7 +125,9 @@ En la vista **Stock**, pulsa **+** para añadir un producto. Después, pulsa su 
 
 Puedes alternar entre cuadrícula y filas, y ordenar los productos alfabéticamente, por menor porcentaje de Stock o agrupados por categoría. En filas también aparecen los controles para aumentar o reducir la cantidad manualmente.
 
-![Productos en Stock con cantidades, porcentajes y barras de disponibilidad](docs/images/stock-productos.png)
+<p align="center">
+  <img src="docs/images/stock-productos.png" alt="Productos en Stock con cantidades, porcentajes y barras de disponibilidad">
+</p>
 
 ### Métodos de control
 
@@ -146,7 +160,9 @@ Si una persona ha estado en casa en algún momento de esa franja, se descuenta l
 
 Las tarjetas se ordenan por hora de inicio. Su toggle permite activarlas o desactivarlas y, al pulsar una tarjeta, puedes editarla o eliminarla desde el popup.
 
-![Rutinas con franjas horarias, días y personas asignadas](docs/images/stock-rutinas.png)
+<p align="center">
+  <img src="docs/images/stock-rutinas.png" alt="Rutinas con franjas horarias, días y personas asignadas">
+</p>
 
 ### Lectores
 
@@ -158,7 +174,9 @@ Desde **Reposición** en la ficha de cada producto puedes escanear y asociar uno
 
 Cada tarjeta permite activar o desactivar el lector, consultar las lecturas en directo, editarlo o quitarlo. También muestra la fecha y hora de su último uso. Los códigos desconocidos aparecen en **Catálogo → Pendiente** para vincularlos a un producto existente o crear uno nuevo. Los lectores siguen funcionando aunque cierres la interfaz.
 
-![Lectores de códigos de barras y NFC con sus controles](docs/images/stock-lectores.png)
+<p align="center">
+  <img src="docs/images/stock-lectores.png" alt="Lectores de códigos de barras y NFC con sus controles">
+</p>
 
 ## Analítica
 
@@ -226,6 +244,15 @@ Analítica no requiere tarjetas adicionales de HACS.
 
 ## Ajustes
 
-## Marketing de afiliados
+## Disclaimer
+
+### Referencias
+
+- **Inspiración del diseño:** el diseño visual de la lista de la compra está inspirado en la aplicación [Bring!](https://www.getbring.com/).
+- **Iconos e imágenes de productos:** las sugerencias del catálogo comunitario proceden principalmente de [Iconify](https://iconify.design/) y [Flaticon](https://www.flaticon.es/). Cada recurso tiene sus propios autores y condiciones de uso; en Iconify, las licencias corresponden a cada colección de iconos. También puedes asignar tus propias imágenes mediante una URL.
+- **Iconos de la interfaz:** se utilizan [Material Design Icons de Pictogrammers](https://pictogrammers.com/library/mdi/), a través de Home Assistant, y [Font Awesome](https://fontawesome.com/) en algunos botones de Comunidad.
+- **Datos de productos y nutrición:** se utiliza [Open Food Facts](https://world.openfoodfacts.org/), una base de datos colaborativa consultada por EAN, como fuente de información de productos, Nutri-Score y clasificación NOVA. La disponibilidad y precisión dependen de los datos aportados a esa fuente.
+
+### Marketing de afiliados
 
 Algunos enlaces para consultar productos en las tiendas pueden ser enlaces de afiliado. Si accedes a través de ellos y realizas una compra, Aguacatec puede recibir una comisión.

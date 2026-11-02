@@ -264,6 +264,86 @@ Analítica no requiere tarjetas adicionales de HACS.
 
 ## Ajustes
 
+Ajustes se organiza en **General**, **Tiendas** e **Información**. Sus bloques se pueden desplegar para consultar y modificar la configuración. Para guardar cambios necesitas una cuenta administradora de Home Assistant.
+
+### General
+
+- **Listas de la compra:** añade las entidades **todo** que quieres utilizar y marca con la estrella la lista principal. Esta será el destino predeterminado cuando no hayas elegido otra. Quitar una lista de la integración no elimina su entidad ni sus productos de Home Assistant. Si el proveedor utiliza una descripción como segunda línea del nombre —como «Leche» y «de avena» en Bring—, puedes activar **Usar la descripción como parte del nombre** para esa lista.
+- **Listas pasarela:** selecciona una entidad **todo**, la lista de destino y si los productos deben conservarse en la pasarela o eliminarse después de transferirlos. Solo se transfieren las nuevas incorporaciones desde que la configuras, sin duplicar productos pendientes en el destino. Estas listas sirven, por ejemplo, para recoger productos añadidos mediante un asistente de voz.
+- **Personalización:** elige los colores inicial y final de los degradados de productos pendientes, comprados y en Stock, con una vista previa. También puedes ajustar los productos por fila en ordenador y móvil o restablecer los valores predeterminados.
+- **Notificaciones:** configura avisos cuando una lista supere un número de productos pendientes o cuando haya más de cierto número de productos con Stock bajo. Cada aviso permite seleccionar uno o varios dispositivos de destino, el umbral, el título y el mensaje. El aviso de lista se evalúa de forma independiente para cada lista configurada. Se envía al superar el límite y vuelve a poder enviarse cuando el recuento baja hasta ese límite o por debajo y lo supera otra vez.
+
+Los destinos de notificación son los servicios y entidades **notify** disponibles en tu Home Assistant; deben estar configurados previamente para poder seleccionarlos.
+
+### Tiendas: cuentas, catálogos y establecimientos
+
+En esta vista se distinguen las **cuentas conectadas**, que permiten recuperar tus compras, los **catálogos públicos**, que completan información de productos, y las **tiendas físicas**, que se utilizan para identificar dónde has comprado mediante las zonas de Home Assistant.
+
+#### Cuentas conectadas
+
+Actualmente puedes conectar **Carrefour** y **Lidl**. Activa la cuenta que quieras utilizar y abre su configuración para conectarla o desconectarla.
+
+- **Carrefour:** introduce el correo y la contraseña. Puedes activar **Recordar credenciales** para conservarlas en tu instancia y facilitar la reconexión cuando sea necesaria.
+- **Lidl:** sigue el asistente de acceso a la web oficial y selecciona el archivo **HAR** del inicio de sesión. El asistente explica cómo obtenerlo desde las herramientas del navegador. El archivo se interpreta en tu navegador y solo se envía a Home Assistant la autorización de ese intento, que permite guardar una sesión renovable.
+
+La sesión y, cuando lo solicitas, las credenciales se conservan en tu Home Assistant; no se publican en el repositorio comunitario. La tienda puede caducar o invalidar una sesión, en cuyo caso será necesario renovarla o volver a conectar la cuenta.
+
+Cada cuenta ofrece dos opciones, disponibles cuando está conectada:
+
+- **Recuperar compras de los últimos 12 meses:** incorpora a **Analítica → Compras** las compras disponibles dentro de ese periodo móvil, con sus datos básicos, como fecha, tienda e importe. No se limita al año natural ni obliga a revisar todos los tickets. Puedes abrir el ticket de una compra desde su icono para revisarlo cuando lo necesites.
+- **Descargar ticket automáticamente:** permite consultar la cuenta después de detectar actividad de compra y guardar el ticket pendiente de revisión. Las consultas automáticas están limitadas para evitar accesos continuos. Descargarlo no repone Stock ni actualiza precios por sí solo: esos cambios se confirman en la revisión del ticket. Cuando una consulta encuentra otras compras aún no registradas, también puede incorporarlas al histórico, sin obligarte a revisar sus tickets.
+
+#### Catálogos públicos de productos y precios
+
+Los catálogos disponibles incluyen **Alcampo, Mercadona, Masymas, BM, Consum, La Sirena y Eroski**. No requieren conectar una cuenta de comprador. Están desactivados inicialmente: activa únicamente los que quieras utilizar como fuente de información.
+
+Al activar uno, la integración busca coincidencias por **EAN** para los productos que necesitan información, reutilizando los datos y enlaces ya conocidos antes de consultar la tienda. Cuando hay una coincidencia confirmada, intenta completar los campos disponibles, como marca, contenido, unidad de medida, formato y precio. La información que ofrece cada supermercado puede variar y no todos los EAN tendrán coincidencias.
+
+El engranaje de cada catálogo permite configurar **Mostrar tienda en el catálogo**:
+
+- **Desactivado:** utiliza la tienda como fuente para completar los datos comunes del producto, sin mostrarla como alternativa de compra.
+- **Activado:** también incorpora su referencia, URL y precio disponible como alternativa de esa tienda. Podrás verla al agrupar los productos por tienda y utilizar sus precios en las comparaciones cuando exista un formato comparable.
+
+Los datos recuperados se conservan para reutilizarlos, también si más adelante cambias la visibilidad de la tienda. Las consultas se procesan en segundo plano, con una espera de **20 segundos** entre peticiones de estos procesos de completado y con pausas adicionales ante bloqueos o errores. El progreso y las incidencias se pueden consultar sin que sea necesario mantener abierta la interfaz.
+
+Los precios guardados son referencias de la última consulta o compra registrada: no implican una consulta en tiempo real al abrir una ficha o una comparativa. Las fuentes públicas utilizan ubicaciones de referencia de la integración, por lo que sus precios o disponibilidad pueden diferir de los de tu establecimiento.
+
+Los controles de **actualización de precios** permiten solicitar una revisión manual y configurar la actualización automática, su frecuencia en días y su hora. La frecuencia mínima es de un día y la hora inicial se asigna de forma aleatoria para repartir las consultas entre instalaciones. Esta programación de precios es distinta de las opciones de recuperación de tickets de las cuentas conectadas.
+
+#### Tiendas físicas y personas
+
+En el bloque **Tiendas**, pulsa **+** para crear un establecimiento. Puedes indicar nombre, imagen y color, asociarlo a una cuenta compatible y seleccionar una o varias entidades **zone**. Si eliges una cuenta vinculada, se proponen su nombre, imagen y color. El popup también permite crear zonas y consultar su posición en el mapa.
+
+En **Usuarios**, marca las tarjetas de las personas que realizan las compras. Se utilizan sus entidades **person** de Home Assistant para comprobar las visitas; los avatares ayudan a identificar a quién estás seleccionando.
+
+#### Detección automática de compras por zonas
+
+1. Activa **Detección automática de compra** e indica el umbral de productos completados en un mismo día. Se suman las listas de compra configuradas; la compra se detecta cuando se supera ese umbral, no al alcanzarlo.
+2. Activa **Asignación de tienda basada en zona**, selecciona las personas y asigna las zonas a los establecimientos. Configura la **permanencia mínima en la zona**, en minutos: pasar cerca de una tienda sin permanecer ese tiempo no basta para identificarla como lugar de compra.
+3. Cuando una persona seleccionada cumple esa permanencia, la visita se utiliza para proponer la tienda de la compra y registrar las personas relacionadas. Si varias zonas cumplen el criterio, pueden generarse compras separadas para esos establecimientos.
+4. Si el establecimiento tiene una cuenta conectada y la descarga automática está activada, se intenta recuperar su ticket. Se priorizan las cuentas correspondientes a las zonas visitadas; entre las restantes elegibles se tiene en cuenta la tienda favorita. Una vez confirmada una compra, no se continúa buscando ese mismo registro en las demás cuentas.
+
+La ubicación orienta la búsqueda, pero no sustituye al ticket. Para asociarlo automáticamente se comprueba la relación con la fecha y los productos completados que se pueden reconocer. Si no hay un ticket coincidente o la tienda no permite recuperarlo, queda una compra pendiente en **Analítica → Compras**, donde puedes indicar la tienda y el importe, subir un ticket compatible o intentar recuperar la compra desde una cuenta conectada.
+
+Los productos completados en la lista sirven como señal de que has comprado. Cuando se recupera el ticket, el detalle real de la compra procede de este: puede incluir productos adicionales o no contener todos los que habías marcado. La detección no vuelve a reponer Stock por sí sola.
+
+### Información y catálogo comunitario
+
+En **Información** encontrarás el bloque **Comunidad** y, debajo, los **Logs**.
+
+Desde Comunidad puedes **exportar tu catálogo** en un archivo JSON con nombres, categorías, iconos o enlaces de imágenes, EAN, alternativas de compra, formatos, precios guardados y clasificaciones nutricionales disponibles. Puedes compartir ese archivo con Aguacatec para ampliar el diccionario comunitario. La exportación es manual: pulsar el botón descarga el archivo, no lo publica automáticamente. También encontrarás los enlaces para unirte a la comunidad y apoyar el proyecto.
+
+El catálogo comunitario ayuda a completar información sin repetir consultas innecesarias. Se utiliza de dos formas:
+
+- **Propuestas de imágenes:** se priorizan las sugerencias comunitarias para el nombre del producto antes de recurrir a otras fuentes de iconos.
+- **Información por EAN:** el diccionario puede aportar enlaces de las tiendas y datos comunes, como marca, contenido, unidad de medida, unidades incluidas y clasificaciones nutricionales con su fuente y fecha. Para estos datos se exige coincidencia de EAN; un nombre parecido no confirma que sea el mismo producto.
+
+La integración conserva una copia local de los diccionarios y reutiliza su caché. En la búsqueda de datos por EAN, consulta primero la información local y comunitaria; si no basta, recurre a los catálogos habilitados que permiten buscar por EAN y, después, a los demás métodos compatibles. Así, un enlace o formato ya conocido evita repetir su búsqueda. Los índices comunitarios se comprueban periódicamente, sin necesitar una nueva versión de la integración para recibir sus actualizaciones.
+
+El diccionario comunitario no es un servicio de precios en tiempo real: los precios de tus alternativas proceden de los tickets que revisas, de las consultas compatibles a las tiendas o de los valores que introduces manualmente. La caché, las esperas y las pausas de reintento reducen las llamadas, pero no garantizan que una web externa acepte todas las consultas.
+
+Los **Logs** permiten consultar la actividad de listas, Stock, lectores, catálogo, cuentas y tiendas, filtrarla y revisar la información técnica de las incidencias. Son el lugar donde comprobar qué datos se han completado o por qué una consulta ha quedado pausada o no ha obtenido resultados.
+
 ## Disclaimer
 
 ### Referencias

@@ -22,6 +22,16 @@ No necesitas instalar tarjetas adicionales de HACS ni complementos de Home Assis
 
 ### Instalar con HACS
 
+Pulsa el siguiente botón para abrir este repositorio en HACS dentro de tu Home Assistant. Si es la primera vez que utilizas My Home Assistant, puede pedirte la dirección de tu instancia. Después confirma la descarga y continúa con el reinicio y la configuración indicados más abajo.
+
+<p align="center">
+  <a href="https://my.home-assistant.io/redirect/hacs_repository/?owner=TitoTB&amp;repository=Improved-Shopping-List&amp;category=integration">
+    <img src="https://my.home-assistant.io/badges/hacs_repository.svg" alt="Abrir Improved Shopping List en HACS">
+  </a>
+</p>
+
+Si prefieres añadir el repositorio manualmente:
+
 1. Abre **HACS** en Home Assistant. En el menú de los **tres puntos**, entra en **Repositorios personalizados**.
 2. Añade `https://github.com/TitoTB/Improved-Shopping-List` y selecciona el tipo **Integración / Integration**. Pulsa **Añadir**. Puedes consultar estos pasos en la [documentación de repositorios personalizados de HACS](https://www.hacs.dev/docs/faq/custom_repositories/).
 3. Busca **Improved Shopping List** en HACS, abre su ficha y descarga la última versión estable.

@@ -346,6 +346,18 @@ Los **Logs** permiten consultar la actividad de listas, Stock, lectores, catálo
 
 ## Disclaimer
 
+### ¿De dónde salen los datos?
+
+Seguimos una política transparente sobre el origen de la información. El objetivo principal es que sea el propio usuario quien aporte los datos de sus compras, mediante sus **tickets y facturas**, los datos recuperados de las cuentas que decide conectar y las correcciones que confirma al revisarlos. Junto con estos datos, damos prioridad a la información disponible en el **repositorio comunitario**, para reutilizar enlaces, formatos y otros datos ya conocidos sin tener que buscarlos de nuevo.
+
+Cuando falta información, se puede completar con datos públicos de los supermercados compatibles y otras fuentes indicadas en esta documentación, según las opciones que active el usuario. Reutilizamos la caché local y el diccionario comunitario, espaciamos las peticiones y aplicamos pausas ante errores o rechazos. Así buscamos **minimizar las llamadas**, reducir el consumo de recursos de los servicios externos y evitar bloqueos; no se pretende consultar continuamente ni replicar sus catálogos completos.
+
+Aportar datos al catálogo personal no los publica automáticamente. Las contribuciones al repositorio comunitario se realizan mediante la exportación y el envío voluntario del archivo por parte del usuario, como se explica en Ajustes.
+
+Este es un **proyecto independiente**, sin vinculación oficial ni respaldo de los supermercados o servicios cuyas cuentas permite conectar. Las marcas pertenecen a sus respectivos titulares. Los posibles enlaces de afiliado se declaran por separado en el apartado Marketing de afiliados.
+
+Los **precios son orientativos** y pueden no ser exactos o estar desactualizados. Reflejan la última información guardada y pueden variar según la fecha, el establecimiento, la ubicación, el formato, las promociones o los descuentos personales. Los importes estimados y las comparativas no garantizan el precio final de una compra; el importe válido será el que confirme la tienda.
+
 ### Referencias
 
 - **Inspiración del diseño:** el diseño visual de la lista de la compra está inspirado en la aplicación [Bring!](https://www.getbring.com/).

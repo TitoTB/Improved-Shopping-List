@@ -13,6 +13,8 @@
 
 Desde este apartado puedes consultar y gestionar los productos de la lista seleccionada. En la parte superior aparecen los productos **pendientes de compra** y, debajo, el bloque desplegable **Compras recientes**, con los productos que has marcado como comprados y que todavía se conservan en la lista.
 
+![Lista de la compra en cuadrícula, con productos pendientes y compras recientes](docs/images/lista-de-la-compra.png)
+
 ### Marcar productos como comprados o volver a añadirlos
 
 - **Pulsa un producto pendiente** para marcarlo como comprado. Pasará al bloque de Compras recientes.
@@ -50,6 +52,8 @@ Junto al título Lista de la compra aparecen el **número de productos pendiente
 Cada supermercado muestra su logo, el importe estimado y cuántos productos tienen precio respecto al total de la lista. Por ejemplo, **2,50 € (1/17)** indica que solo hay precio para uno de los diecisiete productos pendientes.
 
 Inicialmente se selecciona el supermercado con más productos con precio disponible; si hay empate, se prioriza el de menor importe. **Pulsa otro supermercado** para consultar su ticket, con los productos ordenados alfabéticamente y el precio a la derecha. Los productos sin precio en esa tienda se agrupan en un bloque comprimido que puedes desplegar. Al final aparece el total estimado, que suma únicamente los productos con precio conocido.
+
+![Vista tipo ticket con precios de Carrefour y total estimado de la compra](docs/images/lista-ticket.png)
 
 Para volver a la vista habitual de productos, **pulsa el badge del número de productos**.
 

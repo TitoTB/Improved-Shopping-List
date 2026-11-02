@@ -238,7 +238,7 @@ Utiliza el catálogo completo y sus EAN para mostrar dos gráficos independiente
 
 Pulsa una calificación o un grupo para desplegar sus productos y abrir sus fichas. Desplegar un grupo no filtra el otro gráfico. Esta vista ayuda a conocer la composición del catálogo; no representa las cantidades que has consumido ni una valoración de tu dieta.
 
-La integración consulta [Open Food Facts](https://world.openfoodfacts.org/) por coincidencia exacta de EAN y conserva los resultados en una caché persistente. Al abrir la vista intenta completar la información sin caché vigente, con consultas espaciadas. Los datos encontrados se reutilizan durante treinta días para evitar repetir llamadas. Open Food Facts es una base colaborativa y puede contener información incompleta: no se deduce una clasificación a partir del nombre del producto.
+La integración busca primero Nutri-Score y NOVA en la caché local y en el diccionario comunitario por EAN. Si falta información vigente, consulta [Open Food Facts](https://world.openfoodfacts.org/) por coincidencia exacta de EAN y conserva los resultados en una caché persistente. El diccionario incluye la fuente, fecha de consulta y versión del cálculo de Nutri-Score cuando está disponible. Al abrir la vista intenta completar la información sin caché vigente, con consultas espaciadas. Los datos encontrados se reutilizan durante treinta días para evitar repetir llamadas. Open Food Facts es una base colaborativa y puede contener información incompleta: no se deduce una clasificación a partir del nombre del producto.
 
 Analítica no requiere tarjetas adicionales de HACS.
 

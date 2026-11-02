@@ -108,3 +108,16 @@ async def test_missing_product_name_can_still_come_from_enabled_shop(hass):
     lookup._fetch=AsyncMock(return_value={'status':'not_found'})
     result=await lookup.async_lookup(EAN)
     assert result['product_name']=='Nombre de la tienda' and result['brand']=='Marca' and result['content_quantity']==500
+
+
+async def test_nutrition_metadata_round_trips_without_changing_format_entries(hass):
+    from custom_components.improved_shopping_list.ean_common_index import CommonEANIndex,validate_index
+    metadata={'source':'openfoodfacts','license':'ODbL-1.0','checked_at':int(time.time()),'nutriscore':{'grade':'c','version':'2023'},'nova':4}
+    raw={'schema_version':1,'revision':'a'*40,'updated_at':'2026-10-31T00:00:00+00:00','products':{CODE:{'brand':'Marca','origins':['carrefour']}},'nutrition':{CODE:metadata}}
+    index=CommonEANIndex(hass,None);index._data.update(index=validate_index(raw),checked_at=time.time(),next_attempt=0)
+    assert index.nutrition_cached(EAN)==metadata and 'nutrition' not in index.entries({CODE})[CODE]
+    await index._store.async_save(index._data)
+    restored=CommonEANIndex(hass,None);await restored.async_load()
+    assert restored.nutrition_cached(CODE)==metadata
+    bad=deepcopy(raw);bad['nutrition'][CODE]['nova']=True
+    with pytest.raises(ValueError):validate_index(bad)

@@ -10,7 +10,7 @@ import sys
 
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT/'custom_components/improved_shopping_list'))
-from ean_common import brand, brand_key, content_key, validate
+from ean_common import brand, brand_key, content_key, validate, validate_nutrition
 
 
 def gtin(value):
@@ -39,7 +39,14 @@ def import_catalog(data,previous=None):
             observation={'store':store,**fields}
             rows=products.setdefault(code,[])
             if observation not in rows:rows.append(observation)
-    return {'schema_version':1,'products':dict(sorted(products.items()))}
+    result={'schema_version':1,'products':dict(sorted(products.items()))}
+    nutrition=deepcopy((previous or {}).get('nutrition',{}))
+    for code,value in data.get('nutrition',{}).items():
+        if gtin(code)!=code:raise ValueError('Invalid nutritional EAN')
+        value=validate_nutrition(value)
+        if value['checked_at']>=nutrition.get(code,{}).get('checked_at',0):nutrition[code]=value
+    if nutrition:result['nutrition']=dict(sorted(nutrition.items()))
+    return result
 
 
 def combine(observations):
@@ -58,7 +65,7 @@ def combine(observations):
     return {**validate(fields),'origins':sorted(origins)}
 
 
-def build(contributions,mercadona):
+def build(contributions,mercadona,nutrition=None):
     rows=deepcopy(contributions.get('products',{}))
     for code,fields in mercadona.get('common',{}).items():
         if gtin(code)==code:rows.setdefault(code,[]).append({'store':'mercadona',**validate(fields)})
@@ -68,8 +75,16 @@ def build(contributions,mercadona):
         sanitized=[{'store':row['store'],**validate({k:v for k,v in row.items() if k!='store'})} for row in observations]
         row=combine(sanitized)
         if any(row.get(field) for field in ('brand','content_quantity','pack_count')):products[code]=row
-    revision=sha1(json.dumps(products,sort_keys=True,ensure_ascii=False,separators=(',',':')).encode()).hexdigest()
-    return {'schema_version':1,'revision':revision,'updated_at':datetime.now(UTC).isoformat(),'products':products}
+    shared=deepcopy(contributions.get('nutrition',{}))
+    for code,value in (nutrition or {}).get('nutrition',{}).items():
+        if gtin(code)!=code:raise ValueError('Invalid nutritional EAN')
+        value=validate_nutrition(value)
+        if value['checked_at']>=shared.get(code,{}).get('checked_at',0):shared[code]=value
+    shared={code:validate_nutrition(value) for code,value in sorted(shared.items()) if gtin(code)==code}
+    revision=sha1(json.dumps({'products':products,'nutrition':shared} if shared else products,sort_keys=True,ensure_ascii=False,separators=(',',':')).encode()).hexdigest()
+    result={'schema_version':1,'revision':revision,'updated_at':datetime.now(UTC).isoformat(),'products':products}
+    if shared:result['nutrition']=shared;result['nutrition_license']='ODbL-1.0';result['nutrition_source']='https://world.openfoodfacts.org/'
+    return result
 
 
 def write(path,data):
@@ -77,12 +92,12 @@ def write(path,data):
 
 
 def main():
-    parser=argparse.ArgumentParser();parser.add_argument('--contributions',type=Path,default=ROOT/'data/ean-common-contributions.json');parser.add_argument('--mercadona',type=Path,default=ROOT/'data/mercadona-index.json');parser.add_argument('--output',type=Path,default=ROOT/'data/ean-common.json');parser.add_argument('--import-catalog',type=Path,action='append',default=[]);args=parser.parse_args()
+    parser=argparse.ArgumentParser();parser.add_argument('--contributions',type=Path,default=ROOT/'data/ean-common-contributions.json');parser.add_argument('--mercadona',type=Path,default=ROOT/'data/mercadona-index.json');parser.add_argument('--output',type=Path,default=ROOT/'data/ean-common.json');parser.add_argument('--nutrition',type=Path,default=ROOT/'data/ean-nutrition.json');parser.add_argument('--import-catalog',type=Path,action='append',default=[]);args=parser.parse_args()
     contributions=json.loads(args.contributions.read_text(encoding='utf-8')) if args.contributions.exists() else {'schema_version':1,'products':{}}
     for path in args.import_catalog:contributions=import_catalog(json.loads(path.read_text(encoding='utf-8-sig')),contributions)
     if args.import_catalog:write(args.contributions,contributions)
-    result=build(contributions,json.loads(args.mercadona.read_text(encoding='utf-8')));write(args.output,result)
-    print(json.dumps({'entries':len(result['products']),'contributed_eans':len(contributions['products']),'fields':{field:sum(field in row for row in result['products'].values()) for field in ('brand','content_quantity','content_unit','pack_count')}}))
+    result=build(contributions,json.loads(args.mercadona.read_text(encoding='utf-8')),json.loads(args.nutrition.read_text(encoding='utf-8')) if args.nutrition.exists() else {});write(args.output,result)
+    print(json.dumps({'entries':len(result['products']),'contributed_eans':len(contributions['products']),'nutrition_eans':len(result.get('nutrition',{})),'fields':{field:sum(field in row for row in result['products'].values()) for field in ('brand','content_quantity','content_unit','pack_count')}}))
 
 
 if __name__=='__main__':main()

@@ -1,4 +1,4 @@
-import { ListSettingsSession } from "./list-settings-client.js?v=0.82.0";
+import { ListSettingsSession } from "./list-settings-client.js?v=0.83.0";
 
 export class ReadersSession extends ListSettingsSession {
   constructor(getHass, onChange) {

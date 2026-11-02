@@ -34,7 +34,7 @@ class CommonEANBuildTests(unittest.TestCase):
         seed=json.loads((ROOT/'data/ean-common-contributions.json').read_text(encoding='utf-8'))
         mercadona=json.loads((ROOT/'data/mercadona-index.json').read_text(encoding='utf-8'))
         published=json.loads((ROOT/'data/ean-common.json').read_text(encoding='utf-8'))
-        built=builder.build(seed,mercadona)
+        built=builder.build(seed,mercadona,json.loads((ROOT/'data/ean-nutrition.json').read_text(encoding='utf-8')))
         self.assertEqual(built['products'],published['products']);self.assertEqual(built['revision'],published['revision'])
         self.assertGreater(len(published['products']),4000)
         self.assertTrue(any('carrefour' in row['origins'] for row in published['products'].values()))

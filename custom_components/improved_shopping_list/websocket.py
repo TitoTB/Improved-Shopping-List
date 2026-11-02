@@ -444,7 +444,8 @@ async def ws_catalog_export(hass, connection, msg):
     if not (catalog := _catalog(hass, connection, msg)):
         return
     try:
-        result = await hass.async_add_executor_job(build_catalog_export, catalog.products, catalog.categories)
+        nutrition=hass.data[DOMAIN]["readers"].lookup.nutrition_export(catalog.products)
+        result = await hass.async_add_executor_job(build_catalog_export, catalog.products, catalog.categories, nutrition)
     except (IconError, ValueError, OSError, HomeAssistantError) as err:
         connection.send_error(msg["id"], "catalog_export_error", str(err))
     else:

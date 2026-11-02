@@ -1,5 +1,12 @@
 # Historial de cambios
 
+## 0.83.0 — 2026-11-02
+
+- El diccionario comunitario por EAN incorpora Nutri-Score, versión del cálculo, NOVA, fuente, fecha y licencia, manteniendo la compatibilidad del bloque de formatos. Nutrición prioriza la caché y el diccionario y consulta Open Food Facts solo cuando falta información vigente.
+- La exportación manual incluye las clasificaciones públicas guardadas. El proceso de mantenimiento incorpora una carga inicial y lotes limitados de actualización, conservando las pausas y los resultados anteriores.
+
+- Los gráficos de gasto por categoría y productos con más gasto utilizan filas de la misma altura y separación, alineadas entre ambos bloques aunque solo uno muestre imágenes.
+
 ## 0.82.0 — 2026-11-02
 
 - En móvil, Gasto total, Compras e Importe medio se mantienen en una única fila con tipografía y espaciado adaptados.

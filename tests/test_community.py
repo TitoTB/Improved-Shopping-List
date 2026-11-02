@@ -180,3 +180,13 @@ async def test_six_suggestions_prioritize_shared_dictionary(hass, hass_ws_client
         search.assert_not_awaited()
     else:
         search.assert_awaited_once()
+
+
+def test_catalog_export_includes_only_public_nutrition_classifications_with_provenance():
+    import time
+    facts={'source':'openfoodfacts','license':'ODbL-1.0','checked_at':int(time.time()),'nutriscore':{'grade':'a','version':'2023'},'nova':1}
+    result=build_catalog_export([{'name':'Producto','barcodes':['8410199023094']}],[],{'08410199023094':facts})
+    data=json.loads(base64.b64decode(result['data']))
+    assert data['nutrition']['08410199023094']==facts
+    assert 'nutrients' not in data['nutrition']['08410199023094']
+    with pytest.raises(ValueError):build_catalog_export([],[],{'08410199023094':{**facts,'price':1}})

@@ -126,7 +126,7 @@ def build_export(products: list[dict], assets: dict, config: Path, directory: Pa
             "entries": len(entries), "images": len(files), "skipped": skipped}
 
 
-def build_catalog_export(products: list[dict], categories: list[dict]) -> dict:
+def build_catalog_export(products: list[dict], categories: list[dict], nutrition=None) -> dict:
     """Download commercial catalog data without account or household automation data."""
     category_names = {item["id"]: item["name"] for item in categories}
     rows = []
@@ -142,7 +142,11 @@ def build_catalog_export(products: list[dict], categories: list[dict]) -> dict:
             option["url"] = public_url(reference.get("url", ""))
             row["commercial_references"].append(option)
         rows.append(row)
-    data = json.dumps({"schema_version": 1, "kind": "improved-shopping-list-catalog-export", "products": rows},
+    payload={"schema_version": 1, "kind": "improved-shopping-list-catalog-export", "products": rows}
+    if nutrition:
+        from .ean_common import validate_nutrition
+        payload["nutrition"]={code:validate_nutrition(value) for code,value in nutrition.items()}
+    data = json.dumps(payload,
                       ensure_ascii=False, indent=2, allow_nan=False).encode("utf-8")
     if len(data) > MAX_EXPORT:
         raise IconError("El catálogo supera el tamaño máximo de exportación (8 MB).")

@@ -105,3 +105,43 @@ def source(value):
     if not isinstance(value["revision"],str) or not re.fullmatch(r"[a-f0-9]{40}",value["revision"]):raise ValueError("Invalid common EAN revision")
     if type(value["observed_at"]) not in (int,float) or not math.isfinite(value["observed_at"]) or value["observed_at"]<=0:raise ValueError("Invalid common EAN date")
     return dict(value)
+
+
+NUTRITION_TTL = 30 * 86400
+
+
+def validate_nutrition(value):
+    """Only publish exact-EAN classifications and explicit public provenance."""
+    if not isinstance(value,dict) or set(value)-{"nutriscore","nova","source","checked_at","license"}:
+        raise ValueError("Invalid EAN nutrition")
+    if value.get("source")!="openfoodfacts" or value.get("license")!="ODbL-1.0":
+        raise ValueError("Invalid nutrition source")
+    checked=value.get("checked_at")
+    if type(checked) not in (int,float) or not math.isfinite(checked) or checked<=0 or checked>datetime.now().timestamp()+86400:
+        raise ValueError("Invalid nutrition date")
+    result={"source":"openfoodfacts","license":"ODbL-1.0","checked_at":int(checked)}
+    if "nutriscore" in value:
+        score=value["nutriscore"]
+        if not isinstance(score,dict) or set(score)-{"grade","version"} or score.get("grade") not in tuple("abcde"):
+            raise ValueError("Invalid Nutri-Score")
+        result["nutriscore"]={"grade":score["grade"]}
+        if "version" in score:
+            version=score["version"]
+            if not isinstance(version,str) or not re.fullmatch(r"20[0-9]{2}",version):raise ValueError("Invalid Nutri-Score version")
+            result["nutriscore"]["version"]=version
+    if "nova" in value:
+        if type(value["nova"]) is not int or not 1<=value["nova"]<=4:raise ValueError("Invalid NOVA group")
+        result["nova"]=value["nova"]
+    if not ("nutriscore" in result or "nova" in result):raise ValueError("Missing nutritional classification")
+    return result
+
+
+def nutrition_from_hint(hint, checked_at):
+    """Export only classifications obtained from OFF, not user names or nutrients."""
+    score=hint.get("nutriscore") or {};nova=(hint.get("nutrition") or {}).get("nova")
+    result={"source":"openfoodfacts","license":"ODbL-1.0","checked_at":checked_at}
+    if score.get("grade") in tuple("abcde"):
+        result["nutriscore"]={"grade":score["grade"]}
+        if str(score.get("version","")) in ("2021","2023"):result["nutriscore"]["version"]=str(score["version"])
+    if type(nova) is int and 1<=nova<=4:result["nova"]=nova
+    return validate_nutrition(result) if "nutriscore" in result or "nova" in result else {}

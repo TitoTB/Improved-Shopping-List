@@ -1,15 +1,15 @@
-import "./shopping-places.js?v=0.82.0";
-import "./dia-prices-settings.js?v=0.82.0";
-import "./alcampo-settings.js?v=0.82.0";
-import "./catalog-sources.js?v=0.82.0";
-import "./carrefour-account.js?v=0.82.0";
-import "./lidl-account.js?v=0.82.0";
-import "./logs-panel.js?v=0.82.0";
-import "./notification-settings.js?v=0.82.0";
-import { installDialogCloseButtons } from "./dialog-controls.js?v=0.82.0";
-import { installToggleStyles } from "./toggle-styles.js?v=0.82.0";
-import { todoEntities, isAvailable } from "./todo-client.js?v=0.82.0";
-import { DEFAULT_APPEARANCE, gradientTextColor } from "./list-settings-client.js?v=0.82.0";
+import "./shopping-places.js?v=0.83.0";
+import "./dia-prices-settings.js?v=0.83.0";
+import "./alcampo-settings.js?v=0.83.0";
+import "./catalog-sources.js?v=0.83.0";
+import "./carrefour-account.js?v=0.83.0";
+import "./lidl-account.js?v=0.83.0";
+import "./logs-panel.js?v=0.83.0";
+import "./notification-settings.js?v=0.83.0";
+import { installDialogCloseButtons } from "./dialog-controls.js?v=0.83.0";
+import { installToggleStyles } from "./toggle-styles.js?v=0.83.0";
+import { todoEntities, isAvailable } from "./todo-client.js?v=0.83.0";
+import { DEFAULT_APPEARANCE, gradientTextColor } from "./list-settings-client.js?v=0.83.0";
 
 const MERCADONA_LOGO_URL = new URL("mercadona.png", import.meta.url).href;
 
@@ -287,7 +287,7 @@ class ImprovedShoppingSettings extends HTMLElement {
       <section id="settings-community" class="card" aria-labelledby="settings-community-title" hidden>
         <h2 id="settings-community-title">Comunidad</h2>
         <div class="community-export">
-          <p id="catalog-export-description">Descarga un archivo JSON con todos los productos de tu catálogo: nombres, traducciones, categorías, iconos o enlaces públicos de imágenes, EAN y opciones de compra con tiendas, URL, marcas, formatos y precios guardados. Puedes compartirlo con Aguacatec para completar el diccionario de productos.</p>
+          <p id="catalog-export-description">Descarga un archivo JSON con todos los productos de tu catálogo: nombres, traducciones, categorías, iconos o enlaces públicos de imágenes, EAN y opciones de compra con tiendas, URL, marcas, formatos, precios guardados y clasificaciones nutricionales disponibles con su fuente y fecha. Puedes compartirlo con Aguacatec para completar el diccionario de productos.</p>
           <button id="export-catalog" class="primary community-action" type="button" aria-describedby="catalog-export-description"><svg viewBox="0 0 512 512" aria-hidden="true"><path d="M256 0c17.7 0 32 14.3 32 32v242.7l73.4-73.4c12.5-12.5 32.8-12.5 45.3 0s12.5 32.8 0 45.3l-128 128c-12.5 12.5-32.8 12.5-45.3 0l-128-128c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l73.3 73.4V32c0-17.7 14.3-32 32-32zM64 352v96h384v-96h64v112c0 26.5-21.5 48-48 48H48c-26.5 0-48-21.5-48-48V352h64z"/></svg>Exportar mi catálogo</button>
         </div>
         <p id="catalog-export-error" class="notice error" role="alert" hidden></p>

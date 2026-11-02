@@ -14,6 +14,7 @@ from homeassistant.helpers.storage import Store
 
 from .const import DOMAIN, VERSION
 from .product_references import brand_name
+from .ean_common import NUTRITION_TTL, nutrition_from_hint
 
 _LOGGER = logging.getLogger(__name__)
 BASE_URL = "https://world.openfoodfacts.org"
@@ -130,6 +131,39 @@ class ProductLookup:
         except (OSError, ValueError, HomeAssistantError):
             _LOGGER.warning("Could not load optional nutrition cache")
 
+    def _community_nutrition(self,code):
+        index=getattr(self,"common_index",None)
+        return index.nutrition_cached(code) if index and hasattr(index,"nutrition_cached") else {}
+
+    @staticmethod
+    def _nutrition_hint(entry):
+        result={"status":"found","source":"Open Food Facts","license":"ODbL-1.0","checked_at":entry["checked_at"]}
+        if entry.get("nutriscore"):result["nutriscore"]=deepcopy(entry["nutriscore"])
+        if entry.get("nova"):result["nutrition"]={"nova":entry["nova"]}
+        return result
+
+    def _nutrition_entry(self,code):
+        local=self._nutrition_cache.get(code,{})
+        shared=self._community_nutrition(code)
+        if not shared:return local
+        if shared.get("checked_at",0)>local.get("checked_at",0) or (local.get("result",{}).get("status")=="error" and shared["checked_at"]+NUTRITION_TTL>time.time()):
+            hint=self._nutrition_hint(shared)
+            # Keep existing local nutrients; the public dictionary contains classifications only.
+            old=local.get("result",{})
+            old_facts=deepcopy(old.get("nutrition",{}));old_facts.pop("nova",None)
+            hint["nutrition"]={**old_facts,**hint.get("nutrition",{})}
+            return {"result":hint,"checked_at":shared["checked_at"],"expires":shared["checked_at"]+NUTRITION_TTL}
+        return local
+
+    def nutrition_export(self,products):
+        records={}
+        for row in self.nutrition_records(products)["records"]:
+            if not row["code"]:continue
+            entry=self._nutrition_entry(row["code"])
+            if entry.get("checked_at") and (hint:=nutrition_from_hint(entry.get("result",{}),entry["checked_at"])):
+                records[row["code"]]=hint
+        return records
+
     def nutrition_records(self, products):
         records = []
         for product in products:
@@ -141,7 +175,7 @@ class ProductLookup:
                 code = code.zfill(14)
                 seen.add(code)
                 ref = next((ref for ref in refs if str(ref.get("ean", "")).zfill(14) == code), {})
-                cached = self._nutrition_cache.get(code, {})
+                cached = self._nutrition_entry(code)
                 hint = cached.get("result") or self._cache.get(code, {}).get("result", {})
                 grade = (hint.get("nutriscore") or ref.get("nutriscore") or {}).get("grade", "")
                 records.append({"product_id":product["id"], "code":code, "name":ref.get("name") or product["name"],
@@ -159,15 +193,20 @@ class ProductLookup:
             return {"status":"unsupported"}
         code = code.zfill(14)
         async with self._lock:
-            cached = self._nutrition_cache.get(code, {})
+            cached = self._nutrition_entry(code)
             if cached.get("expires", 0) > time.time():
                 return deepcopy(cached["result"])
+            index=getattr(self,"common_index",None)
+            if index and hasattr(index,"async_nutrition_hint"):
+                await index.async_nutrition_hint(code)
+                cached=self._nutrition_entry(code)
+                if cached.get("expires",0)>time.time():return deepcopy(cached["result"])
             delay = self._next_request - time.monotonic()
             if delay > 0:
                 await sleep(delay)
             self._next_request = time.monotonic() + 4.1
             try:
-                raw = await self._fetch(code)
+                raw = await self._fetch(code[1:] if len(code)==14 and code.startswith("0") else code)
                 result = {key:deepcopy(raw[key]) for key in ("nutrition", "nutriscore", "url", "basis") if key in raw}
                 result["status"] = "found" if result.get("nutrition") or result.get("nutriscore") else "not_found"
             except (ClientError, TimeoutError, ValueError, TypeError):
@@ -207,7 +246,7 @@ class ProductLookup:
                                        *[ref.get("ean", "") for ref in product.get("commercial_references", []) if ref.get("active") is not False]]):
                 if not is_product_barcode(code):
                     continue
-                hint = self._nutrition_cache.get(code.zfill(14), {}).get("result") or self.cached(code) or {}
+                hint = self._nutrition_entry(code.zfill(14)).get("result") or self.cached(code) or {}
                 grade = (hint.get("nutriscore") or {}).get("grade")
                 if grade in counts:
                     counts[grade] += 1
@@ -231,6 +270,10 @@ class ProductLookup:
         fields={key:common[key] for key in ('brand','content_quantity','content_unit','pack_count') if key in common}
         def enrich(result):
             result={**result,**fields}
+            shared=self._community_nutrition(code)
+            if shared and shared["checked_at"]+NUTRITION_TTL>time.time():
+                if shared.get("nutriscore") and not result.get("nutriscore"):result["nutriscore"]={**shared["nutriscore"],"checked_at":shared["checked_at"]}
+                if shared.get("nova"):result["nutrition"]={"nova":shared["nova"],**result.get("nutrition",{})}
             if fields and result.get('status') in ('not_found','error'):result['status']='found'
             return result
         community = getattr(self, "community", None)

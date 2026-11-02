@@ -15,7 +15,7 @@ from homeassistant.helpers.event import async_call_later,async_track_time_interv
 from homeassistant.helpers.storage import Store
 
 from .const import DOMAIN
-from .ean_common import validate,observed_at
+from .ean_common import validate,observed_at,validate_nutrition,NUTRITION_TTL
 from .ean_links import product_eans,DAY
 from .product_references import gtin
 
@@ -35,7 +35,15 @@ def validate_index(data):
         origins=row.get('origins',[])
         if not isinstance(origins,list) or len(origins)>50 or any(not isinstance(s,str) or not re.fullmatch(r'[a-z][a-z0-9_]{0,39}',s) for s in origins):raise ValueError('Invalid common EAN origins')
         clean[code]=validate({key:value for key,value in row.items() if key!='origins'})
-    return {'schema_version':1,'revision':data['revision'],'updated_at':data['updated_at'],'products':clean}
+    result={'schema_version':1,'revision':data['revision'],'updated_at':data['updated_at'],'products':clean}
+    if 'nutrition' in data:
+        entries=data['nutrition']
+        if not isinstance(entries,dict) or len(entries)>100000:raise ValueError('Invalid nutrition index')
+        result['nutrition']={}
+        for code,row in entries.items():
+            if not code or gtin(code)!=code:raise ValueError('Invalid nutrition EAN')
+            result['nutrition'][code]=validate_nutrition(row)
+    return result
 
 
 def parse_index(raw):
@@ -67,6 +75,15 @@ class CommonEANIndex:
         if not index:return {}
         provenance={'store':'community','url':INITIAL_URL,'revision':index['revision'],'observed_at':observed_at(index['updated_at'])}
         return {code:{**deepcopy(index['products'][code]),'source':dict(provenance)} for code in codes if code in index['products']}
+
+    def nutrition_cached(self,code):
+        code=gtin(code)
+        return deepcopy((self._data['index'] or {}).get('nutrition',{}).get(code,{})) if code else {}
+
+    async def async_nutrition_hint(self,code):
+        if not gtin(code):return {}
+        await self.async_refresh()
+        return self.nutrition_cached(code)
 
     async def async_refresh(self):
         async with self._lock:

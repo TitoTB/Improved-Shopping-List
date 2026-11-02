@@ -21,3 +21,16 @@ El importador publica exclusivamente los campos comunes de referencias activas c
 El índice se genera por EAN, combinando las aportaciones de todas las tiendas. Marcas equivalentes por mayúsculas y contenidos equivalentes como 500 g y 0,5 kg coinciden. Si dos fuentes discrepan, el campo afectado se excluye y se registra el conflicto; no se escoge arbitrariamente una tienda. El proceso conserva los campos no conflictivos.
 
 El workflow del índice público de Mercadona regenera también el diccionario general combinando las aportaciones revisadas con el snapshot actualizado. Publica el resultado en [catalogs/ean-common.json de la rama data](https://github.com/TitoTB/Improved-Shopping-List/blob/data/catalogs/ean-common.json); la copia de main sirve de respaldo inicial. No hay envíos automáticos de catálogos de los usuarios.
+
+
+## Nutri-Score y NOVA por EAN
+
+El mismo índice incluye un bloque `nutrition` por EAN con `nutriscore.grade`, la versión del cálculo cuando está disponible, `nova`, `source`, `checked_at` y `license`. Está separado del bloque de formatos dentro del JSON para que las versiones anteriores puedan seguir leyendo marca y contenido. No se publican nutrientes detallados, precios ni información de compras en este bloque.
+
+Las clasificaciones proceden de [Open Food Facts](https://world.openfoodfacts.org/) y se publican con su atribución y licencia [ODbL 1.0](https://opendatacommons.org/licenses/odbl/1-0/). La fecha corresponde a la consulta de esa clasificación, no a la regeneración general del índice. Cada versión del cálculo de Nutri-Score se conserva cuando la fuente la informa; no se infiere a partir del nombre o la tienda.
+
+Nutrición utiliza primero los datos locales vigentes y el diccionario descargado de GitHub. Solo consulta Open Food Facts si no encuentra información vigente para el EAN. La vigencia es de treinta días; no se amplía simplemente por descargar otra vez el índice. Los datos de formato confirmados manualmente se conservan.
+
+La exportación manual del catálogo incluye las clasificaciones que ya están en la caché nutricional, junto con su fuente y fecha. El importador `build-ean-common.py --import-catalog ...` las admite sin publicar nombres internos, precios ni datos domésticos. No se envía nada automáticamente desde Home Assistant.
+
+La carga inicial y el mantenimiento se realizan con `scripts/update-ean-nutrition.py`. Solo se consultan EAN aportados explícitamente al diccionario, no todo el catálogo de supermercados. Cada lote tiene un máximo de cien peticiones, separadas al menos 4,2 segundos; los resultados ausentes se recuerdan durante un día y un límite de peticiones o error de servicio detiene el lote. El workflow diario conserva la caché anterior, completa los EAN pendientes y publica el índice en la rama `data`. Las nuevas clasificaciones llegan a los usuarios con la descarga periódica del diccionario, sin actualizar la integración.

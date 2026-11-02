@@ -230,3 +230,27 @@ async def test_nutrition_distribution_uses_exact_alternative_cache_and_keeps_wei
     assert lookup.nutrition_records(products)["records"][0]["basis"] == "ml"
     hint = product_hint({"product":{**PAYLOAD["product"], "quantity":"400 g", "nutriments":{"fat_100g":2}}},CODE)
     assert hint["basis"] == "g"
+
+
+async def test_nutrition_prefers_fresh_dictionary_and_stale_data_falls_back_to_off(hass,monkeypatch):
+    lookup=ProductLookup(hass);now=int(module.time.time())
+    shared={'source':'openfoodfacts','license':'ODbL-1.0','checked_at':now-100,'nutriscore':{'grade':'a','version':'2023'},'nova':2}
+    index=SimpleNamespace(nutrition_cached=lambda _code:shared,async_nutrition_hint=AsyncMock(return_value=shared))
+    lookup.common_index=index
+    fetch=AsyncMock(side_effect=AssertionError('Fresh community data must avoid OFF'))
+    monkeypatch.setattr(lookup,'_fetch',fetch)
+    result=await lookup.async_nutrition(CODE)
+    assert result['nutriscore']=={'grade':'a','version':'2023'} and result['nutrition']['nova']==2
+    records=lookup.nutrition_records([{'id':'p','name':'Producto','barcodes':[CODE]}])['records']
+    assert records[0]['fresh'] and records[0]['checked_at']==now-100
+    assert lookup.nutrition_export([{'id':'p','name':'Producto','barcodes':[CODE]}])[CODE.zfill(14)]['source']=='openfoodfacts'
+    shared['checked_at']=now-31*86400
+    fetch=AsyncMock(return_value={'status':'found','nutriscore':{'grade':'b'},'nutrition':{'nova':3}})
+    monkeypatch.setattr(lookup,'_fetch',fetch)
+    result=await lookup.async_nutrition(CODE)
+    assert result['nutriscore']['grade']=='b' and result['nutrition']['nova']==3
+    fetch.assert_awaited_once_with(CODE)
+    # A fresh local observation wins over an older shared one.
+    shared['checked_at']=now-200;shared['nova']=1
+    assert (await lookup.async_nutrition(CODE))['nutrition']['nova']==3
+    assert await lookup.async_nutrition('https://private.test/qr')=={'status':'unsupported'}

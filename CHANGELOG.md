@@ -1,6 +1,8 @@
 # Historial de cambios
 
-## 0.83.0 — 2026-11-02
+## 0.83.1 — 2026-11-02
+
+- Los intentos fallidos de actualización conservan la fecha original de los datos, también al exportarlos, y mantienen la pausa de reintento.
 
 - El diccionario comunitario por EAN incorpora Nutri-Score, versión del cálculo, NOVA, fuente, fecha y licencia, manteniendo la compatibilidad del bloque de formatos. Nutrición prioriza la caché y el diccionario y consulta Open Food Facts solo cuando falta información vigente.
 - La exportación manual incluye las clasificaciones públicas guardadas. El proceso de mantenimiento incorpora una carga inicial y lotes limitados de actualización, conservando las pausas y los resultados anteriores.

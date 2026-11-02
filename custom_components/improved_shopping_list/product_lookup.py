@@ -146,6 +146,7 @@ class ProductLookup:
         local=self._nutrition_cache.get(code,{})
         shared=self._community_nutrition(code)
         if not shared:return local
+        if local.get("result",{}).get("status")=="error" and local.get("expires",0)>time.time() and shared["checked_at"]+NUTRITION_TTL<=time.time():return local
         if shared.get("checked_at",0)>local.get("checked_at",0) or (local.get("result",{}).get("status")=="error" and shared["checked_at"]+NUTRITION_TTL>time.time()):
             hint=self._nutrition_hint(shared)
             # Keep existing local nutrients; the public dictionary contains classifications only.
@@ -211,7 +212,7 @@ class ProductLookup:
                 result["status"] = "found" if result.get("nutrition") or result.get("nutriscore") else "not_found"
             except (ClientError, TimeoutError, ValueError, TypeError):
                 result = {"status":"error", **{key:deepcopy(cached.get("result", {}).get(key)) for key in ("nutrition", "nutriscore", "basis") if cached.get("result", {}).get(key)}}
-            self._nutrition_cache[code] = {"expires":time.time()+TTLS[result["status"]], "checked_at":int(time.time()), "result":result}
+            self._nutrition_cache[code] = {"expires":time.time()+TTLS[result["status"]], "checked_at":cached.get("checked_at",0) if result["status"]=="error" else int(time.time()), "result":result}
             self._nutrition_cache = dict(sorted(self._nutrition_cache.items(), key=lambda item:item[1].get("checked_at", 0))[-3000:])
             try:
                 await self._nutrition_store.async_save(self._nutrition_cache)

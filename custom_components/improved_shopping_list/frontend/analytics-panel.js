@@ -1,4 +1,4 @@
-import './analytics-insights.js?v=0.83.0';
+import './analytics-insights.js?v=0.83.1';
 const node=(tag,cls,text)=>{const el=document.createElement(tag);if(cls)el.className=cls;if(text!==undefined)el.textContent=text;return el;};
 const names={masymas:"Masymas",bm:"BM",elcorteingles:'El Corte Inglés',mercadona:'Mercadona',carrefour:'Carrefour',alcampo:'Alcampo',consum:'Consum',lasirena:'La Sirena',eroski:'Eroski',dia:'DIA',lidl:'Lidl'};
 const money=(cents,currency)=>new Intl.NumberFormat('es-ES',{style:'currency',currency,minimumFractionDigits:2,maximumFractionDigits:2}).format(cents/100);

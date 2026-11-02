@@ -254,3 +254,16 @@ async def test_nutrition_prefers_fresh_dictionary_and_stale_data_falls_back_to_o
     shared['checked_at']=now-200;shared['nova']=1
     assert (await lookup.async_nutrition(CODE))['nutrition']['nova']==3
     assert await lookup.async_nutrition('https://private.test/qr')=={'status':'unsupported'}
+
+
+async def test_failed_nutrition_refresh_never_rejuvenates_exported_source_date(hass,monkeypatch):
+    lookup=ProductLookup(hass);old=int(module.time.time())-31*86400
+    lookup._nutrition_cache[CODE.zfill(14)]={'expires':0,'checked_at':old,'result':{'status':'found','nutriscore':{'grade':'c'},'nutrition':{'nova':3}}}
+    fetch=AsyncMock(side_effect=ClientError('offline'));monkeypatch.setattr(lookup,'_fetch',fetch)
+    result=await lookup.async_nutrition(CODE)
+    assert result['status']=='error' and result['nutriscore']['grade']=='c'
+    exported=lookup.nutrition_export([{'id':'p','name':'Producto','barcodes':[CODE]}])
+    assert exported[CODE.zfill(14)]['checked_at']==old
+    lookup.common_index=SimpleNamespace(nutrition_cached=lambda _: {**exported[CODE.zfill(14)],'checked_at':old+1})
+    await lookup.async_nutrition(CODE)
+    fetch.assert_awaited_once()  # Shared stale data must not bypass the local error backoff.

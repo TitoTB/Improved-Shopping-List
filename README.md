@@ -186,6 +186,10 @@ Analítica permite consultar tus compras, entender cómo se reparte el gasto, co
 
 Es la vista inicial. Muestra las compras registradas y una gráfica de gasto mensual, con un color por tienda. Puedes elegir el periodo de fechas, filtrar por tienda o persona y consultar compras anteriores con **Mostrar más**.
 
+<p align="center">
+  <img src="docs/images/analitica-compras.png" alt="Histórico de compras con gráfico de gasto mensual por tienda">
+</p>
+
 #### Cómo se obtienen las compras
 
 - **Conectando una cuenta en Ajustes → Tiendas → Cuentas.** Actualmente se pueden conectar Carrefour y Lidl. Según las opciones que actives, la integración permite recuperar las compras de los últimos doce meses y descargar automáticamente nuevos tickets cuando se detecta una compra. También incorpora al histórico otras compras que encuentre durante esas consultas. El histórico puede mostrar la tienda, fecha e importe aunque todavía no hayas revisado el ticket.
@@ -203,11 +207,19 @@ La revisión convierte los nombres y cantidades del supermercado en información
 3. **Precios.** Selecciona los productos vinculados cuyo precio quieres guardar para esa tienda. Cuando se dispone de ellos, también se aprovechan el EAN y los datos de formato del producto, como el contenido del envase. En un producto al peso, el importe total pagado no sustituye al precio por kg: se utiliza una tarifa identificada en el ticket o el valor que confirmes manualmente.
 4. **Resumen.** Comprueba las vinculaciones, las reposiciones y los precios seleccionados y confirma la compra para guardar los cambios.
 
+<p align="center">
+  <img src="docs/images/revision-ticket.png" alt="Asistente de revisión de ticket en el paso de vinculación de productos del catálogo">
+</p>
+
 También puedes guardar solo las vinculaciones y cerrar, o utilizar las opciones de guardar Stock o precios y cerrar sin completar todos los pasos. Las acciones dependen de lo que hayas seleccionado. Reprocesar los datos de un ticket ya revisado permite completar alternativas y formatos del catálogo sin volver a reponer Stock.
 
 ### Gastos
 
 Utiliza las compras registradas en el periodo elegido para mostrar **Gasto total**, **Compras** e **Importe medio**, en euros. Los datos proceden del histórico, tanto de compras recuperadas de cuentas como de documentos revisados y compras completadas manualmente.
+
+<p align="center">
+  <img src="docs/images/analitica-gastos.png" alt="Análisis de gastos con totales, categorías y productos con más gasto">
+</p>
 
 - **Gasto por categoría:** muestra las nueve categorías con más gasto, con el color configurado para cada una. El resto y los importes sin clasificar se agrupan en **Otros**. Permite reconocer qué tipos de productos concentran el gasto.
 - **Productos en los que más gastas:** muestra los diez productos vinculados con mayor importe acumulado en el periodo. Sirve para localizar los que más pesan en tu presupuesto; el importe es el gasto acumulado en ellos, no el precio de un solo envase.
@@ -227,6 +239,10 @@ Se incluyen los productos que tienen precios comparables en al menos dos tiendas
 - **La misma cesta de referencia:** compara una cantidad de referencia por producto —una unidad, un kg o un litro— utilizando solo productos comparables en todas las tiendas mostradas. Sirve para comparar la misma selección; no representa necesariamente las cantidades de tu lista de la compra.
 - **Precios del catálogo:** muestra los precios comparables por producto y tienda, su fecha y la diferencia máxima. Permite ordenar alfabéticamente o por diferencia absoluta o porcentual.
 
+<p align="center">
+  <img src="docs/images/analitica-comparativa.png" alt="Comparativa de tiendas, oportunidades de ahorro y cesta de referencia">
+</p>
+
 Al pulsar una tienda en el gráfico o en la cabecera de la tabla se priorizan los productos más baratos en ella. Una segunda pulsación deja solo esos productos y una tercera elimina la selección. Las fechas ayudan a valorar si los precios guardados siguen siendo recientes; los importes mostrados pueden haber cambiado en la tienda.
 
 ### Nutrición
@@ -235,6 +251,10 @@ Utiliza el catálogo completo y sus EAN para mostrar dos gráficos independiente
 
 - **Nutri-Score:** distribuye los productos con una calificación disponible entre A y E. Los productos sin calificación no se incluyen en sus porcentajes. Cada producto genérico cuenta una vez en la distribución.
 - **Grado de procesamiento:** agrupa los productos según NOVA en sin procesar o mínimamente procesados, ingredientes culinarios, procesados y ultraprocesados. Los colores van de verde a rojo según aumenta el procesamiento. Solo se clasifican los productos para los que existe ese dato; un producto con alternativas de distinto procesamiento puede aparecer en más de un grupo.
+
+<p align="center">
+  <img src="docs/images/analitica-nutricion.png" alt="Gráficos de Nutri-Score y grado de procesamiento de los productos del catálogo">
+</p>
 
 Pulsa una calificación o un grupo para desplegar sus productos y abrir sus fichas. Desplegar un grupo no filtra el otro gráfico. Esta vista ayuda a conocer la composición del catálogo; no representa las cantidades que has consumido ni una valoración de tu dieta.
 

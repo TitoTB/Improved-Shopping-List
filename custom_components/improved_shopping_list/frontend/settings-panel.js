@@ -1,15 +1,15 @@
-import "./shopping-places.js?v=0.84.0";
-import "./dia-prices-settings.js?v=0.84.0";
-import "./alcampo-settings.js?v=0.84.0";
-import "./catalog-sources.js?v=0.84.0";
-import "./carrefour-account.js?v=0.84.0";
-import "./lidl-account.js?v=0.84.0";
-import "./logs-panel.js?v=0.84.0";
-import "./notification-settings.js?v=0.84.0";
-import { installDialogCloseButtons } from "./dialog-controls.js?v=0.84.0";
-import { installToggleStyles } from "./toggle-styles.js?v=0.84.0";
-import { todoEntities, isAvailable } from "./todo-client.js?v=0.84.0";
-import { DEFAULT_APPEARANCE, gradientTextColor } from "./list-settings-client.js?v=0.84.0";
+import "./shopping-places.js?v=0.85.0";
+import "./dia-prices-settings.js?v=0.85.0";
+import "./alcampo-settings.js?v=0.85.0";
+import "./catalog-sources.js?v=0.85.0";
+import "./carrefour-account.js?v=0.85.0";
+import "./lidl-account.js?v=0.85.0";
+import "./logs-panel.js?v=0.85.0";
+import "./notification-settings.js?v=0.85.0";
+import { installDialogCloseButtons } from "./dialog-controls.js?v=0.85.0";
+import { installToggleStyles } from "./toggle-styles.js?v=0.85.0";
+import { todoEntities, isAvailable } from "./todo-client.js?v=0.85.0";
+import { DEFAULT_APPEARANCE, gradientTextColor } from "./list-settings-client.js?v=0.85.0";
 
 const MERCADONA_LOGO_URL = new URL("mercadona.png", import.meta.url).href;
 
@@ -193,7 +193,7 @@ class ImprovedShoppingSettings extends HTMLElement {
         @media(max-width:540px) { .card { padding:18px 14px; } .add-row { flex-wrap:wrap; } .select-wrap { flex-basis:100%; } .actions { width:100%; } }
         #carrefour-products-view,#alcampo-products-view,#store-products-view,[id$="-products-view"]{display:none!important}#carrefour-dialog>h2{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
       .zone-settings{margin-top:20px;padding-top:16px;border-top:1px solid var(--divider-color,#dfe7e1)}.zone-settings select{width:100%;max-width:320px;min-height:120px}.zone-settings label{display:block;margin-bottom:10px}.zone-settings button{margin-top:12px}.zone-settings p{margin:8px 0}.purchase-detection-settings{margin-top:24px;padding-top:18px;border-top:1px solid var(--divider-color,#dfe7e1)}.detection-row{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-top:16px}.detection-row input[type=number]{width:90px;text-align:center;flex:none}
-      .purchase-users-field{display:grid;grid-template-columns:minmax(0,1fr) minmax(180px,360px);gap:12px;align-items:start;margin-top:16px}.purchase-users-field>span{padding-top:12px}.person-picker{min-width:0;border:1px solid var(--divider-color,#dfe7e1);border-radius:10px}.person-picker summary{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:46px;padding:10px 12px;list-style:none;cursor:pointer}.person-picker summary::-webkit-details-marker{display:none}.person-picker summary span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.person-picker summary ha-icon{width:20px;height:20px;--mdc-icon-size:20px;flex:none}.person-picker[open] summary ha-icon{transform:rotate(180deg)}.person-picker summary:focus-visible{outline:3px solid var(--primary-color,#267052);outline-offset:3px}.person-options{max-height:240px;overflow-y:auto;padding:0 8px 8px}.person-option{display:flex;align-items:center;gap:10px;margin:0;padding:10px 4px;cursor:pointer;overflow-wrap:anywhere}.person-option input[type=checkbox]{width:20px;height:20px;min-height:20px;flex:none;padding:0;margin:0}.person-option:has(input:disabled){cursor:default;opacity:.65}.person-avatar{display:grid;place-items:center;position:relative;overflow:hidden;flex:none;width:34px;height:34px;border-radius:50%;background:var(--secondary-background-color,#e4ece8);color:var(--primary-text-color,#20352d);border:1px solid var(--divider-color,#dfe7e1);font-size:12px;font-weight:700}.person-avatar img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}.person-option:has(input:checked){background:color-mix(in srgb,var(--primary-color,#267052) 16%,transparent);border-radius:8px}.person-options .helper{margin:4px}.purchase-users>h3{font-size:20px;margin:0}
+      .purchase-users-field{display:grid;grid-template-columns:1fr;gap:10px;margin-top:16px}.purchase-users-field>span{font-size:13px;font-weight:600}.person-options{display:grid;grid-template-columns:repeat(auto-fit,minmax(105px,1fr));gap:10px}.person-option{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:9px;margin:0;padding:20px 10px 12px;min-width:0;border:1px solid var(--settings-border,var(--divider-color,#dfe7e1));border-radius:12px;background:var(--settings-field,var(--card-background-color,#fff));text-align:center;overflow-wrap:anywhere;cursor:pointer}.person-option:has(input:checked){border-color:#37976e;box-shadow:inset 0 0 0 1px #37976e;background:color-mix(in srgb,#267052 9%,var(--settings-field,var(--card-background-color,#fff)))}.person-option:has(input:focus-visible){outline:2px solid var(--primary-color,#267052);outline-offset:2px}.person-option input[type=checkbox]{position:absolute;top:8px;right:8px;width:17px;height:17px;min-height:17px;margin:0;padding:0;accent-color:#267052}.person-option:has(input:disabled){cursor:default;opacity:.65}.person-avatar{display:grid;place-items:center;position:relative;overflow:hidden;flex:none;width:56px;height:56px;border-radius:50%;background:var(--secondary-background-color,#e4ece8);color:var(--primary-text-color,#20352d);border:1px solid var(--settings-border,var(--divider-color,#dfe7e1));font-size:18px;font-weight:700}.person-avatar img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}.person-options .helper{grid-column:1/-1;margin:4px}.purchase-users>h3{font-size:20px;margin:0}
       .detection-pair{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px;margin-top:16px}.detection-pair>.detection-row{margin:0;min-width:0}
       @media(max-width:540px){.purchase-users-field{grid-template-columns:1fr;gap:8px}.purchase-users-field>span{padding-top:0}.detection-pair{gap:16px}.detection-pair>.detection-row{flex-direction:column;align-items:stretch;gap:10px}.detection-pair input{align-self:flex-end}.detection-pair input[type=number]{width:72px}}
             @media(max-width:650px){.settings-heading{gap:12px}.settings-tabs{gap:10px}.settings-tabs button{min-width:40px;min-height:44px;padding:10px 9px;gap:6px}}
@@ -206,10 +206,10 @@ class ImprovedShoppingSettings extends HTMLElement {
       .settings-disclosure .section-symbol{width:24px;height:24px;--mdc-icon-size:24px;flex:none;color:var(--secondary-text-color,#63766b)}.section-chevron{width:20px;height:20px;--mdc-icon-size:20px;flex:none;color:var(--secondary-text-color,#63766b)}.settings-disclosure[open]>summary>.section-chevron{transform:rotate(180deg)}
       .settings-content{padding-top:16px;min-width:0}.settings-content>.add-row{margin-top:0}.settings-content>p:first-child{margin-top:0}.settings-content>form>.appearance-palette{margin-top:16px}
       #settings-stores{padding:0;border:0;background:transparent}.store-row{padding:12px;min-height:76px;border:1px solid var(--settings-border);border-radius:12px}.stores-grid{gap:12px}.store-name h3{font-size:15px}.store-logo{width:48px;height:48px;padding:7px}.store-linked-count{font-size:12px}.store-controls{gap:10px}
-      .purchase-users>.card{margin-top:14px}.purchase-users-field{margin-top:0}.purchase-detection-settings.card{border-top:1px solid var(--settings-border);padding:18px}.settings-content>.purchase-users-field{grid-template-columns:minmax(0,1fr) minmax(180px,360px)}
+      .purchase-users>.card{margin-top:14px}.purchase-users-field{margin-top:0}.purchase-detection-settings.card{border-top:1px solid var(--settings-border);padding:18px}.settings-content>.purchase-users-field{grid-template-columns:1fr}
       .community-export{gap:20px;padding:14px 0;border-top:1px solid var(--settings-border)}.community-export:first-child{border-top:0;padding-top:0}.community-export:last-child{padding-bottom:0}.community-export p{margin:0}.community-action{min-height:42px;font-size:13px}
       #settings-notifications{margin-top:14px!important}#settings-notifications .settings-content{padding-top:16px}#settings-logs>.card{margin-top:14px}
-      .add-row select,.gateway-add select,.person-picker{background:var(--settings-field)}#add-list{display:grid;place-items:center;flex:none;width:44px;height:44px;min-height:44px;padding:0}#add-list ha-icon{width:22px;height:22px;--mdc-icon-size:22px}.list-row{border-color:var(--settings-border)}
+      .add-row select,.gateway-add select{background:var(--settings-field)}#add-list{display:grid;place-items:center;flex:none;width:44px;height:44px;min-height:44px;padding:0}#add-list ha-icon{width:22px;height:22px;--mdc-icon-size:22px}.list-row{border-color:var(--settings-border)}
       @media(max-width:650px){.card{padding:16px}.settings-heading{gap:12px}.settings-tabs{gap:10px}.settings-tabs button{padding:10px;min-width:40px}.settings-disclosure>summary{gap:8px}.settings-disclosure>summary h2,.settings-disclosure>summary h3{font-size:17px}.settings-disclosure>summary>.stores-heading{gap:8px}.settings-content{padding-top:14px}.settings-content>.purchase-users-field{grid-template-columns:1fr}.community-export{gap:12px}.purchase-detection-settings.card{padding:16px}}
 </style>
       <div class="settings-heading"><h1>Ajustes</h1>
@@ -222,7 +222,7 @@ class ImprovedShoppingSettings extends HTMLElement {
         <div class="add-row"><div class="select-wrap"><label for="todo-entity">Entidad todo</label><select id="todo-entity"></select></div><button id="add-list" class="primary" aria-label="Añadir lista" title="Añadir lista"><ha-icon icon="mdi:plus-thick" aria-hidden="true"></ha-icon></button></div>
         <div id="configured-lists" class="lists"></div>
         <p id="settings-empty" hidden>No hay listas añadidas. Añade una entidad todo para empezar.</p>
-        <div class="purchase-detection-settings"><h3>Detección automática de compra</h3><form id="purchase-detection-form"><div id="purchase-persons-label" class="purchase-users-field"><span id="purchase-users-label">Usuarios que realizan las compras</span><details id="purchase-zone-persons" class="person-picker"><summary aria-labelledby="purchase-users-label purchase-users-summary"><span id="purchase-users-summary">Seleccionar usuarios</span><ha-icon icon="mdi:chevron-down" aria-hidden="true"></ha-icon></summary><div class="person-options" role="group" aria-labelledby="purchase-users-label"></div></details></div><div class="detection-pair"><label class="detection-row" for="purchase-detection-enabled">Activar detección automática<input id="purchase-detection-enabled" class="store-toggle" type="checkbox" role="switch"></label><label class="detection-row" for="purchase-detection-threshold">Más de X productos completados en un día<input id="purchase-detection-threshold" type="number" min="1" max="1000" step="1" value="5" required></label></div><div class="detection-pair"><label class="detection-row" for="purchase-zone-assignment">Asignación de tienda basada en zona<input id="purchase-zone-assignment" class="store-toggle" type="checkbox" role="switch"></label><label class="detection-row" for="purchase-minimum-minutes">Permanencia mínima en la zona (minutos)<input id="purchase-minimum-minutes" type="number" min="1" max="1440" step="1" value="5" required></label></div><div class="appearance-actions"><button class="primary" id="save-purchase-detection" type="submit">Guardar</button></div></form></div>
+        <div class="purchase-detection-settings"><h3>Detección automática de compra</h3><form id="purchase-detection-form"><div id="purchase-persons-label" class="purchase-users-field"><span id="purchase-users-label">Personas</span><div id="purchase-zone-persons" role="group" aria-labelledby="purchase-users-label"><div class="person-options"></div></div></div><div class="detection-pair"><label class="detection-row" for="purchase-detection-enabled">Activar detección automática<input id="purchase-detection-enabled" class="store-toggle" type="checkbox" role="switch"></label><label class="detection-row" for="purchase-detection-threshold">Más de X productos completados en un día<input id="purchase-detection-threshold" type="number" min="1" max="1000" step="1" value="5" required></label></div><div class="detection-pair"><label class="detection-row" for="purchase-zone-assignment">Asignación de tienda basada en zona<input id="purchase-zone-assignment" class="store-toggle" type="checkbox" role="switch"></label><label class="detection-row" for="purchase-minimum-minutes">Permanencia mínima en la zona (minutos)<input id="purchase-minimum-minutes" type="number" min="1" max="1440" step="1" value="5" required></label></div><div class="appearance-actions"><button class="primary" id="save-purchase-detection" type="submit">Guardar</button></div></form></div>
       </section>
 
       <section id="settings-appearance" class="card" aria-labelledby="settings-appearance-title">
@@ -729,9 +729,6 @@ class ImprovedShoppingSettings extends HTMLElement {
       picker.querySelector('.person-options').replaceChildren(...choices);picker.dataset.options=key;
     }
     picker.querySelectorAll('input').forEach(input=>{input.checked=selected.includes(input.value);input.disabled=locked;});
-    const summary=root.querySelector('#purchase-users-summary');
-    summary.textContent=selected.length?selected.map(name).join(', '):'Seleccionar usuarios';
-    summary.title=summary.textContent;
   }
 
   _entityChoices(select, domain, chosen) {

@@ -780,9 +780,11 @@ async function checkUniversalPurchaseSettings(browser,url,errors) {
   assert.equal(await zoneSwitch.isChecked(),false);
   assert.equal(await zoneSwitch.evaluate(input=>getComputedStyle(input).backgroundColor),'rgb(100, 116, 139)');
   assert.equal(await universalSettings.locator('#carrefour-enabled').evaluate(input=>getComputedStyle(input).backgroundColor),'rgb(100, 116, 139)');
-  await users.locator('#purchase-zone-persons summary').click();
   assert.equal(await users.getByRole('checkbox',{name:'Ana',exact:true}).isChecked(),true);
   assert.equal(await users.locator('.person-option .person-avatar').count(),2);
+  assert.equal(await users.locator('#purchase-zone-persons summary').count(),0);
+  assert.equal(await users.locator('#purchase-zone-persons').getAttribute('role'),'group');
+  assert.equal(await users.locator('.person-avatar').first().evaluate(el=>el.getBoundingClientRect().width),56);
   assert.match(await users.locator('.person-option').filter({hasText:'Ana'}).locator('.person-avatar img').getAttribute('src'),/\/local\/ana\.png$/);
   assert.equal(await users.locator('.person-option').filter({hasText:'Luis'}).locator('.person-avatar').textContent(),'L');
   assert.equal(await universalSettings.locator('#purchase-zone-help').count(),0);
@@ -799,7 +801,6 @@ async function checkUniversalPurchaseSettings(browser,url,errors) {
   await universalPage.reload();
   await universalPage.getByRole('button',{name:'Ajustes',exact:true}).click();
   await universalSettings.getByRole('button',{name:'Tiendas',exact:true}).click();
-  await users.locator('#purchase-zone-persons summary').click();
   assert.equal(await users.getByRole('checkbox',{name:'person.one',exact:true}).isChecked(),true);
   assert.equal(await users.getByRole('checkbox',{name:'person.two',exact:true}).isChecked(),true);
   await universalPage.getByRole('button',{name:'Analítica',exact:true}).click();const universalPurchases=universalPage.locator('isl-purchases');
@@ -819,7 +820,7 @@ async function checkUniversalPurchaseSettings(browser,url,errors) {
   await legacyPage.evaluate(()=>{const panel=window.testPanel;panel.hass={...panel._hass,states:{...panel._hass.states,'person.ana':{entity_id:'person.ana',state:'home',attributes:{friendly_name:'Ana'}}}};});
   const legacyForm=legacySettings.locator('#purchase-detection-form');
   await legacyForm.getByRole('switch',{name:'Asignación de tienda basada en zona',exact:true}).check();
-  await legacyForm.locator('summary').click();await legacyForm.getByRole('checkbox',{name:'Ana',exact:true}).check();
+  await legacyForm.getByRole('checkbox',{name:'Ana',exact:true}).check();
   await legacyForm.getByRole('button',{name:'Guardar',exact:true}).click();
   await legacyPage.waitForFunction(()=>window.listSettings.purchase_detection.persons.includes('person.ana'));
   assert.equal(await legacyPage.evaluate(()=>window.listSettings.purchase_detection.zone_assignment),true);
@@ -5814,7 +5815,6 @@ async function main() {
       'zone.market':{entity_id:'zone.market',state:'0',attributes:{friendly_name:'Mi supermercado'}},
       'zone.market_2':{entity_id:'zone.market_2',state:'0',attributes:{friendly_name:'Otra sucursal'}}}};});
     await detectionForm.getByRole('switch',{name:'Asignación de tienda basada en zona',exact:true}).check();
-    await detectionForm.locator('#purchase-zone-persons summary').click();
     await detectionForm.getByRole('checkbox',{name:'Ana',exact:true}).check();
     await detectionForm.getByRole('button',{name:'Guardar',exact:true}).click();
     await detectedPage.waitForFunction(()=>window.listSettings.purchase_detection?.zone_assignment===true);

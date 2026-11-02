@@ -1,5 +1,11 @@
 # Historial de cambios
 
+## 0.85.0 — 2026-11-02
+
+- Ajustes → Tiendas muestra las personas en tarjetas seleccionables con avatar y borde verde, igual que el selector de Rutinas, en lugar de un desplegable.
+
+- Ajustes → General elimina el texto de ayuda de las plantillas y los umbrales de notificación.
+
 ## 0.84.0 — 2026-11-02
 
 - Ajustes adopta tarjetas compactas plegables, cabeceras con iconos, bordes suaves y espacios uniformes. Las cuentas, catálogos, tiendas, usuarios y detección de compras se presentan en bloques separados, conservando todos sus controles.

@@ -144,27 +144,67 @@ Cada tarjeta permite activar o desactivar el lector, consultar las lecturas en d
 
 ## Analítica
 
-Analítica reúne cuatro vistas. Los gráficos y las tablas utilizan los datos guardados en tu Home Assistant y se adaptan al periodo que selecciones.
+Analítica permite consultar tus compras, entender cómo se reparte el gasto, comparar los precios guardados y conocer la información nutricional de los productos de tu catálogo. Se organiza en cuatro vistas: **Compras**, **Gastos**, **Comparativa** y **Nutrición**.
 
 ### Compras
 
-Es la vista inicial. Puedes consultar el gasto mensual por tienda, filtrar las compras por fechas, tienda o usuario y abrir sus tickets para revisarlos. También puedes subir un ticket o una factura. Las compras recuperadas de una cuenta pueden aparecer con fecha e importe antes de revisar su detalle.
+Es la vista inicial. Muestra las compras registradas y una gráfica de gasto mensual, con un color por tienda. Puedes elegir el periodo de fechas, filtrar por tienda o persona y consultar compras anteriores con **Mostrar más**.
+
+#### Cómo se obtienen las compras
+
+- **Conectando una cuenta en Ajustes → Tiendas → Cuentas.** Actualmente se pueden conectar Carrefour y Lidl. Según las opciones que actives, la integración permite recuperar las compras de los últimos doce meses y descargar automáticamente nuevos tickets cuando se detecta una compra. También incorpora al histórico otras compras que encuentre durante esas consultas. El histórico puede mostrar la tienda, fecha e importe aunque todavía no hayas revisado el ticket.
+- **Subiendo un ticket o una factura.** Utiliza el botón de subir ticket de esta vista. El supermercado y el formato del documento deben estar soportados: actualmente, la subida manual reconoce tickets y facturas PDF de Carrefour que contienen texto. Los documentos escaneados como imagen requieren un tratamiento distinto y no se reconocen mediante OCR.
+- **Mediante la detección automática de compra, si la has configurado.** Completar más de la cantidad indicada de productos durante un día permite detectar una compra. Las personas y zonas configuradas ayudan a identificar la tienda. Si no se encuentra un ticket o no se identifica la tienda, puedes completar sus datos manualmente o adjuntar un documento compatible.
+
+El icono del ticket de cada compra abre su revisión o recupera el detalle desde la cuenta conectada, cuando está disponible. El icono aparece en verde cuando el ticket ya se ha revisado. Recuperar una compra en el histórico no repone por sí solo el Stock ni confirma todos sus productos.
+
+#### Para qué sirve revisar un ticket
+
+La revisión convierte los nombres y cantidades del supermercado en información útil para tu catálogo y tu despensa. El asistente permite comprobar los datos antes de aplicarlos y se divide en cuatro pasos:
+
+1. **Vinculación.** Relaciona cada línea del ticket con un producto de tu catálogo o crea uno nuevo. Las líneas que no vincules se ignoran para las operaciones sobre productos. Las asociaciones se guardan para reconocer futuras compras de esa tienda, aunque no incluyas el producto en Stock. Varias líneas pueden corresponder al mismo producto genérico, conservando sus alternativas comerciales y sus EAN cuando están disponibles.
+2. **Stock.** Selecciona los productos que quieres reponer y confirma la cantidad y las unidades. Los que ya están en Stock aparecen seleccionados inicialmente; puedes incluir otros o desmarcarlos. Se propone la cantidad recuperada del ticket o estimada a partir de un precio por unidad de medida y, cuando no se conoce, la cantidad predeterminada de reposición. Puedes corregirla antes de guardar. Marcar un producto como comprado en la lista no aumenta por sí solo el Stock.
+3. **Precios.** Selecciona los productos vinculados cuyo precio quieres guardar para esa tienda. Cuando se dispone de ellos, también se aprovechan el EAN y los datos de formato del producto, como el contenido del envase. En un producto al peso, el importe total pagado no sustituye al precio por kg: se utiliza una tarifa identificada en el ticket o el valor que confirmes manualmente.
+4. **Resumen.** Comprueba las vinculaciones, las reposiciones y los precios seleccionados y confirma la compra para guardar los cambios.
+
+También puedes guardar solo las vinculaciones y cerrar, o utilizar las opciones de guardar Stock o precios y cerrar sin completar todos los pasos. Las acciones dependen de lo que hayas seleccionado. Reprocesar los datos de un ticket ya revisado permite completar alternativas y formatos del catálogo sin volver a reponer Stock.
 
 ### Gastos
 
-Muestra el gasto total, el número de compras y el importe medio en euros. Puedes explorar el gasto por tienda, las nueve categorías con más gasto y los diez productos en los que más gastas, además de la participación de cada persona. El resto de categorías y los importes sin clasificar se agrupan en «Otros». Cada categoría utiliza su color configurado. Pulsa en las barras para filtrar y en un producto para abrir su ficha.
+Utiliza las compras registradas en el periodo elegido para mostrar **Gasto total**, **Compras** e **Importe medio**, en euros. Los datos proceden del histórico, tanto de compras recuperadas de cuentas como de documentos revisados y compras completadas manualmente.
 
-Las categorías corresponden a las vinculaciones actuales del catálogo. Los descuentos generales se distribuyen proporcionalmente; los importes sin detalle y los gastos de envío quedan sin clasificar. Una compra compartida cuenta para cada participante, pero se suma una sola vez al gasto total. Las cantidades compradas se comparan por la misma unidad; no representan necesariamente consumo.
+- **Gasto por categoría:** muestra las nueve categorías con más gasto, con el color configurado para cada una. El resto y los importes sin clasificar se agrupan en **Otros**. Permite reconocer qué tipos de productos concentran el gasto.
+- **Productos en los que más gastas:** muestra los diez productos vinculados con mayor importe acumulado en el periodo. Sirve para localizar los que más pesan en tu presupuesto; el importe es el gasto acumulado en ellos, no el precio de un solo envase.
+- **Gasto por tienda:** muestra cuánto has gastado en cada tienda. Puedes pulsar una barra para filtrar el análisis por esa tienda.
+- **Compras por persona:** muestra el número de compras y el importe asociados a cada persona registrada como compradora. Puedes pulsar su barra para filtrar. Una compra compartida cuenta para cada participante, sin repartir su importe entre ellos, pero se suma una sola vez al gasto total.
+
+Para clasificar el gasto por categoría o producto es necesario que las líneas de los tickets estén vinculadas al catálogo. Las categorías utilizadas son las actuales del catálogo. Los descuentos generales se distribuyen proporcionalmente; los gastos de envío y los importes sin detalle quedan en **Otros**. Por eso una compra recuperada solo con fecha e importe contribuye al total, aunque todavía no pueda repartirse entre productos y categorías.
 
 ### Comparativa
 
-Compara las alternativas del catálogo con precios por kg, litro o unidad equivalentes en al menos dos tiendas. Muestra las tiendas con más precios mínimos y las mayores diferencias de precio. Puedes ordenar por diferencia absoluta o porcentual. Al pulsar en una tienda se priorizan sus productos más baratos; una segunda pulsación deja solo esos productos y una tercera elimina el filtro.
+Utiliza los precios y los formatos guardados en las alternativas del catálogo. Estos datos pueden proceder de la revisión de tickets y facturas, de la edición manual o de las fichas web y catálogos de supermercados compatibles que hayas habilitado. Abrir esta vista analiza los datos guardados; no actualiza los precios consultando las tiendas.
+
+Se incluyen los productos que tienen precios comparables en al menos dos tiendas. La comparación se realiza por la misma unidad —**€/kg**, **€/l** o **€/ud**— y puede comparar alternativas de distintas marcas y EAN de un mismo producto genérico. Para ello deben estar informados el tipo de venta y los datos de formato necesarios. Las alternativas sin información suficiente para calcular un precio comparable no se incluyen.
+
+- **Dónde están los precios más bajos:** muestra las tiendas que tienen al menos un precio mínimo. Los empates cuentan para las tiendas correspondientes.
+- **Dónde puedes ahorrar más:** destaca los productos con mayores diferencias porcentuales entre tiendas e indica también la diferencia por unidad de medida.
+- **La misma cesta de referencia:** compara una cantidad de referencia por producto —una unidad, un kg o un litro— utilizando solo productos comparables en todas las tiendas mostradas. Sirve para comparar la misma selección; no representa necesariamente las cantidades de tu lista de la compra.
+- **Precios del catálogo:** muestra los precios comparables por producto y tienda, su fecha y la diferencia máxima. Permite ordenar alfabéticamente o por diferencia absoluta o porcentual.
+
+Al pulsar una tienda en el gráfico o en la cabecera de la tabla se priorizan los productos más baratos en ella. Una segunda pulsación deja solo esos productos y una tercera elimina la selección. Las fechas ayudan a valorar si los precios guardados siguen siendo recientes; los importes mostrados pueden haber cambiado en la tienda.
 
 ### Nutrición
 
-Muestra Nutri-Score y el grado de procesamiento NOVA en dos gráficos independientes. Los grupos se pueden desplegar para consultar sus productos; abrir un grupo no filtra el otro gráfico. La tabla de nutrientes permanece oculta. Utiliza el catálogo completo, sin limitar los datos a las compras de un periodo. Al desplegar una calificación o pulsar un alimento puedes consultar sus productos y fichas.
+Utiliza el catálogo completo y sus EAN para mostrar dos gráficos independientes:
 
-Al abrir la vista se intenta completar la información sin caché vigente. Los datos se consultan en [Open Food Facts](https://world.openfoodfacts.org/) por coincidencia exacta de EAN y se guardan en una caché persistente para evitar repetir consultas. Se muestran por 100 g o 100 ml, separando su ordenación cuando conocemos la base. Los datos ausentes se indican con «—»; las compras reflejan alimentos adquiridos, no cantidades ingeridas. No se necesitan tarjetas adicionales de HACS.
+- **Nutri-Score:** distribuye los productos con una calificación disponible entre A y E. Los productos sin calificación no se incluyen en sus porcentajes. Cada producto genérico cuenta una vez en la distribución.
+- **Grado de procesamiento:** agrupa los productos según NOVA en sin procesar o mínimamente procesados, ingredientes culinarios, procesados y ultraprocesados. Los colores van de verde a rojo según aumenta el procesamiento. Solo se clasifican los productos para los que existe ese dato; un producto con alternativas de distinto procesamiento puede aparecer en más de un grupo.
+
+Pulsa una calificación o un grupo para desplegar sus productos y abrir sus fichas. Desplegar un grupo no filtra el otro gráfico. Esta vista ayuda a conocer la composición del catálogo; no representa las cantidades que has consumido ni una valoración de tu dieta.
+
+La integración consulta [Open Food Facts](https://world.openfoodfacts.org/) por coincidencia exacta de EAN y conserva los resultados en una caché persistente. Al abrir la vista intenta completar la información sin caché vigente, con consultas espaciadas. Los datos encontrados se reutilizan durante treinta días para evitar repetir llamadas. Open Food Facts es una base colaborativa y puede contener información incompleta: no se deduce una clasificación a partir del nombre del producto. La tabla detallada de nutrientes permanece oculta.
+
+Analítica no requiere tarjetas adicionales de HACS.
 
 ## Ajustes
 

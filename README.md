@@ -1,4 +1,4 @@
-# <img src="custom_components/improved_shopping_list/frontend/logo.png" alt="" width="40" height="40" align="left"> Improved Shopping List
+# <img src="https://raw.githubusercontent.com/TitoTB/Improved-Shopping-List/main/custom_components/improved_shopping_list/frontend/logo.png" alt="" width="40" height="40" align="left"> Improved Shopping List
 
 ## Índice
 
@@ -14,7 +14,7 @@
 Desde este apartado puedes consultar y gestionar los productos de la lista seleccionada. En la parte superior aparecen los productos **pendientes de compra** y, debajo, el bloque desplegable **Compras recientes**, con los productos que has marcado como comprados y que todavía se conservan en la lista.
 
 <p align="center">
-  <img src="docs/images/lista-de-la-compra.png" alt="Lista de la compra en cuadrícula, con productos pendientes y compras recientes">
+  <img src="https://raw.githubusercontent.com/TitoTB/Improved-Shopping-List/main/docs/images/lista-de-la-compra.png" alt="Lista de la compra en cuadrícula, con productos pendientes y compras recientes">
 </p>
 
 ### Marcar productos como comprados o volver a añadirlos
@@ -56,7 +56,7 @@ Cada supermercado muestra su logo, el importe estimado y cuántos productos tien
 Inicialmente se selecciona el supermercado con más productos con precio disponible; si hay empate, se prioriza el de menor importe. **Pulsa otro supermercado** para consultar su ticket, con los productos ordenados alfabéticamente y el precio a la derecha. Los productos sin precio en esa tienda se agrupan en un bloque comprimido que puedes desplegar. Al final aparece el total estimado, que suma únicamente los productos con precio conocido.
 
 <p align="center">
-  <img src="docs/images/lista-ticket.png" alt="Vista tipo ticket con precios de Carrefour y total estimado de la compra">
+  <img src="https://raw.githubusercontent.com/TitoTB/Improved-Shopping-List/main/docs/images/lista-ticket.png" alt="Vista tipo ticket con precios de Carrefour y total estimado de la compra">
 </p>
 
 Para volver a la vista habitual de productos, **pulsa el badge del número de productos**.
@@ -66,7 +66,7 @@ Para volver a la vista habitual de productos, **pulsa el badge del número de pr
 El catálogo reúne las fichas de tus productos para utilizarlas en la lista de la compra, Stock y la comparación de precios. Sus vistas son **Productos**, **Categorías** y **Pendiente**.
 
 <p align="center">
-  <img src="docs/images/catalogo-productos.png" alt="Vista de productos del catálogo en cuadrícula">
+  <img src="https://raw.githubusercontent.com/TitoTB/Improved-Shopping-List/main/docs/images/catalogo-productos.png" alt="Vista de productos del catálogo en cuadrícula">
 </p>
 
 ### Añadir productos y asignar imágenes
@@ -76,7 +76,7 @@ Desde **Productos**, pulsa **+** para crear una ficha. Puedes empezar con el nom
 En la ficha puedes asignar una imagen mediante el campo **URL Imagen/Icono**, indicando la dirección de la imagen que quieras utilizar. También se muestran propuestas de iconos, dando prioridad al catálogo comunitario, cuyas imágenes proceden principalmente de [Iconify](https://iconify.design/) y [Flaticon](https://www.flaticon.es/).
 
 <p align="center">
-  <img src="docs/images/ficha-producto-caracteristicas.png" alt="Ficha de producto con nombre, categoría, URL de imagen e iconos sugeridos">
+  <img src="https://raw.githubusercontent.com/TitoTB/Improved-Shopping-List/main/docs/images/ficha-producto-caracteristicas.png" alt="Ficha de producto con nombre, categoría, URL de imagen e iconos sugeridos">
 </p>
 
 ### Organizar por categorías
@@ -84,13 +84,13 @@ En la ficha puedes asignar una imagen mediante el campo **URL Imagen/Icono**, in
 Puedes crear categorías y asignarles un nombre, un icono y un color. Después, selecciona la categoría correspondiente en la ficha de cada producto; también puedes crear una categoría desde esa misma ficha.
 
 <p align="center">
-  <img src="docs/images/catalogo-categorias.png" alt="Categorías del catálogo con sus iconos y colores">
+  <img src="https://raw.githubusercontent.com/TitoTB/Improved-Shopping-List/main/docs/images/catalogo-categorias.png" alt="Categorías del catálogo con sus iconos y colores">
 </p>
 
 El catálogo permite buscar productos, alternar entre cuadrícula y filas y mostrarlos por orden alfabético o agrupados por categoría. Los grupos se muestran comprimidos y se despliegan al pulsarlos.
 
 <p align="center">
-  <img src="docs/images/catalogo-productos-por-categoria.png" alt="Productos del catálogo en filas agrupadas por categoría">
+  <img src="https://raw.githubusercontent.com/TitoTB/Improved-Shopping-List/main/docs/images/catalogo-productos-por-categoria.png" alt="Productos del catálogo en filas agrupadas por categoría">
 </p>
 
 ### Alternativas de compra en distintas tiendas
@@ -126,7 +126,7 @@ En la vista **Stock**, pulsa **+** para añadir un producto. Después, pulsa su 
 Puedes alternar entre cuadrícula y filas, y ordenar los productos alfabéticamente, por menor porcentaje de Stock o agrupados por categoría. En filas también aparecen los controles para aumentar o reducir la cantidad manualmente.
 
 <p align="center">
-  <img src="docs/images/stock-productos.png" alt="Productos en Stock con cantidades, porcentajes y barras de disponibilidad">
+  <img src="https://raw.githubusercontent.com/TitoTB/Improved-Shopping-List/main/docs/images/stock-productos.png" alt="Productos en Stock con cantidades, porcentajes y barras de disponibilidad">
 </p>
 
 ### Métodos de control
@@ -161,7 +161,7 @@ Si una persona ha estado en casa en algún momento de esa franja, se descuenta l
 Las tarjetas se ordenan por hora de inicio. Su toggle permite activarlas o desactivarlas y, al pulsar una tarjeta, puedes editarla o eliminarla desde el popup.
 
 <p align="center">
-  <img src="docs/images/stock-rutinas.png" alt="Rutinas con franjas horarias, días y personas asignadas">
+  <img src="https://raw.githubusercontent.com/TitoTB/Improved-Shopping-List/main/docs/images/stock-rutinas.png" alt="Rutinas con franjas horarias, días y personas asignadas">
 </p>
 
 ### Lectores
@@ -175,7 +175,7 @@ Desde **Reposición** en la ficha de cada producto puedes escanear y asociar uno
 Cada tarjeta permite activar o desactivar el lector, consultar las lecturas en directo, editarlo o quitarlo. También muestra la fecha y hora de su último uso. Los códigos desconocidos aparecen en **Catálogo → Pendiente** para vincularlos a un producto existente o crear uno nuevo. Los lectores siguen funcionando aunque cierres la interfaz.
 
 <p align="center">
-  <img src="docs/images/stock-lectores.png" alt="Lectores de códigos de barras y NFC con sus controles">
+  <img src="https://raw.githubusercontent.com/TitoTB/Improved-Shopping-List/main/docs/images/stock-lectores.png" alt="Lectores de códigos de barras y NFC con sus controles">
 </p>
 
 ## Analítica
@@ -187,7 +187,7 @@ Analítica permite consultar tus compras, entender cómo se reparte el gasto, co
 Es la vista inicial. Muestra las compras registradas y una gráfica de gasto mensual, con un color por tienda. Puedes elegir el periodo de fechas, filtrar por tienda o persona y consultar compras anteriores con **Mostrar más**.
 
 <p align="center">
-  <img src="docs/images/analitica-compras.png" alt="Histórico de compras con gráfico de gasto mensual por tienda">
+  <img src="https://raw.githubusercontent.com/TitoTB/Improved-Shopping-List/main/docs/images/analitica-compras.png" alt="Histórico de compras con gráfico de gasto mensual por tienda">
 </p>
 
 #### Cómo se obtienen las compras
@@ -208,7 +208,7 @@ La revisión convierte los nombres y cantidades del supermercado en información
 4. **Resumen.** Comprueba las vinculaciones, las reposiciones y los precios seleccionados y confirma la compra para guardar los cambios.
 
 <p align="center">
-  <img src="docs/images/revision-ticket.png" alt="Asistente de revisión de ticket en el paso de vinculación de productos del catálogo">
+  <img src="https://raw.githubusercontent.com/TitoTB/Improved-Shopping-List/main/docs/images/revision-ticket.png" alt="Asistente de revisión de ticket en el paso de vinculación de productos del catálogo">
 </p>
 
 También puedes guardar solo las vinculaciones y cerrar, o utilizar las opciones de guardar Stock o precios y cerrar sin completar todos los pasos. Las acciones dependen de lo que hayas seleccionado. Reprocesar los datos de un ticket ya revisado permite completar alternativas y formatos del catálogo sin volver a reponer Stock.
@@ -218,7 +218,7 @@ También puedes guardar solo las vinculaciones y cerrar, o utilizar las opciones
 Utiliza las compras registradas en el periodo elegido para mostrar **Gasto total**, **Compras** e **Importe medio**, en euros. Los datos proceden del histórico, tanto de compras recuperadas de cuentas como de documentos revisados y compras completadas manualmente.
 
 <p align="center">
-  <img src="docs/images/analitica-gastos.png" alt="Análisis de gastos con totales, categorías y productos con más gasto">
+  <img src="https://raw.githubusercontent.com/TitoTB/Improved-Shopping-List/main/docs/images/analitica-gastos.png" alt="Análisis de gastos con totales, categorías y productos con más gasto">
 </p>
 
 - **Gasto por categoría:** muestra las nueve categorías con más gasto, con el color configurado para cada una. El resto y los importes sin clasificar se agrupan en **Otros**. Permite reconocer qué tipos de productos concentran el gasto.
@@ -240,7 +240,7 @@ Se incluyen los productos que tienen precios comparables en al menos dos tiendas
 - **Precios del catálogo:** muestra los precios comparables por producto y tienda, su fecha y la diferencia máxima. Permite ordenar alfabéticamente o por diferencia absoluta o porcentual.
 
 <p align="center">
-  <img src="docs/images/analitica-comparativa.png" alt="Comparativa de tiendas, oportunidades de ahorro y cesta de referencia">
+  <img src="https://raw.githubusercontent.com/TitoTB/Improved-Shopping-List/main/docs/images/analitica-comparativa.png" alt="Comparativa de tiendas, oportunidades de ahorro y cesta de referencia">
 </p>
 
 Al pulsar una tienda en el gráfico o en la cabecera de la tabla se priorizan los productos más baratos en ella. Una segunda pulsación deja solo esos productos y una tercera elimina la selección. Las fechas ayudan a valorar si los precios guardados siguen siendo recientes; los importes mostrados pueden haber cambiado en la tienda.
@@ -253,7 +253,7 @@ Utiliza el catálogo completo y sus EAN para mostrar dos gráficos independiente
 - **Grado de procesamiento:** agrupa los productos según NOVA en sin procesar o mínimamente procesados, ingredientes culinarios, procesados y ultraprocesados. Los colores van de verde a rojo según aumenta el procesamiento. Solo se clasifican los productos para los que existe ese dato; un producto con alternativas de distinto procesamiento puede aparecer en más de un grupo.
 
 <p align="center">
-  <img src="docs/images/analitica-nutricion.png" alt="Gráficos de Nutri-Score y grado de procesamiento de los productos del catálogo">
+  <img src="https://raw.githubusercontent.com/TitoTB/Improved-Shopping-List/main/docs/images/analitica-nutricion.png" alt="Gráficos de Nutri-Score y grado de procesamiento de los productos del catálogo">
 </p>
 
 Pulsa una calificación o un grupo para desplegar sus productos y abrir sus fichas. Desplegar un grupo no filtra el otro gráfico. Esta vista ayuda a conocer la composición del catálogo; no representa las cantidades que has consumido ni una valoración de tu dieta.

@@ -361,17 +361,21 @@ async def test_catalog_replenishment_validates_before_saving_product(env,shared)
 async def test_percentage_minimum_survives_catalog_stock_and_restart(env,shared,mode):
     from custom_components.improved_shopping_list.stock import stock_needs_reorder
     product=env.stock.catalog.products[0];item=env.stock.item_for(product)
+    item=await env.stock.async_save(item["id"],item["revision"],config(item,quantity=10,unit="uds"))
     extras={'usage_entity':'sensor.washer','usage_state':'finished'} if mode=='usage' else {
         'meal_rules':[{'routine_id':'routine','meal_id':'lunch','amount':1,'person_amounts':{}}]}
-    payload=replenishment_payload(item,mode=mode,unit='uds',refill_quantity=10,reorder_enabled=True,reorder_percent=20,reorder_basis='percent',list_entity='todo.main',**extras)
+    payload=replenishment_payload(item,mode=mode,unit='uds',refill_quantity=99,reorder_enabled=True,reorder_percent=20,reorder_basis='percent',list_entity='todo.main',**extras)
     product=await shared.async_save_replenishment({k:v for k,v in product.items() if k in FIELDS},payload)
     item=env.stock.item_for(product)
     assert item['reorder_basis']=='percent' and item['reorder_percent']==20
-    # 2 units is 20% of a refill of 10, regardless of an older absolute minimum.
+    # Two units is 20% of the post-replenishment stock of ten, not the configured refill of 99.
+    assert item["full_quantity"]==10
     assert stock_needs_reorder({**item,'quantity':2,'reorder_at':0})
     assert not stock_needs_reorder({**item,'quantity':3,'reorder_at':999})
     restored=StockManager(env.stock.hass,env.stock.catalog);await restored.async_load()
     assert restored.item_for(product)['reorder_basis']=='percent'
+    assert restored.item_for(product)['full_quantity']==10
+    assert stock_needs_reorder({**restored.item_for(product),'quantity':2,'reorder_at':0})
     assert restored.item_for(product)['quantity']==item['quantity']
 
 

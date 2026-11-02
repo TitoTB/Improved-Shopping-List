@@ -1,4 +1,4 @@
-import './analytics-insights.js?v=0.80.0';
+import './analytics-insights.js?v=0.81.0';
 const node=(tag,cls,text)=>{const el=document.createElement(tag);if(cls)el.className=cls;if(text!==undefined)el.textContent=text;return el;};
 const names={masymas:"Masymas",bm:"BM",elcorteingles:'El Corte Inglés',mercadona:'Mercadona',carrefour:'Carrefour',alcampo:'Alcampo',consum:'Consum',lasirena:'La Sirena',eroski:'Eroski',dia:'DIA',lidl:'Lidl'};
 const money=(cents,currency)=>new Intl.NumberFormat('es-ES',{style:'currency',currency,minimumFractionDigits:2,maximumFractionDigits:2}).format(cents/100);
@@ -174,7 +174,7 @@ class ImprovedShoppingAnalytics extends HTMLElement {
         const row=node('button','rank-row');row.type='button';row.dataset.store=shop.store;row.setAttribute('aria-pressed',String(this._selectedStore===shop.store));row.setAttribute('aria-label','Priorizar productos más baratos en '+(names[shop.store]||shop.store));row.addEventListener('click',()=>this._chooseStore(shop.store));row.append(this._shopLabel(shop.store));const track=node('div','rank-track'),bar=node('div','rank-bar');bar.style.width=shop.wins/maximum*100+'%';track.append(bar);track.setAttribute('role','img');track.setAttribute('aria-label',(names[shop.store]??shop.store)+': '+shop.wins+' productos al menor precio');
         const total=node('span','rank-total',shop.wins+(shop.wins===1?' mínimo':' mínimos'));total.append(node('small','',shop.known+' con precio'));row.append(track,total);chart.append(row);
       }
-      const opportunities=node('section','card');opportunities.append(node('h2','','Dónde puedes ahorrar más'),node('p','muted','Diferencias entre precios por la misma unidad.'));
+      const opportunities=node('section','card');opportunities.append(node('h2','','Dónde puedes ahorrar más'));
       for(const row of orderComparisonRows(result.rows,{order:'percentage'}).filter(row=>row.difference>0).slice(0,3)){
         const button=node('button','opportunity');button.type='button';if(row.product.image_url){const image=node('img');image.src=row.product.image_url;image.alt='';button.append(image);}else{const icon=node('ha-icon');icon.setAttribute('icon',row.product.icon||'mdi:shopping');icon.setAttribute('aria-hidden','true');button.append(icon);}const text=node('span');text.append(node('strong','',row.product.name),node('small','',this._amount(row.difference,result.currency)+'/'+(row.unit==='uds'?'ud':row.unit)+' · '+(row.max?row.difference/row.max*100:0).toLocaleString('es-ES',{maximumFractionDigits:1})+' %'));button.append(text);button.addEventListener('click',()=>{root.querySelector('#analysis-search').value=row.product.name;this._catalogLimit=30;this._renderComparison();});opportunities.append(button);
       }
@@ -182,7 +182,6 @@ class ImprovedShoppingAnalytics extends HTMLElement {
     }else container.append(this._empty('No hay precios guardados para estos productos en estas tiendas.'));
     if(result.common){
       const card=node('section','card');card.append(node('h2','','La misma cesta de referencia · '+result.common+(result.common===1?' producto':' productos')));
-      card.append(node('p','muted','Una unidad de referencia por producto: 1 unidad, 1 kg o 1 litro, según indica la tabla. Solo los productos con precio equivalente en todas estas tiendas. No es una lista de compra real.'));
       const shops=node('div','common-cards');for(const [index,shop] of result.totals.entries()){const block=node('div','common-shop');block.append(this._shopLabel(shop.store),node('strong',Math.abs(shop.total-result.totals[0].total)<.000001?'best':'',this._amount(shop.total,result.currency)));shops.append(block);}card.append(shops);container.append(card);
     }
     const card=node('section','card'),scroll=node('div','scroll'),table=node('table');

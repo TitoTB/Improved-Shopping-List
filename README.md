@@ -118,6 +118,8 @@ Activa **Añadir a la lista cuando el stock llegue al mínimo** e indica el umbr
 
 Si tienes varias listas de compra, puedes elegir la **Lista para reponer**. El selector se oculta cuando solo hay una; las listas pasarela no cuentan como listas de destino adicionales.
 
+El 100 % corresponde al stock total que queda después de la última reposición. Si quedan 50 g y añades 200 g, los 250 g resultantes serán el nuevo 100 %. Se utiliza la cantidad recuperada o estimada del ticket cuando está disponible; la cantidad predeterminada solo sirve como propuesta cuando no se conoce la comprada.
+
 Para registrar lo comprado, puedes revisar un ticket desde **Analítica → Compras** o actualizar la cantidad manualmente. Al revisar el ticket, se propone la cantidad recuperada o estimada y, si no está disponible, la cantidad predeterminada de reposición. Solo se repone Stock para los productos que selecciones durante la revisión. Marcar un producto como comprado en la lista no aumenta por sí solo su Stock.
 
 ### Rutinas
@@ -150,7 +152,7 @@ Es la vista inicial. Puedes consultar el gasto mensual por tienda, filtrar las c
 
 ### Gastos
 
-Muestra el gasto total, el número de compras, el importe medio y qué parte del gasto se ha podido clasificar. Puedes explorar el gasto por tienda y categoría, los productos en los que más gastas, los que compras con más frecuencia o cantidad y la participación de cada persona. Pulsa en las barras para filtrar y en un producto para abrir su ficha.
+Muestra el gasto total, el número de compras y el importe medio en euros. Puedes explorar el gasto por tienda, las nueve categorías con más gasto y los diez productos en los que más gastas, además de la participación de cada persona. El resto de categorías y los importes sin clasificar se agrupan en «Otros». Cada categoría utiliza su color configurado. Pulsa en las barras para filtrar y en un producto para abrir su ficha.
 
 Las categorías corresponden a las vinculaciones actuales del catálogo. Los descuentos generales se distribuyen proporcionalmente; los importes sin detalle y los gastos de envío quedan sin clasificar. Una compra compartida cuenta para cada participante, pero se suma una sola vez al gasto total. Las cantidades compradas se comparan por la misma unidad; no representan necesariamente consumo.
 
@@ -160,9 +162,9 @@ Compara las alternativas del catálogo con precios por kg, litro o unidad equiva
 
 ### Nutrición
 
-Incluye Nutri-Score, clasificación NOVA e información disponible sobre energía, grasas, grasas saturadas, azúcares, sal, fibra y proteínas. Permite consultar el catálogo o los productos de las compras del periodo y filtrar por características alimentarias informadas. Al desplegar una calificación o pulsar un alimento puedes consultar sus productos y fichas.
+Muestra Nutri-Score y el grado de procesamiento NOVA en dos gráficos independientes. Los grupos se pueden desplegar para consultar sus productos; abrir un grupo no filtra el otro gráfico. La tabla de nutrientes permanece oculta. Utiliza el catálogo completo, sin limitar los datos a las compras de un periodo. Al desplegar una calificación o pulsar un alimento puedes consultar sus productos y fichas.
 
-Los datos se consultan en [Open Food Facts](https://world.openfoodfacts.org/) por coincidencia exacta de EAN y se guardan en una caché persistente para evitar repetir consultas. Se muestran por 100 g o 100 ml, separando su ordenación cuando conocemos la base. Los datos ausentes se indican con «—»; las compras reflejan alimentos adquiridos, no cantidades ingeridas. No se necesitan tarjetas adicionales de HACS.
+Al abrir la vista se intenta completar la información sin caché vigente. Los datos se consultan en [Open Food Facts](https://world.openfoodfacts.org/) por coincidencia exacta de EAN y se guardan en una caché persistente para evitar repetir consultas. Se muestran por 100 g o 100 ml, separando su ordenación cuando conocemos la base. Los datos ausentes se indican con «—»; las compras reflejan alimentos adquiridos, no cantidades ingeridas. No se necesitan tarjetas adicionales de HACS.
 
 ## Ajustes
 

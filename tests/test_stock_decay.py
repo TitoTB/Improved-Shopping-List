@@ -80,3 +80,33 @@ class StockDecayTests(unittest.IsolatedAsyncioTestCase):
             item={**self.item,"mode":mode}
             self.assertEqual(remaining_quantity(item,self.clock+100*DAY),250)
             self.assertEqual(remaining_percentage(item,self.clock+100*DAY),100)
+
+
+    async def test_replenishment_total_is_full_reference_and_defaults_do_not_change_it(self):
+        self.clock+=3.5*DAY
+        opened=self.stock.snapshot['items'][0]
+        fields=('quantity','unit','mode','days','refill_quantity','reorder_enabled','reorder_at','reorder_percent','list_entity','usage_entity','usage_state','usage_amount')
+        config={key:opened[key] for key in fields};config.update(quantity=325,quantity_changed=True)
+        saved=await self.stock.async_save('pavo',opened['revision'],config)
+        self.assertEqual(saved['full_quantity'],325)
+        self.assertEqual(remaining_percentage(saved,self.clock),100)
+        self.clock+=3.5*DAY
+        self.assertEqual(self.stock.snapshot['items'][0]['quantity'],162.5)
+        self.assertEqual(remaining_percentage(self.stock.snapshot['items'][0],self.clock),50)
+        config={key:self.stock.snapshot['items'][0][key] for key in fields};config.update(refill_quantity=900,quantity_changed=False)
+        saved=await self.stock.async_save('pavo',saved['revision'],config)
+        self.assertEqual(saved['full_quantity'],325)
+        self.assertEqual(remaining_percentage(saved,self.clock),50)
+        restored=StockManager.__new__(StockManager);restored.receipts=deepcopy(self.stock.receipts);restored.catalog=self.stock.catalog
+        restored._store=SimpleNamespace(async_load=AsyncMock(return_value={'items':deepcopy(self.stock._items)}))
+        await restored.async_load()
+        self.assertEqual(remaining_percentage(restored.snapshot['items'][0],self.clock),50)
+
+    async def test_reader_addition_resets_full_reference_but_consumption_keeps_it(self):
+        self.stock._items['pavo'].update(mode='manual',quantity=50,full_quantity=100,refill_quantity=250)
+        saved=await self.stock.async_adjust('pavo',1)
+        self.assertEqual(saved['full_quantity'],51)
+        self.assertEqual(remaining_percentage(saved),100)
+        saved=await self.stock.async_adjust('pavo',-1)
+        self.assertEqual(saved['full_quantity'],51)
+        self.assertAlmostEqual(remaining_percentage(saved),50/51*100)

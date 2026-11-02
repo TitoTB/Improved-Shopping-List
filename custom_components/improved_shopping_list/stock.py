@@ -103,7 +103,8 @@ def materialized_stock(item, now=None):
 
 def remaining_percentage(item, now=None):
     """Use exactly the same remaining quantity as the UI and mutations."""
-    return max(0,min(100,remaining_quantity(item,now)/item.get("refill_quantity",1)*100))
+    full = item.get("full_quantity", item.get("refill_quantity", 1))
+    return max(0,min(100,remaining_quantity(item,now)/full*100)) if full > 0 else 0
 
 
 def stock_needs_reorder(item, now=None):
@@ -161,13 +162,15 @@ class StockManager:
         try:
             for item in items.values():
                 merged = {**DEFAULT_CONFIG, **item}
+                if "full_quantity" in item:
+                    quantity_value(item["full_quantity"])
                 if type(merged.get("quantity_at",0)) not in (int,float) or not 0 <= merged.get("quantity_at",0) <= 100000000000:
                     raise CatalogError("La fecha de stock no es válida.")
                 stock_config({field:merged[field] for field in ("quantity","unit","mode","days","refill_quantity",
                     "reorder_enabled","reorder_at","reorder_percent","list_entity","usage_entity","usage_state","usage_amount","meal_rules","reorder_basis")})
         except CatalogError as err:
             raise CatalogError("No se ha podido leer el stock guardado.", "storage_error") from err
-        self._items = {key:{**deepcopy(DEFAULT_CONFIG),**deepcopy(item)} for key,item in items.items()}
+        self._items = {key:{**deepcopy(DEFAULT_CONFIG),"full_quantity":item["quantity"],**deepcopy(item)} for key,item in items.items()}
         receipts = data.get("receipts", {})
         if not isinstance(receipts, dict) or any(not isinstance(receipts.get(key, {}), dict) for key in self.receipts):
             raise CatalogError("No se ha podido leer el historial de compras.", "storage_error")
@@ -265,7 +268,9 @@ class StockManager:
         item = {**deepcopy(current or DEFAULT_CONFIG), "id":current["id"] if current else str(uuid4()), "name":product["name"] if product else current["name"] if current else name,
             "catalog_product_id":product_id, "quantity":quantity, "revision":current["revision"]+1 if current else 1}
         receipts=deepcopy(self.receipts)
-        if delta>0:receipts["coverage"].pop("awaiting:"+item["id"],None)
+        if delta>0:
+            item["full_quantity"]=quantity
+            receipts["coverage"].pop("awaiting:"+item["id"],None)
         await self._persist({**deepcopy(self._items), item["id"]:item},receipts=receipts)
         if self.activity:
             self.activity.record("stock.change", f'{item["name"]}: {quantity} {item["unit"]} en stock', source=source,
@@ -285,6 +290,8 @@ class StockManager:
             if not quantity_changed:
                 item["quantity"]=remaining_quantity(current)
             item["quantity_at"]=time.time()
+            if (quantity_changed and item["quantity"]>remaining_quantity(current)) or config["unit"]!=current["unit"]:
+                item["full_quantity"]=item["quantity"]
             if config["mode"] != "perishable":
                 item.update(expires_at=0,expired=False)
             elif (current.get("mode") != "perishable" or current.get("days") != config["days"]
@@ -323,6 +330,7 @@ class StockManager:
             item={**deepcopy(current or DEFAULT_CONFIG),**config,"id":current["id"] if current else str(uuid4()),
                   "name":product["name"],"catalog_product_id":product["id"],"configured":True,
                   "revision":(current or {}).get("revision",0)+1,"config_revision":(current or {}).get("config_revision",0)+1,
+                  "full_quantity":(current or {}).get("full_quantity",(current or {}).get("quantity",0)),
                   "quantity_at":now,"recurrence_updated_at":max(now,self.recurrence_stamp(current),product.get("recurrence_updated_at",0))+0.000001}
             if config['mode']=='meals' and (not current or current['mode']!='meals' or item.get('meal_rules')!=current.get('meal_rules')):item['meal_config_at']=now
             if config["mode"]!="perishable":item.update(expires_at=0,expired=False)
@@ -347,6 +355,7 @@ class StockManager:
                 return
             item = {**deepcopy(current or DEFAULT_CONFIG), "id":current["id"] if current else str(uuid4()),
                 "name":product["name"], "catalog_product_id":product["id"], "quantity":current["quantity"] if current else 0,
+                "full_quantity":(current or {}).get("full_quantity",(current or {}).get("quantity",0)),
                 "revision":current["revision"]+1 if current else 1, "recurrence_updated_at":stamp,
                 "config_revision":(current or {}).get("config_revision",0)+1, "days":recurrence["days"]}
             if recurrence["enabled"]:

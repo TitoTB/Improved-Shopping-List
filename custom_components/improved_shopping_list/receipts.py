@@ -846,6 +846,7 @@ class ReceiptManager:
                         raise CatalogError("La reposición seleccionada ya se ha conciliado o ha cambiado.", "conflict")
                     delta = quantity - (previous["quantity"] if previous else 0)
                     item["quantity"] = quantity_value(round(item["quantity"]+delta,3))
+                    item["full_quantity"] = item["quantity"]
                     item["revision"] += 1
                     if item["mode"] == "perishable" and (not previous or abs(previous["at"]-purchased_at) < 2*DAY):
                         # An old receipt must not restart a newer batch's shelf life.

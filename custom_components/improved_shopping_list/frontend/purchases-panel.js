@@ -1,8 +1,8 @@
 const priceValue=value=>value==null||value===''?'':Number(Number(value).toFixed(2));
-import { ListSettingsSession } from "./list-settings-client.js?v=0.80.0";
-import { installDialogCloseButtons } from "./dialog-controls.js?v=0.80.0";
-import { productNameKey } from "./product-names.js?v=0.80.0";
-import { referenceFor, suggestedContent, referenceContentControls, validReferenceContent, validReferenceFormat, weightFormat, receiptCatalogPrice, barcodeIdentity, recoveredStockQuantity } from "./reference-formats.js?v=0.80.0";
+import { ListSettingsSession } from "./list-settings-client.js?v=0.81.0";
+import { installDialogCloseButtons } from "./dialog-controls.js?v=0.81.0";
+import { productNameKey } from "./product-names.js?v=0.81.0";
+import { referenceFor, suggestedContent, referenceContentControls, validReferenceContent, validReferenceFormat, weightFormat, receiptCatalogPrice, barcodeIdentity, recoveredStockQuantity } from "./reference-formats.js?v=0.81.0";
 
 const node=(tag,cls,text)=>{const el=document.createElement(tag);if(cls)el.className=cls;if(text!==undefined)el.textContent=text;return el;};
 const money=value=>new Intl.NumberFormat('es-ES',{style:'currency',currency:'EUR',minimumFractionDigits:2,maximumFractionDigits:2}).format(value);
@@ -58,7 +58,7 @@ class ImprovedShoppingPurchases extends HTMLElement {
       .purchase-filters{display:flex;align-items:flex-end;gap:12px;margin:16px 0;flex-wrap:nowrap}.purchase-filters label{flex:1;min-width:0}.purchase-filters .upload-ticket{width:42px;height:42px}.shoppers{font-size:12px;opacity:.7}.product-choice{display:flex!important;align-items:center;gap:10px}.product-choice input{width:auto!important}button,input,select{font:inherit;color:inherit}button{cursor:pointer}button:disabled{opacity:.5;cursor:default}
       input,select{width:100%;min-width:0;min-height:42px;border:1px solid var(--divider-color,#d9e0dd);background:var(--card-background-color,#fff);border-radius:8px;padding:8px}
       .notice{padding:12px;border-radius:10px;background:var(--secondary-background-color,#edf2ef)}.error{color:var(--error-color,#d32f2f)}
-      #history{display:grid;gap:12px}#more-purchases{display:block;margin:16px auto 0;padding:12px 20px;border:0;border-radius:10px;background:var(--primary-color,#267052);color:white}#more-purchases:focus-visible{outline:3px solid var(--primary-color,#267052);outline-offset:3px}.ticket{border-radius:14px;background:var(--card-background-color,#fff);padding:16px}
+      #history{display:grid;gap:8px}#more-purchases{display:block;margin:16px auto 0;padding:12px 20px;border:0;border-radius:10px;background:var(--primary-color,#267052);color:white}#more-purchases:focus-visible{outline:3px solid var(--primary-color,#267052);outline-offset:3px}.ticket{border-radius:14px;background:var(--card-background-color,#fff);padding:16px}
       summary{display:flex;align-items:center;gap:12px;cursor:pointer;list-style:none}summary::before{content:'▸'}details[open]>summary::before{content:'▾'}
       .title{display:flex;flex-direction:column;gap:4px;flex:1;min-width:0}.muted{opacity:.65;font-size:.85em}.total{font-weight:750;white-space:nowrap}
       .line{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;padding:10px 0;border-bottom:1px solid var(--divider-color,#d9e0dd)}.line p{margin:3px 0}
@@ -82,7 +82,7 @@ class ImprovedShoppingPurchases extends HTMLElement {
       .receipt-ean{display:block;font-size:12px;opacity:.7;margin-top:4px;overflow-wrap:anywhere}
       .association-row{display:flex;align-items:center;gap:10px;min-width:0}.association-name{flex:1;min-width:0;overflow-wrap:anywhere}.association-name strong{font-size:.95em}.linked-name{display:block;font-size:.8em;opacity:.65;margin:4px 0 0}.association-buttons{display:flex;gap:6px;flex:none;margin-left:auto}
       .small-button.link{background:#2196f3;color:white}.small-button.create{background:var(--isl-green,#267052);color:white}
-      #association-dialog{width:min(500px,calc(100vw - 24px))}#association-form label{margin-top:16px}#association-error{margin:12px 0 0}
+      #association-dialog{width:min(500px,calc(100vw - 24px))}#association-form label{margin-top:16px}#association-error{margin:12px 0 0}#association-products{max-height:min(280px,35dvh);overflow-y:auto;overscroll-behavior:contain;margin-top:8px;border:1px solid var(--divider-color,#d9e0dd);border-radius:10px}#association-products:empty{display:none}.association-option{display:flex;align-items:center;gap:10px;width:100%;min-height:48px;padding:10px 12px;text-align:left;border:0;border-bottom:1px solid var(--divider-color,#d9e0dd);background:transparent;color:inherit;overflow-wrap:anywhere}.association-option:last-child{border-bottom:0}.association-option[aria-selected=true]{background:var(--secondary-background-color,#edf2ef)}.association-option:focus-visible{outline:2px solid var(--primary-color,#267052);outline-offset:-2px}
       @media(max-width:400px){.association-buttons{gap:4px}.association-buttons .small-button{width:34px;height:38px}.association-row{gap:8px}.linked-name{display:block;margin-left:0}}
       @media(max-width:550px){dialog{padding:18px}.fields{grid-template-columns:minmax(0,1fr)}summary{gap:8px}.original{font-size:.9em}.ticket{padding:12px}}
 
@@ -94,7 +94,7 @@ class ImprovedShoppingPurchases extends HTMLElement {
       .ticket{display:flex;align-items:center;gap:12px;min-width:0}.store-image{width:42px;height:42px;object-fit:contain;background:white;border-radius:10px;padding:5px;flex:none}.ticket .title{overflow-wrap:anywhere}.ticket .ticket-open{flex:none;width:40px;height:40px;border:0;border-radius:10px;background:var(--secondary-background-color,#edf2ef);display:grid;place-items:center;padding:0}.ticket-open.reviewed{background:var(--isl-green,#267052);color:white}.ticket-open:focus-visible{outline:3px solid var(--primary-color,#267052);outline-offset:2px}#purchase-detail-info{align-items:center;padding-bottom:12px;border-bottom:1px solid var(--divider-color,#d9e0dd)}#purchase-detail-info .total{margin-left:auto}.spending-chart{background:var(--card-background-color,#fff);padding:18px;border-radius:14px;margin-bottom:16px;min-width:0}.spending-chart h3{margin:0 0 4px;font-size:1.05em}.spending-chart .chart-note{font-size:.8em;opacity:.65;margin:0 0 12px}.chart-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}.chart-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;margin-left:auto;min-width:0;max-width:100%}.chart-navigation{display:flex;align-items:center;gap:6px;min-width:0}.chart-navigation button{flex:none}.upload-ticket{display:grid;place-items:center;flex:none;width:36px;height:36px;padding:0;border:0;border-radius:10px;background:var(--isl-green,#267052);color:#fff}.upload-ticket ha-icon{display:block;width:22px;height:22px;--mdc-icon-size:22px}.upload-ticket:focus-visible{outline:3px solid var(--primary-color,#267052);outline-offset:2px}.chart-period{font-size:.8em;text-align:center}.chart-navigation button{display:grid;place-items:center;width:32px;height:32px;padding:0;border:0;border-radius:8px;background:var(--secondary-background-color,#edf2ef)}.chart-navigation button ha-icon{--mdc-icon-size:22px}.chart-navigation button:focus-visible{outline:3px solid var(--primary-color,#267052);outline-offset:2px}.chart-scroll{width:100%;min-width:0;overflow-x:auto}.chart-range{display:flex;align-items:center;gap:6px;border:0;border-radius:8px;padding:8px;background:var(--secondary-background-color,#edf2ef);font-size:.8em;min-width:0}.chart-range span{overflow-wrap:anywhere}.chart-range ha-icon{flex:none}#purchase-period-dialog{width:min(460px,calc(100vw - 24px))}#purchase-period-form .period-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:20px}.monthly-bars{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));align-items:end;gap:14px;width:100%;padding:8px 0 0;border-bottom:1px solid var(--divider-color,#d9e0dd)}.month-column{min-width:0;text-align:center}.month-total{display:block;font-weight:700;font-size:clamp(.6rem,2vw,.85rem);margin-bottom:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.month-stack{height:130px;display:flex;flex-direction:column;justify-content:end;gap:0;background:repeating-linear-gradient(to top,transparent 0,transparent calc(25% - 1px),var(--divider-color,#d9e0dd) 25%);border-bottom:1px solid var(--divider-color,#d9e0dd)}.store-segment{width:70%;margin-inline:auto;flex:none;min-height:0}.month-label{display:block;font-size:.8em;padding:8px 0}.chart-legend{display:flex;flex-wrap:wrap;gap:10px 16px;margin-top:14px}.chart-key{display:inline-flex;align-items:center;gap:6px;font-size:.8em}.chart-swatch{width:10px;height:10px;border-radius:3px;flex:none}@media(max-width:550px){.ticket{gap:8px}.ticket .store-image{width:34px;height:34px}.ticket .ticket-open{width:32px;height:36px}.ticket .title{font-size:.85em}.ticket .total{font-size:.9em}.spending-chart{padding:14px}.monthly-bars{gap:6px}.month-label{font-size:.7em}.chart-period{font-size:.7em}}
       #detected-purchase-dialog{width:min(500px,calc(100vw - 24px))}#detected-purchase-form label{margin-top:16px}#detected-products{max-height:25vh;overflow:auto;padding-left:20px}.ticket.needs-details{border:1px dashed var(--secondary-text-color,#64748b)}.ticket .edit-detection{background:#ffb74d;color:#182b22}.actions .danger{background:#d32f2f;color:#fff}
     .recovery-actions{display:flex;justify-content:flex-start;margin-top:12px}.recovery-actions button{display:flex;align-items:center;gap:8px;border:0;border-radius:10px;padding:10px 14px;background:#2196f3;color:#fff}.recovery-choice{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;margin-top:8px;padding:12px;border:1px solid var(--divider-color,#d9e0dd);border-radius:10px;background:var(--secondary-background-color,#edf2ef);color:inherit;text-align:left}.zone-candidates{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:18px}.zone-store-choice{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-width:0;flex:1;padding:10px;border:1px solid var(--divider-color,#d9e0dd);border-radius:10px;background:var(--secondary-background-color,#edf2ef)}.zone-store-choice:focus-visible{outline:3px solid var(--primary-color,#267052);outline-offset:2px}.zone-store-choice[aria-pressed=true]{background:var(--primary-color,#267052);color:white}.zone-store-choice .store-image{width:28px;height:28px;flex:none}
-    .spending-chart{border:1px solid var(--divider-color,#dfe7e1);border-radius:16px;padding:20px}.ticket{border:1px solid var(--divider-color,#dfe7e1);border-radius:12px;padding:14px;margin-top:10px;background:var(--card-background-color,#fff)}.ticket .store-image{border-radius:50%}.chart-legend{justify-content:center;padding-top:8px}.month-stack{height:160px}.chart-key{padding:5px 8px;border-radius:8px}.chart-swatch{width:9px;height:9px}.ticket .total{font-weight:750}.chart-range{min-height:40px}.purchase-filters{gap:12px}@media(max-width:550px){.spending-chart{padding:14px}.month-stack{height:130px}.ticket{padding:12px}.chart-legend{gap:8px}}
+    .spending-chart{border:1px solid var(--divider-color,#dfe7e1);border-radius:16px;padding:20px}.ticket{border:1px solid var(--divider-color,#dfe7e1);border-radius:12px;padding:14px;margin-top:0;background:var(--card-background-color,#fff)}.ticket .store-image{border-radius:50%}.chart-legend{justify-content:center;padding-top:8px}.month-stack{height:160px}.chart-key{padding:5px 8px;border-radius:8px}.chart-swatch{width:9px;height:9px}.ticket .total{font-weight:750}.chart-range{min-height:40px}.purchase-filters{gap:12px}@media(max-width:550px){.spending-chart{padding:14px}.month-stack{height:130px}.ticket{padding:12px}.chart-legend{gap:8px}}
 </style>
     <input id="ticket-file" type="file" accept="application/pdf,.pdf" hidden>
     <p id="message" class="notice" role="status" hidden></p><section id="spending-chart" class="spending-chart" aria-label="Gasto mensual por tienda" hidden></section><div class="purchase-filters"><label>Tienda<select id="filter-shop" aria-label="Filtrar por tienda"><option value="">Todas las tiendas</option></select></label><label>Usuario<select id="filter-person" aria-label="Filtrar por usuario"><option value="">Todos los usuarios</option></select></label></div><div id="history"></div><button id="more-purchases" type="button" hidden>Mostrar más</button><p id="empty" class="empty" hidden>Todavía no has subido ningún ticket.</p>
@@ -105,7 +105,7 @@ class ImprovedShoppingPurchases extends HTMLElement {
     </form></dialog>
     <dialog id="association-dialog" aria-labelledby="association-title"><form id="association-form">
       <h2 id="association-title">Vincular producto</h2>
-      <label for="association-search">Producto del catálogo</label><input id="association-search" type="text" list="association-products" maxlength="255" autocomplete="off" required><datalist id="association-products"></datalist>
+      <label for="association-search">Producto del catálogo</label><input id="association-search" type="search" role="combobox" aria-autocomplete="list" aria-expanded="true" aria-controls="association-products" maxlength="255" autocomplete="off" placeholder="Buscar producto" required><div id="association-products" role="listbox" aria-label="Productos del catálogo"></div><p id="association-empty" class="note" role="status" hidden>No hay productos que coincidan con la búsqueda.</p>
       <p id="association-error" class="notice error" role="alert" hidden></p>
       <div class="actions"><button id="confirm-association" type="submit">Vincular</button></div>
     </form></dialog>
@@ -139,6 +139,8 @@ class ImprovedShoppingPurchases extends HTMLElement {
     root.querySelector('#stock-only').addEventListener('click',()=>void this._confirm(false));
     root.querySelector('#prices-only').addEventListener('click',()=>void this._confirm());
     dialog.addEventListener('cancel',event=>{if(this._busy)event.preventDefault();});
+    root.querySelector('#association-search').addEventListener('input',()=>{this._associationProductId=null;root.querySelector('#association-error').hidden=true;this._renderAssociationProducts();});
+    root.querySelector('#association-search').addEventListener('keydown',event=>{if(event.key==='ArrowDown'||event.key==='ArrowUp'){const options=root.querySelectorAll('.association-option');if(options.length){event.preventDefault();options[event.key==='ArrowDown'?0:options.length-1].focus();}}});
     root.querySelector('#association-form').addEventListener('submit',event=>{event.preventDefault();this._confirmAssociation();});
     root.querySelector('#association-dialog').addEventListener('close',()=>{this._associationEdit=null;});
     dialog.addEventListener('close',()=>{
@@ -495,15 +497,28 @@ class ImprovedShoppingPurchases extends HTMLElement {
     const root=this.shadowRoot;
     root.querySelector('#association-title').textContent='Vincular '+edit.line.description;
     const search=root.querySelector('#association-search');search.value=this._product(edit)?.name??'';
-    root.querySelector('#association-products').replaceChildren(...this._draft.products
-      .map(product=>new Option(product.name,product.name)));
+    this._associationProductId=this._product(edit)?.id??null;
+    this._renderAssociationProducts();
     root.querySelector('#association-error').hidden=true;
     root.querySelector('#association-dialog').showModal();search.focus();
+  }
+  _renderAssociationProducts(){
+    const root=this.shadowRoot,search=root.querySelector('#association-search'),list=root.querySelector('#association-products'),query=productNameKey(search.value);
+    const products=(this._draft?.products??[]).filter(product=>productNameKey(product.name).includes(query)).sort((a,b)=>a.name.localeCompare(b.name,'es',{sensitivity:'base'}));
+    list.replaceChildren();
+    for(const product of products){
+      const option=node('button','association-option');option.type='button';option.setAttribute('role','option');option.setAttribute('aria-selected',String(product.id===this._associationProductId));option.append(this._productImage(product),node('span','',product.name));
+      option.addEventListener('click',()=>{if(this._busy)return;this._associationProductId=product.id;search.value=product.name;root.querySelector('#association-error').hidden=true;this._renderAssociationProducts();root.querySelector('#confirm-association').focus({preventScroll:true});});
+      option.addEventListener('keydown',event=>{if(event.key==='ArrowDown'||event.key==='ArrowUp'){event.preventDefault();const next=event.key==='ArrowDown'?option.nextElementSibling:option.previousElementSibling;if(next)next.focus();else search.focus();}});
+      list.append(option);
+    }
+    root.querySelector('#association-empty').hidden=products.length>0;
   }
   _confirmAssociation(){
     const edit=this._associationEdit;if(this._busy||!this._draft||!edit)return;
     const root=this.shadowRoot,search=root.querySelector('#association-search');
-    const product=this._draft.products.find(p=>productNameKey(p.name)===productNameKey(search.value));
+    const matches=p=>productNameKey(p.name)===productNameKey(search.value);
+    const product=this._draft.products.find(p=>p.id===this._associationProductId&&matches(p))??this._draft.products.find(matches);
     const error=root.querySelector('#association-error');
     error.textContent=!product?'Selecciona un producto del catálogo.':'';
     error.hidden=!error.textContent;if(error.textContent)return;

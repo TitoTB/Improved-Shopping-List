@@ -1,7 +1,7 @@
-import './meal-consumption.js?v=0.80.0';
+import './meal-consumption.js?v=0.81.0';
 /** Pantry UI, forms and calculations loaded only when Stock is opened. */
-import { imageSource, normalizedName, productNameKey } from './product-display.js?v=0.80.0';
-import { installDialogCloseButtons } from './dialog-controls.js?v=0.80.0';
+import { imageSource, normalizedName, productNameKey } from './product-display.js?v=0.81.0';
+import { installDialogCloseButtons } from './dialog-controls.js?v=0.81.0';
 const stockQuantity = (item, now=Date.now()/1000) => {
   if(item.mode!=='perishable')return item.quantity;
   if(item.quantity<=0||item.expired)return 0;
@@ -10,7 +10,7 @@ const stockQuantity = (item, now=Date.now()/1000) => {
   if(item.expires_at<=now||item.expires_at<=start)return 0;
   return Math.round(item.quantity*Math.max(0,Math.min(1,(item.expires_at-now)/(item.expires_at-start)))*1000)/1000;
 };
-const stockRemaining = (item, now=Date.now()/1000) => Math.max(0,Math.min(100,stockQuantity(item,now)/(item.refill_quantity??1)*100));
+const stockRemaining = (item, now=Date.now()/1000) => Math.max(0,Math.min(100,stockQuantity(item,now)/((item.full_quantity??item.refill_quantity)||1)*100));
 
 
 const stockEditorStyles=`
@@ -172,7 +172,7 @@ class StockView {
 
   _updateStockDraftSummary(){
     const root=this.shadowRoot,form=root.querySelector('#stock-editor-form');
-    const quantity=Math.max(0,Number(form.elements.quantity.value)||0),refill=Math.max(.001,Number(form.elements.refill_quantity.value)||1);
+    const quantity=Math.max(0,Number(form.elements.quantity.value)||0),editing=this._stockEditing??{},refill=Math.max(.001,quantity>Math.round(editing.quantity)?quantity:(editing.full_quantity??editing.refill_quantity??quantity));
     const percent=Math.max(0,Math.min(100,quantity/refill*100)),unit=form.elements.unit.value==='custom'?form.elements.custom_unit.value.trim():form.elements.unit.value;
     const card=root.querySelector('#stock-current-card');card.style.setProperty('--stock-draft-percent',percent+'%');card.classList.toggle('custom-unit',form.elements.unit.value==='custom');
     const label=Math.round(percent)+' % restante',status=root.querySelector('#stock-editor-percent');if(status.textContent!==label)status.textContent=label;

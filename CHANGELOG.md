@@ -1,5 +1,27 @@
 # Historial de cambios
 
+## 0.81.0 — 2026-11-02
+
+- Nutrición coloca Nutri-Score y procesamiento en filas independientes. Los grupos NOVA muestran nombres sin numeración, colores de verde a rojo y productos desplegables, sin filtrar la vista. Se retira el texto de disponibilidad y se oculta la tabla nutricional.
+
+- Nutrición elimina los tres indicadores superiores y el contador total bajo el gráfico Nutri-Score.
+
+- Nutrición utiliza siempre el catálogo completo y elimina los selectores de datos y características y el buscador de alimentos.
+
+- Comparativa elimina los textos explicativos bajo las oportunidades de ahorro y la cesta de referencia.
+
+- Se elimina el bloque «Compras del periodo» del final de Analítica → Gastos.
+
+- «Compras por persona» sustituye a «Participación en compras» y comparte fila con «Gasto por tienda» en pantallas grandes.
+
+- Gastos elimina el selector de moneda y el indicador de gasto clasificado. Categorías muestra el top 9 con sus colores y agrupa el resto en «Otros», junto al top 10 de productos por gasto acumulado, sin selector de orden.
+
+- El 100 % de Stock se fija al total disponible tras cada reposición, usando la cantidad del ticket cuando existe. La referencia se conserva al consumir, editar la cantidad predeterminada y reiniciar; los mínimos porcentuales y las barras utilizan la misma base.
+
+- Las tarjetas de Analítica → Compras reducen su separación a 8 px, eliminando el margen adicional que se acumulaba entre ellas.
+
+- La vinculación de productos al revisar tickets utiliza una lista de resultados propia, compatible con selección táctil y teclado, en lugar del desplegable nativo que no mostraba los productos en algunos navegadores móviles.
+
 ## 0.80.0 — 2026-11-01
 
 - Analítica incorpora Gastos: totales, categorías, tiendas, productos más comprados y participación de personas, con filtros por periodo y navegación a compras y fichas.

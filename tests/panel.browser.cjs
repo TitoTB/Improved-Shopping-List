@@ -335,7 +335,7 @@ const hass={
       for(const [index,line] of receipt.lines.entries()){
         const edit=msg.lines[index],product=receiptOptions().products.find(p=>p.id===edit.product_id);
         Object.assign(line,{product_name:product?.name??'',replenished:edit.replenish,quantity:edit.quantity,unit:edit.unit,price_saved:edit.save_price});
-        if(edit.replenish){let stock=window.stockItems.find(item=>item.catalog_product_id===edit.product_id);if(!stock){stock={id:crypto.randomUUID(),catalog_product_id:edit.product_id,name:product.name,quantity:0,unit:edit.unit,revision:0};window.stockItems.push(stock);}stock.quantity+=edit.quantity;stock.revision++;}
+        if(edit.replenish){let stock=window.stockItems.find(item=>item.catalog_product_id===edit.product_id);if(!stock){stock={id:crypto.randomUUID(),catalog_product_id:edit.product_id,name:product.name,quantity:0,unit:edit.unit,revision:0};window.stockItems.push(stock);}stock.quantity+=edit.quantity;stock.full_quantity=stock.quantity;stock.revision++;}
       }
       window.emitStock();
       window.receiptHistory.push(receipt);localStorage.setItem('receipt-fixture',JSON.stringify(window.receiptHistory));return receipt;
@@ -345,6 +345,7 @@ const hass={
       if(msg.type.endsWith('/save')){
         const item=window.stockItems.find(item=>item.id===msg.item_id);
         if(item?.revision!==msg.revision)throw new Error('El stock ha cambiado. Cierra y vuelve a abrir la ficha para actualizarla.');
+        if(msg.config.quantity>item.quantity||msg.config.unit!==item.unit)item.full_quantity=msg.config.quantity;
         Object.assign(item,structuredClone(msg.config),{configured:true,config_revision:(item.config_revision??0)+1,revision:item.revision+1});
         window.emitStock();return structuredClone(item);
       }
@@ -355,7 +356,7 @@ const hass={
       }
       let item=msg.item_id?window.stockItems.find(item=>item.id===msg.item_id):window.stockItems.find(item=>normalizeName(item.name)===normalizeName(msg.name));
       if(!item){const product=window.catalogProducts.find(product=>normalizeName(product.name)===normalizeName(msg.name));item={id:crypto.randomUUID(),name:product?.name??msg.name,catalog_product_id:product?.id??'',quantity:0,revision:0};window.stockItems.push(item);}
-      item.quantity=Math.max(0,item.quantity+(msg.delta??1));item.revision++;window.emitStock();return structuredClone(item);
+      item.quantity=Math.max(0,item.quantity+(msg.delta??1));if((msg.delta??1)>0)item.full_quantity=item.quantity;item.revision++;window.emitStock();return structuredClone(item);
     }
     // Legacy scenarios intentionally exercise preserved store panels; the shipping-policy scenario below restricts this list.
     if(msg.type==='improved_shopping_list/settings/get')return settingsSnapshot();
@@ -883,7 +884,7 @@ async function checkAnalyticsDashboard(browser,url,errors){
  await context.addInitScript(()=>{
    const today=new Date().toISOString(),at=Date.now()/1000;
    const products=[{id:'coffee',name:'Café',category:'Despensa',barcode:'3017620422003'},{id:'eggs',name:'Huevos',category:'Fresco',barcode:'8410109115543'}].map(p=>({...p,revision:1,tags:[],barcodes:[p.barcode],nfc_tags:[],image_url:'',icon:'mdi:food',store_links:{},currency:'EUR',price:null}));
-   localStorage.setItem('catalog-fixture',JSON.stringify(products));
+   localStorage.setItem('catalog-fixture',JSON.stringify(products));localStorage.setItem('category-fixture',JSON.stringify([{id:'despensa',name:'Despensa',color:'#e34455',icon:'mdi:food',revision:1},{id:'fresco',name:'Fresco',color:'#00aabb',icon:'mdi:leaf',revision:1}]));
    localStorage.setItem('receipt-fixture',JSON.stringify([{id:'bill',store:'carrefour',store_name:'Carrefour',purchased_at:today,currency:'EUR',total:10,shoppers:['person.one','person.two'],lines:[{id:'1',product_id:'coffee',description:'CAFÉ',ean:'3017620422003',count:1,amount:8,pack_quantity:500,pack_unit:'g'},{id:'2',product_id:'eggs',description:'HUEVOS',count:1,amount:2,pack_quantity:6,pack_unit:'uds'}]},{id:'summary',store:'lidl',store_name:'Lidl',purchased_at:today,currency:'EUR',total:5,summary_only:true,lines:[]} ]));
    window.nutriFixture={'3017620422003':{grade:'a'},'8410109115543':{grade:'b'}};
    window.nutritionDetailsFixture=[{product_id:'coffee',name:'Café natural',code:'03017620422003',grade:'a',fresh:true,nutrition:{nutrients:{'energy-kcal':4,fat:0.1,salt:0.02},nova:1,vegan:true,categories:['en:vegetables']}},{product_id:'eggs',name:'Huevos frescos',code:'08410109115543',grade:'b',fresh:true,nutrition:{nutrients:{'energy-kcal':140,proteins:12},nova:1}}];
@@ -896,25 +897,31 @@ async function checkAnalyticsDashboard(browser,url,errors){
  assert.deepEqual(await page.locator('#analytics-heading [role=tab]').allTextContents(),['Compras','Gastos','Comparativa','Nutrición']);
  await page.getByRole('tab',{name:'Gastos',exact:true}).click();const analytics=page.locator('isl-analytics'),expenses=analytics.locator('#expenses-insights');
  await expenses.locator('.stat strong').first().filter({hasText:'15,00'}).waitFor();
- assert.deepEqual(await expenses.locator('.stat strong').allTextContents(),['15,00 €','2','7,50 €','67 %']);
+ assert.deepEqual(await expenses.locator('.stat strong').allTextContents(),['15,00 €','2','7,50 €']);
+ assert.equal(await expenses.getByLabel('Moneda',{exact:true}).count(),0);assert.equal(await expenses.getByLabel('Orden de productos',{exact:true}).count(),0);assert.equal(await expenses.getByText('Gasto clasificado',{exact:true}).count(),0);
+ const positions=await expenses.evaluate(el=>['expense-categories','expense-products'].map(id=>{const r=el.shadowRoot.getElementById(id).getBoundingClientRect();return {top:r.top,left:r.left,right:r.right};}));assert.equal(positions[0].top,positions[1].top);assert.ok(positions[0].right<=positions[1].left);
  await expenses.locator('.bar-row').filter({hasText:'Carrefour'}).click();await expenses.locator('.stat strong').first().filter({hasText:'10,00'}).waitFor();
  await expenses.locator('.filter-chip').filter({hasText:'Tienda:'}).click();
+ assert.equal(await expenses.locator('#expense-categories .bar-row').filter({hasText:'Despensa'}).locator('.fill').evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(227, 68, 85)');
+ await expenses.locator('#expense-categories .bar-row').filter({hasText:'Otros'}).click();await expenses.locator('.stat strong').first().filter({hasText:'5,00'}).waitFor();await expenses.locator('.filter-chip').filter({hasText:'Categoría: Otros'}).click();
  await expenses.locator('.bar-row').filter({hasText:'Despensa'}).click();await expenses.locator('.stat strong').first().filter({hasText:'8,00'}).waitFor();
  await expenses.locator('.filter-chip').filter({hasText:'Categoría:'}).click();
  for(const width of [1280,390,320]){await page.setViewportSize({width,height:1000});assert.ok(await expenses.evaluate(n=>n.scrollWidth<=n.clientWidth+1));await page.screenshot({path:'test-results/analytics-expenses-'+width+'.png',fullPage:true});}
  await page.setViewportSize({width:1280,height:1000});
  await expenses.locator('.bar-row').filter({hasText:'Café'}).click();const product=page.locator('isl-catalog').getByRole('dialog',{name:'Editar producto',exact:true});await product.waitFor();await product.getByRole('button',{name:'Cerrar ventana',exact:true}).click();
- await page.getByRole('button',{name:'Analítica',exact:true}).click();await page.getByRole('tab',{name:'Gastos',exact:true}).click();await expenses.locator('.purchase').first().click();await page.locator('isl-purchases').getByRole('dialog',{name:'Detalle de la compra',exact:true}).waitFor();await page.locator('isl-purchases').getByRole('dialog',{name:'Detalle de la compra',exact:true}).getByRole('button',{name:'Cerrar ventana',exact:true}).click();
+ await page.getByRole('button',{name:'Analítica',exact:true}).click();await page.getByRole('tab',{name:'Gastos',exact:true}).click();assert.equal(await expenses.getByRole('heading',{name:'Compras del periodo',exact:true}).count(),0);
  await page.getByRole('tab',{name:'Comparativa',exact:true}).click();await analytics.locator('tbody tr').nth(1).waitFor();
  await analytics.getByRole('button',{name:'Ordenar por precios más bajos en Alcampo',exact:true}).click();assert.equal(await analytics.locator('tbody tr').first().getAttribute('data-product-id'),'coffee');
  await analytics.getByRole('button',{name:'Ordenar por precios más bajos en Alcampo',exact:true}).click();assert.equal(await analytics.locator('tbody tr').count(),1);
  await analytics.locator('.comparison-chip').click();assert.equal(await analytics.locator('tbody tr').count(),2);
  await analytics.getByLabel('Ordenar comparativa',{exact:true}).selectOption('percentage');assert.equal(await analytics.locator('tbody tr').first().getAttribute('data-product-id'),'eggs');
  await page.screenshot({path:'test-results/analytics-comparison-dashboard.png',fullPage:true});
- await page.getByRole('tab',{name:'Nutrición',exact:true}).click();const nutrition=analytics.locator('#nutrition-insights');await nutrition.locator('.nutrition-table tbody tr').nth(1).waitFor();
- assert.equal(await nutrition.locator('#nutrition-total').textContent(),'2 productos con Nutri-Score');
- await nutrition.getByLabel('Características',{exact:true}).selectOption('vegan');assert.equal(await nutrition.locator('.nutrition-table tbody tr').count(),1);await nutrition.getByLabel('Características',{exact:true}).selectOption('');
- await nutrition.getByLabel('Datos',{exact:true}).selectOption('purchases');await nutrition.locator('.nutrition-table tbody tr').filter({hasText:'Café natural'}).waitFor();assert.equal(await nutrition.locator('.nutrition-table tbody tr').count(),1);await nutrition.getByLabel('Datos',{exact:true}).selectOption('catalog');
+ await page.getByRole('tab',{name:'Nutrición',exact:true}).click();const nutrition=analytics.locator('#nutrition-insights');await nutrition.locator('.nutrition-table tbody tr').nth(1).waitFor({state:'attached'});
+ assert.equal(await nutrition.locator('#nutrition-table-card').isVisible(),false);assert.equal(await nutrition.getByText('Clasificación NOVA disponible',{exact:false}).count(),0);
+ const processing=nutrition.locator('.processing-group[data-processing="1"]');const initialGrades=await nutrition.locator('.nutrition-value').allTextContents();assert.equal(await processing.locator('summary .processing-label').textContent(),'Sin procesar o mínimamente procesados');assert.equal(await processing.locator('.nutrition-products').isVisible(),false);await processing.locator('summary').click();assert.deepEqual(await processing.locator('li').allTextContents(),['Café','Huevos']);assert.deepEqual(await nutrition.locator('.nutrition-value').allTextContents(),initialGrades);await processing.locator('summary').click();assert.equal(await processing.locator('.nutrition-products').isVisible(),false);
+ assert.deepEqual(await nutrition.locator('.processing-group .nutrition-bar').evaluateAll(bars=>bars.map(bar=>getComputedStyle(bar).backgroundColor)),['rgb(3, 129, 65)','rgb(254, 203, 2)','rgb(238, 129, 0)','rgb(230, 62, 17)']);const charts=await nutrition.evaluate(el=>['nutri-score-card','processing-chart-card'].map(id=>{const r=el.shadowRoot.getElementById(id).getBoundingClientRect();return {left:r.left,width:r.width,top:r.top,bottom:r.bottom};}));assert.equal(charts[0].left,charts[1].left);assert.equal(charts[0].width,charts[1].width);assert.ok(charts[0].bottom<charts[1].top);
+ assert.equal(await nutrition.locator('#nutrition-total,.stats').count(),0);assert.equal(await nutrition.locator('.nutrition-group').count(),5);
+ for(const label of ['Datos','Características','Buscar alimentos'])assert.equal(await nutrition.getByLabel(label,{exact:true}).count(),0);assert.equal(await nutrition.locator('.nutrition-table tbody tr').count(),2);assert.equal(await nutrition.locator('.filters').isVisible(),false);
  for(const width of [1280,390,320]){await page.setViewportSize({width,height:1000});assert.ok(await nutrition.evaluate(n=>n.scrollWidth<=n.clientWidth+1));await page.screenshot({path:'test-results/analytics-nutrition-dashboard-'+width+'.png',fullPage:true});}
  await page.getByRole('button',{name:'Lista',exact:true}).click();assert.equal(await page.evaluate(()=>[...window.testPanel.shadowRoot.querySelector('isl-analytics').shadowRoot.querySelectorAll('isl-analytics-insights')].some(el=>el.started)),false);
  await context.close();
@@ -1079,6 +1086,33 @@ async function checkDetectedPurchaseRecovery(browser,url,errors){
   await context.close();
 }
 
+async function checkStockFullReference(browser,url,errors){
+  const context=await browser.newContext({viewport:{width:390,height:844}});await context.addInitScript(()=>localStorage.setItem('stock-fixture',JSON.stringify([{id:'pavo',name:'Pavo',catalog_product_id:'',revision:1,config_revision:1,mode:'perishable',quantity:300,full_quantity:600,refill_quantity:250,unit:'g',days:7,expires_at:Date.now()/1000+7*86400,quantity_at:Date.now()/1000,reorder_enabled:true,reorder_percent:20,reorder_at:0,usage_entity:'',usage_state:'',usage_amount:1,list_entity:'todo.bring'}])));
+  const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));await page.goto(url);await page.getByRole('button',{name:'Stock',exact:true}).click();
+  assert.equal(await page.locator('.stock-life').textContent(),'(50%)');await page.getByRole('button',{name:'Configurar stock de Pavo',exact:true}).click();
+  const dialog=page.getByRole('dialog',{name:'Pavo · Stock',exact:true});assert.equal(await dialog.locator('#stock-editor-percent').textContent(),'50 % restante');
+  await dialog.getByRole('spinbutton',{name:'Cantidad predeterminada de reposición',exact:true}).fill('900');assert.equal(await dialog.locator('#stock-editor-percent').textContent(),'50 % restante');
+  await dialog.getByRole('spinbutton',{name:'Stock actual',exact:true}).fill('700');assert.equal(await dialog.locator('#stock-editor-percent').textContent(),'100 % restante');
+  await dialog.getByRole('spinbutton',{name:'Stock actual',exact:true}).fill('150');assert.equal(await dialog.locator('#stock-editor-percent').textContent(),'25 % restante');await context.close();
+}
+
+async function checkMobileTicketAssociation(browser,url,errors){
+  const context=await browser.newContext({viewport:{width:390,height:844},isMobile:true,hasTouch:true}),page=await context.newPage();
+  page.on('pageerror',error=>errors.push(error.message));await page.goto(url);await page.getByRole('button',{name:'Analítica',exact:true}).tap();
+  const purchases=page.locator('isl-purchases');await purchases.locator('#ticket-file').waitFor({state:'attached'});
+  await purchases.evaluate(el=>{const products=[{id:'seitan',name:'Seitán'},{id:'milk',name:'Leche de avena'},{id:'rice',name:'Arroz'}];el.openPreview({token:'mobile-link',receipt:{store:'carrefour',store_name:'Carrefour',purchased_at:new Date().toISOString(),total:2,lines:[{id:'0',description:'SEITAN BIO',count:1,amount:2}]},products,purchases:[]});});
+  const review=purchases.getByRole('dialog',{name:'Revisar ticket',exact:true});await review.getByRole('button',{name:'Vincular producto para SEITAN BIO',exact:true}).tap();
+  const dialog=purchases.locator('#association-dialog'),search=dialog.getByRole('combobox',{name:'Producto del catálogo',exact:true});
+  assert.deepEqual(await dialog.getByRole('option').allTextContents(),['Arroz','Leche de avena','Seitán']);assert.equal(await search.getAttribute('list'),null);
+  await search.fill('SEITAN');await dialog.getByRole('option',{name:'Seitán',exact:true}).tap();assert.equal(await search.inputValue(),'Seitán');
+  await dialog.getByRole('button',{name:'Vincular',exact:true}).tap();await dialog.waitFor({state:'hidden'});assert.equal(await review.locator('.linked-name').textContent(),'→ Seitán');
+  await review.locator('#linked-products-group > summary').tap();await review.getByRole('button',{name:'Vincular producto para SEITAN BIO',exact:true}).tap();
+  await search.fill('inexistente');await dialog.getByRole('status').filter({hasText:'No hay productos'}).waitFor();assert.equal(await dialog.getByRole('option').count(),0);await dialog.getByRole('button',{name:'Vincular',exact:true}).tap();await dialog.getByRole('alert').waitFor();
+  await search.fill('avena');await search.press('ArrowDown');await page.keyboard.press('Enter');assert.equal(await search.inputValue(),'Leche de avena');await dialog.getByRole('button',{name:'Vincular',exact:true}).tap();await dialog.waitFor({state:'hidden'});assert.equal(await review.locator('.linked-name').textContent(),'→ Leche de avena');
+  for(const width of [320,390,1280]){await page.setViewportSize({width,height:844});await review.getByRole('button',{name:'Vincular producto para SEITAN BIO',exact:true}).tap();await search.fill('');assert.ok(await dialog.evaluate(d=>d.scrollWidth<=d.clientWidth+1));await page.screenshot({path:'test-results/ticket-association-'+width+'.png',fullPage:true});await dialog.getByRole('button',{name:'Cerrar ventana',exact:true}).tap();}
+  await context.close();
+}
+
 async function checkRepeatedReceiptProduct(browser,url,errors){
   const context=await browser.newContext({viewport:{width:390,height:844}}),page=await context.newPage();
   page.on('pageerror',error=>errors.push(error.message));await page.goto(url);
@@ -1097,7 +1131,7 @@ async function checkRepeatedReceiptProduct(browser,url,errors){
   await dialog.locator('#linked-products-group > summary').click();
   await dialog.getByRole('button',{name:'Vincular producto para PAN 1 KG',exact:true}).click();
   const association=purchases.locator('#association-dialog');
-  assert.equal(await association.locator('option[value="Pan"]').count(),1);
+  assert.equal(await association.getByRole('option',{name:'Pan',exact:true}).count(),1);
   await association.getByLabel('Producto del catálogo',{exact:true}).fill('Pan');await association.getByRole('button',{name:'Vincular',exact:true}).click();
   await dialog.getByRole('button',{name:'Continuar',exact:true}).click();
   await dialog.locator('#unregistered-stock-group > summary').click();
@@ -1266,15 +1300,15 @@ async function checkStockEditor(browser,url,errors){
     await stockForm.getByLabel('Estado que representa un uso',{exact:true}).fill('on');
     await stockForm.getByLabel('Cantidad consumida por uso',{exact:true}).fill('1');
     await stockForm.getByLabel('Cantidad predeterminada de reposición',{exact:true}).fill('4');
-    assert.equal(await stockForm.getByRole('progressbar',{name:'Stock disponible'}).getAttribute('aria-valuenow'),'75');
+    assert.equal(await stockForm.getByRole('progressbar',{name:'Stock disponible'}).getAttribute('aria-valuenow'),'100');
     assert.equal(await stockForm.locator('#stock-editor-media ha-icon').getAttribute('icon'),'mdi:food');
     await stockForm.getByLabel('Añadir a la lista cuando el stock llegue al mínimo',{exact:true}).check();
     await stockForm.getByLabel('Stock mínimo',{exact:true}).fill('1');
     assert.equal(await stockForm.getByLabel('Lista para reponer',{exact:true}).inputValue(),'todo.local');
     await stockForm.getByRole('button',{name:'Guardar',exact:true}).click();await stockEditor.waitFor({state:'hidden'});
     await stockCard.getByLabel('Stock de Cacao: 3 Latas',{exact:true}).waitFor();
-    assert.equal(await stockCard.getByRole('progressbar',{name:'Stock restante'}).getAttribute('aria-valuenow'),'75');
-    assert.equal(await stockCard.locator('.stock-progress').evaluate(node=>node.style.getPropertyValue('--stock-remaining')),'75%');
+    assert.equal(await stockCard.getByRole('progressbar',{name:'Stock restante'}).getAttribute('aria-valuenow'),'100');
+    assert.equal(await stockCard.locator('.stock-progress').evaluate(node=>node.style.getPropertyValue('--stock-remaining')),'100%');
     assert.deepEqual(await stockPage.evaluate(()=>({mode:window.stockItems[0].mode,unit:window.stockItems[0].unit,usage_amount:window.stockItems[0].usage_amount,refill_quantity:window.stockItems[0].refill_quantity})),{mode:'usage',unit:'Latas',usage_amount:1,refill_quantity:4});
     await stockCard.getByRole('button',{name:'Configurar stock de Cacao',exact:true}).click();
     await stockForm.getByLabel('Control del stock',{exact:true}).selectOption('perishable');
@@ -1300,17 +1334,17 @@ async function checkStockEditor(browser,url,errors){
     await stockForm.getByRole('button',{name:'Guardar',exact:true}).click();await stockEditor.waitFor({state:'hidden'});
     assert.equal(await stockPage.evaluate(()=>window.stockItems[0].reorder_percent),25);
     await stockPage.evaluate(()=>{
-      const item=window.stockItems[0];item.quantity=3;item.expires_at=Date.now()/1000+item.days*86400;window.emitStock();
+      const item=window.stockItems[0];item.quantity=3;item.full_quantity=4;item.expires_at=Date.now()/1000+item.days*86400;window.emitStock();
     });
     assert.equal(await stockCard.getByRole('progressbar',{name:'Stock restante'}).getAttribute('aria-valuenow'),'75');
     const highColor=await stockCard.locator('.item').evaluate(node=>getComputedStyle(node,'::before').backgroundImage);
     await stockPage.evaluate(()=>{window.stockItems[0].quantity=1;window.emitStock();});
     assert.equal(await stockCard.getByRole('progressbar',{name:'Stock restante'}).getAttribute('aria-valuenow'),'25');
     assert.notEqual(await stockCard.locator('.item').evaluate(node=>getComputedStyle(node,'::before').backgroundImage),highColor);
-    await stockPage.evaluate(()=>{Object.assign(window.stockItems[0],{quantity:20,refill_quantity:250,unit:'g'});window.emitStock();});
+    await stockPage.evaluate(()=>{Object.assign(window.stockItems[0],{quantity:20,full_quantity:250,refill_quantity:250,unit:'g'});window.emitStock();});
     assert.equal(await stockCard.getByRole('progressbar',{name:'Stock restante'}).getAttribute('aria-valuenow'),'8');
     await stockPage.screenshot({path:'test-results/stock-perishable-eight-percent.png',fullPage:true});
-    await stockPage.evaluate(()=>{Object.assign(window.stockItems[0],{quantity:2.5,refill_quantity:4,unit:'Latas'});window.emitStock();});
+    await stockPage.evaluate(()=>{Object.assign(window.stockItems[0],{quantity:2.5,full_quantity:4,refill_quantity:4,unit:'Latas'});window.emitStock();});
     await stockPage.setViewportSize({width:1280,height:960});
     await stockPage.getByRole('button',{name:'Cambiar a vista de filas',exact:true}).click();
     assert.ok(await stockCard.evaluate(card=>{
@@ -3228,6 +3262,8 @@ async function main() {
     if(process.argv.includes('--reference-logs-only')){const errors=[];await checkReferenceLogDescriptions(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Reference log descriptions passed.');return;}
     if(process.argv.includes('--formats-only')){const errors=[];await checkReferenceFormats(browser,`http://127.0.0.1:${server.address().port}`,errors);await checkReceiptPackageFormats(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Commercial reference browser checks passed.');return;}
     if(process.argv.includes('--recovery-only')){const errors=[];await checkDetectedPurchaseRecovery(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Manual purchase recovery browser checks passed.');return;}
+    if(process.argv.includes('--stock-reference-only')){const errors=[];await checkStockFullReference(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Stock full reference passed.');return;}
+    if(process.argv.includes('--ticket-association-only')){const errors=[];await checkMobileTicketAssociation(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Mobile ticket association passed.');return;}
     if(process.argv.includes('--analytics-dashboard-only')){const errors=[];await checkAnalyticsDashboard(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Analytics dashboard passed.');return;}
     if(process.argv.includes('--purchases-only')){const errors=[];await checkSpendingChart(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Purchase calendar browser checks passed.');return;}
     if(process.argv.includes('--lidl-only')){const errors=[];await checkLidlAccount(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Lidl account browser checks passed.');return;}
@@ -4684,7 +4720,7 @@ async function main() {
     assert.equal(await cerealLine.locator('.create').evaluate(node=>getComputedStyle(node).backgroundColor),'rgb(38, 112, 82)');
     await cerealLine.getByRole('button',{name:'Vincular producto para FLAUTIN CEREALES',exact:true}).click();
     const association=purchases.locator('#association-dialog');
-    assert.equal(await association.locator('datalist option[value="Seitán"]').count(),1);
+    assert.equal(await association.getByRole('option',{name:'Seitán',exact:true}).count(),1);
     await purchasePage.screenshot({path:'test-results/receipt-link-dialog-mobile.png',fullPage:true});
     await association.getByLabel('Producto del catálogo',{exact:true}).fill('Seitán');
     await association.getByRole('button',{name:'Vincular',exact:true}).click();
@@ -4875,6 +4911,8 @@ async function main() {
     await stockOnlyContext.close();
 
     // Purchase history uses a ticket button for details and stacks monthly spend by store.
+    await checkStockFullReference(browser,url,errors);
+    await checkMobileTicketAssociation(browser,url,errors);
     await checkAnalyticsDashboard(browser,url,errors);
     await checkSpendingChart(browser,url,errors);
 
@@ -5461,7 +5499,7 @@ async function main() {
     await groupingPage.getByRole('button',{name:'Analítica',exact:true}).click();
     const nutritionSettings=groupingPage.locator('isl-analytics');
     await groupingPage.getByRole('tab',{name:'Nutrición',exact:true}).click();
-    await nutritionSettings.locator('#nutrition-total').filter({hasText:'3 productos'}).waitFor();
+    await nutritionSettings.locator('.nutrition-value').first().filter({hasText:'1 (33,3 %)'}).waitFor();
     assert.deepEqual(await nutritionSettings.locator('.nutrition-value').allTextContents(),['1 (33,3 %)','1 (33,3 %)','0 (0 %)','0 (0 %)','1 (33,3 %)']);
     assert.equal(await nutritionSettings.locator('.nutrition-bar').first().evaluate(node=>getComputedStyle(node).backgroundColor),'rgb(3, 129, 65)');
     const gradeA=nutritionSettings.locator('.nutrition-group[data-grade="a"]');

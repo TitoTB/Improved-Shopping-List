@@ -189,7 +189,7 @@ test('pending information uses saved prices for the exact alternative and never 
  assert.deepEqual(pendingProductInformation(product,[{...exact,catalog_product_id:'different'}])[0].missing,['price']);
 });
 
-const {analyzeSpending}=await import('../custom_components/improved_shopping_list/frontend/analytics-insights.js');
+const {analyzeSpending,spendingCategoryRows}=await import('../custom_components/improved_shopping_list/frontend/analytics-insights.js');
 const {orderComparisonRows}=await import('../custom_components/improved_shopping_list/frontend/analytics-panel.js');
 test('spending reconciles discounts, shipping and summary-only purchases without inventing category data',()=>{
  const receipts=[{id:'a',store:'carrefour',currency:'EUR',purchased_at:'2026-10-10T12:00:00Z',total:10,shipping:1,shoppers:['person.a','person.b','person.a'],lines:[{product_id:'p',amount:8,count:2,pack_quantity:500,pack_unit:'g'},{product_id:'q',amount:4,count:1,purchased_quantity:.25,purchased_unit:'kg'}]},{id:'b',store:'lidl',currency:'EUR',purchased_at:'2026-10-11T12:00:00Z',total:5,summary_only:true,lines:[{product_id:'p',amount:5}]}];
@@ -213,4 +213,13 @@ test('comparison store selection prioritizes then filters ties and orders normal
  assert.deepEqual(orderComparisonRows(rows,{store:'carrefour',only:true,order:'percentage'}).map(r=>r.product.name),['B','C']);
  assert.deepEqual(orderComparisonRows(rows,{order:'percentage'}).map(r=>r.product.name),['B','C','A']);
  assert.deepEqual(rows.map(r=>r.product.name),['A','B','C']);
+});
+
+
+test('category chart retains top nine colors and aggregates every other amount including unclassified',()=>{
+ const categories=Array.from({length:12},(_,i)=>({key:'Categoría '+i,cents:1200-i*100}));categories.push({key:'Sin clasificar',cents:3000});
+ const rows=spendingCategoryRows(categories,[{name:'Categoría 0',color:'#ff0000'}]);
+ assert.equal(rows.length,10);assert.equal(rows[0].color,'#ff0000');assert.equal(rows[8].key,'Categoría 8');assert.equal(rows[9].label,'Otros');assert.equal(rows[9].cents,3600);assert.ok(rows[9].members.includes('Sin clasificar'));
+ assert.equal(rows.reduce((sum,row)=>sum+row.cents,0),categories.reduce((sum,row)=>sum+row.cents,0));assert.equal(spendingCategoryRows([{key:'Sin clasificar',cents:100}])[0].label,'Otros');assert.deepEqual(spendingCategoryRows([]),[]);
+ const result=analyzeSpending([{store:'carrefour',purchased_at:'2026-10-10',total:10,lines:[{product_id:'p',amount:7},{product_id:'q',amount:2}]}],products,{categories:['Despensa','Sin clasificar']});assert.equal(result.total,800);
 });

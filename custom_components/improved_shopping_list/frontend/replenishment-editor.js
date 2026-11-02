@@ -1,4 +1,4 @@
-import './meal-consumption.js?v=0.80.0';
+import './meal-consumption.js?v=0.81.0';
 export const replenishmentMarkup=`<style>
 #product-replenishment .replenishment-content>.replenishment-row,#replenishment-fields>.replenishment-row,#replenishment-usage>.replenishment-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(110px,42%);align-items:center;gap:12px;margin:0;grid-column:1/-1;}
 #replenishment-fields{grid-template-columns:minmax(0,1fr);gap:16px;margin-top:16px;}
@@ -52,7 +52,7 @@ export class ReplenishmentEditor {
       if(['reorder_at','reorder_percent','list_entity','unit'].includes(key))continue;
       if(key==='reorder_enabled')this.field(key).checked=this.config[key];else this.field(key).value=this.config[key];
     }
-    const percent=this.config.mode==='perishable'||this.config.reorder_basis==='percent'?this.config.reorder_percent:this.config.reorder_at/this.config.refill_quantity*100;
+    const percent=this.config.mode==='perishable'||this.config.reorder_basis==='percent'?this.config.reorder_percent:this.config.reorder_at/((this.config.full_quantity??this.config.refill_quantity)||1)*100;
     this.field('minimum').value=Math.round(percent*1000)/1000;
     this.render();
   }

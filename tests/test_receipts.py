@@ -327,6 +327,7 @@ async def test_same_product_keeps_two_eans_prices_and_one_summed_stock_refill(ha
     edits=[{**link,'replenish':True,'quantity':500 if i==0 else 1,'unit':'g' if i==0 else 'kg','purchase_id':'','save_price':True,'pack_quantity':500 if i==0 else 1,'pack_unit':'g' if i==0 else 'kg'} for i,link in enumerate(links)]
     saved=await env.manager.async_confirm(draft['token'],'owner',edits,True)
     assert env.stock.item_for(env.product)['quantity']==1520
+    assert env.stock.item_for(env.product)['full_quantity']==1520
     assert len(env.stock.receipts['purchases'])==1
     refs=env.stock.catalog.products[0]['commercial_references']
     assert {r['ean'] for r in refs}=={'8410199023094','4006381333931'}
@@ -335,6 +336,7 @@ async def test_same_product_keeps_two_eans_prices_and_one_summed_stock_refill(ha
     review=await env.manager.async_review_saved(saved['id'],'owner')
     await env.manager.async_reprocess(review['token'],'owner',[{**link,'pack_quantity':500 if i==0 else 1,'pack_unit':'g' if i==0 else 'kg'} for i,link in enumerate(links)])
     assert env.stock.item_for(env.product)['quantity']==1520
+    assert env.stock.item_for(env.product)['full_quantity']==1520
 
 
 async def test_multiple_lines_create_one_stock_item_and_incompatible_units_are_rejected(hass):
@@ -461,6 +463,7 @@ async def test_invoice_matches_saved_ean_confirms_stock_prices_and_duplicate(has
     confirmed = await env.manager.async_confirm(draft['token'], 'owner', selections(draft, env.product, 500), True)
     assert confirmed['total'] == 17.07 and confirmed['shipping'] == 3.99
     assert env.stock.snapshot['items'][0]['quantity'] == 520
+    assert env.stock.snapshot['items'][0]['full_quantity'] == 520
     assert env.manager.offers_for(env.product)[0]['price'] == 3.29
     assert 'PRIVATE_' not in str(env.stock.receipts)
     # Same invoice identity is rejected even if PDF bytes change.

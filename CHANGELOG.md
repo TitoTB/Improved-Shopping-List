@@ -1,5 +1,17 @@
 # Historial de cambios
 
+## 0.84.0 — 2026-11-02
+
+- Ajustes adopta tarjetas compactas plegables, cabeceras con iconos, bordes suaves y espacios uniformes. Las cuentas, catálogos, tiendas, usuarios y detección de compras se presentan en bloques separados, conservando todos sus controles.
+
+- Ajustes reúne Comunidad y Logs en Información, con el bloque comunitario al principio y sin pestaña independiente de Comunidad.
+
+- Ajustes reúne listas, personalización y los avisos de lista y stock en General; compacta los destinos de notificación y retira el bloque de productos nuevos y su vista independiente.
+
+- Ajustes → Tiendas incorpora avatares en el selector de usuarios y elimina el texto de ayuda sobre la permanencia mínima.
+
+- Ajustes → Listas elimina la explicación de las listas pasarela y el selector de color del indicador de cantidad.
+
 ## 0.83.1 — 2026-11-02
 
 - Los intentos fallidos de actualización conservan la fecha original de los datos, también al exportarlos, y mantienen la pausa de reintento.

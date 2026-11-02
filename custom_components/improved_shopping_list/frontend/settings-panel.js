@@ -1,15 +1,15 @@
-import "./shopping-places.js?v=0.83.1";
-import "./dia-prices-settings.js?v=0.83.1";
-import "./alcampo-settings.js?v=0.83.1";
-import "./catalog-sources.js?v=0.83.1";
-import "./carrefour-account.js?v=0.83.1";
-import "./lidl-account.js?v=0.83.1";
-import "./logs-panel.js?v=0.83.1";
-import "./notification-settings.js?v=0.83.1";
-import { installDialogCloseButtons } from "./dialog-controls.js?v=0.83.1";
-import { installToggleStyles } from "./toggle-styles.js?v=0.83.1";
-import { todoEntities, isAvailable } from "./todo-client.js?v=0.83.1";
-import { DEFAULT_APPEARANCE, gradientTextColor } from "./list-settings-client.js?v=0.83.1";
+import "./shopping-places.js?v=0.84.0";
+import "./dia-prices-settings.js?v=0.84.0";
+import "./alcampo-settings.js?v=0.84.0";
+import "./catalog-sources.js?v=0.84.0";
+import "./carrefour-account.js?v=0.84.0";
+import "./lidl-account.js?v=0.84.0";
+import "./logs-panel.js?v=0.84.0";
+import "./notification-settings.js?v=0.84.0";
+import { installDialogCloseButtons } from "./dialog-controls.js?v=0.84.0";
+import { installToggleStyles } from "./toggle-styles.js?v=0.84.0";
+import { todoEntities, isAvailable } from "./todo-client.js?v=0.84.0";
+import { DEFAULT_APPEARANCE, gradientTextColor } from "./list-settings-client.js?v=0.84.0";
 
 const MERCADONA_LOGO_URL = new URL("mercadona.png", import.meta.url).href;
 
@@ -193,25 +193,38 @@ class ImprovedShoppingSettings extends HTMLElement {
         @media(max-width:540px) { .card { padding:18px 14px; } .add-row { flex-wrap:wrap; } .select-wrap { flex-basis:100%; } .actions { width:100%; } }
         #carrefour-products-view,#alcampo-products-view,#store-products-view,[id$="-products-view"]{display:none!important}#carrefour-dialog>h2{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
       .zone-settings{margin-top:20px;padding-top:16px;border-top:1px solid var(--divider-color,#dfe7e1)}.zone-settings select{width:100%;max-width:320px;min-height:120px}.zone-settings label{display:block;margin-bottom:10px}.zone-settings button{margin-top:12px}.zone-settings p{margin:8px 0}.purchase-detection-settings{margin-top:24px;padding-top:18px;border-top:1px solid var(--divider-color,#dfe7e1)}.detection-row{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-top:16px}.detection-row input[type=number]{width:90px;text-align:center;flex:none}
-      .purchase-users-field{display:grid;grid-template-columns:minmax(0,1fr) minmax(180px,360px);gap:12px;align-items:start;margin-top:16px}.purchase-users-field>span{padding-top:12px}.person-picker{min-width:0;border:1px solid var(--divider-color,#dfe7e1);border-radius:10px}.person-picker summary{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:46px;padding:10px 12px;list-style:none;cursor:pointer}.person-picker summary::-webkit-details-marker{display:none}.person-picker summary span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.person-picker summary ha-icon{width:20px;height:20px;--mdc-icon-size:20px;flex:none}.person-picker[open] summary ha-icon{transform:rotate(180deg)}.person-picker summary:focus-visible{outline:3px solid var(--primary-color,#267052);outline-offset:3px}.person-options{max-height:240px;overflow-y:auto;padding:0 8px 8px}.person-option{display:flex;align-items:center;gap:10px;margin:0;padding:10px 4px;cursor:pointer;overflow-wrap:anywhere}.person-option input[type=checkbox]{width:20px;height:20px;min-height:20px;flex:none;padding:0;margin:0}.person-option:has(input:disabled){cursor:default;opacity:.65}.person-options .helper{margin:4px}.purchase-users>h3{font-size:20px;margin:0}
+      .purchase-users-field{display:grid;grid-template-columns:minmax(0,1fr) minmax(180px,360px);gap:12px;align-items:start;margin-top:16px}.purchase-users-field>span{padding-top:12px}.person-picker{min-width:0;border:1px solid var(--divider-color,#dfe7e1);border-radius:10px}.person-picker summary{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:46px;padding:10px 12px;list-style:none;cursor:pointer}.person-picker summary::-webkit-details-marker{display:none}.person-picker summary span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.person-picker summary ha-icon{width:20px;height:20px;--mdc-icon-size:20px;flex:none}.person-picker[open] summary ha-icon{transform:rotate(180deg)}.person-picker summary:focus-visible{outline:3px solid var(--primary-color,#267052);outline-offset:3px}.person-options{max-height:240px;overflow-y:auto;padding:0 8px 8px}.person-option{display:flex;align-items:center;gap:10px;margin:0;padding:10px 4px;cursor:pointer;overflow-wrap:anywhere}.person-option input[type=checkbox]{width:20px;height:20px;min-height:20px;flex:none;padding:0;margin:0}.person-option:has(input:disabled){cursor:default;opacity:.65}.person-avatar{display:grid;place-items:center;position:relative;overflow:hidden;flex:none;width:34px;height:34px;border-radius:50%;background:var(--secondary-background-color,#e4ece8);color:var(--primary-text-color,#20352d);border:1px solid var(--divider-color,#dfe7e1);font-size:12px;font-weight:700}.person-avatar img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}.person-option:has(input:checked){background:color-mix(in srgb,var(--primary-color,#267052) 16%,transparent);border-radius:8px}.person-options .helper{margin:4px}.purchase-users>h3{font-size:20px;margin:0}
       .detection-pair{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px;margin-top:16px}.detection-pair>.detection-row{margin:0;min-width:0}
       @media(max-width:540px){.purchase-users-field{grid-template-columns:1fr;gap:8px}.purchase-users-field>span{padding-top:0}.detection-pair{gap:16px}.detection-pair>.detection-row{flex-direction:column;align-items:stretch;gap:10px}.detection-pair input{align-self:flex-end}.detection-pair input[type=number]{width:72px}}
             @media(max-width:650px){.settings-heading{gap:12px}.settings-tabs{gap:10px}.settings-tabs button{min-width:40px;min-height:44px;padding:10px 9px;gap:6px}}
+
+      :host{--settings-border:color-mix(in srgb,var(--primary-text-color,#20352d) 22%,transparent);--settings-field:color-mix(in srgb,var(--secondary-background-color,#edf4ee) 60%,var(--card-background-color,#fff))}
+      .card{padding:18px;border-color:var(--settings-border);border-radius:14px;margin-top:14px}
+      .settings-tabs{gap:8px}.settings-tabs button{border-color:transparent;background:transparent;border-radius:10px;padding:10px 12px}.settings-tabs button[aria-pressed=true]{background:var(--secondary-background-color,#edf4ee)}
+      .settings-disclosure>summary{display:flex;align-items:center;gap:12px;min-height:32px;list-style:none;cursor:pointer}.settings-disclosure>summary::-webkit-details-marker{display:none}.settings-disclosure>summary:focus-visible{outline:2px solid var(--primary-color,#267052);outline-offset:6px;border-radius:6px}
+      .settings-disclosure>summary h2,.settings-disclosure>summary h3{display:flex;align-items:center;gap:10px;margin:0;font-size:18px;line-height:1.4}.settings-disclosure>summary>.stores-heading{flex:1;margin:0;min-width:0}.settings-disclosure>summary>h2,.settings-disclosure>summary>h3{flex:1;min-width:0}
+      .settings-disclosure .section-symbol{width:24px;height:24px;--mdc-icon-size:24px;flex:none;color:var(--secondary-text-color,#63766b)}.section-chevron{width:20px;height:20px;--mdc-icon-size:20px;flex:none;color:var(--secondary-text-color,#63766b)}.settings-disclosure[open]>summary>.section-chevron{transform:rotate(180deg)}
+      .settings-content{padding-top:16px;min-width:0}.settings-content>.add-row{margin-top:0}.settings-content>p:first-child{margin-top:0}.settings-content>form>.appearance-palette{margin-top:16px}
+      #settings-stores{padding:0;border:0;background:transparent}.store-row{padding:12px;min-height:76px;border:1px solid var(--settings-border);border-radius:12px}.stores-grid{gap:12px}.store-name h3{font-size:15px}.store-logo{width:48px;height:48px;padding:7px}.store-linked-count{font-size:12px}.store-controls{gap:10px}
+      .purchase-users>.card{margin-top:14px}.purchase-users-field{margin-top:0}.purchase-detection-settings.card{border-top:1px solid var(--settings-border);padding:18px}.settings-content>.purchase-users-field{grid-template-columns:minmax(0,1fr) minmax(180px,360px)}
+      .community-export{gap:20px;padding:14px 0;border-top:1px solid var(--settings-border)}.community-export:first-child{border-top:0;padding-top:0}.community-export:last-child{padding-bottom:0}.community-export p{margin:0}.community-action{min-height:42px;font-size:13px}
+      #settings-notifications{margin-top:14px!important}#settings-notifications .settings-content{padding-top:16px}#settings-logs>.card{margin-top:14px}
+      .add-row select,.gateway-add select,.person-picker{background:var(--settings-field)}#add-list{display:grid;place-items:center;flex:none;width:44px;height:44px;min-height:44px;padding:0}#add-list ha-icon{width:22px;height:22px;--mdc-icon-size:22px}.list-row{border-color:var(--settings-border)}
+      @media(max-width:650px){.card{padding:16px}.settings-heading{gap:12px}.settings-tabs{gap:10px}.settings-tabs button{padding:10px;min-width:40px}.settings-disclosure>summary{gap:8px}.settings-disclosure>summary h2,.settings-disclosure>summary h3{font-size:17px}.settings-disclosure>summary>.stores-heading{gap:8px}.settings-content{padding-top:14px}.settings-content>.purchase-users-field{grid-template-columns:1fr}.community-export{gap:12px}.purchase-detection-settings.card{padding:16px}}
 </style>
       <div class="settings-heading"><h1>Ajustes</h1>
-      <nav class="settings-tabs" aria-label="Vistas de ajustes"><button id="settings-view-lists" aria-label="Listas" aria-pressed="true"><ha-icon icon="mdi:format-list-checks" aria-hidden="true"></ha-icon><span class="tab-label">Listas</span></button><button id="settings-view-stores" aria-label="Tiendas" aria-pressed="false"><ha-icon icon="mdi:store" aria-hidden="true"></ha-icon><span class="tab-label">Tiendas</span></button><button id="settings-view-notifications" aria-label="Notificaciones" aria-pressed="false"><ha-icon icon="mdi:bell-outline" aria-hidden="true"></ha-icon><span class="tab-label">Notificaciones</span></button><button id="settings-view-community" aria-label="Comunidad" aria-pressed="false"><ha-icon icon="mdi:account-group" aria-hidden="true"></ha-icon><span class="tab-label">Comunidad</span></button><button id="settings-view-logs" aria-label="Logs" aria-pressed="false"><ha-icon icon="mdi:format-list-group" aria-hidden="true"></ha-icon><span class="tab-label">Logs</span></button></nav></div>
+      <nav class="settings-tabs" aria-label="Vistas de ajustes"><button id="settings-view-lists" aria-label="General" aria-pressed="true"><ha-icon icon="mdi:format-list-checks" aria-hidden="true"></ha-icon><span class="tab-label">General</span></button><button id="settings-view-stores" aria-label="Tiendas" aria-pressed="false"><ha-icon icon="mdi:store" aria-hidden="true"></ha-icon><span class="tab-label">Tiendas</span></button><button id="settings-view-logs" aria-label="Información" aria-pressed="false"><ha-icon icon="mdi:information-outline" aria-hidden="true"></ha-icon><span class="tab-label">Información</span></button></nav></div>
       <div id="settings-error" class="notice error" role="alert" hidden></div>
       <div id="settings-status" class="notice" role="status" hidden></div>
       <p id="admin-help" hidden>Necesitas una cuenta administradora de Home Assistant para modificar estos ajustes.</p>
       <section id="settings-lists" class="card" aria-labelledby="settings-lists-title">
         <h2 id="settings-lists-title">Listas de la compra</h2>
-        <div class="add-row"><div class="select-wrap"><label for="todo-entity">Entidad todo</label><select id="todo-entity"></select></div><button id="add-list" class="primary">Añadir lista</button></div>
+        <div class="add-row"><div class="select-wrap"><label for="todo-entity">Entidad todo</label><select id="todo-entity"></select></div><button id="add-list" class="primary" aria-label="Añadir lista" title="Añadir lista"><ha-icon icon="mdi:plus-thick" aria-hidden="true"></ha-icon></button></div>
         <div id="configured-lists" class="lists"></div>
         <p id="settings-empty" hidden>No hay listas añadidas. Añade una entidad todo para empezar.</p>
-        <div class="purchase-detection-settings"><h3>Detección automática de compra</h3><form id="purchase-detection-form"><div id="purchase-persons-label" class="purchase-users-field"><span id="purchase-users-label">Usuarios que realizan las compras</span><details id="purchase-zone-persons" class="person-picker"><summary aria-labelledby="purchase-users-label purchase-users-summary"><span id="purchase-users-summary">Seleccionar usuarios</span><ha-icon icon="mdi:chevron-down" aria-hidden="true"></ha-icon></summary><div class="person-options" role="group" aria-labelledby="purchase-users-label"></div></details></div><div class="detection-pair"><label class="detection-row" for="purchase-detection-enabled">Activar detección automática<input id="purchase-detection-enabled" class="store-toggle" type="checkbox" role="switch"></label><label class="detection-row" for="purchase-detection-threshold">Más de X productos completados en un día<input id="purchase-detection-threshold" type="number" min="1" max="1000" step="1" value="5" required></label></div><div class="detection-pair"><label class="detection-row" for="purchase-zone-assignment">Asignación de tienda basada en zona<input id="purchase-zone-assignment" class="store-toggle" type="checkbox" role="switch"></label><label class="detection-row" for="purchase-minimum-minutes">Permanencia mínima en la zona (minutos)<input id="purchase-minimum-minutes" type="number" min="1" max="1440" step="1" value="5" required></label></div><p id="purchase-zone-help" class="helper">Solo se tendrán en cuenta visitas que alcancen la permanencia mínima configurada.</p><div class="appearance-actions"><button class="primary" id="save-purchase-detection" type="submit">Guardar</button></div></form></div>
+        <div class="purchase-detection-settings"><h3>Detección automática de compra</h3><form id="purchase-detection-form"><div id="purchase-persons-label" class="purchase-users-field"><span id="purchase-users-label">Usuarios que realizan las compras</span><details id="purchase-zone-persons" class="person-picker"><summary aria-labelledby="purchase-users-label purchase-users-summary"><span id="purchase-users-summary">Seleccionar usuarios</span><ha-icon icon="mdi:chevron-down" aria-hidden="true"></ha-icon></summary><div class="person-options" role="group" aria-labelledby="purchase-users-label"></div></details></div><div class="detection-pair"><label class="detection-row" for="purchase-detection-enabled">Activar detección automática<input id="purchase-detection-enabled" class="store-toggle" type="checkbox" role="switch"></label><label class="detection-row" for="purchase-detection-threshold">Más de X productos completados en un día<input id="purchase-detection-threshold" type="number" min="1" max="1000" step="1" value="5" required></label></div><div class="detection-pair"><label class="detection-row" for="purchase-zone-assignment">Asignación de tienda basada en zona<input id="purchase-zone-assignment" class="store-toggle" type="checkbox" role="switch"></label><label class="detection-row" for="purchase-minimum-minutes">Permanencia mínima en la zona (minutos)<input id="purchase-minimum-minutes" type="number" min="1" max="1440" step="1" value="5" required></label></div><div class="appearance-actions"><button class="primary" id="save-purchase-detection" type="submit">Guardar</button></div></form></div>
       </section>
 
-      <section id="settings-notifications" hidden><isl-notification-settings></isl-notification-settings></section>
       <section id="settings-appearance" class="card" aria-labelledby="settings-appearance-title">
         <h2 id="settings-appearance-title">Personalización</h2>
         <p>Personaliza los colores de los productos pendientes, comprados y en Stock.</p>
@@ -230,7 +243,6 @@ class ImprovedShoppingSettings extends HTMLElement {
               <div><label for="stock-gradient-end">Final</label><input id="stock-gradient-end" name="stock_gradient_end" aria-label="Color final de Stock" type="color" value="#c65b0c"></div>
             </div><div id="stock-appearance-preview" class="preview">Vista previa de producto en stock</div></div>
           </div>
-          <div style="margin-top:18px"><label for="quantity-color">Color del indicador de cantidad</label><input id="quantity-color" name="quantity_color" type="color" value="#267052"></div>
           <div class="appearance-fields">
             <div><label for="desktop-columns">Productos por fila (ordenador)</label><select id="desktop-columns" name="columns">${[1,2,3,4,5,6].map(value => `<option value="${value}">${value}</option>`).join("")}</select></div>
             <div><label for="mobile-columns">Productos por fila (móvil)</label><select id="mobile-columns" name="mobile_columns">${[1,2,3,4].map(value => `<option value="${value}">${value}</option>`).join("")}</select></div>
@@ -238,6 +250,7 @@ class ImprovedShoppingSettings extends HTMLElement {
           <div class="appearance-actions"><button id="reset-appearance" type="button">Restablecer valores</button><button id="save-appearance" class="primary" type="submit">Guardar personalización</button></div>
         </form>
       </section>
+      <section id="settings-notifications" aria-label="Notificaciones" style="margin-top:18px"><isl-notification-settings></isl-notification-settings></section>
       <section id="settings-stores" class="card" aria-labelledby="settings-stores-title" hidden>
         <div class="stores-heading"><h2 id="settings-stores-title">Tiendas</h2><div class="stores-heading-actions"><button id="refresh-all-prices" class="store-refresh" type="button" aria-label="Actualizar ahora" title="Actualizar ahora"><ha-icon icon="mdi:refresh" aria-hidden="true"></ha-icon></button><button id="configure-price-schedule" class="store-refresh" type="button" aria-label="Actualización de precios" title="Actualización de precios"><ha-icon icon="mdi:clock-outline" aria-hidden="true"></ha-icon></button></div></div>
         <div class="stores-grid">
@@ -283,8 +296,8 @@ class ImprovedShoppingSettings extends HTMLElement {
         </section>
 
       </dialog>
-      <section id="settings-logs" class="card" aria-label="Logs" hidden><isl-logs></isl-logs></section>
-      <section id="settings-community" class="card" aria-labelledby="settings-community-title" hidden>
+      <section id="settings-logs" aria-label="Información" hidden>
+      <section id="settings-community" class="card" aria-labelledby="settings-community-title">
         <h2 id="settings-community-title">Comunidad</h2>
         <div class="community-export">
           <p id="catalog-export-description">Descarga un archivo JSON con todos los productos de tu catálogo: nombres, traducciones, categorías, iconos o enlaces públicos de imágenes, EAN y opciones de compra con tiendas, URL, marcas, formatos, precios guardados y clasificaciones nutricionales disponibles con su fuente y fecha. Puedes compartirlo con Aguacatec para completar el diccionario de productos.</p>
@@ -293,6 +306,8 @@ class ImprovedShoppingSettings extends HTMLElement {
         <p id="catalog-export-error" class="notice error" role="alert" hidden></p>
         <div class="community-export"><p>Este proyecto ha sido desarrollado por la <a href="https://t.me/aguacatec_es/3" target="_blank" rel="noopener noreferrer">comunidad de Aguacatec</a>. Si tienes cualquier duda o sugerencia para mejorar la integración puedes unirte a través de Telegram.</p><a class="community-action community-join" href="https://t.me/aguacatec_es/3" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 496 512" aria-hidden="true" focusable="false"><!--! Font Awesome Free 6.7.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2024 Fonticons, Inc. --><path d="M248,8C111.033,8,0,119.033,0,256S111.033,504,248,504,496,392.967,496,256,384.967,8,248,8ZM362.952,176.66c-3.732,39.215-19.881,134.378-28.1,178.3-3.476,18.584-10.322,24.816-16.948,25.425-14.4,1.326-25.338-9.517-39.287-18.661-21.827-14.308-34.158-23.215-55.346-37.177-24.485-16.135-8.612-25,5.342-39.5,3.652-3.793,67.107-61.51,68.335-66.746.153-.655.3-3.1-1.154-4.384s-3.59-.849-5.135-.5q-3.283.746-104.608,69.142-14.845,10.194-26.894,9.934c-8.855-.191-25.888-5.006-38.551-9.123-15.531-5.048-27.875-7.717-26.8-16.291q.84-6.7,18.45-13.7,108.446-47.248,144.628-62.3c68.872-28.647,83.183-33.623,92.511-33.789,2.052-.034,6.639.474,9.61,2.885a10.452,10.452,0,0,1,3.53,6.716A43.765,43.765,0,0,1,362.952,176.66Z"/></svg>Unirme a la comunidad</a></div>
         <div class="community-export"><p>Si quieres apoyar a <a href="https://aguacatec.es/" target="_blank" rel="noopener noreferrer">Aguacatec</a> para que podamos seguir desarrollando proyectos como estos, conseguir contenido exclusivo, participar en sorteos y otras ventajas, puedes hacerte <a href="https://www.patreon.com/c/aguacatec/membership" target="_blank" rel="noopener noreferrer">Patreon</a>.</p><a class="community-action community-patreon" href="https://www.patreon.com/c/aguacatec/membership" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 512 512" aria-hidden="true" focusable="false"><!--! Font Awesome Free 6.7.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2024 Fonticons, Inc. --><path d="M489.7 153.8c-.1-65.4-51-119-110.7-138.3C304.8-8.5 207-5 136.1 28.4C50.3 68.9 23.3 157.7 22.3 246.2C21.5 319 28.7 510.6 136.9 512c80.3 1 92.3-102.5 129.5-152.3c26.4-35.5 60.5-45.5 102.4-55.9c72-17.8 121.1-74.7 121-150z"/></svg>Hacerme Patreon</a></div>
+      </section>
+      <div class="card"><isl-logs></isl-logs></div>
       </section>`;
     this._built = true;
     this.shadowRoot.querySelector("#add-list").addEventListener("click", () => {
@@ -303,7 +318,6 @@ class ImprovedShoppingSettings extends HTMLElement {
     const gateways = document.createElement('section');
     gateways.id='settings-gateways';gateways.className='card';gateways.setAttribute('aria-labelledby','gateway-title');
     gateways.innerHTML=`<h2 id="gateway-title">Listas pasarela</h2>
-      <p>Envían las nuevas incorporaciones a la lista de la compra vinculada, sin duplicar productos pendientes. Los productos que ya contiene la pasarela al configurarla no se transfieren.</p>
       <form id="gateway-form" class="gateway-add">
         <div><label for="gateway-entity">Entidad todo de la pasarela</label><select id="gateway-entity" required></select></div>
         <div><label for="gateway-target">Lista de destino</label><select id="gateway-target" required></select></div>
@@ -323,6 +337,12 @@ class ImprovedShoppingSettings extends HTMLElement {
     lidlDialog.addEventListener('close',()=>lidlDialog.querySelector('isl-lidl-account').deactivate());
     this._buildRegionalStores(root);
     this._buildZoneSettings(root);
+    const stores=root.querySelector('#settings-stores'),accounts=document.createElement('section');accounts.className='card';accounts.id='settings-accounts';
+    stores.prepend(accounts);accounts.append(root.querySelector('.stores-heading'),root.querySelector('.stores-grid'));
+    const catalogs=document.createElement('section');catalogs.className='card';catalogs.id='settings-catalogs';const catalogsTitle=document.createElement('h2');catalogsTitle.textContent='Catálogos';catalogs.append(catalogsTitle);const sources=root.querySelector('isl-catalog-sources');sources.setAttribute('compact-heading','');sources.before(catalogs);catalogs.append(sources);
+    this._foldSettingsBlock(accounts,accounts.querySelector('.stores-heading'),'mdi:account-outline');
+    this._foldSettingsBlock(catalogs,catalogsTitle,'mdi:book-open-variant');
+
     installDialogCloseButtons(root);
     installToggleStyles(root);
     root.querySelector("#refresh-all-prices").addEventListener("click",()=>void this._refreshPricesNow());
@@ -355,15 +375,16 @@ class ImprovedShoppingSettings extends HTMLElement {
     root.querySelector("#alcampo-dialog").addEventListener("close",()=>root.querySelector("isl-alcampo-settings")?.deactivate());
     root.querySelector("#alcampo-dialog").addEventListener("cancel",event=>{if(this._busy)event.preventDefault();});
     const alcampoError=document.createElement("div");alcampoError.id="alcampo-error";alcampoError.className="notice error";alcampoError.setAttribute("role","alert");alcampoError.hidden=true;root.querySelector("#alcampo-title").after(alcampoError);
-    for (const [id, view] of [["settings-view-lists", "lists"], ["settings-view-community", "community"], ["settings-view-stores", "stores"], ["settings-view-logs", "logs"], ["settings-view-notifications","notifications"]]) {
+    for (const [id, view] of [["settings-view-lists", "lists"], ["settings-view-stores", "stores"], ["settings-view-logs", "logs"]]) {
       root.querySelector(`#${id}`).addEventListener("click", () => {
         this._view = view;
         if(view === "nutrition")this._nutritionKey=null;
-        for (const section of ["lists", "community", "stores", "logs", "notifications"]) {
+        for (const section of ["lists", "stores", "logs"]) {
           root.querySelector(`#settings-${section}`).hidden = view !== section;
           root.querySelector(`#settings-view-${section}`).setAttribute("aria-pressed", String(view === section));
         }
         root.querySelector("#settings-appearance").hidden = view !== "lists";
+        root.querySelector("#settings-notifications").hidden = view !== "lists";
         this._notice = "";
         this._error = "";
         this._render();
@@ -393,8 +414,20 @@ class ImprovedShoppingSettings extends HTMLElement {
       this._fillAppearance(DEFAULT_APPEARANCE);
       this._appearanceDirty = true;
     });
+    for(const [id,icon] of [['settings-lists','mdi:format-list-checks'],['settings-gateways','mdi:swap-horizontal'],['settings-appearance','mdi:palette'],['settings-community','mdi:account-group']]){const section=root.querySelector('#'+id);this._foldSettingsBlock(section,section.querySelector('h2'),icon);}
+    const notifications=root.querySelector('#settings-notifications');notifications.classList.add('card');const heading=document.createElement('h2');heading.textContent='Notificaciones';notifications.prepend(heading);this._foldSettingsBlock(notifications,heading,'mdi:bell-outline');
+
   }
 
+
+  _foldSettingsBlock(section, heading, icon) {
+    if(!section||!heading||section.querySelector(':scope>.settings-disclosure'))return;
+    const disclosure=document.createElement('details');disclosure.className='settings-disclosure';disclosure.open=true;
+    const summary=document.createElement('summary'),title=heading.matches('h2,h3')?heading:heading.querySelector('h2,h3');
+    if(title&&!title.querySelector('ha-icon')){const symbol=document.createElement('ha-icon');symbol.className='section-symbol';symbol.setAttribute('icon',icon);symbol.setAttribute('aria-hidden','true');title.prepend(symbol);}
+    const chevron=document.createElement('ha-icon');chevron.className='section-chevron';chevron.setAttribute('icon','mdi:chevron-down');chevron.setAttribute('aria-hidden','true');
+    summary.append(heading,chevron);const body=document.createElement('div');body.className='settings-content';body.append(...section.childNodes);disclosure.append(summary,body);section.append(disclosure);
+  }
 
   _render() {
     if (!this._built || !this._data) return;
@@ -411,16 +444,17 @@ class ImprovedShoppingSettings extends HTMLElement {
     const detection=settings.purchaseDetection??{enabled:false,threshold:5};
     const universal=Array.isArray(detection.shops);
     if(universal&&!root.querySelector('isl-shopping-places')){
-      const places=document.createElement('isl-shopping-places');root.querySelector('#settings-stores').append(places);
-      const users=document.createElement('section');users.className='purchase-users';users.style.marginTop='28px';
-      const heading=document.createElement('h3');heading.textContent='Usuarios';users.append(heading,root.querySelector('#purchase-persons-label'),root.querySelector('.purchase-detection-settings'));root.querySelector('#settings-stores').append(users);
+      const places=document.createElement('isl-shopping-places');places.setAttribute('compact-card','');root.querySelector('#settings-stores').append(places);
+      const users=document.createElement('section');users.className='purchase-users';
+      const people=document.createElement('section');people.className='card';const heading=document.createElement('h3');heading.textContent='Usuarios';people.append(heading,root.querySelector('#purchase-persons-label'));
+      const detectionBlock=root.querySelector('.purchase-detection-settings');detectionBlock.classList.add('card');users.append(people,detectionBlock);root.querySelector('#settings-stores').append(users);
+      this._foldSettingsBlock(people,heading,'mdi:account-group');this._foldSettingsBlock(detectionBlock,detectionBlock.querySelector('h3'),'mdi:cart-check');
     }
-    if(universal){root.querySelector('#settings-stores-title').textContent='Cuentas';root.querySelector('isl-shopping-places').data=this._data;}
+    if(universal){root.querySelector('#settings-stores-title').lastChild.textContent='Cuentas';root.querySelector('isl-shopping-places').data=this._data;}
 
     if(!this._purchaseDetectionDirty){root.querySelector('#purchase-detection-enabled').checked=detection.enabled;root.querySelector('#purchase-detection-threshold').value=String(detection.threshold);root.querySelector('#purchase-zone-assignment').checked=Boolean(detection.zone_assignment);root.querySelector('#purchase-minimum-minutes').value=String(detection.minimum_minutes??5);}
     this._renderPurchasePersons(locked,detection);
     const zonesEnabled=root.querySelector('#purchase-zone-assignment').checked;
-    root.querySelector('#purchase-zone-help').hidden=!zonesEnabled;
     root.querySelector('#purchase-zone-assignment').disabled=locked||!root.querySelector('#purchase-detection-enabled').checked;
     this._renderZoneSettings(locked);
     for(const id of ['purchase-detection-enabled','save-purchase-detection'])root.querySelector('#'+id).disabled=locked;
@@ -668,6 +702,15 @@ class ImprovedShoppingSettings extends HTMLElement {
     return Array.from(this.shadowRoot.querySelectorAll('#purchase-zone-persons input:checked'),input=>input.value);
   }
 
+  _purchasePersonAvatar(id) {
+    const hass=this._data.hass, person=hass?.states[id];
+    const avatar=document.createElement('span');avatar.className='person-avatar';avatar.setAttribute('aria-hidden','true');
+    avatar.textContent=(person?.attributes?.friendly_name??id).trim().split(/\s+/).slice(0,2).map(word=>word[0]??'').join('').toLocaleUpperCase('es');
+    const picture=person?.attributes?.entity_picture;
+    if(picture){try{const source=typeof hass.hassUrl==='function'?hass.hassUrl(picture):picture;const url=new URL(source,location.origin);if(['http:','https:'].includes(url.protocol)){const image=document.createElement('img');image.src=url.href;image.alt='';image.referrerPolicy='no-referrer';image.addEventListener('error',()=>image.remove(),{once:true});avatar.append(image);}}catch{/* Keep initials when the picture is unavailable. */}}
+    return avatar;
+  }
+
   _renderPurchasePersons(locked, detection) {
     const root=this.shadowRoot, picker=root.querySelector('#purchase-zone-persons');
     const selected=this._purchaseDetectionDirty?this._selectedPurchasePersons():detection.persons??[];
@@ -675,12 +718,12 @@ class ImprovedShoppingSettings extends HTMLElement {
     const ids=[...new Set([...Object.keys(states).filter(id=>id.startsWith('person.')),...selected])];
     const name=id=>states[id]?.attributes?.friendly_name??id;
     ids.sort((a,b)=>name(a).localeCompare(name(b),'es'));
-    const key=JSON.stringify(ids.map(id=>[id,name(id)]));
+    const key=JSON.stringify(ids.map(id=>[id,name(id),states[id]?.attributes?.entity_picture]));
     if(picker.dataset.options!==key){
       const choices=ids.map(id=>{
         const label=document.createElement('label');label.className='person-option';
         const input=document.createElement('input');input.type='checkbox';input.value=id;input.name='purchase-person';input.setAttribute('form','purchase-detection-form');
-        const text=document.createElement('span');text.textContent=name(id);label.append(input,text);return label;
+        const text=document.createElement('span');text.textContent=name(id);label.append(input,this._purchasePersonAvatar(id),text);return label;
       });
       if(!choices.length){const empty=document.createElement('p');empty.className='helper';empty.textContent='No hay entidades person disponibles en Home Assistant.';choices.push(empty);}
       picker.querySelector('.person-options').replaceChildren(...choices);picker.dataset.options=key;
@@ -871,7 +914,6 @@ class ImprovedShoppingSettings extends HTMLElement {
     return {
       ...this._data?.settings?.appearance,
       gradient_start: form.elements.gradient_start.value,
-      quantity_color: form.elements.quantity_color.value,
       stock_gradient_start: form.elements.stock_gradient_start.value,
       stock_gradient_end: form.elements.stock_gradient_end.value,
       gradient_end: form.elements.gradient_end.value,

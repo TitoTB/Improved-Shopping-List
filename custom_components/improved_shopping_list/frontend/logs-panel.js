@@ -1,4 +1,4 @@
-import { ListSettingsSession } from "./list-settings-client.js?v=0.83.1";
+import { ListSettingsSession } from "./list-settings-client.js?v=0.84.0";
 
 const SOURCES = {manual:"Usuario / API",automatic:"Automático · Home Assistant",reader:"Lector",integration:"Integración",external:"Proveedor externo · origen desconocido",home_assistant:"Home Assistant · origen desconocido"};
 const GROUPS = {notification:"Notificaciones",stock:"Stock",list:"Listas",gateway:"Listas pasarela",catalog:"Catálogo y categorías",reader:"Lectores",settings:"Ajustes",recurrence:"Recurrencias",stores:"Tiendas"};
@@ -64,8 +64,9 @@ class ImprovedShoppingLogs extends HTMLElement {
         .message{margin:0;font-size:15px;line-height:1.5;font-weight:600;overflow-wrap:anywhere}.meta{display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:6px;font-size:12px;line-height:1.5;color:var(--secondary-text-color,#63766b)}.detail{margin:6px 0 0;font-size:12px;line-height:1.5;overflow-wrap:anywhere;color:var(--secondary-text-color,#63766b)}.footer{text-align:center}
         @media(max-width:650px){.filters{grid-template-columns:1fr 1fr}.search{grid-column:1/-1}li{padding:12px;gap:8px}}
         .technical{margin-top:10px;font-size:12px;min-width:0}.technical summary{cursor:pointer}.technical pre{white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word;padding:10px;border-radius:8px;background:var(--secondary-background-color,#edf4ee);line-height:1.5}
-      </style>
-      <div class="heading"><h2>Logs</h2><button id="refresh" type="button" aria-label="Actualizar logs" title="Actualizar logs"><ha-icon icon="mdi:refresh"></ha-icon></button></div>
+       .heading h2{display:flex;align-items:center;gap:10px;font-size:18px}.heading h2 ha-icon{width:24px;height:24px;--mdc-icon-size:24px;color:var(--secondary-text-color,#63766b)}li{border-color:color-mix(in srgb,var(--primary-text-color,#20352d) 16%,transparent)}
+</style>
+      <div class="heading"><h2><ha-icon icon="mdi:format-list-group" aria-hidden="true"></ha-icon>Logs</h2><button id="refresh" type="button" aria-label="Actualizar logs" title="Actualizar logs"><ha-icon icon="mdi:refresh"></ha-icon></button></div>
       <div class="filters"><label class="search">Buscar en el historial<input id="search" type="search" placeholder="Producto, categoría, lector o lista"></label><label>Actividad<select id="kind" aria-label="Actividad"><option value="">Toda la actividad</option>${Object.entries(GROUPS).map(([key,label])=>`<option value="${key}">${label}</option>`).join("")}</select></label><label>Origen<select id="source" aria-label="Origen"><option value="">Todos los orígenes</option>${Object.entries(SOURCES).map(([key,label])=>`<option value="${key}">${label}</option>`).join("")}</select></label></div>
       <p class="helper">Últimas <span id="limit">1000</span> entradas, de más reciente a más antigua. El registro comienza al instalar esta función.</p>
       <p id="status" role="status" hidden></p><p id="empty" hidden></p><ol id="entries" aria-label="Historial de actividad"></ol><div class="footer"><button id="more" type="button" hidden>Ver más</button></div>`;

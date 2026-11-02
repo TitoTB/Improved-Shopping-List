@@ -614,10 +614,72 @@ async function captureProductCode(page, form, kind, code, expected = code) {
   await group.getByRole('button',{name:'Detener',exact:true}).click();
 }
 
+async function checkCompactSettings(browser,url,errors) {
+  const context=await browser.newContext({viewport:{width:1280,height:960}}),page=await context.newPage();page.on('pageerror',error=>errors.push(error.message));
+  await page.goto(url);await page.getByRole('button',{name:'Ajustes',exact:true}).click();const settings=page.locator('isl-settings');
+  assert.deepEqual(await settings.locator('.settings-tabs button').allTextContents(),['General','Tiendas','Información']);
+  for(const id of ['lists','gateways','appearance','notifications']){
+    const section=settings.locator('#settings-'+id),summary=section.locator(':scope>.settings-disclosure>summary');
+    assert.equal(await summary.count(),1);await summary.click();assert.equal(await section.locator(':scope>.settings-disclosure').evaluate(el=>el.open),false);
+    await summary.click();assert.equal(await section.locator(':scope>.settings-disclosure').evaluate(el=>el.open),true);
+  }
+  await settings.locator('#desktop-columns').selectOption('4');await settings.locator('#settings-appearance>.settings-disclosure>summary').click();await settings.locator('#settings-appearance>.settings-disclosure>summary').click();assert.equal(await settings.locator('#desktop-columns').inputValue(),'4');
+  for(const view of ['General','Tiendas','Información']){
+    await settings.getByRole('button',{name:view,exact:true}).click();
+    for(const width of [1280,390,320]){await page.setViewportSize({width,height:960});assert.ok(await settings.evaluate(el=>el.scrollWidth<=el.clientWidth+1));await page.screenshot({path:'test-results/compact-settings-'+view+'-'+width+'.png',fullPage:true});}
+  }
+  await settings.getByRole('button',{name:'Información',exact:true}).click();const community=settings.locator('#settings-community>.settings-disclosure');await community.locator('summary').click();assert.equal(await settings.getByRole('button',{name:'Exportar mi catálogo',exact:true}).isVisible(),false);assert.equal(await settings.locator('isl-logs').isVisible(),true);await community.locator('summary').click();assert.equal(await settings.getByRole('button',{name:'Exportar mi catálogo',exact:true}).isVisible(),true);
+  await context.close();
+}
+
+async function checkGeneralNotifications(browser,url,errors) {
+    const notificationContext=await browser.newContext({viewport:{width:1280,height:960}});
+    const notificationPage=await notificationContext.newPage();notificationPage.on('pageerror',error=>errors.push(error.message));
+    await notificationPage.goto(url);await notificationPage.getByRole('button',{name:'Ajustes',exact:true}).click();
+    const notificationSettings=notificationPage.locator('isl-settings');
+    await notificationSettings.getByRole('button',{name:'General',exact:true}).click();
+    const notifications=notificationSettings.locator('isl-notification-settings'),listRule=notifications.locator('[data-rule=shopping_list]'),stockRule=notifications.locator('[data-rule=low_stock]');
+    assert.equal(await notificationSettings.locator('#settings-view-notifications').count(),0);
+    assert.equal(await notifications.locator('.rule').count(),2);
+    assert.ok(await notificationSettings.evaluate(el=>el.shadowRoot.querySelector('#settings-appearance').compareDocumentPosition(el.shadowRoot.querySelector('#settings-notifications')) & Node.DOCUMENT_POSITION_FOLLOWING));
+    assert.ok(await notifications.locator('.destinations').first().evaluate(el=>el.getBoundingClientRect().height<=112));
+    await notificationSettings.getByRole('button',{name:'Tiendas',exact:true}).click();
+    assert.equal(await notifications.isVisible(),false);
+    await notificationSettings.getByRole('button',{name:'General',exact:true}).click();
+    assert.equal(await notifications.isVisible(),true);
+    await listRule.getByRole('checkbox',{name:'Activar aviso de Lista de la compra',exact:true}).check();
+    await listRule.getByLabel('Límite de productos de Lista de la compra',{exact:true}).fill('5');
+    await listRule.locator('input[value="service:notify.mobile_app_one"]').check();await listRule.locator('input[value="service:notify.mobile_app_two"]').check();
+    await listRule.getByLabel('Título',{exact:true}).fill('Compra: {lista}');await listRule.getByLabel('Mensaje',{exact:true}).fill('{cantidad} productos: {productos}');
+    await stockRule.getByRole('checkbox',{name:'Activar aviso de Stock bajo',exact:true}).check();await stockRule.getByLabel('Límite de productos de Stock bajo',{exact:true}).fill('0');
+    await stockRule.locator('input[value="entity:notify.kitchen"]').check();
+    assert.equal(await notifications.locator('[data-rule=catalog_new]').count(),0);
+    assert.equal(await notifications.locator('input[value="service:notify.notify"]').count(),0);
+    await notifications.getByRole('button',{name:'Guardar notificaciones',exact:true}).click();
+    await notificationPage.waitForFunction(()=>window.listSettings.notifications?.shopping_list?.threshold===5);
+    assert.deepEqual(await notificationPage.evaluate(()=>window.listSettings.notifications.shopping_list.targets),['service:notify.mobile_app_two','service:notify.mobile_app_one']);
+    assert.deepEqual(await notificationPage.evaluate(()=>window.listSettings.notifications.low_stock.targets),['entity:notify.kitchen']);
+    assert.equal(await notificationPage.evaluate(()=>window.listSettings.notifications.catalog_new.enabled),false);
+    await notificationPage.reload();await notificationPage.getByRole('button',{name:'Ajustes',exact:true}).click();await notificationSettings.getByRole('button',{name:'General',exact:true}).click();
+    assert.equal(await listRule.getByLabel('Título',{exact:true}).inputValue(),'Compra: {lista}');assert.equal(await listRule.getByLabel('Límite de productos de Lista de la compra',{exact:true}).inputValue(),'5');
+    assert.equal(await listRule.locator('input[value="service:notify.mobile_app_one"]').isChecked(),true);
+    await notificationPage.evaluate(()=>{window.failSettings=true;});await listRule.getByLabel('Mensaje',{exact:true}).fill('Nuevo mensaje');
+    await notifications.getByRole('button',{name:'Guardar notificaciones',exact:true}).click();await notifications.getByRole('alert').filter({hasText:'No se han podido guardar'}).waitFor();
+    assert.equal(await listRule.getByLabel('Mensaje',{exact:true}).inputValue(),'Nuevo mensaje');
+    await notificationPage.evaluate(()=>{window.failSettings=false;});await notifications.getByRole('button',{name:'Guardar notificaciones',exact:true}).click();
+    await notificationPage.waitForFunction(()=>window.listSettings.notifications.shopping_list.message==='Nuevo mensaje');
+    for(const width of [390,320]){await notificationPage.setViewportSize({width,height:844});assert.ok(await notifications.evaluate(node=>node.scrollWidth<=node.clientWidth+1));assert.equal(await notificationSettings.locator('.settings-tabs .tab-label:visible').count(),1);await notificationPage.screenshot({path:'test-results/notifications-'+width+'.png',fullPage:true});}
+    assert.equal(await notificationPage.evaluate(()=>window.calls.some(call=>call.domain==='notify')),false);
+    await notificationPage.evaluate(()=>{window.testPanel.hass={...window.testPanel._hass,user:{is_admin:false}};});
+    assert.equal(await notifications.getByRole('button',{name:'Guardar notificaciones',exact:true}).isDisabled(),true);
+    await notificationContext.close();
+}
+
 async function checkUniversalPurchaseSettings(browser,url,errors) {
   // Universal purchase setup separates accounts, physical shops and shoppers.
   const universalContext=await browser.newContext({viewport:{width:390,height:844}});
   await universalContext.route('https://tile.openstreetmap.org/**',route=>route.fulfill({contentType:'image/png',body:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a20kAAAAASUVORK5CYII=','base64')}));
+  await universalContext.route('**/local/ana.png',route=>route.fulfill({contentType:'image/png',body:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a20kAAAAASUVORK5CYII=','base64')}));
   await universalContext.addInitScript(()=>{
     // Localhost is secure in Chromium; emulate HA's common plain-HTTP context.
     Object.defineProperty(Crypto.prototype,'randomUUID',{value:undefined,configurable:true});
@@ -707,7 +769,7 @@ async function checkUniversalPurchaseSettings(browser,url,errors) {
   assert.equal(await universalSettings.getByLabel('Permanencia mínima en la zona (minutos)',{exact:true}).inputValue(),'5');
   assert.deepEqual(await universalSettings.locator('.store-row:visible h3').allTextContents(),['Carrefour','Lidl']);
   await universalPage.evaluate(()=>{const panel=window.testPanel;panel.hass={...panel._hass,states:{...panel._hass.states,
-    'person.one':{entity_id:'person.one',state:'home',attributes:{friendly_name:'Ana'}},
+    'person.one':{entity_id:'person.one',state:'home',attributes:{friendly_name:'Ana',entity_picture:'/local/ana.png'}},
     'person.two':{entity_id:'person.two',state:'home',attributes:{friendly_name:'Luis'}}}};});
   const users=universalSettings.locator('.purchase-users');
   assert.equal(await users.locator('#purchase-zone-persons').isVisible(),true);
@@ -717,8 +779,12 @@ async function checkUniversalPurchaseSettings(browser,url,errors) {
   assert.equal(await zoneSwitch.isChecked(),false);
   assert.equal(await zoneSwitch.evaluate(input=>getComputedStyle(input).backgroundColor),'rgb(100, 116, 139)');
   assert.equal(await universalSettings.locator('#carrefour-enabled').evaluate(input=>getComputedStyle(input).backgroundColor),'rgb(100, 116, 139)');
-  await users.locator('summary').click();
+  await users.locator('#purchase-zone-persons summary').click();
   assert.equal(await users.getByRole('checkbox',{name:'Ana',exact:true}).isChecked(),true);
+  assert.equal(await users.locator('.person-option .person-avatar').count(),2);
+  assert.match(await users.locator('.person-option').filter({hasText:'Ana'}).locator('.person-avatar img').getAttribute('src'),/\/local\/ana\.png$/);
+  assert.equal(await users.locator('.person-option').filter({hasText:'Luis'}).locator('.person-avatar').textContent(),'L');
+  assert.equal(await universalSettings.locator('#purchase-zone-help').count(),0);
   await users.getByRole('checkbox',{name:'Luis',exact:true}).check();
   await universalPage.evaluate(()=>window.emitSettings());
   assert.equal(await users.getByRole('checkbox',{name:'Luis',exact:true}).isChecked(),true);
@@ -732,7 +798,7 @@ async function checkUniversalPurchaseSettings(browser,url,errors) {
   await universalPage.reload();
   await universalPage.getByRole('button',{name:'Ajustes',exact:true}).click();
   await universalSettings.getByRole('button',{name:'Tiendas',exact:true}).click();
-  await users.locator('summary').click();
+  await users.locator('#purchase-zone-persons summary').click();
   assert.equal(await users.getByRole('checkbox',{name:'person.one',exact:true}).isChecked(),true);
   assert.equal(await users.getByRole('checkbox',{name:'person.two',exact:true}).isChecked(),true);
   await universalPage.getByRole('button',{name:'Analítica',exact:true}).click();const universalPurchases=universalPage.locator('isl-purchases');
@@ -748,7 +814,7 @@ async function checkUniversalPurchaseSettings(browser,url,errors) {
   await legacyContext.addInitScript(()=>localStorage.setItem('settings-fixture',JSON.stringify({entities:['todo.bring'],primary_entity:'todo.bring',purchase_detection:{enabled:true,threshold:5,zone_assignment:false,persons:[],store_zones:{}}})));
   const legacyPage=await legacyContext.newPage();legacyPage.on('pageerror',error=>errors.push(error.message));
   await legacyPage.goto(url);await legacyPage.getByRole('button',{name:'Ajustes',exact:true}).click();
-  const legacySettings=legacyPage.locator('isl-settings');await legacySettings.getByRole('button',{name:'Listas',exact:true}).click();
+  const legacySettings=legacyPage.locator('isl-settings');await legacySettings.getByRole('button',{name:'General',exact:true}).click();
   await legacyPage.evaluate(()=>{const panel=window.testPanel;panel.hass={...panel._hass,states:{...panel._hass.states,'person.ana':{entity_id:'person.ana',state:'home',attributes:{friendly_name:'Ana'}}}};});
   const legacyForm=legacySettings.locator('#purchase-detection-form');
   await legacyForm.getByRole('switch',{name:'Asignación de tienda basada en zona',exact:true}).check();
@@ -1723,7 +1789,12 @@ async function checkReferenceLogDescriptions(browser,url,errors){
   page.on('pageerror',error=>errors.push(error.message));await page.goto(url);
   await page.evaluate(()=>{window.logFixture.entries=[{id:'fuet',time:new Date().toISOString(),kind:'catalog.products.updated',source:'integration',message:'Producto modificado: Fuet',product:'Fuet',changed_fields:['commercial_references'],reference_changes:[{id:'new-id',store:'carrefour',ean:'8410762005014',action:'updated',added_fields:['reference_id','url'],updated_fields:[],removed_fields:[]}]}];});
   await page.getByRole('button',{name:'Ajustes',exact:true}).click();
-  await page.getByRole('button',{name:'Logs',exact:true}).click();
+  await page.getByRole('button',{name:'Información',exact:true}).click();
+  const settings=page.locator('isl-settings');
+  assert.equal(await settings.locator('#settings-view-community').count(),0);
+  assert.equal(await settings.getByRole('heading',{name:'Comunidad',exact:true}).isVisible(),true);
+  assert.ok(await settings.evaluate(el=>el.shadowRoot.querySelector('#settings-community').compareDocumentPosition(el.shadowRoot.querySelector('isl-logs')) & Node.DOCUMENT_POSITION_FOLLOWING));
+  assert.equal(await settings.getByRole('button',{name:'Exportar mi catálogo',exact:true}).isVisible(),true);
   const logs=page.locator('isl-logs');
   await logs.getByText('Alternativa actualizada: Carrefour · EAN 8410762005014 · Añadidos: referencia de la tienda, URL',{exact:true}).waitFor();
   assert.equal(await logs.getByText(/Alternativa retirada|Nueva alternativa|Eliminados:/).count(),0);
@@ -2526,8 +2597,8 @@ async function checkPurchaseQuantities(browser,url,errors){
     await quantityPage.evaluate(()=>{window.listData['todo.bring'].push({uid:'pavo-entry',summary:'Pavo',status:'needs_action'});window.emit('todo.bring');});
     await quantityPage.getByRole('button',{name:'Ajustes',exact:true}).click();
     const quantitySettings=quantityPage.locator('isl-settings');
-    await quantitySettings.getByRole('button',{name:'Listas',exact:true}).click();
-    await quantitySettings.getByLabel('Color del indicador de cantidad',{exact:true}).evaluate(input=>{input.value='#4caf50';input.dispatchEvent(new Event('input',{bubbles:true}));});
+    await quantitySettings.getByRole('button',{name:'General',exact:true}).click();
+    assert.equal(await quantitySettings.getByLabel('Color del indicador de cantidad',{exact:true}).count(),0);
     await quantitySettings.getByRole('button',{name:'Guardar personalización',exact:true}).click();
     await quantitySettings.getByRole('status').filter({hasText:'Personalización guardada'}).waitFor();
     await quantityPage.getByRole('button',{name:'Lista',exact:true}).click();await quantityPage.locator('#toggle-list-layout').click();
@@ -2676,7 +2747,7 @@ async function checkAppearanceInLists(browser,url,errors){
     if(width!==320)await appearance.screenshot({path:`test-results/appearance-in-lists-${width}.png`});
   }
   await settings.getByRole('button',{name:'Tiendas',exact:true}).click();assert.equal(await appearance.isVisible(),false);
-  await settings.getByRole('button',{name:'Listas',exact:true}).click();assert.equal(await appearance.isVisible(),true);
+  await settings.getByRole('button',{name:'General',exact:true}).click();assert.equal(await appearance.isVisible(),true);
   await settings.getByLabel('Color inicial de Stock',{exact:true}).evaluate(input=>{input.value='#ffcc80';input.dispatchEvent(new Event('input',{bubbles:true}));});
   await settings.getByRole('button',{name:'Guardar personalización',exact:true}).click();
   await settings.getByRole('status').filter({hasText:'Personalización guardada'}).waitFor();
@@ -2966,7 +3037,7 @@ async function checkCatalogSources(browser,url,errors){
   }
   assert.equal(await source.locator('isl-eci-catalog').count(),0);
   assert.equal(await source.getByRole('switch',{name:'Completar productos con El Corte Inglés',exact:true}).count(),0);
-  await settings.getByRole('button',{name:'Listas',exact:true}).click();
+  await settings.getByRole('button',{name:'General',exact:true}).click();
   assert.equal(await page.evaluate(()=>window.catalogSourceSubscriptions),0);
   await context.close();
   const grouped=await browser.newContext({viewport:{width:390,height:844}});
@@ -3239,6 +3310,8 @@ async function main() {
     if(process.argv.includes('--grouped-badges-only')){const errors=[];await checkGroupedCatalogBadges(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Grouped catalog badges passed.');return;}
     if(process.argv.includes('--catalog-views-only')){const errors=[];await checkCatalogViews(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Catalog views passed.');return;}
     if(process.argv.includes('--comparison-only')){const errors=[];await checkCatalogComparison(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Catalog comparison passed.');return;}
+    if(process.argv.includes('--compact-settings-only')){const errors=[];await checkCompactSettings(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Compact settings passed.');return;}
+    if(process.argv.includes('--notifications-only')){const errors=[];await checkGeneralNotifications(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('General notifications passed.');return;}
     if(process.argv.includes('--appearance-only')){const errors=[];await checkAppearanceInLists(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Appearance in Lists passed.');return;}
     if(process.argv.includes('--attention-only')){const errors=[];await checkAttentionIndicators(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Navigation attention indicators passed.');return;}
     if(process.argv.includes('--lazy-only')){const errors=[];await checkLazySections(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);return;}
@@ -4191,7 +4264,7 @@ async function main() {
     assert.equal(await settingsView.getByRole("switch",{name:"Habilitar Mercadona",exact:true}).isChecked(),false);
     assert.equal(await settingsPage.evaluate(()=>window.listSettings.stores.mercadona.postal_code),"28024");
     await settingsPage.screenshot({path:"test-results/stores-mobile.png",fullPage:true});
-    await settingsView.getByRole("button",{name:"Comunidad",exact:true}).click();
+    await settingsView.getByRole("button",{name:"Información",exact:true}).click();
     await settingsView.getByRole("heading",{name:"Comunidad",exact:true}).waitFor();
     assert.equal(await settingsView.locator("#settings-lists").isVisible(),false);
     assert.match(await settingsView.locator("#settings-community").textContent(),/sugerencia para mejorar la integración puedes unirte a través de Telegram/);
@@ -4229,7 +4302,7 @@ async function main() {
     assert.equal(await settingsView.getByRole('button',{name:'Exportar mi catálogo',exact:true}).isEnabled(),true);
     await settingsPage.evaluate(()=>window.failCatalogExport=false);
     assert.equal(await settingsPage.evaluate(()=>window.calls.some(call=>call.type==='improved_shopping_list/community/export')),false);
-    await settingsView.getByRole("button",{name:"Listas",exact:true}).click();
+    await settingsView.getByRole("button",{name:"General",exact:true}).click();
     const configured = settingsView.locator("#configured-lists article");
     assert.equal(await configured.count(), 3);
     assert.equal(await configured.filter({ hasText: "todo.bring" }).locator(".list-primary").getAttribute("aria-pressed"), "true");
@@ -4292,7 +4365,7 @@ async function main() {
     await settingsPage.setViewportSize({ width: 390, height: 844 });
     await settingsPage.screenshot({ path: "test-results/settings-mobile.png", fullPage: true });
     assert.equal(await settingsPage.locator("main").evaluate(node => node.scrollWidth > innerWidth), false);
-    await settingsView.getByRole("button", { name: "Listas", exact: true }).click();
+    await settingsView.getByRole("button", { name: "General", exact: true }).click();
     assert.equal(await settingsView.getByLabel("Color inicial del degradado", { exact: true }).inputValue(), "#ee524f");
     assert.equal(await settingsView.getByLabel("Color final del degradado", { exact: true }).inputValue(), "#b52a27");
     assert.equal(await settingsView.getByLabel("Color inicial de Comprados", { exact:true }).inputValue(), "#4faba2");
@@ -4392,7 +4465,7 @@ async function main() {
     await settingsPage.locator("#pending").getByText("Cacao", { exact:true }).waitFor();
     assert.equal(await settingsPage.locator("#pending").evaluate(node => getComputedStyle(node).gridTemplateColumns.split(" ").length), 4);
     await settingsPage.getByRole("button", { name:"Ajustes", exact:true }).click();
-    await settingsView.getByRole("button", { name:"Listas", exact:true }).click();
+    await settingsView.getByRole("button", { name:"General", exact:true }).click();
     assert.equal(await settingsView.getByLabel("Color inicial del degradado", { exact:true }).inputValue(), "#ffe082");
     assert.equal(await settingsView.getByLabel("Color inicial de Comprados", { exact:true }).inputValue(), "#80cbc4");
     assert.equal(await settingsView.getByLabel("Color final de Comprados", { exact:true }).inputValue(), "#26a69a");
@@ -4404,7 +4477,7 @@ async function main() {
     await settingsView.getByRole("status").filter({ hasText:"Personalización guardada" }).waitFor();
     await settingsPage.evaluate(() => { window.testPanel.hass={...window.testPanel._hass,user:{is_admin:false}}; });
     assert.equal(await settingsView.getByRole("button", { name:"Guardar personalización", exact:true }).isDisabled(), true);
-    await settingsView.getByRole("button", { name:"Listas", exact:true }).click();
+    await settingsView.getByRole("button", { name:"General", exact:true }).click();
     assert.equal(await settingsView.getByRole("button", { name: "Añadir lista", exact: true }).isDisabled(), true);
     assert.equal(await settingsView.getByRole("button", { name: "Quitar: Compra · Bring!", exact: true }).isDisabled(), true);
     assert.equal(await settingsView.getByRole('button',{name:'Añadir pasarela',exact:true}).isDisabled(),true);
@@ -5259,47 +5332,8 @@ async function main() {
     assert.equal(await renameSuggestions.locator("h2").count(),0);
     await renameContext.close();
     // Category grouping sorts headings and products, preserves searching, layouts and user preference.
-    const notificationContext=await browser.newContext({viewport:{width:1280,height:960}});
-    const notificationPage=await notificationContext.newPage();notificationPage.on('pageerror',error=>errors.push(error.message));
-    await notificationPage.goto(url);await notificationPage.getByRole('button',{name:'Ajustes',exact:true}).click();
-    const notificationSettings=notificationPage.locator('isl-settings');
-    await notificationSettings.getByRole('button',{name:'Notificaciones',exact:true}).click();
-    const notifications=notificationSettings.locator('isl-notification-settings'),listRule=notifications.locator('[data-rule=shopping_list]'),stockRule=notifications.locator('[data-rule=low_stock]');
-    assert.equal(await notificationSettings.locator('#settings-view-notifications ha-icon').getAttribute('icon'),'mdi:bell-outline');
-    await listRule.getByRole('checkbox',{name:'Activar aviso de Lista de la compra',exact:true}).check();
-    await listRule.getByLabel('Límite de productos de Lista de la compra',{exact:true}).fill('5');
-    await listRule.locator('input[value="service:notify.mobile_app_one"]').check();await listRule.locator('input[value="service:notify.mobile_app_two"]').check();
-    await listRule.getByLabel('Título',{exact:true}).fill('Compra: {lista}');await listRule.getByLabel('Mensaje',{exact:true}).fill('{cantidad} productos: {productos}');
-    await stockRule.getByRole('checkbox',{name:'Activar aviso de Stock bajo',exact:true}).check();await stockRule.getByLabel('Límite de productos de Stock bajo',{exact:true}).fill('0');
-    await stockRule.locator('input[value="entity:notify.kitchen"]').check();
-    const newProductsRule=notifications.locator('[data-rule=catalog_new]');
-    assert.equal(await newProductsRule.getByRole('checkbox',{name:'Activar aviso de Productos nuevos',exact:true}).isChecked(),false);
-    assert.equal(await newProductsRule.getByLabel('Límite de productos de Productos nuevos',{exact:true}).inputValue(),'0');
-    await newProductsRule.getByRole('checkbox',{name:'Activar aviso de Productos nuevos',exact:true}).check();
-    await newProductsRule.getByLabel('Límite de productos de Productos nuevos',{exact:true}).fill('3');
-    await newProductsRule.locator('input[value="service:notify.mobile_app_one"]').check();
-    await newProductsRule.getByLabel('Mensaje',{exact:true}).fill('{cantidad} pendientes de catálogo: {productos}');
-    assert.equal(await notifications.locator('input[value="service:notify.notify"]').count(),0);
-    await notifications.getByRole('button',{name:'Guardar notificaciones',exact:true}).click();
-    await notificationPage.waitForFunction(()=>window.listSettings.notifications?.shopping_list?.threshold===5);
-    assert.deepEqual(await notificationPage.evaluate(()=>window.listSettings.notifications.shopping_list.targets),['service:notify.mobile_app_two','service:notify.mobile_app_one']);
-    assert.deepEqual(await notificationPage.evaluate(()=>window.listSettings.notifications.low_stock.targets),['entity:notify.kitchen']);
-    assert.equal(await notificationPage.evaluate(()=>window.listSettings.notifications.catalog_new.threshold),3);
-    await notificationPage.reload();await notificationPage.getByRole('button',{name:'Ajustes',exact:true}).click();await notificationSettings.getByRole('button',{name:'Notificaciones',exact:true}).click();
-    assert.equal(await listRule.getByLabel('Título',{exact:true}).inputValue(),'Compra: {lista}');assert.equal(await listRule.getByLabel('Límite de productos de Lista de la compra',{exact:true}).inputValue(),'5');
-    assert.equal(await listRule.locator('input[value="service:notify.mobile_app_one"]').isChecked(),true);
-    assert.equal(await newProductsRule.getByRole('checkbox',{name:'Activar aviso de Productos nuevos',exact:true}).isChecked(),true);
-    assert.equal(await newProductsRule.getByLabel('Mensaje',{exact:true}).inputValue(),'{cantidad} pendientes de catálogo: {productos}');
-    await notificationPage.evaluate(()=>{window.failSettings=true;});await listRule.getByLabel('Mensaje',{exact:true}).fill('Nuevo mensaje');
-    await notifications.getByRole('button',{name:'Guardar notificaciones',exact:true}).click();await notifications.getByRole('alert').filter({hasText:'No se han podido guardar'}).waitFor();
-    assert.equal(await listRule.getByLabel('Mensaje',{exact:true}).inputValue(),'Nuevo mensaje');
-    await notificationPage.evaluate(()=>{window.failSettings=false;});await notifications.getByRole('button',{name:'Guardar notificaciones',exact:true}).click();
-    await notificationPage.waitForFunction(()=>window.listSettings.notifications.shopping_list.message==='Nuevo mensaje');
-    for(const width of [390,320]){await notificationPage.setViewportSize({width,height:844});assert.ok(await notifications.evaluate(node=>node.scrollWidth<=node.clientWidth+1));assert.equal(await notificationSettings.locator('.settings-tabs .tab-label:visible').count(),1);await notificationPage.screenshot({path:'test-results/notifications-'+width+'.png',fullPage:true});}
-    assert.equal(await notificationPage.evaluate(()=>window.calls.some(call=>call.domain==='notify')),false);
-    await notificationPage.evaluate(()=>{window.testPanel.hass={...window.testPanel._hass,user:{is_admin:false}};});
-    assert.equal(await notifications.getByRole('button',{name:'Guardar notificaciones',exact:true}).isDisabled(),true);
-    await notificationContext.close();
+    await checkCompactSettings(browser,url,errors);
+    await checkGeneralNotifications(browser,url,errors);
 
     await checkGroupedCatalogBadges(browser,url,errors);
     await checkCatalogViews(browser,url,errors);
@@ -5833,7 +5867,7 @@ async function main() {
     });
     await page.getByRole('button',{name:'Ajustes',exact:true}).click();
     assert.equal(await page.locator('#nav-logs').count(),0);
-    await page.getByRole('button',{name:'Logs',exact:true}).click();
+    await page.getByRole('button',{name:'Información',exact:true}).click();
     const logs=page.locator('isl-logs');
     await logs.locator('#entries > li').nth(2).waitFor();
     assert.equal(await page.locator('isl-settings #settings-view-logs ha-icon').getAttribute('icon'),'mdi:format-list-group');
@@ -5843,7 +5877,7 @@ async function main() {
     await page.locator('isl-settings').getByRole('button',{name:'Tiendas',exact:true}).click();
     assert.equal(await logs.isVisible(),false);
     assert.equal(await page.evaluate(()=>window.logListenerCount()),0);
-    await page.locator('isl-settings').getByRole('button',{name:'Logs',exact:true}).click();
+    await page.locator('isl-settings').getByRole('button',{name:'Información',exact:true}).click();
     await logs.locator('#entries > li').nth(2).waitFor();
     assert.equal(await page.evaluate(()=>window.logListenerCount()),1);
 

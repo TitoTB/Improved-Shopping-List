@@ -1,5 +1,5 @@
 /** Category management. Product membership stays in the shared catalog. */
-import { installDialogCloseButtons } from "./dialog-controls.js?v=0.83.1";
+import { installDialogCloseButtons } from "./dialog-controls.js?v=0.84.0";
 
 class ImprovedShoppingCategories extends HTMLElement {
   constructor() {

@@ -617,6 +617,7 @@ async function captureProductCode(page, form, kind, code, expected = code) {
 async function checkCompactSettings(browser,url,errors) {
   const context=await browser.newContext({viewport:{width:1280,height:960}}),page=await context.newPage();page.on('pageerror',error=>errors.push(error.message));
   await page.goto(url);await page.getByRole('button',{name:'Ajustes',exact:true}).click();const settings=page.locator('isl-settings');
+  await settings.getByRole('button',{name:'General',exact:true}).waitFor();
   assert.deepEqual(await settings.locator('.settings-tabs button').allTextContents(),['General','Tiendas','Información']);
   for(const id of ['lists','gateways','appearance','notifications']){
     const section=settings.locator('#settings-'+id),summary=section.locator(':scope>.settings-disclosure>summary');

@@ -1,4 +1,4 @@
-# <img src="custom_components/improved_shopping_list/frontend/logo.png" alt="" width="40" height="40" align="middle"> Improved Shopping List
+# <img src="custom_components/improved_shopping_list/frontend/logo.png" alt="" width="40" height="40" align="left"> Improved Shopping List
 
 ## Índice
 

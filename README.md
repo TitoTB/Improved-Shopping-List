@@ -275,9 +275,17 @@ Ajustes se organiza en **General**, **Tiendas** e **Información**. Sus bloques 
 
 Los destinos de notificación son los servicios y entidades **notify** disponibles en tu Home Assistant; deben estar configurados previamente para poder seleccionarlos.
 
+<p align="center">
+  <img src="https://raw.githubusercontent.com/TitoTB/Improved-Shopping-List/main/docs/images/ajustes-listas-pasarela.png" alt="Listas de la compra y listas pasarela en Ajustes, con selección de lista principal y destino de transferencia">
+</p>
+
 ### Tiendas: cuentas, catálogos y establecimientos
 
 En esta vista se distinguen las **cuentas conectadas**, que permiten recuperar tus compras, los **catálogos públicos**, que completan información de productos, y las **tiendas físicas**, que se utilizan para identificar dónde has comprado mediante las zonas de Home Assistant.
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/TitoTB/Improved-Shopping-List/main/docs/images/ajustes-cuentas-catalogos.png" alt="Cuentas de Carrefour y Lidl y catálogos públicos de supermercados en Ajustes">
+</p>
 
 #### Cuentas conectadas
 

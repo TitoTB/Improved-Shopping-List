@@ -2,12 +2,47 @@
 
 ## Índice
 
+- [Instalación](#instalación)
 - [Lista de la compra](#lista-de-la-compra)
 - [Catálogo](#catálogo)
 - [Stock](#stock)
 - [Analítica](#analítica)
 - [Ajustes](#ajustes)
 - [Disclaimer](#disclaimer)
+
+## Instalación
+
+### Requisitos
+
+- **Home Assistant Core 2026.10.0 o posterior** y una cuenta administradora para instalar y configurar la integración.
+- Al menos una lista existente con una entidad **todo**, como `todo.shopping_list`, Bring! o cualquier otro proveedor compatible. Si no tienes ninguna, puedes añadir la integración nativa [Shopping list](https://www.home-assistant.io/integrations/shopping_list/) desde **Ajustes → Dispositivos y servicios → Añadir integración**.
+- **HACS**, si eliges el método recomendado de instalación. Si todavía no lo tienes, sigue su [guía oficial de instalación](https://hacs.dev/docs/use/download/download/).
+
+No necesitas instalar tarjetas adicionales de HACS ni complementos de Home Assistant OS. Home Assistant instala automáticamente las dependencias de Python y las bibliotecas de la interfaz se incluyen con la integración. Las funciones que consultan tiendas, imágenes o diccionarios públicos requieren acceso a Internet. Puedes consultar el [detalle de las dependencias](https://github.com/TitoTB/Improved-Shopping-List/blob/main/docs/dependencies.md).
+
+### Instalar con HACS
+
+1. Abre **HACS** en Home Assistant. En el menú de los **tres puntos**, entra en **Repositorios personalizados**.
+2. Añade `https://github.com/TitoTB/Improved-Shopping-List` y selecciona el tipo **Integración / Integration**. Pulsa **Añadir**. Puedes consultar estos pasos en la [documentación de repositorios personalizados de HACS](https://www.hacs.dev/docs/faq/custom_repositories/).
+3. Busca **Improved Shopping List** en HACS, abre su ficha y descarga la última versión estable.
+4. Cuando termine la descarga, **reinicia Home Assistant**. Descargar los archivos en HACS no configura todavía la integración.
+5. Ve a **Ajustes → Dispositivos y servicios → Añadir integración**, busca **Improved Shopping List** y selecciónala.
+6. Elige la entidad **todo** que quieres usar como lista de compra predeterminada y confirma la configuración.
+7. Abre **Improved Shopping List** desde la barra lateral. En **Ajustes → General** puedes añadir otras listas y cambiar la principal; en **Ajustes → Tiendas** puedes conectar cuentas y activar los catálogos que quieras utilizar.
+
+La integración utiliza los productos de la entidad que hayas elegido. No necesitas trasladarlos manualmente ni crear una tarjeta en un dashboard, y su configuración se realiza desde la interfaz, sin editar YAML.
+
+Si no aparece al buscarla en **Añadir integración**, comprueba que hayas reiniciado Home Assistant después de descargarla y recarga el navegador; si persiste, limpia su caché. Si no aparece ninguna lista en el selector inicial, configura primero una entidad **todo** y vuelve a intentarlo.
+
+### Instalación manual alternativa
+
+1. Descarga el código de una [versión estable del repositorio](https://github.com/TitoTB/Improved-Shopping-List/releases).
+2. Copia la carpeta `custom_components/improved_shopping_list` dentro del directorio de configuración de Home Assistant. Su archivo `manifest.json` debe quedar en `custom_components/improved_shopping_list/manifest.json`, sin una carpeta adicional intermedia.
+3. Reinicia Home Assistant y sigue los pasos de **Añadir integración**, selección de la lista y apertura del panel descritos arriba.
+
+### Actualizaciones
+
+Si la instalaste con HACS, descarga desde allí las nuevas versiones y reinicia Home Assistant. Si utilizaste el método manual, sustituye la carpeta de la integración por la de la nueva versión y reinicia. Después, recarga la página del panel para cargar la interfaz actualizada.
 
 ## Lista de la compra
 

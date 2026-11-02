@@ -5871,7 +5871,7 @@ async function main() {
     await page.getByRole('button',{name:'Información',exact:true}).click();
     const logs=page.locator('isl-logs');
     await logs.locator('#entries > li').nth(2).waitFor();
-    assert.equal(await page.locator('isl-settings #settings-view-logs ha-icon').getAttribute('icon'),'mdi:format-list-group');
+    assert.equal(await page.locator('isl-settings #settings-view-logs ha-icon').getAttribute('icon'),'mdi:information-outline');
     assert.equal(await logs.locator('#entries img').count(),0);
     assert.equal(await page.locator('isl-settings #settings-view-logs').getAttribute('aria-pressed'),'true');
     assert.equal(await page.evaluate(()=>window.logListenerCount()),1);

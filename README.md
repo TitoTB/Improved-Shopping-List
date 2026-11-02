@@ -61,17 +61,25 @@ Para volver a la vista habitual de productos, **pulsa el badge del número de pr
 
 El catálogo reúne las fichas de tus productos para utilizarlas en la lista de la compra, Stock y la comparación de precios. Sus vistas son **Productos**, **Categorías** y **Pendiente**.
 
+![Vista de productos del catálogo en cuadrícula](docs/images/catalogo-productos.png)
+
 ### Añadir productos y asignar imágenes
 
 Desde **Productos**, pulsa **+** para crear una ficha. Puedes empezar con el nombre y completar el resto de la información más adelante.
 
 En la ficha puedes asignar una imagen mediante el campo **URL Imagen/Icono**, indicando la dirección de la imagen que quieras utilizar. También se muestran propuestas de iconos, dando prioridad al catálogo comunitario, cuyas imágenes proceden principalmente de [Iconify](https://iconify.design/) y [Flaticon](https://www.flaticon.es/).
 
+![Ficha de producto con nombre, categoría, URL de imagen e iconos sugeridos](docs/images/ficha-producto-caracteristicas.png)
+
 ### Organizar por categorías
 
 Puedes crear categorías y asignarles un nombre, un icono y un color. Después, selecciona la categoría correspondiente en la ficha de cada producto; también puedes crear una categoría desde esa misma ficha.
 
+![Categorías del catálogo con sus iconos y colores](docs/images/catalogo-categorias.png)
+
 El catálogo permite buscar productos, alternar entre cuadrícula y filas y mostrarlos por orden alfabético o agrupados por categoría. Los grupos se muestran comprimidos y se despliegan al pulsarlos.
+
+![Productos del catálogo en filas agrupadas por categoría](docs/images/catalogo-productos-por-categoria.png)
 
 ### Alternativas de compra en distintas tiendas
 

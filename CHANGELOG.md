@@ -1,5 +1,17 @@
 # Historial de cambios
 
+## 0.82.0 — 2026-11-02
+
+- En móvil, Gasto total, Compras e Importe medio se mantienen en una única fila con tipografía y espaciado adaptados.
+
+- En móvil, las pestañas de Analítica se alinean a la derecha, manteniendo el desplazamiento horizontal cuando no caben.
+
+- Comparativa elimina el buscador de productos y el filtro de categoría; analiza el catálogo completo. Las oportunidades de ahorro llevan a su fila en la tabla.
+
+- Gastos retira la variación del periodo anterior y la nota de compras compartidas. Los gráficos de categorías y productos reservan más ancho a nombres de una sola línea, con truncado, tipografía e imágenes menores y barras compactas; sus filas dejan de ser clicables.
+
+- Se elimina el borde individual de los productos del catálogo cuando están agrupados por categoría o tienda.
+
 ## 0.81.0 — 2026-11-02
 
 - Nutrición coloca Nutri-Score y procesamiento en filas independientes. Los grupos NOVA muestran nombres sin numeración, colores de verde a rojo y productos desplegables, sin filtrar la vista. Se retira el texto de disponibilidad y se oculta la tabla nutricional.

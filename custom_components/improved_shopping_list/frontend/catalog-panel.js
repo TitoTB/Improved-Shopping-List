@@ -1,14 +1,14 @@
-import { ReplenishmentEditor, replenishmentMarkup } from './replenishment-editor.js?v=0.81.0';
+import { ReplenishmentEditor, replenishmentMarkup } from './replenishment-editor.js?v=0.82.0';
 const priceValue=value=>value==null||value===''?'':Number(Number(value).toFixed(2));
-import { purchaseQuantity, quantityLabel } from "./quantity-client.js?v=0.81.0";
-import { referenceContentControls, barcodeIdentity, validReferenceContent, validReferenceFormat, weightFormat, pendingProductInformation } from "./reference-formats.js?v=0.81.0";
-import { installDialogCloseButtons } from "./dialog-controls.js?v=0.81.0";
-import { CatalogSession } from "./catalog-client.js?v=0.81.0";
-import { matchCatalogProducts } from "./product-matching.js?v=0.81.0";
-import "./category-panel.js?v=0.81.0";
-import "./recipe-editor.js?v=0.81.0";
-import "./icon-picker.js?v=0.81.0";
-import { imageSource, normalizedName, productNameKey, cachedProductPrice, storeProductLink, storeFromProductUrl } from "./product-display.js?v=0.81.0";
+import { purchaseQuantity, quantityLabel } from "./quantity-client.js?v=0.82.0";
+import { referenceContentControls, barcodeIdentity, validReferenceContent, validReferenceFormat, weightFormat, pendingProductInformation } from "./reference-formats.js?v=0.82.0";
+import { installDialogCloseButtons } from "./dialog-controls.js?v=0.82.0";
+import { CatalogSession } from "./catalog-client.js?v=0.82.0";
+import { matchCatalogProducts } from "./product-matching.js?v=0.82.0";
+import "./category-panel.js?v=0.82.0";
+import "./recipe-editor.js?v=0.82.0";
+import "./icon-picker.js?v=0.82.0";
+import { imageSource, normalizedName, productNameKey, cachedProductPrice, storeProductLink, storeFromProductUrl } from "./product-display.js?v=0.82.0";
 export { imageSource, normalizedName, productNameKey, cachedProductPrice };
 
 const MONTHS = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
@@ -273,6 +273,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
         .category-group[open] > .category-group-toggle::after { transform:rotate(225deg); }
         .category-group-toggle:focus-visible { outline:3px solid var(--primary-color,#267052); outline-offset:3px; }
         .category-products { padding:0 16px 16px; }
+        .category-products .product { border:0; }
         .category-products.rows { padding-inline:0; }
         .category-products.rows .row-meta { flex-wrap:nowrap;max-width:none; }
         .category-products.rows .row-price { flex:none; }

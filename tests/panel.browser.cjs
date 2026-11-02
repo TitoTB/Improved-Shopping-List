@@ -903,12 +903,9 @@ async function checkAnalyticsDashboard(browser,url,errors){
  await expenses.locator('.bar-row').filter({hasText:'Carrefour'}).click();await expenses.locator('.stat strong').first().filter({hasText:'10,00'}).waitFor();
  await expenses.locator('.filter-chip').filter({hasText:'Tienda:'}).click();
  assert.equal(await expenses.locator('#expense-categories .bar-row').filter({hasText:'Despensa'}).locator('.fill').evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(227, 68, 85)');
- await expenses.locator('#expense-categories .bar-row').filter({hasText:'Otros'}).click();await expenses.locator('.stat strong').first().filter({hasText:'5,00'}).waitFor();await expenses.locator('.filter-chip').filter({hasText:'Categoría: Otros'}).click();
- await expenses.locator('.bar-row').filter({hasText:'Despensa'}).click();await expenses.locator('.stat strong').first().filter({hasText:'8,00'}).waitFor();
- await expenses.locator('.filter-chip').filter({hasText:'Categoría:'}).click();
- for(const width of [1280,390,320]){await page.setViewportSize({width,height:1000});assert.ok(await expenses.evaluate(n=>n.scrollWidth<=n.clientWidth+1));await page.screenshot({path:'test-results/analytics-expenses-'+width+'.png',fullPage:true});}
+ await expenses.locator('#expense-categories .bar-row').filter({hasText:'Otros'}).click();assert.equal(await expenses.locator('.stat strong').first().textContent(),'15,00 €');assert.equal(await expenses.locator('#expense-categories button,#expense-products button').count(),0);assert.equal(await expenses.locator('.stat small').count(),0);assert.equal(await expenses.getByText('Incluye compras compartidas.',{exact:false}).count(),0);
+ for(const width of [1280,390,320]){await page.setViewportSize({width,height:1000});assert.ok(await expenses.evaluate(n=>n.scrollWidth<=n.clientWidth+1));assert.ok(await expenses.locator('.compact-chart .bar-label>span').evaluateAll(labels=>labels.every(el=>getComputedStyle(el).whiteSpace==='nowrap'&&getComputedStyle(el).textOverflow==='ellipsis')));await page.screenshot({path:'test-results/analytics-expenses-'+width+'.png',fullPage:true});}
  await page.setViewportSize({width:1280,height:1000});
- await expenses.locator('.bar-row').filter({hasText:'Café'}).click();const product=page.locator('isl-catalog').getByRole('dialog',{name:'Editar producto',exact:true});await product.waitFor();await product.getByRole('button',{name:'Cerrar ventana',exact:true}).click();
  await page.getByRole('button',{name:'Analítica',exact:true}).click();await page.getByRole('tab',{name:'Gastos',exact:true}).click();assert.equal(await expenses.getByRole('heading',{name:'Compras del periodo',exact:true}).count(),0);
  await page.getByRole('tab',{name:'Comparativa',exact:true}).click();await analytics.locator('tbody tr').nth(1).waitFor();
  await analytics.getByRole('button',{name:'Ordenar por precios más bajos en Alcampo',exact:true}).click();assert.equal(await analytics.locator('tbody tr').first().getAttribute('data-product-id'),'coffee');
@@ -1523,10 +1520,8 @@ async function checkShoppingReceipt(browser,url,errors){
     assert.equal(await analytics.locator('.rank-row').count(),2);
     assert.equal(await analytics.locator('tbody tr[data-product-id="not-in-list"]').count(),1);
     assert.equal(await analytics.getByLabel('Lista para comparar',{exact:true}).count(),0);
-    await analytics.getByLabel('Buscar producto',{exact:true}).fill('Galletas');
-    assert.equal(await analytics.locator('tbody tr').count(),1);
-    assert.match(await analytics.locator('tbody').textContent(),/6,00/);
-    await analytics.getByLabel('Buscar producto',{exact:true}).fill('');
+    assert.equal(await analytics.getByLabel('Buscar producto',{exact:true}).count(),0);
+    assert.match(await analytics.locator('tbody tr[data-product-id="not-in-list"]').textContent(),/6,00/);
     for(const width of [1280,390,320]){
       await receiptPage.setViewportSize({width,height:960});
       assert.ok(await analytics.evaluate(node=>node.scrollWidth<=node.clientWidth+1));
@@ -2897,7 +2892,7 @@ async function checkCatalogComparison(browser,url,errors){
   assert.equal(await analytics.getByRole('button',{name:'Compras pasadas',exact:true}).count(),0);
   for(const label of ['Tienda','Antigüedad del precio','Moneda'])assert.equal(await analytics.getByLabel(label,{exact:true}).count(),0);
   assert.equal(await analytics.getByText(/Comparamos precios por kg|Se cuentan los mínimos/).count(),0);
-  await analytics.getByLabel('Categoría',{exact:true}).selectOption('Despensa');
+  assert.equal(await analytics.getByLabel('Categoría',{exact:true}).count(),0);assert.equal(await analytics.getByLabel('Buscar producto',{exact:true}).count(),0);
   assert.equal(await analytics.locator('tbody tr').count(),1);
   for(const width of [1280,390,320]){
     await page.setViewportSize({width,height:960});

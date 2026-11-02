@@ -354,7 +354,7 @@ Cuando falta información, se puede completar con datos públicos de los superme
 
 Aportar datos al catálogo personal no los publica automáticamente. Las contribuciones al repositorio comunitario se realizan mediante la exportación y el envío voluntario del archivo por parte del usuario, como se explica en Ajustes.
 
-Este es un **proyecto independiente**, sin vinculación oficial ni respaldo de los supermercados o servicios cuyas cuentas permite conectar. Las marcas pertenecen a sus respectivos titulares. Los posibles enlaces de afiliado se declaran por separado en el apartado Marketing de afiliados.
+Este es un **proyecto independiente**, sin vinculación oficial ni respaldo de los supermercados o servicios cuyas cuentas permite conectar.
 
 Los **precios son orientativos** y pueden no ser exactos o estar desactualizados. Reflejan la última información guardada y pueden variar según la fecha, el establecimiento, la ubicación, el formato, las promociones o los descuentos personales. Los importes estimados y las comparativas no garantizan el precio final de una compra; el importe válido será el que confirme la tienda.
 

@@ -614,6 +614,13 @@ async function captureProductCode(page, form, kind, code, expected = code) {
   await group.getByRole('button',{name:'Detener',exact:true}).click();
 }
 
+async function expandCatalogGroups(catalog){
+ for(const group of await catalog.locator('#catalog-grid > .category-group').all()){
+  if(!await group.evaluate(el=>el.open))await group.locator(':scope > summary').click();
+  await group.locator('.product').first().waitFor();
+ }
+}
+
 async function checkReceiptStockRefresh(browser,url,errors){
  const context=await browser.newContext();await context.addInitScript(()=>{
   localStorage.setItem('catalog-fixture',JSON.stringify([{id:'pavo',name:'Pavo',tags:[],barcodes:[],commercial_references:[]}]));
@@ -5422,6 +5429,7 @@ async function main() {
     assert.equal(await storeCatalog.locator('.category-group[open]').count(),0);
     await storeCatalog.locator('.category-group[aria-label="Carrefour"] > summary').click();
     assert.equal(await storeCatalog.locator('.category-group[aria-label="Carrefour"] .product').first().isVisible(),true);
+    await expandCatalogGroups(storeCatalog);
     assert.equal(await storeCatalog.locator('#catalog-grid [data-product-id="rice"]').count(),2);
     assert.equal(await storeCatalog.locator('#catalog-grid [data-product-id="juice"],#catalog-grid [data-product-id="bread"]').count(),0);
     assert.deepEqual(await storeCatalog.locator('.category-group[aria-label="Carrefour"] .product .title').allTextContents(),['Arroz','Cacao']);
@@ -5433,6 +5441,7 @@ async function main() {
     await storeGroupingPage.evaluate(()=>{window.listSettings.stores.carrefour.enabled=true;window.emitSettings();});
     await storeCatalog.locator('#catalog-search').fill('');
     await storeCatalog.getByRole('button',{name:'Cambiar a vista de filas',exact:true}).click();
+    await expandCatalogGroups(storeCatalog);
     assert.equal(await storeCatalog.locator('#catalog-grid .product').count(),3);
     await storeGroupingPage.reload();await storeGroupingPage.getByRole('button',{name:'Catálogo',exact:true}).click();
     await storeCatalog.locator('.category-group-title').nth(1).waitFor();
@@ -5443,15 +5452,18 @@ async function main() {
     assert.ok(await storeCatalog.evaluate(el=>el.scrollWidth<=el.clientWidth+1));
     await storeGroupingPage.evaluate(()=>{window.receiptStores={bread:['carrefour','dia'],rice:['carrefour']};localStorage.setItem('receipt-stores-fixture',JSON.stringify(window.receiptStores));window.emitStock();});
     assert.deepEqual(await storeCatalog.locator('.category-group-title').allTextContents(),['Alcampo (1)','Carrefour (3)']);
+    await expandCatalogGroups(storeCatalog);
     assert.equal(await storeCatalog.locator('#catalog-grid [data-product-id="rice"]').count(),2);
+    await expandCatalogGroups(storeCatalog);
     assert.equal(await storeCatalog.locator('#catalog-grid [data-product-id="bread"]').count(),1);
     await storeGroupingPage.evaluate(()=>{window.listSettings.price_updates_enabled=false;window.emitSettings();});
     assert.deepEqual(await storeCatalog.locator('.category-group-title').allTextContents(),['Alcampo (1)','Carrefour (3)']);
     await storeGroupingPage.reload();await storeGroupingPage.getByRole('button',{name:'Catálogo',exact:true}).click();
     await storeCatalog.locator('.category-group-title').filter({hasText:'Carrefour (3)'}).waitFor();
+    await expandCatalogGroups(storeCatalog);
     assert.equal(await storeCatalog.locator('#catalog-grid [data-product-id="bread"]').count(),1);
     await storeGroupingPage.evaluate(()=>{window.catalogProducts.find(product=>product.id==='bread').barcode='1234567890128';window.emitCatalog();});
-    await storeCatalog.locator('.category-group[aria-label="Carrefour"] > summary').click();
+    if(!await storeCatalog.locator('.category-group[aria-label="Carrefour"]').evaluate(el=>el.open))await storeCatalog.locator('.category-group[aria-label="Carrefour"] > summary').click();
     await storeCatalog.getByRole('button',{name:'Editar Pan',exact:true}).click();
     const storesProductForm=storeCatalog.locator('#product-form');
     await storesProductForm.getByRole('button',{name:'Alternativas',exact:true}).click();
@@ -5525,6 +5537,7 @@ async function main() {
     await groupingPage.evaluate(()=>window.emitCatalog());
     assert.equal(await pantryGroup.evaluate(group=>group.open),true);
     assert.deepEqual(await groupedCatalog.locator('.category-group-title ha-icon').evaluateAll(nodes=>nodes.map(node=>[node.getAttribute('icon'),getComputedStyle(node).color])),[['mdi:food','rgb(255, 255, 255)'],['mdi:carrot','rgb(255, 255, 255)'],['mdi:label-outline','rgb(255, 255, 255)']]);
+    await expandCatalogGroups(groupedCatalog);
     assert.deepEqual(await productNames(),['Arroz','Azúcar','Patatas','Zanahoria','Agua']);
     for (const group of await groupedCatalog.locator('.category-group').all()) {
       assert.ok(await group.locator('.product').count()>0);

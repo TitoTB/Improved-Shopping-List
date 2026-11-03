@@ -29,7 +29,7 @@ def valid_entry(key,entry):
     return (type(expires) in (int,float) and math.isfinite(expires) and time.time()<expires<=time.time()+TTL+60
             and isinstance(result,dict) and type(result.get('quantity')) in (int,float)
             and math.isfinite(result['quantity']) and 0<result['quantity']<=1000000
-            and result.get('unit') in ('kg','g','l','ml','cl','uds') and result.get('estimated') is True)
+            and result.get('unit') in ('kg','g','l','ml','cl','uds','m') and result.get('estimated') is True)
 
 
 class ReceiptEstimates:

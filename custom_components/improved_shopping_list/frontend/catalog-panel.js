@@ -1,14 +1,14 @@
-import { ReplenishmentEditor, replenishmentMarkup } from './replenishment-editor.js?v=0.85.0';
+import { ReplenishmentEditor, replenishmentMarkup } from './replenishment-editor.js?v=0.86.0';
 const priceValue=value=>value==null||value===''?'':Number(Number(value).toFixed(2));
-import { purchaseQuantity, quantityLabel } from "./quantity-client.js?v=0.85.0";
-import { referenceContentControls, barcodeIdentity, validReferenceContent, validReferenceFormat, weightFormat, pendingProductInformation } from "./reference-formats.js?v=0.85.0";
-import { installDialogCloseButtons } from "./dialog-controls.js?v=0.85.0";
-import { CatalogSession } from "./catalog-client.js?v=0.85.0";
-import { matchCatalogProducts } from "./product-matching.js?v=0.85.0";
-import "./category-panel.js?v=0.85.0";
-import "./recipe-editor.js?v=0.85.0";
-import "./icon-picker.js?v=0.85.0";
-import { imageSource, normalizedName, productNameKey, cachedProductPrice, storeProductLink, storeFromProductUrl } from "./product-display.js?v=0.85.0";
+import { purchaseQuantity, quantityLabel } from "./quantity-client.js?v=0.86.0";
+import { referenceContentControls, barcodeIdentity, validReferenceContent, validReferenceFormat, weightFormat, pendingProductInformation } from "./reference-formats.js?v=0.86.0";
+import { installDialogCloseButtons } from "./dialog-controls.js?v=0.86.0";
+import { CatalogSession } from "./catalog-client.js?v=0.86.0";
+import { matchCatalogProducts } from "./product-matching.js?v=0.86.0";
+import "./category-panel.js?v=0.86.0";
+import "./recipe-editor.js?v=0.86.0";
+import "./icon-picker.js?v=0.86.0";
+import { imageSource, normalizedName, productNameKey, cachedProductPrice, storeProductLink, storeFromProductUrl } from "./product-display.js?v=0.86.0";
 export { imageSource, normalizedName, productNameKey, cachedProductPrice };
 
 const MONTHS = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
@@ -983,6 +983,12 @@ class ImprovedShoppingCatalog extends HTMLElement {
   }
 
   _renderSuggestions() {
+    if(!this._built||!this._hass||!this._active&&!this._receiptCreate||this._suggestionsRenderQueued)return;
+    this._suggestionsRenderQueued=true;
+    queueMicrotask(()=>{this._suggestionsRenderQueued=false;if(this.isConnected)this._renderSuggestionsNow();});
+  }
+
+  _renderSuggestionsNow() {
     if (!this._hass || !this._active && !this._receiptCreate) return;
     if (!this._built) return;
     const root = this.shadowRoot;
@@ -1357,6 +1363,12 @@ class ImprovedShoppingCatalog extends HTMLElement {
   }
 
   _renderProducts() {
+    if(!this._built||!this._hass||!this._active&&!this._receiptCreate||this._productsRenderQueued)return;
+    this._productsRenderQueued=true;
+    queueMicrotask(()=>{this._productsRenderQueued=false;if(this.isConnected)this._renderProductsNow();});
+  }
+
+  _renderProductsNow() {
     if (!this._hass || !this._active && !this._receiptCreate) return;
     if (!this._built) return;
     const root = this.shadowRoot;
@@ -1406,7 +1418,9 @@ class ImprovedShoppingCatalog extends HTMLElement {
         section.open=expanded.has(section.dataset.groupKey);
         section.setAttribute("aria-label",group.name);
         const items = element("div",rows ? "grid rows category-products" : "grid category-products");
-        items.append(...group.products.map(product => this._productCard(product,this._groupBy === 'store' ? group.key : '')));
+        const store=this._groupBy === 'store' ? group.key : '';
+        const populate=()=>{if(!section.open||items.childElementCount)return;items.append(...group.products.map(product=>this._productCard(product,store)));};
+        populate();section.addEventListener('toggle',populate);
         const heading=element("h2","category-group-title");
         if(this._groupBy === "category") {
           const category=this._catalog.categories.find(category=>normalizedName(category.name)===group.key);

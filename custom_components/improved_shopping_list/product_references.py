@@ -8,8 +8,8 @@ from urllib.parse import urlsplit
 from .receipt_quantities import measure_price, weight_format, weight_purchase
 from .ean_common import FIELDS as COMMON_FIELDS, source as common_source
 
-UNITS = {"uds", "g", "kg", "ml", "cl", "l"}
-SCALES = {"uds":("uds",1), "g":("kg",.001), "kg":("kg",1), "ml":("l",.001), "cl":("l",.01), "l":("l",1)}
+UNITS = {"uds", "g", "kg", "ml", "cl", "l", "m"}
+SCALES = {"m":("m",1),"uds":("uds",1), "g":("kg",.001), "kg":("kg",1), "ml":("l",.001), "cl":("l",.01), "l":("l",1)}
 
 
 def brand_name(value):
@@ -69,14 +69,14 @@ def inferred_content(line):
     if line.get("ticket_measure_price") and line.get("purchased_quantity") is not None:
         return None, ""
     name = line.get("name") or line.get("description", "")
-    multiple = re.search(r"\b(\d+)\s*[x×]\s*(\d+(?:[.,]\d+)?)\s*(kg|grs?|g|ml|cl|l|uds?|unidades)\b",name,re.I)
+    multiple = re.search(r"\b(\d+)\s*[x×]\s*(\d+(?:[.,]\d+)?)\s*(kg|grs?|g|ml|cl|l|m|uds?|unidades)\b",name,re.I)
     if multiple:
         unit={"gr":"g","grs":"g","ud":"uds","unidades":"uds"}.get(multiple[3].lower(),multiple[3].lower())
         return int(multiple[1])*float(multiple[2].replace(",",".")),unit
     quantity, unit = line.get("pack_quantity"), line.get("pack_unit", "")
     if type(quantity) in (int, float) and quantity > 0 and unit in UNITS:
         return quantity, unit
-    match = re.search(r"\b(\d+(?:[.,]\d+)?)\s*(kg|grs?|g|ml|cl|litros?|l|uds?\.?|unidades|huevos)\b", name, re.I)
+    match = re.search(r"\b(\d+(?:[.,]\d+)?)\s*(kg|grs?|g|ml|cl|litros?|l|m|uds?\.?|unidades|huevos)\b", name, re.I)
     if not match:
         return None, ""
     unit = match[2].lower().rstrip(".")
@@ -264,7 +264,7 @@ def format_observation(product, store, line):
 
 def package_cost(offer, quantity, unit):
     pack,target=SCALES.get(offer.get("pack_unit")),SCALES.get(unit)
-    if not offer.get("format_pending") and pack and pack[0] in ("kg","l") and unit=="uds" and quantity>0:
+    if not offer.get("format_pending") and pack and pack[0] in ("kg","l","m") and unit=="uds" and quantity>0:
         return round(math.ceil(quantity-1e-9)*offer["price"],2)
     if offer.get("format_pending") or not pack or not target or pack[0]!=target[0] or not offer.get("pack_quantity") or quantity<=0:
         return None

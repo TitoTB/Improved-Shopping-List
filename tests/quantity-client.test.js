@@ -37,3 +37,12 @@ test('quantity adjustments preserve newer pushed snapshots and propagate errors'
   await assert.rejects(session.adjust('todo.main','entry',-1),/Proveedor no disponible/);
   assert.equal(session.entries['todo.main'].entry.quantity,350);
 });
+
+
+test('stock replenishment accepts purchased metres and metre packages without mixing dimensions',()=>{
+ const product={unit:'m',refill_quantity:10,commercial_references:[]};
+ assert.equal(recoveredStockQuantity({count:1,purchased_quantity:2.5,purchased_unit:'m'},product,'carrefour'),2.5);
+ assert.equal(recoveredStockQuantity({count:2,pack_quantity:25,pack_unit:'m'},product,'carrefour'),50);
+ assert.equal(recoveredStockQuantity({count:1,purchased_quantity:2.5,purchased_unit:'kg'},product,'carrefour'),null);
+ assert.equal(quantityLabel(purchaseQuantity({purchase_unit:'m',unit_quantity:5,quantity_step:1})),'5 m');
+});

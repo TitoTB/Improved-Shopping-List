@@ -1,5 +1,5 @@
-import { installDialogCloseButtons } from "./dialog-controls.js?v=0.85.0";
-import { installToggleStyles } from "./toggle-styles.js?v=0.85.0";
+import { installDialogCloseButtons } from "./dialog-controls.js?v=0.86.0";
+import { installToggleStyles } from "./toggle-styles.js?v=0.86.0";
 export class CarrefourAccountPanel extends HTMLElement {
   get providerId(){return "carrefour";}
   get providerName(){return "Carrefour";}
@@ -61,7 +61,7 @@ export class CarrefourAccountPanel extends HTMLElement {
   _render(){
     if(!this._built)return;const r=this.shadowRoot,s=this._status,locked=this._busy||this._hass?.user?.is_admin!==true;
     this._credentialFields();
-    r.querySelectorAll('button,input,select').forEach(el=>el.disabled=locked);r.querySelector('#connect').textContent=s.connected?'Desconectar cuenta':'Conectar cuenta';r.querySelector('#connect').className=s.connected?'danger':'primary';r.querySelector('#account-email').textContent=s.connected?(s.email||''):'';for(const [id,key] of [['history-enabled','history_enabled'],['auto-ticket','auto_ticket']]){const input=r.querySelector('#'+id);input.checked=Boolean(s.options?.[key]);input.disabled=locked||!s.connected;}
+    r.querySelectorAll('button,input,select').forEach(el=>el.disabled=locked);r.querySelector('#connect').textContent=s.connected?'Desconectar cuenta':'Conectar cuenta';r.querySelector('#connect').className=s.connected?'danger':'primary';r.querySelector('#account-email').textContent=s.connected?'Cuenta conectada':'';for(const [id,key] of [['history-enabled','history_enabled'],['auto-ticket','auto_ticket']]){const input=r.querySelector('#'+id);input.checked=Boolean(s.options?.[key]);input.disabled=locked||!s.connected;}
     r.querySelector('#login-form').hidden=Boolean(s.connected||s.verification_required);r.querySelector('#verification').hidden=!s.verification_required;r.querySelector('#verify-form').hidden=!s.verification_sent;
     const destination=r.querySelector('#destination'),old=destination.value;destination.replaceChildren(...(s.destinations??[]).map(item=>new Option(item.label,item.id)));if([...destination.options].some(o=>o.value===old))destination.value=old;
     r.querySelector('#login-status').textContent=this._syncing?'Incorporando el historial de los últimos 12 meses…':this._busy?'Conectando con '+this.providerName+'…':s.connected?'Cuenta conectada. Puedes revisar sus tickets en Analítica → Compras.':s.verification_sent?'Código solicitado. Introduce el código recibido.':'';

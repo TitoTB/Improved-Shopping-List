@@ -1,5 +1,19 @@
 # Historial de cambios
 
+## 0.86.0 — 2026-11-03
+
+- Al confirmar un ticket, el refresco de Stock y precios se solicita inmediatamente después de guardar, sin esperar a la recarga del historial de compras.
+
+- Los popups de Carrefour y Lidl muestran «Cuenta conectada» en lugar del correo de la cuenta.
+
+- Lista responde de inmediato al completar productos y revierte la vista si el proveedor rechaza el cambio. Evita una lectura adicional cuando la actualización ya ha llegado del proveedor. El catálogo agrupa repintados y construye las tarjetas de los grupos al desplegarlos.
+
+- En las fichas de Stock, las rutinas de consumo se muestran comprimidas por defecto y se despliegan al pulsar su cabecera.
+
+- Añade metros (m) como unidad de medida en alternativas y Stock, con reposición compatible y comparación de precios por metro.
+
+- Lista elimina el badge de Nutri-Score de la vista por filas y las consultas que solo se utilizaban para mostrarlo.
+
 ## 0.85.0 — 2026-11-02
 
 - Ajustes → Tiendas muestra las personas en tarjetas seleccionables con avatar y borde verde, igual que el selector de Rutinas, en lugar de un desplegable.

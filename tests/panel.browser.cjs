@@ -614,6 +614,56 @@ async function captureProductCode(page, form, kind, code, expected = code) {
   await group.getByRole('button',{name:'Detener',exact:true}).click();
 }
 
+async function checkReceiptStockRefresh(browser,url,errors){
+ const context=await browser.newContext();await context.addInitScript(()=>{
+  localStorage.setItem('catalog-fixture',JSON.stringify([{id:'pavo',name:'Pavo',tags:[],barcodes:[],commercial_references:[]}]));
+ });
+ const page=await context.newPage();page.on('pageerror',error=>errors.push(error.message));await page.goto(url);
+ await page.evaluate(()=>{window.stockItems=[{id:'pantry-pavo',catalog_product_id:'pavo',name:'Pavo',quantity:1,unit:'g',revision:1,mode:'manual',refill_quantity:2}];window.emitStock();});
+ await page.getByRole('button',{name:'Stock',exact:true}).click();await page.locator('#stock-items .stock-amount').filter({hasText:'1 g'}).waitFor();
+ await page.getByRole('button',{name:'Analítica',exact:true}).click();const purchases=page.locator('isl-purchases');await page.waitForFunction(()=>document.querySelector('improved-shopping-list-panel').shadowRoot.querySelector('isl-purchases')._session.loaded);
+ await purchases.evaluate(el=>{
+  const receipt={id:'stock-refresh-ticket',store:'carrefour',store_name:'Carrefour',currency:'EUR',purchased_at:new Date().toISOString(),total:2,lines:[{id:'line',description:'PAVO',count:1,unit_price:2,amount:2,product_id:'pavo',matched:true}]};
+  window.receiptDraft=structuredClone(receipt);el.openPreview({token:'stock-refresh-ticket',receipt,products:[{id:'pavo',name:'Pavo',unit:'g',refill_quantity:2,stock_id:'pantry-pavo',commercial_references:[]}],purchases:[]});
+  Object.assign(el._edits[0],{product_id:'pavo',replenish:true,quantity:2,unit:'g'});
+  const hass=el._hass,original=hass.callWS;window.historyGate=new Promise(resolve=>window.releaseHistory=resolve);hass.callWS=async message=>{if(message.type==='improved_shopping_list/receipts/get'){window.waitingHistory=true;await window.historyGate;}return original(message);};
+  void el._confirm(false);
+ });
+ await page.waitForFunction(()=>window.waitingHistory&&window.stockItems[0].quantity===3);
+ await page.waitForFunction(()=>window.testPanel._stock.items[0]?.quantity===3);
+ await page.getByRole('button',{name:'Stock',exact:true}).click();await page.locator('#stock-items .stock-amount').filter({hasText:'3 g'}).waitFor();
+ await page.evaluate(()=>window.releaseHistory());await context.close();
+}
+
+async function checkResponsiveListCatalog(browser,url,errors){
+ const context=await browser.newContext({viewport:{width:1280,height:960}});await context.addInitScript(()=>{
+  localStorage.setItem('catalog-fixture',JSON.stringify(Array.from({length:300},(_,i)=>({id:'perf-'+i,name:i===0?'Cacao':'Producto '+i,category:'Grupo '+i%3,icon:'mdi:shopping',tags:[],barcodes:[],commercial_references:[]}))));
+  localStorage.setItem('category-fixture',JSON.stringify(Array.from({length:3},(_,i)=>({id:'group-'+i,name:'Grupo '+i,color:'#267052',icon:'mdi:label'}))));
+ });
+ const page=await context.newPage();page.on('pageerror',error=>errors.push(error.message));await page.goto(url);const cacao=page.locator('#pending').getByRole('button',{name:'Marcar como comprado: Cacao',exact:true});await cacao.waitFor();
+ await page.evaluate(()=>{const hass=window.testPanel._hass,original=hass.callService;window.completionGate=new Promise(resolve=>window.releaseCompletion=resolve);hass.callService=async(...args)=>{if(args[1]==='update_item'){await window.completionGate;throw new Error('Proveedor rechazado');}return original(...args);};});
+ await cacao.click();await page.locator('#completed button[data-uid="cacao-1"]').waitFor({state:'attached'});
+ await page.evaluate(()=>window.releaseCompletion());await cacao.waitFor();await page.getByRole('alert').filter({hasText:'Proveedor rechazado'}).waitFor();
+ await page.getByRole('button',{name:'Catálogo',exact:true}).click();const catalog=page.locator('isl-catalog');await catalog.locator('#catalog-grid').waitFor({state:'attached'});await catalog.locator('#catalog-grid .product').nth(299).waitFor();
+ const built=await catalog.evaluate(async el=>{const original=el._productCard;let count=0;el._productCard=function(...args){count++;return original.apply(this,args);};el.canAdd=!el._canAdd;el.canComplete=!el._canComplete;el.pendingItems=[{summary:'Producto 1'}];el.listItems=[{uid:'new',summary:'Producto 1',status:'needs_action'}];el.quantityData={entries:{},loaded:true};await Promise.resolve();el._productCard=original;return count;});assert.equal(built,300);
+ const grouped=await catalog.evaluate(async el=>{el._productOrder='categories';el._groupBy='category';el._renderProducts();await Promise.resolve();return {groups:el.shadowRoot.querySelectorAll('.category-group').length,cards:el.shadowRoot.querySelectorAll('#catalog-grid .product').length};});assert.deepEqual(grouped,{groups:3,cards:0});
+ const first=catalog.locator('.category-group').first();await first.locator('summary').click();await first.locator('.product').nth(99).waitFor();assert.equal(await catalog.locator('#catalog-grid .product').count(),100);
+ await context.close();
+}
+
+async function checkListRowsNoNutrition(browser,url,errors) {
+  const context=await browser.newContext();await context.addInitScript(()=>{
+    localStorage.setItem('isl-list-layout','rows');
+    localStorage.setItem('catalog-fixture',JSON.stringify(['Cacao','Arroz'].map((name,index)=>({id:'nutrition-'+index,name,barcode:'3017620422003',barcodes:['3017620422003'],commercial_references:[{store:'carrefour',ean:'3017620422003',active:true,nutriscore:{grade:'b'}}]}))));
+  });
+  const page=await context.newPage();page.on('pageerror',error=>errors.push(error.message));await page.goto(url);
+  await page.locator('#pending').getByText('Cacao',{exact:true}).waitFor();await page.waitForFunction(()=>window.testPanel._catalogProducts.size===2);
+  assert.equal(await page.locator('#toggle-list-layout').getAttribute('aria-label'),'Cambiar a vista de cuadrícula');
+  assert.equal(await page.locator('#pending .row-nutriscore,#completed .row-nutriscore').count(),0);
+  assert.equal(await page.evaluate(()=>window.nutriCalls?.length??0),0);
+  await context.close();
+}
+
 async function checkCompactSettings(browser,url,errors) {
   const context=await browser.newContext({viewport:{width:1280,height:960}}),page=await context.newPage();page.on('pageerror',error=>errors.push(error.message));
   await page.goto(url);await page.getByRole('button',{name:'Ajustes',exact:true}).click();const settings=page.locator('isl-settings');
@@ -1756,6 +1806,9 @@ async function checkMealRoutines(browser,url,errors){
   const stock=page.getByRole('dialog',{name:'Chocolate de comidas · Stock',exact:true});
   assert.equal(await stock.getByLabel('Control del stock',{exact:true}).inputValue(),'meals');
   const stockMeals=stock.locator('isl-meal-consumption');await stockMeals.getByText('Comidas en casa',{exact:true}).waitFor();
+  assert.equal(await stockMeals.locator('#rows > details').first().evaluate(el=>el.open),false);
+  await stockMeals.locator('#rows > details > summary').first().click();
+  assert.equal(await stockMeals.locator('#rows > details').first().evaluate(el=>el.open),true);
   assert.equal(await stockMeals.getByRole('checkbox',{name:'Comidas en casa · Franja horaria',exact:true}).isChecked(),true);
   await stockMeals.getByLabel('Cantidad por persona en Comidas en casa · Franja horaria',{exact:true}).fill('3');
   await stock.getByRole('button',{name:'Guardar',exact:true}).click();await stock.waitFor({state:'hidden'});
@@ -3312,6 +3365,9 @@ async function main() {
     if(process.argv.includes('--grouped-badges-only')){const errors=[];await checkGroupedCatalogBadges(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Grouped catalog badges passed.');return;}
     if(process.argv.includes('--catalog-views-only')){const errors=[];await checkCatalogViews(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Catalog views passed.');return;}
     if(process.argv.includes('--comparison-only')){const errors=[];await checkCatalogComparison(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Catalog comparison passed.');return;}
+    if(process.argv.includes('--receipt-stock-refresh-only')){const errors=[];await checkReceiptStockRefresh(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Receipt stock refresh independent of history passed.');return;}
+    if(process.argv.includes('--responsiveness-only')){const errors=[];await checkResponsiveListCatalog(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Optimistic completion, rollback, batched catalog and lazy groups passed.');return;}
+    if(process.argv.includes('--list-rows-only')){const errors=[];await checkListRowsNoNutrition(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('List rows without nutrition badges or queries passed.');return;}
     if(process.argv.includes('--compact-settings-only')){const errors=[];await checkCompactSettings(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Compact settings passed.');return;}
     if(process.argv.includes('--notifications-only')){const errors=[];await checkGeneralNotifications(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('General notifications passed.');return;}
     if(process.argv.includes('--appearance-only')){const errors=[];await checkAppearanceInLists(browser,`http://127.0.0.1:${server.address().port}`,errors);assert.deepEqual(errors,[]);console.log('Appearance in Lists passed.');return;}
@@ -3749,9 +3805,7 @@ async function main() {
     await page.route("https://almeria.online/**",route=>route.fulfill({contentType:"image/svg+xml",body:'<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32"><rect width="32" height="32" fill="red"/></svg>'}));
     await page.evaluate(()=>{window.nutriFixture={"0012345678905":{grade:"b"}};});
     await page.getByRole("button",{name:"Cambiar a vista de filas",exact:true}).click();
-    await yogurtListCard.locator(".row-nutriscore").filter({hasText:"B"}).waitFor();
-    assert.equal(await yogurtListCard.locator(".row-nutriscore").getAttribute("aria-label"),"Nutri-Score B");
-    assert.equal(await yogurtListCard.locator(".row-nutriscore").evaluate(node=>getComputedStyle(node).backgroundColor),"rgb(133, 187, 47)");
+    assert.equal(await yogurtListCard.locator(".row-nutriscore").count(),0);
     for(const width of [1280,390,320]){
       await page.setViewportSize({width,height:960});
       const badges=await yogurtListCard.evaluate(node=>[...node.closest('li').querySelectorAll('.row-category,.row-price,.row-nutriscore,.row-quantity')].map(badge=>({kind:badge.className,height:badge.getBoundingClientRect().height,radius:getComputedStyle(badge).borderRadius,background:getComputedStyle(badge).backgroundColor})));
@@ -3780,7 +3834,7 @@ async function main() {
     assert.ok(await yogurtListCard.locator(".row-price img").evaluate(node=>{
       const style=getComputedStyle(node);return style.backgroundColor==="rgb(255, 255, 255)"&&style.borderRadius==="50%"&&style.width===style.height;
     }));
-    const nutritionCallsAfterLoad=await page.evaluate(()=>window.nutriCalls.length);
+    const nutritionCallsAfterLoad=await page.evaluate(()=>window.nutriCalls?.length??0);
     assert.match(await page.locator("#pending-total").textContent(),/≈ 2,15/);
     for(const width of [1280,390]){
       await page.setViewportSize({width,height:844});
@@ -3805,8 +3859,8 @@ async function main() {
     await page.getByRole("button",{name:"Marcar como comprado: Yogur sin azúcar",exact:true}).click();
     await page.locator("#completed-summary").click();
     await page.locator("#completed .row-price").filter({hasText:"2,15"}).waitFor();
-    assert.equal(await page.locator("#completed .row-nutriscore").textContent(),"B");
-    assert.equal(await page.evaluate(()=>window.nutriCalls.length),nutritionCallsAfterLoad);
+    assert.equal(await page.locator("#completed .row-nutriscore").count(),0);
+    assert.equal(await page.evaluate(()=>window.nutriCalls?.length??0),nutritionCallsAfterLoad);
     assert.match(await page.locator("#pending-total").textContent(),/≈ 0,00/);
     await page.getByRole("button",{name:"Volver a poner por comprar: Yogur sin azúcar",exact:true}).click();
     await page.getByRole("button",{name:"Cambiar a vista de cuadrícula",exact:true}).click();
@@ -5334,6 +5388,9 @@ async function main() {
     assert.equal(await renameSuggestions.locator("h2").count(),0);
     await renameContext.close();
     // Category grouping sorts headings and products, preserves searching, layouts and user preference.
+    await checkReceiptStockRefresh(browser,url,errors);
+    await checkResponsiveListCatalog(browser,url,errors);
+    await checkListRowsNoNutrition(browser,url,errors);
     await checkCompactSettings(browser,url,errors);
     await checkGeneralNotifications(browser,url,errors);
 
@@ -5687,7 +5744,7 @@ async function main() {
     await login.getByRole('button',{name:'Cerrar ventana',exact:true}).click();
     await account.getByRole('switch',{name:'Recuperar compras de los últimos 12 meses',exact:true}).check();
     await accountPage.waitForFunction(()=>window.receiptHistory.length===2);
-    assert.equal(await account.locator('#account-email').textContent(),'test@example.test');
+    assert.equal(await account.locator('#account-email').textContent(),'Cuenta conectada');
     await account.getByRole('switch',{name:'Descargar ticket automáticamente',exact:true}).check();
     assert.equal(await account.getByRole('switch',{name:'Actualizar precios públicos en el catálogo',exact:true}).count(),0);
     await accountSettings.locator('#carrefour-dialog').getByRole('button',{name:'Cerrar ventana',exact:true}).click();

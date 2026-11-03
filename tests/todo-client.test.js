@@ -299,3 +299,31 @@ test("a pending clear cannot refresh or change a newly selected list", async () 
   assert.equal(calls[0][2].entity_id,'todo.bring');
   session.dispose();
 });
+
+
+test('completion responds before provider acknowledgement and rolls back to the latest pushed state on failure',async()=>{
+ const {hass,session,listeners}=fixture();await session.select('todo.bring');
+ const item={uid:'milk',summary:'Leche',status:'needs_action'};listeners[0].callback({items:[item]});
+ const delayed=deferred();hass.callService=()=>delayed.promise;
+ const changing=session.setCompleted(item,true);assert.equal(session.items[0].status,'completed');assert.equal(item.status,'needs_action');
+ listeners[0].callback({items:[{...item,summary:'Leche de avena'}]});
+ delayed.reject(new Error('Proveedor rechazado'));await assert.rejects(changing,/Proveedor rechazado/);
+ assert.equal(session.items[0].status,'needs_action');assert.equal(session.items[0].summary,'Leche de avena');session.dispose();
+});
+
+test('an acknowledged completion push avoids a redundant read while a missing push still refreshes',async()=>{
+ const {hass,session,listeners}=fixture();await session.select('todo.bring');
+ const item={uid:'milk',summary:'Leche',status:'needs_action'};listeners[0].callback({items:[item]});let reads=0;
+ hass.callWS=async()=>{reads++;return {items:[{...item,status:'needs_action'}]};};
+ hass.callService=async()=>listeners[0].callback({items:[{...item,status:'completed'}]});
+ await session.setCompleted(item,true);assert.equal(reads,0);assert.equal(session.items[0].status,'completed');
+ hass.callService=async()=>{};await session.setCompleted(session.items[0],false);assert.equal(reads,1);assert.equal(session.items[0].status,'needs_action');session.dispose();
+});
+
+test('a delayed completion cannot change a newly selected list',async()=>{
+ const {hass,session,listeners}=fixture();await session.select('todo.bring');
+ const item={uid:'shared',summary:'Leche',status:'needs_action'};listeners[0].callback({items:[item]});
+ const delayed=deferred();hass.callService=()=>delayed.promise;const changing=session.setCompleted(item,true);
+ hass.callWS=async()=>({items:[{uid:'shared',summary:'Arroz',status:'needs_action'}]});await session.select('todo.local');
+ delayed.resolve();await changing;assert.equal(session.items[0].summary,'Arroz');assert.equal(session.items[0].status,'needs_action');session.dispose();
+});

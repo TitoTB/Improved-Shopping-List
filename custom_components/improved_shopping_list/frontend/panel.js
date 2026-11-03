@@ -1,12 +1,12 @@
-import { StockSession } from "./stock-client.js?v=0.85.0";
-import { QuantitySession, purchaseQuantity, quantityLabel } from "./quantity-client.js?v=0.85.0";
-import { installDialogCloseButtons } from "./dialog-controls.js?v=0.85.0";
-import { FEATURES, TodoSession, errorMessage, isAvailable, supports } from "./todo-client.js?v=0.85.0";
-import { imageSource, normalizedName, productNameKey, cachedProductPrice } from "./product-display.js?v=0.85.0";
-import { packageCost } from "./reference-formats.js?v=0.85.0";
-import { ListSettingsSession, AttentionSession, gradientTextColor } from "./list-settings-client.js?v=0.85.0";
-import { CatalogSession } from "./catalog-client.js?v=0.85.0";
-import { ReadersSession } from "./readers-client.js?v=0.85.0";
+import { StockSession } from "./stock-client.js?v=0.86.0";
+import { QuantitySession, purchaseQuantity, quantityLabel } from "./quantity-client.js?v=0.86.0";
+import { installDialogCloseButtons } from "./dialog-controls.js?v=0.86.0";
+import { FEATURES, TodoSession, errorMessage, isAvailable, supports } from "./todo-client.js?v=0.86.0";
+import { imageSource, normalizedName, productNameKey, cachedProductPrice } from "./product-display.js?v=0.86.0";
+import { packageCost } from "./reference-formats.js?v=0.86.0";
+import { ListSettingsSession, AttentionSession, gradientTextColor } from "./list-settings-client.js?v=0.86.0";
+import { CatalogSession } from "./catalog-client.js?v=0.86.0";
+import { ReadersSession } from "./readers-client.js?v=0.86.0";
 
 const LOGO_URL = new URL("logo.png", import.meta.url).href;
 const STORE_LOGOS = {
@@ -58,7 +58,6 @@ class ImprovedShoppingListPanel extends HTMLElement {
     this._ticketStore = "";
     try { if (localStorage.getItem("isl-list-layout") === "rows") this._listLayout = "rows"; } catch { /* Storage may be disabled. */ }
     this._rowPrices = [];
-    this._nutrition = new Map();
     this._onVisibility = () => {
       if (document.visibilityState === "visible") {
         void this._session.refresh();
@@ -83,7 +82,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
       previousHass?.states[this._session.entityId] !== value.states[this._session.entityId];
     this._todoStatesSignature = signature;
     this._hass = value;
-    if (previousConnection !== value.connection) { this._stopRowPrices(); this._stopListNutrition(); }
+    if (previousConnection !== value.connection) { this._stopRowPrices(); }
     if (!this.isConnected) return;
     if (this._built && this._sectionsReady.has("catalog")) this.shadowRoot.querySelector("isl-catalog").hass = value;
     this._ensureStarted();
@@ -128,7 +127,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
     this._catalog.stop();
     this._quantities.stop();
     this._stopRowPrices();
-    this._stopListNutrition();
+
     this._settingsApplied = false;
     this._started = false;
     this.shadowRoot.querySelector("#list-dialog")?.close();
@@ -170,13 +169,13 @@ class ImprovedShoppingListPanel extends HTMLElement {
   _loadSection(name) {
     if(this._modules.has(name))return this._modules.get(name);
     const load={
-      stock:()=>import('./stock-panel.js?v=0.85.0'),
-      readers:()=>import('./readers-panel.js?v=0.85.0'),
-      routines:()=>import('./meal-routines.js?v=0.85.0'),
-      catalog:()=>import('./catalog-panel.js?v=0.85.0'),
-      settings:()=>import('./settings-panel.js?v=0.85.0'),
-      purchases:()=>import('./purchases-panel.js?v=0.85.0'),
-      analytics:()=>import('./analytics-panel.js?v=0.85.0'),
+      stock:()=>import('./stock-panel.js?v=0.86.0'),
+      readers:()=>import('./readers-panel.js?v=0.86.0'),
+      routines:()=>import('./meal-routines.js?v=0.86.0'),
+      catalog:()=>import('./catalog-panel.js?v=0.86.0'),
+      settings:()=>import('./settings-panel.js?v=0.86.0'),
+      purchases:()=>import('./purchases-panel.js?v=0.86.0'),
+      analytics:()=>import('./analytics-panel.js?v=0.86.0'),
     }[name];
     const pending=load().then(module=>{
       if(name==='stock')module.installStockView(this);
@@ -373,12 +372,10 @@ class ImprovedShoppingListPanel extends HTMLElement {
         .row-category span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
         .row-price { background:rgba(255,255,255,.2); white-space:nowrap; }
         .row-price .store-logo { display:block; width:22px; height:22px; flex:none; padding:2px; object-fit:contain; background:#fff; border-radius:50%; }
-        .row-nutriscore { display:inline-flex; align-items:center; justify-content:center; height:28px; min-width:28px; padding:4px 7px; border-radius:8px; font-size:14px; line-height:1; font-weight:750; color:#fff; }
-        .row-nutriscore[data-grade=a] { background:#038141; }.row-nutriscore[data-grade=b] { background:#85bb2f; color:#182b22; }.row-nutriscore[data-grade=c] { background:#fecb02; color:#182b22; }.row-nutriscore[data-grade=d] { background:#ee8100; color:#182b22; }.row-nutriscore[data-grade=e] { background:#e63e11; }
         .row-meta ha-icon { display:flex; align-items:center; justify-content:center; width:18px; height:18px; --mdc-icon-size:18px; flex:none; }
-        @media(max-width:540px) { .rows .item { grid-template-columns:36px minmax(0,1fr) auto; gap:8px; padding:10px; }.rows .item .product-media { width:36px; height:36px; }.rows .item .placeholder ha-icon { --mdc-icon-size:32px; }.row-category,.row-price { font-size:11px; padding:5px 7px; }.rows .row-category { width:28px; height:28px; padding:5px; }.rows .row-category span { display:none; }.row-price .store-logo { width:18px; height:18px; }.row-nutriscore { height:26px; min-width:26px; font-size:13px; } }
-        .rows .row-category,.rows .row-price,.rows .row-nutriscore,.rows .row-quantity { box-sizing:border-box; height:34px; min-height:34px; border-radius:16px; }
-        .rows .row-category,.rows .row-nutriscore { min-width:34px; }
+        @media(max-width:540px) { .rows .item { grid-template-columns:36px minmax(0,1fr) auto; gap:8px; padding:10px; }.rows .item .product-media { width:36px; height:36px; }.rows .item .placeholder ha-icon { --mdc-icon-size:32px; }.row-category,.row-price { font-size:11px; padding:5px 7px; }.rows .row-category { width:28px; height:28px; padding:5px; }.rows .row-category span { display:none; }.row-price .store-logo { width:18px; height:18px; }}
+        .rows .row-category,.rows .row-price,.rows .row-quantity { box-sizing:border-box; height:34px; min-height:34px; border-radius:16px; }
+        .rows .row-category { min-width:34px; }
         .rows .row-meta { max-width:min(35cqi,280px); }
         .empty { padding:28px 8px; text-align:center; color:var(--secondary-text-color,#63766b); line-height:1.6; }
         .empty strong { display:block; font-size:18px; color:var(--primary-text-color,#20352d); margin-bottom:5px; }
@@ -455,7 +452,7 @@ class ImprovedShoppingListPanel extends HTMLElement {
       </style>
       <header>
         <button class="menu" aria-label="Abrir menú de Home Assistant"><ha-icon icon="mdi:menu"></ha-icon></button>
-        <div class="branding"><img class="brand-logo" src="${LOGO_URL}" alt="" width="44" height="44"><div class="brand-copy"><span class="brand">Improved Shopping List</span><span class="version">0.85.0</span></div></div>
+        <div class="branding"><img class="brand-logo" src="${LOGO_URL}" alt="" width="44" height="44"><div class="brand-copy"><span class="brand">Improved Shopping List</span><span class="version">0.86.0</span></div></div>
         <nav class="section-nav" aria-label="Apartados">
           <button id="nav-shopping" aria-label="Lista" aria-pressed="true"><ha-icon icon="mdi:shopping" aria-hidden="true"></ha-icon><span class="nav-label">Lista</span></button>
           <button id="nav-catalog" aria-label="Catálogo" aria-pressed="false"><ha-icon icon="mdi:view-grid" aria-hidden="true"></ha-icon><span class="nav-label">Catálogo</span></button>
@@ -518,12 +515,6 @@ class ImprovedShoppingListPanel extends HTMLElement {
     });
     root.querySelector("#pending-count").addEventListener("click", () => {
       this._ticket = false;
-      this._renderData();
-    });
-    root.querySelector("isl-catalog").addEventListener("product-nutriscore", event => {
-      const {code,nutriscore} = event.detail;
-      if (typeof code !== "string" || !/^[a-e]$/.test(nutriscore?.grade ?? "")) return;
-      this._nutrition.set(code.padStart(14,"0"),{code,grade:nutriscore.grade});
       this._renderData();
     });
     root.querySelector("isl-catalog").addEventListener("catalog-change",event=>{
@@ -829,7 +820,6 @@ class ImprovedShoppingListPanel extends HTMLElement {
     root.querySelector("#items-card").setAttribute("aria-busy", String(session.loading));
     this._renderItems(root.querySelector("#pending"), pending, locked || !canUpdate);
     this._renderItems(root.querySelector("#completed"), completed, locked || !canUpdate);
-    if (rows && this._view === "shopping") void this._loadListNutrition();
     for (const key of this._rows.keys()) {
       if (!this._usedRows.has(key)) this._rows.delete(key);
     }
@@ -985,48 +975,6 @@ class ImprovedShoppingListPanel extends HTMLElement {
   _listPrice(product) {
     if(this._settings.priceUpdatesEnabled === false)return null;
     return cachedProductPrice(product,this._rowPrices,this._settings.favoriteStore);
-  }
-
-  _nutritionCodes(product) {
-    const seen = new Set();
-    return [this._listPrice(product)?.ean,product?.barcode,...(product?.barcodes ?? [])].filter(code => {
-      if (typeof code !== "string" || !/^(?:\d{8}|\d{12,14})$/.test(code)) return false;
-      const total = [...code.slice(0,-1)].reverse().reduce((sum,digit,index) => sum + Number(digit)*(index%2 ? 1 : 3),0);
-      const key=code.padStart(14,"0");
-      if ((10-total%10)%10 !== Number(code.at(-1)) || seen.has(key)) return false;
-      seen.add(key); return true;
-    });
-  }
-
-  _stopListNutrition() {
-    this._nutritionToken = null; this._nutritionLoading = false; this._nutrition.clear();
-  }
-
-  async _loadListNutrition() {
-    if (this._nutritionLoading || !this.isConnected || !this._hass) return;
-    const codes = new Map();
-    for (const item of this._session.items) {
-      for (const code of this._nutritionCodes(this._catalogProducts.get(productNameKey(item.summary)))) {
-        if (!this._nutrition.has(code.padStart(14,"0"))) codes.set(code.padStart(14,"0"),code);
-      }
-    }
-    if (!codes.size) return;
-    const token = this._nutritionToken = {};
-    this._nutritionLoading = true;
-    try {
-      for (const [key,code] of codes) {
-        if (token !== this._nutritionToken || !this.isConnected || this._listLayout !== "rows" || this._view !== "shopping") break;
-        this._nutrition.set(key,null);
-        try {
-          const result = await this._hass.callWS({type:"improved_shopping_list/catalog/nutriscore",code});
-          if (token !== this._nutritionToken || !this.isConnected) return;
-          if (/^[a-e]$/.test(result.nutriscore?.grade ?? "")) this._nutrition.set(key,{code,grade:result.nutriscore.grade});
-        } catch { /* Missing optional nutrition never blocks the shopping list. */ }
-        if (token === this._nutritionToken) this._renderData();
-      }
-    } finally {
-      if (token === this._nutritionToken) { this._nutritionLoading = false; if (this.isConnected) this._renderData(); }
-    }
   }
 
   _storeLogo(store) {
@@ -1212,12 +1160,6 @@ class ImprovedShoppingListPanel extends HTMLElement {
         categoryTag.append(icon,label); metadata.append(categoryTag);
       }
       const offer = this._listLayout === "rows" ? this._quantityOffer(item,this._listPrice(product)) : null;
-      const nutrition = this._listLayout === "rows" ? (this._nutritionCodes(product).map(code=>this._nutrition.get(code.padStart(14,"0"))).find(value=>value?.grade)??product?.commercial_references?.filter(ref=>ref.active!==false).map(ref=>ref.nutriscore).find(value=>/^[a-e]$/.test(value?.grade??''))) : null;
-      if (nutrition) {
-        const badge=document.createElement("span");badge.className="row-nutriscore";badge.dataset.grade=nutrition.grade;
-        badge.textContent=nutrition.grade.toUpperCase();badge.title=`Nutri-Score ${badge.textContent} · ${nutrition.code}`;
-        badge.setAttribute("aria-label",`Nutri-Score ${badge.textContent}`);metadata.append(badge);
-      }
       if (offer) {
         const price = document.createElement("span"); price.className = "row-price";
         if (STORE_LOGOS[offer.store]) {

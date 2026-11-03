@@ -223,3 +223,15 @@ test('category chart retains top nine colors and aggregates every other amount i
  assert.equal(rows.reduce((sum,row)=>sum+row.cents,0),categories.reduce((sum,row)=>sum+row.cents,0));assert.equal(spendingCategoryRows([{key:'Sin clasificar',cents:100}])[0].label,'Otros');assert.deepEqual(spendingCategoryRows([]),[]);
  const result=analyzeSpending([{store:'carrefour',purchased_at:'2026-10-10',total:10,lines:[{product_id:'p',amount:7},{product_id:'q',amount:2}]}],products,{categories:['Despensa','Sin clasificar']});assert.equal(result.total,800);
 });
+
+
+test('metres keep their own format and price-comparison dimension',()=>{
+ const reference={content_quantity:25,content_unit:'m',content_confirmed:true};
+ assert.equal(validReferenceContent(reference),true);
+ assert.deepEqual(referenceRate(5,reference),{price:.2,unit:'m'});
+ assert.deepEqual(suggestedContent({description:'Film transparente 25 m'}),{quantity:25,unit:'m'});
+ assert.deepEqual(packageCost({price:5,pack_quantity:25,pack_unit:'m'},30,'m'),{price:10,packages:2});
+ assert.equal(packageCost({price:5,pack_quantity:25,pack_unit:'m'},30,'g'),null);
+ const observation=normalizeObservation(offer('carrefour',5,{pack_quantity:25,pack_unit:'m',format_pending:false}));
+ assert.equal(observation.unit,'m');assert.equal(observation.rate,.2);
+});

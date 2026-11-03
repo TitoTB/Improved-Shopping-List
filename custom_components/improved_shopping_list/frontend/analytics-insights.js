@@ -1,4 +1,4 @@
-import { ListSettingsSession } from './list-settings-client.js?v=0.85.0';
+import { ListSettingsSession } from './list-settings-client.js?v=0.86.0';
 const node=(tag,cls,text)=>{const n=document.createElement(tag);if(cls)n.className=cls;if(text!==undefined)n.textContent=text;return n;};
 const finite=value=>value!==null&&value!==''&&typeof value!=='boolean'&&Number.isFinite(Number(value));
 const cents=value=>Math.round(Number(value)*100);
@@ -26,7 +26,7 @@ export function analyzeSpending(receipts,products,filters={}){
       add(categories,part.category,part.amount);if(part.category!=='Sin clasificar')classified+=part.amount;
       const {line,product,amount}=part;if(!product)continue;
       const item=add(items,product.id,amount,{product,quantities:{}});bought.add(product.id);
-      const unit=line.purchased_unit||line.pack_unit||'uds',scales={g:['kg',.001],kg:['kg',1],ml:['l',.001],cl:['l',.01],l:['l',1],ud:['uds',1],uds:['uds',1]},scale=scales[unit];
+      const unit=line.purchased_unit||line.pack_unit||'uds',scales={g:['kg',.001],kg:['kg',1],ml:['l',.001],cl:['l',.01],l:['l',1],m:['m',1],ud:['uds',1],uds:['uds',1]},scale=scales[unit];
       const quantity=finite(line.purchased_quantity)?Number(line.purchased_quantity):finite(line.pack_quantity)&&Number(line.pack_quantity)>0?Number(line.pack_quantity)*Number(line.count||1):unit==='uds'?Number(line.count||1):null;
       if(scale&&quantity!==null)item.quantities[scale[0]]=(item.quantities[scale[0]]||0)+quantity*scale[1];
     }

@@ -55,7 +55,7 @@ def metadata(product):
     quantity, unit = inferred_content({"description": text(product.get("size") or product.get("quantity")) or name})
     weight = product.get("weight")
     if isinstance(weight, dict):
-        units = {"GRM":"g", "KGM":"kg", "MLT":"ml", "LTR":"l", "C62":"uds"}
+        units = {"GRM":"g", "KGM":"kg", "MLT":"ml", "LTR":"l", "C62":"uds", "MTR":"m"}
         try:
             quantity, unit = content(float(weight.get("value")), units.get(weight.get("unitCode"), weight.get("unitText", "")))
         except (ValueError, TypeError):
@@ -138,7 +138,7 @@ def page_product(html, store, link):
         base=spec.get("referenceQuantity",{})
         if not isinstance(base,dict):
             continue
-        unit={"KGM":"kg","GRM":"g","LTR":"l","MLT":"ml","C62":"uds"}.get(base.get("unitCode"),base.get("unitText",""))
+        unit={"KGM":"kg","GRM":"g","LTR":"l","MLT":"ml","C62":"uds", "MTR":"m"}.get(base.get("unitCode"),base.get("unitText",""))
         try:
             rates.append(measure_price({"price":float(spec.get("price")),"quantity":float(base.get("value",1)),"unit":unit,
                 "currency":spec.get("priceCurrency",offers.get("priceCurrency")),"checked_at":int(time.time()),"source":"web"}))

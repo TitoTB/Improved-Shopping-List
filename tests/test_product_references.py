@@ -13,6 +13,18 @@ refs=importlib.util.module_from_spec(spec);spec.loader.exec_module(refs)
 
 
 class ReferenceTests(unittest.TestCase):
+    def test_metres_validate_and_remain_distinct_from_weight_and_volume(self):
+        from _reference_tests.receipt_quantities import stock_quantity
+        from _reference_tests.ean_common import content_key
+        self.assertEqual(refs.content(25, 'm'), (25, 'm'))
+        self.assertEqual(refs.inferred_content({'description':'Film transparente 25 m'}), (25, 'm'))
+        self.assertEqual(content_key(25, 'm'), ('m', 25))
+        self.assertEqual(stock_quantity(2.5, 'm', 'm'), 2.5)
+        self.assertIsNone(stock_quantity(25, 'm', 'kg'))
+        normalized=refs.normalized_references([{'store':'carrefour','name':'Film','content_quantity':25,'content_unit':'m','content_confirmed':True}])
+        self.assertEqual(normalized[0]['content_unit'], 'm')
+        self.assertTrue(normalized[0]['content_confirmed'])
+
     def test_manual_review_rate_updates_option_without_rewriting_ticket_amount_or_weight(self):
         from _reference_tests.receipt_quantities import receipt_catalog_price
         values=refs.normalized_references([{'store':'carrefour','ean':'8410199023094','name':'Al peso','sale_mode':'weight','content_unit':'g',

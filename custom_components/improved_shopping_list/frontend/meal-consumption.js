@@ -19,13 +19,13 @@ class MealConsumption extends HTMLElement {
     if(!this.loaded)throw new Error('Espera a que se carguen las rutinas.');
     if(!this._rules.length)throw new Error('Selecciona al menos una comida para este producto.');
     const invalid=[...this.shadowRoot.querySelectorAll('input:not(:disabled)')].find(input=>!input.checkValidity());
-    if(invalid){invalid.closest('details')?.setAttribute('open','');invalid.reportValidity();throw new Error('Revisa las cantidades de consumo por comidas.');}
+    if(invalid){for(let parent=invalid.parentElement;parent;parent=parent.parentElement)if(parent.tagName==='DETAILS')parent.open=true;invalid.reportValidity();throw new Error('Revisa las cantidades de consumo por comidas.');}
     return this.value;
   }
   render(){
     if(!this.built)return;const rows=[];const known=new Set();
     for(const routine of this.routines){
-      const group=el('details'),title=el('summary',routine.name+(routine.enabled?'':' · Desactivada'));group.open=true;group.append(title);
+      const group=el('details'),title=el('summary',routine.name+(routine.enabled?'':' · Desactivada'));group.open=this.collapsedByDefault!==true;group.append(title);
       for(const meal of routine.meals){
         const key=routine.id+'|'+meal.id;known.add(key);let rule=this._rules.find(r=>r.routine_id===routine.id&&r.meal_id===meal.id);
         const row=el('div');row.className='meal';const line=el('div');line.className='row';const label=el('label');label.className='check';const box=el('input');box.type='checkbox';box.checked=Boolean(rule);box.setAttribute('aria-label',routine.name+' · '+meal.name);label.append(box,el('span',meal.name+' · '+(meal.start_time?meal.start_time+' – '+meal.end_time:meal.time)+(meal.enabled?'':' · Desactivada')));

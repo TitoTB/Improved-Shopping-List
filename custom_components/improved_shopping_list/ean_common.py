@@ -6,7 +6,7 @@ from unicodedata import normalize, combining
 from urllib.parse import urlsplit
 
 FIELDS=("brand","content_quantity","content_unit","pack_count")
-SCALES={"g":("kg",.001),"kg":("kg",1),"ml":("l",.001),"cl":("l",.01),"l":("l",1),"uds":("uds",1)}
+SCALES={"g":("kg",.001),"kg":("kg",1),"ml":("l",.001),"cl":("l",.01),"l":("l",1),"m":("m",1),"uds":("uds",1)}
 
 
 def positive(value):

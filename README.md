@@ -86,7 +86,7 @@ Los controles situados junto al buscador permiten cambiar cómo se muestran los 
 
 - **Orden alfabético:** muestra todos los productos ordenados por su nombre.
 - **Agrupar por categorías:** reúne los productos según la categoría que tengan asignada en el catálogo, manteniendo el orden alfabético dentro de cada grupo. Los que no tienen categoría aparecen en Sin categoría. Vuelve a pulsar el botón para recuperar el listado sin agrupar.
-- **Cuadrícula o filas:** alterna entre bloques cuadrados y una fila completa por producto. En filas se pueden mostrar la categoría, la cantidad, el último precio guardado y el Nutri-Score, cuando esos datos estén disponibles.
+- **Cuadrícula o filas:** alterna entre bloques cuadrados y una fila completa por producto. En filas se pueden mostrar la categoría, la cantidad y el último precio guardado, cuando esos datos estén disponibles.
 
 La vista y la agrupación se aplican tanto a los productos pendientes como a Compras recientes.
 
@@ -166,7 +166,7 @@ Este apartado permite llevar el control de los productos de tu despensa. Tú eli
 
 ### Añadir y configurar productos
 
-En la vista **Stock**, pulsa **+** para añadir un producto. Después, pulsa su bloque para abrir la ficha y configurar la cantidad actual, las unidades —uds, g, kg, litros o una unidad personalizada—, el método de control y la cantidad predeterminada de reposición.
+En la vista **Stock**, pulsa **+** para añadir un producto. Después, pulsa su bloque para abrir la ficha y configurar la cantidad actual, las unidades —uds, g, kg, litros, metros o una unidad personalizada—, el método de control y la cantidad predeterminada de reposición.
 
 Puedes alternar entre cuadrícula y filas, y ordenar los productos alfabéticamente, por menor porcentaje de Stock o agrupados por categoría. En filas también aparecen los controles para aumentar o reducir la cantidad manualmente.
 

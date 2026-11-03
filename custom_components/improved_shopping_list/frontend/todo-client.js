@@ -1,5 +1,5 @@
 /** Native Home Assistant APIs; the selected provider owns all list data. */
-import { productNameKey, todoItemName, namedTodoItem } from "./product-names.js?v=0.85.0";
+import { productNameKey, todoItemName, namedTodoItem } from "./product-names.js?v=0.86.0";
 export const FEATURES = Object.freeze({ CREATE: 1, DELETE: 2, UPDATE: 4, DESCRIPTION: 64 });
 
 export function todoEntities(hass) {
@@ -34,9 +34,15 @@ export class TodoSession {
     this._generation = 0;
     this._revision = 0;
     this._pendingAdds = new Map();
+    this._pendingCompletions = new Map();
+    this._pushRevision = 0;
   }
 
-  get items() { return this.getDescriptionMode(this.entityId)?this._items.map(item=>namedTodoItem(item,true)):this._items; }
+  get items() {
+    const mode=this.getDescriptionMode(this.entityId);
+    if(!mode&&!this._pendingCompletions?.size)return this._items;
+    return this._items.map(item=>{const pending=this._pendingCompletions?.get(JSON.stringify([this.entityId,item.uid]));const value=pending?{...item,status:pending.status}:item;return mode?namedTodoItem(value,true):value;});
+  }
   set items(value) { this._items=value; }
 
   async select(entityId) {
@@ -56,6 +62,7 @@ export class TodoSession {
         (result) => {
           if (generation !== this._generation) return;
           this._revision += 1;
+          this._pushRevision += 1;
           this.items = result.items ?? [];
           this.error = "";
           this.loading = false;
@@ -139,11 +146,17 @@ export class TodoSession {
   }
 
   async setCompleted(item, completed) {
-    // Use the provider UID: names need not be unique.
+    // Only the display is optimistic: provider pushes remain the authoritative base.
     if (!item.uid) throw new Error("Este producto no tiene un identificador válido.");
-    return this._mutate("update_item", {
-      item: item.uid, status: completed ? "completed" : "needs_action",
-    }, FEATURES.UPDATE);
+    const key=JSON.stringify([this.entityId,item.uid]),existing=this._pendingCompletions.get(key);
+    if(existing)return existing.operation;
+    const generation=this._generation,pending={status:completed?'completed':'needs_action'};
+    this._pendingCompletions.set(key,pending);this.onChange();
+    pending.operation=(async()=>{
+      try{return await this._mutate('update_item',{item:item.uid,status:pending.status},FEATURES.UPDATE);}
+      finally{if(this._pendingCompletions.get(key)===pending){this._pendingCompletions.delete(key);if(this._generation===generation)this.onChange();}}
+    })();
+    return pending.operation;
   }
 
   async clearCompleted() {
@@ -186,8 +199,12 @@ export class TodoSession {
     const state = this.getHass().states[entityId];
     if (!isAvailable(state)) throw new Error("La lista seleccionada no está disponible.");
     if (!supports(state, feature)) throw new Error("Esta lista no admite esa operación.");
+    const pushRevision=this._pushRevision;
     await this.getHass().callService("todo", service, { ...data, entity_id: entityId });
-    if (generation === this._generation) await this.refresh();
+    const confirmed=this._pushRevision!==pushRevision&&(service==='update_item'
+      ? this._items.some(item=>item.uid===data.item&&item.status===data.status)
+      : service==='remove_completed_items'&&!this._items.some(item=>item.status==='completed'));
+    if (generation === this._generation&&!confirmed) await this.refresh();
     return true;
   }
 
@@ -196,6 +213,7 @@ export class TodoSession {
   }
 
   _stop() {
+    this._pendingCompletions.clear();
     this._generation += 1;
     this._revision += 1;
     clearInterval(this._timer);

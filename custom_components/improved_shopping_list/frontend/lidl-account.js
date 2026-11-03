@@ -1,4 +1,4 @@
-import { CarrefourAccountPanel } from './carrefour-account.js?v=0.85.0';
+import { CarrefourAccountPanel } from './carrefour-account.js?v=0.86.0';
 
 // Only the matching native callback is submitted; a selected HAR stays in this browser.
 export function callbackFromHar(har, state) {
@@ -72,7 +72,7 @@ class LidlAccountPanel extends CarrefourAccountPanel {
     r.querySelectorAll('[data-next]').forEach(button=>button.disabled=locked||!this._oauthState);
     r.querySelector('#oauth-link').hidden=locked||!this._oauthState;
     r.querySelector('#connect').textContent=s.connected?'Desconectar cuenta':'Conectar cuenta';r.querySelector('#connect').className=s.connected?'danger':'primary';
-    r.querySelector('#account-email').textContent=s.connected?(s.email||'Cuenta Lidl conectada'):'';
+    r.querySelector('#account-email').textContent=s.connected?'Cuenta conectada':'';
     for(const [id,key] of [['history-enabled','history_enabled'],['auto-ticket','auto_ticket']]){const input=r.querySelector('#'+id);input.checked=Boolean(s.options?.[key]);input.disabled=locked||!s.connected;}
     r.querySelector('#login-form').hidden=true;r.querySelector('#verification').hidden=true;
     r.querySelector('#login-status').textContent=this._busy?'Consultando Lidl…':s.connected?'Cuenta conectada. Puedes revisar sus tickets en Analítica → Compras.':'';

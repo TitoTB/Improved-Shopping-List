@@ -1,21 +1,21 @@
-import './analytics-insights.js?v=0.85.0';
+import './analytics-insights.js?v=0.86.0';
 const node=(tag,cls,text)=>{const el=document.createElement(tag);if(cls)el.className=cls;if(text!==undefined)el.textContent=text;return el;};
 const names={masymas:"Masymas",bm:"BM",elcorteingles:'El Corte Inglés',mercadona:'Mercadona',carrefour:'Carrefour',alcampo:'Alcampo',consum:'Consum',lasirena:'La Sirena',eroski:'Eroski',dia:'DIA',lidl:'Lidl'};
 const money=(cents,currency)=>new Intl.NumberFormat('es-ES',{style:'currency',currency,minimumFractionDigits:2,maximumFractionDigits:2}).format(cents/100);
-const scales={uds:['uds',1],ud:['uds',1],kg:['kg',1],g:['kg',.001],gr:['kg',.001],ml:['l',.001],cl:['l',.01],l:['l',1]};
+const scales={uds:['uds',1],ud:['uds',1],kg:['kg',1],g:['kg',.001],gr:['kg',.001],ml:['l',.001],cl:['l',.01],l:['l',1],m:['m',1]};
 const number=value=>typeof value==='boolean'||value===null||value===''?NaN:Number(value);
 const validMoney=value=>Number.isFinite(number(value))&&number(value)>=0;
 const gtin=value=>{if(typeof value!=='string'||!/^(?:\d{8}|\d{12,14})$/.test(value))return '';const sum=[...value.slice(0,-1)].reverse().reduce((total,digit,i)=>total+Number(digit)*(i%2?1:3),0);return (10-sum%10)%10===Number(value.at(-1))?value.padStart(14,'0'):'';};
 export function normalizeObservation(raw){
   if(!raw||raw.reference_excluded||!validMoney(raw.price)||!Number.isFinite(number(raw.at))||number(raw.at)<=0||!/^[A-Z]{3}$/.test(raw.currency??''))return null;
   const price=number(raw.price),ean=gtin(raw.ean),reference=String(raw.reference_unit??'').toLowerCase().trim().replace(/^€\s*\/\s*/,'');
-  const refs={per_each:['uds',1],per_1kg:['kg',1],per_1l:['l',1],per_100g:['kg',.1],per_100ml:['l',.1],...scales};
+  const refs={per_each:['uds',1],per_1kg:['kg',1],per_1l:['l',1],m:['m',1],per_100g:['kg',.1],per_100ml:['l',.1],...scales};
   let unit='',quantity=null,rate=null;
   const pack=scales[String(raw.pack_unit??'').toLowerCase()];
   if(!raw.format_pending&&pack&&number(raw.pack_quantity)>0){unit=pack[0];quantity=number(raw.pack_quantity)*pack[1];rate=price/quantity;}
   else if(!raw.format_pending&&refs[reference]&&validMoney(raw.reference_price)){unit=refs[reference][0];rate=number(raw.reference_price)/refs[reference][1];quantity=rate>0?price/rate:null;}
   else if(!raw.format_pending&&raw.source==='web'){
-    const match=String(raw.store_name||raw.name||'').match(/(\d+(?:[.,]\d+)?)\s*(kg|g|ml|cl|l)\b/i);
+    const match=String(raw.store_name||raw.name||'').match(/(\d+(?:[.,]\d+)?)\s*(kg|g|ml|cl|l|m)\b/i);
     if(match&&Number(match[1].replace(',','.'))>0){const factor=scales[match[2].toLowerCase()];unit=factor[0];quantity=Number(match[1].replace(',','.'))*factor[1];rate=price/quantity;}
   }
   return {...raw,price,at:number(raw.at),ean,basis:unit|| (ean?'ean:'+ean:null),unit:unit||'envase',quantity,rate:unit?rate:ean?price:null};
@@ -159,7 +159,7 @@ class ImprovedShoppingAnalytics extends HTMLElement {
     stats.append(this._stat(result.comparable,'Productos comparables'),this._stat(winners.length>1?winners.length+' tiendas':winner?names[winner.store]:'—',winners.length>1?'Empate en mínimos':'Más productos al menor precio'));
     container.append(stats);
     if(data.observations_truncated)container.append(node('p','comparison-note','El análisis usa las 20.000 observaciones de precio más recientes disponibles.'));
-    if(!result.rows.length){container.append(this._empty('No hay productos con precios por kg, litro o unidad comparables en al menos dos tiendas.'));return;}
+    if(!result.rows.length){container.append(this._empty('No hay productos con precios por kg, litro, metro o unidad comparables en al menos dos tiendas.'));return;}
     if(result.known){
       const chart=node('section','card');chart.append(node('h2','chart-title','Dónde están los precios más bajos'));
       const maximum=Math.max(1,...result.ranking.map(shop=>shop.wins));

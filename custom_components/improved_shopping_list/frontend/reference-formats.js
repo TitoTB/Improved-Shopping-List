@@ -1,6 +1,6 @@
 /** Package contents are commercial metadata, never pantry refill quantities. */
-export const contentUnits={uds:'uds',g:'g',kg:'kg',ml:'ml',cl:'cl',l:'l'};
-const scales={uds:['uds',1],g:['kg',.001],kg:['kg',1],ml:['l',.001],cl:['l',.01],l:['l',1]};
+export const contentUnits={uds:'uds',g:'g',kg:'kg',ml:'ml',cl:'cl',l:'l',m:'m'};
+const scales={uds:['uds',1],g:['kg',.001],kg:['kg',1],ml:['l',.001],cl:['l',.01],l:['l',1],m:['m',1]};
 const key=value=>String(value??'').normalize('NFD').replace(/\p{M}/gu,'').trim().replace(/\s+/g,' ').toLocaleLowerCase('es');
 export function barcodeIdentity(value){
   if(typeof value!=='string'||!/^(?:\d{8}|\d{12,14})$/.test(value)||value.length===13&&value.startsWith('2'))return '';
@@ -15,17 +15,17 @@ export function referenceFor(product,store,line){
     ??refs.find(ref=>!ref.store&&line.ean&&ref.ean.padStart(14,'0')===line.ean.padStart(14,'0'));
 }
 export function suggestedContent(line){
-  const multiple=String(line.description||line.name||'').match(/\b(\d+)\s*[x×]\s*(\d+(?:[.,]\d+)?)\s*(kg|grs?|g|ml|cl|l|uds?|unidades)\b/i);
+  const multiple=String(line.description||line.name||'').match(/\b(\d+)\s*[x×]\s*(\d+(?:[.,]\d+)?)\s*(kg|grs?|g|ml|cl|l|m|uds?|unidades)\b/i);
   if(multiple)return {quantity:Number(multiple[1])*Number(multiple[2].replace(',','.')),unit:({gr:'g',grs:'g',ud:'uds',unidades:'uds'})[multiple[3].toLowerCase()]??multiple[3].toLowerCase()};
   if(Number(line.pack_quantity)>0&&scales[line.pack_unit])return {quantity:Number(line.pack_quantity),unit:line.pack_unit};
-  const match=String(line.description||line.name||'').match(/\b(\d+(?:[.,]\d+)?)\s*(kg|grs?|g|ml|cl|litros?|l|uds?\.?|unidades|huevos)\b/i);
+  const match=String(line.description||line.name||'').match(/\b(\d+(?:[.,]\d+)?)\s*(kg|grs?|g|ml|cl|litros?|l|m|uds?\.?|unidades|huevos)\b/i);
   if(!match)return {quantity:null,unit:''};
   const raw=match[2].toLowerCase().replace(/\.$/,'');
   return {quantity:Number(match[1].replace(',','.')),unit:({gr:'g',grs:'g',litro:'l',litros:'l',ud:'uds',unidades:'uds',huevos:'uds'})[raw]??raw};
 }
 export function packageCost(offer,quantity,unit){
   const pack=scales[offer?.pack_unit],target=scales[unit];
-  if(offer&&!offer.format_pending&&pack&&['kg','l'].includes(pack[0])&&unit==='uds'&&quantity>0){const packages=Math.ceil(quantity-1e-9);return {price:Math.round(packages*Number(offer.price)*100)/100,packages};}
+  if(offer&&!offer.format_pending&&pack&&['kg','l','m'].includes(pack[0])&&unit==='uds'&&quantity>0){const packages=Math.ceil(quantity-1e-9);return {price:Math.round(packages*Number(offer.price)*100)/100,packages};}
   if(!offer||offer.format_pending||!pack||!target||pack[0]!==target[0]||!(Number(offer.pack_quantity)>0)||!(quantity>0))return null;
   const count=Math.ceil(Math.max(0,quantity*target[1]/(Number(offer.pack_quantity)*pack[1])-1e-9));
   return {price:Math.round(count*Number(offer.price)*100)/100,packages:count};

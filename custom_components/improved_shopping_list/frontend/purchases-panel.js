@@ -1,8 +1,8 @@
 const priceValue=value=>value==null||value===''?'':Number(Number(value).toFixed(2));
-import { ListSettingsSession } from "./list-settings-client.js?v=0.85.0";
-import { installDialogCloseButtons } from "./dialog-controls.js?v=0.85.0";
-import { productNameKey } from "./product-names.js?v=0.85.0";
-import { referenceFor, suggestedContent, referenceContentControls, validReferenceContent, validReferenceFormat, weightFormat, receiptCatalogPrice, barcodeIdentity, recoveredStockQuantity } from "./reference-formats.js?v=0.85.0";
+import { ListSettingsSession } from "./list-settings-client.js?v=0.86.0";
+import { installDialogCloseButtons } from "./dialog-controls.js?v=0.86.0";
+import { productNameKey } from "./product-names.js?v=0.86.0";
+import { referenceFor, suggestedContent, referenceContentControls, validReferenceContent, validReferenceFormat, weightFormat, receiptCatalogPrice, barcodeIdentity, recoveredStockQuantity } from "./reference-formats.js?v=0.86.0";
 
 const node=(tag,cls,text)=>{const el=document.createElement(tag);if(cls)el.className=cls;if(text!==undefined)el.textContent=text;return el;};
 const money=value=>new Intl.NumberFormat('es-ES',{style:'currency',currency:'EUR',minimumFractionDigits:2,maximumFractionDigits:2}).format(value);
@@ -297,11 +297,11 @@ class ImprovedShoppingPurchases extends HTMLElement {
   }
   _quantity(line,unit){
     if(line.purchased_quantity!=null){
-      const scales={g:['mass',1],kg:['mass',1000],ml:['volume',1],cl:['volume',10],l:['volume',1000],uds:['count',1]},source=scales[line.purchased_unit],target=scales[unit];
+      const scales={g:['mass',1],kg:['mass',1000],ml:['volume',1],cl:['volume',10],l:['volume',1000],m:['length',1],uds:['count',1]},source=scales[line.purchased_unit],target=scales[unit];
       if(source&&target&&source[0]===target[0])return Math.round(line.purchased_quantity*source[1]/target[1]*1000)/1000;
     }
     if(unit==='uds')return line.count;
-    const scales={g:['mass',1],kg:['mass',1000],ml:['volume',1],cl:['volume',10],l:['volume',1000]},source=scales[line.pack_unit],target=scales[unit];
+    const scales={g:['mass',1],kg:['mass',1000],ml:['volume',1],cl:['volume',10],l:['volume',1000],m:['length',1]},source=scales[line.pack_unit],target=scales[unit];
     return source&&target&&source[0]===target[0]&&line.pack_quantity?Math.round(line.count*line.pack_quantity*source[1]/target[1]*1000)/1000:null;
   }
   _product(edit){return this._draft.products.find(p=>p.id===edit.product_id);}
@@ -617,7 +617,7 @@ class ImprovedShoppingPurchases extends HTMLElement {
         await this._hass.callWS({type:'improved_shopping_list/receipts/reprocess',token,lines:this._edits.map(edit=>({id:edit.id,product_id:edit.product_id,pack_quantity:validReferenceContent(edit.packageFormat)?edit.packageFormat.content_quantity:null,pack_unit:validReferenceFormat(edit.packageFormat)?edit.packageFormat.content_unit:'',...this._manualPricePayload(edit)}))});
       }else await this._hass.callWS({type:'improved_shopping_list/receipts/confirm',token:this._draft.token,update_prices:Boolean(updatePrices&&this._pricesEnabled),
         lines:this._edits.map(edit=>({id:edit.id,product_id:edit.product_id,replenish:Boolean(edit.product_id&&edit.replenish),quantity:edit.replenish?edit.quantity:null,unit:edit.unit,purchase_id:'',save_price:Boolean(edit.product_id&&edit.save_price&&updatePrices&&this._pricesEnabled),quantity_edited:Boolean(edit.quantityEdited),pack_quantity:validReferenceContent(edit.packageFormat)?edit.packageFormat.content_quantity:null,pack_unit:validReferenceFormat(edit.packageFormat)?edit.packageFormat.content_unit:'',...(updatePrices&&this._pricesEnabled?this._manualPricePayload(edit):{})}))});
-      this._draft=null;this.shadowRoot.querySelector('dialog').close();await this._session.refresh();this.dispatchEvent(new CustomEvent('receipt-imported'));
+      this._draft=null;this.shadowRoot.querySelector('dialog').close();this.dispatchEvent(new CustomEvent('receipt-imported'));await this._session.refresh();
     }catch(error){this._errorMessage(error.message??'No se ha podido guardar el ticket.');}
     finally{this._setBusy(false);}
   }

@@ -33,7 +33,7 @@ def converted_quantity(line, unit):
             return round(purchased*source[1]/target[1],3)
     if unit == "uds":
         return line["count"]
-    scales = {"g":("mass",1), "kg":("mass",1000), "ml":("volume",1), "cl":("volume",10), "l":("volume",1000)}
+    scales = {"g":("mass",1), "kg":("mass",1000), "ml":("volume",1), "cl":("volume",10), "l":("volume",1000), "m":("length",1)}
     source, target = scales.get(line["pack_unit"]), scales.get(unit)
     if source and target and source[0] == target[0] and line["pack_quantity"]:
         return round(line["count"] * line["pack_quantity"] * source[1] / target[1], 3)

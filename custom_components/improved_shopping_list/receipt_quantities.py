@@ -2,7 +2,7 @@
 import math
 from decimal import Decimal, ROUND_HALF_UP
 
-SCALES = {"kg":("kg",1), "g":("kg",.001), "l":("l",1), "cl":("l",.01), "ml":("l",.001), "uds":("uds",1)}
+SCALES = {"kg":("kg",1), "g":("kg",.001), "l":("l",1), "cl":("l",.01), "ml":("l",.001), "m":("m",1),"uds":("uds",1)}
 
 
 def stock_quantity(quantity,source_unit,target_unit):

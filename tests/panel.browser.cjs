@@ -5428,7 +5428,7 @@ async function main() {
     assert.deepEqual(await storeCatalog.locator('.category-group-title').allTextContents(),['Alcampo (1)','Carrefour (2)']);
     assert.equal(await storeCatalog.locator('.category-group[open]').count(),0);
     await storeCatalog.locator('.category-group[aria-label="Carrefour"] > summary').click();
-    assert.equal(await storeCatalog.locator('.category-group[aria-label="Carrefour"] .product').first().isVisible(),true);
+    await storeCatalog.locator('.category-group[aria-label="Carrefour"] .product').first().waitFor();
     await expandCatalogGroups(storeCatalog);
     assert.equal(await storeCatalog.locator('#catalog-grid [data-product-id="rice"]').count(),2);
     assert.equal(await storeCatalog.locator('#catalog-grid [data-product-id="juice"],#catalog-grid [data-product-id="bread"]').count(),0);
@@ -5530,7 +5530,7 @@ async function main() {
     const pantryGroup=groupedCatalog.locator('.category-group[aria-label="Despensa"]');
     assert.equal(await pantryGroup.locator('.product').first().isVisible(),false);
     await pantryGroup.locator('summary').click();
-    assert.equal(await pantryGroup.locator('.product').first().isVisible(),true);
+    await pantryGroup.locator('.product').first().waitFor();
     await pantryGroup.locator('summary').click();
     assert.equal(await pantryGroup.locator('.product').first().isVisible(),false);
     await pantryGroup.locator('summary').focus();await groupingPage.keyboard.press('Enter');

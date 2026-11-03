@@ -26490,7 +26490,9 @@
       "content_unit": "uds"
     },
     "08480000490001": {
-      "brand": "Bosque Verde"
+      "brand": "Bosque Verde",
+      "content_quantity": 30.0,
+      "content_unit": "m"
     },
     "08480000490735": {
       "brand": "Bosque Verde",
@@ -27220,7 +27222,9 @@
       "content_unit": "kg"
     },
     "08480000602947": {
-      "brand": "Bosque Verde"
+      "brand": "Bosque Verde",
+      "content_quantity": 80.0,
+      "content_unit": "m"
     },
     "08480000603067": {
       "brand": "Hacendado",

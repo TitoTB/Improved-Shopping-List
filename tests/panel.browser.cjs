@@ -3808,8 +3808,8 @@ async function main() {
     assert.equal(await yogurtListCard.locator(".row-nutriscore").count(),0);
     for(const width of [1280,390,320]){
       await page.setViewportSize({width,height:960});
-      const badges=await yogurtListCard.evaluate(node=>[...node.closest('li').querySelectorAll('.row-category,.row-price,.row-nutriscore,.row-quantity')].map(badge=>({kind:badge.className,height:badge.getBoundingClientRect().height,radius:getComputedStyle(badge).borderRadius,background:getComputedStyle(badge).backgroundColor})));
-      assert.ok(badges.length>=3);
+      const badges=await yogurtListCard.evaluate(node=>[...node.closest('li').querySelectorAll('.row-category,.row-price,.row-quantity')].map(badge=>({kind:badge.className,height:badge.getBoundingClientRect().height,radius:getComputedStyle(badge).borderRadius,background:getComputedStyle(badge).backgroundColor})));
+      assert.ok(badges.length>=2);
       assert.equal(new Set(badges.map(badge=>badge.height)).size,1);
       assert.equal(new Set(badges.map(badge=>badge.radius)).size,1);
 

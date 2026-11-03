@@ -1432,6 +1432,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
         }
         heading.append(document.createTextNode(group.name+(this._groupBy === "store"?" ("+group.products.length+")":"")));
         const summary=element('summary','category-group-toggle');summary.append(heading);
+        summary.addEventListener('click',()=>queueMicrotask(populate));
         section.append(summary,items);
         return section;
       }));

@@ -3190,6 +3190,7 @@ async function checkCatalogSources(browser,url,errors){
       {catalog_product_id:'one',store:'carrefour',price:3.75,currency:'EUR'},
       {catalog_product_id:'one',store:'alcampo',price:2.5,currency:'EUR'}]};
   });
+  await expandCatalogGroups(catalog);
   const alcampoPrice=catalog.locator('.category-group[aria-label="Alcampo"] .row-price');
   const carrefourPrice=catalog.locator('.category-group[aria-label="Carrefour"] .row-price');
   assert.match(await alcampoPrice.textContent(),/2,50/);

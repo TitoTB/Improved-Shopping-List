@@ -5552,7 +5552,7 @@ async function main() {
     await groupedCatalog.getByRole('button',{name:'Cambiar a vista de filas',exact:true}).click();
     assert.equal(await groupedCatalog.locator('.category-products.rows').count(),3);
     await groupedCatalog.locator('.category-group[aria-label="Verduras"] > summary').click();
-    assert.equal(await groupedCatalog.getByRole('button',{name:'Editar Patatas',exact:true}).isVisible(),true);
+    await groupedCatalog.getByRole('button',{name:'Editar Patatas',exact:true}).waitFor();
     await groupingPage.reload();
     await groupingPage.getByRole('button',{name:'Catálogo',exact:true}).click();
     await groupedCatalog.locator('.category-group').nth(2).waitFor();

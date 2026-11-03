@@ -1432,7 +1432,7 @@ class ImprovedShoppingCatalog extends HTMLElement {
         }
         heading.append(document.createTextNode(group.name+(this._groupBy === "store"?" ("+group.products.length+")":"")));
         const summary=element('summary','category-group-toggle');summary.append(heading);
-        summary.addEventListener('click',()=>queueMicrotask(populate));
+        summary.addEventListener('click',event=>{event.preventDefault();section.open=!section.open;populate();});
         section.append(summary,items);
         return section;
       }));

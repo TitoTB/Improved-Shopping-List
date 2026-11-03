@@ -621,7 +621,7 @@ async function checkReceiptStockRefresh(browser,url,errors){
  const page=await context.newPage();page.on('pageerror',error=>errors.push(error.message));await page.goto(url);
  await page.evaluate(()=>{window.stockItems=[{id:'pantry-pavo',catalog_product_id:'pavo',name:'Pavo',quantity:1,unit:'g',revision:1,mode:'manual',refill_quantity:2}];window.emitStock();});
  await page.getByRole('button',{name:'Stock',exact:true}).click();await page.locator('#stock-items .stock-amount').filter({hasText:'1 g'}).waitFor();
- await page.getByRole('button',{name:'Analítica',exact:true}).click();const purchases=page.locator('isl-purchases');await page.waitForFunction(()=>document.querySelector('improved-shopping-list-panel').shadowRoot.querySelector('isl-purchases')._session.loaded);
+ await page.getByRole('button',{name:'Analítica',exact:true}).click();const purchases=page.locator('isl-purchases');await page.waitForFunction(()=>document.querySelector('improved-shopping-list-panel')?.shadowRoot.querySelector('isl-purchases')?._session?.loaded);
  await purchases.evaluate(el=>{
   const receipt={id:'stock-refresh-ticket',store:'carrefour',store_name:'Carrefour',currency:'EUR',purchased_at:new Date().toISOString(),total:2,lines:[{id:'line',description:'PAVO',count:1,unit_price:2,amount:2,product_id:'pavo',matched:true}]};
   window.receiptDraft=structuredClone(receipt);el.openPreview({token:'stock-refresh-ticket',receipt,products:[{id:'pavo',name:'Pavo',unit:'g',refill_quantity:2,stock_id:'pantry-pavo',commercial_references:[]}],purchases:[]});

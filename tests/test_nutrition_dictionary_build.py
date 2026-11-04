@@ -20,7 +20,8 @@ def entry():return {'source':'openfoodfacts','license':'ODbL-1.0','checked_at':i
 
 class NutritionDictionaryBuildTests(unittest.TestCase):
     def test_validation_rejects_inferred_data_untrusted_sources_and_invalid_values(self):
-        self.assertEqual(validate_nutrition(entry()),entry())
+        expected=entry()
+        self.assertEqual(validate_nutrition(expected),expected)
         for changed in ({'source':'unknown'},{'checked_at':float('nan')},{'checked_at':time.time()+2*86400},{'nova':True},{'nutriscore':{'grade':'unknown'}},{'nutriscore':{'grade':'a','version':'unknown'}},{'price':1}):
             with self.assertRaises(ValueError):validate_nutrition({**entry(),**changed})
         self.assertEqual(nutrition_from_hint({},time.time()),{})
@@ -33,12 +34,13 @@ class NutritionDictionaryBuildTests(unittest.TestCase):
 
     def test_import_round_trip_preserves_old_format_schema_and_omits_private_fields(self):
         export={'kind':'improved-shopping-list-catalog-export','products':[{'name':'PRIVATE','commercial_references':[{'store':'carrefour','ean':'8410199023094','brand':'Marca'}]}],'nutrition':{EAN:entry()}}
+        expected=deepcopy(export['nutrition'][EAN])
         seed=builder.import_catalog(export);result=builder.build(seed,{'common':{}})
-        self.assertEqual(result['nutrition'][EAN],entry());self.assertEqual(result['schema_version'],1)
+        self.assertEqual(result['nutrition'][EAN],expected);self.assertEqual(result['schema_version'],1)
         self.assertEqual(result['products'][EAN],{'brand':'Marca','origins':['carrefour']})
         self.assertNotIn('PRIVATE',json.dumps(result));self.assertEqual(seed,builder.import_catalog(export,seed))
         newer=deepcopy(export);newer['nutrition'][EAN]['checked_at']-=10
-        self.assertEqual(builder.import_catalog(newer,seed)['nutrition'][EAN],entry())
+        self.assertEqual(builder.import_catalog(newer,seed)['nutrition'][EAN],expected)
         self.assertNotEqual(builder.build({'products':seed['products']},{'common':{}})['revision'],result['revision'])
 
     def test_refresh_is_bounded_rate_limited_and_negatively_cached(self):

@@ -6,3 +6,6 @@ pypdf==6.21.2
 
 # HTTP/2 transport used by the public El Corte Inglés session.
 h2==4.4.1
+
+# Bounded alternative for anonymous public product pages.
+curl_cffi==0.16.1

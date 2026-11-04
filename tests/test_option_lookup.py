@@ -15,14 +15,20 @@ URL = "https://www.carrefour.es/supermercado/pavo/R-prod1/p"
 CODE = "3017620422003"
 
 
-async def test_retired_eci_lookup_never_queries_the_provider(hass,monkeypatch):
+@pytest.fixture(autouse=True)
+def no_unmocked_native_requests(monkeypatch):
+    from custom_components.improved_shopping_list import public_http
+    monkeypatch.setattr(public_http,'fetch',AsyncMock(side_effect=public_http.PublicHTTPError('No response')))
+
+
+async def test_eci_url_lookup_is_available_without_enabling_catalog(hass,monkeypatch):
     lookup=OptionLookup(hass)
-    request=AsyncMock()
+    request=AsyncMock(return_value={"name":"Patatas", "ean":CODE,"price":2.5})
     monkeypatch.setattr(lookup,'_page',request)
     try:
-        with pytest.raises(PriceError,match='retirada temporalmente'):
-            await lookup.retrieve('https://www.elcorteingles.es/supermercado/B001018009401193-patatas/')
-        request.assert_not_awaited()
+        result=await lookup.retrieve('https://www.elcorteingles.es/supermercado/B001018009401193-patatas/')
+        assert result['ean']==CODE and result['price']==2.5
+        request.assert_awaited_once()
     finally:lookup.close()
 
 
@@ -230,4 +236,29 @@ async def test_kilogram_package_stays_packaged_despite_kilo_comparison_price(has
         assert result.get("sale_mode")!="weight"
         assert result["content_quantity"]==1 and result["content_unit"]=="kg"
         assert result["measure_price"]["unit"]=="kg"
+    finally:lookup.close()
+
+
+async def test_rejected_page_uses_one_native_fallback_then_cache(hass,aioclient_mock,monkeypatch):
+    from custom_components.improved_shopping_list import public_http
+    lookup=OptionLookup(hass);before=AsyncMock();monkeypatch.setattr(lookup,'_before_request',before)
+    aioclient_mock.get(URL,status=403)
+    native=AsyncMock(return_value=public_http.Response(200,{},html_product().encode()))
+    monkeypatch.setattr(public_http,'fetch',native)
+    try:
+        result=await lookup.retrieve(URL,expected_ean=CODE)
+        assert result['price']==2.5 and result['ean']==CODE
+        await lookup.retrieve(URL)
+        assert aioclient_mock.call_count==1 and native.await_count==1
+        with pytest.raises(PriceError,match='EAN'):await lookup.retrieve(URL,expected_ean='4006381333931')
+    finally:lookup.close()
+
+
+async def test_explicit_retry_after_never_uses_native_fallback(hass,aioclient_mock,monkeypatch):
+    from custom_components.improved_shopping_list import public_http
+    lookup=OptionLookup(hass);monkeypatch.setattr(lookup,'_before_request',AsyncMock())
+    aioclient_mock.get(URL,status=403,headers={'Retry-After':'1800'})
+    try:
+        with pytest.raises(PriceError):await lookup.retrieve(URL)
+        public_http.fetch.assert_not_awaited()
     finally:lookup.close()

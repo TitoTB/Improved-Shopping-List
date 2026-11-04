@@ -23,6 +23,7 @@ from .ean_links import product_eans, DAY
 from .price_sources import PriceError
 from .product_references import gtin, brand_name, content
 from .receipt_quantities import measure_price
+from .public_http import retry_seconds as public_retry_seconds
 from .store_links import normalize_link
 
 STORE = "elcorteingles"
@@ -90,9 +91,11 @@ class ECIClient:
         self._ready = False
         self._session_attempted = False
         self.request_count = 0
+        self._native = False
         self._lock = asyncio.Lock()
 
     async def async_close(self):
+        self._native = False
         if self._http:
             await httpx.AsyncClient.aclose(self._http)
             self._http = None
@@ -127,7 +130,7 @@ class ECIClient:
                     self._ready=False
                     raise PriceError(f"El Corte Inglés ha rechazado la consulta (HTTP {response.status_code}).",
                         **diagnostics,response_class="access_denied" if response.status_code==403 else "http_error",
-                        retry_seconds=min(DAY,max(900,int(retry) if retry.isdigit() else 900)) if response.status_code in (403,429,503) else 0)
+                        retry_seconds=public_retry_seconds(retry) if response.status_code in (403,429,503) else 0)
                 if bootstrap:return None
                 if len(body)>limit:
                     raise PriceError("La respuesta de El Corte Inglés supera el tamaño permitido.",**diagnostics,response_class="response_too_large")
@@ -144,6 +147,43 @@ class ECIClient:
                 transport="httpx",response_class="connection_error") from err
 
     async def _json(self, url, before_request):
+        if not self._native:
+            try:
+                return await self._standard_json(url, before_request)
+            except PriceError as err:
+                details=err.diagnostics
+                if (details.get("retry_after_present") or not (
+                        details.get("http_status")==403 or details.get("response_class") in ("invalid_response","connection_error"))):
+                    raise
+                self._native=True
+        from .public_http import fetch, PublicHTTPError
+        async with self._lock:
+            self.request_count += 1
+            try:
+                response=await fetch(self.hass, STORE, url, before_request, headers={
+                    "Accept":"application/json, text/plain, */*", "response_type":"json", "Referer":BASE+"/supermercado/"})
+            except PublicHTTPError as err:
+                raise PriceError(str(err),transport="curl_cffi",response_class="connection_error") from err
+            diagnostics={"transport":"curl_cffi", "http_status":response.status,
+                "stage":"search" if "/buscar/" in url else "product", "endpoint":url.split("?",1)[0],
+                "server":response.headers.get("server", "")[:100],
+                "content_type":response.headers.get("content-type", "")[:100]}
+            reference=re.search(r"Reference\s*#?([a-zA-Z0-9.\-]+)",unescape(response.body[:4096].decode("utf-8","replace")))
+            if reference:diagnostics["block_reference"]=reference[1][:150]
+            if response.status!=200:
+                retry=response.headers.get("retry-after", "")
+                raise PriceError(f"El Corte Inglés ha rechazado la consulta (HTTP {response.status}).",
+                    **diagnostics, response_class="access_denied" if response.status==403 else "http_error",
+                    retry_seconds=public_retry_seconds(retry) if response.status in (403,429,503) else 0)
+            try:
+                result=json.loads(response.body)
+            except (ValueError,UnicodeError) as err:
+                raise PriceError("El Corte Inglés no ha devuelto datos reconocidos.",**diagnostics,response_class="invalid_response") from err
+            if not isinstance(result,dict):
+                raise PriceError("El Corte Inglés no ha devuelto datos reconocidos.",**diagnostics,response_class="invalid_response")
+            return result
+
+    async def _standard_json(self, url, before_request):
         async with self._lock:
             if self._http is None:
                 self._http=create_async_httpx_client(self.hass,auto_cleanup=False,alpn_protocols=SSL_ALPN_HTTP11_HTTP2,

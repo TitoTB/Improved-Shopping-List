@@ -43,6 +43,11 @@ def test_product_parser_uses_single_item_price_and_exact_ean_not_conditional_pro
 
 @pytest.fixture
 async def eci_http(monkeypatch):
+    from custom_components.improved_shopping_list import public_http
+    async def rejected_native(hass,store,url,before_request,**kwargs):
+        await before_request()
+        return public_http.Response(403,{'server':'AkamaiGHost'},b'Access Denied Reference #18.abc.123')
+    monkeypatch.setattr(public_http,'fetch',rejected_native)
     class HTTP:
         def __init__(self):self.responses={};self.requests=[];self.clients=[];self.homepage_statuses=[200];self.retry_after=""
         @property
@@ -101,8 +106,7 @@ async def test_blocked_search_requests_a_pause_and_does_not_follow_other_endpoin
     eci_http.get(search,status=403)
     with pytest.raises(PriceError) as err:await ECIClient(hass).search(EAN,AsyncMock())
     assert err.value.diagnostics['http_status']==403 and err.value.diagnostics['retry_seconds']>=900
-    assert err.value.diagnostics['transport']=='httpx' and err.value.diagnostics['stage']=='search'
-    assert err.value.diagnostics['http_version']=='HTTP/2'
+    assert err.value.diagnostics['transport']=='curl_cffi' and err.value.diagnostics['stage']=='search'
     assert err.value.diagnostics['server']=='AkamaiGHost' and err.value.diagnostics['block_reference']=='18.abc.123'
     assert eci_http.call_count==2
 
@@ -200,8 +204,8 @@ async def test_session_block_is_bounded_and_explicit_retry_after_is_respected(ha
     client=ECIClient(hass);before=AsyncMock()
     try:
         with pytest.raises(PriceError) as error:await client.search(EAN,before)
-        assert error.value.diagnostics["stage"]=="session"
-        assert eci_http.call_count==expected_calls and before.await_count==expected_calls
+        assert error.value.diagnostics["stage"]==("session" if retry_after else "search")
+        assert eci_http.call_count==expected_calls and before.await_count==expected_calls+(0 if retry_after else 1)
     finally:await client.async_close()
 
 
@@ -216,3 +220,17 @@ async def test_retired_source_status_and_subscription_fail_cleanly(hass,hass_ws_
         result=await client.receive_json()
         assert not result['success'] and result['error']['code']=='source_unavailable'
     assert await hass.config_entries.async_unload(entry.entry_id)
+
+
+async def test_eci_native_alternative_preserves_exact_ean_verification(hass,eci_http,monkeypatch):
+    from custom_components.improved_shopping_list import public_http
+    eci_http.homepage_statuses=[403]
+    native=AsyncMock(return_value=public_http.Response(200,{},json.dumps(payload()).encode()))
+    monkeypatch.setattr(public_http,'fetch',native)
+    client=ECIClient(hass)
+    try:
+        data=await client.retrieve(WEB,AsyncMock(),EAN)
+        assert data['price']==2.89 and data['ean']==EAN
+        assert native.await_count==1
+        with pytest.raises(PriceError,match='EAN'):await client.retrieve(WEB,AsyncMock(),OTHER)
+    finally:await client.async_close()

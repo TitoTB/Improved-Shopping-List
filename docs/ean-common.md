@@ -34,3 +34,10 @@ Nutrición utiliza primero los datos locales vigentes y el diccionario descargad
 La exportación manual del catálogo incluye las clasificaciones que ya están en la caché nutricional, junto con su fuente y fecha. El importador `build-ean-common.py --import-catalog ...` las admite sin publicar nombres internos, precios ni datos domésticos. No se envía nada automáticamente desde Home Assistant.
 
 La carga inicial y el mantenimiento se realizan con `scripts/update-ean-nutrition.py`. Solo se consultan EAN aportados explícitamente al diccionario, no todo el catálogo de supermercados. Cada lote tiene un máximo de cien peticiones, separadas al menos 4,2 segundos; los resultados ausentes se recuerdan durante un día y un límite de peticiones o error de servicio detiene el lote. El workflow diario conserva la caché anterior, completa los EAN pendientes y publica el índice en la rama `data`. Las nuevas clasificaciones llegan a los usuarios con la descarga periódica del diccionario, sin actualizar la integración.
+
+
+## Carga revisada del 04/11/2026
+
+La nueva exportación manual incorpora datos comunes confirmados de referencias activas y clasificaciones de Open Food Facts ya consultadas. Se contrastan además 22 fichas públicas de Carrefour, con veinte segundos entre peticiones y coincidencia exacta del EAN. Solo se completan campos ausentes: un recuento de unidades publicado por la tienda no sustituye al peso neto ya confirmado del envase.
+
+El resultado reúne 5.007 EAN con datos comunes y 74 con clasificaciones nutricionales. El [informe de la carga](../data/catalog-update-2026-11-04.json) documenta los enlaces y las comprobaciones. Los códigos sin coincidencia verificable permanecen pendientes. Esta carga no publica precios ni incorpora los iconos del archivo exportado, que no incluía autoría y licencia verificables.

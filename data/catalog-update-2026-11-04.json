@@ -1,0 +1,2258 @@
+{
+  "schema_version": 1,
+  "updated_at": "2026-11-04T17:34:14.755541+00:00",
+  "source": "authorized_manual_catalog_export",
+  "catalog_products": 137,
+  "contributed_eans": 120,
+  "common_eans_before": 4974,
+  "common_eans_after": 5007,
+  "nutrition_before": 55,
+  "nutrition_after": 74,
+  "changed_common_eans": 51,
+  "common_fields_added": {
+    "brand": 41,
+    "content_quantity": 31,
+    "content_unit": 31,
+    "pack_count": 0
+  },
+  "web_results": [
+    {
+      "ean": "03560070392032",
+      "url": "https://www.carrefour.es/supermercado/papel-de-cocina-compact-carrefour-6-rollos/R-596001537/p",
+      "missing": [
+        "brand"
+      ],
+      "http_status": 200,
+      "status": "verified",
+      "fields": {
+        "brand": "CARREFOUR"
+      },
+      "checked_at": "2026-11-04T17:23:31.710820+00:00",
+      "sha256": "0475a34e18123a09919fc57080e3eea742716ce31fe8ef26ff2adeacd9098810"
+    },
+    {
+      "ean": "03560071006419",
+      "url": "https://www.carrefour.es/supermercado/garbanzos-tostados-y-salados-carrefour-125-g/R-832012860/p",
+      "missing": [
+        "brand"
+      ],
+      "http_status": 200,
+      "status": "verified",
+      "fields": {
+        "brand": "CARREFOUR",
+        "content_quantity": 125.0,
+        "content_unit": "g"
+      },
+      "checked_at": "2026-11-04T17:23:51.663161+00:00",
+      "sha256": "ade0ecbfceb2c231265e605e41b83f0a4b514b7c16f6b7e89f439554f96501b8"
+    },
+    {
+      "ean": "03616181521554",
+      "url": "https://www.carrefour.es/supermercado/bolsas-de-basura-envases-plastico-reciclado-carrefour-essential-30-l-30-ud/R-VC4AECOMM-448043/p",
+      "missing": [
+        "brand"
+      ],
+      "http_status": 200,
+      "status": "verified",
+      "fields": {
+        "brand": "CARREFOUR ESSENTIAL",
+        "content_quantity": 30.0,
+        "content_unit": "l"
+      },
+      "checked_at": "2026-11-04T17:24:11.693456+00:00",
+      "sha256": "4d822ed852b602fc8afe61ad0dcc2cf7f58fe1cab449f973e315f50971a41ff4"
+    },
+    {
+      "ean": "08410109115611",
+      "url": "",
+      "missing": [
+        "content_quantity",
+        "content_unit"
+      ],
+      "status": "no_known_url"
+    },
+    {
+      "ean": "08410109115628",
+      "url": "",
+      "missing": [
+        "content_quantity",
+        "content_unit"
+      ],
+      "status": "no_known_url"
+    },
+    {
+      "ean": "08410297142581",
+      "url": "https://www.carrefour.es/supermercado/queso-azul-cabrales-central-lechera-asturiana-cuna-100-g/R-VC4AECOMM-683095/p",
+      "missing": [
+        "brand"
+      ],
+      "http_status": 200,
+      "status": "verified",
+      "fields": {
+        "brand": "CENTRAL LECHERA ASTURIANA",
+        "content_quantity": 100.0,
+        "content_unit": "g"
+      },
+      "checked_at": "2026-11-04T17:24:31.696584+00:00",
+      "sha256": "3cacd277048657ab083f0e0b6ee832673c6145dd67c2ab2c8136d43e66815292"
+    },
+    {
+      "ean": "08410500028794",
+      "url": "https://www.carrefour.es/supermercado/yogur-griego-natural-danone-pack-de-4-unidades-de-110-g/R-VC4AECOMM-155029/p",
+      "missing": [
+        "brand"
+      ],
+      "http_status": 200,
+      "status": "verified",
+      "fields": {
+        "brand": "DANONE",
+        "content_quantity": 4.0,
+        "content_unit": "uds"
+      },
+      "checked_at": "2026-11-04T17:24:51.685166+00:00",
+      "sha256": "4364651436eff587504c7f40f410614e6a1bbefcf903f8d87fe8f66e0683ca9b"
+    },
+    {
+      "ean": "08410714111084",
+      "url": "",
+      "missing": [
+        "brand",
+        "content_quantity",
+        "content_unit"
+      ],
+      "status": "no_known_url"
+    },
+    {
+      "ean": "08411145202969",
+      "url": "",
+      "missing": [
+        "brand",
+        "content_quantity",
+        "content_unit"
+      ],
+      "status": "no_known_url"
+    },
+    {
+      "ean": "08411394462121",
+      "url": "",
+      "missing": [
+        "brand"
+      ],
+      "status": "no_known_url"
+    },
+    {
+      "ean": "08412600018323",
+      "url": "https://www.carrefour.es/supermercado/bagels-semillas-new-york-bakery-bimbo-4-ud/R-VC4AECOMM-479585/p",
+      "missing": [
+        "brand"
+      ],
+      "http_status": 200,
+      "status": "verified",
+      "fields": {
+        "brand": "BIMBO",
+        "content_quantity": 4.0,
+        "content_unit": "uds"
+      },
+      "checked_at": "2026-11-04T17:25:11.697371+00:00",
+      "sha256": "b327d59532f613e9130d0867330a6f7a092f2013a6e9915686ef38aa45359b16"
+    },
+    {
+      "ean": "08412747213193",
+      "url": "",
+      "missing": [
+        "brand",
+        "content_quantity",
+        "content_unit"
+      ],
+      "status": "no_known_url"
+    },
+    {
+      "ean": "08424523030320",
+      "url": "https://www.carrefour.es/supermercado/tomate-frito-ecologico-hida-sin-gluten-tarro-350-g/R-826900524/p",
+      "missing": [
+        "brand"
+      ],
+      "http_status": 200,
+      "status": "verified",
+      "fields": {
+        "brand": "HIDA",
+        "content_quantity": 350.0,
+        "content_unit": "g"
+      },
+      "checked_at": "2026-11-04T17:25:31.670127+00:00",
+      "sha256": "65a112b02127f0d20cf103e67a4ce915fabf8d268ef1b29133d353d0a80dc116"
+    },
+    {
+      "ean": "08431876022537",
+      "url": "https://www.carrefour.es/supermercado/cogollos-carrefour-400-g/R-VC4AECOMM-235347/p",
+      "missing": [
+        "brand"
+      ],
+      "http_status": 200,
+      "status": "verified",
+      "fields": {
+        "brand": "CARREFOUR",
+        "content_quantity": 400.0,
+        "content_unit": "g"
+      },
+      "checked_at": "2026-11-04T17:25:51.684706+00:00",
+      "sha256": "4feb6136a686c18ca8811aa1a1e657632f9a36c8d81a91c69f000f998e76ba4e"
+    },
+    {
+      "ean": "08431876052985",
+      "url": "https://www.carrefour.es/supermercado/corazon-de-cogollos-circulo-de-calidad-x-6-ud/R-521032337/p",
+      "missing": [
+        "brand",
+        "content_quantity",
+        "content_unit"
+      ],
+      "http_status": 200,
+      "status": "verified",
+      "fields": {
+        "brand": "CIRCULO DE CALIDAD",
+        "content_quantity": 6.0,
+        "content_unit": "uds"
+      },
+      "checked_at": "2026-11-04T17:26:11.773878+00:00",
+      "sha256": "4f9c6df7c9467336b6f1557ab1a785ce33c2aabf638dfeda9a7559f6a11404d0"
+    },
+    {
+      "ean": "08431876127539",
+      "url": "",
+      "missing": [
+        "brand"
+      ],
+      "status": "no_known_url"
+    },
+    {
+      "ean": "08431876128741",
+      "url": "https://www.carrefour.es/supermercado/patata-ecologica-carrefour-bio-2-kg/R-600709102/p",
+      "missing": [
+        "brand"
+      ],
+      "http_status": 200,
+      "status": "verified",
+      "fields": {
+        "brand": "CARREFOUR BIO",
+        "content_quantity": 2.0,
+        "content_unit": "kg"
+      },
+      "checked_at": "2026-11-04T17:26:31.711396+00:00",
+      "sha256": "3fe69e33841b0beee7f4712a7e5896806ccd311a115142f31258511a05abcdeb"
+    },
+    {
+      "ean": "08431876150384",
+      "url": "https://www.carrefour.es/supermercado/cebolla-dulce-pelada-carrefour-500-g/R-521031809/p",
+      "missing": [
+        "brand"
+      ],
+      "http_status": 200,
+      "status": "verified",
+      "fields": {
+        "brand": "CARREFOUR",
+        "content_quantity": 500.0,
+        "content_unit": "g"
+      },
+      "checked_at": "2026-11-04T17:26:51.753804+00:00",
+      "sha256": "894bd935a557e58f03d3cf0c6183bc588f4dc16c0d4b7aedb2b66aa1ef7bce28"
+    },
+    {
+      "ean": "08431876213508",
+      "url": "",
+      "missing": [
+        "brand",
+        "content_quantity",
+        "content_unit"
+      ],
+      "status": "no_known_url"
+    },
+    {
+      "ean": "08431876262049",
+      "url": "https://www.carrefour.es/supermercado/queso-fresco-carrefour-sin-lactosa-pack-de-4-unidades-de-625-g/R-prod460003/p",
+      "missing": [
+        "brand",
+        "content_quantity",
+        "content_unit"
+      ],
+      "http_status": 200,
+      "status": "verified",
+      "fields": {
+        "brand": "CARREFOUR",
+        "content_quantity": 4.0,
+        "content_unit": "uds"
+      },
+      "checked_at": "2026-11-04T17:27:11.700147+00:00",
+      "sha256": "0146ed94d9e0005b44f7638d091e0298e64986297ea275f7d7946bea7eb15910"
+    },
+    {
+      "ean": "08431876272123",
+      "url": "https://www.carrefour.es/supermercado/brocoli-carrefour-500-g/R-prod1000504/p",
+      "missing": [
+        "brand",
+        "content_quantity",
+        "content_unit"
+      ],
+      "http_status": 200,
+      "status": "verified",
+      "fields": {
+        "brand": "CARREFOUR",
+        "content_quantity": 500.0,
+        "content_unit": "g"
+      },
+      "checked_at": "2026-11-04T17:27:31.722470+00:00",
+      "sha256": "46c621e392e2c10b2463678b1425ce784ada9ba737daf3d5a3adc6c84bc7b541"
+    },
+    {
+      "ean": "08431876277319",
+      "url": "https://www.carrefour.es/supermercado/zanahoria-circulo-de-calidad-carrefour-1-kg/R-prod223071/p",
+      "missing": [
+        "brand"
+      ],
+      "http_status": 200,
+      "status": "verified",
+      "fields": {
+        "brand": "CIRCULO DE CALIDAD",
+        "content_quantity": 1.0,
+        "content_unit": "kg"
+      },
+      "checked_at": "2026-11-04T17:27:51.697044+00:00",
+      "sha256": "e619df3ddeed2e70593127e9884691195dad14d8141f0f3d477d122ab88bf184"
+    },
+    {
+      "ean": "08431876277326",
+      "url": "https://www.carrefour.es/supermercado/puerro-circulo-de-calidad-500-g/R-prod223075/p",
+      "missing": [
+        "brand"
+      ],
+      "http_status": 200,
+      "status": "verified",
+      "fields": {
+        "brand": "CIRCULO DE CALIDAD",
+        "content_quantity": 500.0,
+        "content_unit": "g"
+      },
+      "checked_at": "2026-11-04T17:28:11.721151+00:00",
+      "sha256": "5a2bc3a1a6e65455e0af1adda7e0365ee8f94f0c745480fd37ff9135ca2a5303"
+    },
+    {
+      "ean": "08431876280104",
+      "url": "https://www.carrefour.es/supermercado/seitan-ecologico-carrefour-bio-250-g/R-VC4AECOMM-430855/p",
+      "missing": [
+        "brand"
+      ],
+      "http_status": 200,
+      "status": "verified",
+      "fields": {
+        "brand": "CARREFOUR BIO",
+        "content_quantity": 250.0,
+        "content_unit": "g"
+      },
+      "checked_at": "2026-11-04T17:28:31.755795+00:00",
+      "sha256": "5dbfcafb43363ff7401b6c2420c201be1ce7930eb921f5b336e9bf05adb88979"
+    },
+    {
+      "ean": "08431876282665",
+      "url": "https://www.carrefour.es/supermercado/zanahoria-circulo-de-calidad-carrefour-500-g/R-fprod1420336/p",
+      "missing": [
+        "brand"
+      ],
+      "http_status": 200,
+      "status": "verified",
+      "fields": {
+        "brand": "CIRCULO DE CALIDAD",
+        "content_quantity": 500.0,
+        "content_unit": "g"
+      },
+      "checked_at": "2026-11-04T17:28:51.714205+00:00",
+      "sha256": "c0441be790db50418a6d9035c6f63ed929f25185a8032f6ed6c4f63e6893d9de"
+    },
+    {
+      "ean": "08431876283402",
+      "url": "https://www.carrefour.es/supermercado/aceitunas-negras-kalamata-carrefour-200-g/R-VC4AECOMM-481965/p",
+      "missing": [
+        "brand"
+      ],
+      "http_status": 200,
+      "status": "verified",
+      "fields": {
+        "brand": "CARREFOUR",
+        "content_quantity": 200.0,
+        "content_unit": "g"
+      },
+      "checked_at": "2026-11-04T17:29:11.747846+00:00",
+      "sha256": "f952336dbd544b7ad5f4efcb1639eecf6a7097cb00e015d35ed016d2f348dba6"
+    },
+    {
+      "ean": "08431876304336",
+      "url": "",
+      "missing": [
+        "brand"
+      ],
+      "status": "no_known_url"
+    },
+    {
+      "ean": "08431876318128",
+      "url": "https://www.carrefour.es/supermercado/tomate-cherry-cocktail-romantico-carrefour-300-g/R-VC4AECOMM-369248/p",
+      "missing": [
+        "brand"
+      ],
+      "http_status": 200,
+      "status": "verified",
+      "fields": {
+        "brand": "CARREFOUR",
+        "content_quantity": 300.0,
+        "content_unit": "g"
+      },
+      "checked_at": "2026-11-04T17:29:31.775350+00:00",
+      "sha256": "f863dc8582bd5853d23526782eec4a8560225fdbc08fe8dfc10c616a1bbe5023"
+    },
+    {
+      "ean": "08431876332216",
+      "url": "https://www.carrefour.es/supermercado/ajo-ecologico-carrefour-bio-3-uds/R-646001855/p",
+      "missing": [
+        "brand"
+      ],
+      "http_status": 200,
+      "status": "verified",
+      "fields": {
+        "brand": "CARREFOUR BIO",
+        "content_quantity": 3.0,
+        "content_unit": "uds"
+      },
+      "checked_at": "2026-11-04T17:29:51.707660+00:00",
+      "sha256": "37a5a76bc96070ab1d8ac1854f209da572bfc9cd1f2bc04a80839b6986b60d99"
+    },
+    {
+      "ean": "08431876367751",
+      "url": "",
+      "missing": [
+        "brand"
+      ],
+      "status": "no_known_url"
+    },
+    {
+      "ean": "08431876371079",
+      "url": "https://www.carrefour.es/supermercado/mantequilla-sin-sal-ecologico-carrefour-bio-250-g/R-VC4AECOMM-705232/p",
+      "missing": [
+        "brand"
+      ],
+      "http_status": 200,
+      "status": "verified",
+      "fields": {
+        "brand": "CARREFOUR BIO",
+        "content_quantity": 250.0,
+        "content_unit": "g"
+      },
+      "checked_at": "2026-11-04T17:30:11.762230+00:00",
+      "sha256": "a57760ed177cd9079360c2a0e3cc6a3e60fe09606ff7096d1d5e173579e8c5e9"
+    },
+    {
+      "ean": "08431876373318",
+      "url": "https://www.carrefour.es/supermercado/hummus-trio-classic-picante-mango-y-curry-carrefour-extra-210-g/R-VC4AECOMM-780456/p",
+      "missing": [
+        "brand",
+        "content_quantity",
+        "content_unit"
+      ],
+      "http_status": 200,
+      "status": "verified",
+      "fields": {
+        "brand": "CARREFOUR",
+        "content_quantity": 210.0,
+        "content_unit": "g"
+      },
+      "checked_at": "2026-11-04T17:30:31.771009+00:00",
+      "sha256": "580f057f1e1e006b7d3bf1433bccf0e5990281a2fca9e800af106d6b2b3657a1"
+    },
+    {
+      "ean": "08436014350084",
+      "url": "",
+      "missing": [
+        "brand"
+      ],
+      "status": "no_known_url"
+    },
+    {
+      "ean": "08437001238187",
+      "url": "",
+      "missing": [
+        "brand",
+        "content_quantity",
+        "content_unit"
+      ],
+      "status": "no_known_url"
+    },
+    {
+      "ean": "08410199027337",
+      "url": "https://www.carrefour.es/supermercado/conos-de-maiz-matutano-3d-85-g/R-521012475/p",
+      "missing": [
+        "brand"
+      ],
+      "http_status": 200,
+      "status": "ean_mismatch",
+      "observed_ean": "8410199030900"
+    },
+    {
+      "ean": "08410448009589",
+      "url": "https://www.carrefour.es/supermercado/salchichas-frankfurt-aleman-schara-sin-gluten-sin-lactosa-340-g/R-798479814/p",
+      "missing": [
+        "brand",
+        "content_quantity",
+        "content_unit"
+      ],
+      "http_status": 200,
+      "status": "ean_mismatch",
+      "observed_ean": "8410448009688"
+    },
+    {
+      "ean": "08425205012177",
+      "url": "https://www.carrefour.es/supermercado/alubia-blanca-cocida-ecologica-pedro-luis-425-g/R-795411365/p",
+      "missing": [
+        "brand",
+        "content_quantity",
+        "content_unit"
+      ],
+      "http_status": 200,
+      "status": "ean_mismatch",
+      "observed_ean": "8425205011279"
+    },
+    {
+      "ean": "08437007383089",
+      "url": "https://www.carrefour.es/supermercado/galletas-marineras-ecologicas-daveiga-200-g/R-590216705/p",
+      "missing": [
+        "brand"
+      ],
+      "http_status": 200,
+      "status": "ean_mismatch",
+      "observed_ean": "8437007383119"
+    },
+    {
+      "ean": "08715035110205",
+      "url": "https://www.carrefour.es/supermercado/salsa-de-soja-kikkoman-botella-150-ml/R-655301690/p",
+      "missing": [
+        "brand"
+      ],
+      "http_status": 200,
+      "status": "ean_mismatch",
+      "observed_ean": "8715035110106"
+    }
+  ],
+  "link_updates": {
+    "5": {
+      "rows": 15774,
+      "changes": [
+        {
+          "ean": "00000087157215",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/ketchup-heinz-envase-220-ml/R-651302390/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "00069276220031",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/mango-dulce-pataks-sin-gluten-tarro-340-g/R-639501655/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "03083681070187",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/maiz-en-grano-bonduelle-pack-de-3-unidades-de-70-g/R-859823211/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "03161710000128",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/queso-camembert-caprice-des-dieux-200-g/R-VC4AECOMM-683446/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "03270190128533",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/biscottes-normales-ecologicos-carrefour-bio-300-g/R-624066604/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "03414202051444",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/desodorante-en-crema-eau-de-lancaster-125-ml/R-VC4AECOMM-499530/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "03560070392032",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/papel-de-cocina-compact-carrefour-6-rollos/R-596001537/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "03560070968831",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/pimientos-del-piquillo-enteros-bajo-contenido-en-sal-classic-carrefour-225-g/R-825606407/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "03560071006419",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/garbanzos-tostados-y-salados-carrefour-125-g/R-832012860/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "03560071150556",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/almendras-crudas-sin-cascara-ecologicas-carrefour-bio-sin-sal-anadida-90-g/R-prod810741/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "03560071230531",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/atun-en-aceite-de-oliva-virgen-extra-ecologico-carrefour-pack-de-6-latas-de-52-g/R-VC4AECOMM-442010/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "03560071237950",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/anacardo-crudo-original-carrefour-200-g/R-VC4AECOMM-491998/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "03560071251772",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/nuez-pecana-natural-original-carrefour-200-g/R-VC4AECOMM-615039/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "03560071251802",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/nueces-peladas-original-carrefour-400-g/R-VC4AECOMM-539120/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "03560071452599",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/jalapenos-sensation-carrefour-160-g/R-VC4AECOMM-278365/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "03616181521554",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/bolsas-de-basura-envases-plastico-reciclado-carrefour-essential-30-l-30-ud/R-VC4AECOMM-448043/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "05000204922882",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/gel-wc-con-lejia-y-espuma-limpiadora-fresh-extra-power-pato-750-ml/R-871900845/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "05029053562858",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/papel-higienico-humedo-con-aloe-vera-sensitive-scottex-66-ud/R-855700412/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "05411188112709",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/bebida-de-almendras-sin-azucar-alpro-sin-gluten-y-sin-lactosa-brik-1-l/R-VC4AECOMM-732758/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "05601082041728",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/cafe-molido-natural-colombia-delta-220-g/R-VC4AECOMM-674399/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "05711953013089",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/queso-gouda-en-lonchas-arla-150-g/R-fprod1190126/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "05711953019425",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/queso-cheddar-en-lonchas-arla-150-g/R-814300553/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "05711953158452",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/crema-de-queso-light-arla-200-g/R-VC4AECOMM-128522/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "07613036039468",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/cafe-molido-natural-cultivo-sostenible-nestle-bonka-500-g/R-prod310215/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08000139910753",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/pasta-casarecce-garofalo-500-g/R-793104326/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08002859150419",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/pan-de-molde-integral-sin-corteza-ecologico-artebianca-sin-lactosa-400-g/R-prod971670/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08008706630202",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/guanciale-en-tiras-ferrarini-sin-gluten-100-g/R-VC4AECOMM-572358/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08410069018281",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/pasta-estrellas-gallo-450-g/R-VC4AECOMM-557245/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08410069018335",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/pasta-fideo-n-2-gallo-450-g/R-VC4AECOMM-557296/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08410087363004",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/pan-de-brioche-para-hamburguesa-dulcesol-4-ud/R-prod1000378/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08410090737359",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/atun-en-aceite-de-oliva-calvo-pack-de-8-latas-de-52-g/R-VC4AECOMM-719017/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08410104926090",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/lavavajillas-maquina-capsulas-quantium-finish-powerball-103-ud/R-VC4AECOMM-712037/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08410118017562",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/pepinillos-agridulces-kuhne-360-g/R-521029128/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08410128010096",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/leche-entera-pascual-brik-1-l/R-521006986/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08410184030137",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/quinoa-blanca-y-roja-para-microondas-brillante-pack-de-2-unidades-de-125-g/R-834407519/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08410184800150",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/arroz-integral-para-microondas-brillante-pack-de-2-unidades-de-125-g/R-521005544/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08410297142581",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/queso-azul-cabrales-central-lechera-asturiana-cuna-100-g/R-VC4AECOMM-683095/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08410376006322",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/galletas-maria-integral-gullon-600-g/R-521002787/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08410436456593",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/detergente-en-capsulas-limpieza-profunda-higiene-antiolores-wipp-express-33-lavados/R-VC4AECOMM-281438/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08410500028794",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/yogur-griego-natural-danone-pack-de-4-unidades-de-110-g/R-VC4AECOMM-155029/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08410762002327",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/pate-a-la-pimienta-casa-tarradellas-sin-gluten-125-g/R-521006620/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08410762005014",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/espetec-casa-tarradellas-sin-gluten-185-g/R-VC4AECOMM-698147/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08412600018323",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/bagels-semillas-new-york-bakery-bimbo-4-ud/R-VC4AECOMM-479585/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08412600018897",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/hogaza-integral-84-the-rustik-bakery-400-g/R-VC4AECOMM-035555/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08412600019832",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/pan-de-molde-integral-12-seleccion-cereales-y-semillas-oroweat-590-g/R-754402172/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08413700014260",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/oregano-carmencita-8-g/R-521005073/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08422947520113",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/tofu-ahumado-ecologico-soria-natural-sin-gluten-250-g/R-544101734/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08423223003115",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/tomate-dulce-extra-280-g/R-VC4AECOMM-720009/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08424523030320",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/tomate-frito-ecologico-hida-sin-gluten-tarro-350-g/R-826900524/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08424523030450",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/salsa-de-tomate-frito-hida-sin-azucar-anadido-sin-gluten-350-g/R-VC4AECOMM-708622/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08424790101358",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/yoghourt-artesanal-sabor-limon-yuzu-pastoret-sin-gluten-500-g/R-VC4AECOMM-299729/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08431876022537",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/cogollos-carrefour-400-g/R-VC4AECOMM-235347/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08431876052985",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/corazon-de-cogollos-circulo-de-calidad-x-6-ud/R-521032337/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08431876128741",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/patata-ecologica-carrefour-bio-2-kg/R-600709102/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08431876150384",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/cebolla-dulce-pelada-carrefour-500-g/R-521031809/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08431876171501",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/patatas-fritas-extracrujientes-con-aceite-de-oliva-seleccion-carrefour-150-g/R-540201778/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08431876231823",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/molletes-de-pan-para-hornear-o-tostar-carrefour-pack-de-2-unidades-de-100-g/R-728110676/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08431876253894",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/film-transparente-con-sierra-de-corte-carrefour-60-metros/R-prod392791/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08431876254297",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/rucula-y-canonigo-carrefour-el-mercado-100-g/R-prod160425/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08431876259803",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/huevos-camperos-l-circulo-de-calidad-6-ud/R-prod69874/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08431876262049",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/queso-fresco-carrefour-sin-lactosa-pack-de-4-unidades-de-625-g/R-prod460003/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08431876271843",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/huevos-camperos-l-circulo-de-calidad-12-ud/R-prod970492/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08431876272123",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/brocoli-carrefour-500-g/R-prod1000504/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08431876274387",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/tomate-pera-rama-carrefour-500-g/R-prod1090039/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08431876277319",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/zanahoria-circulo-de-calidad-carrefour-1-kg/R-prod223071/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08431876277326",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/puerro-circulo-de-calidad-500-g/R-prod223075/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08431876279146",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/alcaparras-carrefour-80-g/R-fprod1380005/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08431876280104",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/seitan-ecologico-carrefour-bio-250-g/R-VC4AECOMM-430855/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08431876282665",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/zanahoria-circulo-de-calidad-carrefour-500-g/R-fprod1420336/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08431876283402",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/aceitunas-negras-kalamata-carrefour-200-g/R-VC4AECOMM-481965/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08431876287752",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/endivia-carrefour-450-g/R-VC4AECOMM-436933/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08431876289565",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/bebida-de-avena-ecologica-carrefour-bio-sin-azucar-anadido-brik-1-l/R-VC4AECOMM-580534/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08431876318074",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/uva-roja-sin-pepita-sabor-moscatel-carrefour-300-g/R-VC4AECOMM-353400/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08431876318098",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/uva-sin-pepitas-sabor-algodon-azucar-carrefour-300-g/R-VC4AECOMM-353397/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08431876318128",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/tomate-cherry-cocktail-romantico-carrefour-300-g/R-VC4AECOMM-369248/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08431876328240",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/corazones-de-alcachofas-de-tudela-extra-carrefour-250-g/R-VC4AECOMM-094692/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08431876332216",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/ajo-ecologico-carrefour-bio-3-uds/R-646001855/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08431876343052",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/pepperoni-en-lonchas-carrefour-el-mercado-sin-gluten-75-g/R-VC4AECOMM-207009/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08431876346183",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/brotes-espinacas-carrefour-el-mercado-100-g/R-VC4AECOMM-226296/p",
+          "change": "new_url"
+        },
+        {
+          "ean": "08431876352801",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/esparrago-verde-grueso-carrefour-el-mercado-300-g/R-VC4AECOMM-335221/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08431876371079",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/mantequilla-sin-sal-ecologico-carrefour-bio-250-g/R-VC4AECOMM-705232/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08431876373318",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/hummus-trio-classic-picante-mango-y-curry-carrefour-extra-210-g/R-VC4AECOMM-780456/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08436542197618",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/tahini-suave-integral-ecologico-naturgreen-sin-gluten-270-g/R-VC4AECOMM-702972/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08436587720017",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/saltimbocca-napolitano-230-g/R-VC4AECOMM-703423/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08436587720024",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/pan-de-pita-griego-400-g/R-VC4AECOMM-703416/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08445291132221",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/masa-para-pizza-rectangular-maxi-buitoni-350-g/R-800766466/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08712566388677",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/mostaza-hellmanns-sin-gluten-envase-250-ml/R-649302155/p",
+          "change": "direct_url"
+        }
+      ]
+    },
+    "6": {
+      "rows": 15776,
+      "changes": [
+        {
+          "ean": "00000087157215",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/ketchup-heinz-envase-220-ml/R-651302390/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "00069276220031",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/mango-dulce-pataks-sin-gluten-tarro-340-g/R-639501655/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "03083681070187",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/maiz-en-grano-bonduelle-pack-de-3-unidades-de-70-g/R-859823211/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "03161710000128",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/queso-camembert-caprice-des-dieux-200-g/R-VC4AECOMM-683446/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "03270190128533",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/biscottes-normales-ecologicos-carrefour-bio-300-g/R-624066604/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "03414202051444",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/desodorante-en-crema-eau-de-lancaster-125-ml/R-VC4AECOMM-499530/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "03560070392032",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/papel-de-cocina-compact-carrefour-6-rollos/R-596001537/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "03560070968831",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/pimientos-del-piquillo-enteros-bajo-contenido-en-sal-classic-carrefour-225-g/R-825606407/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "03560071006419",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/garbanzos-tostados-y-salados-carrefour-125-g/R-832012860/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "03560071150556",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/almendras-crudas-sin-cascara-ecologicas-carrefour-bio-sin-sal-anadida-90-g/R-prod810741/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "03560071230531",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/atun-en-aceite-de-oliva-virgen-extra-ecologico-carrefour-pack-de-6-latas-de-52-g/R-VC4AECOMM-442010/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "03560071237950",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/anacardo-crudo-original-carrefour-200-g/R-VC4AECOMM-491998/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "03560071251772",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/nuez-pecana-natural-original-carrefour-200-g/R-VC4AECOMM-615039/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "03560071251802",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/nueces-peladas-original-carrefour-400-g/R-VC4AECOMM-539120/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "03560071452599",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/jalapenos-sensation-carrefour-160-g/R-VC4AECOMM-278365/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "03616181521554",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/bolsas-de-basura-envases-plastico-reciclado-carrefour-essential-30-l-30-ud/R-VC4AECOMM-448043/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "05000204922882",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/gel-wc-con-lejia-y-espuma-limpiadora-fresh-extra-power-pato-750-ml/R-871900845/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "05029053562858",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/papel-higienico-humedo-con-aloe-vera-sensitive-scottex-66-ud/R-855700412/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "05411188112709",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/bebida-de-almendras-sin-azucar-alpro-sin-gluten-y-sin-lactosa-brik-1-l/R-VC4AECOMM-732758/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "05601082041728",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/cafe-molido-natural-colombia-delta-220-g/R-VC4AECOMM-674399/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "05711953013089",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/queso-gouda-en-lonchas-arla-150-g/R-fprod1190126/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "05711953019425",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/queso-cheddar-en-lonchas-arla-150-g/R-814300553/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "05711953158452",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/crema-de-queso-light-arla-200-g/R-VC4AECOMM-128522/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "07613036039468",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/cafe-molido-natural-cultivo-sostenible-nestle-bonka-500-g/R-prod310215/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08000139910753",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/pasta-casarecce-garofalo-500-g/R-793104326/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08002859150419",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/pan-de-molde-integral-sin-corteza-ecologico-artebianca-sin-lactosa-400-g/R-prod971670/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08008706630202",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/guanciale-en-tiras-ferrarini-sin-gluten-100-g/R-VC4AECOMM-572358/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08410069018281",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/pasta-estrellas-gallo-450-g/R-VC4AECOMM-557245/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08410069018335",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/pasta-fideo-n-2-gallo-450-g/R-VC4AECOMM-557296/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08410087363004",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/pan-de-brioche-para-hamburguesa-dulcesol-4-ud/R-prod1000378/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08410090737359",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/atun-en-aceite-de-oliva-calvo-pack-de-8-latas-de-52-g/R-VC4AECOMM-719017/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08410104926090",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/lavavajillas-maquina-capsulas-quantium-finish-powerball-103-ud/R-VC4AECOMM-712037/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08410118017562",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/pepinillos-agridulces-kuhne-360-g/R-521029128/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08410128010096",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/leche-entera-pascual-brik-1-l/R-521006986/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08410184030137",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/quinoa-blanca-y-roja-para-microondas-brillante-pack-de-2-unidades-de-125-g/R-834407519/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08410184800150",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/arroz-integral-para-microondas-brillante-pack-de-2-unidades-de-125-g/R-521005544/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08410297142581",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/queso-azul-cabrales-central-lechera-asturiana-cuna-100-g/R-VC4AECOMM-683095/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08410376006322",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/galletas-maria-integral-gullon-600-g/R-521002787/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08410436456593",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/detergente-en-capsulas-limpieza-profunda-higiene-antiolores-wipp-express-33-lavados/R-VC4AECOMM-281438/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08410500028794",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/yogur-griego-natural-danone-pack-de-4-unidades-de-110-g/R-VC4AECOMM-155029/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08410762002327",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/pate-a-la-pimienta-casa-tarradellas-sin-gluten-125-g/R-521006620/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08410762005014",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/espetec-casa-tarradellas-sin-gluten-185-g/R-VC4AECOMM-698147/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08412600018323",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/bagels-semillas-new-york-bakery-bimbo-4-ud/R-VC4AECOMM-479585/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08412600018897",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/hogaza-integral-84-the-rustik-bakery-400-g/R-VC4AECOMM-035555/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08412600019832",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/pan-de-molde-integral-12-seleccion-cereales-y-semillas-oroweat-590-g/R-754402172/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08413700014260",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/oregano-carmencita-8-g/R-521005073/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08422947520113",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/tofu-ahumado-ecologico-soria-natural-sin-gluten-250-g/R-544101734/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08423223003115",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/tomate-dulce-extra-280-g/R-VC4AECOMM-720009/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08424523030320",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/tomate-frito-ecologico-hida-sin-gluten-tarro-350-g/R-826900524/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08424523030450",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/salsa-de-tomate-frito-hida-sin-azucar-anadido-sin-gluten-350-g/R-VC4AECOMM-708622/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08424790101358",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/yoghourt-artesanal-sabor-limon-yuzu-pastoret-sin-gluten-500-g/R-VC4AECOMM-299729/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08431876022537",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/cogollos-carrefour-400-g/R-VC4AECOMM-235347/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08431876052985",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/corazon-de-cogollos-circulo-de-calidad-x-6-ud/R-521032337/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08431876128741",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/patata-ecologica-carrefour-bio-2-kg/R-600709102/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08431876150384",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/cebolla-dulce-pelada-carrefour-500-g/R-521031809/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08431876171501",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/patatas-fritas-extracrujientes-con-aceite-de-oliva-seleccion-carrefour-150-g/R-540201778/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08431876231823",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/molletes-de-pan-para-hornear-o-tostar-carrefour-pack-de-2-unidades-de-100-g/R-728110676/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08431876253894",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/film-transparente-con-sierra-de-corte-carrefour-60-metros/R-prod392791/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08431876254297",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/rucula-y-canonigo-carrefour-el-mercado-100-g/R-prod160425/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08431876259803",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/huevos-camperos-l-circulo-de-calidad-6-ud/R-prod69874/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08431876262049",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/queso-fresco-carrefour-sin-lactosa-pack-de-4-unidades-de-625-g/R-prod460003/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08431876271843",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/huevos-camperos-l-circulo-de-calidad-12-ud/R-prod970492/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08431876272123",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/brocoli-carrefour-500-g/R-prod1000504/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08431876274387",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/tomate-pera-rama-carrefour-500-g/R-prod1090039/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08431876277319",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/zanahoria-circulo-de-calidad-carrefour-1-kg/R-prod223071/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08431876277326",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/puerro-circulo-de-calidad-500-g/R-prod223075/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08431876279146",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/alcaparras-carrefour-80-g/R-fprod1380005/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08431876280104",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/seitan-ecologico-carrefour-bio-250-g/R-VC4AECOMM-430855/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08431876282665",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/zanahoria-circulo-de-calidad-carrefour-500-g/R-fprod1420336/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08431876283402",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/aceitunas-negras-kalamata-carrefour-200-g/R-VC4AECOMM-481965/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08431876287752",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/endivia-carrefour-450-g/R-VC4AECOMM-436933/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08431876289565",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/bebida-de-avena-ecologica-carrefour-bio-sin-azucar-anadido-brik-1-l/R-VC4AECOMM-580534/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08431876318074",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/uva-roja-sin-pepita-sabor-moscatel-carrefour-300-g/R-VC4AECOMM-353400/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08431876318098",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/uva-sin-pepitas-sabor-algodon-azucar-carrefour-300-g/R-VC4AECOMM-353397/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08431876318128",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/tomate-cherry-cocktail-romantico-carrefour-300-g/R-VC4AECOMM-369248/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08431876328240",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/corazones-de-alcachofas-de-tudela-extra-carrefour-250-g/R-VC4AECOMM-094692/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08431876332216",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/ajo-ecologico-carrefour-bio-3-uds/R-646001855/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08431876343052",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/pepperoni-en-lonchas-carrefour-el-mercado-sin-gluten-75-g/R-VC4AECOMM-207009/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08431876346183",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/brotes-espinacas-carrefour-el-mercado-100-g/R-VC4AECOMM-226296/p",
+          "change": "new_url"
+        },
+        {
+          "ean": "08431876352801",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/esparrago-verde-grueso-carrefour-el-mercado-300-g/R-VC4AECOMM-335221/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08431876371079",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/mantequilla-sin-sal-ecologico-carrefour-bio-250-g/R-VC4AECOMM-705232/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08431876373318",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/hummus-trio-classic-picante-mango-y-curry-carrefour-extra-210-g/R-VC4AECOMM-780456/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08436542197618",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/tahini-suave-integral-ecologico-naturgreen-sin-gluten-270-g/R-VC4AECOMM-702972/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08436587720017",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/saltimbocca-napolitano-230-g/R-VC4AECOMM-703423/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08436587720024",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/pan-de-pita-griego-400-g/R-VC4AECOMM-703416/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08445291132221",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/masa-para-pizza-rectangular-maxi-buitoni-350-g/R-800766466/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08712566388677",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/mostaza-hellmanns-sin-gluten-envase-250-ml/R-649302155/p",
+          "change": "direct_url"
+        }
+      ]
+    },
+    "7": {
+      "rows": 15776,
+      "changes": [
+        {
+          "ean": "00000087157215",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/ketchup-heinz-envase-220-ml/R-651302390/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "00069276220031",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/mango-dulce-pataks-sin-gluten-tarro-340-g/R-639501655/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "03083681070187",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/maiz-en-grano-bonduelle-pack-de-3-unidades-de-70-g/R-859823211/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "03161710000128",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/queso-camembert-caprice-des-dieux-200-g/R-VC4AECOMM-683446/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "03270190128533",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/biscottes-normales-ecologicos-carrefour-bio-300-g/R-624066604/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "03414202051444",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/desodorante-en-crema-eau-de-lancaster-125-ml/R-VC4AECOMM-499530/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "03560070392032",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/papel-de-cocina-compact-carrefour-6-rollos/R-596001537/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "03560070968831",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/pimientos-del-piquillo-enteros-bajo-contenido-en-sal-classic-carrefour-225-g/R-825606407/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "03560071006419",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/garbanzos-tostados-y-salados-carrefour-125-g/R-832012860/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "03560071150556",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/almendras-crudas-sin-cascara-ecologicas-carrefour-bio-sin-sal-anadida-90-g/R-prod810741/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "03560071230531",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/atun-en-aceite-de-oliva-virgen-extra-ecologico-carrefour-pack-de-6-latas-de-52-g/R-VC4AECOMM-442010/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "03560071237950",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/anacardo-crudo-original-carrefour-200-g/R-VC4AECOMM-491998/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "03560071251772",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/nuez-pecana-natural-original-carrefour-200-g/R-VC4AECOMM-615039/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "03560071251802",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/nueces-peladas-original-carrefour-400-g/R-VC4AECOMM-539120/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "03560071452599",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/jalapenos-sensation-carrefour-160-g/R-VC4AECOMM-278365/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "03616181521554",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/bolsas-de-basura-envases-plastico-reciclado-carrefour-essential-30-l-30-ud/R-VC4AECOMM-448043/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "05000204922882",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/gel-wc-con-lejia-y-espuma-limpiadora-fresh-extra-power-pato-750-ml/R-871900845/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "05029053562858",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/papel-higienico-humedo-con-aloe-vera-sensitive-scottex-66-ud/R-855700412/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "05411188112709",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/bebida-de-almendras-sin-azucar-alpro-sin-gluten-y-sin-lactosa-brik-1-l/R-VC4AECOMM-732758/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "05601082041728",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/cafe-molido-natural-colombia-delta-220-g/R-VC4AECOMM-674399/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "05711953013089",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/queso-gouda-en-lonchas-arla-150-g/R-fprod1190126/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "05711953019425",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/queso-cheddar-en-lonchas-arla-150-g/R-814300553/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "05711953158452",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/crema-de-queso-light-arla-200-g/R-VC4AECOMM-128522/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "07613036039468",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/cafe-molido-natural-cultivo-sostenible-nestle-bonka-500-g/R-prod310215/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08000139910753",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/pasta-casarecce-garofalo-500-g/R-793104326/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08002859150419",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/pan-de-molde-integral-sin-corteza-ecologico-artebianca-sin-lactosa-400-g/R-prod971670/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08008706630202",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/guanciale-en-tiras-ferrarini-sin-gluten-100-g/R-VC4AECOMM-572358/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08410069018281",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/pasta-estrellas-gallo-450-g/R-VC4AECOMM-557245/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08410069018335",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/pasta-fideo-n-2-gallo-450-g/R-VC4AECOMM-557296/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08410087363004",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/pan-de-brioche-para-hamburguesa-dulcesol-4-ud/R-prod1000378/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08410090737359",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/atun-en-aceite-de-oliva-calvo-pack-de-8-latas-de-52-g/R-VC4AECOMM-719017/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08410104926090",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/lavavajillas-maquina-capsulas-quantium-finish-powerball-103-ud/R-VC4AECOMM-712037/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08410118017562",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/pepinillos-agridulces-kuhne-360-g/R-521029128/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08410128010096",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/leche-entera-pascual-brik-1-l/R-521006986/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08410184030137",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/quinoa-blanca-y-roja-para-microondas-brillante-pack-de-2-unidades-de-125-g/R-834407519/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08410184800150",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/arroz-integral-para-microondas-brillante-pack-de-2-unidades-de-125-g/R-521005544/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08410297142581",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/queso-azul-cabrales-central-lechera-asturiana-cuna-100-g/R-VC4AECOMM-683095/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08410376006322",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/galletas-maria-integral-gullon-600-g/R-521002787/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08410436456593",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/detergente-en-capsulas-limpieza-profunda-higiene-antiolores-wipp-express-33-lavados/R-VC4AECOMM-281438/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08410500028794",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/yogur-griego-natural-danone-pack-de-4-unidades-de-110-g/R-VC4AECOMM-155029/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08410762002327",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/pate-a-la-pimienta-casa-tarradellas-sin-gluten-125-g/R-521006620/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08410762005014",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/espetec-casa-tarradellas-sin-gluten-185-g/R-VC4AECOMM-698147/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08412600018323",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/bagels-semillas-new-york-bakery-bimbo-4-ud/R-VC4AECOMM-479585/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08412600018897",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/hogaza-integral-84-the-rustik-bakery-400-g/R-VC4AECOMM-035555/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08412600019832",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/pan-de-molde-integral-12-seleccion-cereales-y-semillas-oroweat-590-g/R-754402172/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08413700014260",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/oregano-carmencita-8-g/R-521005073/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08422947520113",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/tofu-ahumado-ecologico-soria-natural-sin-gluten-250-g/R-544101734/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08423223003115",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/tomate-dulce-extra-280-g/R-VC4AECOMM-720009/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08424523030320",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/tomate-frito-ecologico-hida-sin-gluten-tarro-350-g/R-826900524/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08424523030450",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/salsa-de-tomate-frito-hida-sin-azucar-anadido-sin-gluten-350-g/R-VC4AECOMM-708622/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08424790101358",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/yoghourt-artesanal-sabor-limon-yuzu-pastoret-sin-gluten-500-g/R-VC4AECOMM-299729/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08431876022537",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/cogollos-carrefour-400-g/R-VC4AECOMM-235347/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08431876052985",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/corazon-de-cogollos-circulo-de-calidad-x-6-ud/R-521032337/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08431876128741",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/patata-ecologica-carrefour-bio-2-kg/R-600709102/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08431876150384",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/cebolla-dulce-pelada-carrefour-500-g/R-521031809/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08431876171501",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/patatas-fritas-extracrujientes-con-aceite-de-oliva-seleccion-carrefour-150-g/R-540201778/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08431876231823",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/molletes-de-pan-para-hornear-o-tostar-carrefour-pack-de-2-unidades-de-100-g/R-728110676/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08431876253894",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/film-transparente-con-sierra-de-corte-carrefour-60-metros/R-prod392791/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08431876254297",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/rucula-y-canonigo-carrefour-el-mercado-100-g/R-prod160425/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08431876259803",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/huevos-camperos-l-circulo-de-calidad-6-ud/R-prod69874/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08431876262049",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/queso-fresco-carrefour-sin-lactosa-pack-de-4-unidades-de-625-g/R-prod460003/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08431876271843",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/huevos-camperos-l-circulo-de-calidad-12-ud/R-prod970492/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08431876272123",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/brocoli-carrefour-500-g/R-prod1000504/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08431876274387",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/tomate-pera-rama-carrefour-500-g/R-prod1090039/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08431876277319",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/zanahoria-circulo-de-calidad-carrefour-1-kg/R-prod223071/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08431876277326",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/puerro-circulo-de-calidad-500-g/R-prod223075/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08431876279146",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/alcaparras-carrefour-80-g/R-fprod1380005/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08431876280104",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/seitan-ecologico-carrefour-bio-250-g/R-VC4AECOMM-430855/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08431876282665",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/zanahoria-circulo-de-calidad-carrefour-500-g/R-fprod1420336/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08431876283402",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/aceitunas-negras-kalamata-carrefour-200-g/R-VC4AECOMM-481965/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08431876287752",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/endivia-carrefour-450-g/R-VC4AECOMM-436933/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08431876289565",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/bebida-de-avena-ecologica-carrefour-bio-sin-azucar-anadido-brik-1-l/R-VC4AECOMM-580534/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08431876318074",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/uva-roja-sin-pepita-sabor-moscatel-carrefour-300-g/R-VC4AECOMM-353400/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08431876318098",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/uva-sin-pepitas-sabor-algodon-azucar-carrefour-300-g/R-VC4AECOMM-353397/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08431876318128",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/tomate-cherry-cocktail-romantico-carrefour-300-g/R-VC4AECOMM-369248/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08431876328240",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/corazones-de-alcachofas-de-tudela-extra-carrefour-250-g/R-VC4AECOMM-094692/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08431876332216",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/ajo-ecologico-carrefour-bio-3-uds/R-646001855/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08431876343052",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/pepperoni-en-lonchas-carrefour-el-mercado-sin-gluten-75-g/R-VC4AECOMM-207009/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08431876346183",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/brotes-espinacas-carrefour-el-mercado-100-g/R-VC4AECOMM-226296/p",
+          "change": "new_url"
+        },
+        {
+          "ean": "08431876352801",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/esparrago-verde-grueso-carrefour-el-mercado-300-g/R-VC4AECOMM-335221/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08431876371079",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/mantequilla-sin-sal-ecologico-carrefour-bio-250-g/R-VC4AECOMM-705232/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08431876373318",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/hummus-trio-classic-picante-mango-y-curry-carrefour-extra-210-g/R-VC4AECOMM-780456/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08436542197618",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/tahini-suave-integral-ecologico-naturgreen-sin-gluten-270-g/R-VC4AECOMM-702972/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08436587720017",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/saltimbocca-napolitano-230-g/R-VC4AECOMM-703423/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08436587720024",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/pan-de-pita-griego-400-g/R-VC4AECOMM-703416/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08445291132221",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/masa-para-pizza-rectangular-maxi-buitoni-350-g/R-800766466/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08712566388677",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/mostaza-hellmanns-sin-gluten-envase-250-ml/R-649302155/p",
+          "change": "direct_url"
+        }
+      ]
+    },
+    "8": {
+      "rows": 15776,
+      "changes": [
+        {
+          "ean": "03161710000128",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/queso-camembert-caprice-des-dieux-200-g/R-VC4AECOMM-683446/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "03270190128533",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/biscottes-normales-ecologicos-carrefour-bio-300-g/R-624066604/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "05711953019425",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/queso-cheddar-en-lonchas-arla-150-g/R-814300553/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08008706630202",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/guanciale-en-tiras-ferrarini-sin-gluten-100-g/R-VC4AECOMM-572358/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08410297142581",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/queso-azul-cabrales-central-lechera-asturiana-cuna-100-g/R-VC4AECOMM-683095/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08410376006322",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/galletas-maria-integral-gullon-600-g/R-521002787/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08410500028794",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/yogur-griego-natural-danone-pack-de-4-unidades-de-110-g/R-VC4AECOMM-155029/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08410762005014",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/espetec-casa-tarradellas-sin-gluten-185-g/R-VC4AECOMM-698147/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08424523030450",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/salsa-de-tomate-frito-hida-sin-azucar-anadido-sin-gluten-350-g/R-VC4AECOMM-708622/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08431876231823",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/molletes-de-pan-para-hornear-o-tostar-carrefour-pack-de-2-unidades-de-100-g/R-728110676/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08431876253894",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/film-transparente-con-sierra-de-corte-carrefour-60-metros/R-prod392791/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08431876272123",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/brocoli-carrefour-500-g/R-prod1000504/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08431876274387",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/tomate-pera-rama-carrefour-500-g/R-prod1090039/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08431876282665",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/zanahoria-circulo-de-calidad-carrefour-500-g/R-fprod1420336/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08431876287752",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/endivia-carrefour-450-g/R-VC4AECOMM-436933/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08431876318074",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/uva-roja-sin-pepita-sabor-moscatel-carrefour-300-g/R-VC4AECOMM-353400/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08431876318098",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/uva-sin-pepitas-sabor-algodon-azucar-carrefour-300-g/R-VC4AECOMM-353397/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08431876346183",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/brotes-espinacas-carrefour-el-mercado-100-g/R-VC4AECOMM-226296/p",
+          "change": "new_url"
+        },
+        {
+          "ean": "08431876371079",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/mantequilla-sin-sal-ecologico-carrefour-bio-250-g/R-VC4AECOMM-705232/p",
+          "change": "direct_url"
+        },
+        {
+          "ean": "08431876373318",
+          "store": "carrefour",
+          "url": "https://www.carrefour.es/supermercado/hummus-trio-classic-picante-mango-y-curry-carrefour-extra-210-g/R-VC4AECOMM-780456/p",
+          "change": "direct_url"
+        }
+      ]
+    }
+  },
+  "web_merge_policy": "Fill missing fields only; preserve already confirmed package content. Website observations can describe pack count instead of net weight.",
+  "price_policy": "Prices are not published in the common EAN dictionary.",
+  "private_fields_excluded": [
+    "household_names",
+    "categories",
+    "images",
+    "prices",
+    "purchase_dates",
+    "accounts"
+  ]
+}

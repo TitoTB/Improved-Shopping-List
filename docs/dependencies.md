@@ -3,6 +3,7 @@
 La integración requiere Home Assistant Core 2026.10 o posterior y utiliza sus entidades `todo` para gestionar las listas. No requiere tarjetas adicionales de HACS ni complementos de Home Assistant OS.
 
 - **pypdf 6.21.2:** lectura local de tickets y facturas PDF. Home Assistant lo instala automáticamente a partir de `manifest.json`.
+- **curl_cffi 0.16.1:** transporte HTTP alternativo para fichas públicas de Carrefour, Alcampo y El Corte Inglés. Home Assistant lo instala automáticamente; no requiere navegador, Scrapling ni un complemento adicional. Las consultas de cuentas y tickets conservan sus conectores propios.
 - **Leaflet 1.9.4:** biblioteca de mapas incluida en la integración, con licencia BSD-2-Clause. No requiere instalación adicional.
 - **OpenStreetMap:** proporciona las teselas del mapa, con atribución visible. El navegador necesita acceso a Internet para mostrar ese fondo.
 

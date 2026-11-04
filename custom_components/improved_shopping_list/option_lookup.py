@@ -192,6 +192,44 @@ class OptionLookup:
         self._next = time.monotonic() + 5
 
     async def _page(self, store, link, before_request=None):
+        try:
+            return await self._page_standard(store, link, before_request)
+        except PriceError as err:
+            diagnostics = err.diagnostics
+            if (store not in ("carrefour", "alcampo")
+                    or diagnostics.get("retry_after_present")
+                    or not (diagnostics.get("http_status") == 403
+                            or diagnostics.get("response_class") == "structured_product_missing")):
+                raise
+            from .public_http import fetch, PublicHTTPError
+            current = link["url"]
+            for _ in range(3):
+                try:
+                    response = await fetch(self.hass, store, current,
+                        before_request or self._before_request, headers={"Accept":"text/html"})
+                except PublicHTTPError as native_error:
+                    err.diagnostics.update(fallback_transport="curl_cffi", fallback_error=str(native_error))
+                    raise err from native_error
+                if response.status in (301,302,303,307,308):
+                    destination = normalize_link(store, urljoin(current, response.headers.get("location", "")))
+                    if destination["id"] != link["id"]:
+                        raise PriceError("La web redirige a otro producto.", response_class="invalid_product")
+                    current = destination["url"]
+                    continue
+                if response.status != 200:
+                    if response.status in (403,429,503):
+                        retry=response.headers.get("retry-after", "")
+                        self._blocked_until[store]=time.monotonic()+min(86400,max(900,int(retry) if retry.isdigit() else 900))
+                    raise PriceError(f"La web ha rechazado la consulta (HTTP {response.status}).",
+                        http_status=response.status, transport="curl_cffi", response_class="access_denied" if response.status==403 else "http_error")
+                result = page_product(response.body.decode("utf-8",errors="replace"), store, link)
+                if result is None:
+                    raise PriceError("La página no contiene un único producto estructurado coincidente.",
+                        transport="curl_cffi", response_class="structured_product_missing")
+                return result
+            raise PriceError("La ficha redirige demasiadas veces.")
+
+    async def _page_standard(self, store, link, before_request=None):
         if store == "eroski":
             return await self.eroski_catalog.retrieve(link["url"], before_request or self._before_request)
         if store == "lasirena":
@@ -224,11 +262,12 @@ class OptionLookup:
                         current = destination["url"]
                         continue
                     if response.status != 200:
-                        if response.status in (429,503):
+                        if response.status in (429,503) or response.headers.get("Retry-After"):
                             retry=response.headers.get("Retry-After", "")
                             self._blocked_until[store]=time.monotonic()+min(86400,max(900,int(retry) if retry.isdigit() else 900))
                         raise PriceError(f"La web ha rechazado la consulta (HTTP {response.status}).", http_status=response.status,
                             response_class="access_denied" if response.status == 403 else "rate_limited" if response.status in (429,503) else "http_error",
+                            retry_after_present=bool(response.headers.get("Retry-After")),
                             endpoint=urlsplit(current).path, content_type=response.headers.get("Content-Type", "")[:120],
                             server=response.headers.get("Server", "")[:80])
                     body = bytearray()
@@ -254,8 +293,6 @@ class OptionLookup:
             host = urlsplit(value).hostname
             store = next((key for key, hosts in HOSTS.items() if host in hosts), "")
         link = normalize_link(store, value)
-        if store == "elcorteingles":
-            raise PriceError("La consulta de El Corte Inglés está retirada temporalmente. Puedes editar los datos manualmente.",response_class="source_unavailable")
         if not link["url"]:
             raise PriceError("Indica el enlace completo de la ficha del producto.")
         async with self._lock:

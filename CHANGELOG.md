@@ -1,5 +1,12 @@
 # Historial de cambios
 
+## 0.87.0 — 2026-11-04
+
+- Añade un transporte HTTP alternativo, compatible con Home Assistant Core, para recuperar fichas públicas de Carrefour y Alcampo cuando la consulta habitual es rechazada o no contiene datos estructurados reconocibles.
+- Recupera la consulta por URL de fichas de El Corte Inglés, con alternativa HTTP para respuestas bloqueadas o no reconocidas.
+- Conserva la caché, la verificación del EAN y la referencia del producto, el límite de descarga y las pausas entre consultas. Respeta Retry-After tanto en segundos como en formato de fecha.
+- Documenta la dependencia curl_cffi 0.16.1, instalada automáticamente sin navegadores ni complementos adicionales. Las conexiones de cuentas y los tickets conservan sus conectores existentes.
+
 ## 0.86.0 — 2026-11-03
 
 - Al confirmar un ticket, el refresco de Stock y precios se solicita inmediatamente después de guardar, sin esperar a la recarga del historial de compras.

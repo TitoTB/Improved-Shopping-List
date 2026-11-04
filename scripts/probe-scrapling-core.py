@@ -48,9 +48,9 @@ common=['--system','--index-strategy','unsafe-first-match'] if uv else ['--break
 constraint_args=['--constraint',str(constraints)] if constraints and Path(constraints).is_file() else []
 command('baseline_dependencies',pip+['check'])
 command('standard_scrapling_plan',pip+['install']+common+['--dry-run']+constraint_args+['scrapling[fetchers]==0.5'])
-minimal=['scrapling==0.5','curl_cffi==0.17.0','browserforge==1.2.4','msgspec>=0.21.1','protego>=0.6.2']
+minimal=['scrapling==0.5','curl_cffi==0.16.1','browserforge==1.2.4','msgspec>=0.21.1','protego>=0.6.2']
 minimal_ok=command('minimal_scrapling_plan',pip+['install']+common+['--dry-run']+constraint_args+minimal)
-curl_ok=command('curl_install',pip+['install']+common+constraint_args+['curl_cffi==0.17.0'])
+curl_ok=command('curl_install',pip+['install']+common+constraint_args+['curl_cffi==0.16.1'])
 
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
@@ -84,12 +84,19 @@ async def runtime_check():
                 return session.get(url,timeout=10).json()
         executor=await hass.async_add_executor_job(sync_query)
         assert executor==value
+        tls={}
+        try:
+            async with AsyncSession(impersonate='chrome') as session:
+                response=await session.get('https://example.com',timeout=20)
+                tls={'status':response.status_code,'verified_https':True}
+        except Exception as err:
+            tls={'error':repr(err)}
         await hass.async_block_till_done()
-        return {'async_request':value,'executor_request':executor,'event_loop_ticks':ticks,'imported_browser_packages':[m for m in ('playwright','patchright') if m in sys.modules]}
+        return {'async_request':value,'executor_request':executor,'event_loop_ticks':ticks,'https':tls,'imported_browser_packages':[m for m in ('playwright','patchright') if m in sys.modules]}
 
 if curl_ok:
     try:
-        result['core_package_helper']=package.install_package('curl_cffi==0.17.0',constraints=str(constraints) if constraints else None)
+        result['core_package_helper']=package.install_package('curl_cffi==0.16.1',constraints=str(constraints) if constraints else None)
         result['curl_runtime']=asyncio.run(runtime_check())
         result['curl_version']=meta.version('curl_cffi')
     except Exception as err:

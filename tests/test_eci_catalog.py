@@ -46,7 +46,7 @@ async def eci_http(monkeypatch):
     from custom_components.improved_shopping_list import public_http
     async def rejected_native(hass,store,url,before_request,**kwargs):
         await before_request()
-        return public_http.Response(403,{},b'Access Denied')
+        return public_http.Response(403,{'server':'AkamaiGHost'},b'Access Denied Reference #18.abc.123')
     monkeypatch.setattr(public_http,'fetch',rejected_native)
     class HTTP:
         def __init__(self):self.responses={};self.requests=[];self.clients=[];self.homepage_statuses=[200];self.retry_after=""
@@ -106,8 +106,7 @@ async def test_blocked_search_requests_a_pause_and_does_not_follow_other_endpoin
     eci_http.get(search,status=403)
     with pytest.raises(PriceError) as err:await ECIClient(hass).search(EAN,AsyncMock())
     assert err.value.diagnostics['http_status']==403 and err.value.diagnostics['retry_seconds']>=900
-    assert err.value.diagnostics['transport']=='httpx' and err.value.diagnostics['stage']=='search'
-    assert err.value.diagnostics['http_version']=='HTTP/2'
+    assert err.value.diagnostics['transport']=='curl_cffi' and err.value.diagnostics['stage']=='search'
     assert err.value.diagnostics['server']=='AkamaiGHost' and err.value.diagnostics['block_reference']=='18.abc.123'
     assert eci_http.call_count==2
 

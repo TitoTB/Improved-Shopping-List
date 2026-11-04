@@ -94,6 +94,7 @@ class ECIClient:
         self._lock = asyncio.Lock()
 
     async def async_close(self):
+        self._native = False
         if self._http:
             await httpx.AsyncClient.aclose(self._http)
             self._http = None
@@ -163,7 +164,11 @@ class ECIClient:
             except PublicHTTPError as err:
                 raise PriceError(str(err),transport="curl_cffi",response_class="connection_error") from err
             diagnostics={"transport":"curl_cffi", "http_status":response.status,
-                "stage":"search" if "/buscar/" in url else "product", "endpoint":url.split("?",1)[0]}
+                "stage":"search" if "/buscar/" in url else "product", "endpoint":url.split("?",1)[0],
+                "server":response.headers.get("server", "")[:100],
+                "content_type":response.headers.get("content-type", "")[:100]}
+            reference=re.search(r"Reference\s*#?([a-zA-Z0-9.\-]+)",unescape(response.body[:4096].decode("utf-8","replace")))
+            if reference:diagnostics["block_reference"]=reference[1][:150]
             if response.status!=200:
                 retry=response.headers.get("retry-after", "")
                 raise PriceError(f"El Corte Inglés ha rechazado la consulta (HTTP {response.status}).",

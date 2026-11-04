@@ -44,7 +44,7 @@ result['installed_before']={k:meta.version(k) for k in ('homeassistant','aiohttp
 save()
 uv=shutil.which('uv')
 pip=[uv,'pip'] if uv else [sys.executable,'-m','pip']
-common=['--system'] if uv else ['--break-system-packages']
+common=['--system','--index-strategy','unsafe-first-match'] if uv else ['--break-system-packages']
 constraint_args=['--constraint',str(constraints)] if constraints and Path(constraints).is_file() else []
 command('baseline_dependencies',pip+['check'])
 command('standard_scrapling_plan',pip+['install']+common+['--dry-run']+constraint_args+['scrapling[fetchers]==0.5'])
@@ -89,6 +89,7 @@ async def runtime_check():
 
 if curl_ok:
     try:
+        result['core_package_helper']=package.install_package('curl_cffi==0.17.0',constraints=str(constraints) if constraints else None)
         result['curl_runtime']=asyncio.run(runtime_check())
         result['curl_version']=meta.version('curl_cffi')
     except Exception as err:

@@ -1,0 +1,34 @@
+name: Scrapling HTTP Core compatibility diagnostic
+on:
+  push:
+    branches: [codex/scrapling-core-probe]
+permissions:
+  contents: read
+jobs:
+  core:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [amd64, arm64]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: docker/setup-qemu-action@v3
+        if: matrix.arch == 'arm64'
+        with:
+          platforms: arm64
+      - name: Test official Core without changing integration
+        run: |
+          mkdir -p probe-results
+          docker run --rm --platform linux/${{ matrix.arch }} --entrypoint python \
+            -v "$PWD/scripts/probe-scrapling-core.py:/probe.py:ro" \
+            -v "$PWD/probe-results:/results" \
+            ghcr.io/home-assistant/home-assistant:2026.10.2 /probe.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: scrapling-core-${{ matrix.arch }}
+          path: probe-results/

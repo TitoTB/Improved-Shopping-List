@@ -1,13 +1,27 @@
 """Bounded anonymous HTTP alternative for explicitly supported public stores."""
 from asyncio import sleep
 from dataclasses import dataclass
+from email.utils import parsedate_to_datetime
 from importlib import import_module
+import time
 from urllib.parse import urlsplit
 
 from .store_links import HOSTS
 
 MAX_BYTES = 2 * 1024 * 1024
 SUPPORTED = frozenset({'carrefour', 'alcampo', 'elcorteingles'})
+
+
+def retry_seconds(value):
+    """Respect both Retry-After formats, within the existing daily bound."""
+    try:
+        delay = int(value)
+    except (TypeError, ValueError):
+        try:
+            delay = int(parsedate_to_datetime(value).timestamp() - time.time())
+        except (TypeError, ValueError, OverflowError):
+            delay = 900
+    return min(86400, max(900, delay))
 
 
 class PublicHTTPError(ValueError):

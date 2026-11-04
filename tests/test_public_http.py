@@ -50,3 +50,11 @@ async def test_oversized_response_is_closed(native,monkeypatch):
     with pytest.raises(module.PublicHTTPError,match='tamaño'):
         await module.fetch(hass,'carrefour',URL,AsyncMock())
     response.aclose.assert_awaited_once()
+
+
+def test_retry_after_http_date_is_respected(monkeypatch):
+    monkeypatch.setattr(module.time,'time',lambda:0)
+    assert module.retry_seconds('Thu, 01 Jan 1970 02:00:00 GMT')==7200
+    assert module.retry_seconds('1800')==1800
+    assert module.retry_seconds('invalid')==900
+    assert module.retry_seconds('999999')==86400

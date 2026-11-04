@@ -23,6 +23,7 @@ from .ean_links import product_eans, DAY
 from .price_sources import PriceError
 from .product_references import gtin, brand_name, content
 from .receipt_quantities import measure_price
+from .public_http import retry_seconds as public_retry_seconds
 from .store_links import normalize_link
 
 STORE = "elcorteingles"
@@ -129,7 +130,7 @@ class ECIClient:
                     self._ready=False
                     raise PriceError(f"El Corte Inglés ha rechazado la consulta (HTTP {response.status_code}).",
                         **diagnostics,response_class="access_denied" if response.status_code==403 else "http_error",
-                        retry_seconds=min(DAY,max(900,int(retry) if retry.isdigit() else 900)) if response.status_code in (403,429,503) else 0)
+                        retry_seconds=public_retry_seconds(retry) if response.status_code in (403,429,503) else 0)
                 if bootstrap:return None
                 if len(body)>limit:
                     raise PriceError("La respuesta de El Corte Inglés supera el tamaño permitido.",**diagnostics,response_class="response_too_large")
@@ -173,7 +174,7 @@ class ECIClient:
                 retry=response.headers.get("retry-after", "")
                 raise PriceError(f"El Corte Inglés ha rechazado la consulta (HTTP {response.status}).",
                     **diagnostics, response_class="access_denied" if response.status==403 else "http_error",
-                    retry_seconds=min(DAY,max(900,int(retry) if retry.isdigit() else 900)) if response.status in (403,429,503) else 0)
+                    retry_seconds=public_retry_seconds(retry) if response.status in (403,429,503) else 0)
             try:
                 result=json.loads(response.body)
             except (ValueError,UnicodeError) as err:

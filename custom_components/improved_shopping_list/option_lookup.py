@@ -12,6 +12,7 @@ from homeassistant.helpers.aiohttp_client import async_create_clientsession
 
 from .price_sources import PriceError, PriceSources, amount
 from .product_references import brand_name, content, gtin, inferred_content
+from .public_http import retry_seconds as public_retry_seconds
 from .store_links import HOSTS, normalize_link
 from .store_location import reference_location
 from .receipt_quantities import measure_price
@@ -219,7 +220,7 @@ class OptionLookup:
                 if response.status != 200:
                     if response.status in (403,429,503):
                         retry=response.headers.get("retry-after", "")
-                        self._blocked_until[store]=time.monotonic()+min(86400,max(900,int(retry) if retry.isdigit() else 900))
+                        self._blocked_until[store]=time.monotonic()+public_retry_seconds(retry)
                     raise PriceError(f"La web ha rechazado la consulta (HTTP {response.status}).",
                         http_status=response.status, transport="curl_cffi", response_class="access_denied" if response.status==403 else "http_error")
                 result = page_product(response.body.decode("utf-8",errors="replace"), store, link)
@@ -264,7 +265,7 @@ class OptionLookup:
                     if response.status != 200:
                         if response.status in (429,503) or response.headers.get("Retry-After"):
                             retry=response.headers.get("Retry-After", "")
-                            self._blocked_until[store]=time.monotonic()+min(86400,max(900,int(retry) if retry.isdigit() else 900))
+                            self._blocked_until[store]=time.monotonic()+public_retry_seconds(retry)
                         raise PriceError(f"La web ha rechazado la consulta (HTTP {response.status}).", http_status=response.status,
                             response_class="access_denied" if response.status == 403 else "rate_limited" if response.status in (429,503) else "http_error",
                             retry_after_present=bool(response.headers.get("Retry-After")),

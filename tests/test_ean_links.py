@@ -200,7 +200,14 @@ def test_v5_adds_public_shop_columns_and_verified_exact_match():
     old=parse_dictionary((root/'data/ean-links-v4.csv').read_bytes())
     raw=(root/'data/ean-links-v5.csv').read_bytes();current=parse_dictionary(raw)
     assert raw.splitlines()[0]==b'EAN,Carrefour,Alcampo,Lidl,Mercadona,Masymas,BM,Consum'
-    assert all(current.get(key)==value for key,value in old.items())
+    report=json.loads((root/'data/catalog-update-2026-11-04.json').read_text(encoding='utf-8'))
+    direct={row['ean']:normalize_link('carrefour',row['url'])['url']
+            for row in report['link_updates']['5']['changes']
+            if row['store']=='carrefour' and row['change']=='direct_url'}
+    # Verified direct pages may replace tracking URLs; other historical links stay.
+    assert all(current.get(key)==value or
+               value.startswith('https://www.awin1.com/pclick.php?') and key in direct and current.get(key)==direct[key]
+               for key,value in old.items())
     assert all(store+':'+gtin('8410199023094') in current for store in ('masymas','bm','consum'))
 
 

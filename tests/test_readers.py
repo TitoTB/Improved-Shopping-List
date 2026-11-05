@@ -328,7 +328,8 @@ async def test_identical_report_decrements_stock_once_per_scan_and_stops_when_di
     env = reader_env
     reader = await add_reader(env, default_action="stock_remove")
     product = await add_product(env, reader, reader_actions={})
-    await env.stock.async_change_product(product, 5)
+    for _ in range(5):
+        await env.stock.async_change_product(product, 1)
     hass.states.async_set("sensor.scanner", "0012345")
     await hass.async_block_till_done()
     assert env.stock.snapshot["items"][0]["quantity"] == 4

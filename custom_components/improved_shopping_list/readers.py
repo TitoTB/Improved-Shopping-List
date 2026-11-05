@@ -8,7 +8,7 @@ import time
 from uuid import uuid4
 
 from homeassistant.core import HomeAssistant, callback
-from homeassistant.helpers.event import async_track_state_change_event
+from homeassistant.helpers.event import async_track_state_change_event, async_track_state_report_event
 from homeassistant.helpers.storage import Store
 
 from .catalog import READER_ACTIONS, CatalogError, code_key, normalized_name
@@ -282,15 +282,31 @@ class ReaderManager:
         self._unsubscribers = []
         if not self._active:
             return
-        entities = [reader["entity_id"] for reader in self._data["readers"].values() if reader["enabled"] and reader["source"] == "entity"]
+        entities = sorted({reader["entity_id"] for reader in self._data["readers"].values() if reader["enabled"] and reader["source"] == "entity"})
         if entities:
             self._unsubscribers.append(async_track_state_change_event(self.hass, entities, self._entity_event))
+            self._unsubscribers.append(async_track_state_report_event(self.hass, entities, self._entity_report_event))
         if any(reader["enabled"] and reader["source"] == "tag" for reader in self._data["readers"].values()):
             self._unsubscribers.append(self.hass.bus.async_listen("tag_scanned", self._tag_event))
 
     @callback
     def _entity_event(self, event):
         old, state = event.data.get("old_state"), event.data.get("new_state")
+        self._entity_reading(old, state)
+
+    @callback
+    def _entity_report_event(self, event):
+        # HA reports identical values separately from state changes. Only a new
+        # report timestamp represents a new scan; never replay a cached state.
+        reported = event.data.get("last_reported")
+        previous = event.data.get("old_last_reported")
+        if reported is None or previous is None or reported <= previous:
+            return
+        state = event.data.get("new_state")
+        self._entity_reading(state, state)
+
+    @callback
+    def _entity_reading(self, old, state):
         # Never execute a stale value restored when an entity first appears.
         if old is None or state is None or state.state in ("unknown", "unavailable") or state.attributes.get("restored"):
             return

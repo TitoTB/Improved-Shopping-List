@@ -298,6 +298,76 @@ async def test_pending_lookup_does_not_block_known_scans_or_restore_dismissed_it
     assert env.manager.snapshot["pending"] == []
 
 
+async def test_identical_reports_restore_completed_item_and_respect_cooldown(hass, reader_env, freezer):
+    env = reader_env
+    reader = await add_reader(env, default_action="add_list")
+    await add_product(env, reader, reader_actions={})
+    hass.states.async_set("sensor.scanner", "0012345")
+    await hass.async_block_till_done()
+    assert len(env.calls) == 1
+    env.items["todo.bring"][0]["status"] = "completed"
+
+    # Identical value and attributes: native state_reported, not state_changed.
+    freezer.tick(1)
+    env.clock[0] += 1
+    hass.states.async_set("sensor.scanner", "0012345")
+    await hass.async_block_till_done()
+    assert len(env.calls) == 1
+    assert "repetida" in env.manager.snapshot["readers"][0]["last"]["message"]
+
+    freezer.tick(61)
+    env.clock[0] += 61
+    hass.states.async_set("sensor.scanner", "0012345")
+    await hass.async_block_till_done()
+    assert len(env.calls) == 2 and env.calls[-1][0] == "update"
+    assert env.items["todo.bring"][0]["status"] == "needs_action"
+    assert len(env.items["todo.bring"]) == 1
+
+
+async def test_identical_report_decrements_stock_once_per_scan_and_stops_when_disabled(hass, reader_env, freezer):
+    env = reader_env
+    reader = await add_reader(env, default_action="stock_remove")
+    product = await add_product(env, reader, reader_actions={})
+    await env.stock.async_change_product(product, 5)
+    hass.states.async_set("sensor.scanner", "0012345")
+    await hass.async_block_till_done()
+    assert env.stock.snapshot["items"][0]["quantity"] == 4
+    freezer.tick(61)
+    env.clock[0] += 61
+    hass.states.async_set("sensor.scanner", "0012345")
+    await hass.async_block_till_done()
+    assert env.stock.snapshot["items"][0]["quantity"] == 3
+    assert env.calls == []
+
+    await env.manager.async_save_reader({**reader, "enabled": False})
+    freezer.tick(61)
+    env.clock[0] += 61
+    hass.states.async_set("sensor.scanner", "0012345")
+    await hass.async_block_till_done()
+    assert env.stock.snapshot["items"][0]["quantity"] == 3
+
+
+async def test_report_listener_ignores_other_entities_invalid_values_and_metadata_changes(hass, reader_env, freezer):
+    env = reader_env
+    reader = await add_reader(env)
+    await add_product(env, reader)
+    hass.states.async_set("sensor.scanner", "0012345")
+    await hass.async_block_till_done()
+    env.items["todo.bring"][0]["status"] = "completed"
+    freezer.tick(61)
+    env.clock[0] += 61
+    hass.states.async_set("sensor.other_scanner", "0012345")
+    hass.states.async_set("sensor.other_scanner", "0012345")
+    hass.states.async_set("sensor.scanner", "0012345", {"icon": "mdi:barcode-scan"})
+    await hass.async_block_till_done()
+    assert len(env.calls) == 1
+    hass.states.async_set("sensor.scanner", "unknown")
+    freezer.tick(1)
+    hass.states.async_set("sensor.scanner", "unknown")
+    await hass.async_block_till_done()
+    assert len(env.calls) == 1
+
+
 async def test_reader_entity_events_add_once_and_restore_completed(hass, reader_env):
     env=reader_env
     reader=await add_reader(env)

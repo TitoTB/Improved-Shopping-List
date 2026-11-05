@@ -215,6 +215,8 @@ Los lectores conectan las lecturas de **códigos de barras/QR** o **etiquetas NF
 
 Configura la **acción por defecto**, la lista de destino y el intervalo de **antirrepetición**, que inicialmente es de 60 segundos. Este intervalo evita procesar repetidamente una misma lectura por error.
 
+Las entidades de lectores se escuchan también cuando comunican de nuevo el mismo código: se utiliza la fecha y hora del nuevo informe (`last_reported`), manteniendo la protección antirrepetición. La entidad debe comunicar cada escaneo, no actualizarse periódicamente con un código antiguo. Si el dispositivo descarta una lectura antes de enviarla a Home Assistant, será necesario ajustar su configuración.
+
 Desde **Reposición** en la ficha de cada producto puedes escanear y asociar uno o varios códigos o etiquetas. Para cada lector se utiliza su acción predeterminada, salvo que elijas una acción específica para ese producto: añadirlo a la lista, aumentar Stock, reducir Stock o no realizar ninguna acción. Para modificar Stock, el producto debe estar incluido previamente en él.
 
 Cada tarjeta permite activar o desactivar el lector, consultar las lecturas en directo, editarlo o quitarlo. También muestra la fecha y hora de su último uso. Los códigos desconocidos aparecen en **Catálogo → Pendiente** para vincularlos a un producto existente o crear uno nuevo. Los lectores siguen funcionando aunque cierres la interfaz.

@@ -1,5 +1,5 @@
 /** Notification rule settings; delivery runs in Home Assistant, not in the panel. */
-import { installToggleStyles } from './toggle-styles.js?v=0.87.0';
+import { installToggleStyles } from './toggle-styles.js?v=0.88.0';
 const DEFAULTS={shopping_list:{enabled:false,threshold:10,targets:[],title:'Lista de la compra',message:'{lista} tiene {cantidad} productos pendientes.'},low_stock:{enabled:false,threshold:3,targets:[],title:'Stock bajo',message:'Hay {cantidad} productos con stock bajo: {productos}.'}};
 const RESERVED=new Set(['notify','send_message','persistent_notification','reload']);
 function node(tag,text,className){const el=document.createElement(tag);if(text!==undefined)el.textContent=text;if(className)el.className=className;return el;}

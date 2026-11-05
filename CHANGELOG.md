@@ -1,5 +1,12 @@
 # Historial de cambios
 
+## 0.88.0 — 2026-11-05
+
+- Los lectores procesan nuevos informes del mismo código mediante su fecha y hora (`last_reported`), sin exigir escanear antes otro producto. Se mantiene la protección antirrepetición y la comprobación de productos ya pendientes.
+- Migra una sola vez las antiguas acciones de producto «Sin acción» para que hereden la acción predeterminada del lector. Conserva las acciones específicas de lista o Stock y respeta las excepciones que se configuren después de la migración.
+- Equilibra el espacio superior e inferior del nombre de las alternativas comprimidas en la ficha del producto.
+- Actualiza los datos comunes por EAN y los enlaces verificados de Carrefour del diccionario comunitario.
+
 ## 0.87.0 — 2026-11-04
 
 - Añade un transporte HTTP alternativo, compatible con Home Assistant Core, para recuperar fichas públicas de Carrefour y Alcampo cuando la consulta habitual es rechazada o no contiene datos estructurados reconocibles.

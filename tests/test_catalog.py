@@ -214,6 +214,31 @@ async def test_removed_brand_and_format_migrate_without_losing_products(hass):
     assert updated["barcode"] == "0012345" and updated["tags"] == ["Desayuno"]
 
 
+async def test_legacy_no_action_inherits_reader_default_once_and_preserves_later_exceptions(hass):
+    catalog = Catalog(hass)
+    await catalog.async_load()
+    product = await catalog.async_save_product({"name": "Cacao", "barcode": "0012345", "reader_actions": {
+        "barcode-reader": "none", "nfc-reader": "stock_remove", "other-reader": "add_list"}})
+    stored = await catalog._store.async_load()
+    stored.pop("reader_action_defaults_version")  # An installation predating this migration.
+    await catalog._store.async_save(stored)
+
+    restored = Catalog(hass)
+    await restored.async_load()
+    migrated = restored.products[0]
+    assert migrated["reader_actions"] == {"nfc-reader": "stock_remove", "other-reader": "add_list"}
+    assert migrated["revision"] == product["revision"] + 1
+    assert migrated["barcode"] == product["barcode"]
+    assert (await restored._store.async_load())["reader_action_defaults_version"] == 1
+
+    # An explicitly disabled action selected after migration survives saves/restarts.
+    updated = await restored.async_save_product(editable(migrated, reader_actions={"barcode-reader": "none"}))
+    again = Catalog(hass)
+    await again.async_load()
+    assert again.products == [updated]
+    assert again.products[0]["reader_actions"] == {"barcode-reader": "none"}
+
+
 async def test_catalog_edit_keeps_id_and_price_date_when_price_unchanged(hass):
     catalog = Catalog(hass)
     await catalog.async_load()

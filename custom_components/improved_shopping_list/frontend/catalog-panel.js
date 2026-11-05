@@ -511,7 +511,8 @@ class ImprovedShoppingCatalog extends HTMLElement {
         #product-form .helper:empty { display:none; }
         #product-form .product-store-association,#product-form .product-alternative { padding:0;border:1px solid var(--product-border);border-radius:12px;background:transparent;margin:0; }
         #product-form #product-store-links { gap:10px;margin-top:16px; }
-        #product-form .product-option>summary,#product-form .product-alternative>summary { padding:14px;min-height:58px; }
+        #product-form .product-option>summary { padding:14px;min-height:58px; }
+        #product-form .product-alternative>summary { padding:14px;min-height:44px; }
         #product-form .option-name { font-size:13px; }
         #product-form .option-summary-price { flex:none;font-size:13px;font-weight:650;white-space:nowrap;font-variant-numeric:tabular-nums; }
         #product-form .product-option .product-store-header { padding:0 14px; }

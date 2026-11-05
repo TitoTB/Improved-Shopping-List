@@ -171,6 +171,20 @@ async def test_default_action_adds_known_product_and_keeps_existing_guards(hass,
     assert len(env.calls) == 1
 
 
+async def test_legacy_no_action_scan_uses_reader_default_after_catalog_migration(hass, reader_env):
+    env = reader_env
+    reader = await add_reader(env, default_action="add_list")
+    await add_product(env, reader, reader_actions={reader["id"]: "none"})
+    stored = await env.catalog._store.async_load()
+    stored.pop("reader_action_defaults_version")
+    await env.catalog._store.async_save(stored)
+    await env.catalog.async_load()
+    await env.manager.async_process(reader["id"], "0012345")
+    assert len(env.calls) == 1
+    assert env.calls[0][0] == "add"
+    assert env.catalog.products[0]["reader_actions"] == {}
+
+
 @pytest.mark.parametrize("override", ["none", "stock_remove", "stock_add"])
 async def test_explicit_product_action_overrides_reader_default(reader_env, override):
     env = reader_env

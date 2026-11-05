@@ -237,10 +237,19 @@ class Catalog:
                 raise CatalogError("No se han podido leer las categorías guardadas.", "storage_error")
             categories = deepcopy(categories)
             known = {category["name"].casefold() for category in categories.values()}
-            migrated = "categories" not in data
+            inherit_reader_defaults = data.get("reader_action_defaults_version", 0) < 1
+            migrated = "categories" not in data or inherit_reader_defaults
             # Earlier installations stored category names directly on products.
             # Promote those names without dropping products or their metadata.
             for product in self._products.values():
+                # Before reader defaults existed, forms saved "none" implicitly.
+                # Remove those legacy overrides once, not on every restart: a
+                # deliberate "none" selected after migration must still work.
+                actions = product.get("reader_actions", {})
+                if inherit_reader_defaults and "none" in actions.values():
+                    product["reader_actions"] = {key: value for key, value in actions.items() if value != "none"}
+                    product["revision"] += 1
+                    product["updated_at"] = datetime.now(UTC).isoformat()
                 for key, default in DEFAULT_PURCHASE.items():
                     if key not in product:
                         product[key] = default
@@ -264,7 +273,8 @@ class Catalog:
             if migrated:
                 await self._store.async_save({"products": self._products, "categories": categories,
                                               "dismissed_suggestions": sorted(self._dismissed_suggestions),
-                                              "recommendation_categories": self._recommendation_categories, "recipes": self._recipes, "source_options":self._source_options})
+                                              "recommendation_categories": self._recommendation_categories, "recipes": self._recipes, "source_options":self._source_options,
+                                              "reader_action_defaults_version": 1})
             self._categories = categories
 
     @property
@@ -318,7 +328,8 @@ class Catalog:
                 group.update(product_ids=members, recipe_ids=recipe_members, revision=group["revision"] + 1,
                              updated_at=datetime.now(UTC).isoformat())
         await self._store.async_save({"products": products, "categories": categories,
-                                      "dismissed_suggestions": sorted(dismissed), "recommendation_categories": groups, "recipes": recipes, "source_options":source_options})
+                                      "dismissed_suggestions": sorted(dismissed), "recommendation_categories": groups, "recipes": recipes, "source_options":source_options,
+                                      "reader_action_defaults_version": 1})
         self._source_options = source_options
         self._recipes = recipes
         self._recommendation_categories = groups

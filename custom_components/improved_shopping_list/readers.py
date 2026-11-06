@@ -7,7 +7,7 @@ import logging
 import time
 from uuid import uuid4
 
-from homeassistant.core import HomeAssistant, callback
+from homeassistant.core import CoreState, HomeAssistant, callback
 from homeassistant.helpers.event import async_track_state_change_event, async_track_state_report_event
 from homeassistant.helpers.storage import Store
 
@@ -18,6 +18,7 @@ from .product_lookup import ProductLookup, is_product_barcode
 
 _LOGGER = logging.getLogger(__name__)
 INVALID_STATES = {"", "unknown", "unavailable", "none"}
+UNREADY_STATES = {"unknown", "unavailable"}
 
 
 def normalize_reader(data: dict, hass: HomeAssistant, settings) -> dict:
@@ -68,6 +69,7 @@ class ReaderManager:
         self._captures = {}
         self._tasks = set()
         self._unsubscribers = []
+        self._startup_entities = set()
         self._active = False
         self.lookup = ProductLookup(hass)
         self._lookup_pending = set()
@@ -227,6 +229,11 @@ class ReaderManager:
     @callback
     def start(self):
         self._active = True
+        self._startup_entities = {
+            reader["entity_id"]
+            for reader in self._data["readers"].values()
+            if reader["enabled"] and reader["source"] == "entity"
+        } if self.hass.state is not CoreState.running else set()
         self._catalog_unsubscribe = self.catalog.subscribe(self._catalog_changed)
         self._listen_sources()
         for item in self._data["pending"].values():
@@ -307,8 +314,12 @@ class ReaderManager:
 
     @callback
     def _entity_reading(self, old, state):
-        # Never execute a stale value restored when an entity first appears.
-        if old is None or state is None or state.state in ("unknown", "unavailable") or state.attributes.get("restored"):
+        if self.hass.state is not CoreState.running or state is None or state.state in UNREADY_STATES or state.attributes.get("restored"):
+            return
+        # A reader may publish its retained code after HA has finished starting.
+        # The first available value after discovery or reconnect is a baseline.
+        if old is None or old.state in UNREADY_STATES or old.attributes.get("restored"):
+            self._startup_entities.discard(state.entity_id)
             return
         for reader in self._data["readers"].values():
             if reader["source"] != "entity" or not reader["enabled"] or reader["entity_id"] != state.entity_id:
@@ -319,6 +330,10 @@ class ReaderManager:
             # Attribute-only updates are not new scans; event entities change their timestamp.
             if code == previous and state.state == old.state and state.attributes != old.attributes:
                 continue
+            if state.entity_id in self._startup_entities:
+                self._startup_entities.discard(state.entity_id)
+                if code == previous and state.state == old.state:
+                    continue
             self._spawn(self.async_process(reader["id"], code))
 
     @callback

@@ -6,7 +6,7 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
-from homeassistant.core import SupportsResponse
+from homeassistant.core import CoreState, SupportsResponse
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.improved_shopping_list.catalog import Catalog, CatalogError, normalize_product
@@ -365,6 +365,53 @@ async def test_report_listener_ignores_other_entities_invalid_values_and_metadat
     hass.states.async_set("sensor.scanner", "unknown")
     freezer.tick(1)
     hass.states.async_set("sensor.scanner", "unknown")
+    await hass.async_block_till_done()
+    assert len(env.calls) == 1
+
+
+@pytest.mark.parametrize(("initial", "attributes"), [
+    ("unknown", {}), ("unavailable", {}), ("0012345", {"restored": True}),
+])
+async def test_recovered_scanner_state_is_not_a_scan(hass, reader_env, freezer, initial, attributes):
+    env = reader_env
+    reader = await add_reader(env, default_action="add_list")
+    await add_product(env, reader, reader_actions={})
+    hass.states.async_set("sensor.scanner", initial, attributes)
+    hass.states.async_set("sensor.scanner", "0012345")
+    await hass.async_block_till_done()
+    assert env.calls == []
+    assert env.manager.snapshot["readers"][0]["last"] is None
+
+    freezer.tick(1)
+    hass.states.async_set("sensor.scanner", "0012345")
+    await hass.async_block_till_done()
+    assert len(env.calls) == 1
+
+
+async def test_startup_and_first_retained_report_do_not_replay_scan(hass, reader_env, freezer):
+    env = reader_env
+    reader = await add_reader(env, default_action="add_list")
+    await add_product(env, reader, reader_actions={})
+    await env.manager.async_stop()
+    hass.set_state(CoreState.starting)
+    try:
+        env.manager.start()
+        hass.states.async_set("sensor.scanner", "0012345")
+        freezer.tick(1)
+        hass.states.async_set("sensor.scanner", "0012345")
+        await hass.async_block_till_done()
+        assert env.calls == []
+    finally:
+        hass.set_state(CoreState.running)
+
+    freezer.tick(1)
+    hass.states.async_set("sensor.scanner", "0012345")
+    await hass.async_block_till_done()
+    assert env.calls == []
+    assert env.manager.snapshot["readers"][0]["last"] is None
+
+    freezer.tick(1)
+    hass.states.async_set("sensor.scanner", "0012345")
     await hass.async_block_till_done()
     assert len(env.calls) == 1
 
